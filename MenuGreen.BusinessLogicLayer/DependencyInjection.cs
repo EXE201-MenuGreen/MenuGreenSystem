@@ -11,6 +11,7 @@ namespace MenuGreen.BusinessLogicLayer
             // Register Application Services
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IUserService, UserService>();
             
             // Register Email Service
             services.AddHttpClient<IEmailService, EmailService>();
