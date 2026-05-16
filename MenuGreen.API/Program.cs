@@ -14,13 +14,13 @@ builder.Services.AddBusinessLogicLayer();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 1. Cấu hình Swagger để hiện nút Authorize (Nhập Token)
+// 1. Configure Swagger to show Authorize button (Enter Token)
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "MenuGreen API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Chỉ cần dán Token (không cần chữ Bearer) vào ô bên dưới.",
+        Description = "Paste the Token here (without the 'Bearer ' prefix).",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -43,7 +43,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 2. Cấu hình JWT Authentication
+// 2. Configure JWT Authentication
 var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "super_secret_key_menu_green_1234567890_super_long";
 var key = Encoding.ASCII.GetBytes(secretKey);
 

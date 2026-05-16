@@ -10,7 +10,7 @@ namespace MenuGreen.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Bảo vệ: Phải có Token mới được gọi API ở Controller này
+    [Authorize] // Protected: Requires Token to call APIs in this controller
     public class ProfileController : ControllerBase
     {
         private readonly IProfileService _profileService;
@@ -23,7 +23,7 @@ namespace MenuGreen.API.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
         {
-            // Lấy ra UserId từ trong Token JWT
+            // Get UserId from JWT Token
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
             {

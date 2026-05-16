@@ -21,13 +21,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null) throw new Exception("Không tìm thấy tài khoản.");
+            if (user == null) throw new Exception("Account not found.");
 
             // Verify old password
             bool isOldPasswordValid = BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash);
             if (!isOldPasswordValid)
             {
-                throw new Exception("Mật khẩu hiện tại không chính xác.");
+                throw new Exception("Current password is incorrect.");
             }
 
             // Hash and save new password
@@ -67,7 +67,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserAdminResponse> GetUserByIdAsync(Guid userId)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null) throw new Exception("Không tìm thấy tài khoản.");
+            if (user == null) throw new Exception("Account not found.");
 
             var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
 
@@ -87,9 +87,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<bool> ToggleUserStatusAsync(Guid userId)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null) throw new Exception("Không tìm thấy tài khoản.");
+            if (user == null) throw new Exception("Account not found.");
 
-            user.IsActive = !user.IsActive; // Đảo ngược trạng thái
+            user.IsActive = !user.IsActive; // Toggle status
             user.UpdatedAt = DateTimeOffset.UtcNow;
 
             _unitOfWork.Users.Update(user);
@@ -101,7 +101,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<bool> AssignRoleAsync(Guid userId, string newRole)
         {
             var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
-            if (profile == null) throw new Exception("Không tìm thấy thông tin profile của người dùng.");
+            if (profile == null) throw new Exception("User profile not found.");
 
             profile.Role = newRole;
             profile.UpdatedAt = DateTimeOffset.UtcNow;

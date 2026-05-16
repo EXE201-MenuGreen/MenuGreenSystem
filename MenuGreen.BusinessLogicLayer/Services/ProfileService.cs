@@ -39,7 +39,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.Goal != null) profile.Goal = request.Goal;
             if (request.PreferredCuisine != null) profile.PreferredCuisine = request.PreferredCuisine;
 
-            // Tự động tính toán các chỉ số sức khỏe dựa trên các dữ liệu mới
+            // Automatically calculate health metrics based on new data
             CalculateNutritionTargets(profile);
 
             profile.UpdatedAt = DateTimeOffset.UtcNow;
@@ -51,43 +51,43 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private void CalculateNutritionTargets(DataAccessLayer.Entities.Profile p)
         {
-            // Chỉ tính nếu có cân nặng và chiều cao
+            // Only calculate if weight and height are provided
             if (!p.WeightKg.HasValue || !p.HeightCm.HasValue) return;
 
-            int age = 25; // Giả sử mặc định 25 tuổi nếu chưa nhập ngày sinh
+            int age = 25; // Assume 25 years old if date of birth is not provided
             if (p.DateOfBirth.HasValue)
             {
                 age = DateTime.Today.Year - p.DateOfBirth.Value.Year;
-                if (p.DateOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--; // Trừ 1 nếu chưa qua sinh nhật năm nay
+                if (p.DateOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--; // Subtract 1 if birthday hasn't occurred yet this year
             }
 
-            // Tính BMR bằng công thức Mifflin-St Jeor
+            // Calculate BMR using Mifflin-St Jeor equation
             double bmr = (10 * (double)p.WeightKg.Value) + (6.25 * (double)p.HeightCm.Value) - (5 * age);
             bmr += (p.Gender?.ToLower() == "male" || p.Gender?.ToLower() == "nam") ? 5 : -161;
             p.BmrKcal = (int)Math.Round(bmr);
 
-            // Tính TDEE (Tổng Năng Lượng Tiêu Hao Mỗi Ngày)
+            // Calculate TDEE (Total Daily Energy Expenditure)
             double multiplier = p.ActivityLevel?.ToLower() switch
             {
-                "light" => 1.375,       // Ít vận động
-                "moderate" => 1.55,     // Vận động vừa phải
-                "active" => 1.725,      // Hoạt động nhiều
-                "veryactive" => 1.9,    // Vận động viên
-                _ => 1.2                // "sedentary" - Không vận động
+                "light" => 1.375,       // Lightly active
+                "moderate" => 1.55,     // Moderately active
+                "active" => 1.725,      // Very active
+                "veryactive" => 1.9,    // Extra active
+                _ => 1.2                // Sedentary
             };
             p.TdeeKcal = (int)Math.Round(bmr * multiplier);
 
-            // Tính Lượng Calo Mục Tiêu dựa vào mục tiêu của bản thân
+            // Calculate Target Calories based on user's goal
             int targetKcal = p.TdeeKcal.Value;
             targetKcal += p.Goal?.ToLower() switch
             {
-                "loseweight" => -500,   // Giảm cân (Thâm hụt 500 calo)
-                "gainweight" => 500,    // Tăng cân (Thặng dư 500 calo)
-                _ => 0                  // "maintain" - Giữ dáng
+                "loseweight" => -500,   // Lose weight (500 kcal deficit)
+                "gainweight" => 500,    // Gain weight (500 kcal surplus)
+                _ => 0                  // Maintain weight
             };
             p.TargetCalories = targetKcal;
 
-            // Tính Lượng Macro (Tỉ lệ tham khảo: Protein 30%, Carbs 40%, Fat 30%)
+            // Calculate Macro Targets (Reference ratio: Protein 30%, Carbs 40%, Fat 30%)
             // 1g Protein = 4 kcal, 1g Carbs = 4 kcal, 1g Fat = 9 kcal
             p.TargetProteinG = (int)Math.Round((targetKcal * 0.30) / 4);
             p.TargetCarbsG = (int)Math.Round((targetKcal * 0.40) / 4);
