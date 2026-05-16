@@ -9,10 +9,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateOnly? DateOfBirth { get; set; }
         public string? Gender { get; set; }
         
-        [Range(50, 300, ErrorMessage = "Chiều cao phải từ 50cm đến 300cm.")]
+        [Range(50, 300, ErrorMessage = "Height must be between 50cm and 300cm.")]
         public decimal? HeightCm { get; set; }
         
-        [Range(20, 500, ErrorMessage = "Cân nặng phải từ 20kg đến 500kg.")]
+        [Range(20, 500, ErrorMessage = "Weight must be between 20kg and 500kg.")]
         public decimal? WeightKg { get; set; }
         
         [Range(0, 100)]

@@ -20,7 +20,7 @@ namespace MenuGreen.API.Controllers
         }
 
         // ==========================================
-        // Dành cho mọi User (Đã đăng nhập)
+        // For all authenticated users
         // ==========================================
         [HttpPut("change-password")]
         [Authorize]
@@ -37,7 +37,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _userService.ChangePasswordAsync(userId, request);
-                return Ok(new { Message = "Đổi mật khẩu thành công." });
+                return Ok(new { Message = "Password changed successfully." });
             }
             catch (Exception ex)
             {
@@ -46,7 +46,7 @@ namespace MenuGreen.API.Controllers
         }
 
         // ==========================================
-        // Dành riêng cho Admin
+        // For Admins only
         // ==========================================
         [HttpGet]
         [Authorize(Roles = "Admin")]
@@ -85,7 +85,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var newStatus = await _userService.ToggleUserStatusAsync(id);
-                return Ok(new { Message = $"Cập nhật trạng thái thành công. IsActive = {newStatus}" });
+                return Ok(new { Message = $"Status updated successfully. IsActive = {newStatus}" });
             }
             catch (Exception ex)
             {
@@ -102,7 +102,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _userService.AssignRoleAsync(id, request.Role);
-                return Ok(new { Message = $"Đã cấp quyền '{request.Role}' cho tài khoản." });
+                return Ok(new { Message = $"Role '{request.Role}' assigned successfully." });
             }
             catch (Exception ex)
             {

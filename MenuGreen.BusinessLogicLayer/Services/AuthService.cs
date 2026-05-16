@@ -103,8 +103,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var users = await _unitOfWork.Users.FindAsync(u => u.Email == request.Email);
             var user = users.FirstOrDefault();
 
-            if (user == null || !user.IsActive)
+            if (user == null)
                 throw new Exception("Invalid email or password.");
+
+            if (!user.IsActive)
+                throw new Exception("Your account has been locked. Please contact the administrator.");
 
             // Optional: Block login if email is not verified
             // if (!user.EmailConfirmed)
@@ -158,7 +161,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = await _unitOfWork.Users.GetByIdAsync(session.UserId);
             if (user == null || !user.IsActive)
             {
-                throw new Exception("User account is inactive or not found.");
+                throw new Exception("Your account has been locked or does not exist.");
             }
 
             var profiles = await _unitOfWork.Profiles.FindAsync(p => p.Id == user.Id);

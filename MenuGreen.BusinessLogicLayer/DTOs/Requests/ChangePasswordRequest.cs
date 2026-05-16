@@ -8,10 +8,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public string CurrentPassword { get; set; } = string.Empty;
 
         [Required]
-        [MinLength(6, ErrorMessage = "Mật khẩu mới phải có ít nhất 6 ký tự.")]
+        [MinLength(6, ErrorMessage = "New password must be at least 6 characters long.")]
         public string NewPassword { get; set; } = string.Empty;
 
-        [Compare("NewPassword", ErrorMessage = "Mật khẩu xác nhận không khớp.")]
+        [Compare("NewPassword", ErrorMessage = "Confirm password does not match.")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
 }
