@@ -6,6 +6,7 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../repositories/auth_repository.dart';
 import 'register_screen.dart';
 import '../../main/views/main_screen.dart';
+import 'verify_otp_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final result = await _authRepo.login(email, password);
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
@@ -47,6 +49,19 @@ class _LoginScreenState extends State<LoginScreen> {
         (route) => false,
       );
     } else {
+      final msg = (result['message'] ?? '').toString();
+      if (msg.toLowerCase().contains('verify your otp') ||
+          msg.toLowerCase().contains('verify otp') ||
+          msg.toLowerCase().contains('otp')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tài khoản chưa xác thực OTP. Vui lòng xác thực để tiếp tục.'), backgroundColor: Colors.orange),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VerifyOtpScreen(email: email)),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
       );

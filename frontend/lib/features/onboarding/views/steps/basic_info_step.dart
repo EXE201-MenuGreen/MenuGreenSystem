@@ -4,9 +4,24 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 
-class BasicInfoStep extends StatelessWidget {
+class BasicInfoStep extends StatefulWidget {
   final VoidCallback onNext;
   const BasicInfoStep({super.key, required this.onNext});
+
+  @override
+  State<BasicInfoStep> createState() => _BasicInfoStepState();
+}
+
+class _BasicInfoStepState extends State<BasicInfoStep> {
+  static const Map<String, String> _activityItems = {
+    'Sedentary': 'Ít vận động',
+    'Light': 'Vận động nhẹ',
+    'Moderate': 'Vận động vừa',
+    'Active': 'Năng động',
+    'VeryActive': 'Rất năng động',
+  };
+
+  String? _activityLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +79,18 @@ class BasicInfoStep extends StatelessWidget {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
+                    value: _activityLevel,
                     hint: const Text('Chọn mức độ hoạt động', style: TextStyle(color: AppColors.textDark, fontSize: 14)),
                     icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-                    items: const [],
-                    onChanged: (val) {},
+                    items: _activityItems.entries
+                        .map(
+                          (e) => DropdownMenuItem<String>(
+                            value: e.key,
+                            child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) => setState(() => _activityLevel = val),
                   ),
                 ),
               ),
@@ -76,7 +99,7 @@ class BasicInfoStep extends StatelessWidget {
           const SizedBox(height: 40),
           PrimaryButton(
             text: 'Tiếp tục  →',
-            onPressed: onNext,
+            onPressed: widget.onNext,
           ),
         ],
       ),
