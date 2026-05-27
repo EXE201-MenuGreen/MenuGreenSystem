@@ -12,6 +12,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.Session>? _sessions;
         private IGenericRepository<Entities.Role>? _roles;
         private IGenericRepository<Entities.HealthProfile>? _healthProfiles;
+        private IGenericRepository<Entities.EmailVerification>? _emailVerifications;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -23,6 +24,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.Session> Sessions => _sessions ??= new GenericRepository<Entities.Session>(_context);
         public IGenericRepository<Entities.Role> Roles => _roles ??= new GenericRepository<Entities.Role>(_context);
         public IGenericRepository<Entities.HealthProfile> HealthProfiles => _healthProfiles ??= new GenericRepository<Entities.HealthProfile>(_context);
+        public IGenericRepository<Entities.EmailVerification> EmailVerifications => _emailVerifications ??= new GenericRepository<Entities.EmailVerification>(_context);
 
         public async Task<int> CompleteAsync()
         {

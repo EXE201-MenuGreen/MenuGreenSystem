@@ -1,10 +1,11 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
-using MenuGreen.DataAccessLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
+using MenuGreen.DataAccessLayer.Interfaces;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -19,54 +20,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<ProfileResponse> GetProfileAsync(Guid userId)
         {
-            var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
-            if (profile == null) throw new Exception("Profile not found.");
-
-            var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
-            var healthProfile = healthProfiles.FirstOrDefault();
-            if (healthProfile == null)
-            {
-                healthProfile = new HealthProfile
-                {
-                    UserId = userId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.HealthProfiles.AddAsync(healthProfile);
-                await _unitOfWork.CompleteAsync();
-            }
-
-            var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            var roleName = "User";
-            if (user != null)
-            {
-                var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
-                if (roleEntities.Any())
-                {
-                    roleName = roleEntities.First().Name;
-                }
-            }
-
+            var profile = await EnsureProfileAsync(userId);
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var roleName = await GetRoleNameAsync(userId);
             return MapToResponse(profile, healthProfile, roleName);
         }
 
         public async Task<ProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request)
         {
-            var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
-            if (profile == null) throw new Exception("Profile not found.");
-
-            var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
-            var healthProfile = healthProfiles.FirstOrDefault();
-            if (healthProfile == null)
-            {
-                healthProfile = new HealthProfile
-                {
-                    UserId = userId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.HealthProfiles.AddAsync(healthProfile);
-            }
+            var profile = await EnsureProfileAsync(userId);
+            var healthProfile = await EnsureHealthProfileAsync(userId);
 
             if (request.FullName != null) profile.FullName = request.FullName;
             if (request.DateOfBirth != null) profile.DateOfBirth = request.DateOfBirth;
@@ -79,7 +42,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.ActivityLevel != null) healthProfile.ActivityLevel = request.ActivityLevel;
             if (request.Goal != null) healthProfile.Goal = request.Goal;
 
-            // Automatically calculate health metrics based on new data
             CalculateNutritionTargets(profile, healthProfile);
 
             profile.UpdatedAt = DateTime.UtcNow;
@@ -89,70 +51,109 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.HealthProfiles.Update(healthProfile);
             await _unitOfWork.CompleteAsync();
 
-            var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            var roleName = "User";
-            if (user != null)
-            {
-                var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
-                if (roleEntities.Any())
-                {
-                    roleName = roleEntities.First().Name;
-                }
-            }
-
+            var roleName = await GetRoleNameAsync(userId);
             return MapToResponse(profile, healthProfile, roleName);
         }
 
-        private void CalculateNutritionTargets(DataAccessLayer.Entities.Profile p, DataAccessLayer.Entities.HealthProfile hp)
+        public async Task<ProfileResponse> UpdateAvatarAsync(Guid userId, UpdateAvatarRequest request)
         {
-            // Only calculate if weight and height are provided
+            var profile = await EnsureProfileAsync(userId);
+            profile.AvatarUrl = request.AvatarUrl;
+            profile.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Profiles.Update(profile);
+            await _unitOfWork.CompleteAsync();
+
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var roleName = await GetRoleNameAsync(userId);
+            return MapToResponse(profile, healthProfile, roleName);
+        }
+
+        public async Task<ProfileResponse> RemoveAvatarAsync(Guid userId)
+        {
+            var profile = await EnsureProfileAsync(userId);
+            profile.AvatarUrl = null;
+            profile.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Profiles.Update(profile);
+            await _unitOfWork.CompleteAsync();
+
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var roleName = await GetRoleNameAsync(userId);
+            return MapToResponse(profile, healthProfile, roleName);
+        }
+
+        private async Task<Profile> EnsureProfileAsync(Guid userId)
+        {
+            var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
+            if (profile != null) return profile;
+
+            profile = new Profile { UserId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+            await _unitOfWork.Profiles.AddAsync(profile);
+            await _unitOfWork.CompleteAsync();
+            return profile;
+        }
+
+        private async Task<HealthProfile> EnsureHealthProfileAsync(Guid userId)
+        {
+            var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
+            var healthProfile = healthProfiles.FirstOrDefault();
+            if (healthProfile != null) return healthProfile;
+
+            healthProfile = new HealthProfile { UserId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+            await _unitOfWork.HealthProfiles.AddAsync(healthProfile);
+            await _unitOfWork.CompleteAsync();
+            return healthProfile;
+        }
+
+        private async Task<string> GetRoleNameAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null) return "User";
+            var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
+            return roleEntities.FirstOrDefault()?.Name ?? "User";
+        }
+
+        private void CalculateNutritionTargets(Profile p, HealthProfile hp)
+        {
             if (!hp.WeightKg.HasValue || !hp.HeightCm.HasValue) return;
 
-            int age = 25; // Assume 25 years old if date of birth is not provided
+            int age = 25;
             if (p.DateOfBirth.HasValue)
             {
                 age = DateTime.Today.Year - p.DateOfBirth.Value.Year;
-                if (p.DateOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--; // Subtract 1 if birthday hasn't occurred yet this year
+                if (p.DateOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--;
             }
 
-            // Calculate BMR using Mifflin-St Jeor equation
             double bmr = (10 * (double)hp.WeightKg.Value) + (6.25 * (double)hp.HeightCm.Value) - (5 * age);
             bmr += (p.Gender?.ToLower() == "male" || p.Gender?.ToLower() == "nam") ? 5 : -161;
             hp.BmrKcal = (int)Math.Round(bmr);
 
-            // Calculate TDEE (Total Daily Energy Expenditure)
             double multiplier = hp.ActivityLevel?.ToLower() switch
             {
-                "light" => 1.375,       // Lightly active
-                "moderate" => 1.55,     // Moderately active
-                "active" => 1.725,      // Very active
-                "veryactive" => 1.9,    // Extra active
-                _ => 1.2                // Sedentary
+                "light" => 1.375,
+                "moderate" => 1.55,
+                "active" => 1.725,
+                "veryactive" => 1.9,
+                _ => 1.2
             };
             hp.TdeeKcal = (int)Math.Round(bmr * multiplier);
 
-            // Calculate Target Calories based on user's goal
             int targetKcal = hp.TdeeKcal.Value;
             targetKcal += hp.Goal?.ToLower() switch
             {
-                "loseweight" => -500,   // Lose weight (500 kcal deficit)
-                "gainweight" => 500,    // Gain weight (500 kcal surplus)
-                _ => 0                  // Maintain weight
+                "loseweight" => -500,
+                "gainweight" => 500,
+                _ => 0
             };
             hp.TargetCalories = targetKcal;
 
-            // Calculate BMI
             double heightMeters = (double)hp.HeightCm.Value / 100.0;
             hp.Bmi = (decimal)Math.Round((double)hp.WeightKg.Value / (heightMeters * heightMeters), 2);
-
-            // Calculate Macro Targets (Reference ratio: Protein 30%, Carbs 40%, Fat 30%)
-            // 1g Protein = 4 kcal, 1g Carbs = 4 kcal, 1g Fat = 9 kcal
             hp.TargetProteinG = (int)Math.Round((targetKcal * 0.30) / 4);
             hp.TargetCarbsG = (int)Math.Round((targetKcal * 0.40) / 4);
             hp.TargetFatG = (int)Math.Round((targetKcal * 0.30) / 9);
         }
 
-        private ProfileResponse MapToResponse(DataAccessLayer.Entities.Profile p, DataAccessLayer.Entities.HealthProfile hp, string roleName)
+        private ProfileResponse MapToResponse(Profile p, HealthProfile hp, string roleName)
         {
             return new ProfileResponse
             {
