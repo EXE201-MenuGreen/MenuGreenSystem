@@ -6,13 +6,16 @@ namespace MenuGreen.DataAccessLayer.Repositories
     public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _context;
-        
         private IGenericRepository<Entities.User>? _users;
         private IGenericRepository<Entities.Profile>? _profiles;
         private IGenericRepository<Entities.Session>? _sessions;
         private IGenericRepository<Entities.Role>? _roles;
         private IGenericRepository<Entities.HealthProfile>? _healthProfiles;
         private IGenericRepository<Entities.EmailVerification>? _emailVerifications;
+        private IGenericRepository<Entities.Food>? _foods;
+        private IGenericRepository<Entities.Ingredient>? _ingredients;
+        private IGenericRepository<Entities.Recipe>? _recipes;
+        private IGenericRepository<Entities.RecipeIngredient>? _recipeIngredients;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -25,16 +28,12 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.Role> Roles => _roles ??= new GenericRepository<Entities.Role>(_context);
         public IGenericRepository<Entities.HealthProfile> HealthProfiles => _healthProfiles ??= new GenericRepository<Entities.HealthProfile>(_context);
         public IGenericRepository<Entities.EmailVerification> EmailVerifications => _emailVerifications ??= new GenericRepository<Entities.EmailVerification>(_context);
+        public IGenericRepository<Entities.Food> Foods => _foods ??= new GenericRepository<Entities.Food>(_context);
+        public IGenericRepository<Entities.Ingredient> Ingredients => _ingredients ??= new GenericRepository<Entities.Ingredient>(_context);
+        public IGenericRepository<Entities.Recipe> Recipes => _recipes ??= new GenericRepository<Entities.Recipe>(_context);
+        public IGenericRepository<Entities.RecipeIngredient> RecipeIngredients => _recipeIngredients ??= new GenericRepository<Entities.RecipeIngredient>(_context);
 
-        public async Task<int> CompleteAsync()
-        {
-            return await _context.SaveChangesAsync();
-        }
-
-        public void Dispose()
-        {
-            _context.Dispose();
-            GC.SuppressFinalize(this);
-        }
+        public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
+        public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
     }
 }
