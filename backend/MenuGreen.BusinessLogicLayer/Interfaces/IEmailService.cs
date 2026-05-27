@@ -4,6 +4,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
 {
     public interface IEmailService
     {
-        Task SendVerificationEmailAsync(string toEmail, string verificationLink);
+        Task SendVerificationEmailAsync(string toEmail, string otpCode);
     }
 }

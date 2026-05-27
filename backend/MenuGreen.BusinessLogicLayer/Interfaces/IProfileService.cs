@@ -9,5 +9,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         Task<ProfileResponse> GetProfileAsync(Guid userId);
         Task<ProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
+        Task<ProfileResponse> UpdateAvatarAsync(Guid userId, UpdateAvatarRequest request);
+        Task<ProfileResponse> RemoveAvatarAsync(Guid userId);
     }
 }
