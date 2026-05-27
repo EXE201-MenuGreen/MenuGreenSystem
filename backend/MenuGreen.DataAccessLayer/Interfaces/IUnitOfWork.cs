@@ -8,6 +8,10 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.Role> Roles { get; }
         IGenericRepository<Entities.HealthProfile> HealthProfiles { get; }
         IGenericRepository<Entities.EmailVerification> EmailVerifications { get; }
+        IGenericRepository<Entities.Food> Foods { get; }
+        IGenericRepository<Entities.Ingredient> Ingredients { get; }
+        IGenericRepository<Entities.Recipe> Recipes { get; }
+        IGenericRepository<Entities.RecipeIngredient> RecipeIngredients { get; }
         
         Task<int> CompleteAsync();
     }
