@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
-
+using MenuGreen.DataAccessLayer.Context;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -79,6 +79,8 @@ builder.Services.AddAuthentication(options =>
     };
 });
 var app = builder.Build();
+
+// Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
