@@ -1,5 +1,8 @@
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.BusinessLogicLayer.Services;
+using MenuGreen.DataAccessLayer.Context;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MenuGreen.BusinessLogicLayer
@@ -12,7 +15,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<IUserService, UserService>();
-            
+
             // Register Email Service
             services.AddHttpClient<IEmailService, EmailService>();
 
