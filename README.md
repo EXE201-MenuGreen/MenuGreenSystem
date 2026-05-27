@@ -88,3 +88,9 @@ dotnet run --project MenuGreen.API
 ```
 Sau khi chạy thành công, truy cập Swagger UI tại địa chỉ:
 * `http://localhost:5000/swagger`
+
+---
+
+## ERD (Entity Relationship Diagram)
+
+![ERD](assets/erd.png)
