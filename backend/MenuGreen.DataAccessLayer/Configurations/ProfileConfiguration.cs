@@ -10,30 +10,32 @@ namespace MenuGreen.DataAccessLayer.Configurations
         {
             builder.ToTable("profiles");
 
-            builder.HasKey(p => p.Id);
+            builder.HasKey(p => p.UserId);
 
             builder.Property(p => p.FullName)
-                .HasColumnType("text");
+                .HasMaxLength(255);
 
             builder.Property(p => p.AvatarUrl)
                 .HasColumnType("text");
 
-            builder.Property(p => p.Role)
-                .IsRequired()
-                .HasColumnType("text");
-
             builder.Property(p => p.Gender)
-                .HasColumnType("text");
-
-            builder.Property(p => p.ActivityLevel)
-                .IsRequired()
-                .HasColumnType("text");
-
-            builder.Property(p => p.Goal)
-                .HasColumnType("text");
+                .HasMaxLength(20);
 
             builder.Property(p => p.PreferredCuisine)
-                .HasColumnType("text");
+                .HasMaxLength(100);
+
+            builder.Property(p => p.CreatedAt)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+
+            builder.Property(p => p.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+
+            builder.HasOne(p => p.User)
+                .WithOne(u => u.Profile)
+                .HasForeignKey<Profile>(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
