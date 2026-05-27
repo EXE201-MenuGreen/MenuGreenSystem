@@ -7,6 +7,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.Session> Sessions { get; }
         IGenericRepository<Entities.Role> Roles { get; }
         IGenericRepository<Entities.HealthProfile> HealthProfiles { get; }
+        IGenericRepository<Entities.EmailVerification> EmailVerifications { get; }
         
         Task<int> CompleteAsync();
     }
