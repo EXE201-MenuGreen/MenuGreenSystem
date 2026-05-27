@@ -34,17 +34,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existingUsers = await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail);
             if (existingUsers.Any()) throw new Exception("Email is already registered.");
 
-            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
-            if (userRole == null)
+            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault() ?? new Role
             {
-                userRole = new Role
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "User",
-                    Description = "Standard User Role",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                Id = Guid.NewGuid(),
+                Name = "User",
+                Description = "Standard User Role",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            if (userRole.Id == Guid.Empty)
+            {
                 await _unitOfWork.Roles.AddAsync(userRole);
                 await _unitOfWork.CompleteAsync();
             }
@@ -157,6 +157,72 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.EmailVerifications.Update(verification);
             await _unitOfWork.CompleteAsync();
             return true;
+        }
+
+        public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
+            if (user == null)
+            {
+                return new ForgotPasswordResponse { Success = true, Message = "Nếu email tồn tại, OTP đã được gửi." };
+            }
+
+            var oldVerifications = await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.VerifiedAt == null);
+            foreach (var item in oldVerifications)
+            {
+                item.VerifiedAt = DateTime.UtcNow;
+                _unitOfWork.EmailVerifications.Update(item);
+            }
+
+            var otp = GenerateOtp();
+            var verification = new EmailVerification
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                OtpCode = otp,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            await _unitOfWork.EmailVerifications.AddAsync(verification);
+            await _unitOfWork.CompleteAsync();
+
+            await _emailService.SendForgotPasswordEmailAsync(user.Email, otp);
+
+            return new ForgotPasswordResponse { Success = true, Message = "OTP khôi phục mật khẩu đã được gửi đến email." };
+        }
+
+        public async Task<ForgotPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
+            if (user == null)
+            {
+                throw new Exception("Email không tồn tại.");
+            }
+
+            var verification = (await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.OtpCode == request.OtpCode)).FirstOrDefault();
+            if (verification == null || verification.ExpiresAt < DateTime.UtcNow || verification.VerifiedAt != null)
+            {
+                throw new Exception("OTP không hợp lệ hoặc đã hết hạn.");
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            verification.VerifiedAt = DateTime.UtcNow;
+            _unitOfWork.Users.Update(user);
+            _unitOfWork.EmailVerifications.Update(verification);
+
+            var sessions = await _unitOfWork.Sessions.FindAsync(s => s.UserId == user.Id);
+            foreach (var session in sessions)
+            {
+                _unitOfWork.Sessions.Remove(session);
+            }
+
+            await _unitOfWork.CompleteAsync();
+
+            return new ForgotPasswordResponse { Success = true, Message = "Đặt lại mật khẩu thành công." };
         }
 
         public async Task LogoutAsync(string refreshToken)
