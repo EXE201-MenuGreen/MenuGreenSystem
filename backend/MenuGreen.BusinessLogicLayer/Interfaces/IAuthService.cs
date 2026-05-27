@@ -10,6 +10,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
         Task<bool> VerifyOtpAsync(string email, string otpCode);
+        Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request);
+        Task<ForgotPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request);
         Task LogoutAsync(string refreshToken);
     }
 }

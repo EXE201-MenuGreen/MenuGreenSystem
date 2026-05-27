@@ -45,10 +45,42 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     </div>"
             };
 
-            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            await SendAsync(payload);
+        }
 
+        public async Task SendForgotPasswordEmailAsync(string toEmail, string otpCode)
+        {
+            var apiKey = _configuration["Resend:ApiKey"];
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                throw new Exception("Resend API Key is missing in configuration.");
+            }
+
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var payload = new
+            {
+                from = "MenuGreen <onboarding@resend.dev>",
+                to = new[] { toEmail },
+                subject = "MenuGreen - OTP đặt lại mật khẩu",
+                html = $@"
+                    <div style='font-family: Arial, sans-serif; padding: 20px;'>
+                        <h2 style='color: #d32f2f;'>Yêu cầu đặt lại mật khẩu</h2>
+                        <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+                        <p>Nhập mã OTP bên dưới để tiếp tục đặt lại mật khẩu:</p>
+                        <div style='display:inline-block; padding:12px 20px; background:#ffebee; border:1px solid #ef9a9a; border-radius:8px; font-size:24px; font-weight:bold; letter-spacing:4px; color:#b71c1c;'>{otpCode}</div>
+                        <p style='margin-top: 20px; font-size: 12px; color: #777;'>Mã này sẽ hết hạn sau 10 phút. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+                    </div>"
+            };
+
+            await SendAsync(payload);
+        }
+
+        private async Task SendAsync(object payload)
+        {
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync("https://api.resend.com/emails", content);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
