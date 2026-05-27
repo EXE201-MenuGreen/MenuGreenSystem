@@ -3,8 +3,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
-import '../../onboarding/views/onboarding_screen.dart';
 import '../repositories/auth_repository.dart';
+import 'verify_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -45,6 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final result = await _authRepo.register(fullName, email, password);
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
@@ -53,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+        MaterialPageRoute(builder: (context) => VerifyOtpScreen(email: email)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

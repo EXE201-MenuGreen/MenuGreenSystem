@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_text_styles.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
+import '../../subscription/views/upgrade_plan_screen.dart';
 import 'personal_info_screen.dart';
 import 'change_password_screen.dart';
 
@@ -244,7 +244,12 @@ class _ProfileViewState extends State<ProfileView> {
               Expanded(
                 flex: 3,
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const UpgradePlanScreen()),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,

@@ -1,22 +1,26 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/token_storage.dart';
+import '../../auth/repositories/auth_repository.dart';
 
 class ProfileRepository {
+  ProfileRepository({
+    ApiClient? apiClient,
+    TokenStorage? tokenStorage,
+    AuthRepository? authRepository,
+  })  : _api = apiClient ?? ApiClient(tokenStorage: tokenStorage),
+        _storage = tokenStorage ?? TokenStorage(),
+        _authRepo = authRepository ?? AuthRepository(tokenStorage: tokenStorage);
+
+  final ApiClient _api;
+  final TokenStorage _storage;
+  final AuthRepository _authRepo;
+
   Future<Map<String, dynamic>?> getMyProfile() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      if (token == null) return null;
-
-      final response = await http.get(
-        Uri.parse(ApiEndpoints.getProfile),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await _api.get(ApiEndpoints.getProfile);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -29,19 +33,32 @@ class ProfileRepository {
 
   Future<Map<String, dynamic>?> updateMyProfile(Map<String, dynamic> data) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      if (token == null) return null;
+      final response = await _api.putJson(ApiEndpoints.getProfile, data);
 
-      final response = await http.put(
-        Uri.parse(ApiEndpoints.getProfile),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(data),
-      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 
+  Future<Map<String, dynamic>?> updateAvatar(String avatarUrl) async {
+    try {
+      final response = await _api.putJson(ApiEndpoints.updateAvatar, {'avatarUrl': avatarUrl});
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> removeAvatar() async {
+    try {
+      final response = await _api.delete(ApiEndpoints.removeAvatar);
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -53,9 +70,8 @@ class ProfileRepository {
 
   Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword, String confirmNewPassword) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      if (token == null) return {'success': false, 'message': 'Not logged in'};
+      final token = await _storage.getAccessToken();
+      if (token == null || token.isEmpty) return {'success': false, 'message': 'Not logged in'};
 
       final response = await http.put(
         Uri.parse(ApiEndpoints.changePassword),
@@ -93,7 +109,6 @@ class ProfileRepository {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
+    await _authRepo.logout();
   }
 }

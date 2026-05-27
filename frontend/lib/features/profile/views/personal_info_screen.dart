@@ -15,10 +15,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final _profileRepo = ProfileRepository();
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isAvatarSaving = false;
 
   final _fullNameController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
+  final _avatarUrlController = TextEditingController();
   
   String? _gender;
   String? _activityLevel;
@@ -37,6 +39,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         _fullNameController.text = data['fullName'] ?? '';
         _heightController.text = data['heightCm']?.toString() ?? '';
         _weightController.text = data['weightKg']?.toString() ?? '';
+        _avatarUrlController.text = data['avatarUrl']?.toString() ?? '';
         _gender = data['gender'];
         _activityLevel = data['activityLevel'];
         _goal = data['goal'];
@@ -60,7 +63,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     };
 
     final result = await _profileRepo.updateMyProfile(updateData);
-    
+
+    if (!mounted) return;
     setState(() => _isSaving = false);
     
     if (result != null && mounted) {
@@ -75,11 +79,56 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     }
   }
 
+  Future<void> _handleUpdateAvatar() async {
+    final url = _avatarUrlController.text.trim();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập Avatar URL'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isAvatarSaving = true);
+    final result = await _profileRepo.updateAvatar(url);
+    setState(() => _isAvatarSaving = false);
+
+    if (!mounted) return;
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cập nhật avatar thành công!'), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cập nhật avatar thất bại!'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _handleRemoveAvatar() async {
+    setState(() => _isAvatarSaving = true);
+    final result = await _profileRepo.removeAvatar();
+    setState(() => _isAvatarSaving = false);
+
+    if (!mounted) return;
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xoá avatar!'), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Xoá avatar thất bại!'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _fullNameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _avatarUrlController.dispose();
     super.dispose();
   }
 
@@ -104,6 +153,54 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  CustomTextField(
+                    controller: _avatarUrlController,
+                    label: 'Avatar URL',
+                    hintText: 'https://example.com/avatar.png',
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isAvatarSaving ? null : _handleRemoveAvatar,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: _isAvatarSaving
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                                )
+                              : const Text('Xoá avatar', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isAvatarSaving ? null : _handleUpdateAvatar,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                          ),
+                          child: _isAvatarSaving
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Cập nhật avatar', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   CustomTextField(
                     controller: _fullNameController,
                     label: 'Họ và tên',
