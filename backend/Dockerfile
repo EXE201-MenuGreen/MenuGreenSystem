@@ -8,14 +8,14 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy file .csproj và restore các packages
-COPY ["MenuGreen.API/MenuGreen.API.csproj", "MenuGreen.API/"]
-COPY ["MenuGreen.BusinessLogicLayer/MenuGreen.BusinessLogicLayer.csproj", "MenuGreen.BusinessLogicLayer/"]
-COPY ["MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj", "MenuGreen.DataAccessLayer/"]
-RUN dotnet restore "MenuGreen.API/MenuGreen.API.csproj"
+COPY ["backend/MenuGreen.API/MenuGreen.API.csproj", "backend/MenuGreen.API/"]
+COPY ["backend/MenuGreen.BusinessLogicLayer/MenuGreen.BusinessLogicLayer.csproj", "backend/MenuGreen.BusinessLogicLayer/"]
+COPY ["backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj", "backend/MenuGreen.DataAccessLayer/"]
+RUN dotnet restore "backend/MenuGreen.API/MenuGreen.API.csproj"
 
 # Copy toàn bộ mã nguồn
 COPY . .
-WORKDIR "/src/MenuGreen.API"
+WORKDIR "/src/backend/MenuGreen.API"
 
 # Build ứng dụng
 RUN dotnet build "MenuGreen.API.csproj" -c Release -o /app/build
