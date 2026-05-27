@@ -12,8 +12,8 @@ namespace MenuGreen.DataAccessLayer.Entities
         public string? UserAgent { get; set; }
         public System.Net.IPAddress? IpAddress { get; set; }
         
-        public DateTimeOffset ExpiresAt { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         // Navigation property
         public virtual User? User { get; set; }
