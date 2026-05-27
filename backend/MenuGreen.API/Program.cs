@@ -14,6 +14,17 @@ builder.Services.AddBusinessLogicLayer();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // 1. Configure Swagger to show Authorize button (Enter Token)
 builder.Services.AddSwaggerGen(c =>
 {
@@ -76,7 +87,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Enable CORS
+app.UseCors("AllowAll");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
 app.UseAuthorization();
