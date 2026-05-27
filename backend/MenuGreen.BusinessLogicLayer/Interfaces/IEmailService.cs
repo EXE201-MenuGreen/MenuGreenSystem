@@ -5,5 +5,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface IEmailService
     {
         Task SendVerificationEmailAsync(string toEmail, string otpCode);
+        Task SendForgotPasswordEmailAsync(string toEmail, string otpCode);
     }
 }
