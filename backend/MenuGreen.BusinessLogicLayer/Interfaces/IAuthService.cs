@@ -6,9 +6,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
 {
     public interface IAuthService
     {
-        Task<AuthResponse> RegisterAsync(RegisterRequest request);
+        Task<RegisterResponse> RegisterAsync(RegisterRequest request);
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
-        Task<bool> VerifyEmailAsync(string token);
+        Task<bool> VerifyOtpAsync(string email, string otpCode);
+        Task LogoutAsync(string refreshToken);
     }
 }
