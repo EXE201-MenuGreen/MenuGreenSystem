@@ -6,6 +6,7 @@ using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -32,7 +33,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Hash and save new password
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.UpdatedAt = DateTimeOffset.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
@@ -44,16 +45,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var users = await _unitOfWork.Users.GetAllAsync();
             var profiles = await _unitOfWork.Profiles.GetAllAsync();
+            var roles = await _unitOfWork.Roles.GetAllAsync();
 
             var result = users.Select(u => 
             {
-                var p = profiles.FirstOrDefault(prof => prof.Id == u.Id);
+                var p = profiles.FirstOrDefault(prof => prof.UserId == u.Id);
+                var r = roles.FirstOrDefault(role => role.Id == u.RoleId);
                 return new UserAdminResponse
                 {
                     Id = u.Id,
                     Email = u.Email,
                     FullName = p?.FullName ?? "",
-                    Role = p?.Role ?? "User",
+                    Role = r?.Name ?? "User",
                     IsActive = u.IsActive,
                     EmailConfirmed = u.EmailConfirmed,
                     CreatedAt = u.CreatedAt,
@@ -70,13 +73,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (user == null) throw new Exception("Account not found.");
 
             var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
+            var roleName = "User";
+            var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
+            if (roleEntities.Any())
+            {
+                roleName = roleEntities.First().Name;
+            }
 
             return new UserAdminResponse
             {
                 Id = user.Id,
                 Email = user.Email,
                 FullName = profile?.FullName ?? "",
-                Role = profile?.Role ?? "User",
+                Role = roleName,
                 IsActive = user.IsActive,
                 EmailConfirmed = user.EmailConfirmed,
                 CreatedAt = user.CreatedAt,
@@ -90,7 +99,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (user == null) throw new Exception("Account not found.");
 
             user.IsActive = !user.IsActive; // Toggle status
-            user.UpdatedAt = DateTimeOffset.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
@@ -100,13 +109,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> AssignRoleAsync(Guid userId, string newRole)
         {
-            var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
-            if (profile == null) throw new Exception("User profile not found.");
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null) throw new Exception("Account not found.");
 
-            profile.Role = newRole;
-            profile.UpdatedAt = DateTimeOffset.UtcNow;
+            var roles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == newRole.ToLower());
+            var role = roles.FirstOrDefault();
+            if (role == null)
+            {
+                role = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = newRole,
+                    Description = $"{newRole} Role",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.Roles.AddAsync(role);
+                await _unitOfWork.CompleteAsync();
+            }
 
-            _unitOfWork.Profiles.Update(profile);
+            user.RoleId = role.Id;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
 
             return true;

@@ -39,31 +39,56 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // 2. Hash the password
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
+            // Find or create "User" role
+            var roles = await _unitOfWork.Roles.FindAsync(r => r.Name == "User");
+            var userRole = roles.FirstOrDefault();
+            if (userRole == null)
+            {
+                userRole = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "User",
+                    Description = "Standard User Role",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.Roles.AddAsync(userRole);
+                await _unitOfWork.CompleteAsync();
+            }
+
             // 3. Create User entity
             var newUser = new User
             {
                 Id = Guid.NewGuid(),
+                RoleId = userRole.Id,
                 Email = request.Email,
                 PasswordHash = passwordHash,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 IsActive = true,
                 EmailConfirmed = false
             };
 
-            // 4. Create default Profile entity
+            // 4. Create default Profile and HealthProfile entities
             var newProfile = new Profile
             {
-                Id = newUser.Id, // 1-to-1 relationship mapping
+                UserId = newUser.Id,
                 FullName = request.FullName,
-                Role = "User",
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var newHealthProfile = new HealthProfile
+            {
+                UserId = newUser.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             // 5. Save to database using Unit of Work
             await _unitOfWork.Users.AddAsync(newUser);
             await _unitOfWork.Profiles.AddAsync(newProfile);
+            await _unitOfWork.HealthProfiles.AddAsync(newHealthProfile);
             await _unitOfWork.CompleteAsync();
 
             // 6. Generate Verification Token & Send Email
@@ -74,7 +99,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _emailService.SendVerificationEmailAsync(newUser.Email, verificationLink);
 
             // 7. Generate Access Token and Refresh Token
-            var accessToken = GenerateJwtToken(newUser, newProfile);
+            var accessToken = GenerateJwtToken(newUser, "User");
             var refreshToken = GenerateRefreshToken();
             
             var session = new Session
@@ -82,8 +107,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Id = Guid.NewGuid(),
                 UserId = newUser.Id,
                 RefreshToken = refreshToken,
-                CreatedAt = DateTimeOffset.UtcNow,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
             };
             await _unitOfWork.Sessions.AddAsync(session);
             await _unitOfWork.CompleteAsync();
@@ -117,14 +142,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (!isPasswordValid)
                 throw new Exception("Invalid email or password.");
 
-            var profiles = await _unitOfWork.Profiles.FindAsync(p => p.Id == user.Id);
+            var profiles = await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id);
             var profile = profiles.FirstOrDefault();
 
-            user.LastSignInAt = DateTimeOffset.UtcNow;
+            user.LastSignInAt = DateTime.UtcNow;
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
 
-            var accessToken = GenerateJwtToken(user, profile);
+            var roleName = "User";
+            var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
+            if (roleEntities.Any())
+            {
+                roleName = roleEntities.First().Name;
+            }
+
+            var accessToken = GenerateJwtToken(user, roleName);
             var refreshToken = GenerateRefreshToken();
             
             var session = new Session
@@ -132,8 +164,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
                 RefreshToken = refreshToken,
-                CreatedAt = DateTimeOffset.UtcNow,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
             };
             await _unitOfWork.Sessions.AddAsync(session);
             await _unitOfWork.CompleteAsync();
@@ -153,7 +185,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var sessions = await _unitOfWork.Sessions.FindAsync(s => s.RefreshToken == refreshToken);
             var session = sessions.FirstOrDefault();
 
-            if (session == null || session.ExpiresAt < DateTimeOffset.UtcNow)
+            if (session == null || session.ExpiresAt < DateTime.UtcNow)
             {
                 throw new Exception("Invalid or expired refresh token.");
             }
@@ -164,19 +196,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Your account has been locked or does not exist.");
             }
 
-            var profiles = await _unitOfWork.Profiles.FindAsync(p => p.Id == user.Id);
+            var profiles = await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id);
             var profile = profiles.FirstOrDefault();
 
             // Generate new tokens
-            var newAccessToken = GenerateJwtToken(user, profile);
+            var roleName = "User";
+            var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
+            if (roleEntities.Any())
+            {
+                roleName = roleEntities.First().Name;
+            }
+
+            var newAccessToken = GenerateJwtToken(user, roleName);
             var newRefreshToken = GenerateRefreshToken();
 
             // Update session
             session.RefreshToken = newRefreshToken;
-            session.ExpiresAt = DateTimeOffset.UtcNow.AddDays(7);
+            session.ExpiresAt = DateTime.UtcNow.AddDays(7);
             _unitOfWork.Sessions.Update(session);
             
-            user.LastSignInAt = DateTimeOffset.UtcNow;
+            user.LastSignInAt = DateTime.UtcNow;
             _unitOfWork.Users.Update(user);
             
             await _unitOfWork.CompleteAsync();
@@ -255,7 +294,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return tokenHandler.WriteToken(token);
         }
 
-        private string GenerateJwtToken(User user, Profile? profile)
+        private string GenerateJwtToken(User user, string roleName)
         {
             var secretKey = _configuration["JwtSettings:SecretKey"] ?? "super_secret_key_menu_green_1234567890_super_long";
             var key = Encoding.ASCII.GetBytes(secretKey);
@@ -268,7 +307,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, profile?.Role ?? "User")
+                    new Claim(ClaimTypes.Role, roleName)
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
                 Issuer = _configuration["JwtSettings:Issuer"],
