@@ -20,7 +20,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _configuration = configuration;
         }
 
-        public async Task SendVerificationEmailAsync(string toEmail, string verificationLink)
+        public async Task SendVerificationEmailAsync(string toEmail, string otpCode)
         {
             var apiKey = _configuration["Resend:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))
@@ -30,18 +30,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-            // Vì đang test ở chế độ Sandbox của Resend, 'from' bắt buộc phải là onboarding@resend.dev
             var payload = new
             {
                 from = "MenuGreen <onboarding@resend.dev>",
                 to = new[] { toEmail },
-                subject = "MenuGreen - Xác nhận địa chỉ Email của bạn",
+                subject = "MenuGreen - Mã OTP xác thực tài khoản",
                 html = $@"
                     <div style='font-family: Arial, sans-serif; padding: 20px;'>
                         <h2 style='color: #2e7d32;'>Chào mừng bạn đến với MenuGreen! 🌱</h2>
-                        <p>Cảm ơn bạn đã đăng ký tài khoản. Vui lòng bấm vào nút bên dưới để xác nhận địa chỉ email của bạn:</p>
-                        <a href='{verificationLink}' style='display: inline-block; padding: 10px 20px; color: #fff; background-color: #4caf50; text-decoration: none; border-radius: 5px; margin-top: 10px;'>Xác nhận Email ngay</a>
-                        <p style='margin-top: 20px; font-size: 12px; color: #777;'>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+                        <p>Cảm ơn bạn đã đăng ký tài khoản.</p>
+                        <p>Vui lòng dùng mã OTP bên dưới để xác thực email của bạn:</p>
+                        <div style='display:inline-block; padding:12px 20px; background:#f1f8e9; border:1px solid #c5e1a5; border-radius:8px; font-size:24px; font-weight:bold; letter-spacing:4px; color:#1b5e20;'>{otpCode}</div>
+                        <p style='margin-top: 20px; font-size: 12px; color: #777;'>Mã này sẽ hết hạn sau 10 phút. Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
                     </div>"
             };
 

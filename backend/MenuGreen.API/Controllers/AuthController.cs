@@ -20,20 +20,33 @@ namespace MenuGreen.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
                 var response = await _authService.RegisterAsync(request);
-                return Ok(response); // Return 200 OK with AuthResponse (Tokens & Info)
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                // Global Exception Middleware is recommended for production.
-                // For now, we return 400 Bad Request if email exists or other errors occur.
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                var verified = await _authService.VerifyOtpAsync(request.Email, request.OtpCode);
+                return verified
+                    ? Ok(new { Message = "Xác thực OTP thành công." })
+                    : BadRequest(new { Message = "OTP không hợp lệ hoặc đã hết hạn." });
+            }
+            catch (Exception ex)
+            {
                 return BadRequest(new { Message = ex.Message });
             }
         }
@@ -41,10 +54,7 @@ namespace MenuGreen.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
@@ -73,19 +83,15 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        [HttpGet("verify-email")]
-        public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            if (string.IsNullOrEmpty(token))
-                return BadRequest(new { Message = "Token is required." });
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
-                bool isVerified = await _authService.VerifyEmailAsync(token);
-                if (isVerified)
-                    return Ok(new { Message = "Email verified successfully! You can now log in." });
-                
-                return BadRequest(new { Message = "Invalid or expired token." });
+                await _authService.LogoutAsync(request.RefreshToken);
+                return Ok(new { Message = "Đăng xuất thành công." });
             }
             catch (Exception ex)
             {
