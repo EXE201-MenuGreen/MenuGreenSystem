@@ -12,6 +12,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.Ingredient> Ingredients { get; }
         IGenericRepository<Entities.Recipe> Recipes { get; }
         IGenericRepository<Entities.RecipeIngredient> RecipeIngredients { get; }
+        IGenericRepository<Entities.Allergy> Allergies { get; }
         
         Task<int> CompleteAsync();
     }
