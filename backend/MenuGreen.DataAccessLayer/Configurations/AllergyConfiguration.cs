@@ -12,7 +12,6 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired().HasColumnType("text");
             builder.HasIndex(x => x.Name).IsUnique();
-            builder.Property(x => x.Description).HasColumnType("text");
         }
     }
 }
