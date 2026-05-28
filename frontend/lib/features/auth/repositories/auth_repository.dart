@@ -8,6 +8,54 @@ class AuthRepository {
 
   final TokenStorage _storage;
 
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.forgotPassword),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': decoded};
+      }
+
+      final msg = (decoded is Map<String, dynamic>) ? (decoded['message'] ?? decoded['Message']) : null;
+      return {'success': false, 'message': msg?.toString() ?? 'Forgot password failed'};
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error. Is backend running?'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.resetPassword),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'otpCode': otpCode,
+          'newPassword': newPassword,
+        }),
+      );
+
+      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': decoded};
+      }
+
+      final msg = (decoded is Map<String, dynamic>) ? (decoded['message'] ?? decoded['Message']) : null;
+      return {'success': false, 'message': msg?.toString() ?? 'Reset password failed'};
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error. Is backend running?'};
+    }
+  }
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
