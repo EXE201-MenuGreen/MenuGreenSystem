@@ -1,0 +1,240 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
+using MenuGreen.DataAccessLayer.Interfaces;
+
+namespace MenuGreen.BusinessLogicLayer.Services
+{
+    public class NutritionTrackingService : INutritionTrackingService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+        public NutritionTrackingService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+
+        public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
+        {
+            var entity = await BuildMealLogAsync(userId, request);
+            await _unitOfWork.MealLogs.AddAsync(entity);
+            await _unitOfWork.CompleteAsync();
+            return Map(entity);
+        }
+
+        public async Task<MealLogResponse> UpdateMealLogAsync(Guid userId, Guid mealLogId, MealLogUpsertRequest request)
+        {
+            var entity = await GetOwnedMealLogAsync(userId, mealLogId);
+            await ApplyMealLogRequestAsync(entity, request);
+            _unitOfWork.MealLogs.Update(entity);
+            await _unitOfWork.CompleteAsync();
+            return Map(entity);
+        }
+
+        public async Task DeleteMealLogAsync(Guid userId, Guid mealLogId)
+        {
+            var entity = await GetOwnedMealLogAsync(userId, mealLogId);
+            _unitOfWork.MealLogs.Remove(entity);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<MealDaySummaryResponse> GetDailySummaryAsync(Guid userId, DateOnly date)
+        {
+            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == date);
+            return await BuildDailySummaryAsync(userId, date, logs.ToList());
+        }
+
+        public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
+        {
+            var (from, to) = ResolveRange(range, startDate, endDate);
+            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) >= from && DateOnly.FromDateTime(x.LoggedAt.Value) <= to);
+            var days = await BuildRangeSummariesAsync(userId, from, to, logs.ToList());
+            var weightLogs = await _unitOfWork.WeightLogs.FindAsync(x => x.UserId == userId && x.RecordedAt.HasValue && DateOnly.FromDateTime(x.RecordedAt.Value) >= from && DateOnly.FromDateTime(x.RecordedAt.Value) <= to);
+
+            return new NutritionDashboardResponse
+            {
+                Range = range,
+                Days = days,
+                WeightLogs = weightLogs.OrderBy(x => x.RecordedAt).Select(Map).ToList()
+            };
+        }
+
+        public async Task<WeightLogResponse> CreateWeightLogAsync(Guid userId, WeightLogUpsertRequest request)
+        {
+            var entity = new WeightLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                WeightKg = request.WeightKg,
+                BodyFatPercent = request.BodyFatPercent,
+                RecordedAt = request.RecordedAt ?? DateTime.UtcNow
+            };
+
+            await _unitOfWork.WeightLogs.AddAsync(entity);
+            await _unitOfWork.CompleteAsync();
+            return Map(entity);
+        }
+
+        public async Task<WeightLogResponse> UpdateWeightLogAsync(Guid userId, Guid weightLogId, WeightLogUpsertRequest request)
+        {
+            var entity = await GetOwnedWeightLogAsync(userId, weightLogId);
+            entity.WeightKg = request.WeightKg;
+            entity.BodyFatPercent = request.BodyFatPercent;
+            entity.RecordedAt = request.RecordedAt ?? entity.RecordedAt;
+            _unitOfWork.WeightLogs.Update(entity);
+            await _unitOfWork.CompleteAsync();
+            return Map(entity);
+        }
+
+        public async Task DeleteWeightLogAsync(Guid userId, Guid weightLogId)
+        {
+            var entity = await GetOwnedWeightLogAsync(userId, weightLogId);
+            _unitOfWork.WeightLogs.Remove(entity);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task<MealLog> BuildMealLogAsync(Guid userId, MealLogUpsertRequest request)
+        {
+            var entity = new MealLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                FoodId = request.FoodId,
+                RecipeId = request.RecipeId,
+                MealType = request.MealType,
+                QuantityG = request.QuantityG,
+                Notes = request.Notes,
+                LoggedAt = request.LoggedAt ?? DateTime.UtcNow
+            };
+
+            await ApplyMealLogRequestAsync(entity, request);
+            return entity;
+        }
+
+        private async Task ApplyMealLogRequestAsync(MealLog entity, MealLogUpsertRequest request)
+        {
+            entity.FoodId = request.FoodId;
+            entity.RecipeId = request.RecipeId;
+            entity.MealType = request.MealType;
+            entity.QuantityG = request.QuantityG;
+            entity.Notes = request.Notes;
+            entity.LoggedAt = request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow;
+
+            if (request.FoodId.HasValue)
+            {
+                var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId.Value) ?? throw new Exception("Food not found.");
+                ApplyNutritionFromFood(entity, food, request.QuantityG);
+                entity.SourceType = "Food";
+                return;
+            }
+
+            if (request.RecipeId.HasValue)
+            {
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
+                ApplyNutritionFromRecipe(entity, recipe, request.QuantityG);
+                entity.SourceType = "Recipe";
+                return;
+            }
+
+            throw new Exception("FoodId or RecipeId is required.");
+        }
+
+        private static void ApplyNutritionFromFood(MealLog entity, Food food, decimal quantityG)
+        {
+            var ratio = quantityG / 100m;
+            entity.CaloriesKcal = Multiply(food.CaloriesKcal, ratio);
+            entity.ProteinG = Multiply(food.ProteinG, ratio);
+            entity.CarbsG = Multiply(food.CarbsG, ratio);
+            entity.FatG = Multiply(food.FatG, ratio);
+        }
+
+        private static void ApplyNutritionFromRecipe(MealLog entity, Recipe recipe, decimal quantityG)
+        {
+            var ratio = quantityG / 100m;
+            entity.CaloriesKcal = Multiply(recipe.EstimatedPriceVnd.HasValue ? 0 : 0, ratio); // fallback if recipe nutrition is not stored directly
+            entity.ProteinG = 0;
+            entity.CarbsG = 0;
+            entity.FatG = 0;
+        }
+
+        private static decimal? Multiply(decimal? value, decimal ratio) => value.HasValue ? Math.Round(value.Value * ratio, 2) : null;
+
+        private async Task<MealLog> GetOwnedMealLogAsync(Guid userId, Guid mealLogId)
+        {
+            var entity = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId) ?? throw new Exception("Meal log not found.");
+            if (entity.UserId != userId) throw new Exception("Forbidden.");
+            return entity;
+        }
+
+        private async Task<WeightLog> GetOwnedWeightLogAsync(Guid userId, Guid weightLogId)
+        {
+            var entity = await _unitOfWork.WeightLogs.GetByIdAsync(weightLogId) ?? throw new Exception("Weight log not found.");
+            if (entity.UserId != userId) throw new Exception("Forbidden.");
+            return entity;
+        }
+
+        private async Task<MealDaySummaryResponse> BuildDailySummaryAsync(Guid userId, DateOnly date, List<MealLog> logs)
+        {
+            var health = (await _unitOfWork.HealthProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
+            var targetCalories = health?.TargetCalories ?? 0;
+            var targetProtein = health?.TargetProteinG ?? 0;
+            var targetCarbs = health?.TargetCarbsG ?? 0;
+            var targetFat = health?.TargetFatG ?? 0;
+
+            var totalCalories = logs.Sum(x => x.CaloriesKcal ?? 0);
+            var totalProtein = logs.Sum(x => x.ProteinG ?? 0);
+            var totalCarbs = logs.Sum(x => x.CarbsG ?? 0);
+            var totalFat = logs.Sum(x => x.FatG ?? 0);
+
+            return new MealDaySummaryResponse
+            {
+                Date = date.ToString("yyyy-MM-dd"),
+                TotalCalories = totalCalories,
+                TotalProteinG = totalProtein,
+                TotalCarbsG = totalCarbs,
+                TotalFatG = totalFat,
+                TargetCalories = targetCalories,
+                TargetProteinG = targetProtein,
+                TargetCarbsG = targetCarbs,
+                TargetFatG = targetFat,
+                CaloriesDeviation = totalCalories - targetCalories,
+                ProteinDeviation = totalProtein - targetProtein,
+                CarbsDeviation = totalCarbs - targetCarbs,
+                FatDeviation = totalFat - targetFat,
+                HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > Math.Max(100, targetCalories * 0.10m),
+                MealLogs = logs.OrderBy(x => x.LoggedAt).Select(Map).ToList()
+            };
+        }
+
+        private async Task<List<MealDaySummaryResponse>> BuildRangeSummariesAsync(Guid userId, DateOnly from, DateOnly to, List<MealLog> logs)
+        {
+            var result = new List<MealDaySummaryResponse>();
+            for (var day = from; day <= to; day = day.AddDays(1))
+            {
+                var dayLogs = logs.Where(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == day).ToList();
+                result.Add(await BuildDailySummaryAsync(userId, day, dayLogs));
+            }
+            return result;
+        }
+
+        private static (DateOnly from, DateOnly to) ResolveRange(string range, DateOnly? startDate, DateOnly? endDate)
+        {
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                return (startDate.Value, endDate.Value);
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            return range.Trim().ToLower() switch
+            {
+                "week" => (today.AddDays(-6), today),
+                "month" => (new DateOnly(today.Year, today.Month, 1), today),
+                _ => (today, today)
+            };
+        }
+
+        private static MealLogResponse Map(MealLog x) => new() { Id = x.Id, UserId = x.UserId, FoodId = x.FoodId, RecipeId = x.RecipeId, MealType = x.MealType, QuantityG = x.QuantityG, CaloriesKcal = x.CaloriesKcal, ProteinG = x.ProteinG, CarbsG = x.CarbsG, FatG = x.FatG, SourceType = x.SourceType, Notes = x.Notes, LoggedAt = x.LoggedAt };
+        private static WeightLogResponse Map(WeightLog x) => new() { Id = x.Id, UserId = x.UserId, WeightKg = x.WeightKg, BodyFatPercent = x.BodyFatPercent, RecordedAt = x.RecordedAt };
+    }
+}
