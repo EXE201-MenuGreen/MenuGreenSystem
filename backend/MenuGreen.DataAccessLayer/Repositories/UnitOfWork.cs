@@ -16,11 +16,9 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.Ingredient>? _ingredients;
         private IGenericRepository<Entities.Recipe>? _recipes;
         private IGenericRepository<Entities.RecipeIngredient>? _recipeIngredients;
+        private IGenericRepository<Entities.Allergy>? _allergies;
 
-        public UnitOfWork(ApplicationDbContext context)
-        {
-            _context = context;
-        }
+        public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
         public IGenericRepository<Entities.User> Users => _users ??= new GenericRepository<Entities.User>(_context);
         public IGenericRepository<Entities.Profile> Profiles => _profiles ??= new GenericRepository<Entities.Profile>(_context);
@@ -32,6 +30,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.Ingredient> Ingredients => _ingredients ??= new GenericRepository<Entities.Ingredient>(_context);
         public IGenericRepository<Entities.Recipe> Recipes => _recipes ??= new GenericRepository<Entities.Recipe>(_context);
         public IGenericRepository<Entities.RecipeIngredient> RecipeIngredients => _recipeIngredients ??= new GenericRepository<Entities.RecipeIngredient>(_context);
+        public IGenericRepository<Entities.Allergy> Allergies => _allergies ??= new GenericRepository<Entities.Allergy>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
