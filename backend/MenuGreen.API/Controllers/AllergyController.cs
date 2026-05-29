@@ -16,6 +16,7 @@ namespace MenuGreen.API.Controllers
         private readonly IAllergyService _service;
         public AllergyController(IAllergyService service) => _service = service;
 
+        // Lấy danh sách dị ứng của chính user đang đăng nhập.
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -24,6 +25,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.GetAllAsync(id));
         }
 
+        // Thêm một mục dị ứng mới cho user.
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AllergyUpsertRequest request)
         {
@@ -33,6 +35,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.CreateAsync(id, request));
         }
 
+        // Cập nhật một mục dị ứng hiện có.
         [HttpPut("{allergyId:guid}")]
         public async Task<IActionResult> Update(Guid allergyId, [FromBody] AllergyUpsertRequest request)
         {
@@ -42,6 +45,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.UpdateAsync(id, allergyId, request));
         }
 
+        // Xóa một mục dị ứng của user.
         [HttpDelete("{allergyId:guid}")]
         public async Task<IActionResult> Delete(Guid allergyId)
         {

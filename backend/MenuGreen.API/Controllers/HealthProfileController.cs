@@ -16,6 +16,7 @@ namespace MenuGreen.API.Controllers
         private readonly IHealthProfileService _service;
         public HealthProfileController(IHealthProfileService service) => _service = service;
 
+        // Xem hồ sơ sức khỏe của chính mình.
         [HttpGet("me")]
         public async Task<IActionResult> Get()
         {
@@ -24,6 +25,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.GetAsync(id));
         }
 
+        // Cập nhật hồ sơ sức khỏe của chính mình.
         [HttpPut("me")]
         public async Task<IActionResult> Update([FromBody] UpdateHealthProfileRequest request)
         {
