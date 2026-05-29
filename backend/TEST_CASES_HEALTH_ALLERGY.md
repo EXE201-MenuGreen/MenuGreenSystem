@@ -14,8 +14,8 @@
 ## 2. BMR Test Cases
 
 ### Công thức Mifflin-St Jeor
-- Male: `10W + 6.25H - 5A + 5`
-- Female: `10W + 6.25H - 5A - 161`
+- Male: `10*W + 6.25*H - 5*A + 5`
+- Female: `10*W + 6.25*H - 5*A - 161`
 
 | Test Case | Input | Expected Result |
 |---|---|---|

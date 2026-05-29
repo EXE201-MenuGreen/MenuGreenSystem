@@ -17,6 +17,7 @@ namespace MenuGreen.API.Controllers
             _service = service;
         }
 
+        // Gợi ý món ăn hoặc combo dựa trên mục tiêu Calories.
         [HttpGet("calories")]
         public async Task<IActionResult> Calories([FromQuery] RecommendationRequest request)
         {
@@ -24,6 +25,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.RecommendByCaloriesAsync(request));
         }
 
+        // Gợi ý món ăn theo tiêu chí kinh tế: giá và thời gian nấu.
         [HttpGet("eco")]
         public async Task<IActionResult> Eco([FromQuery] RecommendationRequest request)
         {
@@ -31,6 +33,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.RecommendByEcoAsync(request));
         }
 
+        // Gợi ý bữa trưa nhanh, rẻ và phù hợp calories.
         [HttpGet("lunch")]
         public async Task<IActionResult> Lunch([FromQuery] RecommendationRequest request)
         {
@@ -38,6 +41,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.RecommendLunchAsync(request));
         }
 
+        // Tạo thực đơn một ngày gồm Breakfast, Lunch, Dinner, Snack.
         [HttpGet("daily-menu")]
         public async Task<IActionResult> DailyMenu([FromQuery] RecommendationRequest request)
         {
@@ -45,6 +49,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.BuildDailyMenuAsync(request));
         }
 
+        // Tính thời gian nhắc chuẩn bị món ăn dựa trên giờ ăn dự kiến.
         [HttpPost("smart-schedule")]
         public async Task<IActionResult> SmartSchedule([FromBody] SmartScheduleRequest request)
         {

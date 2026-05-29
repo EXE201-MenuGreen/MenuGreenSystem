@@ -17,6 +17,7 @@ namespace MenuGreen.API.Controllers
             _foodService = foodService;
         }
 
+        // Tìm kiếm món ăn theo keyword, calories, giá, thời gian và category.
         [HttpGet]
         public async Task<IActionResult> Search(
             [FromQuery] string? keyword,
@@ -40,6 +41,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Lấy chi tiết món ăn theo Id.
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -53,6 +55,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Tạo mới món ăn.
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] FoodUpsertRequest request)
         {
@@ -68,6 +71,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Cập nhật thông tin món ăn theo Id.
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] FoodUpsertRequest request)
         {
@@ -83,6 +87,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Xóa món ăn theo Id.
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
