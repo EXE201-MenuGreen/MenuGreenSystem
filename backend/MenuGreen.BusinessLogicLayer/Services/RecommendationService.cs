@@ -82,14 +82,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new MealPlanResponse
             {
                 TargetCalories = targetCalories,
-                TotalCalories = all.Sum(x => x.CaloriesKcal),
-                TotalProteinG = all.Sum(x => x.ProteinG),
-                TotalCarbsG = all.Sum(x => x.CarbsG),
-                TotalFatG = all.Sum(x => x.FatG),
-                Breakfast = breakfast,
-                Lunch = lunch,
-                Dinner = dinner,
-                Snack = snack
+                TotalCalories = (int)Math.Round(all.Sum(x => x.CaloriesKcal)),
+                TotalProteinG = (int)Math.Round(all.Sum(x => x.ProteinG)),
+                TotalCarbsG = (int)Math.Round(all.Sum(x => x.CarbsG)),
+                TotalFatG = (int)Math.Round(all.Sum(x => x.FatG)),
+                Items = breakfast.Concat(lunch).Concat(dinner).Concat(snack)
+                    .Select(x => new MealPlanItemResponse
+                    {
+                        Id = x.Id,
+                        MealPlanId = Guid.Empty,
+                        MealType = x.Type,
+                        FoodId = null,
+                        RecipeId = null,
+                        PlannedDate = null,
+                        TargetCalories = (int)Math.Round(x.CaloriesKcal),
+                        IsCompleted = false,
+                        FoodName = x.Name,
+                        RecipeName = x.Name
+                    }).ToList()
             };
         }
 

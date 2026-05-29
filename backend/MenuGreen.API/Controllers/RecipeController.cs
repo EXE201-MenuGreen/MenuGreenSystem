@@ -17,6 +17,7 @@ namespace MenuGreen.API.Controllers
             _recipeService = recipeService;
         }
 
+        // Lấy chi tiết công thức theo Id.
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -30,6 +31,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Tạo mới công thức chế biến.
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] RecipeUpsertRequest request)
         {
@@ -45,6 +47,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Cập nhật công thức theo Id.
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] RecipeUpsertRequest request)
         {
@@ -60,6 +63,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Xóa công thức theo Id.
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {

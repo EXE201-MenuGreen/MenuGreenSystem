@@ -1,17 +1,22 @@
+using System;
 using System.Collections.Generic;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
     public class MealPlanResponse
     {
-        public decimal TotalCalories { get; set; }
-        public decimal TargetCalories { get; set; }
-        public decimal TotalProteinG { get; set; }
-        public decimal TotalCarbsG { get; set; }
-        public decimal TotalFatG { get; set; }
-        public List<RecommendationItemResponse> Breakfast { get; set; } = new();
-        public List<RecommendationItemResponse> Lunch { get; set; } = new();
-        public List<RecommendationItemResponse> Dinner { get; set; } = new();
-        public List<RecommendationItemResponse> Snack { get; set; } = new();
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? PlanType { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public int? TargetCalories { get; set; }
+        public string? GeneratedBy { get; set; }
+        public bool IsActive { get; set; }
+        public int TotalCalories { get; set; }
+        public int TotalProteinG { get; set; }
+        public int TotalCarbsG { get; set; }
+        public int TotalFatG { get; set; }
+        public List<MealPlanItemResponse> Items { get; set; } = new();
     }
 }
