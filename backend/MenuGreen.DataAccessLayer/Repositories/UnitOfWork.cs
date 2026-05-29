@@ -23,6 +23,9 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.MealPlanItem>? _mealPlanItems;
         private IGenericRepository<Entities.Notification>? _notifications;
         private IGenericRepository<Entities.NotificationSetting>? _notificationSettings;
+        private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
+        private IGenericRepository<Entities.UserSubscription>? _userSubscriptions;
+        private IGenericRepository<Entities.SubscriptionTransaction>? _subscriptionTransactions;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -43,6 +46,9 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.MealPlanItem> MealPlanItems => _mealPlanItems ??= new GenericRepository<Entities.MealPlanItem>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);
         public IGenericRepository<Entities.NotificationSetting> NotificationSettings => _notificationSettings ??= new GenericRepository<Entities.NotificationSetting>(_context);
+        public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
+        public IGenericRepository<Entities.UserSubscription> UserSubscriptions => _userSubscriptions ??= new GenericRepository<Entities.UserSubscription>(_context);
+        public IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions => _subscriptionTransactions ??= new GenericRepository<Entities.SubscriptionTransaction>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
