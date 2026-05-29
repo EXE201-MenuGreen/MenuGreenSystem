@@ -17,6 +17,7 @@ namespace MenuGreen.API.Controllers
             _ingredientService = ingredientService;
         }
 
+        // Lấy chi tiết nguyên liệu theo Id.
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -30,6 +31,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Tạo mới nguyên liệu.
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] IngredientUpsertRequest request)
         {
@@ -45,6 +47,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Cập nhật thông tin nguyên liệu theo Id.
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] IngredientUpsertRequest request)
         {
@@ -60,6 +63,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        // Xóa nguyên liệu theo Id.
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {

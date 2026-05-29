@@ -17,6 +17,7 @@ namespace MenuGreen.API.Controllers
             _authService = authService;
         }
 
+        // Đăng ký tài khoản mới và gửi OTP xác thực qua email.
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {

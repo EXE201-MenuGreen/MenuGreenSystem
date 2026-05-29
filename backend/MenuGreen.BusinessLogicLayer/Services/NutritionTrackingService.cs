@@ -202,7 +202,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinDeviation = totalProtein - targetProtein,
                 CarbsDeviation = totalCarbs - targetCarbs,
                 FatDeviation = totalFat - targetFat,
-                HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > Math.Max(100, targetCalories * 0.10m),
+                HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > (double)Math.Max(100, targetCalories * 0.10m),
                 MealLogs = logs.OrderBy(x => x.LoggedAt).Select(Map).ToList()
             };
         }
