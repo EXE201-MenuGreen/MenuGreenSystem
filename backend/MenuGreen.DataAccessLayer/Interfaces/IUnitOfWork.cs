@@ -19,6 +19,9 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.MealPlanItem> MealPlanItems { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
+        IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }
+        IGenericRepository<Entities.UserSubscription> UserSubscriptions { get; }
+        IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions { get; }
         
         Task<int> CompleteAsync();
     }
