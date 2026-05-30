@@ -19,6 +19,23 @@ namespace MenuGreen.API.Controllers
             _ingredientService = ingredientService;
         }
 
+        // Tìm kiếm nguyên liệu theo keyword, category và trạng thái.
+        [HttpGet]
+        public async Task<IActionResult> Search(
+            [FromQuery] string? keyword,
+            [FromQuery] string? category,
+            [FromQuery] bool? isActive)
+        {
+            try
+            {
+                return Ok(await _ingredientService.SearchAsync(keyword, category, isActive));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         // Lấy chi tiết nguyên liệu theo Id.
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
