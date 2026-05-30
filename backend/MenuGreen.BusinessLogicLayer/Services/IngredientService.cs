@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -34,6 +35,33 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task DeleteAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); _unitOfWork.Ingredients.Remove(e); await _unitOfWork.CompleteAsync(); }
         public async Task<IngredientResponse> GetByIdAsync(Guid id) => Map(await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."));
+
+        public async Task<IngredientSearchResponse> SearchAsync(string? keyword, string? category, bool? isActive)
+        {
+            var ingredients = await _unitOfWork.Ingredients.GetAllAsync();
+            var query = ingredients.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                query = query.Where(i =>
+                    i.NameVi.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                    (i.NameEn ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                query = query.Where(i =>
+                    string.Equals(i.Category, category, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(i => i.IsActive == isActive.Value);
+            }
+
+            var items = query.Select(Map).ToList();
+            return new IngredientSearchResponse { Items = items, TotalCount = items.Count };
+        }
 
         private static IngredientResponse Map(Ingredient e) => new() { Id = e.Id, NameVi = e.NameVi, NameEn = e.NameEn, Category = e.Category, CaloriesKcal = e.CaloriesKcal, ProteinG = e.ProteinG, CarbsG = e.CarbsG, FatG = e.FatG, EstimatedPriceVnd = e.EstimatedPriceVnd, UnitDefault = e.UnitDefault, ImageUrl = e.ImageUrl, IsActive = e.IsActive };
     }
