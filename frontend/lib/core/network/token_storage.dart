@@ -15,6 +15,17 @@ class TokenStorage {
     return prefs.getString(_refreshTokenKey);
   }
 
+  Future<String?> getFullName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fullNameKey);
+  }
+
+  Future<void> saveFullName(String fullName) async {
+    if (fullName.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fullNameKey, fullName);
+  }
+
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
