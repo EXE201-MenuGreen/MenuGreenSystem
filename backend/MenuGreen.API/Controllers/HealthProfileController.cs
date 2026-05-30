@@ -11,6 +11,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [Authorize(Policy = "UserOnly")]
     public class HealthProfileController : ControllerBase
     {
         private readonly IHealthProfileService _service;
