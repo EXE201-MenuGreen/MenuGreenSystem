@@ -10,6 +10,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "AdminOnly")]
     public class SubscriptionPlanController : ControllerBase
     {
         private readonly ISubscriptionPlanService _service;
@@ -19,14 +20,21 @@ namespace MenuGreen.API.Controllers
             _service = service;
         }
 
-        // Lấy danh sách gói thành viên, có thể lọc theo trạng thái hoạt động.
+        // Lấy danh sách chính sách gói subscription, có thể lọc theo trạng thái hoạt động.
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
         {
-            return Ok(await _service.GetAllAsync(isActive));
+            try
+            {
+                return Ok(await _service.GetAllAsync(isActive));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
-        // Lấy chi tiết một gói thành viên theo Id.
+        // Lấy chi tiết chính sách của một gói subscription theo Id.
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -40,7 +48,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Tạo mới một gói thành viên.
+        // Tạo mới một chính sách gói subscription.
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SubscriptionPlanUpsertRequest request)
         {
@@ -56,7 +64,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Cập nhật thông tin gói thành viên.
+        // Cập nhật chính sách giá và thời hạn của gói subscription.
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] SubscriptionPlanUpsertRequest request)
         {
@@ -72,7 +80,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Xóa một gói thành viên theo Id.
+        // Xóa một chính sách gói subscription không còn dùng.
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -87,7 +95,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Kích hoạt hoặc vô hiệu hóa gói thành viên.
+        // Bật hoặc tắt hiệu lực của một chính sách gói subscription.
         [HttpPatch("{id:guid}/status")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] SubscriptionPlanStatusRequest request)
         {

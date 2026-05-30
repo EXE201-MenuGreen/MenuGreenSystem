@@ -11,6 +11,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [Authorize(Policy = "UserOnly")]
     public class NutritionTrackingController : ControllerBase
     {
         private readonly INutritionTrackingService _service;

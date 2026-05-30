@@ -14,6 +14,13 @@ builder.Services.AddBusinessLogicLayer();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configure authorization policies for role-based access control.
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("UserOnly", policy => policy.RequireRole("User", "Admin"));
+});
+
 // Configure CORS
 builder.Services.AddCors(options =>
 {
