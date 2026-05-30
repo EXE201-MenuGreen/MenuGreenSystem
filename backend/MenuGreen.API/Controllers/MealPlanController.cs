@@ -10,6 +10,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "AdminOnly")]
     public class MealPlanController : ControllerBase
     {
         private readonly IMealPlanService _service;
