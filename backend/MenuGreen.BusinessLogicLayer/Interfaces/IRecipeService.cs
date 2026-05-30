@@ -11,5 +11,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<RecipeResponse> UpdateAsync(Guid id, RecipeUpsertRequest request);
         Task DeleteAsync(Guid id);
         Task<RecipeResponse> GetByIdAsync(Guid id);
+        Task<RecipeSearchResponse> SearchAsync(string? keyword, string? mealType, string? difficulty, bool? isActive);
     }
 }

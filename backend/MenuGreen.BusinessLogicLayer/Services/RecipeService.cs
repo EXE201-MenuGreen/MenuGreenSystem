@@ -46,6 +46,39 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return result;
         }
 
+        public async Task<RecipeSearchResponse> SearchAsync(string? keyword, string? mealType, string? difficulty, bool? isActive)
+        {
+            var recipes = await _unitOfWork.Recipes.GetAllAsync();
+            var query = recipes.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                query = query.Where(r =>
+                    r.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                    (r.Description ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(mealType))
+            {
+                query = query.Where(r =>
+                    string.Equals(r.MealType, mealType, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(difficulty))
+            {
+                query = query.Where(r =>
+                    string.Equals(r.Difficulty, difficulty, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(r => r.IsActive == isActive.Value);
+            }
+
+            var items = query.Select(Map).ToList();
+            return new RecipeSearchResponse { Items = items, TotalCount = items.Count };
+        }
+
         private async Task UpsertIngredients(Guid recipeId, System.Collections.Generic.List<RecipeIngredientUpsertRequest> ingredients)
         {
             foreach (var item in ingredients)
