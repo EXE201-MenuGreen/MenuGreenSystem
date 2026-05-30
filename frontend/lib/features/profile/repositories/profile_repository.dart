@@ -36,7 +36,12 @@ class ProfileRepository {
       final response = await _api.putJson(ApiEndpoints.getProfile, data);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final fullName = (body['fullName'] ?? body['FullName'])?.toString();
+        if (fullName != null && fullName.isNotEmpty) {
+          await _storage.saveFullName(fullName);
+        }
+        return body;
       }
       return null;
     } catch (e) {

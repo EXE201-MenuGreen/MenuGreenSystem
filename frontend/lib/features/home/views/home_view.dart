@@ -1,31 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/token_storage.dart';
 import '../../../core/widgets/primary_button.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
   @override
-  State<HomeView> createState() => _HomeViewState();
+  State<HomeView> createState() => HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
-  String _userName = 'MinMin'; // Default fallback
+class HomeViewState extends State<HomeView> {
+  final _tokenStorage = TokenStorage();
+  String _userName = 'MinMin';
 
   @override
   void initState() {
     super.initState();
-    _loadUserName();
+    loadUserName();
   }
 
-  Future<void> _loadUserName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString('full_name');
-    if (name != null && name.isNotEmpty) {
-      setState(() {
-        _userName = name;
-      });
+  Future<void> loadUserName() async {
+    final name = await _tokenStorage.getFullName();
+    if (name != null && name.isNotEmpty && mounted) {
+      setState(() => _userName = name);
     }
   }
 
