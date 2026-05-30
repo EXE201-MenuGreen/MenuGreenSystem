@@ -10,6 +10,8 @@ const navItems = [
   { href: "/dashboard/foods", label: "Món ăn" },
   { href: "/dashboard/ingredients", label: "Nguyên liệu" },
   { href: "/dashboard/recipes", label: "Công thức" },
+  { href: "/dashboard/subscription-plans", label: "Gói thành viên" },
+  { href: "/dashboard/meal-plans", label: "Thực đơn mẫu" },
 ];
 
 export function AdminSidebar() {
@@ -31,7 +33,7 @@ export function AdminSidebar() {
         </Link>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {navItems.map((item) => {
           const isActive = item.exact
             ? pathname === item.href

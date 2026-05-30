@@ -12,6 +12,17 @@ export interface IngredientUpsertRequest {
   isActive?: boolean | null;
 }
 
+export interface IngredientSearchParams {
+  keyword?: string;
+  category?: string;
+  isActive?: boolean;
+}
+
+export interface IngredientSearchResult {
+  items: Ingredient[];
+  totalCount: number;
+}
+
 export interface Ingredient {
   id: string;
   nameVi: string;
