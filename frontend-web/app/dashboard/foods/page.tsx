@@ -1,10 +1,5 @@
-import { PageHeader } from "@/components/layout/page-header";
+import { FoodManagement } from "@/features/foods/components/food-management";
 
 export default function FoodsPage() {
-  return (
-    <PageHeader
-      title="Quản lý món ăn"
-      description="Tìm kiếm và CRUD món ăn — sẽ được triển khai ở Phase 4"
-    />
-  );
+  return <FoodManagement />;
 }

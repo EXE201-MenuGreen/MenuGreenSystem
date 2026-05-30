@@ -27,8 +27,13 @@ export default function RootLayout({
     <html
       lang="vi"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50">
+      {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject attributes on <body> before hydrate */}
+      <body
+        className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50"
+        suppressHydrationWarning
+      >
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

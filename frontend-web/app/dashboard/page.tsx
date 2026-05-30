@@ -22,6 +22,16 @@ const modules = [
     title: "Công thức",
     description: "Quản lý công thức nấu ăn và thành phần",
   },
+  {
+    href: "/dashboard/subscription-plans",
+    title: "Gói thành viên",
+    description: "Quản lý gói Free, Pro và giá đăng ký",
+  },
+  {
+    href: "/dashboard/meal-plans",
+    title: "Thực đơn mẫu",
+    description: "Tạo meal plan mẫu và phân phối cho user",
+  },
 ];
 
 export default function DashboardPage() {
@@ -32,7 +42,7 @@ export default function DashboardPage() {
         description="Trung tâm quản trị MenuGreen — chọn module để bắt đầu"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((module) => (
           <Link
             key={module.href}

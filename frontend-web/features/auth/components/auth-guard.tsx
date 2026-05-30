@@ -10,13 +10,20 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const { isAuthenticated, isReady } = useAuth();
+  const { isAuthenticated, isAdmin, isReady } = useAuth();
 
   useEffect(() => {
-    if (isReady && !isAuthenticated) {
+    if (!isReady) return;
+
+    if (!isAuthenticated) {
       router.replace("/login");
+      return;
     }
-  }, [isAuthenticated, isReady, router]);
+
+    if (!isAdmin) {
+      router.replace("/login?error=not-admin");
+    }
+  }, [isAuthenticated, isAdmin, isReady, router]);
 
   if (!isReady) {
     return (
@@ -26,7 +33,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !isAdmin) {
     return null;
   }
 

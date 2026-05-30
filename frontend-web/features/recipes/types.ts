@@ -31,6 +31,18 @@ export interface RecipeIngredient {
   notes?: string | null;
 }
 
+export interface RecipeSearchParams {
+  keyword?: string;
+  mealType?: string;
+  difficulty?: string;
+  isActive?: boolean;
+}
+
+export interface RecipeSearchResult {
+  items: Recipe[];
+  totalCount: number;
+}
+
 export interface Recipe {
   id: string;
   foodId?: string | null;

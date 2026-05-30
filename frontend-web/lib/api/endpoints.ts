@@ -26,4 +26,30 @@ export const apiEndpoints = {
     base: `${API_BASE_URL}/Recipe`,
     byId: (id: string) => `${API_BASE_URL}/Recipe/${id}`,
   },
+  subscriptionPlan: {
+    base: `${API_BASE_URL}/SubscriptionPlan`,
+    byId: (id: string) => `${API_BASE_URL}/SubscriptionPlan/${id}`,
+    status: (id: string) => `${API_BASE_URL}/SubscriptionPlan/${id}/status`,
+  },
+  mealPlan: {
+    base: `${API_BASE_URL}/MealPlan`,
+    byId: (id: string) => `${API_BASE_URL}/MealPlan/${id}`,
+    status: (id: string) => `${API_BASE_URL}/MealPlan/${id}/status`,
+    distribute: (id: string) => `${API_BASE_URL}/MealPlan/${id}/distribute`,
+  },
 } as const;
+
+export function withQuery(
+  baseUrl: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === "") continue;
+    query.set(key, String(value));
+  }
+
+  const qs = query.toString();
+  return qs ? `${baseUrl}?${qs}` : baseUrl;
+}

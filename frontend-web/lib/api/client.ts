@@ -3,7 +3,7 @@ import { ApiError, getErrorMessageFromBody } from "@/lib/api/errors";
 import { tokenStorage } from "@/lib/auth/token-storage";
 import { tryGetExpiryEpochSeconds } from "@/lib/auth/jwt-utils";
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RequestOptions {
   method?: HttpMethod;
@@ -136,6 +136,10 @@ export const apiClient = {
 
   put<T>(url: string, body?: unknown, auth = true): Promise<T> {
     return sendRequest<T>(url, { method: "PUT", body, auth });
+  },
+
+  patch<T>(url: string, body?: unknown, auth = true): Promise<T> {
+    return sendRequest<T>(url, { method: "PATCH", body, auth });
   },
 
   delete<T>(url: string, auth = true): Promise<T> {

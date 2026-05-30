@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,7 +11,8 @@ import {
 
 export function LoginForm() {
   const router = useRouter();
-  const { isAuthenticated, isReady } = useAuth();
+  const searchParams = useSearchParams();
+  const { isAuthenticated, isAdmin, isReady } = useAuth();
   const { login } = useAuthActions();
 
   const [email, setEmail] = useState("admin@menugreen.app");
@@ -20,10 +21,16 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isReady && isAuthenticated) {
+    if (searchParams.get("error") === "not-admin") {
+      setError("Tài khoản không có quyền Admin.");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (isReady && isAuthenticated && isAdmin) {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isReady, router]);
+  }, [isAuthenticated, isAdmin, isReady, router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
