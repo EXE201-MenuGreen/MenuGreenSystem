@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MenuGreenLogo } from "@/components/brand/menu-green-logo";
 import { cn } from "@/lib/utils/cn";
 
 const navItems = [
@@ -21,9 +22,7 @@ export function AdminSidebar() {
     <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-sm font-bold text-white">
-            MG
-          </span>
+          <MenuGreenLogo size={36} />
           <div>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               MenuGreen
