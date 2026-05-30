@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { MenuGreenLogo } from "@/components/brand/menu-green-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,9 +55,7 @@ export function LoginForm() {
       className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
     >
       <div className="mb-6">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-base font-bold text-white">
-          MG
-        </div>
+        <MenuGreenLogo size={48} className="mb-4" />
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           MenuGreen Admin
         </h1>
