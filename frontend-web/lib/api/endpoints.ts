@@ -9,10 +9,17 @@ export const apiEndpoints = {
     logout: `${API_BASE_URL}/Auth/logout`,
   },
   user: {
-    list: `${API_BASE_URL}/User`,
-    byId: (id: string) => `${API_BASE_URL}/User/${id}`,
-    toggleStatus: (id: string) => `${API_BASE_URL}/User/${id}/toggle-status`,
     assignRole: (id: string) => `${API_BASE_URL}/User/${id}/assign-role`,
+  },
+  adminUser: {
+    list: `${API_BASE_URL}/AdminUser`,
+    byId: (id: string) => `${API_BASE_URL}/AdminUser/${id}`,
+    lock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/lock`,
+    unlock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/unlock`,
+  },
+  dashboard: {
+    metrics: `${API_BASE_URL}/Dashboard/metrics`,
+    revenue: `${API_BASE_URL}/Dashboard/revenue`,
   },
   food: {
     base: `${API_BASE_URL}/Food`,

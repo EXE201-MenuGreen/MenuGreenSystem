@@ -28,11 +28,24 @@ export function IngredientManagement() {
     createIngredient,
     updateIngredient,
     deleteIngredient,
+    loadIngredientDetail,
   } = useIngredients();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [deleting, setDeleting] = useState<Ingredient | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+
+  async function openEdit(ingredient: Ingredient) {
+    setDetailLoadingId(ingredient.id);
+    try {
+      const detail = await loadIngredientDetail(ingredient.id);
+      setEditing(detail);
+      setFormOpen(true);
+    } finally {
+      setDetailLoadingId(null);
+    }
+  }
 
   async function handleFormSubmit(
     payload: Parameters<typeof createIngredient>[0],
@@ -115,7 +128,8 @@ export function IngredientManagement() {
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-zinc-500">Không có nguyên liệu nào.</td></tr>
               ) : (
                 ingredients.map((item) => {
-                  const isBusy = actionLoadingId === item.id;
+                  const isBusy =
+                    actionLoadingId === item.id || detailLoadingId === item.id;
                   return (
                     <tr key={item.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
                       <td className="px-4 py-4">
@@ -133,7 +147,7 @@ export function IngredientManagement() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
-                          <Button variant="secondary" className="h-9 px-3 text-xs" disabled={isBusy} onClick={() => { setEditing(item); setFormOpen(true); }}>Sửa</Button>
+                          <Button variant="secondary" className="h-9 px-3 text-xs" disabled={isBusy} loading={detailLoadingId === item.id} onClick={() => openEdit(item)}>Sửa</Button>
                           <Button variant="danger" className="h-9 px-3 text-xs" loading={isBusy} onClick={() => setDeleting(item)}>Xóa</Button>
                         </div>
                       </td>

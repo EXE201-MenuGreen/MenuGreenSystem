@@ -26,20 +26,28 @@ export function FoodManagement() {
     createFood,
     updateFood,
     deleteFood,
+    loadFoodDetail,
   } = useFoods();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [deletingFood, setDeletingFood] = useState<Food | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
   function openCreate() {
     setEditingFood(null);
     setFormOpen(true);
   }
 
-  function openEdit(food: Food) {
-    setEditingFood(food);
-    setFormOpen(true);
+  async function openEdit(food: Food) {
+    setDetailLoadingId(food.id);
+    try {
+      const detail = await loadFoodDetail(food.id);
+      setEditingFood(detail);
+      setFormOpen(true);
+    } finally {
+      setDetailLoadingId(null);
+    }
   }
 
   function closeForm() {
@@ -216,7 +224,8 @@ export function FoodManagement() {
                 </tr>
               ) : (
                 foods.map((food) => {
-                  const isBusy = actionLoadingId === food.id;
+                  const isBusy =
+                    actionLoadingId === food.id || detailLoadingId === food.id;
 
                   return (
                     <tr
@@ -254,6 +263,7 @@ export function FoodManagement() {
                             variant="secondary"
                             className="h-9 px-3 text-xs"
                             disabled={isBusy}
+                            loading={detailLoadingId === food.id}
                             onClick={() => openEdit(food)}
                           >
                             Sửa

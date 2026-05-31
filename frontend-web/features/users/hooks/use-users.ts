@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { adminUserApi } from "@/features/users/api/admin-user-api";
 import { userApi } from "@/features/users/api/user-api";
 import type { UserAdmin } from "@/features/users/types";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -17,7 +18,7 @@ export function useUsers() {
     setError(null);
 
     try {
-      const data = await userApi.getAll();
+      const data = await adminUserApi.getAll();
       setUsers(data);
     } catch (err) {
       setError(getErrorMessage(err, "Không thể tải danh sách người dùng"));
@@ -37,7 +38,11 @@ export function useUsers() {
       setError(null);
 
       try {
-        await userApi.toggleStatus(user.id);
+        if (user.isActive) {
+          await adminUserApi.lock(user.id);
+        } else {
+          await adminUserApi.unlock(user.id);
+        }
         setNotice(
           `Đã cập nhật trạng thái của ${user.fullName || user.email}.`,
         );

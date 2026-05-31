@@ -4,6 +4,8 @@
  */
 export { authApi } from "@/features/auth/api/auth-api";
 export { userApi } from "@/features/users/api/user-api";
+export { adminUserApi } from "@/features/users/api/admin-user-api";
+export { dashboardApi } from "@/features/dashboard/api/dashboard-api";
 export { foodApi } from "@/features/foods/api/food-api";
 export { ingredientApi } from "@/features/ingredients/api/ingredient-api";
 export { recipeApi } from "@/features/recipes/api/recipe-api";
@@ -21,6 +23,7 @@ export {
 
 export type * from "@/features/auth/types";
 export type * from "@/features/users/types";
+export type * from "@/features/dashboard/types";
 export type * from "@/features/foods/types";
 export type * from "@/features/ingredients/types";
 export type * from "@/features/recipes/types";

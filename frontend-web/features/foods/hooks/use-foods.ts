@@ -115,6 +115,10 @@ export function useFoods() {
     [filters, search],
   );
 
+  const loadFoodDetail = useCallback(async (id: string) => {
+    return foodApi.getById(id);
+  }, []);
+
   return {
     filters,
     setFilters,
@@ -129,5 +133,6 @@ export function useFoods() {
     createFood,
     updateFood,
     deleteFood,
+    loadFoodDetail,
   };
 }
