@@ -115,6 +115,10 @@ export function useIngredients() {
     [filters, search],
   );
 
+  const loadIngredientDetail = useCallback(async (id: string) => {
+    return ingredientApi.getById(id);
+  }, []);
+
   return {
     filters,
     setFilters,
@@ -129,5 +133,6 @@ export function useIngredients() {
     createIngredient,
     updateIngredient,
     deleteIngredient,
+    loadIngredientDetail,
   };
 }

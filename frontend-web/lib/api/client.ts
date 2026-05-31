@@ -1,5 +1,5 @@
-import { apiEndpoints } from "@/lib/api/endpoints";
 import { ApiError, getErrorMessageFromBody } from "@/lib/api/errors";
+import { refreshAccessToken } from "@/lib/auth/refresh-access-token";
 import { tokenStorage } from "@/lib/auth/token-storage";
 import { tryGetExpiryEpochSeconds } from "@/lib/auth/jwt-utils";
 
@@ -22,41 +22,8 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) return false;
-
-  try {
-    const response = await fetch(apiEndpoints.auth.refreshToken, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!response.ok) return false;
-
-    const body = (await parseJsonSafe(response)) as Record<string, unknown>;
-    const accessToken =
-      (body.accessToken as string | undefined) ??
-      (body.AccessToken as string | undefined);
-    const nextRefreshToken =
-      (body.refreshToken as string | undefined) ??
-      (body.RefreshToken as string | undefined);
-    const fullName =
-      (body.fullName as string | undefined) ??
-      (body.FullName as string | undefined);
-
-    if (!accessToken || !nextRefreshToken) return false;
-
-    tokenStorage.saveTokens({
-      accessToken,
-      refreshToken: nextRefreshToken,
-      fullName,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+async function tryRefreshAccessToken(): Promise<boolean> {
+  return (await refreshAccessToken()) != null;
 }
 
 async function ensureFreshAccessToken(): Promise<void> {
@@ -68,7 +35,7 @@ async function ensureFreshAccessToken(): Promise<void> {
 
   const nowSec = Math.floor(Date.now() / 1000);
   if (exp - nowSec <= 60) {
-    await refreshAccessToken();
+    await tryRefreshAccessToken();
   }
 }
 
@@ -105,7 +72,7 @@ async function sendRequest<T>(
   const parsedBody = await parseJsonSafe(response);
 
   if (response.status === 401 && auth && retryOnUnauthorized) {
-    const refreshed = await refreshAccessToken();
+    const refreshed = await tryRefreshAccessToken();
     if (refreshed) {
       return sendRequest<T>(url, options, false);
     }

@@ -122,6 +122,10 @@ export function useSubscriptionPlans() {
     [reload],
   );
 
+  const loadPlanDetail = useCallback(async (id: string) => {
+    return subscriptionPlanApi.getById(id);
+  }, []);
+
   return {
     filterActive,
     setFilterActive,
@@ -136,5 +140,6 @@ export function useSubscriptionPlans() {
     updatePlan,
     deletePlan,
     toggleStatus,
+    loadPlanDetail,
   };
 }

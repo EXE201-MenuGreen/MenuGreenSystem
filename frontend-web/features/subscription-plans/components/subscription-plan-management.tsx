@@ -25,15 +25,28 @@ export function SubscriptionPlanManagement() {
     updatePlan,
     deletePlan,
     toggleStatus,
+    loadPlanDetail,
   } = useSubscriptionPlans();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
   const [deleting, setDeleting] = useState<SubscriptionPlan | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
   function handleFilterChange(value: string) {
     const isActive = value === "all" ? undefined : value === "active";
     setFilterActive(isActive);
+  }
+
+  async function openEdit(plan: SubscriptionPlan) {
+    setDetailLoadingId(plan.id);
+    try {
+      const detail = await loadPlanDetail(plan.id);
+      setEditing(detail);
+      setFormOpen(true);
+    } finally {
+      setDetailLoadingId(null);
+    }
   }
 
   async function handleFormSubmit(payload: Parameters<typeof createPlan>[0]) {
@@ -110,7 +123,8 @@ export function SubscriptionPlanManagement() {
                 <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-500">Không có gói nào.</td></tr>
               ) : (
                 plans.map((plan) => {
-                  const isBusy = actionLoadingId === plan.id;
+                  const isBusy =
+                    actionLoadingId === plan.id || detailLoadingId === plan.id;
                   return (
                     <tr key={plan.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
                       <td className="px-4 py-4">
@@ -136,7 +150,7 @@ export function SubscriptionPlanManagement() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
-                          <Button variant="secondary" className="h-9 px-3 text-xs" disabled={isBusy} onClick={() => { setEditing(plan); setFormOpen(true); }}>Sửa</Button>
+                          <Button variant="secondary" className="h-9 px-3 text-xs" disabled={isBusy} loading={detailLoadingId === plan.id} onClick={() => openEdit(plan)}>Sửa</Button>
                           <Button variant={plan.isActive ? "ghost" : "primary"} className="h-9 px-3 text-xs" loading={isBusy} onClick={() => toggleStatus(plan)}>
                             {plan.isActive ? "Ẩn" : "Bật"}
                           </Button>
