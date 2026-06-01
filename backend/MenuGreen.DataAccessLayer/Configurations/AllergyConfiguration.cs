@@ -11,7 +11,12 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.ToTable("allergies");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired().HasColumnType("text");
-            builder.HasIndex(x => x.Name).IsUnique();
+            builder.HasIndex(x => new { x.UserId, x.Name }).IsUnique();
+
+            builder.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
