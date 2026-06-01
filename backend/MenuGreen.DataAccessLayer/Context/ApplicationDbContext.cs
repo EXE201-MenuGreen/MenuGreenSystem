@@ -27,7 +27,6 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<MealLog> MealLogs { get; set; }
         public DbSet<WeightLog> WeightLogs { get; set; }
         public DbSet<NutritionSnapshot> NutritionSnapshots { get; set; }
-        public DbSet<FridgeItem> FridgeItems { get; set; }
         public DbSet<MealPlanHeader> MealPlanHeaders { get; set; }
         public DbSet<MealPlanItem> MealPlanItems { get; set; }
         public DbSet<AiConversation> AiConversations { get; set; }
