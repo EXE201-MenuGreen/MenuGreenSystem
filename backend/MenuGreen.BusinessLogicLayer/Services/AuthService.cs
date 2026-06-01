@@ -85,7 +85,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 UserId = user.Id,
                 Email = user.Email,
-                Message = "Đăng ký thành công. Vui lòng kiểm tra email để lấy OTP xác thực.",
+                Message = "Registration successful. Please check your email for the verification OTP.",
                 RequiresOtpVerification = true
             };
         }
@@ -94,9 +94,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var normalizedEmail = request.Email.Trim().ToLowerInvariant();
             var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash)) throw new Exception("Invalid email or password.");
-            if (!user.EmailConfirmed) throw new Exception("Please verify your OTP before logging in.");
-            if (!user.IsActive) throw new Exception("Your account has been locked.");
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+                throw new Exception("Invalid email or password.");
+            if (!user.EmailConfirmed)
+                throw new Exception("Please verify your OTP before logging in.");
+            if (!user.IsActive)
+                throw new Exception("Your account has been locked.");
 
             user.LastSignInAt = DateTime.UtcNow;
             _unitOfWork.Users.Update(user);
@@ -122,10 +125,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
         {
             var session = (await _unitOfWork.Sessions.FindAsync(s => s.RefreshToken == refreshToken)).FirstOrDefault();
-            if (session == null || session.ExpiresAt < DateTime.UtcNow) throw new Exception("Invalid or expired refresh token.");
+            if (session == null || session.ExpiresAt < DateTime.UtcNow)
+                throw new Exception("Invalid or expired refresh token.");
 
             var user = await _unitOfWork.Users.GetByIdAsync(session.UserId);
-            if (user == null || !user.IsActive) throw new Exception("Your account has been locked or does not exist.");
+            if (user == null || !user.IsActive)
+                throw new Exception("Your account has been locked or does not exist.");
 
             var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "User";
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
@@ -165,7 +170,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
             if (user == null)
             {
-                return new ForgotPasswordResponse { Success = true, Message = "Nếu email tồn tại, OTP đã được gửi." };
+                return new ForgotPasswordResponse { Success = true, Message = "If the email exists, an OTP has been sent." };
             }
 
             var oldVerifications = await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.VerifiedAt == null);
@@ -190,7 +195,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _emailService.SendForgotPasswordEmailAsync(user.Email, otp);
 
-            return new ForgotPasswordResponse { Success = true, Message = "OTP khôi phục mật khẩu đã được gửi đến email." };
+            return new ForgotPasswordResponse { Success = true, Message = "Password recovery OTP has been sent to your email." };
         }
 
         public async Task<ForgotPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request)
@@ -199,13 +204,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
             if (user == null)
             {
-                throw new Exception("Email không tồn tại.");
+                throw new Exception("Email does not exist.");
             }
 
             var verification = (await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.OtpCode == request.OtpCode)).FirstOrDefault();
             if (verification == null || verification.ExpiresAt < DateTime.UtcNow || verification.VerifiedAt != null)
             {
-                throw new Exception("OTP không hợp lệ hoặc đã hết hạn.");
+                throw new Exception("Invalid or expired OTP.");
             }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -222,7 +227,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.CompleteAsync();
 
-            return new ForgotPasswordResponse { Success = true, Message = "Đặt lại mật khẩu thành công." };
+            return new ForgotPasswordResponse { Success = true, Message = "Password reset successful." };
         }
 
         public async Task LogoutAsync(string refreshToken)

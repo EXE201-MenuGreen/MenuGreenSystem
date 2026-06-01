@@ -20,7 +20,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var entity = await BuildMealLogAsync(userId, request);
             await _unitOfWork.MealLogs.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
-            return Map(entity);
+            return await MapMealLogAsync(entity);
         }
 
         public async Task<MealLogResponse> UpdateMealLogAsync(Guid userId, Guid mealLogId, MealLogUpsertRequest request)
@@ -29,7 +29,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await ApplyMealLogRequestAsync(entity, request);
             _unitOfWork.MealLogs.Update(entity);
             await _unitOfWork.CompleteAsync();
-            return Map(entity);
+            return await MapMealLogAsync(entity);
         }
 
         public async Task DeleteMealLogAsync(Guid userId, Guid mealLogId)
@@ -203,7 +203,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsDeviation = totalCarbs - targetCarbs,
                 FatDeviation = totalFat - targetFat,
                 HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > (double)Math.Max(100, targetCalories * 0.10m),
-                MealLogs = logs.OrderBy(x => x.LoggedAt).Select(Map).ToList()
+                MealLogs = await MapMealLogsAsync(logs)
             };
         }
 
@@ -234,7 +234,70 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        private static MealLogResponse Map(MealLog x) => new() { Id = x.Id, UserId = x.UserId, FoodId = x.FoodId, RecipeId = x.RecipeId, MealType = x.MealType, QuantityG = x.QuantityG, CaloriesKcal = x.CaloriesKcal, ProteinG = x.ProteinG, CarbsG = x.CarbsG, FatG = x.FatG, SourceType = x.SourceType, Notes = x.Notes, LoggedAt = x.LoggedAt };
+        private async Task<MealLogResponse> MapMealLogAsync(MealLog x)
+        {
+            var mapped = await MapMealLogsAsync(new[] { x });
+            return mapped[0];
+        }
+
+        private async Task<List<MealLogResponse>> MapMealLogsAsync(IEnumerable<MealLog> logs)
+        {
+            var logList = logs.ToList();
+            if (logList.Count == 0) return new List<MealLogResponse>();
+
+            var foodIds = logList.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).Distinct().ToList();
+            var recipeIds = logList.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).Distinct().ToList();
+
+            var foods = foodIds.Count > 0
+                ? (await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id))).ToDictionary(f => f.Id)
+                : new Dictionary<Guid, Food>();
+            var recipes = recipeIds.Count > 0
+                ? (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id))).ToDictionary(r => r.Id)
+                : new Dictionary<Guid, Recipe>();
+
+            return logList
+                .OrderBy(x => x.LoggedAt)
+                .Select(x => MapMealLog(x, foods, recipes))
+                .ToList();
+        }
+
+        private static MealLogResponse MapMealLog(MealLog x, IReadOnlyDictionary<Guid, Food> foods, IReadOnlyDictionary<Guid, Recipe> recipes)
+        {
+            string? foodName = null;
+            string? recipeTitle = null;
+
+            if (x.FoodId.HasValue && foods.TryGetValue(x.FoodId.Value, out var food))
+                foodName = food.NameVi;
+            if (x.RecipeId.HasValue && recipes.TryGetValue(x.RecipeId.Value, out var recipe))
+                recipeTitle = recipe.Title;
+
+            var displayName = !string.IsNullOrWhiteSpace(foodName)
+                ? foodName
+                : !string.IsNullOrWhiteSpace(recipeTitle)
+                    ? recipeTitle
+                    : "Món đã ghi";
+
+            return new MealLogResponse
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                FoodId = x.FoodId,
+                RecipeId = x.RecipeId,
+                MealType = x.MealType,
+                QuantityG = x.QuantityG,
+                CaloriesKcal = x.CaloriesKcal,
+                ProteinG = x.ProteinG,
+                CarbsG = x.CarbsG,
+                FatG = x.FatG,
+                SourceType = x.SourceType,
+                Notes = x.Notes,
+                LoggedAt = x.LoggedAt,
+                FoodName = foodName,
+                RecipeTitle = recipeTitle,
+                DisplayName = displayName
+            };
+        }
+
         private static WeightLogResponse Map(WeightLog x) => new() { Id = x.Id, UserId = x.UserId, WeightKg = x.WeightKg, BodyFatPercent = x.BodyFatPercent, RecordedAt = x.RecordedAt };
     }
 }
