@@ -25,7 +25,6 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<RecipeIngredient> RecipeIngredients { get; set; }
         public DbSet<FavoriteFood> FavoriteFoods { get; set; }
         public DbSet<MealLog> MealLogs { get; set; }
-        public DbSet<WaterLog> WaterLogs { get; set; }
         public DbSet<WeightLog> WeightLogs { get; set; }
         public DbSet<NutritionSnapshot> NutritionSnapshots { get; set; }
         public DbSet<FridgeItem> FridgeItems { get; set; }

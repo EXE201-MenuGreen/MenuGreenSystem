@@ -4,6 +4,7 @@ using System.Net;
 using MenuGreen.DataAccessLayer.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260601043944_UpdateNotificationAndAllergy")]
+    partial class UpdateNotificationAndAllergy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1203,6 +1206,30 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("user_allergies", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.WaterLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AmountMl")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("LoggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LoggedAt");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("water_logs", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.WeightLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1619,6 +1646,17 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .IsRequired();
 
                     b.Navigation("Allergy");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.WaterLog", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
