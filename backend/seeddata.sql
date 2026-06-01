@@ -25,15 +25,14 @@
 -- DELETE FROM meal_plan_headers;
 -- DELETE FROM nutrition_snapshots;
 -- DELETE FROM meal_logs;
--- DELETE FROM water_logs;
 -- DELETE FROM weight_logs;
 -- DELETE FROM favorite_foods;
--- DELETE FROM user_allergies;
 -- DELETE FROM food_allergies;
+-- DELETE FROM allergies WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM recipe_ingredients;
 -- DELETE FROM recipes;
--- DELETE FROM fridge_items;
--- DELETE FROM notifications;
+-- DELETE FROM "NotificationSettings" WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM "Notifications" WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM activity_logs;
 -- DELETE FROM budget_requests;
 -- DELETE FROM user_ai_profile;
@@ -43,7 +42,7 @@
 -- DELETE FROM health_profiles;
 -- DELETE FROM profiles;
 -- DELETE FROM users WHERE "Email" LIKE '%@menugreen.app';
--- (reference tables: allergies, foods, ingredients, subscription_plans, roles are kept)
+-- (reference tables: foods, ingredients, subscription_plans, roles are kept)
 
 BEGIN;
 
@@ -85,19 +84,6 @@ VALUES
     365, 790000, 'pro', true
   )
 ON CONFLICT ("Id") DO NOTHING;
-
--- =========================
--- Allergies
--- =========================
-INSERT INTO allergies ("Id", "Name", "Description")
-VALUES
-  ('20000000-0000-0000-0000-000000000001', 'Gluten',  'Dị ứng gluten / không dung nạp gluten'),
-  ('20000000-0000-0000-0000-000000000002', 'Lactose', 'Không dung nạp lactose / sản phẩm từ sữa'),
-  ('20000000-0000-0000-0000-000000000003', 'Peanut',  'Dị ứng đậu phộng'),
-  ('20000000-0000-0000-0000-000000000004', 'Seafood', 'Dị ứng hải sản'),
-  ('20000000-0000-0000-0000-000000000005', 'Đậu nành', 'Dị ứng đậu nành'),
-  ('20000000-0000-0000-0000-000000000006', 'Trứng',   'Dị ứng trứng')
-ON CONFLICT ("Name") DO NOTHING;
 
 -- =========================
 -- Ingredients
@@ -159,15 +145,6 @@ VALUES
     330,12,48,8,6,25000,280,NULL,true,now()
   )
 ON CONFLICT ("Id") DO NOTHING;
-
--- =========================
--- Food allergies (reference links)
--- =========================
-INSERT INTO food_allergies ("FoodId", "AllergyId")
-VALUES
-  ('40000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000003'),
-  ('40000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002')
-ON CONFLICT DO NOTHING;
 
 -- =========================
 -- Recipes
@@ -323,29 +300,59 @@ VALUES
 ON CONFLICT ("UserId") DO NOTHING;
 
 -- =========================
--- User allergies
+-- Allergies (per user — matches AllergyService / GET api/allergy)
 -- =========================
-INSERT INTO user_allergies ("UserId", "AllergyId", "CreatedAt")
+INSERT INTO allergies ("Id", "UserId", "Name", "Notes", "IsActive", "CreatedAt", "UpdatedAt")
 VALUES
-  ('70000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003', now()),
-  ('70000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002', now())
+  (
+    '20000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000001',
+    'Peanut',
+    'Dị ứng đậu phộng',
+    true, now(), now()
+  ),
+  (
+    '20000000-0000-0000-0000-000000000002',
+    '70000000-0000-0000-0000-000000000001',
+    'Lactose',
+    'Không dung nạp lactose / sản phẩm từ sữa',
+    true, now(), now()
+  ),
+  (
+    '20000000-0000-0000-0000-000000000003',
+    '70000000-0000-0000-0000-000000000002',
+    'Lactose',
+    'Không dung nạp lactose / sản phẩm từ sữa',
+    true, now(), now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Food allergies (Smoothie Bơ Hạt — dùng allergy của demo user)
+-- =========================
+INSERT INTO food_allergies ("FoodId", "AllergyId")
+VALUES
+  ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001'),
+  ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002')
 ON CONFLICT DO NOTHING;
 
 -- =========================
--- Subscriptions (Pro user - yearly plan)
+-- User subscriptions (Pro user - API UserSubscriptionController)
 -- =========================
-INSERT INTO subscriptions (
-  "Id","UserId","PlanId","Status","AutoRenew","StartedAt","ExpiresAt"
+INSERT INTO user_subscriptions (
+  "Id", "UserId", "SubscriptionPlanId", "Status",
+  "StartDate", "EndDate", "CreatedAt", "UpdatedAt"
 )
 VALUES
   (
     '80000000-0000-0000-0000-000000000001',
     '70000000-0000-0000-0000-000000000002',
     '10000000-0000-0000-0000-000000000003',
-    'active',
-    true,
+    'Active',
     now() - interval '60 days',
-    '2026-12-31 23:59:59+00'::timestamptz
+    '2026-12-31 23:59:59+00'::timestamptz,
+    now() - interval '60 days',
+    now()
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -428,17 +435,6 @@ VALUES
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Water logs (today)
--- =========================
-INSERT INTO water_logs ("Id", "UserId", "AmountMl", "LoggedAt")
-VALUES
-  ('b0000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000001', 250, date_trunc('day', now()) + interval '8 hours'),
-  ('b0000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000001', 350, date_trunc('day', now()) + interval '10 hours'),
-  ('b0000000-0000-0000-0000-000000000003','70000000-0000-0000-0000-000000000001', 500, date_trunc('day', now()) + interval '14 hours'),
-  ('b0000000-0000-0000-0000-000000000004','70000000-0000-0000-0000-000000000002', 400, date_trunc('day', now()) + interval '9 hours')
-ON CONFLICT ("Id") DO NOTHING;
-
--- =========================
 -- Weight logs
 -- =========================
 INSERT INTO weight_logs ("Id", "UserId", "WeightKg", "BodyFatPercent", "RecordedAt")
@@ -449,9 +445,32 @@ VALUES
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
+-- Notification settings
+-- =========================
+INSERT INTO "NotificationSettings" (
+  "Id", "UserId",
+  "MealReminderEnabled", "MealReminderOffsetMinutes",
+  "PrepReminderEnabled", "PrepReminderOffsetMinutes",
+  "InAppEnabled", "PushEnabled",
+  "CreatedAt", "UpdatedAt"
+)
+VALUES
+  (
+    '11000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000001',
+    true, 30, true, 20, true, false, now(), now()
+  ),
+  (
+    '11000000-0000-0000-0000-000000000002',
+    '70000000-0000-0000-0000-000000000002',
+    true, 30, true, 20, true, false, now(), now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
 -- Notifications
 -- =========================
-INSERT INTO notifications ("Id", "UserId", "Title", "Body", "Type", "IsRead", "CreatedAt")
+INSERT INTO "Notifications" ("Id", "UserId", "Title", "Body", "Type", "IsRead", "CreatedAt")
 VALUES
   (
     'd0000000-0000-0000-0000-000000000001',
