@@ -131,5 +131,21 @@ namespace MenuGreen.API.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
+
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                var response = await _authService.LoginWithGoogleAsync(request.IdToken);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized(new { Message = ex.Message });
+            }
+        }
     }
 }

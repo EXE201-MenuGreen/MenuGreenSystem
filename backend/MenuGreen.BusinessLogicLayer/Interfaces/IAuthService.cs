@@ -13,5 +13,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request);
         Task<ForgotPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request);
         Task LogoutAsync(string refreshToken);
+        Task<AuthResponse> LoginWithGoogleAsync(string idToken);
     }
 }

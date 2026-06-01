@@ -1,4 +1,6 @@
 using System.Text;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -6,6 +8,21 @@ using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer.Context;
 var builder = WebApplication.CreateBuilder(args);
+
+var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
+if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
+{
+    var fullPath = Path.IsPathRooted(firebaseCredentialPath)
+        ? firebaseCredentialPath
+        : Path.Combine(builder.Environment.ContentRootPath, firebaseCredentialPath);
+    if (File.Exists(fullPath) && FirebaseApp.DefaultInstance == null)
+    {
+        FirebaseApp.Create(new AppOptions
+        {
+            Credential = GoogleCredential.FromFile(fullPath),
+        });
+    }
+}
 
 // Add services to the container.
 builder.Services.AddDataAccessLayer(builder.Configuration);

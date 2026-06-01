@@ -3,6 +3,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/services/firebase_bootstrap.dart';
+import '../../../core/services/firebase_google_auth_service.dart';
 import '../repositories/auth_repository.dart';
 import '../utils/auth_error_messages.dart';
 import 'register_screen.dart';
@@ -64,6 +66,49 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    if (!FirebaseGoogleAuthService.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Đăng nhập Google chỉ hỗ trợ trên Android/iOS. Hãy chạy app trên emulator hoặc thiết bị.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final result = await _authRepo.loginWithGoogle();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Đăng nhập Google thành công!',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result['message'] ?? 'Đăng nhập Google thất bại.').toString()),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -147,6 +192,41 @@ class _LoginScreenState extends State<LoginScreen> {
                       text: 'Đăng nhập',
                       onPressed: _handleLogin,
                     ),
+              if (FirebaseBootstrap.isInitialized) ...[
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'hoặc',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _handleGoogleLogin,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52),
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
+                  label: const Text(
+                    'Đăng nhập với Google',
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

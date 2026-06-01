@@ -3,13 +3,18 @@ import 'package:http/http.dart' as http;
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
+import '../../../core/services/firebase_google_auth_service.dart';
 import '../utils/auth_error_messages.dart';
 
 class AuthRepository {
-  AuthRepository({TokenStorage? tokenStorage})
-    : _storage = tokenStorage ?? TokenStorage();
+  AuthRepository({
+    TokenStorage? tokenStorage,
+    FirebaseGoogleAuthService? googleAuthService,
+  })  : _storage = tokenStorage ?? TokenStorage(),
+        _googleAuth = googleAuthService ?? FirebaseGoogleAuthService();
 
   final TokenStorage _storage;
+  final FirebaseGoogleAuthService _googleAuth;
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
@@ -75,6 +80,41 @@ class AuthRepository {
       return {
         'success': false,
         'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle() async {
+    try {
+      final idToken = await _googleAuth.signInAndGetIdToken();
+
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.googleLogin),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'idToken': idToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        await _maybePersistTokens(data);
+        return {'success': true, 'data': data};
+      }
+
+      final error = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      return {
+        'success': false,
+        'message': localizeAuthMessage(
+          extractApiMessage(error),
+          fallback: 'Đăng nhập Google thất bại.',
+        ),
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': localizeAuthMessage(
+          e.toString().replaceFirst('Exception: ', ''),
+          fallback: 'Đăng nhập Google thất bại.',
+        ),
       };
     }
   }
@@ -215,6 +255,7 @@ class AuthRepository {
   }
 
   Future<Map<String, dynamic>> logout() async {
+    await _googleAuth.signOut();
     try {
       final refresh = await _storage.getRefreshToken();
       if (refresh == null || refresh.isEmpty) {

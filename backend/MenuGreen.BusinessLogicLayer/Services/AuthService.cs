@@ -5,6 +5,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using FirebaseAdmin;
+using FirebaseAdmin.Auth;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -236,6 +238,137 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (session == null) return;
             _unitOfWork.Sessions.Remove(session);
             await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<AuthResponse> LoginWithGoogleAsync(string idToken)
+        {
+            if (string.IsNullOrWhiteSpace(idToken))
+                throw new Exception("Invalid Google sign-in token.");
+
+            if (FirebaseApp.DefaultInstance == null)
+                throw new Exception("Google sign-in is not configured on the server.");
+
+            FirebaseToken decoded;
+            try
+            {
+                decoded = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(idToken);
+            }
+            catch
+            {
+                throw new Exception("Invalid or expired Google sign-in token.");
+            }
+
+            if (!decoded.Claims.TryGetValue("email", out var emailObj) || emailObj == null)
+                throw new Exception("Google account does not have an email address.");
+
+            var normalizedEmail = emailObj.ToString()!.Trim().ToLowerInvariant();
+            decoded.Claims.TryGetValue("name", out var nameObj);
+            var displayName = nameObj?.ToString()?.Trim() ?? string.Empty;
+
+            var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
+            Profile? profile;
+
+            if (user == null)
+            {
+                var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault() ?? new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "User",
+                    Description = "Standard User Role",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                if (userRole.Id == Guid.Empty)
+                {
+                    await _unitOfWork.Roles.AddAsync(userRole);
+                    await _unitOfWork.CompleteAsync();
+                }
+
+                var now = DateTime.UtcNow;
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = userRole.Id,
+                    Email = normalizedEmail,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                    EmailConfirmed = true,
+                    IsActive = true,
+                    LastSignInAt = now,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                profile = new Profile
+                {
+                    UserId = user.Id,
+                    FullName = string.IsNullOrWhiteSpace(displayName) ? null : displayName,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                var health = new HealthProfile { UserId = user.Id, CreatedAt = now, UpdatedAt = now };
+
+                await _unitOfWork.Users.AddAsync(user);
+                await _unitOfWork.Profiles.AddAsync(profile);
+                await _unitOfWork.HealthProfiles.AddAsync(health);
+                await _unitOfWork.CompleteAsync();
+            }
+            else
+            {
+                if (!user.IsActive)
+                    throw new Exception("Your account has been locked.");
+
+                if (!user.EmailConfirmed)
+                {
+                    user.EmailConfirmed = true;
+                    user.IsActive = true;
+                }
+
+                user.LastSignInAt = DateTime.UtcNow;
+                user.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.Users.Update(user);
+
+                profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
+                if (profile != null &&
+                    string.IsNullOrWhiteSpace(profile.FullName) &&
+                    !string.IsNullOrWhiteSpace(displayName))
+                {
+                    profile.FullName = displayName;
+                    profile.UpdatedAt = DateTime.UtcNow;
+                    _unitOfWork.Profiles.Update(profile);
+                }
+            }
+
+            return await IssueAuthResponseAsync(user, profile);
+        }
+
+        private async Task<AuthResponse> IssueAuthResponseAsync(User user, Profile? profile)
+        {
+            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "User";
+            profile ??= (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
+
+            var accessToken = GenerateJwtToken(user, roleName);
+            var refreshToken = GenerateRefreshToken();
+
+            await _unitOfWork.Sessions.AddAsync(new Session
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                RefreshToken = refreshToken,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+            await _unitOfWork.CompleteAsync();
+
+            return new AuthResponse
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = profile?.FullName ?? string.Empty,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            };
         }
 
         private string GenerateOtp() => RandomNumberGenerator.GetInt32(100000, 999999).ToString();
