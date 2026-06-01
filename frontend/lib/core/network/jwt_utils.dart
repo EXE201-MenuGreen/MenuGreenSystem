@@ -20,6 +20,26 @@ class JwtUtils {
     }
   }
 
+  static String? tryGetUserId(String jwt) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length < 2) return null;
+
+      final payload = jsonDecode(_decodeBase64Url(parts[1]));
+      if (payload is! Map<String, dynamic>) return null;
+
+      const nameIdClaim =
+          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
+
+      final raw = payload[nameIdClaim] ?? payload['sub'] ?? payload['nameid'];
+      if (raw == null) return null;
+      final id = raw.toString().trim();
+      return id.isEmpty ? null : id;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static String _decodeBase64Url(String input) {
     var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
     switch (normalized.length % 4) {

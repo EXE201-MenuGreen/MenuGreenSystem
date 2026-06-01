@@ -5,6 +5,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../repositories/auth_repository.dart';
+import '../utils/auth_error_messages.dart';
 import 'reset_password_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -46,10 +47,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (result['success'] == true) {
       final data = result['data'];
-      final message = (data is Map<String, dynamic>) ? (data['message'] ?? data['Message'])?.toString() : null;
+      final message = localizeAuthMessage(
+        extractAuthResponseMessage(data),
+        fallback: 'Nếu email tồn tại, OTP đã được gửi.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message ?? 'OTP đã được gửi (nếu email tồn tại).', style: const TextStyle(color: Colors.white)),
+          content: Text(message, style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.green,
         ),
       );

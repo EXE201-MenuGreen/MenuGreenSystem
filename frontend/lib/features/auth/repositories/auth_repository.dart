@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
+import '../utils/auth_error_messages.dart';
 
 class AuthRepository {
   AuthRepository({TokenStorage? tokenStorage}) : _storage = tokenStorage ?? TokenStorage();
@@ -21,10 +23,18 @@ class AuthRepository {
         return {'success': true, 'data': decoded};
       }
 
-      final msg = (decoded is Map<String, dynamic>) ? (decoded['message'] ?? decoded['Message']) : null;
-      return {'success': false, 'message': msg?.toString() ?? 'Forgot password failed'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage(
+          extractApiMessage(decoded),
+          fallback: 'Gửi yêu cầu quên mật khẩu thất bại.',
+        ),
+      };
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -49,10 +59,18 @@ class AuthRepository {
         return {'success': true, 'data': decoded};
       }
 
-      final msg = (decoded is Map<String, dynamic>) ? (decoded['message'] ?? decoded['Message']) : null;
-      return {'success': false, 'message': msg?.toString() ?? 'Reset password failed'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage(
+          extractApiMessage(decoded),
+          fallback: 'Đặt lại mật khẩu thất bại.',
+        ),
+      };
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -70,10 +88,19 @@ class AuthRepository {
         return {'success': true, 'data': data};
       } else {
         final error = jsonDecode(response.body);
-        return {'success': false, 'message': error['message'] ?? 'Login failed'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage(
+            extractApiMessage(error),
+            fallback: 'Đăng nhập thất bại.',
+          ),
+        };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -91,14 +118,23 @@ class AuthRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        await _maybePersistTokens(data);
+        await _storage.clear();
         return {'success': true, 'data': data};
       } else {
         final error = jsonDecode(response.body);
-        return {'success': false, 'message': error['message'] ?? 'Registration failed'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage(
+            extractApiMessage(error),
+            fallback: 'Đăng ký thất bại.',
+          ),
+        };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -115,10 +151,19 @@ class AuthRepository {
         return {'success': true, 'data': data};
       } else {
         final error = jsonDecode(response.body);
-        return {'success': false, 'message': error['message'] ?? 'OTP verification failed'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage(
+            extractApiMessage(error),
+            fallback: 'Xác thực OTP thất bại.',
+          ),
+        };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -126,7 +171,10 @@ class AuthRepository {
     try {
       final refresh = await _storage.getRefreshToken();
       if (refresh == null || refresh.isEmpty) {
-        return {'success': false, 'message': 'No refresh token'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage('No refresh token'),
+        };
       }
 
       final response = await http.post(
@@ -141,10 +189,19 @@ class AuthRepository {
         return {'success': true, 'data': data};
       } else {
         final error = jsonDecode(response.body);
-        return {'success': false, 'message': error['message'] ?? 'Refresh token failed'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage(
+            extractApiMessage(error),
+            fallback: 'Làm mới phiên đăng nhập thất bại.',
+          ),
+        };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -169,11 +226,17 @@ class AuthRepository {
         return {'success': true, 'data': data};
       } else {
         // Even if backend logout fails, local session is cleared
-        return {'success': false, 'message': 'Logout request failed'};
+        return {
+          'success': false,
+          'message': localizeAuthMessage('Logout request failed'),
+        };
       }
     } catch (e) {
       await _storage.clear();
-      return {'success': false, 'message': 'Connection error. Is backend running?'};
+      return {
+        'success': false,
+        'message': localizeAuthMessage('Connection error. Is backend running?'),
+      };
     }
   }
 
@@ -182,8 +245,17 @@ class AuthRepository {
     final access = (decodedJson['accessToken'] ?? decodedJson['AccessToken'])?.toString();
     final refresh = (decodedJson['refreshToken'] ?? decodedJson['RefreshToken'])?.toString();
     final fullName = (decodedJson['fullName'] ?? decodedJson['FullName'])?.toString();
+    var userId = (decodedJson['userId'] ?? decodedJson['UserId'])?.toString();
+    if (userId == null || userId.isEmpty) {
+      userId = access != null ? JwtUtils.tryGetUserId(access) : null;
+    }
 
     if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) return;
-    await _storage.saveTokens(accessToken: access, refreshToken: refresh, fullName: fullName);
+    await _storage.saveTokens(
+      accessToken: access,
+      refreshToken: refresh,
+      fullName: fullName,
+      userId: userId,
+    );
   }
 }

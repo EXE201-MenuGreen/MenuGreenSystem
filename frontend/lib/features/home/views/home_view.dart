@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../profile/repositories/profile_repository.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -12,19 +14,42 @@ class HomeView extends StatefulWidget {
 
 class HomeViewState extends State<HomeView> {
   final _tokenStorage = TokenStorage();
+  final _profileRepository = ProfileRepository();
+  final _trackingRepository = NutritionTrackingRepository();
   String _userName = 'MinMin';
+  String? _avatarUrl;
+  MealDaySummary? _todaySummary;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    loadUserName();
+    refreshHeader();
+    _loadTodaySummary();
   }
 
-  Future<void> loadUserName() async {
+  Future<void> refreshHeader() async {
     final name = await _tokenStorage.getFullName();
-    if (name != null && name.isNotEmpty && mounted) {
-      setState(() => _userName = name);
-    }
+    final profile = await _profileRepository.getMyProfile();
+    if (!mounted) return;
+
+    final rawAvatar = profile?['avatarUrl']?.toString();
+    setState(() {
+      if (name != null && name.isNotEmpty) _userName = name;
+      final fullName = profile?['fullName']?.toString();
+      if (fullName != null && fullName.isNotEmpty) _userName = fullName;
+      _avatarUrl = (rawAvatar != null && rawAvatar.isNotEmpty) ? rawAvatar : null;
+    });
+  }
+
+  Future<void> _loadTodaySummary() async {
+    setState(() => _loading = true);
+    final summary = await _trackingRepository.getDailySummary(DateTime.now());
+    if (!mounted) return;
+    setState(() {
+      _todaySummary = summary;
+      _loading = false;
+    });
   }
 
   @override
@@ -54,12 +79,17 @@ class HomeViewState extends State<HomeView> {
   }
 
   Widget _buildHeader() {
+    final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
+
     return Row(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 24,
           backgroundColor: AppColors.progressBackground,
-          backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'), // Dummy avatar
+          backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
+          child: hasAvatar
+              ? null
+              : const Icon(Icons.person, color: AppColors.textSecondary, size: 28),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -75,20 +105,37 @@ class HomeViewState extends State<HomeView> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.progressBackground.withOpacity(0.5),
+            color: AppColors.progressBackground.withValues(alpha: 0.5),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.notifications_none, color: AppColors.textDark),
+          child: IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.textDark, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: _loading ? null : _loadTodaySummary,
+          ),
         )
       ],
     );
   }
 
   Widget _buildCalorieCard() {
+    final summary = _todaySummary;
+    final totalCalories = summary?.totalCalories ?? 0;
+    final targetCalories = (summary?.targetCalories ?? 1850).clamp(1, 10000);
+    final remainingCalories = (targetCalories - totalCalories).clamp(-99999, 99999);
+    final progress = (totalCalories / targetCalories).clamp(0, 1).toDouble();
+    final totalProtein = summary?.totalProteinG ?? 0;
+    final totalCarbs = summary?.totalCarbsG ?? 0;
+    final totalFat = summary?.totalFatG ?? 0;
+    final targetProtein = (summary?.targetProteinG ?? 120).clamp(1, 10000);
+    final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(1, 10000);
+    final targetFat = (summary?.targetFatG ?? 60).clamp(1, 10000);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withOpacity(0.3),
+        color: AppColors.progressBackground.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.progressBackground, width: 1),
       ),
@@ -106,19 +153,19 @@ class HomeViewState extends State<HomeView> {
                   const SizedBox(height: 4),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: const [
-                      Text('1.200 ', style: TextStyle(color: AppColors.textDark, fontSize: 28, fontWeight: FontWeight.bold)),
-                      Text('/ 1.850 kcal', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                    textBaseline: TextBaseline.ideographic,
+                    children: [
+                      Text('${totalCalories.toStringAsFixed(0)} ', style: const TextStyle(color: AppColors.textDark, fontSize: 28, fontWeight: FontWeight.bold)),
+                      Text('/ ${targetCalories.toStringAsFixed(0)} kcal', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                     ],
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: const [
-                  Text('Còn lại', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  Text('650 kcal', style: TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.bold)),
+                children: [
+                  const Text('Còn lại', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  Text('${remainingCalories.toStringAsFixed(0)} kcal', style: const TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               )
             ],
@@ -126,10 +173,10 @@ class HomeViewState extends State<HomeView> {
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(
-              value: 1200 / 1850,
+            child: LinearProgressIndicator(
+              value: progress,
               backgroundColor: AppColors.progressBackground,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
               minHeight: 8,
             ),
           ),
@@ -137,9 +184,9 @@ class HomeViewState extends State<HomeView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMacroInfo('PROTEIN', '85g', '120g'),
-              _buildMacroInfo('CARBS', '140g', '220g'),
-              _buildMacroInfo('CHẤT BÉO', '42g', '60g'),
+              _buildMacroInfo('PROTEIN', '${totalProtein.toStringAsFixed(0)}g', '${targetProtein.toStringAsFixed(0)}g'),
+              _buildMacroInfo('CARBS', '${totalCarbs.toStringAsFixed(0)}g', '${targetCarbs.toStringAsFixed(0)}g'),
+              _buildMacroInfo('CHẤT BÉO', '${totalFat.toStringAsFixed(0)}g', '${targetFat.toStringAsFixed(0)}g'),
             ],
           )
         ],
@@ -174,13 +221,22 @@ class HomeViewState extends State<HomeView> {
   }
 
   Widget _buildRecommendedMeal(BuildContext context) {
+    final logs = _todaySummary?.mealLogs ?? [];
+    final meal = logs.isNotEmpty ? logs.first : null;
+    final mealType = _mealTypeLabel(meal?.mealType);
+    final mealTitle = meal == null
+        ? 'Chưa có dữ liệu bữa ăn hôm nay'
+        : meal.displayName;
+    final mealCalories = meal == null ? '0 kcal' : '${meal.caloriesKcal.toStringAsFixed(0)} kcal';
+    final mealQty = meal == null ? '0 g' : '${meal.quantityG.toStringAsFixed(0)} g';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -209,7 +265,7 @@ class HomeViewState extends State<HomeView> {
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('GỢI Ý BỮA TRƯA', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  child: Text('NHẬT KÝ $mealType'.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                 ),
               )
             ],
@@ -221,40 +277,42 @@ class HomeViewState extends State<HomeView> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text('Salad Ức Gà Áp Chảo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  children: [
+                    Text(mealTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                     Row(
                       children: [
                         Icon(Icons.star_border, size: 16, color: AppColors.textDark),
                         SizedBox(width: 4),
-                        Text('4.8', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                        Text(logs.length.toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark)),
                       ],
                     )
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
-                  children: const [
+                  children: [
                     Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
                     SizedBox(width: 4),
-                    Text('20 phút', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                    SizedBox(width: 16),
+                    Text(mealQty, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    const SizedBox(width: 16),
                     Icon(Icons.local_fire_department_outlined, size: 14, color: AppColors.textSecondary),
                     SizedBox(width: 4),
-                    Text('450 kcal', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(mealCalories, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Giàu protein chất lượng cao và chất xơ tự nhiên, giúp bạn duy trì năng lượng và hỗ trợ cơ bắp suốt buổi chiều.',
+                Text(
+                  meal == null
+                      ? 'Hãy thêm nhật ký bữa ăn để theo dõi calories và macro chính xác hơn.'
+                      : 'Dữ liệu lấy từ nhật ký dinh dưỡng trong ngày của bạn.',
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: PrimaryButton(
-                    text: 'Xem chi tiết công thức',
-                    onPressed: () {},
+                    text: _loading ? 'Đang tải...' : 'Làm mới dữ liệu',
+                    onPressed: _loading ? () {} : _loadTodaySummary,
                   ),
                 )
               ],
@@ -317,5 +375,22 @@ class HomeViewState extends State<HomeView> {
         ],
       ),
     );
+  }
+
+  String _mealTypeLabel(String? mealType) {
+    final value = mealType?.trim().toLowerCase() ?? '';
+    switch (value) {
+      case 'breakfast':
+      case 'bữa sáng':
+        return 'sáng';
+      case 'lunch':
+      case 'bữa trưa':
+        return 'trưa';
+      case 'dinner':
+      case 'bữa tối':
+        return 'tối';
+      default:
+        return 'phụ';
+    }
   }
 }

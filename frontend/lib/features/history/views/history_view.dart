@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../data/history_mock_data.dart';
 import '../models/history_models.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -15,6 +15,10 @@ class _HistoryViewState extends State<HistoryView> {
   DateTime _selectedDate = DateTime(2023, 10, 5);
   String _searchQuery = '';
   MealCategory? _mealFilter;
+  final _repository = NutritionTrackingRepository();
+  MealDaySummary? _dailySummary;
+  NutritionDashboard? _dashboard;
+  bool _loading = false;
 
   static const _monthNames = [
     'Tháng 1',
@@ -32,7 +36,7 @@ class _HistoryViewState extends State<HistoryView> {
   ];
 
   List<HistoryTimelineSection> get _sections {
-    var sections = HistoryMockData.sectionsForDate(_selectedDate);
+    var sections = _buildSectionsFromSummary(_dailySummary);
 
     if (_mealFilter != null) {
       sections = sections.where((s) => s.category == _mealFilter).toList();
@@ -60,6 +64,105 @@ class _HistoryViewState extends State<HistoryView> {
     return sections;
   }
 
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _focusedMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _loadDailySummary();
+  }
+
+  List<HistoryTimelineSection> _buildSectionsFromSummary(MealDaySummary? summary) {
+    if (summary == null || summary.mealLogs.isEmpty) return [];
+
+    final grouped = <MealCategory, List<MealLogItem>>{};
+    for (final log in summary.mealLogs) {
+      final category = _mapMealType(log.mealType);
+      grouped.putIfAbsent(category, () => []).add(log);
+    }
+
+    final sections = <HistoryTimelineSection>[];
+    for (final entry in grouped.entries) {
+      final logs = entry.value;
+      logs.sort((a, b) {
+        final aTime = a.loggedAt ?? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0);
+        final bTime = b.loggedAt ?? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0);
+        return aTime.compareTo(bTime);
+      });
+      final firstTime = logs.first.loggedAt;
+      final sectionTime = firstTime == null
+          ? const TimeOfDay(hour: 12, minute: 0)
+          : TimeOfDay(hour: firstTime.hour, minute: firstTime.minute);
+
+      sections.add(
+        HistoryTimelineSection(
+          category: entry.key,
+          time: sectionTime,
+          isHighlighted: entry.key == MealCategory.breakfast,
+          meals: logs
+              .map(
+                (item) => HistoryMealEntry(
+                  id: item.id,
+                  title: item.displayName,
+                  calories: item.caloriesKcal.toInt(),
+                  portion: '${item.quantityG.toStringAsFixed(0)}g',
+                  time: item.loggedAt == null
+                      ? sectionTime
+                      : TimeOfDay(hour: item.loggedAt!.hour, minute: item.loggedAt!.minute),
+                  category: entry.key,
+                ),
+              )
+              .toList(),
+        ),
+      );
+    }
+
+    sections.sort((a, b) => _categoryOrder(a.category).compareTo(_categoryOrder(b.category)));
+    return sections;
+  }
+
+  MealCategory _mapMealType(String mealType) {
+    switch (mealType.trim().toLowerCase()) {
+      case 'breakfast':
+      case 'bữa sáng':
+        return MealCategory.breakfast;
+      case 'lunch':
+      case 'bữa trưa':
+        return MealCategory.lunch;
+      case 'dinner':
+      case 'bữa tối':
+        return MealCategory.dinner;
+      default:
+        return MealCategory.snack;
+    }
+  }
+
+  int _categoryOrder(MealCategory category) {
+    switch (category) {
+      case MealCategory.breakfast:
+        return 0;
+      case MealCategory.lunch:
+        return 1;
+      case MealCategory.dinner:
+        return 2;
+      case MealCategory.snack:
+        return 3;
+    }
+  }
+
+  Future<void> _loadDailySummary() async {
+    setState(() => _loading = true);
+    final summary = await _repository.getDailySummary(_selectedDate);
+    final dashboard = await _repository.getDashboard(range: 'week');
+    if (!mounted) return;
+    setState(() {
+      _dailySummary = summary;
+      _dashboard = dashboard;
+      _loading = false;
+    });
+  }
+
   void _changeMonth(int delta) {
     setState(() {
       _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + delta, 1);
@@ -68,6 +171,288 @@ class _HistoryViewState extends State<HistoryView> {
 
   void _selectDate(DateTime date) {
     setState(() => _selectedDate = date);
+    _loadDailySummary();
+  }
+
+  Future<void> _addWeightLog() async {
+    final weightController = TextEditingController();
+    final fatController = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thêm cân nặng'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: weightController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Cân nặng (kg)',
+                hintText: 'Ví dụ: 65.5',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: fatController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Mỡ cơ thể (%) - tùy chọn',
+                hintText: 'Ví dụ: 18',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return;
+    final weight = double.tryParse(weightController.text.trim());
+    final fatText = fatController.text.trim();
+    final fat = fatText.isEmpty ? null : double.tryParse(fatText);
+    if (weight == null || weight <= 0 || (fatText.isNotEmpty && fat == null)) {
+      _showSnack('Dữ liệu không hợp lệ', isError: true);
+      return;
+    }
+
+    final ok = await _repository.createWeightLog(
+      weightKg: weight,
+      bodyFatPercent: fat,
+      recordedAt: DateTime.now(),
+    );
+    if (!ok) {
+      _showSnack('Không thể lưu cân nặng', isError: true);
+      return;
+    }
+    _showSnack('Đã lưu cân nặng');
+    await _loadDailySummary();
+  }
+
+  Future<void> _addMealLog() async {
+    String sourceType = 'food';
+    String mealType = 'breakfast';
+    final quantityController = TextEditingController(text: '100');
+    final keywordController = TextEditingController();
+    List<CatalogItem> items = [];
+    String? selectedId;
+    bool loadingItems = false;
+
+    Future<void> loadItems(StateSetter setModalState) async {
+      setModalState(() => loadingItems = true);
+      final keyword = keywordController.text.trim();
+      final loaded = sourceType == 'food'
+          ? await _repository.getFoods(keyword: keyword)
+          : await _repository.getRecipes(keyword: keyword);
+      setModalState(() {
+        items = loaded;
+        loadingItems = false;
+        if (selectedId != null && !items.any((e) => e.id == selectedId)) {
+          selectedId = null;
+        }
+      });
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Thêm nhật ký bữa ăn'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Nguồn'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: sourceType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'food', child: Text('Món ăn (Food)')),
+                        DropdownMenuItem(value: 'recipe', child: Text('Công thức (Recipe)')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() {
+                          sourceType = value;
+                          selectedId = null;
+                          items = [];
+                        });
+                        loadItems(setModalState);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: keywordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Tìm kiếm',
+                    hintText: 'Nhập từ khóa rồi bấm tải danh sách',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => loadItems(setModalState),
+                    child: const Text('Tải danh sách'),
+                  ),
+                ),
+                if (loadingItems)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                else
+                  InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: sourceType == 'food' ? 'Chọn món ăn' : 'Chọn công thức',
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedId,
+                        isExpanded: true,
+                        items: items
+                            .map(
+                              (e) => DropdownMenuItem<String>(
+                                value: e.id,
+                                child: Text(
+                                  e.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setModalState(() => selectedId = value),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Loại bữa'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: mealType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                        DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
+                        DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
+                        DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() => mealType = value);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Khối lượng (gram)',
+                    hintText: 'Ví dụ: 150',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Thêm'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    final quantity = double.tryParse(quantityController.text.trim());
+    if (selectedId == null || selectedId!.isEmpty) {
+      _showSnack('Vui lòng chọn món ăn/công thức', isError: true);
+      return;
+    }
+    if (quantity == null || quantity <= 0) {
+      _showSnack('Khối lượng không hợp lệ', isError: true);
+      return;
+    }
+
+    final loggedAt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      DateTime.now().hour,
+      DateTime.now().minute,
+    );
+    final ok = await _repository.createMealLog(
+      foodId: sourceType == 'food' ? selectedId : null,
+      recipeId: sourceType == 'recipe' ? selectedId : null,
+      mealType: mealType,
+      quantityG: quantity,
+      loggedAt: loggedAt,
+    );
+    if (!ok) {
+      _showSnack('Không thể thêm nhật ký bữa ăn', isError: true);
+      return;
+    }
+    _showSnack('Đã thêm nhật ký bữa ăn');
+    await _loadDailySummary();
+  }
+
+  Future<void> _deleteMealLog(String mealLogId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa nhật ký bữa ăn'),
+        content: const Text('Bạn có chắc muốn xóa mục này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await _repository.deleteMealLog(mealLogId);
+    if (!ok) {
+      _showSnack('Xóa thất bại', isError: true);
+      return;
+    }
+    _showSnack('Đã xóa nhật ký bữa ăn');
+    await _loadDailySummary();
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : AppColors.primary,
+      ),
+    );
   }
 
   @override
@@ -91,7 +476,14 @@ class _HistoryViewState extends State<HistoryView> {
                   const SizedBox(height: 16),
                   _buildFilterChips(),
                   const SizedBox(height: 24),
-                  if (sections.isEmpty)
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
+                      ),
+                    )
+                  else if (sections.isEmpty)
                     _buildEmptyState()
                   else
                     ...sections.asMap().entries.map((entry) {
@@ -101,6 +493,7 @@ class _HistoryViewState extends State<HistoryView> {
                       return _TimelineSectionWidget(
                         section: section,
                         showLineBelow: !isLast,
+                        onDeleteMeal: _deleteMealLog,
                       );
                     }),
                 ],
@@ -113,18 +506,34 @@ class _HistoryViewState extends State<HistoryView> {
   }
 
   Widget _buildHeader() {
+    final latestWeight = _dashboard?.weightLogs.isNotEmpty == true
+        ? _dashboard!.weightLogs.last.weightKg
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
       child: Row(
         children: [
-          const Expanded(
-            child: Text(
-              'Lịch sử hoạt động',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Lịch sử hoạt động',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                if (latestWeight != null)
+                  Text(
+                    'Cân nặng gần nhất: ${latestWeight.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
             ),
           ),
           IconButton(
@@ -134,6 +543,14 @@ class _HistoryViewState extends State<HistoryView> {
                 _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
               });
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.textDark),
+            onPressed: _addMealLog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.monitor_weight_outlined, color: AppColors.textDark),
+            onPressed: _addWeightLog,
           ),
         ],
       ),
@@ -230,7 +647,7 @@ class _HistoryViewState extends State<HistoryView> {
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withOpacity(0.5),
+        color: AppColors.progressBackground.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextField(
@@ -289,7 +706,7 @@ class _HistoryViewState extends State<HistoryView> {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.restaurant_menu, size: 48, color: AppColors.textLight.withOpacity(0.8)),
+            Icon(Icons.restaurant_menu, size: 48, color: AppColors.textLight.withValues(alpha: 0.8)),
             const SizedBox(height: 12),
             Text(
               _searchQuery.isNotEmpty ? 'Không tìm thấy món ăn' : 'Chưa có hoạt động trong ngày này',
@@ -362,7 +779,7 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.progressBackground.withOpacity(0.6),
+          color: isSelected ? AppColors.primary : AppColors.progressBackground.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
@@ -395,10 +812,12 @@ class _TimelineSectionWidget extends StatelessWidget {
   const _TimelineSectionWidget({
     required this.section,
     required this.showLineBelow,
+    required this.onDeleteMeal,
   });
 
   final HistoryTimelineSection section;
   final bool showLineBelow;
+  final Future<void> Function(String mealId) onDeleteMeal;
 
   String _formatTime(TimeOfDay time) {
     final h = time.hour.toString().padLeft(2, '0');
@@ -473,7 +892,10 @@ class _TimelineSectionWidget extends StatelessWidget {
                   const SizedBox(height: 12),
                   ...section.meals.map((meal) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: _MealCard(meal: meal),
+                        child: _MealCard(
+                          meal: meal,
+                          onDelete: () => onDeleteMeal(meal.id),
+                        ),
                       )),
                 ],
               ),
@@ -486,9 +908,13 @@ class _TimelineSectionWidget extends StatelessWidget {
 }
 
 class _MealCard extends StatelessWidget {
-  const _MealCard({required this.meal});
+  const _MealCard({
+    required this.meal,
+    required this.onDelete,
+  });
 
   final HistoryMealEntry meal;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -505,7 +931,7 @@ class _MealCard extends StatelessWidget {
             border: Border.all(color: AppColors.progressBackground),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -521,7 +947,7 @@ class _MealCard extends StatelessWidget {
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                        errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
                       )
                     : _imagePlaceholder(),
               ),
@@ -549,7 +975,18 @@ class _MealCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 22),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+                onSelected: (value) {
+                  if (value == 'delete') onDelete();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Text('Xóa nhật ký'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

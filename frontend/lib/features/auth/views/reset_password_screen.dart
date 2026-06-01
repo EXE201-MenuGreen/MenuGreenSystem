@@ -5,6 +5,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../repositories/auth_repository.dart';
+import '../utils/auth_error_messages.dart';
 import 'login_screen.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
@@ -51,10 +52,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     if (result['success'] == true) {
       final data = result['data'];
-      final message = (data is Map<String, dynamic>) ? (data['message'] ?? data['Message'])?.toString() : null;
+      final message = localizeAuthMessage(
+        extractAuthResponseMessage(data),
+        fallback: 'Đặt lại mật khẩu thành công.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message ?? 'Đặt lại mật khẩu thành công.', style: const TextStyle(color: Colors.white)),
+          content: Text(message, style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.green,
         ),
       );

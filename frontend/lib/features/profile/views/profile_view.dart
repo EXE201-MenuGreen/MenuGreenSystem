@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
+import '../../subscription/models/subscription_models.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
 import 'personal_info_screen.dart';
 import 'change_password_screen.dart';
 
 class ProfileView extends StatefulWidget {
-  const ProfileView({super.key});
+  const ProfileView({super.key, this.onProfileUpdated});
+
+  final VoidCallback? onProfileUpdated;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -15,21 +19,59 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   final _profileRepo = ProfileRepository();
+  final _subscriptionRepo = UserSubscriptionRepository();
   Map<String, dynamic>? _profileData;
+  UserSubscription? _subscription;
   bool _isLoading = true;
+  bool _subscriptionActionLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    _fetchData();
   }
 
-  Future<void> _fetchProfile() async {
-    final data = await _profileRepo.getMyProfile();
+  Future<void> _fetchData() async {
+    setState(() => _isLoading = true);
+
+    final results = await Future.wait([
+      _profileRepo.getMyProfile(),
+      _subscriptionRepo.getCurrent(),
+    ]);
+
+    if (!mounted) return;
     setState(() {
-      _profileData = data;
+      _profileData = results[0] as Map<String, dynamic>?;
+      _subscription = results[1] as UserSubscription?;
       _isLoading = false;
     });
+  }
+
+  Future<void> _handleRenew() async {
+    final subscription = _subscription;
+    if (subscription == null || !subscription.isActive) return;
+
+    setState(() => _subscriptionActionLoading = true);
+    final result = await _subscriptionRepo.renew(userSubscriptionId: subscription.id);
+    if (!mounted) return;
+    setState(() => _subscriptionActionLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message),
+        backgroundColor: result.success ? AppColors.primary : Colors.red,
+      ),
+    );
+
+    if (result.success) await _fetchData();
+  }
+
+  Future<void> _openUpgradeScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const UpgradePlanScreen()),
+    );
+    if (mounted) await _fetchData();
   }
 
   void _handleLogout() async {
@@ -93,7 +135,8 @@ class _ProfileViewState extends State<ProfileView> {
                         MaterialPageRoute(builder: (context) => const PersonalInfoScreen()),
                       );
                       if (updated == true) {
-                        _fetchProfile(); // Refresh Data
+                        await _fetchData();
+                        widget.onProfileUpdated?.call();
                       }
                     },
                   ),
@@ -132,8 +175,9 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildProfileHeader() {
     final fullName = _profileData?['fullName'] ?? 'Người dùng';
-    final avatarUrl = _profileData?['avatarUrl'];
-    
+    final rawAvatar = _profileData?['avatarUrl']?.toString();
+    final avatarUrl = (rawAvatar != null && rawAvatar.isNotEmpty) ? rawAvatar : null;
+
     return Column(
       children: [
         Container(
@@ -145,7 +189,10 @@ class _ProfileViewState extends State<ProfileView> {
           child: CircleAvatar(
             radius: 50,
             backgroundColor: AppColors.progressBackground,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : const NetworkImage('https://i.pravatar.cc/150?img=11'),
+            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl == null
+                ? const Icon(Icons.person, size: 48, color: AppColors.textSecondary)
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -170,13 +217,24 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildMembershipCard() {
-    final role = _profileData?['role'] ?? 'Free';
-    final isPro = role.toLowerCase().contains('pro') || role.toLowerCase().contains('premium');
+    final subscription = _subscription;
+    final activeSubscription = subscription != null &&
+            subscription.isActive &&
+            subscription.daysRemaining >= 0 &&
+            subscription.subscriptionPlanName.isNotEmpty
+        ? subscription
+        : null;
+    final planName = activeSubscription?.subscriptionPlanName ??
+        subscription?.subscriptionPlanName ??
+        (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
+    final isPro = activeSubscription != null &&
+        !activeSubscription.subscriptionPlanName.toLowerCase().contains('free') &&
+        !activeSubscription.subscriptionPlanName.toLowerCase().contains('cơ bản');
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withOpacity(0.3),
+        color: AppColors.progressBackground.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.progressBackground, width: 1),
       ),
@@ -214,7 +272,7 @@ class _ProfileViewState extends State<ProfileView> {
           ),
           const SizedBox(height: 8),
           Text(
-            isPro ? 'Gói Gym Pro' : 'Gói Cơ Bản',
+            planName,
             style: const TextStyle(
               color: AppColors.textDark,
               fontSize: 20,
@@ -222,10 +280,20 @@ class _ProfileViewState extends State<ProfileView> {
             ),
           ),
           const SizedBox(height: 4),
-          if (isPro)
-            const Text(
-              'Hết hạn: 31/12/2024',
-              style: TextStyle(
+          if (activeSubscription != null &&
+              isPro &&
+              activeSubscription.endDate != null)
+            Text(
+              'Hết hạn: ${formatSubscriptionDate(activeSubscription.endDate)} • Còn ${activeSubscription.daysRemaining} ngày',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            )
+          else if (subscription != null)
+            Text(
+              'Trạng thái: ${subscription.status}',
+              style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
               ),
@@ -244,12 +312,7 @@ class _ProfileViewState extends State<ProfileView> {
               Expanded(
                 flex: 3,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const UpgradePlanScreen()),
-                    );
-                  },
+                  onPressed: _openUpgradeScreen,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -267,7 +330,9 @@ class _ProfileViewState extends State<ProfileView> {
               Expanded(
                 flex: 2,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: subscription?.isActive == true && !_subscriptionActionLoading
+                      ? _handleRenew
+                      : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textDark,
                     side: const BorderSide(color: AppColors.progressBackground, width: 1.5),
@@ -276,7 +341,13 @@ class _ProfileViewState extends State<ProfileView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Gia hạn', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: _subscriptionActionLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Gia hạn', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               )
             ],
@@ -297,7 +368,7 @@ class _ProfileViewState extends State<ProfileView> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.progressBackground.withOpacity(0.5),
+            color: AppColors.progressBackground.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: AppColors.textDark),

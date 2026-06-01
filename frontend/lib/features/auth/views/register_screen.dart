@@ -54,7 +54,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => VerifyOtpScreen(email: email)),
+        MaterialPageRoute(
+          builder: (context) => VerifyOtpScreen(email: email, password: password),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

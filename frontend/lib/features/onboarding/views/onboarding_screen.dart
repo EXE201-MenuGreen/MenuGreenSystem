@@ -6,6 +6,7 @@ import 'steps/preferences_step.dart';
 import 'steps/allergies_step.dart';
 import 'steps/calorie_goal_step.dart';
 import '../../main/views/main_screen.dart';
+import '../repositories/health_profile_repository.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -16,7 +17,14 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
+  final HealthProfileRepository _healthProfileRepository = HealthProfileRepository();
   int _currentIndex = 0;
+  bool _finishing = false;
+  double? _heightCm;
+  double? _weightKg;
+  double? _bodyFatPercent;
+  String _activityLevel = 'sedentary';
+  String _goal = 'maintain weight';
 
   final List<String> _titles = [
     'Thiết lập sức khỏe',
@@ -36,6 +44,65 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Done onboarding
       // Navigator.pushReplacement(...) -> Go to Home
     }
+  }
+
+  Future<void> _handleBasicInfoNext({
+    required double heightCm,
+    required double weightKg,
+    double? bodyFatPercent,
+    required String activityLevel,
+    required String goal,
+  }) async {
+    _heightCm = heightCm;
+    _weightKg = weightKg;
+    _bodyFatPercent = bodyFatPercent;
+    _activityLevel = activityLevel;
+    _goal = goal;
+    _nextPage();
+  }
+
+  Future<void> _handleFinish(int targetCalories) async {
+    if (_heightCm == null || _weightKg == null) {
+      _showMessage('Thiếu dữ liệu cơ bản. Vui lòng nhập lại.', isError: true);
+      _pageController.jumpToPage(0);
+      return;
+    }
+
+    setState(() => _finishing = true);
+    final result = await _healthProfileRepository.updateMyHealthProfile(
+      heightCm: _heightCm!,
+      weightKg: _weightKg!,
+      bodyFatPercent: _bodyFatPercent,
+      activityLevel: _activityLevel,
+      goal: _goal,
+    );
+    if (!mounted) return;
+    setState(() => _finishing = false);
+
+    if (!result.success) {
+      _showMessage(result.message, isError: true);
+      return;
+    }
+
+    // targetCalories currently calculated by backend and returned from profile update;
+    // we keep this value to support future custom-calorie endpoint.
+    if (targetCalories > 0) {
+      _showMessage('Thiết lập hoàn tất!');
+    }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const MainScreen()),
+      (route) => false,
+    );
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : AppColors.primary,
+      ),
+    );
   }
 
   void _previousPage() {
@@ -113,17 +180,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   });
                 },
                 children: [
-                  BasicInfoStep(onNext: _nextPage),
+                  BasicInfoStep(
+                    onNext: _handleBasicInfoNext,
+                    initialHeightCm: _heightCm,
+                    initialWeightKg: _weightKg,
+                    initialBodyFatPercent: _bodyFatPercent,
+                    initialActivityLevel: _activityLevel,
+                    initialGoal: _goal,
+                  ),
                   UserTypeStep(onNext: _nextPage),
                   PreferencesStep(onNext: _nextPage),
                   AllergiesStep(onNext: _nextPage),
-                  CalorieGoalStep(onFinish: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MainScreen()),
-                      (route) => false,
-                    );
-                  }),
+                  CalorieGoalStep(
+                    onFinish: _finishing ? (_) async {} : _handleFinish,
+                  ),
                 ],
               ),
             ),

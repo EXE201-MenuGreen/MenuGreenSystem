@@ -4,15 +4,34 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/primary_button.dart';
 
 class CalorieGoalStep extends StatefulWidget {
-  final VoidCallback onFinish;
-  const CalorieGoalStep({super.key, required this.onFinish});
+  const CalorieGoalStep({
+    super.key,
+    required this.onFinish,
+    this.initialCalories = 2500,
+  });
+
+  final Future<void> Function(int targetCalories) onFinish;
+  final int initialCalories;
 
   @override
   State<CalorieGoalStep> createState() => _CalorieGoalStepState();
 }
 
 class _CalorieGoalStepState extends State<CalorieGoalStep> {
-  double _calories = 2500;
+  late double _calories;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _calories = widget.initialCalories.toDouble();
+  }
+
+  Future<void> _finish() async {
+    setState(() => _saving = true);
+    await widget.onFinish(_calories.toInt());
+    if (mounted) setState(() => _saving = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +52,7 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -86,7 +105,7 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.progressBackground.withOpacity(0.3),
+              color: AppColors.progressBackground.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -105,8 +124,8 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
           ),
           const SizedBox(height: 40),
           PrimaryButton(
-            text: 'Xác nhận mục tiêu',
-            onPressed: widget.onFinish,
+            text: _saving ? 'Đang hoàn tất...' : 'Xác nhận mục tiêu',
+            onPressed: _saving ? () {} : _finish,
           ),
           const SizedBox(height: 16),
           TextButton(

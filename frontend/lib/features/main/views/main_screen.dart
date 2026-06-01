@@ -20,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     const Center(child: Text('Khám phá')),
     const Center(child: Text('Trợ lý AI')),
     const HistoryView(),
-    const ProfileView(),
+    ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
   ];
 
   @override
@@ -33,7 +33,7 @@ class _MainScreenState extends State<MainScreen> {
         onTap: (index) {
           setState(() => _currentIndex = index);
           if (index == 0) {
-            _homeKey.currentState?.loadUserName();
+            _homeKey.currentState?.refreshHeader();
           }
         },
         type: BottomNavigationBarType.fixed,

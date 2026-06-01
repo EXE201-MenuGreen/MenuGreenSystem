@@ -4,6 +4,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../repositories/auth_repository.dart';
+import '../utils/auth_error_messages.dart';
 import 'register_screen.dart';
 import '../../main/views/main_screen.dart';
 import 'verify_otp_screen.dart';
@@ -50,12 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
         (route) => false,
       );
     } else {
-      final msg = (result['message'] ?? '').toString();
-      if (msg.toLowerCase().contains('verify your otp') ||
-          msg.toLowerCase().contains('verify otp') ||
-          msg.toLowerCase().contains('otp')) {
+      final msg = (result['message'] ?? 'Đăng nhập thất bại.').toString();
+      if (isOtpVerificationRequiredMessage(msg)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tài khoản chưa xác thực OTP. Vui lòng xác thực để tiếp tục.'), backgroundColor: Colors.orange),
+          SnackBar(content: Text(msg), backgroundColor: Colors.orange),
         );
         Navigator.push(
           context,
@@ -64,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
     }
   }
