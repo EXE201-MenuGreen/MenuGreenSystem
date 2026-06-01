@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Firebase Admin SDK (Google login backend)
+**/firebase-adminsdk*.json
+backend/MenuGreen.API/firebase-adminsdk.json
+
 # User-specific files
 *.rsuser
 *.suo
