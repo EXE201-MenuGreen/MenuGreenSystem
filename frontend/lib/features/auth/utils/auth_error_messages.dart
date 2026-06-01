@@ -45,6 +45,14 @@ String localizeAuthMessage(
     'Logout request failed': 'Đăng xuất thất bại.',
     'Connection error. Is backend running?':
         'Lỗi kết nối. Bạn đã bật backend chưa?',
+    'Invalid Google sign-in token.': 'Token đăng nhập Google không hợp lệ.',
+    'Invalid or expired Google sign-in token.':
+        'Token đăng nhập Google hết hạn hoặc không hợp lệ.',
+    'Google sign-in is not configured on the server.':
+        'Backend chưa cấu hình Firebase Admin. Đặt file firebase-adminsdk.json vào MenuGreen.API.',
+    'Google account does not have an email address.':
+        'Tài khoản Google không có email.',
+    'Đăng nhập Google đã bị hủy.': 'Đăng nhập Google đã bị hủy.',
   };
 
   if (exact.containsKey(normalized)) return exact[normalized]!;
@@ -63,6 +71,12 @@ String localizeAuthMessage(
   }
   if (lower.contains('connection error')) {
     return 'Lỗi kết nối. Bạn đã bật backend chưa?';
+  }
+  if (lower.contains('google sign-in') || lower.contains('google account')) {
+    return normalized;
+  }
+  if (lower.contains('firebase chưa khởi tạo')) {
+    return normalized;
   }
   if (lower.contains('password reset successful')) {
     return 'Đặt lại mật khẩu thành công.';

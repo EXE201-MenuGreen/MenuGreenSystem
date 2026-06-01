@@ -19,6 +19,7 @@ class ApiEndpoints {
   }
 
   static String get login => '$baseUrl/Auth/login';
+  static String get googleLogin => '$baseUrl/Auth/google';
   static String get register => '$baseUrl/Auth/register';
   static String get verifyOtp => '$baseUrl/Auth/verify-otp';
   static String get forgotPassword => '$baseUrl/Auth/forgot-password';
