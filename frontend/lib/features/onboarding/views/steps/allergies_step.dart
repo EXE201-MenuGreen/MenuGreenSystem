@@ -55,6 +55,33 @@ class _AllergiesStepState extends State<AllergiesStep> {
     }
   }
 
+  Future<void> _addCustomAllergy() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thêm dị ứng'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Tên thực phẩm / dị ứng'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(ctx, value);
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || !mounted) return;
+    setState(() => _selected.add(name));
+  }
+
   Future<void> _saveAndContinue() async {
     setState(() => _saving = true);
 
@@ -162,19 +189,23 @@ class _AllergiesStepState extends State<AllergiesStep> {
             },
           ),
           const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.progressBackground),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.add_circle_outline, color: AppColors.textDark),
-                SizedBox(width: 8),
-                Text('Thêm loại dị ứng khác...', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600)),
-              ],
+          InkWell(
+            onTap: _addCustomAllergy,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.progressBackground),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.add_circle_outline, color: AppColors.textDark),
+                  SizedBox(width: 8),
+                  Text('Thêm loại dị ứng khác...', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600)),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 40),

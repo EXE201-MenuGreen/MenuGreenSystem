@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/constants/health_profile_values.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 
@@ -33,20 +34,6 @@ class BasicInfoStep extends StatefulWidget {
 }
 
 class _BasicInfoStepState extends State<BasicInfoStep> {
-  static const Map<String, String> _activityItems = {
-    'sedentary': 'Ít vận động',
-    'lightly active': 'Vận động nhẹ',
-    'moderately active': 'Vận động vừa',
-    'very active': 'Rất năng động',
-  };
-
-  static const Map<String, String> _goalItems = {
-    'lose weight': 'Giảm cân',
-    'maintain weight': 'Giữ cân',
-    'gain weight': 'Tăng cân',
-    'build muscle': 'Tăng cơ',
-  };
-
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   final _bodyFatController = TextEditingController();
@@ -66,12 +53,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     if (widget.initialBodyFatPercent != null) {
       _bodyFatController.text = widget.initialBodyFatPercent!.toStringAsFixed(1);
     }
-    if (widget.initialActivityLevel != null &&
-        _activityItems.containsKey(widget.initialActivityLevel)) {
-      _activityLevel = widget.initialActivityLevel!;
+    if (widget.initialActivityLevel != null) {
+      _activityLevel = HealthProfileValues.normalizeActivity(widget.initialActivityLevel);
     }
-    if (widget.initialGoal != null && _goalItems.containsKey(widget.initialGoal)) {
-      _goal = widget.initialGoal!;
+    if (widget.initialGoal != null) {
+      _goal = HealthProfileValues.normalizeGoal(widget.initialGoal);
     }
   }
 
@@ -181,7 +167,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                     value: _activityLevel,
                     hint: const Text('Chọn mức độ hoạt động', style: TextStyle(color: AppColors.textDark, fontSize: 14)),
                     icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-                    items: _activityItems.entries
+                    items: HealthProfileValues.activityLabels.entries
                         .map(
                           (e) => DropdownMenuItem<String>(
                             value: e.key,
@@ -223,7 +209,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                     isExpanded: true,
                     value: _goal,
                     icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-                    items: _goalItems.entries
+                    items: HealthProfileValues.goalLabels.entries
                         .map(
                           (e) => DropdownMenuItem<String>(
                             value: e.key,
