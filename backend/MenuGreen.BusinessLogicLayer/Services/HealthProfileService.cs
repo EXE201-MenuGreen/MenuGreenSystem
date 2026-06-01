@@ -44,8 +44,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return MapToResponse(healthProfile);
         }
 
+        private async Task EnsureUserExistsAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new Exception("Tài khoản không tồn tại. Vui lòng đăng xuất và đăng nhập lại.");
+            }
+        }
+
         private async Task<HealthProfile> EnsureHealthProfileAsync(Guid userId)
         {
+            await EnsureUserExistsAsync(userId);
+
             var healthProfile = (await _unitOfWork.HealthProfiles.FindAsync(profile => profile.UserId == userId)).FirstOrDefault();
             if (healthProfile != null)
             {
@@ -66,6 +77,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private async Task<Profile> GetUserProfileAsync(Guid userId)
         {
+            await EnsureUserExistsAsync(userId);
+
             var userProfile = await _unitOfWork.Profiles.GetByIdAsync(userId);
             if (userProfile == null)
             {
