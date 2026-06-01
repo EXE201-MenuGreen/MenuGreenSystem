@@ -6,7 +6,8 @@ import '../../../core/network/token_storage.dart';
 import '../utils/auth_error_messages.dart';
 
 class AuthRepository {
-  AuthRepository({TokenStorage? tokenStorage}) : _storage = tokenStorage ?? TokenStorage();
+  AuthRepository({TokenStorage? tokenStorage})
+    : _storage = tokenStorage ?? TokenStorage();
 
   final TokenStorage _storage;
 
@@ -18,7 +19,9 @@ class AuthRepository {
         body: jsonEncode({'email': email}),
       );
 
-      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      final decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : null;
       if (response.statusCode == 200) {
         return {'success': true, 'data': decoded};
       }
@@ -54,7 +57,9 @@ class AuthRepository {
         }),
       );
 
-      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      final decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : null;
       if (response.statusCode == 200) {
         return {'success': true, 'data': decoded};
       }
@@ -104,7 +109,11 @@ class AuthRepository {
     }
   }
 
-  Future<Map<String, dynamic>> register(String fullName, String email, String password) async {
+  Future<Map<String, dynamic>> register(
+    String fullName,
+    String email,
+    String password,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse(ApiEndpoints.register),
@@ -242,15 +251,19 @@ class AuthRepository {
 
   Future<void> _maybePersistTokens(dynamic decodedJson) async {
     if (decodedJson is! Map<String, dynamic>) return;
-    final access = (decodedJson['accessToken'] ?? decodedJson['AccessToken'])?.toString();
-    final refresh = (decodedJson['refreshToken'] ?? decodedJson['RefreshToken'])?.toString();
-    final fullName = (decodedJson['fullName'] ?? decodedJson['FullName'])?.toString();
+    final access = (decodedJson['accessToken'] ?? decodedJson['AccessToken'])
+        ?.toString();
+    final refresh = (decodedJson['refreshToken'] ?? decodedJson['RefreshToken'])
+        ?.toString();
+    final fullName = (decodedJson['fullName'] ?? decodedJson['FullName'])
+        ?.toString();
     var userId = (decodedJson['userId'] ?? decodedJson['UserId'])?.toString();
     if (userId == null || userId.isEmpty) {
       userId = access != null ? JwtUtils.tryGetUserId(access) : null;
     }
 
-    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) return;
+    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty)
+      return;
     await _storage.saveTokens(
       accessToken: access,
       refreshToken: refresh,
