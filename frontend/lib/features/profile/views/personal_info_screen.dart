@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/health_profile_values.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
 import '../../../core/services/firebase_bootstrap.dart';
@@ -33,10 +34,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final _fullNameController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
+  final _bodyFatController = TextEditingController();
 
   String? _gender;
   String? _activityLevel;
   String? _goal;
+  DateTime? _dateOfBirth;
 
   @override
   void initState() {
@@ -49,18 +52,58 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     if (data != null && mounted) {
       setState(() {
         _fullNameController.text = data['fullName']?.toString() ?? '';
-        _heightController.text = data['heightCm']?.toString() ?? '';
-        _weightController.text = data['weightKg']?.toString() ?? '';
+        _heightController.text = _formatNum(data['heightCm']);
+        _weightController.text = _formatNum(data['weightKg']);
+        _bodyFatController.text = _formatNum(data['bodyFatPercent']);
         final url = data['avatarUrl']?.toString();
         _avatarUrl = (url != null && url.isNotEmpty) ? url : null;
-        _gender = data['gender']?.toString();
-        _activityLevel = data['activityLevel']?.toString();
-        _goal = data['goal']?.toString();
+        _gender = HealthProfileValues.normalizeGender(data['gender']?.toString());
+        _activityLevel = HealthProfileValues.normalizeActivity(data['activityLevel']?.toString());
+        _goal = HealthProfileValues.normalizeGoal(data['goal']?.toString());
+        _dateOfBirth = _parseDate(data['dateOfBirth']);
         _isLoading = false;
       });
     } else {
       setState(() => _isLoading = false);
     }
+  }
+
+  String _formatNum(dynamic value) {
+    if (value == null) return '';
+    final n = value is num ? value.toDouble() : double.tryParse(value.toString());
+    if (n == null) return '';
+    return n == n.roundToDouble() ? n.toInt().toString() : n.toString();
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    final s = value.toString();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s.split('T').first);
+  }
+
+  String? _dateOfBirthApiValue() {
+    if (_dateOfBirth == null) return null;
+    final d = _dateOfBirth!;
+    return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  String _dateOfBirthLabel() {
+    if (_dateOfBirth == null) return 'Chưa chọn';
+    final d = _dateOfBirth!;
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 25),
+      firstDate: DateTime(1920),
+      lastDate: now,
+      helpText: 'Chọn ngày sinh',
+    );
+    if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
   Future<String?> _resolveUserId() async {
@@ -171,15 +214,35 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   Future<void> _handleSave() async {
+    final height = double.tryParse(_heightController.text.trim());
+    final weight = double.tryParse(_weightController.text.trim());
+    final bodyFatText = _bodyFatController.text.trim();
+    final bodyFat = bodyFatText.isEmpty ? null : double.tryParse(bodyFatText);
+
+    if (height != null && (height <= 0 || height > 300)) {
+      _showError('Chiều cao không hợp lệ (50–300 cm)');
+      return;
+    }
+    if (weight != null && (weight <= 0 || weight > 500)) {
+      _showError('Cân nặng không hợp lệ (20–500 kg)');
+      return;
+    }
+    if (bodyFatText.isNotEmpty && (bodyFat == null || bodyFat < 0 || bodyFat > 100)) {
+      _showError('Tỷ lệ mỡ không hợp lệ (0–100%)');
+      return;
+    }
+
     setState(() => _isSaving = true);
 
-    final updateData = {
-      'fullName': _fullNameController.text,
+    final updateData = <String, dynamic>{
+      'fullName': _fullNameController.text.trim(),
       'gender': _gender,
-      'heightCm': double.tryParse(_heightController.text),
-      'weightKg': double.tryParse(_weightController.text),
-      'activityLevel': _activityLevel,
-      'goal': _goal,
+      if (_dateOfBirthApiValue() != null) 'dateOfBirth': _dateOfBirthApiValue(),
+      if (height != null) 'heightCm': height,
+      if (weight != null) 'weightKg': weight,
+      if (bodyFat != null) 'bodyFatPercent': bodyFat,
+      'activityLevel': _activityLevel ?? HealthProfileValues.normalizeActivity(null),
+      'goal': _goal ?? HealthProfileValues.normalizeGoal(null),
     };
 
     final result = await _profileRepo.updateMyProfile(updateData);
@@ -199,11 +262,18 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     }
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
   @override
   void dispose() {
     _fullNameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _bodyFatController.dispose();
     super.dispose();
   }
 
@@ -220,99 +290,136 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         _popWithResult();
       },
       child: Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-          onPressed: _popWithResult,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+            onPressed: _popWithResult,
+          ),
+          centerTitle: true,
+          title: const Text(
+            'Thông tin cá nhân',
+            style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ),
-        centerTitle: true,
-        title: const Text(
-          'Thông tin cá nhân',
-          style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAvatarSection(),
-                  const SizedBox(height: 24),
-                  CustomTextField(
-                    controller: _fullNameController,
-                    label: 'Họ và tên',
-                    hintText: 'Nhập họ tên',
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDropdown(
-                    label: 'Giới tính',
-                    value: _gender,
-                    items: const {'Male': 'Nam', 'Female': 'Nữ', 'Other': 'Khác'},
-                    onChanged: (val) => setState(() => _gender = val),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          controller: _heightController,
-                          label: 'Chiều cao (cm)',
-                          hintText: 'VD: 170',
-                          keyboardType: TextInputType.number,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAvatarSection(),
+                    const SizedBox(height: 24),
+                    CustomTextField(
+                      controller: _fullNameController,
+                      label: 'Họ và tên',
+                      hintText: 'Nhập họ tên',
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDropdown(
+                      label: 'Giới tính',
+                      value: _gender,
+                      items: HealthProfileValues.genderLabels,
+                      onChanged: (val) => setState(() => _gender = val),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDateOfBirthField(),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            controller: _heightController,
+                            label: 'Chiều cao (cm)',
+                            hintText: 'VD: 170',
+                            keyboardType: TextInputType.number,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: CustomTextField(
-                          controller: _weightController,
-                          label: 'Cân nặng (kg)',
-                          hintText: 'VD: 65',
-                          keyboardType: TextInputType.number,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: CustomTextField(
+                            controller: _weightController,
+                            label: 'Cân nặng (kg)',
+                            hintText: 'VD: 65',
+                            keyboardType: TextInputType.number,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDropdown(
-                    label: 'Mức độ hoạt động',
-                    value: _activityLevel,
-                    items: const {
-                      'Sedentary': 'Ít vận động',
-                      'Light': 'Vận động nhẹ',
-                      'Moderate': 'Vận động vừa',
-                      'Active': 'Năng động',
-                      'VeryActive': 'Rất năng động',
-                    },
-                    onChanged: (val) => setState(() => _activityLevel = val),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDropdown(
-                    label: 'Mục tiêu cá nhân',
-                    value: _goal,
-                    items: const {
-                      'LoseWeight': 'Giảm cân',
-                      'Maintain': 'Duy trì vóc dáng',
-                      'GainWeight': 'Tăng cân',
-                      'BuildMuscle': 'Tăng cơ',
-                    },
-                    onChanged: (val) => setState(() => _goal = val),
-                  ),
-                  const SizedBox(height: 40),
-                  _isSaving
-                      ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                      : PrimaryButton(
-                          text: 'Lưu thay đổi',
-                          onPressed: _handleSave,
-                        ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    CustomTextField(
+                      controller: _bodyFatController,
+                      label: 'Tỷ lệ mỡ cơ thể (%)',
+                      hintText: 'Tùy chọn, VD: 20',
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDropdown(
+                      label: 'Mức độ hoạt động',
+                      value: _activityLevel,
+                      items: HealthProfileValues.activityLabels,
+                      onChanged: (val) => setState(() => _activityLevel = val),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDropdown(
+                      label: 'Mục tiêu cá nhân',
+                      value: _goal,
+                      items: HealthProfileValues.goalLabels,
+                      onChanged: (val) => setState(() => _goal = val),
+                    ),
+                    const SizedBox(height: 40),
+                    _isSaving
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : PrimaryButton(
+                            text: 'Lưu thay đổi',
+                            onPressed: _handleSave,
+                          ),
+                  ],
+                ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildDateOfBirthField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Ngày sinh',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _pickDateOfBirth,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.progressBackground, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
             ),
-    ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _dateOfBirthLabel(),
+                  style: TextStyle(
+                    color: _dateOfBirth == null ? AppColors.textSecondary : AppColors.textDark,
+                    fontSize: 14,
+                  ),
+                ),
+                const Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

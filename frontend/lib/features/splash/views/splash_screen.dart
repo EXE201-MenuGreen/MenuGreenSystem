@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/network/token_storage.dart';
+import '../../auth/utils/post_auth_navigation.dart';
 import '../../auth/views/welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -31,13 +33,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        // Navigate to Welcome Screen when loading is done
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-        );
+        _navigateFromSplash();
       }
     });
+  }
+
+  Future<void> _navigateFromSplash() async {
+    final token = await TokenStorage().getAccessToken();
+    if (!mounted) return;
+
+    if (token != null && token.isNotEmpty) {
+      await navigateAfterAuthenticated(context);
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+    );
   }
 
   @override

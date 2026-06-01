@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/constants/health_profile_values.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 
@@ -31,8 +32,8 @@ class HealthProfileRepository {
         'heightCm': heightCm,
         'weightKg': weightKg,
         'bodyFatPercent': bodyFatPercent,
-        'activityLevel': _normalizeActivityLevel(activityLevel),
-        'goal': _normalizeGoal(goal),
+        'activityLevel': HealthProfileValues.normalizeActivity(activityLevel),
+        'goal': HealthProfileValues.normalizeGoal(goal),
       });
 
       if (response.statusCode == 200) {
@@ -68,40 +69,5 @@ class HealthProfileRepository {
       }
     } catch (_) {}
     return 'Cập nhật hồ sơ sức khỏe thất bại';
-  }
-
-  String _normalizeActivityLevel(String value) {
-    final v = value.trim().toLowerCase();
-    switch (v) {
-      case 'light':
-      case 'lightly active':
-        return 'lightly active';
-      case 'moderate':
-      case 'moderately active':
-        return 'moderately active';
-      case 'active':
-      case 'veryactive':
-      case 'very active':
-        return 'very active';
-      default:
-        return 'sedentary';
-    }
-  }
-
-  String _normalizeGoal(String value) {
-    final v = value.trim().toLowerCase();
-    switch (v) {
-      case 'loseweight':
-      case 'lose weight':
-        return 'lose weight';
-      case 'gainweight':
-      case 'gain weight':
-        return 'gain weight';
-      case 'buildmuscle':
-      case 'build muscle':
-        return 'build muscle';
-      default:
-        return 'maintain weight';
-    }
   }
 }

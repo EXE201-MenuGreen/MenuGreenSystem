@@ -8,7 +8,7 @@ import '../../../core/services/firebase_google_auth_service.dart';
 import '../repositories/auth_repository.dart';
 import '../utils/auth_error_messages.dart';
 import 'register_screen.dart';
-import '../../main/views/main_screen.dart';
+import '../utils/post_auth_navigation.dart';
 import 'verify_otp_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -47,11 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đăng nhập thành công!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
       );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-        (route) => false,
-      );
+      await navigateAfterAuthenticated(context);
     } else {
       final msg = (result['message'] ?? 'Đăng nhập thất bại.').toString();
       if (isOtpVerificationRequiredMessage(msg)) {
@@ -98,11 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-        (route) => false,
-      );
+      await navigateAfterAuthenticated(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

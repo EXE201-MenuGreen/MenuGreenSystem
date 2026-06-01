@@ -6,6 +6,7 @@ import '../../subscription/models/subscription_models.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
 import 'personal_info_screen.dart';
+import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 
 class ProfileView extends StatefulWidget {
@@ -138,6 +139,17 @@ class _ProfileViewState extends State<ProfileView> {
                         await _fetchData();
                         widget.onProfileUpdated?.call();
                       }
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.no_food_outlined,
+                    'Dị ứng thực phẩm',
+                    'Quản lý danh sách dị ứng của bạn',
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AllergiesScreen()),
+                      );
                     },
                   ),
                   _buildSettingItem(
