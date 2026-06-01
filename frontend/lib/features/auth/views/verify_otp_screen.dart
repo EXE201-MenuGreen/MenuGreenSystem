@@ -11,9 +11,11 @@ class VerifyOtpScreen extends StatefulWidget {
   const VerifyOtpScreen({
     super.key,
     required this.email,
+    this.password,
   });
 
   final String email;
+  final String? password;
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -40,6 +42,31 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     if (!mounted) return;
 
     if (result['success'] == true) {
+      final password = widget.password?.trim() ?? '';
+      if (password.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Xác thực thành công. Vui lòng đăng nhập để tiếp tục.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.popUntil(context, (route) => route.isFirst);
+        return;
+      }
+
+      final loginResult = await _authRepo.login(widget.email, password);
+      if (!mounted) return;
+
+      if (loginResult['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loginResult['message'] ?? 'Đăng nhập thất bại sau khi xác thực OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Xác thực OTP thành công!', style: TextStyle(color: Colors.white)),

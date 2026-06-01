@@ -29,4 +29,23 @@ class ApiEndpoints {
   static String get updateAvatar => '$baseUrl/Profile/me/avatar';
   static String get removeAvatar => '$baseUrl/Profile/me/avatar';
   static String get changePassword => '$baseUrl/User/change-password';
+  static String get healthProfileMe => '$baseUrl/HealthProfile/me';
+  static String get nutritionDaily => '$baseUrl/NutritionTracking/daily';
+  static String get nutritionDashboard => '$baseUrl/NutritionTracking/dashboard';
+  static String get nutritionWeightLogs => '$baseUrl/NutritionTracking/weight-logs';
+  static String nutritionMealLogById(String mealLogId) =>
+      '$baseUrl/NutritionTracking/meal-logs/$mealLogId';
+  static String get foods => '$baseUrl/Food';
+  static String get recipes => '$baseUrl/Recipe';
+  static String get nutritionMealLogs => '$baseUrl/NutritionTracking/meal-logs';
+
+  static String get subscriptionPlans => '$baseUrl/UserSubscription/plans';
+  static String get subscriptionSubscribe => '$baseUrl/UserSubscription/subscribe';
+  static String get subscriptionRenew => '$baseUrl/UserSubscription/renew';
+  static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
+  static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
+  static String get subscriptionHistory => '$baseUrl/UserSubscription/me/history';
+
+  static String get allergies => '$baseUrl/Allergy';
+  static String allergyById(String allergyId) => '$baseUrl/Allergy/$allergyId';
 }

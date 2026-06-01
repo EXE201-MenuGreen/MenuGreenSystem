@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../repositories/allergy_repository.dart';
 
 class AllergiesStep extends StatefulWidget {
   final VoidCallback onNext;
@@ -12,6 +13,7 @@ class AllergiesStep extends StatefulWidget {
 }
 
 class _AllergiesStepState extends State<AllergiesStep> {
+  final _repository = AllergyRepository();
   final List<Map<String, dynamic>> _allergies = [
     {'name': 'Hải sản', 'icon': Icons.set_meal_outlined},
     {'name': 'Đậu phộng', 'icon': Icons.circle_outlined},
@@ -23,7 +25,68 @@ class _AllergiesStepState extends State<AllergiesStep> {
     {'name': 'Hạt cây', 'icon': Icons.park_outlined},
   ];
 
-  final Set<String> _selected = {'Gluten'}; // Default selection based on image
+  final Set<String> _selected = {'Gluten'};
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingAllergies();
+  }
+
+  Future<void> _loadExistingAllergies() async {
+    try {
+      final items = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _selected
+          ..clear()
+          ..addAll(
+            items.where((item) => item.isActive).map((item) => item.name),
+          );
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _saveAndContinue() async {
+    setState(() => _saving = true);
+
+    try {
+      final existing = await _repository.getAll();
+      final currentNames = existing.map((item) => item.name).toSet();
+
+      for (final name in _selected) {
+        if (!currentNames.contains(name)) {
+          await _repository.create(name);
+        }
+      }
+
+      for (final item in existing) {
+        if (!_selected.contains(item.name)) {
+          await _repository.delete(item.id);
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể lưu dị ứng, vui lòng thử lại.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+
+    widget.onNext();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +99,15 @@ class _AllergiesStepState extends State<AllergiesStep> {
           const SizedBox(height: 8),
           const Text('Hãy chọn các loại thực phẩm bạn bị dị ứng để chúng tôi cá nhân hóa thực đơn an toàn cho bạn.', style: AppTextStyles.subtitle),
           const SizedBox(height: 32),
-          GridView.builder(
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            )
+          else
+            GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -57,7 +128,9 @@ class _AllergiesStepState extends State<AllergiesStep> {
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.white,
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : Colors.white,
                     border: Border.all(
                       color: isSelected ? AppColors.primary : AppColors.progressBackground,
                       width: isSelected ? 1.5 : 1,
@@ -105,7 +178,10 @@ class _AllergiesStepState extends State<AllergiesStep> {
             ),
           ),
           const SizedBox(height: 40),
-          PrimaryButton(text: 'Hoàn tất', onPressed: widget.onNext),
+          PrimaryButton(
+            text: _saving ? 'Đang lưu...' : 'Hoàn tất',
+            onPressed: _saving ? () {} : _saveAndContinue,
+          ),
         ],
       ),
     );

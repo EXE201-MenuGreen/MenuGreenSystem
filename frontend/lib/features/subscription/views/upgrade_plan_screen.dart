@@ -1,10 +1,127 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/widgets/primary_button.dart';
+import '../models/subscription_models.dart';
+import '../repositories/user_subscription_repository.dart';
 
-class UpgradePlanScreen extends StatelessWidget {
+class UpgradePlanScreen extends StatefulWidget {
   const UpgradePlanScreen({super.key});
+
+  @override
+  State<UpgradePlanScreen> createState() => _UpgradePlanScreenState();
+}
+
+class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
+  final _repository = UserSubscriptionRepository();
+
+  List<SubscriptionPlan> _plans = [];
+  UserSubscription? _current;
+  List<SubscriptionTransaction> _history = [];
+  bool _loading = true;
+  bool _actionLoading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        _repository.getAvailablePlans(),
+        _repository.getCurrent(),
+        _repository.getHistory(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _plans = results[0] as List<SubscriptionPlan>;
+        _current = results[1] as UserSubscription?;
+        _history = results[2] as List<SubscriptionTransaction>;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Không thể tải dữ liệu gói thành viên';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _subscribe(SubscriptionPlan plan) async {
+    setState(() => _actionLoading = true);
+    final result = await _repository.subscribe(subscriptionPlanId: plan.id);
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    _showResult(result.message, result.success);
+    if (result.success) await _loadData();
+  }
+
+  Future<void> _renew() async {
+    final current = _current;
+    if (current == null) return;
+
+    setState(() => _actionLoading = true);
+    final result = await _repository.renew(userSubscriptionId: current.id);
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    _showResult(result.message, result.success);
+    if (result.success) await _loadData();
+  }
+
+  Future<void> _cancel() async {
+    final current = _current;
+    if (current == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hủy gói thành viên'),
+        content: Text(
+          'Bạn có chắc muốn hủy gói "${current.subscriptionPlanName}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hủy gói', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _actionLoading = true);
+    final result = await _repository.cancel(userSubscriptionId: current.id);
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    _showResult(result.message, result.success);
+    if (result.success) await _loadData();
+  }
+
+  void _showResult(String message, bool success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: success ? AppColors.primary : Colors.red,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,86 +139,205 @@ class UpgradePlanScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            onPressed: _loading || _actionLoading ? null : _loadData,
+            icon: const Icon(Icons.refresh, color: AppColors.textDark),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _UpgradeHeroCard(
-                title: 'Nâng cấp\nMenuGreen Pro',
-                subtitle:
-                    'Mở khóa các tính năng cao cấp để tối ưu hóa thói quen ăn uống và dinh dưỡng của bạn.',
-                onPress: () {},
-              ),
-              const SizedBox(height: 16),
-              const _PlanCard(
-                tag: 'Cơ bản',
-                name: 'Miễn phí',
-                price: '0đ',
-                period: '',
-                ctaText: 'Gói hiện tại',
-                ctaEnabled: false,
-                features: [
-                  'Quản lý thực đơn cơ bản',
-                  'Tính toán calo theo chuẩn',
-                  'Phân tích dinh dưỡng cơ bản',
-                ],
-              ),
-              const SizedBox(height: 12),
-              _PlanCard(
-                tag: 'Pro Tháng/GYM',
-                name: '99.000đ',
-                price: '99.000đ',
-                period: '/tháng',
-                ctaText: 'Đăng ký ngay',
-                ctaEnabled: true,
-                features: const [
-                  'Thực đơn nâng cao',
-                  'Phân tích dinh dưỡng chi tiết',
-                  'Hỗ trợ AI 24/7',
-                ],
-                onCta: () {},
-              ),
-              const SizedBox(height: 12),
-              _PlanCard(
-                tag: 'Pro Năm',
-                name: '790.000đ',
-                price: '790.000đ',
-                period: '/năm',
-                badgeText: 'TIẾT KIỆM NHẤT',
-                badgeTrailingText: '-30%',
-                ctaText: 'Dùng thử 7 ngày miễn phí',
-                ctaEnabled: true,
-                emphasizedCta: true,
-                features: const [
-                  'Tất cả tính năng bên Pro',
-                  'Tiết kiệm 30% chi phí năm',
-                  'Truy cập offline hoàn toàn',
-                  'Hỗ trợ ưu tiên (VIP) trong 1 giờ',
-                ],
-                onCta: () {},
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'So sánh chi tiết tính năng',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    if (_current != null) _buildCurrentCard(),
+                    if (_current != null) const SizedBox(height: 16),
+                    _UpgradeHeroCard(
+                      title: 'Nâng cấp\nMenuGreen Pro',
+                      subtitle:
+                          'Chọn gói phù hợp để mở khóa tính năng dinh dưỡng nâng cao.',
+                      onPress: () {},
+                    ),
+                    const SizedBox(height: 16),
+                    if (_plans.isEmpty)
+                      const Text(
+                        'Chưa có gói nào khả dụng.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      )
+                    else
+                      ..._plans.map(_buildPlanCard),
+                    if (_current?.isActive == true) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _actionLoading ? null : _renew,
+                        child: _actionLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Gia hạn gói hiện tại'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _actionLoading ? null : _cancel,
+                        child: const Text(
+                          'Hủy gói',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                    if (_history.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Lịch sử giao dịch',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ..._history.map(_buildHistoryItem),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              const _FeatureComparisonTable(),
-              const SizedBox(height: 18),
-              PrimaryButton(
-                text: 'Nâng cấp Pro ngay',
-                onPressed: () {},
-              ),
-            ],
+            ),
+    );
+  }
+
+  Widget _buildCurrentCard() {
+    final current = _current!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'GÓI ĐANG DÙNG',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textSecondary,
+              letterSpacing: 0.5,
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            current.subscriptionPlanName,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Trạng thái: ${current.status} • Còn ${current.daysRemaining} ngày',
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          if (current.endDate != null)
+            Text(
+              'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard(SubscriptionPlan plan) {
+    final isCurrent =
+        _current?.subscriptionPlanId == plan.id && _current?.isActive == true;
+    final features = _planFeatures(plan);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _PlanCard(
+        tag: plan.tierLabel.isNotEmpty ? plan.tierLabel : plan.featureGroup ?? 'Gói',
+        name: plan.name,
+        price: formatVnd(plan.priceVnd),
+        period: formatDurationLabel(plan.durationDays),
+        ctaText: isCurrent ? 'Gói hiện tại' : 'Đăng ký ngay',
+        ctaEnabled: !isCurrent && !_actionLoading,
+        emphasizedCta: !plan.isFree && plan.durationDays >= 365,
+        features: features,
+        onCta: isCurrent ? null : () => _subscribe(plan),
+      ),
+    );
+  }
+
+  List<String> _planFeatures(SubscriptionPlan plan) {
+    if (plan.description != null && plan.description!.trim().isNotEmpty) {
+      return plan.description!
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+    }
+
+    return [
+      if (plan.durationDays > 0) 'Thời hạn ${plan.durationDays} ngày',
+      if (plan.featureGroup != null && plan.featureGroup!.isNotEmpty)
+        'Nhóm tính năng: ${plan.featureGroup}',
+      'Giá ${formatVnd(plan.priceVnd)}',
+    ];
+  }
+
+  Widget _buildHistoryItem(SubscriptionTransaction item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.progressBackground),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.transactionType,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                Text(
+                  formatSubscriptionDate(item.transactionDate),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            item.amount > 0 ? formatVnd(item.amount) : '—',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
@@ -161,23 +397,6 @@ class _UpgradeHeroCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: onPress,
-            borderRadius: BorderRadius.circular(99),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  width: 1,
-                ),
-              ),
-              child: const Icon(Icons.chevron_right, color: Colors.white),
-            ),
-          ),
         ],
       ),
     );
@@ -193,8 +412,6 @@ class _PlanCard extends StatelessWidget {
   final bool ctaEnabled;
   final bool emphasizedCta;
   final List<String> features;
-  final String? badgeText;
-  final String? badgeTrailingText;
   final VoidCallback? onCta;
 
   const _PlanCard({
@@ -206,23 +423,19 @@ class _PlanCard extends StatelessWidget {
     required this.ctaEnabled,
     required this.features,
     this.onCta,
-    this.badgeText,
-    this.badgeTrailingText,
     this.emphasizedCta = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final border = BorderSide(
-      color: AppColors.progressBackground,
-      width: emphasizedCta ? 1.5 : 1,
-    );
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.fromBorderSide(border),
+        border: Border.all(
+          color: AppColors.progressBackground,
+          width: emphasizedCta ? 1.5 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -235,23 +448,22 @@ class _PlanCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                tag,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const Spacer(),
-              if (badgeText != null)
-                _Pill(
-                  text: badgeText!,
-                  trailing: badgeTrailingText,
-                ),
-            ],
+          Text(
+            tag,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -288,14 +500,16 @@ class _PlanCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: ctaEnabled ? onCta : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    emphasizedCta ? AppColors.primary : AppColors.progressBackground.withValues(alpha: 0.25),
-                foregroundColor: emphasizedCta ? Colors.white : AppColors.textSecondary,
+                backgroundColor: emphasizedCta
+                    ? AppColors.primary
+                    : AppColors.progressBackground.withValues(alpha: 0.25),
+                foregroundColor:
+                    emphasizedCta ? Colors.white : AppColors.textSecondary,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                disabledBackgroundColor: AppColors.progressBackground.withValues(alpha: 0.25),
-                disabledForegroundColor: AppColors.textLight,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 ctaText,
@@ -310,7 +524,7 @@ class _PlanCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ...features.map(
-            (f) => Padding(
+            (feature) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,7 +541,7 @@ class _PlanCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      f,
+                      feature,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -340,200 +554,6 @@ class _PlanCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String text;
-  final String? trailing;
-
-  const _Pill({required this.text, this.trailing});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primary,
-              letterSpacing: 0.5,
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                trailing!,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _FeatureComparisonTable extends StatelessWidget {
-  const _FeatureComparisonTable();
-
-  @override
-  Widget build(BuildContext context) {
-    const rows = <_FeatureRow>[
-      _FeatureRow('Số lượng thực đơn', '01', 'Vô hạn'),
-      _FeatureRow('Phân tích dinh dưỡng', false, true),
-      _FeatureRow('Thực đơn theo mục tiêu', false, true),
-      _FeatureRow('Đề xuất Offline', false, true),
-      _FeatureRow('Hỗ trợ luyện tập', false, true),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.progressBackground),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.progressBackground.withValues(alpha: 0.25),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 6,
-                  child: Text(
-                    'Tính năng',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Text(
-                      'Cơ bản',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Text(
-                      'Pro',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ...rows.map((r) => _ComparisonRow(row: r)),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeatureRow {
-  final String name;
-  final dynamic basic;
-  final dynamic pro;
-
-  const _FeatureRow(this.name, this.basic, this.pro);
-}
-
-class _ComparisonRow extends StatelessWidget {
-  final _FeatureRow row;
-
-  const _ComparisonRow({required this.row});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.progressBackground, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 6,
-            child: Text(
-              row.name,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Center(child: _cell(row.basic)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Center(child: _cell(row.pro)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _cell(dynamic v) {
-    if (v is bool) {
-      return Icon(
-        v ? Icons.check : Icons.close,
-        size: 18,
-        color: v ? AppColors.primary : AppColors.textLight,
-      );
-    }
-    return Text(
-      '$v',
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textSecondary,
       ),
     );
   }
