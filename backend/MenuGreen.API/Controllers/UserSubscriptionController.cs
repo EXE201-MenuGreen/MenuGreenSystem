@@ -15,10 +15,21 @@ namespace MenuGreen.API.Controllers
     public class UserSubscriptionController : ControllerBase
     {
         private readonly IUserSubscriptionService _service;
+        private readonly ISubscriptionPlanService _planService;
 
-        public UserSubscriptionController(IUserSubscriptionService service)
+        public UserSubscriptionController(
+            IUserSubscriptionService service,
+            ISubscriptionPlanService planService)
         {
             _service = service;
+            _planService = planService;
+        }
+
+        // Lấy danh sách gói subscription đang hoạt động để user chọn đăng ký.
+        [HttpGet("plans")]
+        public async Task<IActionResult> GetAvailablePlans()
+        {
+            return Ok(await _planService.GetAllAsync(isActive: true));
         }
 
         // Đăng ký mới một gói thành viên cho user hiện tại.

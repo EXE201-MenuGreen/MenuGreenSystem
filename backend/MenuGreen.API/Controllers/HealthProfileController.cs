@@ -23,7 +23,14 @@ namespace MenuGreen.API.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userId, out var id)) return Unauthorized();
-            return Ok(await _service.GetAsync(id));
+            try
+            {
+                return Ok(await _service.GetAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         // Cập nhật hồ sơ sức khỏe của chính mình.
@@ -33,7 +40,14 @@ namespace MenuGreen.API.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userId, out var id)) return Unauthorized();
-            return Ok(await _service.UpdateAsync(id, request));
+            try
+            {
+                return Ok(await _service.UpdateAsync(id, request));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
     }
 }

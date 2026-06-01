@@ -43,8 +43,8 @@ namespace MenuGreen.API.Controllers
             {
                 var verified = await _authService.VerifyOtpAsync(request.Email, request.OtpCode);
                 return verified
-                    ? Ok(new { Message = "Xác thực OTP thành công." })
-                    : BadRequest(new { Message = "OTP không hợp lệ hoặc đã hết hạn." });
+                    ? Ok(new { Message = "OTP verified successfully." })
+                    : BadRequest(new { Message = "Invalid or expired OTP." });
             }
             catch (Exception ex)
             {
@@ -124,7 +124,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _authService.LogoutAsync(request.RefreshToken);
-                return Ok(new { Message = "Đăng xuất thành công." });
+                return Ok(new { Message = "Logged out successfully." });
             }
             catch (Exception ex)
             {
