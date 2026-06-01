@@ -1,5 +1,8 @@
 /// Dịch thông báo auth từ API (tiếng Anh) sang tiếng Việt cho UI.
-String localizeAuthMessage(String? raw, {String fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.'}) {
+String localizeAuthMessage(
+  String? raw, {
+  String fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.',
+}) {
   if (raw == null || raw.trim().isEmpty) return fallback;
 
   final normalized = raw.trim();
@@ -9,11 +12,13 @@ String localizeAuthMessage(String? raw, {String fallback = 'Đã xảy ra lỗi.
     // Login / session
     'Invalid email or password.': 'Email hoặc mật khẩu không chính xác.',
     'Invalid email or password': 'Email hoặc mật khẩu không chính xác.',
-    'Please verify your OTP before logging in.': 'Vui lòng xác thực OTP trước khi đăng nhập.',
+    'Please verify your OTP before logging in.':
+        'Vui lòng xác thực OTP trước khi đăng nhập.',
     'Your account has been locked.': 'Tài khoản của bạn đã bị khóa.',
     'Your account has been locked or does not exist.':
         'Tài khoản không tồn tại hoặc đã bị khóa.',
-    'Invalid or expired refresh token.': 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.',
+    'Invalid or expired refresh token.':
+        'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.',
     // Register
     'Email is already registered.': 'Email đã được đăng ký.',
     'Registration successful. Please check your email for the verification OTP.':
@@ -38,7 +43,8 @@ String localizeAuthMessage(String? raw, {String fallback = 'Đã xảy ra lỗi.
     'Refresh token failed': 'Làm mới phiên đăng nhập thất bại.',
     'No refresh token': 'Không tìm thấy phiên đăng nhập.',
     'Logout request failed': 'Đăng xuất thất bại.',
-    'Connection error. Is backend running?': 'Lỗi kết nối. Bạn đã bật backend chưa?',
+    'Connection error. Is backend running?':
+        'Lỗi kết nối. Bạn đã bật backend chưa?',
   };
 
   if (exact.containsKey(normalized)) return exact[normalized]!;
