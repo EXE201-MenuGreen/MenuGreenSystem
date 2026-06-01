@@ -34,7 +34,9 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IFoodCatalogService, FoodCatalogService>();
             services.AddScoped<IIngredientCatalogService, IngredientCatalogService>();
             services.AddScoped<IRecipeCatalogService, RecipeCatalogService>();
+            services.AddScoped<INutritionAssistantService, NutritionAssistantService>();
             services.AddHttpClient<IEmailService, EmailService>();
+            services.AddHttpClient(nameof(NutritionAssistantService));
             return services;
         }
     }
