@@ -19,8 +19,10 @@ namespace MenuGreen.API.Controllers
             _ingredientService = ingredientService;
         }
 
-        // Tìm kiếm nguyên liệu theo keyword, category và trạng thái.
-        [HttpGet]
+        /// <summary>
+        /// Tìm kiếm nguyên liệu theo keyword, category và trạng thái.
+        /// </summary>
+        [HttpGet("search")]
         public async Task<IActionResult> Search(
             [FromQuery] string? keyword,
             [FromQuery] string? category,
@@ -36,7 +38,41 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Lấy chi tiết nguyên liệu theo Id.
+        /// <summary>
+        /// Lấy danh sách công thức đang sử dụng nguyên liệu này.
+        /// </summary>
+        [HttpGet("{id:guid}/recipes")]
+        public async Task<IActionResult> GetRecipes(Guid id)
+        {
+            try
+            {
+                return Ok(await _ingredientService.GetRecipesAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh mục nguyên liệu để hiển thị trong catalog.
+        /// </summary>
+        [HttpGet("catalog")]
+        public async Task<IActionResult> GetCatalog()
+        {
+            try
+            {
+                return Ok(await _ingredientService.GetCatalogAsync());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết nguyên liệu theo Id.
+        /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -50,7 +86,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Tạo mới nguyên liệu.
+        /// <summary>
+        /// Tạo mới nguyên liệu.
+        /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] IngredientUpsertRequest request)
         {
@@ -66,7 +104,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Cập nhật thông tin nguyên liệu theo Id.
+        /// <summary>
+        /// Cập nhật thông tin nguyên liệu theo Id.
+        /// </summary>
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] IngredientUpsertRequest request)
         {
@@ -82,7 +122,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Xóa nguyên liệu theo Id.
+        /// <summary>
+        /// Xóa nguyên liệu theo Id.
+        /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
