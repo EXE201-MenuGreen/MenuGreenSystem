@@ -9,5 +9,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         Task<HealthProfileResponse> GetAsync(Guid userId);
         Task<HealthProfileResponse> UpdateAsync(Guid userId, UpdateHealthProfileRequest request);
+        Task<HealthProfileSummaryResponse> GetSummaryAsync(Guid userId);
+        Task<HealthProfileResponse> CalculateAsync(Guid userId);
+        Task<HealthProfileResponse> UpdateGoalAsync(Guid userId, UpdateHealthGoalRequest request);
     }
 }

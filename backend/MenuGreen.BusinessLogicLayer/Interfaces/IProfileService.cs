@@ -11,5 +11,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<ProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
         Task<ProfileResponse> UpdateAvatarAsync(Guid userId, UpdateAvatarRequest request);
         Task<ProfileResponse> RemoveAvatarAsync(Guid userId);
+        Task<ProfileSummaryResponse> GetSummaryAsync(Guid userId);
+        Task<ProfileCompletionResponse> GetCompletionAsync(Guid userId);
+        Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
     }
 }

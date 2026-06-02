@@ -33,7 +33,64 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Cập nhật hồ sơ sức khỏe của chính mình.
+        /// <summary>
+        /// Lấy hồ sơ sức khỏe tổng hợp của user hiện tại.
+        /// </summary>
+        [HttpGet("me/summary")]
+        public async Task<IActionResult> GetSummary()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userId, out var id)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.GetSummaryAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Tính lại BMI, BMR, TDEE, target calories và macro từ dữ liệu sức khỏe hiện tại.
+        /// </summary>
+        [HttpPost("me/calculate")]
+        public async Task<IActionResult> Calculate()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userId, out var id)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.CalculateAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật riêng mục tiêu sức khỏe của user.
+        /// </summary>
+        [HttpPatch("me/goal")]
+        public async Task<IActionResult> UpdateGoal([FromBody] UpdateHealthGoalRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userId, out var id)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.UpdateGoalAsync(id, request));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật hồ sơ sức khỏe của chính mình.
+        /// </summary>
         [HttpPut("me")]
         public async Task<IActionResult> Update([FromBody] UpdateHealthProfileRequest request)
         {
