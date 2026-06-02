@@ -3,12 +3,21 @@ description: Project goal and release target guidance
 alwaysApply: true
 ---
 
-# Project Goal: Nutrition App to Google Play
+# Project Goal: Vietnam-Focused Nutrition App to Google Play
 
 - Primary project objective: build a practical nutrition app that helps users track eating habits, health metrics, and personalized recommendations.
 - Product decisions should prioritize user value, reliability, and readiness for production mobile release.
+- Primary market focus: Vietnam users, with Vietnamese-first product thinking in UX/content/workflow proposals.
 - Delivery target includes deployment to Google Play (CH Play), so implementation should consider:
   - stable user-facing flows (onboarding, tracking, recommendation, subscription),
   - robust error handling and analytics for production,
   - maintainable architecture and testability for release quality.
+- Core target user segments to prioritize in planning and implementation:
+  - users who do not know what to eat day-to-day,
+  - users who want to improve and monitor personal nutrition,
+  - gym/PT-oriented users who need goal-based meal and macro support.
+- Feature and UX recommendations should be practical for Vietnam context:
+  - local meal patterns and food naming,
+  - budget-aware suggestions,
+  - simple and fast daily logging experience.
 - When proposing roadmap or features, prefer sequencing that accelerates Play Store launch readiness first, then advanced enhancements.
