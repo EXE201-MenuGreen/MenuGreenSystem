@@ -3,12 +3,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
-    public class RenewSubscriptionRequest
+    public class CreateSepayOrderRequest
     {
         [Required]
-        public Guid UserSubscriptionId { get; set; }
+        public Guid SubscriptionPlanId { get; set; }
 
-        public string? PaymentMethod { get; set; }
         public string? Note { get; set; }
     }
 }
