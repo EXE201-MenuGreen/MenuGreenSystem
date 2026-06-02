@@ -11,7 +11,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [MinLength(6, ErrorMessage = "New password must be at least 6 characters long.")]
         public string NewPassword { get; set; } = string.Empty;
 
-        [Compare("NewPassword", ErrorMessage = "Confirm password does not match.")]
+        [Required]
+        [Compare(nameof(NewPassword), ErrorMessage = "Confirm password does not match.")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
 }
