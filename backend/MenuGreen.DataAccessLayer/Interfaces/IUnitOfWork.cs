@@ -22,6 +22,8 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }
         IGenericRepository<Entities.UserSubscription> UserSubscriptions { get; }
         IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions { get; }
+        IGenericRepository<Entities.Payment> Payments { get; }
+        IGenericRepository<Entities.SepayTransaction> SepayTransactions { get; }
         
         Task<int> CompleteAsync();
     }
