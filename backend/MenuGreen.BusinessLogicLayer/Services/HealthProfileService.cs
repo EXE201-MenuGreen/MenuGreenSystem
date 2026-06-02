@@ -44,6 +44,40 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return MapToResponse(healthProfile);
         }
 
+        public async Task<HealthProfileSummaryResponse> GetSummaryAsync(Guid userId)
+        {
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            return MapToSummaryResponse(healthProfile);
+        }
+
+        public async Task<HealthProfileResponse> CalculateAsync(Guid userId)
+        {
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var userProfile = await GetUserProfileAsync(userId);
+
+            RecalculateMetrics(healthProfile, userProfile.Gender, userProfile.DateOfBirth);
+            healthProfile.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.HealthProfiles.Update(healthProfile);
+            await _unitOfWork.CompleteAsync();
+
+            return MapToResponse(healthProfile);
+        }
+
+        public async Task<HealthProfileResponse> UpdateGoalAsync(Guid userId, UpdateHealthGoalRequest request)
+        {
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var userProfile = await GetUserProfileAsync(userId);
+
+            healthProfile.Goal = request.Goal;
+            RecalculateMetrics(healthProfile, userProfile.Gender, userProfile.DateOfBirth);
+
+            healthProfile.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.HealthProfiles.Update(healthProfile);
+            await _unitOfWork.CompleteAsync();
+
+            return MapToResponse(healthProfile);
+        }
+
         private async Task EnsureUserExistsAsync(Guid userId)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
@@ -160,9 +194,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             return tdeeKcal + (goal?.Trim().ToLower() switch
             {
-                "gain weight" => 300,
-                "lose weight" => -500,
-                "build muscle" => 200,
+                "gain weight" or "gainweight" => 300,
+                "lose weight" or "loseweight" => -500,
+                "build muscle" or "buildmuscle" => 200,
                 _ => 0
             });
         }
@@ -170,8 +204,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private static void ApplyMacroTargets(HealthProfile healthProfile)
         {
             var goal = healthProfile.Goal?.Trim().ToLower();
-            var proteinRatio = goal == "build muscle" ? 0.35 : 0.30;
-            var fatRatio = goal == "build muscle" ? 0.25 : 0.30;
+            var proteinRatio = goal is "build muscle" or "buildmuscle" ? 0.35 : 0.30;
+            var fatRatio = goal is "build muscle" or "buildmuscle" ? 0.25 : 0.30;
             var carbsRatio = 0.40;
 
             var targetCalories = (double)(healthProfile.TargetCalories ?? 0);
@@ -197,6 +231,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetProteinG = healthProfile.TargetProteinG,
                 TargetCarbsG = healthProfile.TargetCarbsG,
                 TargetFatG = healthProfile.TargetFatG
+            };
+        }
+
+        private static HealthProfileSummaryResponse MapToSummaryResponse(HealthProfile healthProfile)
+        {
+            return new HealthProfileSummaryResponse
+            {
+                UserId = healthProfile.UserId,
+                HeightCm = healthProfile.HeightCm,
+                WeightKg = healthProfile.WeightKg,
+                BodyFatPercent = healthProfile.BodyFatPercent,
+                ActivityLevel = healthProfile.ActivityLevel,
+                Goal = healthProfile.Goal,
+                Bmi = healthProfile.Bmi,
+                BmrKcal = healthProfile.BmrKcal,
+                TdeeKcal = healthProfile.TdeeKcal,
+                TargetCalories = healthProfile.TargetCalories,
+                TargetProteinG = healthProfile.TargetProteinG,
+                TargetCarbsG = healthProfile.TargetCarbsG,
+                TargetFatG = healthProfile.TargetFatG,
+                UpdatedAt = healthProfile.UpdatedAt
             };
         }
     }

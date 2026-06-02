@@ -17,10 +17,12 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.Recipe>? _recipes;
         private IGenericRepository<Entities.RecipeIngredient>? _recipeIngredients;
         private IGenericRepository<Entities.Allergy>? _allergies;
+        private IGenericRepository<Entities.UserAllergy>? _userAllergies;
         private IGenericRepository<Entities.MealLog>? _mealLogs;
         private IGenericRepository<Entities.WeightLog>? _weightLogs;
         private IGenericRepository<Entities.MealPlanHeader>? _mealPlanHeaders;
         private IGenericRepository<Entities.MealPlanItem>? _mealPlanItems;
+        private IGenericRepository<Entities.UserAiProfile>? _userAiProfiles;
         private IGenericRepository<Entities.Notification>? _notifications;
         private IGenericRepository<Entities.NotificationSetting>? _notificationSettings;
         private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
@@ -42,10 +44,12 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.Recipe> Recipes => _recipes ??= new GenericRepository<Entities.Recipe>(_context);
         public IGenericRepository<Entities.RecipeIngredient> RecipeIngredients => _recipeIngredients ??= new GenericRepository<Entities.RecipeIngredient>(_context);
         public IGenericRepository<Entities.Allergy> Allergies => _allergies ??= new GenericRepository<Entities.Allergy>(_context);
+        public IGenericRepository<Entities.UserAllergy> UserAllergies => _userAllergies ??= new GenericRepository<Entities.UserAllergy>(_context);
         public IGenericRepository<Entities.MealLog> MealLogs => _mealLogs ??= new GenericRepository<Entities.MealLog>(_context);
         public IGenericRepository<Entities.WeightLog> WeightLogs => _weightLogs ??= new GenericRepository<Entities.WeightLog>(_context);
         public IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders => _mealPlanHeaders ??= new GenericRepository<Entities.MealPlanHeader>(_context);
         public IGenericRepository<Entities.MealPlanItem> MealPlanItems => _mealPlanItems ??= new GenericRepository<Entities.MealPlanItem>(_context);
+        public IGenericRepository<Entities.UserAiProfile> UserAiProfiles => _userAiProfiles ??= new GenericRepository<Entities.UserAiProfile>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);
         public IGenericRepository<Entities.NotificationSetting> NotificationSettings => _notificationSettings ??= new GenericRepository<Entities.NotificationSetting>(_context);
         public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
