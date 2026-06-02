@@ -103,12 +103,11 @@ builder.Services.AddAuthentication(options =>
     };
 });
 var app = builder.Build();
-var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:Enabled");
 
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment() || enableSwagger)
+if (app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
