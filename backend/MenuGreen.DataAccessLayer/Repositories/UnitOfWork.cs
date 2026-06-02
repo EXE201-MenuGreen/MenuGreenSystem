@@ -26,6 +26,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
         private IGenericRepository<Entities.UserSubscription>? _userSubscriptions;
         private IGenericRepository<Entities.SubscriptionTransaction>? _subscriptionTransactions;
+        private IGenericRepository<Entities.Payment>? _payments;
+        private IGenericRepository<Entities.SepayTransaction>? _sepayTransactions;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -49,6 +51,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
         public IGenericRepository<Entities.UserSubscription> UserSubscriptions => _userSubscriptions ??= new GenericRepository<Entities.UserSubscription>(_context);
         public IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions => _subscriptionTransactions ??= new GenericRepository<Entities.SubscriptionTransaction>(_context);
+        public IGenericRepository<Entities.Payment> Payments => _payments ??= new GenericRepository<Entities.Payment>(_context);
+        public IGenericRepository<Entities.SepayTransaction> SepayTransactions => _sepayTransactions ??= new GenericRepository<Entities.SepayTransaction>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }

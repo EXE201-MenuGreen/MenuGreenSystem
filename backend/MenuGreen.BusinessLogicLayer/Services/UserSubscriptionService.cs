@@ -12,6 +12,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class UserSubscriptionService : IUserSubscriptionService
     {
+        private const string SepayPaymentRequiredMessage =
+            "Paid subscriptions must use SePay. Subscribe: POST /api/payments/sepay/create-order. Renew: POST /api/payments/sepay/create-renew-order.";
+
         private readonly IUnitOfWork _unitOfWork;
 
         public UserSubscriptionService(IUnitOfWork unitOfWork)
@@ -22,6 +25,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserSubscriptionResponse> SubscribeAsync(Guid userId, SubscribeRequest request)
         {
             var plan = await GetActivePlanAsync(request.SubscriptionPlanId);
+            if ((plan.PriceVnd ?? 0) > 0)
+            {
+                throw new InvalidOperationException(SepayPaymentRequiredMessage);
+            }
+
             var now = DateTime.UtcNow;
             var subscription = new UserSubscription
             {
@@ -36,29 +44,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
 
             await _unitOfWork.UserSubscriptions.AddAsync(subscription);
-            await _unitOfWork.SubscriptionTransactions.AddAsync(CreateTransaction(userId, subscription.Id, "Subscribe", plan.PriceVnd ?? 0, request.Note, now));
+            await _unitOfWork.SubscriptionTransactions.AddAsync(
+                CreateTransaction(userId, subscription.Id, "Subscribe", 0, request.Note ?? "Free plan", now));
             await _unitOfWork.CompleteAsync();
 
             return await MapAsync(subscription);
         }
 
-        public async Task<UserSubscriptionResponse> RenewAsync(Guid userId, RenewSubscriptionRequest request)
+        public Task<UserSubscriptionResponse> RenewAsync(Guid userId, RenewSubscriptionRequest request)
         {
-            var subscription = await GetOwnedSubscriptionAsync(userId, request.UserSubscriptionId);
-            var plan = await GetActivePlanAsync(subscription.SubscriptionPlanId);
-            var now = DateTime.UtcNow;
-            var baseDate = subscription.EndDate > now ? subscription.EndDate : now;
-
-            subscription.EndDate = baseDate.AddDays(plan.DurationDays ?? 0);
-            subscription.Status = "Active";
-            subscription.RenewedAt = now;
-            subscription.UpdatedAt = now;
-
-            _unitOfWork.UserSubscriptions.Update(subscription);
-            await _unitOfWork.SubscriptionTransactions.AddAsync(CreateTransaction(userId, subscription.Id, "Renew", plan.PriceVnd ?? 0, request.Note, now));
-            await _unitOfWork.CompleteAsync();
-
-            return await MapAsync(subscription);
+            throw new InvalidOperationException(SepayPaymentRequiredMessage);
         }
 
         public async Task<UserSubscriptionResponse> CancelAsync(Guid userId, CancelSubscriptionRequest request)
@@ -71,7 +66,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             subscription.UpdatedAt = now;
 
             _unitOfWork.UserSubscriptions.Update(subscription);
-            await _unitOfWork.SubscriptionTransactions.AddAsync(CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
+            await _unitOfWork.SubscriptionTransactions.AddAsync(
+                CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
             await _unitOfWork.CompleteAsync();
 
             return await MapAsync(subscription);
@@ -80,7 +76,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserSubscriptionResponse?> GetCurrentAsync(Guid userId)
         {
             var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(x => x.UserId == userId);
-            var current = subscriptions.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
+            var current = subscriptions
+                .Where(x => x.Status is "Active" or "PendingPayment")
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefault();
+
             return current == null ? null : await MapAsync(current);
         }
 
@@ -109,7 +109,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return subscription;
         }
 
-        private static SubscriptionTransaction CreateTransaction(Guid userId, Guid subscriptionId, string type, int amount, string? note, DateTime time)
+        private static SubscriptionTransaction CreateTransaction(
+            Guid userId,
+            Guid subscriptionId,
+            string type,
+            int amount,
+            string? note,
+            DateTime time)
         {
             return new SubscriptionTransaction
             {
