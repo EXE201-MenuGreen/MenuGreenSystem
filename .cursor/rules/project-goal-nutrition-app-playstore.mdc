@@ -1,0 +1,14 @@
+---
+description: Project goal and release target guidance
+alwaysApply: true
+---
+
+# Project Goal: Nutrition App to Google Play
+
+- Primary project objective: build a practical nutrition app that helps users track eating habits, health metrics, and personalized recommendations.
+- Product decisions should prioritize user value, reliability, and readiness for production mobile release.
+- Delivery target includes deployment to Google Play (CH Play), so implementation should consider:
+  - stable user-facing flows (onboarding, tracking, recommendation, subscription),
+  - robust error handling and analytics for production,
+  - maintainable architecture and testability for release quality.
+- When proposing roadmap or features, prefer sequencing that accelerates Play Store launch readiness first, then advanced enhancements.
