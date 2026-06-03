@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -195,9 +196,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _webhookVerifier.Verify(payment, payload, transferContent, transferAmount);
 
-            var transactionTime = payload.TransactionDate.HasValue
-                ? new DateTimeOffset(DateTime.SpecifyKind(payload.TransactionDate.Value, DateTimeKind.Utc))
-                : DateTimeOffset.UtcNow;
+            var transactionTime = ParseSepayTransactionDate(payload.TransactionDate);
 
             var sepayTransaction = new SepayTransaction
             {
@@ -438,6 +437,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return payload.ReferenceCode?.Trim() ?? string.Empty;
+        }
+
+        private static DateTimeOffset ParseSepayTransactionDate(string? transactionDate)
+        {
+            if (string.IsNullOrWhiteSpace(transactionDate))
+            {
+                return DateTimeOffset.UtcNow;
+            }
+
+            if (DateTime.TryParseExact(
+                    transactionDate.Trim(),
+                    "yyyy-MM-dd HH:mm:ss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var vietnamLocal))
+            {
+                return new DateTimeOffset(vietnamLocal, TimeSpan.FromHours(7));
+            }
+
+            return DateTimeOffset.UtcNow;
         }
 
         private string ReadPaymentCodePrefix()

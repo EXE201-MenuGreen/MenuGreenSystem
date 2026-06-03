@@ -14,8 +14,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [JsonPropertyName("gateway")]
         public string? Gateway { get; set; }
 
+        /// <summary>SePay format: yyyy-MM-dd HH:mm:ss (Vietnam local time).</summary>
         [JsonPropertyName("transactionDate")]
-        public DateTime? TransactionDate { get; set; }
+        public string? TransactionDate { get; set; }
 
         [JsonPropertyName("accountNumber")]
         public string? AccountNumber { get; set; }
