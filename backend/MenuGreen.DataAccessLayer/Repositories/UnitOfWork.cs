@@ -23,6 +23,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.MealPlanHeader>? _mealPlanHeaders;
         private IGenericRepository<Entities.MealPlanItem>? _mealPlanItems;
         private IGenericRepository<Entities.UserAiProfile>? _userAiProfiles;
+        private IGenericRepository<Entities.RecommendationHistory>? _recommendationHistories;
+        private IGenericRepository<Entities.RecommendationFeedback>? _recommendationFeedbacks;
         private IGenericRepository<Entities.Notification>? _notifications;
         private IGenericRepository<Entities.NotificationSetting>? _notificationSettings;
         private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
@@ -50,6 +52,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders => _mealPlanHeaders ??= new GenericRepository<Entities.MealPlanHeader>(_context);
         public IGenericRepository<Entities.MealPlanItem> MealPlanItems => _mealPlanItems ??= new GenericRepository<Entities.MealPlanItem>(_context);
         public IGenericRepository<Entities.UserAiProfile> UserAiProfiles => _userAiProfiles ??= new GenericRepository<Entities.UserAiProfile>(_context);
+        public IGenericRepository<Entities.RecommendationHistory> RecommendationHistories => _recommendationHistories ??= new GenericRepository<Entities.RecommendationHistory>(_context);
+        public IGenericRepository<Entities.RecommendationFeedback> RecommendationFeedbacks => _recommendationFeedbacks ??= new GenericRepository<Entities.RecommendationFeedback>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);
         public IGenericRepository<Entities.NotificationSetting> NotificationSettings => _notificationSettings ??= new GenericRepository<Entities.NotificationSetting>(_context);
         public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
