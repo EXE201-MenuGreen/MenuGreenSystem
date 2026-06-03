@@ -115,11 +115,8 @@ var app = builder.Build();
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsProduction())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Enable CORS
 app.UseCors("AllowAll");

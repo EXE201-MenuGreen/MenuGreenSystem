@@ -113,9 +113,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return MapOrder(payment);
         }
 
-        public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(string rawBody, string? signature, string? timestamp)
+        public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(
+            string rawBody,
+            string? signature,
+            string? timestamp,
+            string? authorizationHeader)
         {
-            _hmacValidator.Validate(rawBody, signature, timestamp);
+            _hmacValidator.Validate(rawBody, signature, timestamp, authorizationHeader);
 
             var payload = JsonSerializer.Deserialize<SepayIncomingWebhookPayload>(rawBody, WebhookJsonOptions)
                 ?? throw new Exception("Invalid SePay webhook payload.");
