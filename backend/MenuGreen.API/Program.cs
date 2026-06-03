@@ -7,6 +7,14 @@ using Microsoft.OpenApi.Models;
 using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer.Context;
+
+// Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{renderPort}");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
