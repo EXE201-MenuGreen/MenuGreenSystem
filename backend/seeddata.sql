@@ -1,53 +1,64 @@
 -- =============================================================================
--- MenuGreen - PostgreSQL seed data (pgAdmin / psql)
+-- MenuGreen - PostgreSQL seed data (pgAdmin / Render SQL shell / psql)
 -- =============================================================================
 -- Prerequisites:
---   1. Database: MenuGreenDb
---   2. EF migration applied (tables exist)
+--   1. Database created (local MenuGreenDb or Render menugreendb)
+--   2. Schema from EF migration (NOT this file):
+--        cd backend
+--        dotnet ef database update --project MenuGreen.DataAccessLayer --startup-project MenuGreen.API
+--   3. If Render DB has old partial schema, reset first: backend/reset_database.sql
+--      then run database update again, then run this seed file.
 --
 -- Demo accounts (password for all): Demo@123
---   demo@menugreen.app  -> role Free  (basic user)
---   pro@menugreen.app   -> role Pro   (active yearly subscription)
---   admin@menugreen.app -> role Admin
+--   demo@menugreen.app  -> role Free   (free-tier demo, meal tracking ~1250 kcal today)
+--   pro@menugreen.app   -> role Pro    (active yearly subscription + transaction history)
+--   admin@menugreen.app -> role Admin  (admin web panel)
+--
+-- Health profile values use API/Flutter canonical strings:
+--   ActivityLevel: sedentary | lightly active | moderately active | very active
+--   Goal: lose weight | maintain weight | gain weight | build muscle
 --
 -- Safe to re-run: fixed UUIDs + ON CONFLICT DO NOTHING
--- To reset demo data only, uncomment the DELETE block below.
+-- To reset demo user data only, uncomment the DELETE block below.
 -- =============================================================================
 
--- DELETE FROM sepay_transactions;
--- DELETE FROM payments;
--- DELETE FROM subscriptions;
--- DELETE FROM recommendation_feedbacks;
--- DELETE FROM recommendation_history;
--- DELETE FROM ai_messages;
--- DELETE FROM ai_conversations;
--- DELETE FROM meal_plan_items;
--- DELETE FROM meal_plan_headers;
--- DELETE FROM nutrition_snapshots;
--- DELETE FROM meal_logs;
--- DELETE FROM weight_logs;
--- DELETE FROM favorite_foods;
--- DELETE FROM food_allergies;
--- DELETE FROM allergies WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
--- DELETE FROM recipe_ingredients;
+-- DELETE FROM subscription_transactions WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM user_subscriptions WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM sepay_transactions WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM payments WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM subscriptions WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM recommendation_feedbacks WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM recommendation_history WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM ai_messages WHERE "ConversationId" IN (SELECT "Id" FROM ai_conversations WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app'));
+-- DELETE FROM ai_conversations WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM meal_plan_items WHERE "MealPlanId" IN (SELECT "Id" FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app'));
+-- DELETE FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM nutrition_snapshots WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM meal_logs WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM weight_logs WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM favorite_foods WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM food_allergies WHERE "FoodId" IN (SELECT "Id" FROM foods WHERE "Id"::text LIKE '40000000%')
+--   OR "AllergyId" IN ('20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000003');
+-- DELETE FROM user_allergies WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM allergies WHERE "Id" IN ('20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000003');
+-- DELETE FROM recipe_ingredients WHERE "RecipeId" IN (SELECT "Id" FROM recipes);
 -- DELETE FROM recipes;
 -- DELETE FROM "NotificationSettings" WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM "Notifications" WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
--- DELETE FROM activity_logs;
--- DELETE FROM budget_requests;
--- DELETE FROM user_ai_profile;
--- DELETE FROM email_verifications;
--- DELETE FROM password_reset_tokens;
--- DELETE FROM sessions;
--- DELETE FROM health_profiles;
--- DELETE FROM profiles;
+-- DELETE FROM activity_logs WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM budget_requests WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM user_ai_profile WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM email_verifications WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM password_reset_tokens WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM sessions WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM health_profiles WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM profiles WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM users WHERE "Email" LIKE '%@menugreen.app';
 -- (reference tables: foods, ingredients, subscription_plans, roles are kept)
 
 BEGIN;
 
--- BCrypt hash for password: Demo@123
--- Generated with BCrypt (compatible with BCrypt.Net-Next in API)
+-- BCrypt hash for password: Demo@123 (BCrypt.Net-Next compatible)
 
 -- =========================
 -- Roles
@@ -143,6 +154,18 @@ VALUES
     'Yến mạch sữa chua','Yogurt Oats Bowl','Bữa sáng',
     'Bữa sáng giàu carb chậm và protein.',
     330,12,48,8,6,25000,280,NULL,true,now()
+  ),
+  (
+    '40000000-0000-0000-0000-000000000006',
+    'Phở bò tái','Beef Pho','Món Việt',
+    'Món Việt phổ biến, phù hợp bữa trưa nhanh.',
+    420,28,52,10,3,45000,500,NULL,true,now()
+  ),
+  (
+    '40000000-0000-0000-0000-000000000007',
+    'Cơm gà Hải Nam','Hainanese Chicken Rice','Món Việt',
+    'Cơm gà đầy đủ năng lượng cho ngày tập luyện.',
+    520,32,58,16,2,55000,450,NULL,true,now()
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -246,7 +269,7 @@ VALUES
     'Minh Demo',
     'https://i.pravatar.cc/150?img=5',
     '1998-05-15',
-    'male',
+    'Male',
     'Việt Nam',
     now(), now()
   ),
@@ -255,7 +278,7 @@ VALUES
     'Lan Pro',
     'https://i.pravatar.cc/150?img=11',
     '1996-08-20',
-    'female',
+    'Female',
     'Healthy / Gym',
     now(), now()
   ),
@@ -264,14 +287,14 @@ VALUES
     'Admin MenuGreen',
     'https://i.pravatar.cc/150?img=3',
     '1990-01-01',
-    'male',
+    'Male',
     NULL,
     now(), now()
   )
 ON CONFLICT ("UserId") DO NOTHING;
 
 -- =========================
--- Health profiles (targets aligned with Home UI ~1850 kcal)
+-- Health profiles (canonical ActivityLevel / Goal for API + Flutter)
 -- =========================
 INSERT INTO health_profiles (
   "UserId","HeightCm","WeightKg","BodyFatPercent","ActivityLevel","Goal",
@@ -281,26 +304,26 @@ INSERT INTO health_profiles (
 VALUES
   (
     '70000000-0000-0000-0000-000000000001',
-    170.00, 65.00, 18.00, 'moderate', 'loseweight',
-    22.49, 1583, 2454, 1850, 139, 185, 62,
+    170.00, 65.00, 18.00, 'moderately active', 'lose weight',
+    22.49, 1583, 2454, 1954, 146, 195, 65,
     now(), now()
   ),
   (
     '70000000-0000-0000-0000-000000000002',
-    165.00, 58.00, 22.00, 'active', 'maintain',
-    21.30, 1420, 2449, 2450, 184, 245, 82,
+    165.00, 58.00, 22.00, 'very active', 'maintain weight',
+    21.30, 1420, 2449, 2449, 183, 245, 82,
     now(), now()
   ),
   (
     '70000000-0000-0000-0000-000000000003',
-    175.00, 72.00, NULL, 'light', 'maintain',
-    23.51, 1680, 2310, 2310, 173, 231, 77,
+    175.00, 72.00, NULL, 'lightly active', 'maintain weight',
+    23.51, 1680, 2306, 2306, 173, 231, 77,
     now(), now()
   )
 ON CONFLICT ("UserId") DO NOTHING;
 
 -- =========================
--- Allergies (per user — matches AllergyService / GET api/allergy)
+-- Allergies (AllergyService / GET api/allergy)
 -- =========================
 INSERT INTO allergies ("Id", "UserId", "Name", "Notes", "IsActive", "CreatedAt", "UpdatedAt")
 VALUES
@@ -325,23 +348,24 @@ VALUES
     'Không dung nạp lactose / sản phẩm từ sữa',
     true, now(), now()
   )
-ON CONFLICT ("Id") DO NOTHING;
+ON CONFLICT ("UserId", "Name") DO NOTHING;
 
 -- =========================
--- Food allergies (Smoothie Bơ Hạt — dùng allergy của demo user)
+-- Food allergies (Smoothie Bơ Hạt — peanut + lactose for demo user)
 -- =========================
 INSERT INTO food_allergies ("FoodId", "AllergyId")
 VALUES
   ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001'),
   ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002')
-ON CONFLICT DO NOTHING;
+ON CONFLICT ("FoodId", "AllergyId") DO NOTHING;
 
 -- =========================
--- User subscriptions (Pro user - API UserSubscriptionController)
+-- User subscriptions (Pro user — UserSubscriptionService)
 -- =========================
 INSERT INTO user_subscriptions (
   "Id", "UserId", "SubscriptionPlanId", "Status",
-  "StartDate", "EndDate", "CreatedAt", "UpdatedAt"
+  "StartDate", "EndDate", "CancelledAt", "RenewedAt",
+  "CreatedAt", "UpdatedAt"
 )
 VALUES
   (
@@ -351,8 +375,31 @@ VALUES
     'Active',
     now() - interval '60 days',
     '2026-12-31 23:59:59+00'::timestamptz,
+    NULL,
+    now() - interval '60 days',
     now() - interval '60 days',
     now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Subscription transactions (Upgrade Plan history tab)
+-- =========================
+INSERT INTO subscription_transactions (
+  "Id", "UserId", "UserSubscriptionId", "TransactionType",
+  "Amount", "Status", "Note", "TransactionDate", "CreatedAt"
+)
+VALUES
+  (
+    '81000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000002',
+    '80000000-0000-0000-0000-000000000001',
+    'Subscribe',
+    790000,
+    'Success',
+    'Đăng ký gói Pro Năm (demo seed)',
+    now() - interval '60 days',
+    now() - interval '60 days'
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -363,11 +410,12 @@ INSERT INTO favorite_foods ("UserId", "FoodId", "CreatedAt")
 VALUES
   ('70000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001', now()),
   ('70000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000002', now()),
-  ('70000000-0000-0000-0000-000000000002','40000000-0000-0000-0000-000000000001', now())
-ON CONFLICT DO NOTHING;
+  ('70000000-0000-0000-0000-000000000002','40000000-0000-0000-0000-000000000001', now()),
+  ('70000000-0000-0000-0000-000000000002','40000000-0000-0000-0000-000000000007', now())
+ON CONFLICT ("UserId", "FoodId") DO NOTHING;
 
 -- =========================
--- Meal logs (demo user today - total ~1200 kcal, matches Home UI)
+-- Meal logs (demo user today — total 1250 kcal vs target 1954)
 -- =========================
 INSERT INTO meal_logs (
   "Id","UserId","FoodId","RecipeId","MealType","QuantityG",
@@ -407,13 +455,13 @@ VALUES
     '40000000-0000-0000-0000-000000000004',
     NULL,
     'Dinner', 300,
-    200, 11, 14, 10, 'manual', 'Salad đậu hũ nhẹ',
+    250, 14, 18, 12, 'manual', 'Salad đậu hũ nhẹ',
     date_trunc('day', now()) + interval '18 hours 30 minutes'
   )
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Nutrition snapshot (today)
+-- Nutrition snapshot (today — aligned with meal_logs totals)
 -- =========================
 INSERT INTO nutrition_snapshots (
   "Id","UserId","SnapshotDate",
@@ -424,13 +472,13 @@ VALUES
     'a0000000-0000-0000-0000-000000000001',
     '70000000-0000-0000-0000-000000000001',
     CURRENT_DATE,
-    1200, 71, 104, 46, 64.86
+    1250, 74, 108, 48, 64.0
   ),
   (
     'a0000000-0000-0000-0000-000000000002',
     '70000000-0000-0000-0000-000000000002',
     CURRENT_DATE,
-    980, 55, 110, 32, 40.00
+    980, 55, 110, 32, 40.0
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -445,7 +493,7 @@ VALUES
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Notification settings
+-- Notification settings (unique per UserId)
 -- =========================
 INSERT INTO "NotificationSettings" (
   "Id", "UserId",
@@ -464,8 +512,13 @@ VALUES
     '11000000-0000-0000-0000-000000000002',
     '70000000-0000-0000-0000-000000000002',
     true, 30, true, 20, true, false, now(), now()
+  ),
+  (
+    '11000000-0000-0000-0000-000000000003',
+    '70000000-0000-0000-0000-000000000003',
+    true, 30, false, 20, true, false, now(), now()
   )
-ON CONFLICT ("Id") DO NOTHING;
+ON CONFLICT ("UserId") DO NOTHING;
 
 -- =========================
 -- Notifications
@@ -476,7 +529,7 @@ VALUES
     'd0000000-0000-0000-0000-000000000001',
     '70000000-0000-0000-0000-000000000001',
     'Chào buổi sáng!',
-    'Bạn còn 650 kcal cho hôm nay. Thử Salad ức gà cho bữa trưa nhé.',
+    'Bạn còn khoảng 704 kcal cho hôm nay. Thử Salad ức gà cho bữa trưa nhé.',
     'reminder', false, now() - interval '2 hours'
   ),
   (
@@ -489,7 +542,7 @@ VALUES
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Meal plan (demo user - sample week)
+-- Meal plan (demo user — sample week)
 -- =========================
 INSERT INTO meal_plan_headers (
   "Id","UserId","Title","PlanType","StartDate","EndDate",
@@ -503,7 +556,7 @@ VALUES
     'weekly',
     CURRENT_DATE,
     CURRENT_DATE + 6,
-    1850, 'manual', true, now(), now()
+    1954, 'manual', true, now(), now()
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -529,17 +582,32 @@ VALUES
     '50000000-0000-0000-0000-000000000002',
     CURRENT_DATE,
     220, false, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000003',
+    'e0000000-0000-0000-0000-000000000001',
+    'Dinner',
+    '40000000-0000-0000-0000-000000000006',
+    NULL,
+    CURRENT_DATE + 1,
+    420, false, now()
   )
 ON CONFLICT ("Id") DO NOTHING;
 
 COMMIT;
 
 -- =========================
--- Quick verification (optional - run after COMMIT)
+-- Quick verification (optional — run after COMMIT)
 -- =========================
--- SELECT u."Email", r."Name" AS role, p."FullName", hp."TargetCalories"
+-- SELECT u."Email", r."Name" AS role, p."FullName", hp."TargetCalories", hp."ActivityLevel", hp."Goal"
 -- FROM users u
 -- JOIN roles r ON r."Id" = u."RoleId"
 -- LEFT JOIN profiles p ON p."UserId" = u."Id"
 -- LEFT JOIN health_profiles hp ON hp."UserId" = u."Id"
 -- WHERE u."Email" LIKE '%@menugreen.app';
+--
+-- SELECT us."Status", sp."Name", st."TransactionType", st."Amount"
+-- FROM user_subscriptions us
+-- JOIN subscription_plans sp ON sp."Id" = us."SubscriptionPlanId"
+-- LEFT JOIN subscription_transactions st ON st."UserSubscriptionId" = us."Id"
+-- WHERE us."UserId" = '70000000-0000-0000-0000-000000000002';
