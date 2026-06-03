@@ -453,7 +453,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     DateTimeStyles.None,
                     out var vietnamLocal))
             {
-                return new DateTimeOffset(vietnamLocal, TimeSpan.FromHours(7));
+                // SePay sends Vietnam local time; Npgsql requires UTC offset for timestamptz.
+                return new DateTimeOffset(vietnamLocal, TimeSpan.FromHours(7)).ToUniversalTime();
             }
 
             return DateTimeOffset.UtcNow;
