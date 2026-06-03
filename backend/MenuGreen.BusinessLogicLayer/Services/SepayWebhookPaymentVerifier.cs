@@ -44,13 +44,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     $"Payment code mismatch. Expected '{payment.ProviderOrderCode}', received '{resolvedCode}'.");
             }
 
-            if (!string.IsNullOrWhiteSpace(payload.Code) &&
-                !string.Equals(payload.Code.Trim(), payment.ProviderOrderCode, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new Exception(
-                    $"SePay code field does not match order. Expected '{payment.ProviderOrderCode}', webhook code '{payload.Code}'.");
-            }
-
             var expectedQr = _qrUrlBuilder.Build(payment.AmountVnd, payment.ProviderOrderCode);
             if (!TransferContentMatchesExpected(transferContent, expectedQr.TransferMemo, payment.ProviderOrderCode))
             {

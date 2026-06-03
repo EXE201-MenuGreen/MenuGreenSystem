@@ -10,6 +10,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<SepayOrderResponse> CreateOrderAsync(Guid userId, CreateSepayOrderRequest request);
         Task<SepayOrderResponse> CreateRenewOrderAsync(Guid userId, CreateRenewSepayOrderRequest request);
         Task<SepayOrderResponse> GetOrderStatusAsync(Guid userId, Guid paymentId);
-        Task<SepayWebhookResultResponse> ProcessWebhookAsync(string rawBody, string? signature, string? timestamp);
+        Task<SepayWebhookResultResponse> ProcessWebhookAsync(
+            string rawBody,
+            string? signature,
+            string? timestamp,
+            string? authorizationHeader);
     }
 }
