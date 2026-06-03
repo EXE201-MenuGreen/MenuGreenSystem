@@ -63,7 +63,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 UpdatedAt = now
             };
 
-            var payment = BuildPendingPayment(userId, pendingSubscription.Id, amount);
+            var providerOrderCode = await GenerateUniqueProviderOrderCodeAsync();
+            var payment = BuildPendingPayment(userId, pendingSubscription.Id, amount, providerOrderCode);
 
             await _unitOfWork.UserSubscriptions.AddAsync(pendingSubscription);
             await _unitOfWork.Payments.AddAsync(payment);
@@ -94,7 +95,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("This plan is free and cannot be renewed via SePay.");
             }
 
-            var payment = BuildPendingPayment(userId, subscription.Id, amount);
+            var providerOrderCode = await GenerateUniqueProviderOrderCodeAsync();
+            var payment = BuildPendingPayment(userId, subscription.Id, amount, providerOrderCode);
             await _unitOfWork.Payments.AddAsync(payment);
             await _unitOfWork.CompleteAsync();
 
@@ -291,10 +293,31 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
         }
 
-        private Payment BuildPendingPayment(Guid userId, Guid userSubscriptionId, int amountVnd)
+        private async Task<string> GenerateUniqueProviderOrderCodeAsync()
         {
+            const int maxAttempts = 12;
             var prefix = ReadPaymentCodePrefix();
-            var providerOrderCode = $"{prefix}-{userId.ToString("N")[..8]}-{Guid.NewGuid():N}".ToUpperInvariant();
+            var suffixLength = ReadPaymentCodeSuffixLength();
+
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                var code = SepayPaymentCodeHelper.Generate(prefix, suffixLength);
+                var existing = await _unitOfWork.Payments.FindAsync(x => x.ProviderOrderCode == code);
+                if (!existing.Any())
+                {
+                    return code;
+                }
+            }
+
+            throw new Exception("Could not generate a unique SePay payment code. Please try again.");
+        }
+
+        private Payment BuildPendingPayment(
+            Guid userId,
+            Guid userSubscriptionId,
+            int amountVnd,
+            string providerOrderCode)
+        {
             var expiredAt = DateTimeOffset.UtcNow.AddMinutes(ReadOrderExpiryMinutes());
 
             return new Payment
@@ -387,13 +410,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private string? ResolveProviderOrderCode(SepayIncomingWebhookPayload payload, string transferContent)
         {
             var prefix = ReadPaymentCodePrefix();
-            if (!string.IsNullOrWhiteSpace(payload.Code) &&
-                payload.Code.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
+            var minSuffix = ReadPaymentCodeSuffixMinLength();
+            var maxSuffix = ReadPaymentCodeSuffixMaxLength();
+
+            if (!string.IsNullOrWhiteSpace(payload.Code))
             {
-                return payload.Code.Trim().ToUpperInvariant();
+                var fromCode = SepayPaymentCodeHelper.TryExtract(payload.Code, prefix, minSuffix, maxSuffix);
+                if (!string.IsNullOrWhiteSpace(fromCode))
+                {
+                    return fromCode;
+                }
             }
 
-            return ExtractProviderOrderCode(transferContent, prefix);
+            return SepayPaymentCodeHelper.TryExtract(transferContent, prefix, minSuffix, maxSuffix);
         }
 
         private static string ResolveTransferContent(SepayIncomingWebhookPayload payload)
@@ -411,22 +440,43 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return payload.ReferenceCode?.Trim() ?? string.Empty;
         }
 
-        private static string? ExtractProviderOrderCode(string transferContent, string prefix)
-        {
-            if (string.IsNullOrWhiteSpace(transferContent)) return null;
-
-            var tokens = transferContent
-                .Split(new[] { ' ', '\t', '\r', '\n', ',', ';', '.', ':', '|', '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-
-            return tokens
-                .FirstOrDefault(x => x.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
-                ?.ToUpperInvariant();
-        }
-
         private string ReadPaymentCodePrefix()
         {
             var prefix = _configuration["SePay:PaymentCodePrefix"]?.Trim();
             return string.IsNullOrWhiteSpace(prefix) ? DefaultPaymentCodePrefix : prefix.ToUpperInvariant();
+        }
+
+        private int ReadPaymentCodeSuffixLength()
+        {
+            var value = _configuration["SePay:PaymentCodeSuffixLength"];
+            if (int.TryParse(value, out var length))
+            {
+                return SepayPaymentCodeHelper.ClampSuffixLength(length);
+            }
+
+            return SepayPaymentCodeHelper.DefaultSuffixLength;
+        }
+
+        private int ReadPaymentCodeSuffixMinLength()
+        {
+            var value = _configuration["SePay:PaymentCodeSuffixMinLength"];
+            if (int.TryParse(value, out var length))
+            {
+                return SepayPaymentCodeHelper.ClampSuffixLength(length);
+            }
+
+            return SepayPaymentCodeHelper.DefaultSuffixMinLength;
+        }
+
+        private int ReadPaymentCodeSuffixMaxLength()
+        {
+            var value = _configuration["SePay:PaymentCodeSuffixMaxLength"];
+            if (int.TryParse(value, out var length))
+            {
+                return SepayPaymentCodeHelper.ClampSuffixLength(length);
+            }
+
+            return SepayPaymentCodeHelper.DefaultSuffixMaxLength;
         }
     }
 }

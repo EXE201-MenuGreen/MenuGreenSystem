@@ -31,14 +31,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var prefix = ReadPaymentCodePrefix();
-            var resolvedCode = ResolvePaymentCode(payload, transferContent, prefix);
+            var minSuffix = ReadPaymentCodeSuffixMinLength();
+            var maxSuffix = ReadPaymentCodeSuffixMaxLength();
+            var resolvedCode = ResolvePaymentCode(payload, transferContent, prefix, minSuffix, maxSuffix);
             if (string.IsNullOrWhiteSpace(resolvedCode))
             {
                 throw new Exception(
-                    $"Transfer content does not contain a valid payment code (prefix '{prefix}-').");
+                    $"Transfer content does not contain a valid payment code (prefix '{prefix}', suffix {minSuffix}-{maxSuffix} alphanumeric).");
             }
 
-            if (!string.Equals(resolvedCode, payment.ProviderOrderCode, StringComparison.OrdinalIgnoreCase))
+            if (!SepayPaymentCodeHelper.CodesMatch(payment.ProviderOrderCode, resolvedCode))
             {
                 throw new Exception(
                     $"Payment code mismatch. Expected '{payment.ProviderOrderCode}', received '{resolvedCode}'.");
@@ -78,15 +80,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             string expectedTransferMemo,
             string providerOrderCode)
         {
-            if (string.IsNullOrWhiteSpace(transferContent))
-            {
-                return false;
-            }
-
-            var normalizedContent = NormalizeForCompare(transferContent);
-            var normalizedCode = NormalizeForCompare(providerOrderCode);
-
-            if (!normalizedContent.Contains(normalizedCode, StringComparison.Ordinal))
+            if (!SepayPaymentCodeHelper.ContainsCode(transferContent, providerOrderCode))
             {
                 return false;
             }
@@ -97,42 +91,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return true;
             }
 
-            var normalizedMemo = NormalizeForCompare(expectedTransferMemo);
-            return normalizedContent.Contains(normalizedMemo, StringComparison.Ordinal);
+            return SepayPaymentCodeHelper.ContainsCode(transferContent, expectedTransferMemo);
         }
 
         private static string? ResolvePaymentCode(
             SepayIncomingWebhookPayload payload,
             string transferContent,
-            string prefix)
+            string prefix,
+            int minSuffixLength,
+            int maxSuffixLength)
         {
-            if (!string.IsNullOrWhiteSpace(payload.Code) &&
-                payload.Code.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(payload.Code))
             {
-                return payload.Code.Trim().ToUpperInvariant();
+                var fromCode = SepayPaymentCodeHelper.TryExtract(payload.Code, prefix, minSuffixLength, maxSuffixLength);
+                if (!string.IsNullOrWhiteSpace(fromCode))
+                {
+                    return fromCode;
+                }
             }
 
-            return ExtractPaymentCode(transferContent, prefix);
+            return SepayPaymentCodeHelper.TryExtract(transferContent, prefix, minSuffixLength, maxSuffixLength);
         }
-
-        private static string? ExtractPaymentCode(string transferContent, string prefix)
-        {
-            if (string.IsNullOrWhiteSpace(transferContent))
-            {
-                return null;
-            }
-
-            var tokens = transferContent
-                .Split(new[] { ' ', '\t', '\r', '\n', ',', ';', '.', ':', '|', '/', '\\' },
-                    StringSplitOptions.RemoveEmptyEntries);
-
-            return tokens
-                .FirstOrDefault(x => x.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
-                ?.ToUpperInvariant();
-        }
-
-        private static string NormalizeForCompare(string value) =>
-            value.Trim().ToUpperInvariant();
 
         private static string NormalizeAccount(string value) =>
             new string(value.Where(char.IsDigit).ToArray());
@@ -141,6 +120,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var prefix = _configuration["SePay:PaymentCodePrefix"]?.Trim();
             return string.IsNullOrWhiteSpace(prefix) ? DefaultPaymentCodePrefix : prefix.ToUpperInvariant();
+        }
+
+        private int ReadPaymentCodeSuffixMinLength()
+        {
+            var value = _configuration["SePay:PaymentCodeSuffixMinLength"];
+            if (int.TryParse(value, out var length))
+            {
+                return SepayPaymentCodeHelper.ClampSuffixLength(length);
+            }
+
+            return SepayPaymentCodeHelper.DefaultSuffixMinLength;
+        }
+
+        private int ReadPaymentCodeSuffixMaxLength()
+        {
+            var value = _configuration["SePay:PaymentCodeSuffixMaxLength"];
+            if (int.TryParse(value, out var length))
+            {
+                return SepayPaymentCodeHelper.ClampSuffixLength(length);
+            }
+
+            return SepayPaymentCodeHelper.DefaultSuffixMaxLength;
         }
     }
 }

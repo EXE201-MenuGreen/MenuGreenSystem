@@ -10,7 +10,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string Status { get; set; } = string.Empty;
         public string ProviderOrderCode { get; set; } = string.Empty;
 
-        /// <summary>Mã thanh toán (DH-...) — khớp webhook SePay.</summary>
+        /// <summary>Mã thanh toán SePay (vd. DHAAAAAA1A) — khớp cấu hình tiền tố DH + 3–10 ký tự.</summary>
         public string TransferContent { get; set; } = string.Empty;
 
         /// <summary>Nội dung chuyển khoản đầy đủ trong QR (có thể gồm prefix SEVQR/TKP theo ngân hàng).</summary>
