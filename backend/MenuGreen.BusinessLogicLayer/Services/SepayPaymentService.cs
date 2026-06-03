@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -114,6 +115,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             payment = await PaymentExpiryHelper.RefreshPendingExpiryAsync(payment, _unitOfWork);
             return MapOrder(payment);
+        }
+
+        public async Task<SepayPendingOrdersListResponse> GetPendingOrdersAsync(Guid userId)
+        {
+            var pendingPayments = await RefreshUserPendingSepayPaymentsAsync(userId);
+            var items = new List<SepayPendingOrderResponse>();
+
+            foreach (var payment in pendingPayments.OrderByDescending(x => x.CreatedAt))
+            {
+                items.Add(await MapPendingOrderAsync(payment));
+            }
+
+            return new SepayPendingOrdersListResponse { Items = items };
         }
 
         public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(
@@ -337,27 +351,80 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private async Task EnsureNoPendingSepayPaymentAsync(Guid userId)
         {
-            var pendingPayments = await _unitOfWork.Payments.FindAsync(
-                x => x.UserId == userId && x.Provider == "SEPAY" && x.Status == "PENDING");
-
-            foreach (var pending in pendingPayments)
-            {
-                if (PaymentExpiryHelper.IsExpired(pending))
-                {
-                    PaymentExpiryHelper.MarkExpired(pending);
-                    _unitOfWork.Payments.Update(pending);
-                }
-            }
-
-            await _unitOfWork.CompleteAsync();
-
-            var stillPending = await _unitOfWork.Payments.FindAsync(
-                x => x.UserId == userId && x.Provider == "SEPAY" && x.Status == "PENDING");
+            var stillPending = await RefreshUserPendingSepayPaymentsAsync(userId);
 
             if (stillPending.Any())
             {
                 throw new Exception("You already have a pending SePay payment. Complete or wait for it to expire before creating a new order.");
             }
+        }
+
+        private async Task<IReadOnlyList<Payment>> RefreshUserPendingSepayPaymentsAsync(Guid userId)
+        {
+            var pendingPayments = (await _unitOfWork.Payments.FindAsync(
+                x => x.UserId == userId && x.Provider == "SEPAY" && x.Status == "PENDING")).ToList();
+
+            var changed = false;
+            foreach (var pending in pendingPayments)
+            {
+                if (!PaymentExpiryHelper.IsExpired(pending))
+                {
+                    continue;
+                }
+
+                PaymentExpiryHelper.MarkExpired(pending);
+                _unitOfWork.Payments.Update(pending);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+
+            return (await _unitOfWork.Payments.FindAsync(
+                x => x.UserId == userId && x.Provider == "SEPAY" && x.Status == "PENDING")).ToList();
+        }
+
+        private async Task<SepayPendingOrderResponse> MapPendingOrderAsync(Payment payment)
+        {
+            var order = MapOrder(payment);
+            var subscription = payment.UserSubscriptionId.HasValue
+                ? await _unitOfWork.UserSubscriptions.GetByIdAsync(payment.UserSubscriptionId.Value)
+                : null;
+
+            var planName = string.Empty;
+            var planId = Guid.Empty;
+            var orderType = "Subscribe";
+
+            if (subscription != null)
+            {
+                planId = subscription.SubscriptionPlanId;
+                orderType = string.Equals(subscription.Status, "PendingPayment", StringComparison.OrdinalIgnoreCase)
+                    ? "Subscribe"
+                    : "Renew";
+
+                var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(subscription.SubscriptionPlanId);
+                planName = plan?.Name ?? string.Empty;
+            }
+
+            return new SepayPendingOrderResponse
+            {
+                PaymentId = order.PaymentId,
+                UserSubscriptionId = order.UserSubscriptionId,
+                SubscriptionPlanId = planId,
+                SubscriptionPlanName = planName,
+                OrderType = orderType,
+                AmountVnd = order.AmountVnd,
+                Status = order.Status,
+                ProviderOrderCode = order.ProviderOrderCode,
+                TransferContent = order.TransferContent,
+                TransferMemo = order.TransferMemo,
+                QrImageUrl = order.QrImageUrl,
+                Receiver = order.Receiver,
+                CreatedAt = payment.CreatedAt,
+                ExpiredAt = order.ExpiredAt
+            };
         }
 
         private async Task<SubscriptionPlan> GetActivePlanAsync(Guid planId)

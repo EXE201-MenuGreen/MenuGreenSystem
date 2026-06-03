@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/subscription_models.dart';
 import '../repositories/user_subscription_repository.dart';
+import 'sepay_payment_screen.dart';
 
 class UpgradePlanScreen extends StatefulWidget {
   const UpgradePlanScreen({super.key});
@@ -57,6 +58,19 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Future<void> _subscribe(SubscriptionPlan plan) async {
+    if (!plan.isFree) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => SepayPaymentScreen.subscribe(
+            planTitle: plan.name,
+            subscriptionPlanId: plan.id,
+          ),
+        ),
+      );
+      if (mounted) await _loadData();
+      return;
+    }
+
     setState(() => _actionLoading = true);
     final result = await _repository.subscribe(subscriptionPlanId: plan.id);
     if (!mounted) return;
@@ -70,6 +84,22 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     final current = _current;
     if (current == null) return;
 
+    final plan = _planById(current.subscriptionPlanId);
+    final isPaidPlan = plan != null && !plan.isFree;
+
+    if (isPaidPlan) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => SepayPaymentScreen.renew(
+            planTitle: current.subscriptionPlanName,
+            userSubscriptionId: current.id,
+          ),
+        ),
+      );
+      if (mounted) await _loadData();
+      return;
+    }
+
     setState(() => _actionLoading = true);
     final result = await _repository.renew(userSubscriptionId: current.id);
     if (!mounted) return;
@@ -77,6 +107,13 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
     _showResult(result.message, result.success);
     if (result.success) await _loadData();
+  }
+
+  SubscriptionPlan? _planById(String planId) {
+    for (final plan in _plans) {
+      if (plan.id == planId) return plan;
+    }
+    return null;
   }
 
   Future<void> _cancel() async {
@@ -276,7 +313,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
         name: plan.name,
         price: formatVnd(plan.priceVnd),
         period: formatDurationLabel(plan.durationDays),
-        ctaText: isCurrent ? 'Gói hiện tại' : 'Đăng ký ngay',
+        ctaText: isCurrent
+            ? 'Gói hiện tại'
+            : (plan.isFree ? 'Đăng ký miễn phí' : 'Thanh toán QR'),
         ctaEnabled: !isCurrent && !_actionLoading,
         emphasizedCta: !plan.isFree && plan.durationDays >= 365,
         features: features,

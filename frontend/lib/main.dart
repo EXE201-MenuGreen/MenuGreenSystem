@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'core/constants/app_colors.dart';
@@ -6,7 +8,8 @@ import 'features/splash/views/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseBootstrap.initialize();
+  // Không chặn UI — Firebase chạy nền (tránh màn trắng/đen khi emulator chậm).
+  unawaited(FirebaseBootstrap.initialize());
   runApp(const MyApp());
 }
 

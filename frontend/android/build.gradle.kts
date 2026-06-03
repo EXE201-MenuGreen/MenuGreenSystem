@@ -5,20 +5,27 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
-
+// Windows: project ổ D:, Pub cache ổ C: → không redirect build của plugin sang frontend/build/.
+// Chỉ :app dùng frontend/build/app để Flutter CLI tìm được APK.
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+    afterEvaluate {
+        val projectPath = project.projectDir.canonicalPath.replace('\\', '/')
+        when {
+            project.name == "app" -> {
+                val flutterAppBuild =
+                    rootProject.layout.projectDirectory.dir("../build").dir("app")
+                project.layout.buildDirectory.value(flutterAppBuild)
+            }
+            projectPath.contains("/Pub/Cache/") -> {
+                project.layout.buildDirectory.value(
+                    project.layout.projectDirectory.dir("build"),
+                )
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+    delete(rootProject.layout.projectDirectory.dir("../build"))
 }
