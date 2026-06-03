@@ -59,6 +59,25 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>Danh sách đơn SePay PENDING của user (để tiếp tục thanh toán QR).</summary>
+        [HttpGet("pending")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetPendingOrders()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _sepayPaymentService.GetPendingOrdersAsync(userId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpGet("{paymentId:guid}")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]

@@ -1,21 +1,20 @@
-import 'package:flutter/foundation.dart';
-
 class ApiEndpoints {
-  static String get baseUrl {
-    // Backend is configured to run on http://localhost:5000 (see backend/MenuGreen.API/Properties/launchSettings.json)
-    if (kIsWeb) return 'http://localhost:5000/api';
+  /// Backend production (Render).
+  static const String productionBaseUrl =
+      'https://menugreensystem.onrender.com/api';
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        // Android Emulator -> host machine loopback
-        return 'http://10.0.2.2:5000/api';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-      case TargetPlatform.fuchsia:
-        return 'http://localhost:5000/api';
-    }
+  /// Ghi đè khi dev local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api`
+  static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  static String get baseUrl {
+    if (_envBaseUrl.isNotEmpty) return _normalizeBaseUrl(_envBaseUrl);
+    return productionBaseUrl;
+  }
+
+  static String _normalizeBaseUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return productionBaseUrl;
+    return trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
   }
 
   static String get login => '$baseUrl/Auth/login';
@@ -32,8 +31,10 @@ class ApiEndpoints {
   static String get changePassword => '$baseUrl/User/change-password';
   static String get healthProfileMe => '$baseUrl/HealthProfile/me';
   static String get nutritionDaily => '$baseUrl/NutritionTracking/daily';
-  static String get nutritionDashboard => '$baseUrl/NutritionTracking/dashboard';
-  static String get nutritionWeightLogs => '$baseUrl/NutritionTracking/weight-logs';
+  static String get nutritionDashboard =>
+      '$baseUrl/NutritionTracking/dashboard';
+  static String get nutritionWeightLogs =>
+      '$baseUrl/NutritionTracking/weight-logs';
   static String nutritionMealLogById(String mealLogId) =>
       '$baseUrl/NutritionTracking/meal-logs/$mealLogId';
   static String get foods => '$baseUrl/Food';
@@ -41,11 +42,20 @@ class ApiEndpoints {
   static String get nutritionMealLogs => '$baseUrl/NutritionTracking/meal-logs';
 
   static String get subscriptionPlans => '$baseUrl/UserSubscription/plans';
-  static String get subscriptionSubscribe => '$baseUrl/UserSubscription/subscribe';
+  static String get subscriptionSubscribe =>
+      '$baseUrl/UserSubscription/subscribe';
   static String get subscriptionRenew => '$baseUrl/UserSubscription/renew';
   static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
   static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
-  static String get subscriptionHistory => '$baseUrl/UserSubscription/me/history';
+  static String get subscriptionHistory =>
+      '$baseUrl/UserSubscription/me/history';
+
+  static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
+  static String get sepayCreateRenewOrder =>
+      '$baseUrl/payments/sepay/create-renew-order';
+  static String get sepayPendingOrders => '$baseUrl/payments/sepay/pending';
+  static String sepayPaymentStatus(String paymentId) =>
+      '$baseUrl/payments/sepay/$paymentId';
 
   static String get allergies => '$baseUrl/Allergy';
   static String allergyById(String allergyId) => '$baseUrl/Allergy/$allergyId';
