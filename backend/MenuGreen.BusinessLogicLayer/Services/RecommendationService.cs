@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -13,6 +14,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class RecommendationService : IRecommendationService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         public RecommendationService(IUnitOfWork unitOfWork)
         {
@@ -113,6 +115,115 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CookingTimeMinutes = request.CookingTimeMinutes,
                 BufferMinutes = request.BufferMinutes
             });
+        }
+
+        public async Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId)
+        {
+            var histories = await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId);
+            return histories
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new RecommendationHistoryResponse
+                {
+                    Id = x.Id,
+                    Type = x.Type,
+                    Summary = x.Output,
+                    Confidence = x.Confidence,
+                    CreatedAt = x.CreatedAt
+                })
+                .ToList();
+        }
+
+        public async Task<RecommendationDetailResponse> GetByIdAsync(Guid userId, Guid recommendationId)
+        {
+            var item = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
+
+            return new RecommendationDetailResponse
+            {
+                Id = item.Id,
+                Type = item.Type,
+                Input = item.Input,
+                Output = item.Output,
+                Confidence = item.Confidence,
+                CreatedAt = item.CreatedAt
+            };
+        }
+
+        public async Task<IReadOnlyList<RecommendationItemResponse>> PreviewAsync(Guid userId, RecommendationPreviewRequest request)
+        {
+            var recommendationRequest = new RecommendationRequest
+            {
+                TargetCalories = request.TargetCalories,
+                BudgetVnd = request.BudgetVnd,
+                LimitMinutes = request.LimitMinutes,
+                Top = 5
+            };
+
+            var result = (request.Type?.ToLowerInvariant()) switch
+            {
+                "eco" => await RecommendByEcoAsync(recommendationRequest),
+                "lunch" => await RecommendLunchAsync(recommendationRequest),
+                _ => await RecommendByCaloriesAsync(recommendationRequest)
+            };
+
+            return result.ToList();
+        }
+
+        public async Task SubmitFeedbackAsync(Guid userId, RecommendationFeedbackRequest request)
+        {
+            var history = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == request.RecommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
+
+            var feedback = (await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == request.RecommendationId)).FirstOrDefault();
+            if (feedback == null)
+            {
+                feedback = new RecommendationFeedback
+                {
+                    Id = Guid.NewGuid(),
+                    RecommendationId = request.RecommendationId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.RecommendationFeedbacks.AddAsync(feedback);
+            }
+
+            feedback.Rating = request.Rating;
+            feedback.Feedback = request.Feedback;
+            if (feedback.CreatedAt == null) feedback.CreatedAt = DateTime.UtcNow;
+            _unitOfWork.RecommendationFeedbacks.Update(feedback);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<RecommendationExplainResponse> ExplainAsync(Guid userId, Guid recommendationId)
+        {
+            var history = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
+
+            var reasons = new List<string>();
+            var matchedRules = new List<string>();
+            var usedContext = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(history.Input)) usedContext.Add("Input request");
+            if (!string.IsNullOrWhiteSpace(history.Type)) usedContext.Add(history.Type);
+            if ((history.Confidence ?? 0) > 0) usedContext.Add("Confidence score");
+
+            reasons.Add("Recommendation được tạo dựa trên dữ liệu lịch sử và context của user.");
+            if (!string.IsNullOrWhiteSpace(history.Type))
+            {
+                matchedRules.Add(history.Type);
+                reasons.Add($"Áp dụng rule theo kiểu recommendation: {history.Type}.");
+            }
+            if (history.Confidence.HasValue)
+            {
+                reasons.Add($"Mức tin cậy ước tính: {history.Confidence:0.00}.");
+            }
+
+            return new RecommendationExplainResponse
+            {
+                RecommendationId = recommendationId,
+                Reasons = reasons,
+                MatchedRules = matchedRules,
+                UsedContext = usedContext
+            };
         }
 
         private static RecommendationItemResponse MapFood(Food food, decimal targetCalories, string type)
