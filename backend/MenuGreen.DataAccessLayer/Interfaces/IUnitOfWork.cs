@@ -13,10 +13,12 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.Recipe> Recipes { get; }
         IGenericRepository<Entities.RecipeIngredient> RecipeIngredients { get; }
         IGenericRepository<Entities.Allergy> Allergies { get; }
+        IGenericRepository<Entities.UserAllergy> UserAllergies { get; }
         IGenericRepository<Entities.MealLog> MealLogs { get; }
         IGenericRepository<Entities.WeightLog> WeightLogs { get; }
         IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders { get; }
         IGenericRepository<Entities.MealPlanItem> MealPlanItems { get; }
+        IGenericRepository<Entities.UserAiProfile> UserAiProfiles { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }

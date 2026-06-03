@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
+using BCrypt.Net;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -79,6 +81,121 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var roleName = await GetRoleNameAsync(userId);
             return MapToResponse(profile, healthProfile, roleName);
+        }
+
+        public async Task<ProfileSummaryResponse> GetSummaryAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId) ?? throw new Exception("User not found.");
+            var profile = await EnsureProfileAsync(userId);
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+
+            var allergies = await _unitOfWork.UserAllergies.FindAsync(x => x.UserId == userId);
+            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
+
+            var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
+
+            return new ProfileSummaryResponse
+            {
+                UserId = userId,
+                Email = user.Email,
+                FullName = profile.FullName,
+                AvatarUrl = profile.AvatarUrl,
+                Gender = profile.Gender,
+                DateOfBirth = profile.DateOfBirth,
+                PreferredCuisine = profile.PreferredCuisine,
+                HeightCm = healthProfile.HeightCm,
+                WeightKg = healthProfile.WeightKg,
+                BodyFatPercent = healthProfile.BodyFatPercent,
+                ActivityLevel = healthProfile.ActivityLevel ?? string.Empty,
+                Goal = healthProfile.Goal,
+                Bmi = healthProfile.Bmi,
+                BmrKcal = healthProfile.BmrKcal,
+                TdeeKcal = healthProfile.TdeeKcal,
+                TargetCalories = healthProfile.TargetCalories,
+                TargetProteinG = healthProfile.TargetProteinG,
+                TargetCarbsG = healthProfile.TargetCarbsG,
+                TargetFatG = healthProfile.TargetFatG,
+                AllergyCount = allergies.Count(),
+                HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) || profile.DateOfBirth.HasValue || !string.IsNullOrWhiteSpace(profile.Gender) || !string.IsNullOrWhiteSpace(profile.PreferredCuisine),
+                HasHealthProfile = healthProfile.HeightCm.HasValue || healthProfile.WeightKg.HasValue || healthProfile.BodyFatPercent.HasValue || !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel) || !string.IsNullOrWhiteSpace(healthProfile.Goal),
+                HasAllergies = allergies.Any(),
+                HasAiProfile = aiProfile != null,
+                OnboardingStepsCompleted = completedSteps,
+            };
+        }
+
+        public async Task<ProfileCompletionResponse> GetCompletionAsync(Guid userId)
+        {
+            var profile = await EnsureProfileAsync(userId);
+            var healthProfile = await EnsureHealthProfileAsync(userId);
+            var allergies = await _unitOfWork.UserAllergies.FindAsync(x => x.UserId == userId);
+            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
+
+            var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
+            var allSteps = new[] { "Profile", "HealthProfile", "Allergies", "Goal", "UserAiProfile" };
+            var missingSteps = allSteps.Except(completedSteps, StringComparer.OrdinalIgnoreCase).ToArray();
+            var completionPercent = (int)Math.Round((completedSteps.Length * 100.0) / allSteps.Length);
+
+            return new ProfileCompletionResponse
+            {
+                IsCompleted = missingSteps.Length == 0,
+                CompletionPercent = completionPercent,
+                CompletedSteps = completedSteps,
+                MissingSteps = missingSteps,
+                NextStep = missingSteps.FirstOrDefault() ?? "Completed"
+            };
+        }
+
+        public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId) ?? throw new Exception("User not found.");
+
+            if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            {
+                throw new Exception("Current password is incorrect.");
+            }
+
+            if (request.NewPassword != request.ConfirmNewPassword)
+            {
+                throw new Exception("Confirm password does not match.");
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private static string[] BuildCompletedSteps(Profile profile, HealthProfile healthProfile, bool hasAllergies, bool hasAiProfile)
+        {
+            var steps = new System.Collections.Generic.List<string>();
+
+            if (!string.IsNullOrWhiteSpace(profile.FullName) || profile.DateOfBirth.HasValue || !string.IsNullOrWhiteSpace(profile.Gender) || !string.IsNullOrWhiteSpace(profile.PreferredCuisine))
+            {
+                steps.Add("Profile");
+            }
+
+            if (healthProfile.HeightCm.HasValue || healthProfile.WeightKg.HasValue || healthProfile.BodyFatPercent.HasValue || !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel) || !string.IsNullOrWhiteSpace(healthProfile.Goal))
+            {
+                steps.Add("HealthProfile");
+            }
+
+            if (hasAllergies)
+            {
+                steps.Add("Allergies");
+            }
+
+            if (!string.IsNullOrWhiteSpace(healthProfile.Goal))
+            {
+                steps.Add("Goal");
+            }
+
+            if (hasAiProfile)
+            {
+                steps.Add("UserAiProfile");
+            }
+
+            return steps.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         }
 
         private async Task<Profile> EnsureProfileAsync(Guid userId)
