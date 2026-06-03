@@ -1,21 +1,26 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class RecipeService : IRecipeService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _db;
 
-        public RecipeService(IUnitOfWork unitOfWork)
+        public RecipeService(IUnitOfWork unitOfWork, ApplicationDbContext db)
         {
             _unitOfWork = unitOfWork;
+            _db = db;
         }
 
         public async Task<RecipeResponse> CreateAsync(RecipeUpsertRequest request)
@@ -77,6 +82,90 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var items = query.Select(Map).ToList();
             return new RecipeSearchResponse { Items = items, TotalCount = items.Count };
+        }
+
+        public async Task<IReadOnlyList<RecipeIngredientResponse>> GetIngredientsAsync(Guid recipeId)
+        {
+            var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId) ?? throw new Exception("Recipe not found.");
+            var items = await _db.RecipeIngredients
+                .AsNoTracking()
+                .Include(x => x.Ingredient)
+                .Where(x => x.RecipeId == recipeId)
+                .ToListAsync();
+
+            return items.Select(x => new RecipeIngredientResponse
+            {
+                IngredientId = x.IngredientId,
+                IngredientName = x.Ingredient?.NameVi ?? string.Empty,
+                Quantity = x.Quantity ?? 0,
+                Unit = x.Unit ?? string.Empty,
+                Notes = x.Notes
+            }).ToList();
+        }
+
+        public async Task<RecipeNutritionResponse> GetNutritionAsync(Guid recipeId)
+        {
+            var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId) ?? throw new Exception("Recipe not found.");
+
+            if (recipe.FoodId.HasValue)
+            {
+                var food = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                if (food != null)
+                {
+                    return new RecipeNutritionResponse
+                    {
+                        CaloriesKcal = food.CaloriesKcal ?? 0,
+                        ProteinG = food.ProteinG ?? 0,
+                        CarbsG = food.CarbsG ?? 0,
+                        FatG = food.FatG ?? 0,
+                        FiberG = food.FiberG ?? 0
+                    };
+                }
+            }
+
+            var ingredients = await _db.RecipeIngredients
+                .AsNoTracking()
+                .Include(x => x.Ingredient)
+                .Where(x => x.RecipeId == recipeId)
+                .ToListAsync();
+
+            decimal calories = 0, protein = 0, carbs = 0, fat = 0, fiber = 0;
+            foreach (var item in ingredients)
+            {
+                var qty = item.Quantity ?? 0;
+                var ingredient = item.Ingredient;
+                if (ingredient == null) continue;
+                calories += (ingredient.CaloriesKcal ?? 0) * qty;
+                protein += (ingredient.ProteinG ?? 0) * qty;
+                carbs += (ingredient.CarbsG ?? 0) * qty;
+                fat += (ingredient.FatG ?? 0) * qty;
+            }
+
+            return new RecipeNutritionResponse
+            {
+                CaloriesKcal = calories,
+                ProteinG = protein,
+                CarbsG = carbs,
+                FatG = fat,
+                FiberG = fiber
+            };
+        }
+
+        public async Task<IReadOnlyList<RecipeResponse>> GetRelatedAsync(Guid recipeId)
+        {
+            var current = await _unitOfWork.Recipes.GetByIdAsync(recipeId) ?? throw new Exception("Recipe not found.");
+            var recipes = await _unitOfWork.Recipes.GetAllAsync();
+            var query = recipes.Where(r => r.Id != recipeId && r.IsActive != false);
+
+            if (!string.IsNullOrWhiteSpace(current.MealType))
+            {
+                query = query.Where(r => string.Equals(r.MealType, current.MealType, StringComparison.OrdinalIgnoreCase) || string.Equals(r.Difficulty, current.Difficulty, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return query
+                .Take(10)
+                .Select(Map)
+                .ToList();
         }
 
         private async Task UpsertIngredients(Guid recipeId, System.Collections.Generic.List<RecipeIngredientUpsertRequest> ingredients)

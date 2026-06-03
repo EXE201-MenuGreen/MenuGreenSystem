@@ -1,21 +1,26 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class IngredientService : IIngredientService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _db;
 
-        public IngredientService(IUnitOfWork unitOfWork)
+        public IngredientService(IUnitOfWork unitOfWork, ApplicationDbContext db)
         {
             _unitOfWork = unitOfWork;
+            _db = db;
         }
 
         public async Task<IngredientResponse> CreateAsync(IngredientUpsertRequest request)
@@ -61,6 +66,58 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var items = query.Select(Map).ToList();
             return new IngredientSearchResponse { Items = items, TotalCount = items.Count };
+        }
+
+        public async Task<IReadOnlyList<IngredientRecipeResponse>> GetRecipesAsync(Guid ingredientId)
+        {
+            var recipes = await _db.RecipeIngredients
+                .AsNoTracking()
+                .Include(x => x.Recipe)
+                .Where(x => x.IngredientId == ingredientId)
+                .OrderByDescending(x => x.Recipe!.CreatedAt)
+                .ToListAsync();
+
+            return recipes
+                .Where(x => x.Recipe != null)
+                .Select(x => new IngredientRecipeResponse
+                {
+                    RecipeId = x.RecipeId,
+                    Title = x.Recipe!.Title,
+                    Description = x.Recipe.Description,
+                    PrepTimeMin = x.Recipe.PrepTimeMin,
+                    CookTimeMin = x.Recipe.CookTimeMin,
+                    TotalTimeMin = x.Recipe.TotalTimeMin,
+                    Servings = x.Recipe.Servings,
+                    Difficulty = x.Recipe.Difficulty,
+                    MealType = x.Recipe.MealType,
+                    EstimatedPriceVnd = x.Recipe.EstimatedPriceVnd,
+                    ImageUrl = x.Recipe.ImageUrl,
+                    IsActive = x.Recipe.IsActive,
+                })
+                .ToList();
+        }
+
+        public async Task<IReadOnlyList<IngredientCatalogResponse>> GetCatalogAsync()
+        {
+            var ingredients = await _unitOfWork.Ingredients.GetAllAsync();
+            return ingredients
+                .Where(i => i.IsActive != false)
+                .OrderBy(i => i.NameVi)
+                .Select(i => new IngredientCatalogResponse
+                {
+                    Id = i.Id,
+                    NameVi = i.NameVi,
+                    NameEn = i.NameEn,
+                    Category = i.Category,
+                    UnitDefault = i.UnitDefault,
+                    CaloriesKcal = i.CaloriesKcal,
+                    ProteinG = i.ProteinG,
+                    CarbsG = i.CarbsG,
+                    FatG = i.FatG,
+                    EstimatedPriceVnd = i.EstimatedPriceVnd,
+                    ImageUrl = i.ImageUrl
+                })
+                .ToList();
         }
 
         private static IngredientResponse Map(Ingredient e) => new() { Id = e.Id, NameVi = e.NameVi, NameEn = e.NameEn, Category = e.Category, CaloriesKcal = e.CaloriesKcal, ProteinG = e.ProteinG, CarbsG = e.CarbsG, FatG = e.FatG, EstimatedPriceVnd = e.EstimatedPriceVnd, UnitDefault = e.UnitDefault, ImageUrl = e.ImageUrl, IsActive = e.IsActive };

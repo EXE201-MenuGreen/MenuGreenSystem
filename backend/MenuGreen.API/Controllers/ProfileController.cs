@@ -20,10 +20,12 @@ namespace MenuGreen.API.Controllers
             _profileService = profileService;
         }
 
+        /// <summary>
+        /// Lấy thông tin hồ sơ tổng quan của user hiện tại.
+        /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
         {
-            // Get UserId from JWT Token
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
             {
@@ -41,6 +43,47 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpGet("me/summary")]
+        public async Task<IActionResult> GetMySummary()
+        {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                return Ok(await _profileService.GetSummaryAsync(userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("me/completion")]
+        public async Task<IActionResult> GetMyCompletion()
+        {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                return Ok(await _profileService.GetCompletionAsync(userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật thông tin hồ sơ cá nhân và hồ sơ sức khỏe cơ bản.
+        /// </summary>
         [HttpPut("me")]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request)
         {
@@ -66,6 +109,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Cập nhật avatar của user hiện tại.
+        /// </summary>
         [HttpPut("me/avatar")]
         public async Task<IActionResult> UpdateAvatar([FromBody] UpdateAvatarRequest request)
         {
@@ -91,6 +137,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Xóa avatar hiện tại của user.
+        /// </summary>
         [HttpDelete("me/avatar")]
         public async Task<IActionResult> RemoveAvatar()
         {
@@ -104,6 +153,31 @@ namespace MenuGreen.API.Controllers
             {
                 var updatedProfile = await _profileService.RemoveAvatarAsync(userId);
                 return Ok(updatedProfile);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("me/change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                await _profileService.ChangePasswordAsync(userId, request);
+                return Ok(new { Message = "Password changed successfully." });
             }
             catch (Exception ex)
             {
