@@ -1,7 +1,8 @@
 # Sử dụng base image .NET 9.0 ASP.NET (dùng cho chạy ứng dụng)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
-EXPOSE 5000
+# Render gán PORT lúc runtime (thường 10000); không set ASPNETCORE_URLS trong image.
+EXPOSE 10000
 
 # Sử dụng base image .NET 9.0 SDK (dùng cho build)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build

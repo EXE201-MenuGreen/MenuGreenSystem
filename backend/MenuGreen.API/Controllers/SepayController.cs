@@ -86,9 +86,12 @@ namespace MenuGreen.API.Controllers
                 var rawBody = await ReadRawBodyAsync();
                 var signature = Request.Headers["X-SePay-Signature"].ToString();
                 var timestamp = Request.Headers["X-SePay-Timestamp"].ToString();
+                var authorization = Request.Headers.Authorization.ToString();
 
-                var result = await _sepayPaymentService.ProcessWebhookAsync(rawBody, signature, timestamp);
-                return Ok(new { success = true, data = result });
+                await _sepayPaymentService.ProcessWebhookAsync(rawBody, signature, timestamp, authorization);
+
+                // SePay only accepts exactly {"success": true} as success (see developer.sepay.vn).
+                return Ok(new { success = true });
             }
             catch (UnauthorizedAccessException ex)
             {

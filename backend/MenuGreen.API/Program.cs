@@ -7,6 +7,14 @@ using Microsoft.OpenApi.Models;
 using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer.Context;
+
+// Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{renderPort}");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
@@ -107,11 +115,10 @@ var app = builder.Build();
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
 
 // Enable CORS
 app.UseCors("AllowAll");

@@ -32,6 +32,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [JsonPropertyName("transferType")]
         public string? TransferType { get; set; }
 
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
         [JsonPropertyName("transferAmount")]
         public int TransferAmount { get; set; }
 
