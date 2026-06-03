@@ -14,7 +14,7 @@ namespace MenuGreen.DataAccessLayer
             // Register ApplicationDbContext with PostgreSQL
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+                options.UseNpgsql(ConnectionStringHelper.ResolvePostgresConnectionString(configuration));
             });
 
             // Register Repositories and UnitOfWork

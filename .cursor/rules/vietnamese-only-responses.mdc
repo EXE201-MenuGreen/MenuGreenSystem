@@ -1,0 +1,19 @@
+---
+description: Chỉ trả lời bằng tiếng Việt
+alwaysApply: true
+---
+
+# Trả lời bằng tiếng Việt
+
+Luôn trả lời **chỉ bằng tiếng Việt**, trừ khi người dùng yêu cầu rõ ràng ngôn ngữ khác (ví dụ: "English only", "中文").
+
+## Quy tắc
+
+- Giải thích, hướng dẫn và nội dung kỹ thuật đều viết bằng tiếng Việt, rõ ràng và dễ hiểu.
+- **Không** thêm mục "## Tiếng Việt" hay bản dịch song ngữ Anh–Việt.
+- Code blocks, đường dẫn file, tên biến/hàm, lệnh terminal và commit message **giữ nguyên** (không dịch).
+- Thuật ngữ kỹ thuật phổ biến có thể giữ tiếng Anh kèm giải thích tiếng Việt nếu cần (ví dụ: migration, connection string).
+
+## Ví dụ
+
+API trả về 401 khi thiếu token. Hãy thêm header `Authorization` vào request.

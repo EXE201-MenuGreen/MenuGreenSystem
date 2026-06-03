@@ -14,13 +14,49 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _configuration = configuration;
         }
 
-        public void Validate(string rawBody, string? signature, string? timestamp)
+        public void Validate(string rawBody, string? signature, string? timestamp, string? authorizationHeader)
         {
             if (string.IsNullOrWhiteSpace(rawBody))
             {
                 throw new ArgumentException("Empty webhook body.");
             }
 
+            if (string.Equals(ReadAuthMode(), "ApiKey", StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateApiKey(authorizationHeader);
+                return;
+            }
+
+            ValidateHmac(rawBody, signature, timestamp);
+        }
+
+        private void ValidateApiKey(string? authorizationHeader)
+        {
+            var expectedKey = _configuration["SePay:WebhookApiKey"]?.Trim();
+            if (string.IsNullOrWhiteSpace(expectedKey))
+            {
+                throw new InvalidOperationException("SePay:WebhookApiKey is not configured.");
+            }
+
+            if (string.IsNullOrWhiteSpace(authorizationHeader) ||
+                !authorizationHeader.StartsWith("Apikey ", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedAccessException("Missing or invalid Authorization Apikey header.");
+            }
+
+            var providedKey = authorizationHeader["Apikey ".Length..].Trim();
+            var providedBytes = Encoding.UTF8.GetBytes(providedKey);
+            var expectedBytes = Encoding.UTF8.GetBytes(expectedKey);
+
+            if (providedBytes.Length != expectedBytes.Length ||
+                !CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes))
+            {
+                throw new UnauthorizedAccessException("Invalid SePay webhook API key.");
+            }
+        }
+
+        private void ValidateHmac(string rawBody, string? signature, string? timestamp)
+        {
             var secret = _configuration["SePay:WebhookSecret"];
             if (string.IsNullOrWhiteSpace(secret))
             {
@@ -53,6 +89,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 throw new UnauthorizedAccessException("Invalid SePay webhook signature.");
             }
+        }
+
+        private string ReadAuthMode()
+        {
+            var mode = _configuration["SePay:WebhookAuthMode"]?.Trim();
+            if (!string.IsNullOrWhiteSpace(mode))
+            {
+                return mode;
+            }
+
+            return "HmacSha256";
         }
 
         public static string ComputeSignature(string secret, string timestamp, string rawBody)

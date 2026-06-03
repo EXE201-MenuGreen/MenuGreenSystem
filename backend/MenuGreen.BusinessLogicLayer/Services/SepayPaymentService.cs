@@ -13,7 +13,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class SepayPaymentService : ISepayPaymentService
     {
-        private const string PaymentCodePrefix = "DH";
+        private const string DefaultPaymentCodePrefix = "DH";
         private static readonly JsonSerializerOptions WebhookJsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -22,15 +22,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         private readonly SepayWebhookHmacValidator _hmacValidator;
+        private readonly SepayQrUrlBuilder _qrUrlBuilder;
+        private readonly SepayWebhookPaymentVerifier _webhookVerifier;
 
         public SepayPaymentService(
             IUnitOfWork unitOfWork,
             IConfiguration configuration,
-            SepayWebhookHmacValidator hmacValidator)
+            SepayWebhookHmacValidator hmacValidator,
+            SepayQrUrlBuilder qrUrlBuilder,
+            SepayWebhookPaymentVerifier webhookVerifier)
         {
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _hmacValidator = hmacValidator;
+            _qrUrlBuilder = qrUrlBuilder;
+            _webhookVerifier = webhookVerifier;
         }
 
         public async Task<SepayOrderResponse> CreateOrderAsync(Guid userId, CreateSepayOrderRequest request)
@@ -107,9 +113,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return MapOrder(payment);
         }
 
-        public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(string rawBody, string? signature, string? timestamp)
+        public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(
+            string rawBody,
+            string? signature,
+            string? timestamp,
+            string? authorizationHeader)
         {
-            _hmacValidator.Validate(rawBody, signature, timestamp);
+            _hmacValidator.Validate(rawBody, signature, timestamp, authorizationHeader);
 
             var payload = JsonSerializer.Deserialize<SepayIncomingWebhookPayload>(rawBody, WebhookJsonOptions)
                 ?? throw new Exception("Invalid SePay webhook payload.");
@@ -150,7 +160,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Transfer content does not contain a valid payment code.");
             }
 
-            var candidatePayments = await _unitOfWork.Payments.FindAsync(x => x.Provider == "SEPAY" && x.ProviderOrderCode == providerOrderCode);
+            var candidatePayments = await _unitOfWork.Payments.FindAsync(
+                x => x.Provider == "SEPAY" && x.ProviderOrderCode == providerOrderCode);
             var payment = candidatePayments.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
             if (payment == null)
             {
@@ -180,10 +191,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception($"Payment is not processable in status '{payment.Status}'.");
             }
 
-            if (payment.AmountVnd != transferAmount)
-            {
-                throw new Exception("Transfer amount does not match payment order.");
-            }
+            _webhookVerifier.Verify(payment, payload, transferContent, transferAmount);
 
             var transactionTime = payload.TransactionDate.HasValue
                 ? new DateTimeOffset(DateTime.SpecifyKind(payload.TransactionDate.Value, DateTimeKind.Utc))
@@ -285,7 +293,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private Payment BuildPendingPayment(Guid userId, Guid userSubscriptionId, int amountVnd)
         {
-            var providerOrderCode = $"{PaymentCodePrefix}-{userId.ToString("N")[..8]}-{Guid.NewGuid():N}".ToUpperInvariant();
+            var prefix = ReadPaymentCodePrefix();
+            var providerOrderCode = $"{prefix}-{userId.ToString("N")[..8]}-{Guid.NewGuid():N}".ToUpperInvariant();
             var expiredAt = DateTimeOffset.UtcNow.AddMinutes(ReadOrderExpiryMinutes());
 
             return new Payment
@@ -342,6 +351,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private SepayOrderResponse MapOrder(Payment payment)
         {
+            var qr = _qrUrlBuilder.Build(payment.AmountVnd, payment.ProviderOrderCode);
+
             return new SepayOrderResponse
             {
                 PaymentId = payment.Id,
@@ -350,6 +361,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Status = payment.Status,
                 ProviderOrderCode = payment.ProviderOrderCode,
                 TransferContent = payment.ProviderOrderCode,
+                TransferMemo = qr.TransferMemo,
+                QrImageUrl = qr.QrImageUrl,
+                Receiver = new DTOs.Responses.SepayReceiverInfo
+                {
+                    BankName = qr.Receiver.BankName,
+                    AccountNumber = qr.Receiver.AccountNumber,
+                    AccountHolderName = qr.Receiver.AccountHolderName
+                },
                 ExpiredAt = payment.ExpiredAt ?? payment.CreatedAt.AddMinutes(ReadOrderExpiryMinutes())
             };
         }
@@ -365,15 +384,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return 30;
         }
 
-        private static string? ResolveProviderOrderCode(SepayIncomingWebhookPayload payload, string transferContent)
+        private string? ResolveProviderOrderCode(SepayIncomingWebhookPayload payload, string transferContent)
         {
+            var prefix = ReadPaymentCodePrefix();
             if (!string.IsNullOrWhiteSpace(payload.Code) &&
-                payload.Code.StartsWith($"{PaymentCodePrefix}-", StringComparison.OrdinalIgnoreCase))
+                payload.Code.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
             {
                 return payload.Code.Trim().ToUpperInvariant();
             }
 
-            return ExtractProviderOrderCode(transferContent);
+            return ExtractProviderOrderCode(transferContent, prefix);
         }
 
         private static string ResolveTransferContent(SepayIncomingWebhookPayload payload)
@@ -391,7 +411,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return payload.ReferenceCode?.Trim() ?? string.Empty;
         }
 
-        private static string? ExtractProviderOrderCode(string transferContent)
+        private static string? ExtractProviderOrderCode(string transferContent, string prefix)
         {
             if (string.IsNullOrWhiteSpace(transferContent)) return null;
 
@@ -399,8 +419,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Split(new[] { ' ', '\t', '\r', '\n', ',', ';', '.', ':', '|', '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
 
             return tokens
-                .FirstOrDefault(x => x.StartsWith($"{PaymentCodePrefix}-", StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(x => x.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase))
                 ?.ToUpperInvariant();
+        }
+
+        private string ReadPaymentCodePrefix()
+        {
+            var prefix = _configuration["SePay:PaymentCodePrefix"]?.Trim();
+            return string.IsNullOrWhiteSpace(prefix) ? DefaultPaymentCodePrefix : prefix.ToUpperInvariant();
         }
     }
 }
