@@ -19,6 +19,8 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders { get; }
         IGenericRepository<Entities.MealPlanItem> MealPlanItems { get; }
         IGenericRepository<Entities.UserAiProfile> UserAiProfiles { get; }
+        IGenericRepository<Entities.RecommendationHistory> RecommendationHistories { get; }
+        IGenericRepository<Entities.RecommendationFeedback> RecommendationFeedbacks { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }

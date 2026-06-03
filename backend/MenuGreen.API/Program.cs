@@ -107,7 +107,7 @@ var app = builder.Build();
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsProduction())
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
