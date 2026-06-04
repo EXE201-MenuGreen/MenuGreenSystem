@@ -5,6 +5,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../profile/repositories/profile_repository.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 
@@ -312,56 +314,82 @@ class HomeViewState extends State<HomeView> {
           final portion = meal.isRecipe
               ? '${meal.quantityG.toStringAsFixed(0)}% phần'
               : '${meal.quantityG.toStringAsFixed(0)} g';
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
+          final canOpenDetail = _canOpenMealDetail(meal);
+          return Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: canOpenDetail ? () => _openMealDetail(meal) : null,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.progressBackground),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.progressBackground),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.progressBackground.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.restaurant, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        meal.displayName,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.progressBackground.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Bữa $mealType • $portion • ${meal.caloriesKcal.toStringAsFixed(0)} kcal',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      child: Icon(
+                        meal.isRecipe ? Icons.menu_book_outlined : Icons.restaurant,
+                        color: AppColors.primary,
+                        size: 20,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meal.displayName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Bữa $mealType • $portion • ${meal.caloriesKcal.toStringAsFixed(0)} kcal',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                          if (canOpenDetail)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Chạm để xem chi tiết',
+                                style: TextStyle(fontSize: 11, color: AppColors.primary),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (canOpenDetail)
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                        size: 22,
+                      ),
+                  ],
                 ),
-              ],
+              ),
             ),
           );
         }),
@@ -392,5 +420,38 @@ class HomeViewState extends State<HomeView> {
       default:
         return 'phụ';
     }
+  }
+
+  bool _isValidId(String? id) {
+    if (id == null) return false;
+    final trimmed = id.trim();
+    return trimmed.isNotEmpty && trimmed.toLowerCase() != 'null';
+  }
+
+  bool _canOpenMealDetail(MealLogItem meal) {
+    return _isValidId(meal.recipeId) || _isValidId(meal.foodId);
+  }
+
+  Future<void> _openMealDetail(MealLogItem meal) async {
+    if (_isValidId(meal.recipeId)) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: meal.recipeId!.trim()),
+        ),
+      );
+      return;
+    }
+    if (_isValidId(meal.foodId)) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: meal.foodId!.trim()),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Không có liên kết chi tiết cho món này.')),
+    );
   }
 }

@@ -132,6 +132,14 @@ class MealLogItem {
     return 0;
   }
 
+  static String? _parseOptionalId(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    if (text == '00000000-0000-0000-0000-000000000000') return null;
+    return text;
+  }
+
   factory MealLogItem.fromJson(Map<String, dynamic> json) {
     final loggedAtRaw = json['loggedAt']?.toString();
     final foodName = json['foodName']?.toString().trim();
@@ -152,8 +160,8 @@ class MealLogItem {
       caloriesKcal: _asDouble(json['caloriesKcal']),
       loggedAt: loggedAtRaw == null ? null : DateTime.tryParse(loggedAtRaw)?.toLocal(),
       displayName: resolvedName,
-      foodId: json['foodId']?.toString(),
-      recipeId: json['recipeId']?.toString(),
+      foodId: _parseOptionalId(json['foodId'] ?? json['FoodId']),
+      recipeId: _parseOptionalId(json['recipeId'] ?? json['RecipeId']),
       notes: json['notes']?.toString(),
       sourceType: json['sourceType']?.toString(),
     );
