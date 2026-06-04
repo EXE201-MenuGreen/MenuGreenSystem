@@ -149,6 +149,8 @@ class MealDaySummary {
     required this.targetCarbsG,
     required this.targetFatG,
     required this.mealLogs,
+    this.goalCompletionPercent,
+    this.hasSnapshot = false,
   });
 
   final String date;
@@ -160,11 +162,18 @@ class MealDaySummary {
   final double targetProteinG;
   final double targetCarbsG;
   final double targetFatG;
+  final double? goalCompletionPercent;
+  final bool hasSnapshot;
   final List<MealLogItem> mealLogs;
 
   static double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return 0;
+  }
+
+  static double? _asNullableDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return null;
   }
 
   factory MealDaySummary.fromJson(Map<String, dynamic> json) {
@@ -179,6 +188,10 @@ class MealDaySummary {
       targetProteinG: _asDouble(json['targetProteinG']),
       targetCarbsG: _asDouble(json['targetCarbsG']),
       targetFatG: _asDouble(json['targetFatG']),
+      goalCompletionPercent: _asNullableDouble(
+        json['goalCompletionPercent'] ?? json['GoalCompletionPercent'],
+      ),
+      hasSnapshot: json['hasSnapshot'] == true || json['HasSnapshot'] == true,
       mealLogs: rawLogs is List
           ? rawLogs
               .whereType<Map<String, dynamic>>()

@@ -14,7 +14,7 @@ Future<DateTime?> showSafeDatePicker({
   FocusManager.instance.primaryFocus?.unfocus();
   await WidgetsBinding.instance.endOfFrame;
   if (defaultTargetPlatform == TargetPlatform.android) {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await Future<void>.delayed(const Duration(milliseconds: 280));
   }
   if (!context.mounted) return null;
 
