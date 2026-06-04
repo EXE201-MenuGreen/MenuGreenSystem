@@ -17,5 +17,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         [Required]
         public string Goal { get; set; } = string.Empty;
+
+        /// <summary>Optional override from onboarding calorie slider (800–6000).</summary>
+        [Range(800, 6000)]
+        public int? TargetCalories { get; set; }
     }
 }

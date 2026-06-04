@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../main/views/main_screen.dart';
+import '../../profile/repositories/profile_repository.dart';
+import '../repositories/health_profile_repository.dart';
+import '../repositories/onboarding_repository.dart';
+import '../repositories/user_ai_profile_repository.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/user_type_step.dart';
 import 'steps/preferences_step.dart';
 import 'steps/allergies_step.dart';
 import 'steps/calorie_goal_step.dart';
-import '../../main/views/main_screen.dart';
-import '../repositories/health_profile_repository.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,47 +20,114 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
-  final HealthProfileRepository _healthProfileRepository = HealthProfileRepository();
+  final _profileRepository = ProfileRepository();
+  final _healthProfileRepository = HealthProfileRepository();
+  final _userAiProfileRepository = UserAiProfileRepository();
+  final _onboardingRepository = OnboardingRepository();
+
   int _currentIndex = 0;
   bool _finishing = false;
+
+  String? _fullName;
+  String? _gender;
+  DateTime? _dateOfBirth;
   double? _heightCm;
   double? _weightKg;
   double? _bodyFatPercent;
   String _activityLevel = 'sedentary';
   String _goal = 'maintain weight';
+  int? _targetCalories;
+
+  static const _stepCount = 5;
 
   final List<String> _titles = [
-    'Thiết lập sức khỏe',
+    'Thiết lập hồ sơ',
     'Chọn loại người dùng',
     'Sở thích ăn uống',
-    '', // Dị ứng ko có title appbar
-    'Mục tiêu Calo'
+    '',
+    'Mục tiêu Calo',
   ];
 
   void _nextPage() {
-    if (_currentIndex < 4) {
+    if (_currentIndex < _stepCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-    } else {
-      // Done onboarding
-      // Navigator.pushReplacement(...) -> Go to Home
     }
   }
 
   Future<void> _handleBasicInfoNext({
+    required String fullName,
+    required String gender,
+    DateTime? dateOfBirth,
     required double heightCm,
     required double weightKg,
     double? bodyFatPercent,
     required String activityLevel,
     required String goal,
   }) async {
-    _heightCm = heightCm;
-    _weightKg = weightKg;
-    _bodyFatPercent = bodyFatPercent;
-    _activityLevel = activityLevel;
-    _goal = goal;
+    final profilePayload = <String, dynamic>{
+      'fullName': fullName,
+      'gender': gender,
+      if (dateOfBirth != null)
+        'dateOfBirth':
+            '${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}',
+    };
+
+    final profileResult = await _profileRepository.updateMyProfile(profilePayload);
+    if (profileResult == null) {
+      _showMessage('Không lưu được hồ sơ cá nhân. Vui lòng thử lại.', isError: true);
+      return;
+    }
+
+    final healthResult = await _healthProfileRepository.updateMyHealthProfile(
+      heightCm: heightCm,
+      weightKg: weightKg,
+      bodyFatPercent: bodyFatPercent,
+      activityLevel: activityLevel,
+      goal: goal,
+    );
+    if (!healthResult.success) {
+      _showMessage(healthResult.message, isError: true);
+      return;
+    }
+
+    final target = healthResult.data?['targetCalories'] ?? healthResult.data?['TargetCalories'];
+    final parsedTarget = target is num ? target.toInt() : int.tryParse('$target');
+
+    setState(() {
+      _fullName = fullName;
+      _gender = gender;
+      _dateOfBirth = dateOfBirth;
+      _heightCm = heightCm;
+      _weightKg = weightKg;
+      _bodyFatPercent = bodyFatPercent;
+      _activityLevel = activityLevel;
+      _goal = goal;
+      _targetCalories = parsedTarget ?? 2500;
+    });
+
+    _nextPage();
+  }
+
+  Future<void> _handleUserTypeNext(String eatingPattern) async {
+    final result = await _userAiProfileRepository.upsert(eatingPattern: eatingPattern);
+    if (!result.success) {
+      _showMessage(result.message, isError: true);
+      return;
+    }
+    _nextPage();
+  }
+
+  Future<void> _handlePreferencesNext(List<String> selectedPrefs) async {
+    final result = await _userAiProfileRepository.upsert(
+      preferencesJson: UserAiProfileRepository.buildPreferencesJson(selectedPrefs),
+    );
+    if (!result.success) {
+      _showMessage(result.message, isError: true);
+      return;
+    }
     _nextPage();
   }
 
@@ -69,26 +139,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     setState(() => _finishing = true);
-    final result = await _healthProfileRepository.updateMyHealthProfile(
+
+    final healthResult = await _healthProfileRepository.updateMyHealthProfile(
       heightCm: _heightCm!,
       weightKg: _weightKg!,
       bodyFatPercent: _bodyFatPercent,
       activityLevel: _activityLevel,
       goal: _goal,
+      targetCalories: targetCalories,
+    );
+    if (!healthResult.success) {
+      if (mounted) setState(() => _finishing = false);
+      _showMessage(healthResult.message, isError: true);
+      return;
+    }
+
+    final completeResult = await _onboardingRepository.complete(
+      targetCalories: targetCalories,
     );
     if (!mounted) return;
     setState(() => _finishing = false);
 
-    if (!result.success) {
-      _showMessage(result.message, isError: true);
+    if (!completeResult.success) {
+      _showMessage(completeResult.message, isError: true);
       return;
     }
 
-    // targetCalories currently calculated by backend and returned from profile update;
-    // we keep this value to support future custom-calorie endpoint.
-    if (targetCalories > 0) {
-      _showMessage('Thiết lập hoàn tất!');
+    final completion = completeResult.data?['completion'] ?? completeResult.data?['Completion'];
+    final isCompleted = completion is Map &&
+        (completion['isCompleted'] == true || completion['IsCompleted'] == true);
+
+    if (!isCompleted) {
+      _showMessage('Vui lòng hoàn tất các bước còn thiếu trước khi vào ứng dụng.', isError: true);
+      return;
     }
+
+    _showMessage('Thiết lập hoàn tất!');
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -136,18 +222,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          if (_currentIndex != 0 && _currentIndex != 4)
-            TextButton(
-              onPressed: _nextPage,
-              child: const Text('Bỏ qua', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-            ),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Progress Bar
             if (_currentIndex > 0)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
@@ -155,12 +233,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'BƯỚC ${_currentIndex + 1}/5',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+                      'BƯỚC ${_currentIndex + 1}/$_stepCount',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: (_currentIndex + 1) / 5,
+                      value: (_currentIndex + 1) / _stepCount,
                       backgroundColor: AppColors.progressBackground,
                       valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                       minHeight: 4,
@@ -169,30 +252,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ],
                 ),
               ),
-            
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // Disable swipe to force using buttons
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _currentIndex = index),
                 children: [
                   BasicInfoStep(
                     onNext: _handleBasicInfoNext,
+                    initialFullName: _fullName,
+                    initialGender: _gender,
+                    initialDateOfBirth: _dateOfBirth,
                     initialHeightCm: _heightCm,
                     initialWeightKg: _weightKg,
                     initialBodyFatPercent: _bodyFatPercent,
                     initialActivityLevel: _activityLevel,
                     initialGoal: _goal,
                   ),
-                  UserTypeStep(onNext: _nextPage),
-                  PreferencesStep(onNext: _nextPage),
-                  AllergiesStep(onNext: _nextPage),
+                  UserTypeStep(onNext: _handleUserTypeNext),
+                  PreferencesStep(onNext: _handlePreferencesNext),
+                  AllergiesStep(
+                    onNext: _nextPage,
+                    userAiProfileRepository: _userAiProfileRepository,
+                  ),
                   CalorieGoalStep(
                     onFinish: _finishing ? (_) async {} : _handleFinish,
+                    initialCalories: _targetCalories ?? 2500,
+                    heightCm: _heightCm,
+                    weightKg: _weightKg,
+                    activityLevel: _activityLevel,
+                    goal: _goal,
                   ),
                 ],
               ),

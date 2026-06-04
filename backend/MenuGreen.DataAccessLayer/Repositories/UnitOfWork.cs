@@ -23,6 +23,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.MealPlanHeader>? _mealPlanHeaders;
         private IGenericRepository<Entities.MealPlanItem>? _mealPlanItems;
         private IGenericRepository<Entities.UserAiProfile>? _userAiProfiles;
+        private IGenericRepository<Entities.NutritionSnapshot>? _nutritionSnapshots;
         private IGenericRepository<Entities.RecommendationHistory>? _recommendationHistories;
         private IGenericRepository<Entities.RecommendationFeedback>? _recommendationFeedbacks;
         private IGenericRepository<Entities.Notification>? _notifications;
@@ -52,6 +53,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders => _mealPlanHeaders ??= new GenericRepository<Entities.MealPlanHeader>(_context);
         public IGenericRepository<Entities.MealPlanItem> MealPlanItems => _mealPlanItems ??= new GenericRepository<Entities.MealPlanItem>(_context);
         public IGenericRepository<Entities.UserAiProfile> UserAiProfiles => _userAiProfiles ??= new GenericRepository<Entities.UserAiProfile>(_context);
+        public IGenericRepository<Entities.NutritionSnapshot> NutritionSnapshots => _nutritionSnapshots ??= new GenericRepository<Entities.NutritionSnapshot>(_context);
         public IGenericRepository<Entities.RecommendationHistory> RecommendationHistories => _recommendationHistories ??= new GenericRepository<Entities.RecommendationHistory>(_context);
         public IGenericRepository<Entities.RecommendationFeedback> RecommendationFeedbacks => _recommendationFeedbacks ??= new GenericRepository<Entities.RecommendationFeedback>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);

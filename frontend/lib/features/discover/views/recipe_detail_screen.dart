@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
@@ -121,8 +122,60 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 ),
               ),
             ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _logMeal(recipe),
+              icon: const Icon(Icons.add_chart_outlined),
+              label: const Text('Ghi vào nhật ký'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Thông tin tham khảo, không thay tư vấn y khoa.',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _logMeal(RecipeItem recipe) async {
+    if (recipe.allergyRiskLevel == 'high') {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Xác nhận'),
+          content: Text(
+            'Công thức này có thể không phù hợp với dị ứng của bạn'
+            '${recipe.matchedAllergens.isNotEmpty ? ' (${recipe.matchedAllergens.join(', ')})' : ''}. '
+            'Bạn vẫn muốn ghi nhật ký?',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Vẫn ghi')),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
+    }
+
+    final ok = await showMealLogSheet(
+      context,
+      initialRecipeId: widget.recipeId,
+      initialRecipeName: recipe.title,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã ghi vào nhật ký bữa ăn')),
+      );
+    }
   }
 }

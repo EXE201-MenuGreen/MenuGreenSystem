@@ -16,11 +16,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _db;
+        private readonly IAllergenMatchingService _allergenMatching;
 
-        public IngredientService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+        public IngredientService(
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext db,
+            IAllergenMatchingService allergenMatching)
         {
             _unitOfWork = unitOfWork;
             _db = db;
+            _allergenMatching = allergenMatching;
         }
 
         public async Task<IngredientResponse> CreateAsync(IngredientUpsertRequest request)
@@ -39,9 +44,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         }
 
         public async Task DeleteAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); _unitOfWork.Ingredients.Remove(e); await _unitOfWork.CompleteAsync(); }
-        public async Task<IngredientResponse> GetByIdAsync(Guid id) => Map(await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."));
+        public async Task<IngredientResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
+        {
+            var entity = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found.");
+            return await EnrichIngredientAsync(Map(entity), entity.NameVi, entity.NameEn, userId, allergyMode);
+        }
 
-        public async Task<IngredientSearchResponse> SearchAsync(string? keyword, string? category, bool? isActive)
+        public async Task<IngredientSearchResponse> SearchAsync(
+            string? keyword,
+            string? category,
+            bool? isActive,
+            Guid? userId = null,
+            string? allergyMode = null)
         {
             var ingredients = await _unitOfWork.Ingredients.GetAllAsync();
             var query = ingredients.AsEnumerable();
@@ -64,7 +78,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 query = query.Where(i => i.IsActive == isActive.Value);
             }
 
-            var items = query.Select(Map).ToList();
+            var mode = NormalizeAllergyMode(allergyMode);
+            var items = new List<IngredientResponse>();
+            foreach (var ingredient in query)
+            {
+                var dto = await EnrichIngredientAsync(
+                    Map(ingredient), ingredient.NameVi, ingredient.NameEn, userId, allergyMode);
+                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser)
+                    continue;
+                items.Add(dto);
+            }
+
             return new IngredientSearchResponse { Items = items, TotalCount = items.Count };
         }
 
@@ -118,6 +142,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ImageUrl = i.ImageUrl
                 })
                 .ToList();
+        }
+
+        private async Task<IngredientResponse> EnrichIngredientAsync(
+            IngredientResponse dto,
+            string nameVi,
+            string? nameEn,
+            Guid? userId,
+            string? allergyMode)
+        {
+            _ = NormalizeAllergyMode(allergyMode);
+            var risk = await _allergenMatching.EvaluateIngredientRiskAsync(nameVi, nameEn, userId);
+            dto.MatchedAllergens = risk.MatchedAllergens.ToList();
+            dto.AllergyRiskLevel = risk.AllergyRiskLevel;
+            dto.IsSafeForUser = risk.IsSafeForUser;
+            return dto;
+        }
+
+        private static string NormalizeAllergyMode(string? mode)
+        {
+            var m = (mode ?? AllergenCatalog.ModeWarn).Trim().ToLowerInvariant();
+            return m is AllergenCatalog.ModeHide or AllergenCatalog.ModeAll or AllergenCatalog.ModeWarn
+                ? m
+                : AllergenCatalog.ModeWarn;
         }
 
         private static IngredientResponse Map(Ingredient e) => new() { Id = e.Id, NameVi = e.NameVi, NameEn = e.NameEn, Category = e.Category, CaloriesKcal = e.CaloriesKcal, ProteinG = e.ProteinG, CarbsG = e.CarbsG, FatG = e.FatG, EstimatedPriceVnd = e.EstimatedPriceVnd, UnitDefault = e.UnitDefault, ImageUrl = e.ImageUrl, IsActive = e.IsActive };

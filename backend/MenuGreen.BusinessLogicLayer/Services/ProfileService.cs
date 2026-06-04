@@ -44,7 +44,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.ActivityLevel != null) healthProfile.ActivityLevel = request.ActivityLevel;
             if (request.Goal != null) healthProfile.Goal = request.Goal;
 
-            CalculateNutritionTargets(profile, healthProfile);
+            HealthProfileMetricsCalculator.Apply(healthProfile, profile.Gender, profile.DateOfBirth);
 
             profile.UpdatedAt = DateTime.UtcNow;
             healthProfile.UpdatedAt = DateTime.UtcNow;
@@ -92,8 +92,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var hasAllergies = await HasActiveAllergiesAsync(userId);
             var allergyCount = await CountActiveAllergiesAsync(userId);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
+            var hasSnapshot = await HasNutritionSnapshotAsync(userId);
+            var allergiesAcknowledged = UserAiProfilePreferencesHelper.TryGetAllergiesAcknowledged(aiProfile?.Preferences);
 
-            var completedSteps = BuildCompletedSteps(profile, healthProfile, hasAllergies, aiProfile != null);
+            var completedSteps = BuildCompletedSteps(
+                profile,
+                healthProfile,
+                hasAllergies,
+                allergiesAcknowledged,
+                aiProfile,
+                hasSnapshot);
 
             return new ProfileSummaryResponse
             {
@@ -117,10 +125,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetCarbsG = healthProfile.TargetCarbsG,
                 TargetFatG = healthProfile.TargetFatG,
                 AllergyCount = allergyCount,
-                HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) || profile.DateOfBirth.HasValue || !string.IsNullOrWhiteSpace(profile.Gender) || !string.IsNullOrWhiteSpace(profile.PreferredCuisine),
-                HasHealthProfile = healthProfile.HeightCm.HasValue || healthProfile.WeightKg.HasValue || healthProfile.BodyFatPercent.HasValue || !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel) || !string.IsNullOrWhiteSpace(healthProfile.Goal),
-                HasAllergies = hasAllergies,
-                HasAiProfile = aiProfile != null,
+                HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender),
+                HasHealthProfile = healthProfile.HeightCm.HasValue && healthProfile.WeightKg.HasValue && !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel),
+                HasAllergies = hasAllergies || allergiesAcknowledged,
+                HasAiProfile = UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(
+                    aiProfile?.Preferences,
+                    aiProfile?.EatingPattern,
+                    aiProfile?.DislikedFoods),
                 OnboardingStepsCompleted = completedSteps,
             };
         }
@@ -131,9 +142,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var hasAllergies = await HasActiveAllergiesAsync(userId);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
+            var hasSnapshot = await HasNutritionSnapshotAsync(userId);
+            var allergiesAcknowledged = UserAiProfilePreferencesHelper.TryGetAllergiesAcknowledged(aiProfile?.Preferences);
 
-            var completedSteps = BuildCompletedSteps(profile, healthProfile, hasAllergies, aiProfile != null);
-            var allSteps = new[] { "Profile", "HealthProfile", "Allergies", "Goal", "UserAiProfile" };
+            var completedSteps = BuildCompletedSteps(
+                profile,
+                healthProfile,
+                hasAllergies,
+                allergiesAcknowledged,
+                aiProfile,
+                hasSnapshot);
+            var allSteps = new[] { "Profile", "HealthProfile", "Allergies", "Goal", "UserAiProfile", "NutritionSnapshot" };
             var missingSteps = allSteps.Except(completedSteps, StringComparer.OrdinalIgnoreCase).ToArray();
             var completionPercent = (int)Math.Round((completedSteps.Length * 100.0) / allSteps.Length);
 
@@ -185,33 +204,54 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return allergies.Count();
         }
 
-        private static string[] BuildCompletedSteps(Profile profile, HealthProfile healthProfile, bool hasAllergies, bool hasAiProfile)
+        private async Task<bool> HasNutritionSnapshotAsync(Guid userId)
+        {
+            var snapshots = await _unitOfWork.NutritionSnapshots.FindAsync(x => x.UserId == userId);
+            return snapshots.Any();
+        }
+
+        private static string[] BuildCompletedSteps(
+            Profile profile,
+            HealthProfile healthProfile,
+            bool hasAllergies,
+            bool allergiesAcknowledged,
+            UserAiProfile? aiProfile,
+            bool hasNutritionSnapshot)
         {
             var steps = new System.Collections.Generic.List<string>();
 
-            if (!string.IsNullOrWhiteSpace(profile.FullName) || profile.DateOfBirth.HasValue || !string.IsNullOrWhiteSpace(profile.Gender) || !string.IsNullOrWhiteSpace(profile.PreferredCuisine))
+            if (!string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender))
             {
                 steps.Add("Profile");
             }
 
-            if (healthProfile.HeightCm.HasValue || healthProfile.WeightKg.HasValue || healthProfile.BodyFatPercent.HasValue || !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel) || !string.IsNullOrWhiteSpace(healthProfile.Goal))
+            if (healthProfile.HeightCm.HasValue && healthProfile.WeightKg.HasValue
+                && !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel))
             {
                 steps.Add("HealthProfile");
             }
 
-            if (hasAllergies)
+            if (hasAllergies || allergiesAcknowledged)
             {
                 steps.Add("Allergies");
             }
 
-            if (!string.IsNullOrWhiteSpace(healthProfile.Goal))
+            if (!string.IsNullOrWhiteSpace(healthProfile.Goal) && healthProfile.TargetCalories.HasValue)
             {
                 steps.Add("Goal");
             }
 
-            if (hasAiProfile)
+            if (UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(
+                aiProfile?.Preferences,
+                aiProfile?.EatingPattern,
+                aiProfile?.DislikedFoods))
             {
                 steps.Add("UserAiProfile");
+            }
+
+            if (hasNutritionSnapshot)
+            {
+                steps.Add("NutritionSnapshot");
             }
 
             return steps.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -246,47 +286,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (user == null) return "User";
             var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
             return roleEntities.FirstOrDefault()?.Name ?? "User";
-        }
-
-        private void CalculateNutritionTargets(Profile p, HealthProfile hp)
-        {
-            if (!hp.WeightKg.HasValue || !hp.HeightCm.HasValue) return;
-
-            int age = 25;
-            if (p.DateOfBirth.HasValue)
-            {
-                age = DateTime.Today.Year - p.DateOfBirth.Value.Year;
-                if (p.DateOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--;
-            }
-
-            double bmr = (10 * (double)hp.WeightKg.Value) + (6.25 * (double)hp.HeightCm.Value) - (5 * age);
-            bmr += (p.Gender?.ToLower() == "male" || p.Gender?.ToLower() == "nam") ? 5 : -161;
-            hp.BmrKcal = (int)Math.Round(bmr);
-
-            double multiplier = hp.ActivityLevel?.ToLower() switch
-            {
-                "light" => 1.375,
-                "moderate" => 1.55,
-                "active" => 1.725,
-                "veryactive" => 1.9,
-                _ => 1.2
-            };
-            hp.TdeeKcal = (int)Math.Round(bmr * multiplier);
-
-            int targetKcal = hp.TdeeKcal.Value;
-            targetKcal += hp.Goal?.ToLower() switch
-            {
-                "loseweight" => -500,
-                "gainweight" => 500,
-                _ => 0
-            };
-            hp.TargetCalories = targetKcal;
-
-            double heightMeters = (double)hp.HeightCm.Value / 100.0;
-            hp.Bmi = (decimal)Math.Round((double)hp.WeightKg.Value / (heightMeters * heightMeters), 2);
-            hp.TargetProteinG = (int)Math.Round((targetKcal * 0.30) / 4);
-            hp.TargetCarbsG = (int)Math.Round((targetKcal * 0.40) / 4);
-            hp.TargetFatG = (int)Math.Round((targetKcal * 0.30) / 9);
         }
 
         private ProfileResponse MapToResponse(Profile p, HealthProfile hp, string roleName)

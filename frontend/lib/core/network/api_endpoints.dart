@@ -46,7 +46,16 @@ class ApiEndpoints {
   static String recipeById(String id) => '$baseUrl/Recipe/$id';
   static String recipeIngredients(String id) => '$baseUrl/Recipe/$id/ingredients';
   static String get ingredientSearch => '$baseUrl/Ingredient/search';
+  static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
+  static String ingredientRecipes(String id) => '$baseUrl/Ingredient/$id/recipes';
+  static String get recommendationCalories => '$baseUrl/Recommendation/calories';
+  static String get recommendationLunch => '$baseUrl/Recommendation/lunch';
+  static String get recommendationEco => '$baseUrl/Recommendation/eco';
+  static String get recommendationDailyMenu => '$baseUrl/Recommendation/daily-menu';
   static String get profileSummary => '$baseUrl/Profile/me/summary';
+  static String get profileCompletion => '$baseUrl/Profile/me/completion';
+  static String get userAiProfileMe => '$baseUrl/UserAiProfile/me';
+  static String get onboardingComplete => '$baseUrl/Onboarding/complete';
   static String get recipes => '$baseUrl/Recipe';
   static String get nutritionMealLogs => '$baseUrl/NutritionTracking/meal-logs';
 

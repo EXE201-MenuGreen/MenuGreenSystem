@@ -8,10 +8,18 @@ class CalorieGoalStep extends StatefulWidget {
     super.key,
     required this.onFinish,
     this.initialCalories = 2500,
+    this.heightCm,
+    this.weightKg,
+    this.activityLevel,
+    this.goal,
   });
 
   final Future<void> Function(int targetCalories) onFinish;
   final int initialCalories;
+  final double? heightCm;
+  final double? weightKg;
+  final String? activityLevel;
+  final String? goal;
 
   @override
   State<CalorieGoalStep> createState() => _CalorieGoalStepState();
@@ -24,13 +32,35 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
   @override
   void initState() {
     super.initState();
-    _calories = widget.initialCalories.toDouble();
+    _calories = widget.initialCalories.toDouble().clamp(1200, 3500);
+  }
+
+  @override
+  void didUpdateWidget(CalorieGoalStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialCalories != widget.initialCalories) {
+      _calories = widget.initialCalories.toDouble().clamp(1200, 3500);
+    }
   }
 
   Future<void> _finish() async {
     setState(() => _saving = true);
-    await widget.onFinish(_calories.toInt());
+    await widget.onFinish(_calories.round());
     if (mounted) setState(() => _saving = false);
+  }
+
+  String _hintText() {
+    final parts = <String>[];
+    if (widget.heightCm != null && widget.weightKg != null) {
+      parts.add('${widget.heightCm!.toStringAsFixed(0)} cm, ${widget.weightKg!.toStringAsFixed(0)} kg');
+    }
+    if (widget.goal != null && widget.goal!.isNotEmpty) {
+      parts.add('mục tiêu: ${widget.goal}');
+    }
+    if (parts.isEmpty) {
+      return 'Dựa trên chỉ số của bạn, mức ${_calories.toInt()} kcal là gợi ý khởi đầu. Bạn có thể điều chỉnh bằng thanh trượt.';
+    }
+    return 'Dựa trên ${parts.join(' · ')}, mức ${_calories.toInt()} kcal là gợi ý từ hệ thống. Kéo thanh trượt nếu bạn muốn điều chỉnh.';
   }
 
   @override
@@ -41,7 +71,10 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 32),
-          Text('${_calories.toInt()} kcal', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary)),
+          Text(
+            '${_calories.toInt()} kcal',
+            style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary),
+          ),
           const SizedBox(height: 8),
           const Text('Mức calo hàng ngày lý tưởng của bạn', style: AppTextStyles.subtitle),
           const SizedBox(height: 48),
@@ -64,8 +97,14 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Điều chỉnh mức calo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    Text('${_calories.toInt()}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    const Text(
+                      'Điều chỉnh mức calo',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                    ),
+                    Text(
+                      '${_calories.toInt()}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -84,12 +123,8 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
                           value: _calories,
                           min: 1200,
                           max: 3500,
-                          divisions: 23, // every 100 kcal
-                          onChanged: (val) {
-                            setState(() {
-                              _calories = val;
-                            });
-                          },
+                          divisions: 23,
+                          onChanged: (val) => setState(() => _calories = val),
                         ),
                       ),
                     ),
@@ -97,7 +132,12 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Center(child: Text('Kéo để thay đổi mục tiêu của bạn', style: TextStyle(color: AppColors.textSecondary, fontSize: 13))),
+                const Center(
+                  child: Text(
+                    'Kéo để thay đổi mục tiêu của bạn',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ),
               ],
             ),
           ),
@@ -110,13 +150,13 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.info_outline, color: AppColors.primary),
-                SizedBox(width: 12),
+              children: [
+                const Icon(Icons.info_outline, color: AppColors.primary),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Dựa trên chỉ số cơ thể và mức độ hoạt động của bạn, 2500 kcal là mức năng lượng phù hợp để duy trì cân nặng ổn định.',
-                    style: TextStyle(color: AppColors.textDark, height: 1.5),
+                    _hintText(),
+                    style: const TextStyle(color: AppColors.textDark, height: 1.5),
                   ),
                 ),
               ],
@@ -127,11 +167,6 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
             text: _saving ? 'Đang hoàn tất...' : 'Xác nhận mục tiêu',
             onPressed: _saving ? () {} : _finish,
           ),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: () {},
-            child: const Text('Tính toán lại chỉ số cơ thể', style: TextStyle(color: AppColors.textSecondary)),
-          )
         ],
       ),
     );

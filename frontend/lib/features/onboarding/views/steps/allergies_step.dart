@@ -3,10 +3,16 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../repositories/allergy_repository.dart';
+import '../../repositories/user_ai_profile_repository.dart';
 
 class AllergiesStep extends StatefulWidget {
   final VoidCallback onNext;
-  const AllergiesStep({super.key, required this.onNext});
+  final UserAiProfileRepository? userAiProfileRepository;
+  const AllergiesStep({
+    super.key,
+    required this.onNext,
+    this.userAiProfileRepository,
+  });
 
   @override
   State<AllergiesStep> createState() => _AllergiesStepState();
@@ -25,7 +31,7 @@ class _AllergiesStepState extends State<AllergiesStep> {
     {'name': 'Hạt cây', 'icon': Icons.park_outlined},
   ];
 
-  final Set<String> _selected = {'Gluten'};
+  final Set<String> _selected = {};
   bool _loading = true;
   bool _saving = false;
 
@@ -99,6 +105,10 @@ class _AllergiesStepState extends State<AllergiesStep> {
         if (!_selected.contains(item.name)) {
           await _repository.delete(item.id);
         }
+      }
+
+      if (_selected.isEmpty && widget.userAiProfileRepository != null) {
+        await widget.userAiProfileRepository!.upsert(allergiesAcknowledged: true);
       }
     } catch (_) {
       if (mounted) {
