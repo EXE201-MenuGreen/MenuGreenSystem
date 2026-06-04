@@ -359,6 +359,20 @@ VALUES
   ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002')
 ON CONFLICT ("FoodId", "AllergyId") DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS food_allergen_tags (
+    "FoodId" uuid NOT NULL,
+    "AllergenKey" character varying(64) NOT NULL,
+    CONSTRAINT "PK_food_allergen_tags" PRIMARY KEY ("FoodId", "AllergenKey"),
+    CONSTRAINT "FK_food_allergen_tags_foods_FoodId" FOREIGN KEY ("FoodId")
+        REFERENCES foods ("Id") ON DELETE CASCADE
+);
+
+INSERT INTO food_allergen_tags ("FoodId", "AllergenKey")
+VALUES
+  ('40000000-0000-0000-0000-000000000002', 'peanut'),
+  ('40000000-0000-0000-0000-000000000002', 'dairy')
+ON CONFLICT ("FoodId", "AllergenKey") DO NOTHING;
+
 -- =========================
 -- User subscriptions (Pro user — UserSubscriptionService)
 -- =========================
