@@ -10,9 +10,13 @@ namespace MenuGreen.DataAccessLayer.Configurations
         {
             builder.ToTable("user_ai_profile");
             builder.HasKey(x => x.UserId);
-            builder.Property(x => x.Preferences).HasColumnType("json");
-            builder.Property(x => x.DislikedFoods).HasColumnType("json");
-            builder.Property(x => x.EatingPattern).HasColumnType("json");
+            builder.Property(x => x.Preferences).HasColumnType("jsonb");
+            builder.Property(x => x.DislikedFoods).HasColumnType("jsonb");
+            // Stored as JSON string value, e.g. "gym" (valid jsonb).
+            builder.Property(x => x.EatingPattern).HasColumnType("jsonb");
+
+            builder.Property(x => x.UpdatedAt)
+                .HasColumnType("timestamp with time zone");
             builder.HasOne(x => x.User).WithOne().HasForeignKey<UserAiProfile>(x => x.UserId);
         }
     }

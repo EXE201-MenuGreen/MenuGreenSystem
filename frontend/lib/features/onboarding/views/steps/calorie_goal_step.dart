@@ -7,6 +7,7 @@ class CalorieGoalStep extends StatefulWidget {
   const CalorieGoalStep({
     super.key,
     required this.onFinish,
+    this.isSubmitting = false,
     this.initialCalories = 2500,
     this.heightCm,
     this.weightKg,
@@ -15,6 +16,7 @@ class CalorieGoalStep extends StatefulWidget {
   });
 
   final Future<void> Function(int targetCalories) onFinish;
+  final bool isSubmitting;
   final int initialCalories;
   final double? heightCm;
   final double? weightKg;
@@ -27,7 +29,6 @@ class CalorieGoalStep extends StatefulWidget {
 
 class _CalorieGoalStepState extends State<CalorieGoalStep> {
   late double _calories;
-  bool _saving = false;
 
   @override
   void initState() {
@@ -44,9 +45,8 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
   }
 
   Future<void> _finish() async {
-    setState(() => _saving = true);
+    if (widget.isSubmitting) return;
     await widget.onFinish(_calories.round());
-    if (mounted) setState(() => _saving = false);
   }
 
   String _hintText() {
@@ -164,8 +164,8 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
           ),
           const SizedBox(height: 40),
           PrimaryButton(
-            text: _saving ? 'Đang hoàn tất...' : 'Xác nhận mục tiêu',
-            onPressed: _saving ? () {} : _finish,
+            text: widget.isSubmitting ? 'Đang hoàn tất...' : 'Xác nhận mục tiêu',
+            onPressed: widget.isSubmitting ? () {} : _finish,
           ),
         ],
       ),
