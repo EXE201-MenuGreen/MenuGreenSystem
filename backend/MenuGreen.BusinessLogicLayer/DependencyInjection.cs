@@ -32,6 +32,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<SepayWebhookPaymentVerifier>();
             services.AddScoped<ISepayPaymentService, SepayPaymentService>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IUserDashboardService, UserDashboardService>();
             services.AddScoped<IUserMetricsService, UserMetricsService>();
             services.AddScoped<IRevenueMetricsService, RevenueMetricsService>();
             services.AddScoped<IFoodRankingService, FoodRankingService>();

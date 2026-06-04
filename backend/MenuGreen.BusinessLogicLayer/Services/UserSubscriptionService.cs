@@ -84,6 +84,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return current == null ? null : await MapAsync(current);
         }
 
+        public async Task<UserSubscriptionResponse> GetByIdAsync(Guid userId, Guid subscriptionId)
+        {
+            var subscription = await GetOwnedSubscriptionAsync(userId, subscriptionId);
+            return await MapAsync(subscription);
+        }
+
         public async Task<IEnumerable<SubscriptionTransactionResponse>> GetHistoryAsync(Guid userId)
         {
             var items = await _unitOfWork.SubscriptionTransactions.FindAsync(x => x.UserId == userId);

@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MenuGreen.API.Controllers
 {
+    /// <summary>
+    /// Controller quản lý Notification - Thông báo và nhắc nhở.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -21,7 +24,9 @@ namespace MenuGreen.API.Controllers
             _service = service;
         }
 
-        // Lấy cấu hình nhắc nhở hiện tại của user.
+        /// <summary>
+        /// Lấy cấu hình nhắc nhở hiện tại của user.
+        /// </summary>
         [HttpGet("settings")]
         public async Task<IActionResult> GetSettings()
         {
@@ -29,7 +34,9 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.GetSettingsAsync(userId));
         }
 
-        // Cập nhật cấu hình nhắc nhở của user: nhắc ăn, nhắc chuẩn bị, in-app, push.
+        /// <summary>
+        /// Cập nhật cấu hình nhắc nhở của user.
+        /// </summary>
         [HttpPut("settings")]
         public async Task<IActionResult> UpdateSettings([FromBody] NotificationSettingUpsertRequest request)
         {
@@ -38,7 +45,9 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.UpdateSettingsAsync(userId, request));
         }
 
-        // Lấy danh sách thông báo của user, có thể lọc chỉ thông báo chưa đọc.
+        /// <summary>
+        /// Lấy danh sách thông báo của user (có thể lọc chưa đọc).
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] bool? unreadOnly = null)
         {
@@ -46,7 +55,27 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.GetNotificationsAsync(userId, unreadOnly));
         }
 
-        // Đếm số thông báo chưa đọc để hiển thị badge trên UI.
+        /// <summary>
+        /// Xem chi tiết một thông báo cụ thể theo ID.
+        /// </summary>
+        [HttpGet("{id:guid}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            
+            try
+            {
+                return Ok(await _service.GetByIdAsync(userId, id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Đếm số thông báo chưa đọc để hiển thị badge.
+        /// </summary>
         [HttpGet("unread-count")]
         public async Task<IActionResult> GetUnreadCount()
         {
@@ -54,7 +83,9 @@ namespace MenuGreen.API.Controllers
             return Ok(new { Count = await _service.GetUnreadCountAsync(userId) });
         }
 
-        // Đánh dấu một thông báo cụ thể là đã đọc.
+        /// <summary>
+        /// Đánh dấu một thông báo cụ thể là đã đọc.
+        /// </summary>
         [HttpPatch("{notificationId:guid}/read")]
         public async Task<IActionResult> MarkAsRead(Guid notificationId)
         {
@@ -62,7 +93,9 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.MarkAsReadAsync(userId, notificationId));
         }
 
-        // Đánh dấu toàn bộ thông báo của user là đã đọc.
+        /// <summary>
+        /// Đánh dấu toàn bộ thông báo của user là đã đọc.
+        /// </summary>
         [HttpPatch("read-all")]
         public async Task<IActionResult> MarkAllAsRead()
         {
@@ -71,7 +104,67 @@ namespace MenuGreen.API.Controllers
             return Ok();
         }
 
-        // Tạo thông báo nhắc giờ ăn trước thời điểm ăn dự kiến.
+        /// <summary>
+        /// Xóa một thông báo.
+        /// </summary>
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            
+            try
+            {
+                await _service.DeleteAsync(userId, id);
+                return Ok(new { Message = "Notification deleted successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Xóa nhiều thông báo cùng lúc theo danh sách IDs.
+        /// </summary>
+        [HttpDelete("batch")]
+        public async Task<IActionResult> DeleteBatch([FromBody] DeleteNotificationBatchRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            
+            try
+            {
+                var deletedCount = await _service.DeleteBatchAsync(userId, request.NotificationIds);
+                return Ok(new { Message = $"Deleted {deletedCount} notification(s) successfully.", DeletedCount = deletedCount });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Xóa thông báo trong khoảng thời gian.
+        /// </summary>
+        [HttpDelete("range")]
+        public async Task<IActionResult> DeleteByRange([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            
+            try
+            {
+                var deletedCount = await _service.DeleteByRangeAsync(userId, startDate, endDate);
+                return Ok(new { Message = $"Deleted {deletedCount} notification(s) successfully.", DeletedCount = deletedCount });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Tạo thông báo nhắc giờ ăn trước thời điểm ăn dự kiến.
+        /// </summary>
         [HttpPost("schedule-meal-reminder")]
         public async Task<IActionResult> ScheduleMealReminder([FromBody] ScheduleMealReminderRequest request)
         {
@@ -87,7 +180,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Tạo thông báo nhắc chuẩn bị nguyên liệu trước khi nấu.
+        /// <summary>
+        /// Tạo thông báo nhắc chuẩn bị nguyên liệu trước khi nấu.
+        /// </summary>
         [HttpPost("schedule-prep-reminder")]
         public async Task<IActionResult> SchedulePrepReminder([FromBody] SchedulePrepReminderRequest request)
         {
