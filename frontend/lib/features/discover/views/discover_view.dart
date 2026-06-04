@@ -7,9 +7,12 @@ import '../../profile/views/allergies_screen.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
+import '../widgets/discover_food_filters_sheet.dart';
 import 'favorites_screen.dart';
 import 'food_detail_screen.dart';
+import 'ingredient_detail_screen.dart';
 import 'recipe_detail_screen.dart';
+import 'safe_recommendations_screen.dart';
 
 class DiscoverView extends StatefulWidget {
   const DiscoverView({super.key});
@@ -25,6 +28,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   String _allergyMode = 'warn';
   bool _safeOnly = false;
+  FoodSearchFilters _foodFilters = const FoodSearchFilters();
   bool _initialLoading = true;
   bool _refreshing = false;
   bool _recipesLoading = false;
@@ -126,7 +130,11 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
       }
 
       final foods = await _repository
-          .searchFoods(keyword: _keyword, allergyMode: _effectiveAllergyMode)
+          .searchFoods(
+            keyword: _keyword,
+            allergyMode: _effectiveAllergyMode,
+            filters: _foodFilters,
+          )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
@@ -187,7 +195,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     setState(() => _ingredientsLoading = true);
     try {
       final items = await _repository
-          .searchIngredients(keyword: _keyword)
+          .searchIngredients(keyword: _keyword, allergyMode: _effectiveAllergyMode)
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
@@ -203,6 +211,22 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
         _ingredientsLoaded = true;
       });
     }
+  }
+
+  Future<void> _openFoodFilters() async {
+    final result = await showDiscoverFoodFiltersSheet(context, initial: _foodFilters);
+    if (result == null || !mounted) return;
+    setState(() => _foodFilters = result);
+    _scheduleReload();
+  }
+
+  void _openSafeRecommendations() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SafeRecommendationsScreen(allergyMode: _effectiveAllergyMode),
+      ),
+    );
   }
 
   Future<void> _openAllergies() async {
@@ -235,6 +259,11 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                       color: AppColors.textDark,
                     ),
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Gợi ý an toàn',
+                  onPressed: _openSafeRecommendations,
+                  icon: const Icon(Icons.recommend_outlined, color: AppColors.primary),
                 ),
                 IconButton(
                   tooltip: 'Món yêu thích',
@@ -274,7 +303,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 FilterChip(
                   label: const Text('Chỉ món an toàn'),
@@ -284,13 +316,20 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                     _scheduleReload();
                   },
                 ),
-                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: Icon(
+                    Icons.tune,
+                    size: 18,
+                    color: _foodFilters.hasAny ? AppColors.primary : null,
+                  ),
+                  label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
+                  onPressed: _openFoodFilters,
+                ),
                 TextButton.icon(
                   onPressed: _openAllergies,
                   icon: const Icon(Icons.medical_information_outlined, size: 18),
                   label: const Text('Dị ứng'),
                 ),
-                const Spacer(),
                 TextButton(
                   onPressed: _refreshing ? null : () => _reloadLists(checkAllergy: false),
                   child: const Text('Tải lại'),
@@ -485,13 +524,41 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             side: BorderSide(color: Colors.grey.shade200),
           ),
           title: Text(item.nameVi, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(
-            [
-              if (item.category != null) item.category!,
-              if (item.caloriesKcal != null) '${item.caloriesKcal!.round()} kcal',
-              if (item.unitDefault != null) item.unitDefault!,
-            ].join(' · '),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                [
+                  if (item.category != null) item.category!,
+                  if (item.caloriesKcal != null) '${item.caloriesKcal!.round()} kcal',
+                  if (item.unitDefault != null) item.unitDefault!,
+                ].join(' · '),
+              ),
+              if (item.matchedAllergens.isNotEmpty)
+                Text(
+                  'Trùng: ${item.matchedAllergens.join(', ')}',
+                  style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                ),
+            ],
           ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AllergyRiskBadge(riskLevel: item.allergyRiskLevel),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => IngredientDetailScreen(
+                  ingredientId: item.id,
+                  allergyMode: _effectiveAllergyMode,
+                ),
+              ),
+            );
+          },
         );
       },
     );

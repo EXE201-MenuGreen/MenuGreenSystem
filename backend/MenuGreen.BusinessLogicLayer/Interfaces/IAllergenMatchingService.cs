@@ -14,5 +14,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IReadOnlyList<string>> GetFoodAllergenKeysListAsync(Guid foodId);
         Task<AllergenRiskResult> EvaluateFoodRiskAsync(Guid foodId, Guid? userId);
         Task<AllergenRiskResult> EvaluateRecipeRiskAsync(Guid? foodId, IEnumerable<string> ingredientNamesVi, Guid? userId);
+        Task<AllergenRiskResult> EvaluateIngredientRiskAsync(string nameVi, string? nameEn, Guid? userId);
     }
 }

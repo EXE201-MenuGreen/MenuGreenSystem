@@ -13,6 +13,9 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<IHealthProfileService, HealthProfileService>();
+            services.AddScoped<IUserAiProfileService, UserAiProfileService>();
+            services.AddScoped<INutritionSnapshotService, NutritionSnapshotService>();
+            services.AddScoped<IOnboardingService, OnboardingService>();
             services.AddScoped<IAllergyService, AllergyService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAdminUserService, AdminUserService>();

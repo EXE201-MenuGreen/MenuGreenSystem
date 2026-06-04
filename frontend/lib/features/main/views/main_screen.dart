@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/health_profile_values.dart';
 import '../../discover/views/discover_view.dart';
+import '../../onboarding/utils/onboarding_gate.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../onboarding/views/onboarding_screen.dart';
-import '../../profile/repositories/profile_repository.dart';
 import '../../profile/views/profile_view.dart';
 
 class MainScreen extends StatefulWidget {
@@ -56,11 +55,11 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _redirectIfOnboardingNeeded() async {
     try {
-      final profile = await ProfileRepository()
-          .getMyProfile()
+      final complete = await OnboardingGate()
+          .isOnboardingComplete()
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
-      if (profile != null && !HealthProfileValues.isHealthBaselineComplete(profile)) {
+      if (!complete) {
         await Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),

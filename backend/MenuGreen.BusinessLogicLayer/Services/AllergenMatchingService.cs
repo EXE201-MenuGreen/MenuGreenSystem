@@ -144,6 +144,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return ToRiskResult(matched);
         }
 
+        public async Task<AllergenRiskResult> EvaluateIngredientRiskAsync(string nameVi, string? nameEn, Guid? userId)
+        {
+            if (!userId.HasValue)
+                return SafeResult();
+
+            var userKeys = await GetUserAllergenKeysAsync(userId.Value);
+            if (userKeys.Count == 0)
+                return SafeResult();
+
+            var texts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(nameVi)) texts.Add(nameVi);
+            if (!string.IsNullOrWhiteSpace(nameEn)) texts.Add(nameEn);
+
+            var matched = AllergenCatalog.MatchUserKeysInTexts(texts, userKeys);
+            return ToRiskResult(matched.ToHashSet(StringComparer.OrdinalIgnoreCase));
+        }
+
         private static AllergenRiskResult SafeResult() => new()
         {
             AllergyRiskLevel = AllergenCatalog.RiskNone,

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
@@ -16,5 +17,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? UnitDefault { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
+
+        public List<string> MatchedAllergens { get; set; } = new();
+        public string AllergyRiskLevel { get; set; } = "none";
+        public bool IsSafeForUser { get; set; } = true;
     }
 }

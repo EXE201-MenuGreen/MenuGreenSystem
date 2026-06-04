@@ -4,7 +4,7 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/primary_button.dart';
 
 class PreferencesStep extends StatefulWidget {
-  final VoidCallback onNext;
+  final Future<void> Function(List<String> selectedLabels) onNext;
   const PreferencesStep({super.key, required this.onNext});
 
   @override
@@ -12,6 +12,8 @@ class PreferencesStep extends StatefulWidget {
 }
 
 class _PreferencesStepState extends State<PreferencesStep> {
+  bool _saving = false;
+
   final Map<String, bool> _prefs = {
     'Ăn uống lành mạnh': true,
     'Tiết kiệm': false,
@@ -33,6 +35,13 @@ class _PreferencesStepState extends State<PreferencesStep> {
     'Ăn chay': Icons.eco_outlined,
   };
 
+  Future<void> _finish() async {
+    final selected = _prefs.entries.where((e) => e.value).map((e) => e.key).toList();
+    setState(() => _saving = true);
+    await widget.onNext(selected);
+    if (mounted) setState(() => _saving = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -41,14 +50,18 @@ class _PreferencesStepState extends State<PreferencesStep> {
         children: [
           const Text('Bạn quan tâm điều gì nhất?', style: AppTextStyles.heading1, textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          const Text('Hãy chọn các tiêu chí giúp chúng tôi gợi ý món ăn phù hợp với phong cách sống của bạn.', style: AppTextStyles.subtitle, textAlign: TextAlign.center),
+          const Text(
+            'Hãy chọn các tiêu chí giúp chúng tôi gợi ý món ăn phù hợp với phong cách sống của bạn.',
+            style: AppTextStyles.subtitle,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 32),
           ..._prefs.keys.map((key) {
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.progressBackground.withOpacity(0.3),
+                color: AppColors.progressBackground.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -74,22 +87,21 @@ class _PreferencesStepState extends State<PreferencesStep> {
                   ),
                   Switch(
                     value: _prefs[key]!,
-                    activeColor: Colors.white,
+                    activeThumbColor: Colors.white,
                     activeTrackColor: AppColors.primary,
                     inactiveThumbColor: Colors.white,
                     inactiveTrackColor: AppColors.progressBackground,
-                    onChanged: (val) {
-                      setState(() {
-                        _prefs[key] = val;
-                      });
-                    },
+                    onChanged: (val) => setState(() => _prefs[key] = val),
                   )
                 ],
               ),
             );
-          }).toList(),
+          }),
           const SizedBox(height: 32),
-          PrimaryButton(text: 'Hoàn tất', onPressed: widget.onNext),
+          PrimaryButton(
+            text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',
+            onPressed: _saving ? () {} : _finish,
+          ),
         ],
       ),
     );

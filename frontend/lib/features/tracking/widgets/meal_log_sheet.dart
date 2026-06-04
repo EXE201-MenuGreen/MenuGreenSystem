@@ -8,9 +8,12 @@ Future<bool> showMealLogSheet(
   BuildContext context, {
   String? initialFoodId,
   String? initialFoodName,
+  String? initialRecipeId,
+  String? initialRecipeName,
   DateTime? loggedAt,
 }) async {
-  String sourceType = 'food';
+  final lockedToRecipe = initialRecipeId != null;
+  String sourceType = lockedToRecipe ? 'recipe' : 'food';
   String mealType = 'breakfast';
   final quantityController = TextEditingController(text: '100');
   final keywordController = TextEditingController(
@@ -18,7 +21,7 @@ Future<bool> showMealLogSheet(
   );
   final repository = NutritionTrackingRepository();
   List<CatalogItem> items = [];
-  String? selectedId = initialFoodId;
+  String? selectedId = initialFoodId ?? initialRecipeId;
   bool loadingItems = false;
 
   Future<void> loadItems(void Function(void Function()) setModalState) async {
@@ -42,7 +45,9 @@ Future<bool> showMealLogSheet(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
-        if (initialFoodId != null && items.isEmpty && !loadingItems) {
+        if ((initialFoodId != null || initialRecipeId != null) &&
+            items.isEmpty &&
+            !loadingItems) {
           WidgetsBinding.instance.addPostFrameCallback((_) => loadItems(setModalState));
         }
         return AlertDialog(
@@ -59,6 +64,14 @@ Future<bool> showMealLogSheet(
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
+                if (initialRecipeId != null && initialRecipeName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Công thức: $initialRecipeName',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 InputDecorator(
                   decoration: const InputDecoration(labelText: 'Nguồn'),
                   child: DropdownButtonHideUnderline(
@@ -69,7 +82,7 @@ Future<bool> showMealLogSheet(
                         DropdownMenuItem(value: 'food', child: Text('Món ăn')),
                         DropdownMenuItem(value: 'recipe', child: Text('Công thức')),
                       ],
-                      onChanged: initialFoodId != null
+                      onChanged: initialFoodId != null || initialRecipeId != null
                           ? null
                           : (value) {
                               if (value == null) return;
@@ -83,7 +96,7 @@ Future<bool> showMealLogSheet(
                     ),
                   ),
                 ),
-                if (initialFoodId == null) ...[
+                if (initialFoodId == null && initialRecipeId == null) ...[
                   const SizedBox(height: 12),
                   TextField(
                     controller: keywordController,
@@ -106,7 +119,7 @@ Future<bool> showMealLogSheet(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
-                else if (initialFoodId == null)
+                else if (initialFoodId == null && initialRecipeId == null)
                   InputDecorator(
                     decoration: InputDecoration(
                       labelText: sourceType == 'food' ? 'Chọn món' : 'Chọn công thức',
@@ -171,8 +184,8 @@ Future<bool> showMealLogSheet(
   if (confirmed != true) return false;
 
   final quantity = double.tryParse(quantityController.text.trim());
-  final foodId = initialFoodId ?? (sourceType == 'food' ? selectedId : null);
-  final recipeId = initialFoodId == null && sourceType == 'recipe' ? selectedId : null;
+  final foodId = initialFoodId ?? (initialRecipeId == null && sourceType == 'food' ? selectedId : null);
+  final recipeId = initialRecipeId ?? (initialFoodId == null && sourceType == 'recipe' ? selectedId : null);
 
   if ((foodId == null || foodId.isEmpty) && (recipeId == null || recipeId.isEmpty)) {
     return false;

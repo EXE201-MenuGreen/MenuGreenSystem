@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -19,6 +20,12 @@ namespace MenuGreen.API.Controllers
             _ingredientService = ingredientService;
         }
 
+        private Guid? TryGetUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return Guid.TryParse(userId, out var id) ? id : null;
+        }
+
         /// <summary>
         /// Tìm kiếm nguyên liệu theo keyword, category và trạng thái.
         /// </summary>
@@ -26,11 +33,13 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> Search(
             [FromQuery] string? keyword,
             [FromQuery] string? category,
-            [FromQuery] bool? isActive)
+            [FromQuery] bool? isActive,
+            [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _ingredientService.SearchAsync(keyword, category, isActive));
+                return Ok(await _ingredientService.SearchAsync(
+                    keyword, category, isActive, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {
@@ -74,11 +83,11 @@ namespace MenuGreen.API.Controllers
         /// Lấy chi tiết nguyên liệu theo Id.
         /// </summary>
         [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _ingredientService.GetByIdAsync(id));
+                return Ok(await _ingredientService.GetByIdAsync(id, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {

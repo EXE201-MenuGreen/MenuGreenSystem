@@ -22,6 +22,19 @@ class ProfileRepository {
   AuthRepository get _authRepo =>
       _authRepoOverride ?? (_authRepoLazy ??= AuthRepository(tokenStorage: _storage));
 
+  Future<Map<String, dynamic>?> getMyCompletion() async {
+    try {
+      final response = await _api.get(ApiEndpoints.profileCompletion);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> getMyProfile() async {
     try {
       final response = await _api.get(ApiEndpoints.getProfile);

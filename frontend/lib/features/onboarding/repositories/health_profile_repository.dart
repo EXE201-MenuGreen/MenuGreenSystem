@@ -26,15 +26,19 @@ class HealthProfileRepository {
     double? bodyFatPercent,
     required String activityLevel,
     required String goal,
+    int? targetCalories,
   }) async {
     try {
-      final response = await _api.putJson(ApiEndpoints.healthProfileMe, {
+      final payload = <String, dynamic>{
         'heightCm': heightCm,
         'weightKg': weightKg,
         'bodyFatPercent': bodyFatPercent,
         'activityLevel': HealthProfileValues.normalizeActivity(activityLevel),
         'goal': HealthProfileValues.normalizeGoal(goal),
-      });
+      };
+      if (targetCalories != null) payload['targetCalories'] = targetCalories;
+
+      final response = await _api.putJson(ApiEndpoints.healthProfileMe, payload);
 
       if (response.statusCode == 200) {
         final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
