@@ -10,8 +10,17 @@ import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 
+import '../../tracking/widgets/meal_log_sheet.dart';
+
 class HomeView extends StatefulWidget {
-  const HomeView({super.key});
+  const HomeView({
+    super.key,
+    this.onNavigateToTab,
+    this.onTrackingUpdated,
+  });
+
+  final void Function(int tabIndex)? onNavigateToTab;
+  final VoidCallback? onTrackingUpdated;
 
   @override
   State<HomeView> createState() => HomeViewState();
@@ -92,7 +101,7 @@ class HomeViewState extends State<HomeView> {
             const SizedBox(height: 24),
             _buildCalorieCard(),
             const SizedBox(height: 32),
-            _buildSectionHeader('Nhật ký hôm nay', ''),
+            _buildSectionHeader('Nhật ký hôm nay', showAddButton: true),
             const SizedBox(height: 16),
             _buildTodayMealLogs(),
             const SizedBox(height: 24),
@@ -212,9 +221,14 @@ class HomeViewState extends State<HomeView> {
           ),
           if (warnings.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(
-              warnings.first,
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+            ...warnings.take(2).map(
+              (msg) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  msg,
+                  style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -256,14 +270,32 @@ class HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildSectionHeader(String title, String action) {
+  Widget _buildSectionHeader(String title, {bool showAddButton = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-        if (action.isNotEmpty)
-          Text(action, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+        if (showAddButton)
+          TextButton.icon(
+            onPressed: _refreshing ? null : _addMealFromHome,
+            icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+            label: const Text(
+              'Thêm bữa ăn',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+            ),
+          ),
       ],
+    );
+  }
+
+  Future<void> _addMealFromHome() async {
+    final ok = await showMealLogSheet(context, loggedAt: DateTime.now());
+    if (!mounted || !ok) return;
+    await _loadTodaySummary(userInitiated: false);
+    widget.onTrackingUpdated?.call();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã ghi nhật ký bữa ăn.')),
     );
   }
 
@@ -291,15 +323,38 @@ class HomeViewState extends State<HomeView> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Vào tab Lịch sử hoặc Khám phá để thêm nhật ký bữa ăn.',
+              'Ghi bữa ăn ngay hoặc khám phá món để thêm vào nhật ký.',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: PrimaryButton(
-                text: _refreshing ? 'Đang tải...' : 'Làm mới dữ liệu',
+                text: 'Thêm bữa ăn',
+                onPressed: _refreshing ? null : _addMealFromHome,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: widget.onNavigateToTab == null
+                    ? null
+                    : () => widget.onNavigateToTab!(1),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Khám phá món'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
                 onPressed: _refreshing ? null : () => _loadTodaySummary(userInitiated: true),
+                child: Text(_refreshing ? 'Đang tải...' : 'Làm mới'),
               ),
             ),
           ],

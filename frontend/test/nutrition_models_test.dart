@@ -15,12 +15,18 @@ void main() {
       'targetFatG': 60,
       'goalCompletionPercent': 75,
       'hasWarning': true,
+      'warningMessages': [
+        'Calorie intake deviates more than 10% from daily target.',
+        'Protein below target (80g / 120g).',
+      ],
       'mealLogs': [],
     });
 
     expect(summary.date, '2026-06-04');
     expect(summary.goalCompletionPercent, 75);
     expect(summary.hasWarning, isTrue);
+    expect(summary.warningMessages.length, 2);
+    expect(summary.warningMessages.first, contains('Calorie'));
   });
 
   test('MealLogItem.fromJson resolves displayName', () {

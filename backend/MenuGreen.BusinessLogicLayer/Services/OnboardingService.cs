@@ -31,11 +31,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == userId);
             var health = healthProfiles.FirstOrDefault()
-                ?? throw new Exception("Vui lòng nhập thông số sức khỏe trước khi hoàn tất thiết lập.");
+                ?? throw new Exception("Please complete health profile before finishing onboarding.");
 
             if (!health.HeightCm.HasValue || !health.WeightKg.HasValue)
             {
-                throw new Exception("Chiều cao và cân nặng là bắt buộc.");
+                throw new Exception("Height and weight are required.");
             }
 
             if (request?.TargetCalories is int target && target >= 800 && target <= 6000)

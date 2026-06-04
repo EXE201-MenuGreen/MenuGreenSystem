@@ -84,7 +84,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Lỗi gửi email từ Resend: {error}");
+                throw new Exception($"Failed to send email via Resend: {error}");
             }
         }
     }

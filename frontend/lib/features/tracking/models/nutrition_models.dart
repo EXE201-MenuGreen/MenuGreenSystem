@@ -45,6 +45,7 @@ class MealDaySummary {
     this.goalCompletionPercent,
     this.hasSnapshot = false,
     this.hasWarning = false,
+    this.warningMessages = const [],
   });
 
   final String date;
@@ -59,6 +60,7 @@ class MealDaySummary {
   final double? goalCompletionPercent;
   final bool hasSnapshot;
   final bool hasWarning;
+  final List<String> warningMessages;
   final List<MealLogItem> mealLogs;
 
   static double _asDouble(dynamic value) {
@@ -73,6 +75,7 @@ class MealDaySummary {
 
   factory MealDaySummary.fromJson(Map<String, dynamic> json) {
     final rawLogs = json['mealLogs'];
+    final rawWarnings = json['warningMessages'] ?? json['WarningMessages'];
     return MealDaySummary(
       date: (json['date'] ?? '').toString(),
       totalCalories: _asDouble(json['totalCalories']),
@@ -88,6 +91,9 @@ class MealDaySummary {
       ),
       hasSnapshot: json['hasSnapshot'] == true || json['HasSnapshot'] == true,
       hasWarning: json['hasWarning'] == true || json['HasWarning'] == true,
+      warningMessages: rawWarnings is List
+          ? rawWarnings.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+          : const [],
       mealLogs: rawLogs is List
           ? rawLogs
               .whereType<Map<String, dynamic>>()
