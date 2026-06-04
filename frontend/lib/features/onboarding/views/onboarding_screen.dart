@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../main/views/main_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
+import '../utils/onboarding_gate.dart';
 import '../repositories/health_profile_repository.dart';
 import '../repositories/onboarding_repository.dart';
 import '../repositories/user_ai_profile_repository.dart';
@@ -139,47 +140,60 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     setState(() => _finishing = true);
+    try {
+      final healthResult = await _healthProfileRepository.updateMyHealthProfile(
+        heightCm: _heightCm!,
+        weightKg: _weightKg!,
+        bodyFatPercent: _bodyFatPercent,
+        activityLevel: _activityLevel,
+        goal: _goal,
+        targetCalories: targetCalories,
+      );
+      if (!healthResult.success) {
+        _showMessage(healthResult.message, isError: true);
+        return;
+      }
 
-    final healthResult = await _healthProfileRepository.updateMyHealthProfile(
-      heightCm: _heightCm!,
-      weightKg: _weightKg!,
-      bodyFatPercent: _bodyFatPercent,
-      activityLevel: _activityLevel,
-      goal: _goal,
-      targetCalories: targetCalories,
-    );
-    if (!healthResult.success) {
+      final completeResult = await _onboardingRepository.complete(
+        targetCalories: targetCalories,
+      );
+      if (!completeResult.success) {
+        _showMessage(completeResult.message, isError: true);
+        return;
+      }
+
+      final completion =
+          completeResult.data?['completion'] ?? completeResult.data?['Completion'];
+      final snapshotCreated = completeResult.data?['snapshotCreated'] == true ||
+          completeResult.data?['SnapshotCreated'] == true;
+      final isCompleted = completion is Map &&
+          (completion['isCompleted'] == true || completion['IsCompleted'] == true);
+
+      if (!isCompleted && !snapshotCreated) {
+        final missing = completion is Map
+            ? (completion['missingSteps'] ?? completion['MissingSteps'])
+            : null;
+        final hint = missing is List && missing.isNotEmpty
+            ? ' Còn thiếu: ${missing.join(', ')}.'
+            : '';
+        _showMessage(
+          'Chưa đủ dữ liệu thiết lập.$hint',
+          isError: true,
+        );
+        return;
+      }
+
+      OnboardingGate.markSessionComplete();
+      if (!mounted) return;
+      _showMessage('Thiết lập hoàn tất!');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+        (route) => false,
+      );
+    } finally {
       if (mounted) setState(() => _finishing = false);
-      _showMessage(healthResult.message, isError: true);
-      return;
     }
-
-    final completeResult = await _onboardingRepository.complete(
-      targetCalories: targetCalories,
-    );
-    if (!mounted) return;
-    setState(() => _finishing = false);
-
-    if (!completeResult.success) {
-      _showMessage(completeResult.message, isError: true);
-      return;
-    }
-
-    final completion = completeResult.data?['completion'] ?? completeResult.data?['Completion'];
-    final isCompleted = completion is Map &&
-        (completion['isCompleted'] == true || completion['IsCompleted'] == true);
-
-    if (!isCompleted) {
-      _showMessage('Vui lòng hoàn tất các bước còn thiếu trước khi vào ứng dụng.', isError: true);
-      return;
-    }
-
-    _showMessage('Thiết lập hoàn tất!');
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const MainScreen()),
-      (route) => false,
-    );
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -197,22 +211,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-    } else {
-      Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: _currentIndex == 0 && Navigator.canPop(context),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex > 0) _previousPage();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-          onPressed: _previousPage,
-        ),
+        leading: _currentIndex > 0
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                onPressed: _previousPage,
+              )
+            : null,
+        automaticallyImplyLeading: _currentIndex > 0,
         centerTitle: true,
         title: Text(
           _titles[_currentIndex],
@@ -276,7 +296,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     userAiProfileRepository: _userAiProfileRepository,
                   ),
                   CalorieGoalStep(
-                    onFinish: _finishing ? (_) async {} : _handleFinish,
+                    onFinish: _handleFinish,
+                    isSubmitting: _finishing,
                     initialCalories: _targetCalories ?? 2500,
                     heightCm: _heightCm,
                     weightKg: _weightKg,
@@ -289,6 +310,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

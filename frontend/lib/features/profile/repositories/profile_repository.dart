@@ -4,6 +4,7 @@ import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/token_storage.dart';
 import '../../auth/repositories/auth_repository.dart';
+import '../../onboarding/utils/onboarding_gate.dart';
 
 class ProfileRepository {
   ProfileRepository({
@@ -132,5 +133,6 @@ class ProfileRepository {
 
   Future<void> logout() async {
     await _authRepo.logout();
+    OnboardingGate.clearSessionComplete();
   }
 }

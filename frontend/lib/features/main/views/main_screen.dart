@@ -1,12 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../discover/views/discover_view.dart';
-import '../../onboarding/utils/onboarding_gate.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
-import '../../onboarding/views/onboarding_screen.dart';
 import '../../profile/views/profile_view.dart';
 
 class MainScreen extends StatefulWidget {
@@ -42,32 +38,6 @@ class _MainScreenState extends State<MainScreen> {
       return const SizedBox.shrink();
     }
     return _pageAt(index);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Trì hoãn — tránh tranh API với tab Khám phá/Cá nhân ngay sau khi vào app.
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) unawaited(_redirectIfOnboardingNeeded());
-    });
-  }
-
-  Future<void> _redirectIfOnboardingNeeded() async {
-    try {
-      final complete = await OnboardingGate()
-          .isOnboardingComplete()
-          .timeout(const Duration(seconds: 15));
-      if (!mounted) return;
-      if (!complete) {
-        await Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-        );
-      }
-    } catch (_) {
-      // Giữ user ở MainScreen nếu API chậm/lỗi — HomeView vẫn dùng được.
-    }
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
@@ -43,7 +45,7 @@ class _AllergiesStepState extends State<AllergiesStep> {
 
   Future<void> _loadExistingAllergies() async {
     try {
-      final items = await _repository.getAll();
+      final items = await _repository.getAll().timeout(const Duration(seconds: 12));
       if (!mounted) return;
       setState(() {
         _selected
@@ -53,11 +55,33 @@ class _AllergiesStepState extends State<AllergiesStep> {
           );
         _loading = false;
       });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _loading = false);
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-      });
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _skipAllergies() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      if (widget.userAiProfileRepository != null) {
+        await widget.userAiProfileRepository!
+            .upsert(allergiesAcknowledged: true)
+            .timeout(const Duration(seconds: 12));
+      }
+      widget.onNext();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể bỏ qua bước này, vui lòng thử lại.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -138,13 +162,10 @@ class _AllergiesStepState extends State<AllergiesStep> {
           const SizedBox(height: 32),
           if (_loading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            )
-          else
-            GridView.builder(
+              padding: EdgeInsets.only(bottom: 16),
+              child: LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+            ),
+          GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -218,10 +239,18 @@ class _AllergiesStepState extends State<AllergiesStep> {
               ),
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: _saving || _loading ? null : _skipAllergies,
+            child: const Text(
+              'Tôi không bị dị ứng',
+              style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 16),
           PrimaryButton(
-            text: _saving ? 'Đang lưu...' : 'Hoàn tất',
-            onPressed: _saving ? () {} : _saveAndContinue,
+            text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',
+            onPressed: _saving || _loading ? () {} : _saveAndContinue,
           ),
         ],
       ),

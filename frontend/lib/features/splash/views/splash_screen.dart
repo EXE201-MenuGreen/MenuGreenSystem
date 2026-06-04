@@ -6,6 +6,8 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/network/token_storage.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../main/views/main_screen.dart';
+import '../../onboarding/utils/onboarding_gate.dart';
+import '../../onboarding/views/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -73,11 +75,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     final hasToken = _token != null && _token!.isNotEmpty;
+    Widget destination = const WelcomeScreen();
+    if (hasToken) {
+      try {
+        final complete = await OnboardingGate().isOnboardingComplete();
+        destination = complete ? const MainScreen() : const OnboardingScreen();
+      } catch (_) {
+        destination = const MainScreen();
+      }
+    }
+
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => hasToken ? const MainScreen() : const WelcomeScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => destination),
     );
   }
 
