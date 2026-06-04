@@ -23,6 +23,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+        private readonly ISepayPaymentStatusCache _statusCache;
         private readonly SepayWebhookHmacValidator _hmacValidator;
         private readonly SepayQrUrlBuilder _qrUrlBuilder;
         private readonly SepayWebhookPaymentVerifier _webhookVerifier;
@@ -30,12 +31,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public SepayPaymentService(
             IUnitOfWork unitOfWork,
             IConfiguration configuration,
+            ISepayPaymentStatusCache statusCache,
             SepayWebhookHmacValidator hmacValidator,
             SepayQrUrlBuilder qrUrlBuilder,
             SepayWebhookPaymentVerifier webhookVerifier)
         {
             _unitOfWork = unitOfWork;
             _configuration = configuration;
+            _statusCache = statusCache;
             _hmacValidator = hmacValidator;
             _qrUrlBuilder = qrUrlBuilder;
             _webhookVerifier = webhookVerifier;
@@ -107,14 +110,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<SepayOrderResponse> GetOrderStatusAsync(Guid userId, Guid paymentId)
         {
+            var cached = await _statusCache.TryGetAsync(userId, paymentId);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var payment = await _unitOfWork.Payments.GetByIdAsync(paymentId);
             if (payment == null || payment.UserId != userId || payment.Provider != "SEPAY")
             {
                 throw new Exception("SePay payment not found.");
             }
 
+            var previousStatus = payment.Status;
             payment = await PaymentExpiryHelper.RefreshPendingExpiryAsync(payment, _unitOfWork);
-            return MapOrder(payment);
+
+            if (!string.Equals(previousStatus, payment.Status, StringComparison.OrdinalIgnoreCase))
+            {
+                await _statusCache.InvalidateAsync(userId, paymentId);
+            }
+
+            var response = MapOrder(payment);
+            await _statusCache.SetAsync(userId, paymentId, response);
+            return response;
         }
 
         public async Task<SepayPendingOrdersListResponse> GetPendingOrdersAsync(Guid userId)
@@ -187,6 +205,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (payment.Status == "PAID")
             {
+                await _statusCache.InvalidateAsync(payment.UserId, payment.Id);
                 return new SepayWebhookResultResponse
                 {
                     Processed = true,
@@ -243,6 +262,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
             catch (Exception ex) when (DbExceptionHelper.IsUniqueConstraintViolation(ex))
             {
+                await _statusCache.InvalidateAsync(payment.UserId, payment.Id);
                 return new SepayWebhookResultResponse
                 {
                     Processed = true,
@@ -252,6 +272,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     UserSubscriptionId = payment.UserSubscriptionId
                 };
             }
+
+            await _statusCache.InvalidateAsync(payment.UserId, payment.Id);
 
             return new SepayWebhookResultResponse
             {

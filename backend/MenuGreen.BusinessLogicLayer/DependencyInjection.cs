@@ -8,6 +8,8 @@ namespace MenuGreen.BusinessLogicLayer
     {
         public static IServiceCollection AddBusinessLogicLayer(this IServiceCollection services)
         {
+            services.AddSingleton<ISepayPaymentStatusCache, SepayPaymentStatusCache>();
+
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<IHealthProfileService, HealthProfileService>();

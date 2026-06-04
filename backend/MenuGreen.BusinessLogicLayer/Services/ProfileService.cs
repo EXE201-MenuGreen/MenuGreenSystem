@@ -89,10 +89,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
 
-            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
+            var hasAllergies = await HasActiveAllergiesAsync(userId);
+            var allergyCount = await CountActiveAllergiesAsync(userId);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
 
-            var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
+            var completedSteps = BuildCompletedSteps(profile, healthProfile, hasAllergies, aiProfile != null);
 
             return new ProfileSummaryResponse
             {
@@ -115,10 +116,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetProteinG = healthProfile.TargetProteinG,
                 TargetCarbsG = healthProfile.TargetCarbsG,
                 TargetFatG = healthProfile.TargetFatG,
-                AllergyCount = allergies.Count(),
+                AllergyCount = allergyCount,
                 HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) || profile.DateOfBirth.HasValue || !string.IsNullOrWhiteSpace(profile.Gender) || !string.IsNullOrWhiteSpace(profile.PreferredCuisine),
                 HasHealthProfile = healthProfile.HeightCm.HasValue || healthProfile.WeightKg.HasValue || healthProfile.BodyFatPercent.HasValue || !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel) || !string.IsNullOrWhiteSpace(healthProfile.Goal),
-                HasAllergies = allergies.Any(),
+                HasAllergies = hasAllergies,
                 HasAiProfile = aiProfile != null,
                 OnboardingStepsCompleted = completedSteps,
             };
@@ -128,10 +129,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
-            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
+            var hasAllergies = await HasActiveAllergiesAsync(userId);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
 
-            var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
+            var completedSteps = BuildCompletedSteps(profile, healthProfile, hasAllergies, aiProfile != null);
             var allSteps = new[] { "Profile", "HealthProfile", "Allergies", "Goal", "UserAiProfile" };
             var missingSteps = allSteps.Except(completedSteps, StringComparer.OrdinalIgnoreCase).ToArray();
             var completionPercent = (int)Math.Round((completedSteps.Length * 100.0) / allSteps.Length);
@@ -164,6 +165,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             user.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task<bool> HasActiveAllergiesAsync(Guid userId)
+        {
+            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
+            if (allergies.Any())
+            {
+                return true;
+            }
+
+            var links = await _unitOfWork.UserAllergies.FindAsync(x => x.UserId == userId);
+            return links.Any();
+        }
+
+        private async Task<int> CountActiveAllergiesAsync(Guid userId)
+        {
+            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
+            return allergies.Count();
         }
 
         private static string[] BuildCompletedSteps(Profile profile, HealthProfile healthProfile, bool hasAllergies, bool hasAiProfile)
