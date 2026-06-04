@@ -1,3 +1,4 @@
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/nutrition_models.dart';
 
 /// Ngưỡng lệch macro so với mục tiêu (15%).
@@ -7,10 +8,18 @@ class NutritionWarningMessages {
   NutritionWarningMessages._();
 
   static List<String> fromSummary(MealDaySummary summary) {
+    if (summary.warningMessages.isNotEmpty) {
+      return ApiMessageTranslator.translateList(summary.warningMessages);
+    }
+
     final messages = <String>[];
 
     if (summary.hasWarning) {
-      messages.add('Calo lệch hơn 10% so với mục tiêu ngày.');
+      messages.add(
+        ApiMessageTranslator.translate(
+          'Calorie intake deviates more than 10% from daily target.',
+        ),
+      );
     }
 
     final proteinMsg = _macroMessage(

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 
@@ -66,14 +67,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
         {
             var (from, to) = ResolveRange(range, startDate, endDate);
-            for (var day = from; day <= to; day = day.AddDays(1))
+
+            var logs = (await _unitOfWork.MealLogs.FindAsync(
+                x => x.UserId == userId && x.LoggedAt.HasValue
+                    && DateOnly.FromDateTime(x.LoggedAt.Value) >= from
+                    && DateOnly.FromDateTime(x.LoggedAt.Value) <= to)).ToList();
+
+            var logDates = logs
+                .Where(x => x.LoggedAt.HasValue)
+                .Select(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .Distinct()
+                .ToList();
+
+            foreach (var day in logDates)
             {
                 await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day);
             }
 
-            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) >= from && DateOnly.FromDateTime(x.LoggedAt.Value) <= to);
-            var days = await BuildRangeSummariesAsync(userId, from, to, logs.ToList());
-            var weightLogs = await _unitOfWork.WeightLogs.FindAsync(x => x.UserId == userId && x.RecordedAt.HasValue && DateOnly.FromDateTime(x.RecordedAt.Value) >= from && DateOnly.FromDateTime(x.RecordedAt.Value) <= to);
+            var days = await BuildRangeSummariesAsync(userId, from, to, logs);
+            var weightLogs = await _unitOfWork.WeightLogs.FindAsync(
+                x => x.UserId == userId && x.RecordedAt.HasValue
+                    && DateOnly.FromDateTime(x.RecordedAt.Value) >= from
+                    && DateOnly.FromDateTime(x.RecordedAt.Value) <= to);
 
             return new NutritionDashboardResponse
             {
@@ -226,6 +241,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 goalCompletionPercent = Math.Round(totalCalories / targetCalories * 100m, 2);
             }
 
+            var warningMessages = NutritionWarningsBuilder.Build(
+                totalCalories, targetCalories,
+                totalProtein, targetProtein,
+                totalCarbs, targetCarbs,
+                totalFat, targetFat);
+
             return new MealDaySummaryResponse
             {
                 Date = date.ToString("yyyy-MM-dd"),
@@ -241,7 +262,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinDeviation = totalProtein - targetProtein,
                 CarbsDeviation = totalCarbs - targetCarbs,
                 FatDeviation = totalFat - targetFat,
-                HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > (double)Math.Max(100, targetCalories * 0.10m),
+                HasWarning = warningMessages.Count > 0,
+                WarningMessages = warningMessages,
                 GoalCompletionPercent = goalCompletionPercent,
                 HasSnapshot = hasSnapshot,
                 MealLogs = await MapMealLogsAsync(logs)

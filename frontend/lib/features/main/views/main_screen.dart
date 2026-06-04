@@ -25,7 +25,14 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _pageAt(int index) {
     return _pageCache[index] ??= switch (index) {
-      0 => HomeView(key: _homeKey),
+      0 => HomeView(
+          key: _homeKey,
+          onNavigateToTab: (index) => setState(() => _currentIndex = index),
+          onTrackingUpdated: () {
+            _homeKey.currentState?.reloadSummary();
+            _historyKey.currentState?.reloadData();
+          },
+        ),
       1 => DiscoverView(key: _discoverKey),
       2 => const Center(child: Text('Trợ lý AI')),
       3 => HistoryView(
