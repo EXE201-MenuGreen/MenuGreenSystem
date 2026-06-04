@@ -14,13 +14,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly INutritionSnapshotService _nutritionSnapshotService;
+        private readonly IRecipeService _recipeService;
 
         public NutritionTrackingService(
             IUnitOfWork unitOfWork,
-            INutritionSnapshotService nutritionSnapshotService)
+            INutritionSnapshotService nutritionSnapshotService,
+            IRecipeService recipeService)
         {
             _unitOfWork = unitOfWork;
             _nutritionSnapshotService = nutritionSnapshotService;
+            _recipeService = recipeService;
         }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
@@ -151,8 +154,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (request.RecipeId.HasValue)
             {
-                var recipe = await _unitOfWork.Recipes.GetByIdAsync(request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
-                ApplyNutritionFromRecipe(entity, recipe, request.QuantityG);
+                _ = await _unitOfWork.Recipes.GetByIdAsync(request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
+                await ApplyNutritionFromRecipeAsync(entity, request.RecipeId.Value, request.QuantityG);
                 entity.SourceType = "Recipe";
                 return;
             }
@@ -169,13 +172,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.FatG = Multiply(food.FatG, ratio);
         }
 
-        private static void ApplyNutritionFromRecipe(MealLog entity, Recipe recipe, decimal quantityG)
+        private async Task ApplyNutritionFromRecipeAsync(MealLog entity, Guid recipeId, decimal quantityG)
         {
+            var nutrition = await _recipeService.GetNutritionAsync(recipeId);
             var ratio = quantityG / 100m;
-            entity.CaloriesKcal = Multiply(recipe.EstimatedPriceVnd.HasValue ? 0 : 0, ratio); // fallback if recipe nutrition is not stored directly
-            entity.ProteinG = 0;
-            entity.CarbsG = 0;
-            entity.FatG = 0;
+            entity.CaloriesKcal = Math.Round(nutrition.CaloriesKcal * ratio, 2);
+            entity.ProteinG = Math.Round(nutrition.ProteinG * ratio, 2);
+            entity.CarbsG = Math.Round(nutrition.CarbsG * ratio, 2);
+            entity.FatG = Math.Round(nutrition.FatG * ratio, 2);
         }
 
         private static decimal? Multiply(decimal? value, decimal ratio) => value.HasValue ? Math.Round(value.Value * ratio, 2) : null;
