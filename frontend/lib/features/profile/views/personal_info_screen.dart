@@ -299,6 +299,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         _popWithResult();
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -315,12 +316,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-            : GestureDetector(
-                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                behavior: HitTestBehavior.translucent,
+            : MediaQuery.removeViewInsets(
+                context: context,
+                removeBottom: true,
                 child: SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -390,6 +391,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                             text: 'Lưu thay đổi',
                             onPressed: _handleSave,
                           ),
+                    const SizedBox(height: 280),
                   ],
                 ),
               ),

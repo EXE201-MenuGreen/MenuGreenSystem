@@ -40,10 +40,22 @@ class OnboardingGate {
       final profile = await _profileRepository
           .getMyProfile()
           .timeout(const Duration(seconds: 12));
-      return HealthProfileValues.isHealthBaselineComplete(profile);
+      return _isProfileOnboardingComplete(profile);
     } catch (_) {
-      // API unreachable — allow Main so user is not stuck; Home still works offline-ish.
-      return true;
+      return false;
     }
+  }
+
+  static bool _isProfileOnboardingComplete(Map<String, dynamic>? profile) {
+    if (profile == null) return false;
+    final fullName = profile['fullName']?.toString().trim() ?? '';
+    final gender = profile['gender']?.toString().trim() ?? '';
+    if (fullName.isEmpty || gender.isEmpty) return false;
+    if (!HealthProfileValues.isHealthBaselineComplete(profile)) return false;
+    final target = profile['targetCalories'] ?? profile['TargetCalories'];
+    final targetCalories = target is num
+        ? target.toInt()
+        : int.tryParse(target?.toString() ?? '');
+    return targetCalories != null && targetCalories >= 800;
   }
 }

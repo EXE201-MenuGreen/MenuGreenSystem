@@ -113,26 +113,47 @@ class _AllergiesStepState extends State<AllergiesStep> {
   }
 
   Future<void> _saveAndContinue() async {
+    if (_saving) return;
     setState(() => _saving = true);
 
+    var success = false;
     try {
       final existing = await _repository.getAll();
       final currentNames = existing.map((item) => item.name).toSet();
 
       for (final name in _selected) {
         if (!currentNames.contains(name)) {
-          await _repository.create(name);
+          final created = await _repository.create(name);
+          if (!created) {
+            throw Exception('create allergy failed');
+          }
         }
       }
 
       for (final item in existing) {
         if (!_selected.contains(item.name)) {
-          await _repository.delete(item.id);
+          final deleted = await _repository.delete(item.id);
+          if (!deleted) {
+            throw Exception('delete allergy failed');
+          }
         }
       }
 
       if (_selected.isEmpty && widget.userAiProfileRepository != null) {
-        await widget.userAiProfileRepository!.upsert(allergiesAcknowledged: true);
+        final ack = await widget.userAiProfileRepository!
+            .upsert(allergiesAcknowledged: true)
+            .timeout(const Duration(seconds: 12));
+        if (!ack.success) {
+          throw Exception(ack.message);
+        }
+      }
+
+      success = true;
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lưu dị ứng quá thời gian, vui lòng thử lại.')),
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -141,12 +162,10 @@ class _AllergiesStepState extends State<AllergiesStep> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
 
-    widget.onNext();
+    if (success && mounted) widget.onNext();
   }
 
   @override
@@ -250,7 +269,7 @@ class _AllergiesStepState extends State<AllergiesStep> {
           const SizedBox(height: 16),
           PrimaryButton(
             text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',
-            onPressed: _saving || _loading ? () {} : _saveAndContinue,
+            onPressed: _saving || _loading ? null : _saveAndContinue,
           ),
         ],
       ),

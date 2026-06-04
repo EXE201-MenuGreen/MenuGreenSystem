@@ -165,12 +165,9 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      behavior: HitTestBehavior.translucent,
-      child: SingleChildScrollView(
+    return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -223,11 +220,12 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           const SizedBox(height: 40),
           PrimaryButton(
             text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',
-            onPressed: _saving ? () {} : _submit,
+            onPressed: _saving ? null : _submit,
           ),
+          // Khoảng trống để cuộn ô nhập lên trên bàn phím (adjustNothing trên Android).
+          const SizedBox(height: 280),
         ],
       ),
-    ),
     );
   }
 

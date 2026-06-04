@@ -164,12 +164,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       final completion =
           completeResult.data?['completion'] ?? completeResult.data?['Completion'];
-      final snapshotCreated = completeResult.data?['snapshotCreated'] == true ||
-          completeResult.data?['SnapshotCreated'] == true;
       final isCompleted = completion is Map &&
           (completion['isCompleted'] == true || completion['IsCompleted'] == true);
 
-      if (!isCompleted && !snapshotCreated) {
+      if (!isCompleted) {
         final missing = completion is Map
             ? (completion['missingSteps'] ?? completion['MissingSteps'])
             : null;
@@ -180,6 +178,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'Chưa đủ dữ liệu thiết lập.$hint',
           isError: true,
         );
+        _jumpToMissingStep(missing);
         return;
       }
 
@@ -214,6 +213,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  void _jumpToMissingStep(dynamic missing) {
+    if (missing is! List || missing.isEmpty) return;
+    final first = missing.first.toString().toLowerCase();
+    final page = switch (first) {
+      'profile' || 'healthprofile' || 'goal' => 0,
+      'useraiprofile' => 1,
+      'allergies' => 3,
+      'nutritionsnapshot' => 4,
+      _ => 0,
+    };
+    _pageController.jumpToPage(page);
+    setState(() => _currentIndex = page);
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -222,6 +235,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (!didPop && _currentIndex > 0) _previousPage();
       },
       child: Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -244,7 +258,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: Column(
           children: [
             if (_currentIndex > 0)
               Padding(
@@ -308,6 +325,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     ),
