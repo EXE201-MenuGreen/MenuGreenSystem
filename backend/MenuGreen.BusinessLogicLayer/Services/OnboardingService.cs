@@ -48,6 +48,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var snapshotCreated = await _nutritionSnapshotService.EnsureInitialSnapshotAsync(userId);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, today);
             var completion = await _profileService.GetCompletionAsync(userId);
             var healthResponse = await _healthProfileService.GetAsync(userId);
 

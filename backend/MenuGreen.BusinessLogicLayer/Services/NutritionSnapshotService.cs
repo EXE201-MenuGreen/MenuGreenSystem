@@ -47,5 +47,47 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _db.SaveChangesAsync();
             return true;
         }
+
+        public async Task SyncDailySnapshotAsync(Guid userId, DateOnly date)
+        {
+            var logs = await _db.MealLogs.AsNoTracking()
+                .Where(x => x.UserId == userId && x.LoggedAt.HasValue
+                    && DateOnly.FromDateTime(x.LoggedAt.Value) == date)
+                .ToListAsync();
+
+            var health = await _db.HealthProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.UserId == userId);
+
+            var totalCalories = logs.Sum(x => x.CaloriesKcal ?? 0);
+            var totalProtein = logs.Sum(x => x.ProteinG ?? 0);
+            var totalCarbs = logs.Sum(x => x.CarbsG ?? 0);
+            var totalFat = logs.Sum(x => x.FatG ?? 0);
+            var targetCalories = health?.TargetCalories ?? 0;
+            decimal? goalPercent = targetCalories > 0
+                ? Math.Round(totalCalories / targetCalories * 100m, 2)
+                : null;
+
+            var snapshot = await _db.NutritionSnapshots
+                .FirstOrDefaultAsync(x => x.UserId == userId && x.SnapshotDate == date);
+
+            if (snapshot == null)
+            {
+                snapshot = new NutritionSnapshot
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    SnapshotDate = date
+                };
+                await _db.NutritionSnapshots.AddAsync(snapshot);
+            }
+
+            snapshot.TotalCalories = totalCalories;
+            snapshot.TotalProteinG = totalProtein;
+            snapshot.TotalCarbsG = totalCarbs;
+            snapshot.TotalFatG = totalFat;
+            snapshot.GoalCompletionPercent = goalPercent;
+
+            await _db.SaveChangesAsync();
+        }
     }
 }
