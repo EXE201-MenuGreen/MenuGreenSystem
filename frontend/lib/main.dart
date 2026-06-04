@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/services/firebase_bootstrap.dart';
@@ -23,6 +24,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MenuGreen',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('vi', 'VN'),
+      supportedLocales: const [
+        Locale('vi', 'VN'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,

@@ -9,6 +9,7 @@ import '../../../core/network/token_storage.dart';
 import '../../../core/services/firebase_bootstrap.dart';
 import '../../../core/services/firebase_storage_errors.dart';
 import '../../../core/services/firebase_storage_service.dart';
+import '../../../core/utils/safe_date_picker.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../repositories/profile_repository.dart';
@@ -40,6 +41,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   String? _activityLevel;
   String? _goal;
   DateTime? _dateOfBirth;
+  bool _pickingDate = false;
 
   @override
   void initState() {
@@ -95,15 +97,21 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   Future<void> _pickDateOfBirth() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dateOfBirth ?? DateTime(now.year - 25),
-      firstDate: DateTime(1920),
-      lastDate: now,
-      helpText: 'Chọn ngày sinh',
-    );
-    if (picked != null) setState(() => _dateOfBirth = picked);
+    if (_pickingDate) return;
+    _pickingDate = true;
+    try {
+      final now = DateTime.now();
+      final picked = await showSafeDatePicker(
+        context: context,
+        initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+        firstDate: DateTime(1920),
+        lastDate: now,
+        helpText: 'Chọn ngày sinh',
+      );
+      if (picked != null && mounted) setState(() => _dateOfBirth = picked);
+    } finally {
+      _pickingDate = false;
+    }
   }
 
   Future<String?> _resolveUserId() async {
@@ -307,7 +315,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-            : SingleChildScrollView(
+            : GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                behavior: HitTestBehavior.translucent,
+                child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,6 +393,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                   ],
                 ),
               ),
+            ),
       ),
     );
   }
