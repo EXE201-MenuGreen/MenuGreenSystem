@@ -54,6 +54,15 @@ class ApiEndpoints {
   static String get recommendationLunch => '$baseUrl/Recommendation/lunch';
   static String get recommendationEco => '$baseUrl/Recommendation/eco';
   static String get recommendationDailyMenu => '$baseUrl/Recommendation/daily-menu';
+
+  static String get userMealPlans => '$baseUrl/user-meal-plans';
+  static String get userMealPlanAdherence => '$baseUrl/user-meal-plans/adherence';
+  static String get userMealPlansFromDailyMenu => '$baseUrl/user-meal-plans/from-daily-menu';
+  static String userMealPlanCompleteItem(String itemId) =>
+      '$baseUrl/user-meal-plans/items/$itemId/complete';
+
+  static String get notificationSettings => '$baseUrl/Notification/settings';
+  static String get notifications => '$baseUrl/Notification';
   static String get profileSummary => '$baseUrl/Profile/me/summary';
   static String get profileCompletion => '$baseUrl/Profile/me/completion';
   static String get userAiProfileMe => '$baseUrl/UserAiProfile/me';

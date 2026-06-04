@@ -10,6 +10,7 @@ import '../../subscription/views/upgrade_plan_screen.dart';
 import 'personal_info_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
+import '../../notifications/views/notification_settings_screen.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -223,7 +224,19 @@ class _ProfileViewState extends State<ProfileView> {
                     },
                   ),
                   _buildSettingItem(Icons.help_outline, 'Hỗ trợ', 'Liên hệ với đội ngũ hỗ trợ 24/7'),
-                  _buildSettingItem(Icons.notifications_none, 'Thông báo', 'Quản lý các thông báo nhận được'),
+                  _buildSettingItem(
+                    Icons.notifications_none,
+                    'Thông báo',
+                    'Quản lý các thông báo nhận được',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 32),
                   TextButton.icon(
                     onPressed: _handleLogout,
