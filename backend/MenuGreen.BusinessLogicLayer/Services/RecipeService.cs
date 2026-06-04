@@ -16,11 +16,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _db;
+        private readonly IAllergenMatchingService _allergenMatching;
 
-        public RecipeService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+        public RecipeService(
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext db,
+            IAllergenMatchingService allergenMatching)
         {
             _unitOfWork = unitOfWork;
             _db = db;
+            _allergenMatching = allergenMatching;
         }
 
         public async Task<RecipeResponse> CreateAsync(RecipeUpsertRequest request)
@@ -42,16 +47,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
         }
 
         public async Task DeleteAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); _unitOfWork.Recipes.Remove(recipe); await _unitOfWork.CompleteAsync(); }
-        public async Task<RecipeResponse> GetByIdAsync(Guid id)
+        public async Task<RecipeResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
             var items = await _unitOfWork.RecipeIngredients.FindAsync(x => x.RecipeId == id);
             var result = Map(recipe);
-            result.Ingredients = items.Select(x => new RecipeIngredientResponse { IngredientId = x.IngredientId, IngredientName = x.Ingredient?.NameVi ?? string.Empty, Quantity = x.Quantity ?? 0, Unit = x.Unit ?? string.Empty, Notes = x.Notes }).ToList();
-            return result;
+            result.Ingredients = items.Select(x => new RecipeIngredientResponse
+            {
+                IngredientId = x.IngredientId,
+                IngredientName = x.Ingredient?.NameVi ?? string.Empty,
+                Quantity = x.Quantity ?? 0,
+                Unit = x.Unit ?? string.Empty,
+                Notes = x.Notes
+            }).ToList();
+
+            return await EnrichRecipeAsync(result, userId, allergyMode);
         }
 
-        public async Task<RecipeSearchResponse> SearchAsync(string? keyword, string? mealType, string? difficulty, bool? isActive)
+        public async Task<RecipeSearchResponse> SearchAsync(
+            string? keyword,
+            string? mealType,
+            string? difficulty,
+            bool? isActive,
+            Guid? userId = null,
+            string? allergyMode = null)
         {
             var recipes = await _unitOfWork.Recipes.GetAllAsync();
             var query = recipes.AsEnumerable();
@@ -80,7 +99,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 query = query.Where(r => r.IsActive == isActive.Value);
             }
 
-            var items = query.Select(Map).ToList();
+            var recipeList = query.ToList();
+            var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
+            var mode = NormalizeAllergyMode(allergyMode);
+            var items = new List<RecipeResponse>();
+
+            foreach (var recipe in recipeList)
+            {
+                var dto = Map(recipe);
+                ingredientMap.TryGetValue(recipe.Id, out var names);
+                dto = await EnrichRecipeAsync(dto, userId, allergyMode, names ?? new List<string>());
+                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser)
+                    continue;
+                items.Add(dto);
+            }
+
             return new RecipeSearchResponse { Items = items, TotalCount = items.Count };
         }
 
@@ -175,6 +208,49 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _unitOfWork.RecipeIngredients.AddAsync(new RecipeIngredient { Id = Guid.NewGuid(), RecipeId = recipeId, IngredientId = item.IngredientId, Quantity = item.Quantity, Unit = item.Unit, Notes = item.Notes });
             }
             await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task<RecipeResponse> EnrichRecipeAsync(
+            RecipeResponse dto,
+            Guid? userId,
+            string? allergyMode,
+            List<string>? ingredientNames = null)
+        {
+            ingredientNames ??= dto.Ingredients.Select(i => i.IngredientName).ToList();
+            var risk = await _allergenMatching.EvaluateRecipeRiskAsync(dto.FoodId, ingredientNames, userId);
+            dto.MatchedAllergens = risk.MatchedAllergens;
+            dto.AllergyRiskLevel = risk.AllergyRiskLevel;
+            dto.IsSafeForUser = risk.IsSafeForUser;
+            return dto;
+        }
+
+        private async Task<Dictionary<Guid, List<string>>> LoadIngredientNamesByRecipeAsync(IEnumerable<Guid> recipeIds)
+        {
+            var ids = recipeIds.Distinct().ToList();
+            var result = ids.ToDictionary(id => id, _ => new List<string>());
+            if (ids.Count == 0) return result;
+
+            var rows = await _db.RecipeIngredients.AsNoTracking()
+                .Include(ri => ri.Ingredient)
+                .Where(ri => ids.Contains(ri.RecipeId))
+                .ToListAsync();
+
+            foreach (var row in rows)
+            {
+                if (result.TryGetValue(row.RecipeId, out var list) && !string.IsNullOrWhiteSpace(row.Ingredient?.NameVi))
+                    list.Add(row.Ingredient.NameVi);
+            }
+
+            return result;
+        }
+
+        private static string NormalizeAllergyMode(string? mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode)) return AllergenCatalog.ModeWarn;
+            var m = mode.Trim().ToLowerInvariant();
+            return m is AllergenCatalog.ModeHide or AllergenCatalog.ModeAll or AllergenCatalog.ModeWarn
+                ? m
+                : AllergenCatalog.ModeWarn;
         }
 
         private static RecipeResponse Map(Recipe r) => new() { Id = r.Id, FoodId = r.FoodId, Title = r.Title, Description = r.Description, PrepTimeMin = r.PrepTimeMin, CookTimeMin = r.CookTimeMin, TotalTimeMin = r.TotalTimeMin, Servings = r.Servings, Difficulty = r.Difficulty, MealType = r.MealType, EstimatedPriceVnd = r.EstimatedPriceVnd, Instructions = r.Instructions, ImageUrl = r.ImageUrl, VideoUrl = r.VideoUrl, IsActive = r.IsActive };

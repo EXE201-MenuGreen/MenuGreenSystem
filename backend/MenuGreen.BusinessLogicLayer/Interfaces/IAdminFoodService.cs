@@ -11,5 +11,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<FoodResponse> UpdateAsync(Guid id, FoodUpsertRequest request);
         Task DeleteAsync(Guid id);
         Task<FoodResponse> GetByIdAsync(Guid id);
+        Task<FoodAllergenTagsResponse> GetAllergenTagsAsync(Guid id);
+        Task<FoodAllergenTagsResponse> SetAllergenTagsAsync(Guid id, FoodAllergenTagsUpsertRequest request);
     }
 }

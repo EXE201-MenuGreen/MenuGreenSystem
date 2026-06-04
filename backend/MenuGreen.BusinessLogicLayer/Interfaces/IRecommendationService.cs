@@ -8,10 +8,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
 {
     public interface IRecommendationService
     {
-        Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(RecommendationRequest request);
-        Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(RecommendationRequest request);
-        Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(RecommendationRequest request);
-        Task<MealPlanResponse> BuildDailyMenuAsync(RecommendationRequest request);
+        Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(Guid? userId, RecommendationRequest request);
+        Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(Guid? userId, RecommendationRequest request);
+        Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(Guid? userId, RecommendationRequest request);
+        Task<MealPlanResponse> BuildDailyMenuAsync(Guid? userId, RecommendationRequest request);
         Task<SmartScheduleResponse> BuildSmartScheduleAsync(SmartScheduleRequest request);
         Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId);
         Task<RecommendationDetailResponse> GetByIdAsync(Guid userId, Guid recommendationId);

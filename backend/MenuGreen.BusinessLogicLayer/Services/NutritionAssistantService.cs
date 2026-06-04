@@ -115,9 +115,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
             var profile = await _db.Profiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
-            var allergies = await _db.UserAllergies.AsNoTracking()
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Allergy.Name)
+            var allergies = await _db.Allergies.AsNoTracking()
+                .Where(x => x.UserId == userId && x.IsActive)
+                .Select(x => x.Name)
                 .ToListAsync();
             var recentNutrition = await _db.NutritionSnapshots.AsNoTracking()
                 .Where(x => x.UserId == userId)

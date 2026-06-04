@@ -15,5 +15,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         [Range(1, 20)]
         public int Top { get; set; } = 10;
+
+        /// <summary>Loại món có dị ứng trùng user (mặc định true khi có userId).</summary>
+        public bool ExcludeUserAllergies { get; set; } = true;
     }
 }

@@ -6,26 +6,41 @@ using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class RecommendationService : IRecommendationService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IAllergenMatchingService _allergenMatching;
+        private readonly ApplicationDbContext _db;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-        public RecommendationService(IUnitOfWork unitOfWork)
+        public RecommendationService(
+            IUnitOfWork unitOfWork,
+            IAllergenMatchingService allergenMatching,
+            ApplicationDbContext db)
         {
             _unitOfWork = unitOfWork;
+            _allergenMatching = allergenMatching;
+            _db = db;
         }
 
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(RecommendationRequest request)
+        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(Guid? userId, RecommendationRequest request)
         {
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
             var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
             var target = request.TargetCalories ?? 0;
+
+            if (request.ExcludeUserAllergies && userId.HasValue)
+            {
+                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
+                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
+            }
 
             var items = foods.Select(f => MapFood(f, target, "Food"))
                 .Concat(recipes.Where(r => r.FoodId.HasValue).Select(r => MapRecipe(r, target, "Recipe")))
@@ -35,10 +50,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return items;
         }
 
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(RecommendationRequest request)
+        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(Guid? userId, RecommendationRequest request)
         {
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue);
             var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue && x.TotalTimeMin.HasValue);
+
+            if (request.ExcludeUserAllergies && userId.HasValue)
+            {
+                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
+                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
+            }
 
             var items = foods.Select(f => MapEcoFood(f, request.BudgetVnd ?? int.MaxValue, request.LimitMinutes ?? int.MaxValue))
                 .Concat(recipes.Select(r => MapEcoRecipe(r, request.BudgetVnd ?? int.MaxValue, request.LimitMinutes ?? int.MaxValue)))
@@ -49,13 +70,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return items;
         }
 
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(RecommendationRequest request)
+        public async Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(Guid? userId, RecommendationRequest request)
         {
             var lunchBudget = request.BudgetVnd ?? int.MaxValue;
             var targetCalories = request.TargetCalories ?? 0;
 
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue && x.EstimatedPriceVnd.HasValue);
             var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue && x.EstimatedPriceVnd.HasValue);
+
+            if (request.ExcludeUserAllergies && userId.HasValue)
+            {
+                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
+                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
+            }
 
             var items = foods.Select(f => MapLunchFood(f, targetCalories, lunchBudget))
                 .Concat(recipes.Select(r => MapLunchRecipe(r, targetCalories, lunchBudget)))
@@ -66,7 +93,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return items;
         }
 
-        public async Task<MealPlanResponse> BuildDailyMenuAsync(RecommendationRequest request)
+        public async Task<MealPlanResponse> BuildDailyMenuAsync(Guid? userId, RecommendationRequest request)
         {
             var targetCalories = request.TargetCalories ?? 0;
             var breakfastTarget = targetCalories * 0.25m;
@@ -74,10 +101,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var dinnerTarget = targetCalories * 0.30m;
             var snackTarget = targetCalories * 0.10m;
 
-            var breakfast = (await RecommendByCaloriesAsync(new RecommendationRequest { TargetCalories = (int)breakfastTarget, Top = 1 })).ToList();
-            var lunch = (await RecommendByCaloriesAsync(new RecommendationRequest { TargetCalories = (int)lunchTarget, Top = 1 })).ToList();
-            var dinner = (await RecommendByCaloriesAsync(new RecommendationRequest { TargetCalories = (int)dinnerTarget, Top = 1 })).ToList();
-            var snack = (await RecommendByCaloriesAsync(new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1 })).ToList();
+            var breakfast = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)breakfastTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
+            var lunch = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)lunchTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
+            var dinner = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)dinnerTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
+            var snack = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
 
             var all = breakfast.Concat(lunch).Concat(dinner).Concat(snack).ToList();
 
@@ -161,9 +188,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var result = (request.Type?.ToLowerInvariant()) switch
             {
-                "eco" => await RecommendByEcoAsync(recommendationRequest),
-                "lunch" => await RecommendLunchAsync(recommendationRequest),
-                _ => await RecommendByCaloriesAsync(recommendationRequest)
+                "eco" => await RecommendByEcoAsync(userId, recommendationRequest),
+                "lunch" => await RecommendLunchAsync(userId, recommendationRequest),
+                _ => await RecommendByCaloriesAsync(userId, recommendationRequest)
             };
 
             return result.ToList();
@@ -333,6 +360,51 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CookingTimeMin = recipe.TotalTimeMin ?? 0,
                 Score = Math.Abs(calories - targetCalories) + Math.Max(0, (recipe.EstimatedPriceVnd ?? 0) - lunchBudget) + Math.Max(0, (recipe.TotalTimeMin ?? 0) - 20)
             };
+        }
+
+        private async Task<IEnumerable<Food>> FilterFoodsByAllergyAsync(IEnumerable<Food> foods, Guid userId)
+        {
+            var foodList = foods.ToList();
+            var userKeys = await _allergenMatching.GetUserAllergenKeysAsync(userId);
+            if (userKeys.Count == 0) return foodList;
+
+            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(foodList.Select(f => f.Id));
+            return foodList.Where(f =>
+            {
+                foodKeysMap.TryGetValue(f.Id, out var keys);
+                keys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                return !userKeys.Any(uk => keys.Contains(uk));
+            });
+        }
+
+        private async Task<IEnumerable<Recipe>> FilterRecipesByAllergyAsync(IEnumerable<Recipe> recipes, Guid userId)
+        {
+            var recipeList = recipes.ToList();
+            var userKeys = await _allergenMatching.GetUserAllergenKeysAsync(userId);
+            if (userKeys.Count == 0) return recipeList;
+
+            var ids = recipeList.Select(r => r.Id).ToList();
+            var ingredientRows = await _db.RecipeIngredients.AsNoTracking()
+                .Include(ri => ri.Ingredient)
+                .Where(ri => ids.Contains(ri.RecipeId))
+                .ToListAsync();
+
+            var namesByRecipe = ids.ToDictionary(id => id, _ => new List<string>());
+            foreach (var row in ingredientRows)
+            {
+                if (!string.IsNullOrWhiteSpace(row.Ingredient?.NameVi) && namesByRecipe.TryGetValue(row.RecipeId, out var list))
+                    list.Add(row.Ingredient.NameVi);
+            }
+
+            var safe = new List<Recipe>();
+            foreach (var recipe in recipeList)
+            {
+                namesByRecipe.TryGetValue(recipe.Id, out var names);
+                var risk = await _allergenMatching.EvaluateRecipeRiskAsync(recipe.FoodId, names ?? new List<string>(), userId);
+                if (risk.IsSafeForUser) safe.Add(recipe);
+            }
+
+            return safe;
         }
     }
 }
