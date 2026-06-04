@@ -50,6 +50,8 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 **Giá trị:** nền dữ liệu chuẩn để recommendation/tracking chính xác.
 
+**Trạng thái triển khai (2026):** Đã có end-to-end — Flutter `OnboardingScreen` (5 bước), API `Profile`/`HealthProfile`/`Allergy`+`UserAllergy`/`UserAiProfile`, `POST Onboarding/complete` tạo `NutritionSnapshot`; tracking đồng bộ snapshot khi ghi meal và khi `GET NutritionTracking/daily`.
+
 ---
 
 ## 2.3 Khám phá món ăn an toàn theo dị ứng
@@ -58,10 +60,16 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 **Flow đề xuất:**
 1. Browse/search danh mục món (`Food`, `Recipe`, `Ingredient`).
-2. Đối chiếu dị ứng user (`UserAllergy`) với dị ứng món (`FoodAllergy`).
-3. Ẩn/cảnh báo món rủi ro dị ứng.
+2. Đối chiếu dị ứng user (`Allergy` + alias VN) với nhãn món (`food_allergen_tags` / legacy `FoodAllergy`).
+3. Ẩn/cảnh báo món rủi ro dị ứng (`allergyMode=warn|hide` trên `GET /api/Food`).
 4. Xem recipe và thành phần (`RecipeIngredient`).
 5. Lưu món ưa thích (`FavoriteFood`).
+
+**Triển khai (đã hoàn tất):**
+- Flutter `DiscoverView`: món/công thức/nguyên liệu, lọc dinh dưỡng (calories/đạm/giá/category), `allergyMode` + chỉ món an toàn, yêu thích, chi tiết món/công thức/nguyên liệu, ghi nhật ký từ món và công thức.
+- `SafeRecommendationsScreen`: gọi `GET /api/Recommendation/*` với `excludeUserAllergies=true` (calories, lunch, eco, daily-menu).
+- API: `GET /api/Food?allergyMode`, `GET /api/Recipe/search?allergyMode`, `GET /api/Ingredient/search?allergyMode`, Recommendation `ExcludeUserAllergies`.
+- Admin `PUT /api/admin/foods/{id}/allergies`. Migration: `backend/add_food_allergen_tags.sql`.
 
 **Giá trị:** tăng an toàn khi ăn uống và cải thiện trải nghiệm tìm món.
 
