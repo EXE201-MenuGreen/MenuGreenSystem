@@ -17,6 +17,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? SourceType { get; set; }
         public string? Notes { get; set; }
         public DateTime? LoggedAt { get; set; }
+        public Guid? MealPlanItemId { get; set; }
+        public bool IsFromMealPlan { get; set; }
         public string? FoodName { get; set; }
         public string? RecipeTitle { get; set; }
         public string? DisplayName { get; set; }

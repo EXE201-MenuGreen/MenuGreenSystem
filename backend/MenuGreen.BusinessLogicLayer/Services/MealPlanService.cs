@@ -134,6 +134,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
                     PlannedDate = item.PlannedDate,
+                    ScheduledTime = item.ScheduledTime,
                     TargetCalories = item.TargetCalories,
                     IsCompleted = item.IsCompleted,
                     CreatedAt = DateTime.UtcNow
@@ -184,6 +185,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = x.FoodId,
                 RecipeId = x.RecipeId,
                 PlannedDate = x.PlannedDate,
+                ScheduledTime = x.ScheduledTime,
                 TargetCalories = x.TargetCalories,
                 IsCompleted = x.IsCompleted,
                 FoodName = x.Food?.NameVi,

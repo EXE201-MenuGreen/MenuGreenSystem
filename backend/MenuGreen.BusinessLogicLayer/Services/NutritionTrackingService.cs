@@ -36,6 +36,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await MapMealLogAsync(entity);
         }
 
+        public async Task<MealLogResponse> GetMealLogAsync(Guid userId, Guid mealLogId)
+        {
+            var entity = await GetOwnedMealLogAsync(userId, mealLogId);
+            return await MapMealLogAsync(entity);
+        }
+
         public async Task<MealLogResponse> UpdateMealLogAsync(Guid userId, Guid mealLogId, MealLogUpsertRequest request)
         {
             var entity = await GetOwnedMealLogAsync(userId, mealLogId);
@@ -143,7 +149,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = request.MealType,
                 QuantityG = request.QuantityG,
                 Notes = request.Notes,
-                LoggedAt = request.LoggedAt ?? DateTime.UtcNow
+                LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
+                MealPlanItemId = request.MealPlanItemId,
+                IsFromMealPlan = request.MealPlanItemId.HasValue
             };
 
             await ApplyMealLogRequestAsync(entity, request);
@@ -158,6 +166,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.QuantityG = request.QuantityG;
             entity.Notes = request.Notes;
             entity.LoggedAt = request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow;
+            if (request.MealPlanItemId.HasValue)
+            {
+                entity.MealPlanItemId = request.MealPlanItemId;
+                entity.IsFromMealPlan = true;
+            }
 
             if (request.FoodId.HasValue)
             {
@@ -363,6 +376,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 SourceType = x.SourceType,
                 Notes = x.Notes,
                 LoggedAt = x.LoggedAt,
+                MealPlanItemId = x.MealPlanItemId,
+                IsFromMealPlan = x.IsFromMealPlan,
                 FoodName = foodName,
                 RecipeTitle = recipeTitle,
                 DisplayName = displayName

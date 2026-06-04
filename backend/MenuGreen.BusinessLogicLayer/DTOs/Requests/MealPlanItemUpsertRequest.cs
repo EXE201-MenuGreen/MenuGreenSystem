@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? RecipeId { get; set; }
 
         public DateOnly? PlannedDate { get; set; }
+        public TimeOnly? ScheduledTime { get; set; }
         public int? TargetCalories { get; set; }
         public bool IsCompleted { get; set; }
     }

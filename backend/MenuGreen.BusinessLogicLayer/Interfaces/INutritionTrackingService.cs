@@ -8,6 +8,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface INutritionTrackingService
     {
         Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request);
+        Task<MealLogResponse> GetMealLogAsync(Guid userId, Guid mealLogId);
         Task<MealLogResponse> UpdateMealLogAsync(Guid userId, Guid mealLogId, MealLogUpsertRequest request);
         Task DeleteMealLogAsync(Guid userId, Guid mealLogId);
         Task<MealDaySummaryResponse> GetDailySummaryAsync(Guid userId, DateOnly date);

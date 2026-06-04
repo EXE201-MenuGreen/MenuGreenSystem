@@ -87,7 +87,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (!settings.MealReminderEnabled) throw new Exception("Meal reminder is disabled.");
 
             var scheduledAt = new DateTimeOffset(request.MealTime).AddMinutes(-settings.MealReminderOffsetMinutes);
-            return await CreateNotificationAsync(userId, "MEAL_REMINDER", request.Title ?? "Nhắc giờ ăn", request.Body ?? $"Đến giờ ăn lúc {request.MealTime:HH:mm}.", scheduledAt);
+            return await CreateNotificationAsync(userId, "MEAL_REMINDER", request.Title ?? "Meal reminder", request.Body ?? $"Meal time at {request.MealTime:HH:mm}.", scheduledAt);
         }
 
         public async Task<NotificationResponse> SchedulePrepReminderAsync(Guid userId, SchedulePrepReminderRequest request)
@@ -96,7 +96,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (!settings.PrepReminderEnabled) throw new Exception("Prep reminder is disabled.");
 
             var scheduledAt = new DateTimeOffset(request.CookingTime).AddMinutes(-settings.PrepReminderOffsetMinutes);
-            return await CreateNotificationAsync(userId, "PREP_REMINDER", request.Title ?? "Nhắc chuẩn bị nguyên liệu", request.Body ?? $"Hãy chuẩn bị nguyên liệu trước khi nấu lúc {request.CookingTime:HH:mm}.", scheduledAt);
+            return await CreateNotificationAsync(userId, "PREP_REMINDER", request.Title ?? "Prep reminder", request.Body ?? $"Prepare ingredients before cooking at {request.CookingTime:HH:mm}.", scheduledAt);
         }
 
         private async Task<NotificationSetting> EnsureSettingsAsync(Guid userId)
