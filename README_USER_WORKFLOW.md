@@ -2,6 +2,8 @@
 
 Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng (User) trên ứng dụng MenuGreen, đồng thời tổng hợp trạng thái triển khai UI/API và kế hoạch các bước tiếp theo.
 
+**Cập nhật:** 2026-06-04 · Bản đồ hệ thống: [`README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md`](README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md) · Thanh toán: [`README_SEPAY_PAYMENT_WORKFLOW.md`](README_SEPAY_PAYMENT_WORKFLOW.md)
+
 ---
 
 ## 1) Mục tiêu tài liệu
@@ -16,25 +18,27 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 - **Đối tượng:** Người dùng cuối (end-user) của app MenuGreen.
 - **Trong phạm vi:**
-  - Đăng ký, đăng nhập, OTP, quên/đặt lại mật khẩu, quản lý phiên.
-  - Hồ sơ cá nhân, hồ sơ sức khỏe, mục tiêu, dị ứng.
-  - Tìm kiếm món ăn, gợi ý thực đơn, trợ lý AI.
-  - Nhật ký ăn uống, calories/macro, theo dõi cân nặng.
-  - Quản lý gói dịch vụ (xem gói, đăng ký, gia hạn, hủy).
+  - Đăng ký, đăng nhập, OTP, quên/đặt lại mật khẩu, Google sign-in, quản lý phiên.
+  - Onboarding: hồ sơ cá nhân, sức khỏe, mục tiêu, dị ứng, hồ sơ AI.
+  - Khám phá món/công thức/nguyên liệu, gợi ý an toàn theo dị ứng.
+  - Nhật ký ăn uống, calories/macro, dashboard ngày/tuần/tháng, theo dõi cân nặng.
+  - Gợi ý rule-based (một phần); trợ lý AI (chưa UI đầy đủ).
+  - Quản lý gói dịch vụ (SePay).
 - **Ngoài phạm vi:** Luồng Admin.
+
+**Quy ước khi phát triển thêm:** API trả message **tiếng Anh**; UI user-facing **tiếng Việt** (dịch qua `ApiMessageTranslator` / `localizeAuthMessage`). Chi tiết: `.cursor/rules/backend-english-frontend-vietnamese-i18n.mdc`.
 
 ---
 
 ## 3) Tổng quan hành trình người dùng
 
-1. Mở app -> Đăng ký tài khoản.
-2. Xác thực OTP -> Kích hoạt tài khoản.
-3. Đăng nhập -> Nhận access token + refresh token.
-4. Thiết lập hồ sơ và dữ liệu sức khỏe nền.
-5. Nhận gợi ý món ăn/thực đơn.
-6. Ghi nhật ký ăn uống, theo dõi tiến độ.
-7. Tương tác AI (nếu có).
-8. Quản lý gói thành viên khi cần.
+1. Mở app → Đăng ký / đăng nhập (email hoặc Google).
+2. Xác thực OTP (nếu đăng ký email) → Kích hoạt tài khoản.
+3. Onboarding 5 bước → baseline sức khỏe + dị ứng + snapshot dinh dưỡng.
+4. **Trang chủ:** tiến độ calo/macro hôm nay, nhật ký bữa ăn, thêm bữa nhanh.
+5. **Khám phá:** tìm món, lọc dị ứng, gợi ý an toàn, ghi log từ chi tiết món/công thức.
+6. **Lịch sử:** dashboard ngày/tuần/tháng, heatmap, biểu đồ calo/cân, CRUD meal & weight.
+7. Tab AI (placeholder) / Gói thành viên khi cần nâng cấp.
 
 ---
 
@@ -60,13 +64,16 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.2 Đăng nhập và quản lý phiên
+### 4.2 Đăng nhập và quản lý phiên (đã triển khai)
 
 #### Luồng chính
-- User đăng nhập email/mật khẩu.
+- User đăng nhập email/mật khẩu hoặc Google.
 - Hệ thống cấp access token + refresh token.
-- App tự refresh khi access token hết hạn.
+- App tự refresh khi access token hết hạn (`ApiClient`).
 - User logout khi cần.
+
+#### Xử lý UI
+- `AuthRepository` dịch message API qua `localizeAuthMessage` trước khi trả về màn hình.
 
 #### Ngoại lệ
 - Sai thông tin đăng nhập.
@@ -78,24 +85,23 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.3 Onboarding và thiết lập thông tin nền
+### 4.3 Onboarding và thiết lập thông tin nền (đã triển khai)
 
 #### Luồng chính
-- Nhập thông tin cơ bản.
-- Nhập thông số sức khỏe (chiều cao, cân nặng, mức độ vận động, mục tiêu...).
-- Chọn danh sách dị ứng.
-- Lưu dữ liệu onboarding.
+- `OnboardingScreen` 5 bước: thông tin cơ bản, sức khỏe, mục tiêu, dị ứng, hoàn tất.
+- Gọi API: `Profile`, `HealthProfile`, `UserAiProfile`, `Allergy` / `UserAllergy`, `POST Onboarding/complete`.
+- Gate vào app: `Profile/me/completion` — user chưa hoàn tất onboarding được điều hướng lại.
 
 #### Xử lý hệ thống
-- Tính BMI, BMR, TDEE, Target Calories.
-- Cập nhật mục tiêu macro theo mục tiêu người dùng.
+- Tính BMI, BMR, TDEE, target calories/macro.
+- Tạo `NutritionSnapshot` ban đầu khi hoàn tất onboarding.
 
 #### Ngoại lệ
-- Dữ liệu nhập không hợp lệ.
-- Lỗi kết nối khi lưu.
+- Dữ liệu không hợp lệ (API message tiếng Anh → UI tiếng Việt).
+- Thiếu chiều cao/cân nặng khi complete.
 
 #### Đầu ra
-- User có baseline cá nhân hóa cho recommendation và tracking.
+- Baseline cá nhân hóa cho recommendation và tracking.
 
 ---
 
@@ -142,18 +148,17 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.7 Gợi ý thực đơn rule-based
+### 4.7 Gợi ý thực đơn rule-based (một phần)
 
 #### Luồng chính
-- Chọn loại gợi ý: calories, eco-money, lunch, daily-menu, smart-schedule.
-- Nhập tham số.
-- Nhận danh sách đề xuất.
+- **Đã có:** `SafeRecommendationsScreen` từ Khám phá — calories, lunch, eco, daily-menu với `excludeUserAllergies=true`.
+- **Chưa có UI riêng:** smart-schedule, lịch sử đề xuất, feedback, giải thích chi tiết từng món.
 
 #### Xử lý hệ thống
-- Lọc theo bộ quy tắc cố định, ưu tiên tốc độ phản hồi.
+- Lọc theo quy tắc + profile/dị ứng user.
 
 #### Đầu ra
-- Danh sách món/meal plan phù hợp mục tiêu và ràng buộc.
+- Danh sách món/meal gợi ý an toàn và phù hợp mục tiêu (phạm vi hiện tại).
 
 ---
 
@@ -172,30 +177,46 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.9 Nhật ký ăn uống và theo dõi dinh dưỡng
+### 4.9 Nhật ký ăn uống và theo dõi dinh dưỡng (đã triển khai — cốt lõi 100%)
 
 #### Luồng chính
-- Thêm/sửa/xóa món trong từng bữa.
-- Tính calories từng bữa và cả ngày.
-- Theo dõi macro thực tế so với mục tiêu.
+- **Ghi log:** `showMealLogSheet` — từ Trang chủ, Lịch sử, Khám phá (chi tiết món/công thức).
+  - Món (`food`): `quantityG` = gram thực tế.
+  - Công thức (`recipe`): `quantityG / 100` = số khẩu phần (100 = 1 phần).
+- **Sửa/xóa:** menu trên từng dòng nhật ký trong tab Lịch sử (`meal_log_edit_sheet`).
+- **Xem chi tiết:** chạm món trên Trang chủ / Lịch sử → `FoodDetailScreen` / `RecipeDetailScreen`.
+- **Đồng bộ:** sau khi ghi/sửa/xóa, Trang chủ và Lịch sử refresh qua `MainScreen.onTrackingUpdated`.
+
+#### API (backend production: `https://menugreensystem.onrender.com/api`)
+- `POST/PUT/DELETE /NutritionTracking/meal-logs`
+- `GET /NutritionTracking/daily?date=`
+- `GET /NutritionTracking/dashboard?range=day|week|month` (tùy chọn `startDate`/`endDate`)
+
+#### UI
+- **Trang chủ:** card calo/macro, danh sách bữa hôm nay, nút Thêm bữa ăn, empty state + Khám phá.
+- **Lịch sử:** `DailySummaryCard`, biểu đồ calo (`fl_chart`), heatmap % mục tiêu, toggle Ngày/Tuần/Tháng.
 
 #### Cảnh báo
-- Cảnh báo khi macro lệch ngưỡng an toàn.
+- API: `WarningMessages` (tiếng Anh), `HasWarning`.
+- UI: `NutritionWarningMessages` + `ApiMessageTranslator` → hiển thị tiếng Việt (calo ±10%, macro ±15%).
 
 #### Đầu ra
-- User theo dõi được mức tuân thủ mục tiêu dinh dưỡng.
+- User theo dõi tuân thủ mục tiêu dinh dưỡng theo ngày/tuần/tháng.
 
 ---
 
-### 4.10 Theo dõi cân nặng và tiến độ
+### 4.10 Theo dõi cân nặng và tiến độ (đã triển khai)
 
 #### Luồng chính
-- Ghi cân nặng định kỳ.
-- Xem biểu đồ tiến độ theo thời gian.
-- Dashboard tổng hợp theo ngày/tuần/tháng.
+- Ghi/sửa/xóa cân nặng trong tab **Lịch sử** (`weight_log_sheet`).
+- Biểu đồ xu hướng cân (`weight_trend_chart`) cùng dashboard calo.
+
+#### API
+- `POST/PUT/DELETE /NutritionTracking/weight-logs`
+- Dữ liệu weight gộp trong `GET /NutritionTracking/dashboard`
 
 #### Đầu ra
-- User thấy rõ tiến độ thực tế.
+- User thấy tiến độ cân nặng và dinh dưỡng trên cùng màn Lịch sử.
 
 ---
 
@@ -213,27 +234,36 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ## 5) Ma trận coverage hiện tại (UI + API)
 
+| Mã | Workflow | UI | API | Ghi chú |
+|----|----------|----|-----|---------|
+| 4.1 | Đăng ký + OTP | ✅ | ✅ | `localizeAuthMessage` |
+| 4.2 | Đăng nhập / refresh / logout | ✅ | ✅ | Email + Google |
+| 4.3 | Onboarding 5 bước | ✅ | ✅ | Gate `Profile/me/completion` |
+| 4.4 | Profile, avatar, đổi MK | ✅ | ✅ | `ApiMessageTranslator` cho lỗi API |
+| 4.5 | Dị ứng | ✅ | ✅ | Onboarding + Khám phá |
+| 4.6 | Khám phá món/công thức | ✅ | ✅ | Allergy mode, favorite, ghi log |
+| 4.7 | Recommendation | 🟡 | ✅ | Chỉ gợi ý an toàn trong Khám phá |
+| 4.8 | AI assistant | ⏳ | 🟡 | Tab AI placeholder |
+| 4.9 | Nutrition tracking | ✅ | ✅ | Home + Lịch sử, CRUD, dashboard |
+| 4.10 | Weight tracking | ✅ | ✅ | Trong tab Lịch sử |
+| 4.11 | Subscription / SePay | ✅ | ✅ | Xem doc SePay |
+
 ### 5.1 Đã dùng được trên UI và đã gọi API
 
-- `4.1` Đăng ký + OTP.
-- `4.2` Đăng nhập + refresh token nền + logout.
-- `4.4` Quản lý profile, avatar, đổi mật khẩu.
-- `4.5` Dị ứng (đang dùng trong onboarding).
-- `4.9` Nutrition tracking (Home, Lịch sử, CRUD meal log, dashboard ngày/tuần/tháng, cảnh báo macro).
-- `4.10` Weight tracking (CRUD + biểu đồ tiến độ cân nặng trong tab Lịch sử).
-- `4.11` Subscription (plans/current/history/subscribe/renew/cancel).
+- `4.1` – `4.6`, `4.9`, `4.10`, `4.11` (theo bảng trên).
 
 ### 5.2 API đã có nhưng UI mới cover một phần
 
-- `4.3` Onboarding sức khỏe:
-  - UI 5 bước đã gọi API: Profile, HealthProfile, UserAiProfile, Allergy/UserAllergy, `Onboarding/complete` (NutritionSnapshot).
-  - Gate vào app dựa `Profile/me/completion`; bước dị ứng chỉ chuyển tiếp khi lưu thành công.
+- `4.7` Recommendation nâng cao: smart-schedule, history, feedback — chưa có màn riêng.
+- `4.8` AI assistant: API/backend có nền; tab AI chưa nối đầy đủ.
+- Notification: API có; chưa màn cài đặt/inbox hoàn chỉnh.
 
-### 5.3 API có nhưng UI chưa triển khai thực tế
+### 5.3 Chưa triển khai / roadmap
 
-- `4.7` Recommendation rule-based nâng cao (smart-schedule, history/feedback UI — chưa có màn riêng ngoài gợi ý an toàn trong Khám phá).
-- `4.8` AI assistant (tab AI đang placeholder).
-- Notification workflow (API có, UI chưa có màn hình quản lý hoàn chỉnh).
+- Meal plan tuần/ngày (workflow 2.5 trong doc hệ thống).
+- Màn **Hôm nay ăn gì?** (quick-start 1-tap).
+- Analytics funnel (`ActivityLog` UI).
+- E2E test Flutter; unit test backend .NET.
 
 ---
 
@@ -247,23 +277,26 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 - Unit test nutrition models/warnings (đã có một phần).
 
 **Kết quả mong đợi P1**
-- User đi từ đăng ký -> onboarding -> màn hình chính với dữ liệu thật.
-- Dashboard lịch sử và chỉ số không còn dữ liệu mẫu.
+- User đi từ đăng ký → onboarding → màn hình chính với dữ liệu thật. **Đạt.**
+- Dashboard lịch sử và chỉ số không còn mock. **Đạt.**
+- Còn: widget/integration test auth/onboarding; Play Store disclaimer/consent cơ bản.
 
 ### P2 - Mở khóa giá trị sử dụng hàng ngày
 
-- Hoàn thiện Recommendation nâng cao (P2):
-  - Smart-schedule, lịch sử/feedback, giải thích đề xuất.
-- ~~Triển khai màn hình ghi meal log và weight log (CRUD + dashboard real-time).~~ **Đã xong.**
+- Recommendation nâng cao: smart-schedule, feedback, giải thích đề xuất.
+- ~~Meal log + weight log + dashboard real-time.~~ **Đã xong.**
+- Meal plan + notification nhắc bữa (2.5 / 2.9).
+- Quick-add meal template; màn **Hôm nay ăn gì?**
+- Goal drift alert rolling 7 ngày (mở rộng cảnh báo macro ngày).
 
 **Kết quả mong đợi P2**
-- User dùng app hằng ngày được trọn chu trình gợi ý -> ghi nhận -> theo dõi.
+- User dùng app hằng ngày: gợi ý → ghi nhận → theo dõi → nhắc nhở. **Phần ghi nhận + theo dõi đã đạt.**
 
 ### P3 - Nâng cao trải nghiệm và cá nhân hóa
 
-- Triển khai UI AI assistant + các flow AI.
-- Triển khai Notification settings và inbox thông báo.
-- Bổ sung test E2E theo các workflow trọng yếu.
+- UI AI assistant + flow hội thoại.
+- Notification settings và inbox.
+- E2E test; analytics sự kiện (`meal_logged`, `onboarding_completed`, …).
 
 **Kết quả mong đợi P3**
 - App đạt mức đầy đủ tính năng theo SRS cho user app.
@@ -272,48 +305,49 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ## 7) Checklist triển khai kỹ thuật đề xuất
 
-- Tạo `ViewModel/Controller` cho từng feature để tách UI khỏi gọi API trực tiếp.
-- Chuẩn hóa model request/response cho:
-  - Health profile
-  - Nutrition tracking
-  - Recommendation
-- Chuẩn hóa trạng thái loading/error/empty cho tất cả màn hình.
-- Chuẩn hóa message lỗi thân thiện theo từng luồng.
-- Bổ sung logging và analytics sự kiện chính:
-  - register_success
-  - otp_verify_success
-  - onboarding_completed
-  - meal_logged
-  - subscription_subscribed
+- **i18n:** Backend response English; Flutter `ApiMessageTranslator` + `localizeAuthMessage` trước SnackBar/dialog.
+- **API base:** Production `https://menugreensystem.onrender.com/api` (`ApiEndpoints`); dev override `--dart-define=API_BASE_URL=...`.
+- Tách ViewModel/Controller dần để UI không gọi API trực tiếp (ưu tiên feature mới).
+- Chuẩn hóa loading/error/empty trên mọi màn có gọi API.
+- Tests hiện có: `nutrition_models_test`, `nutrition_warning_utils_test`, `api_message_translator_test`.
+- Analytics sự kiện đề xuất: `register_success`, `otp_verify_success`, `onboarding_completed`, `meal_logged`, `subscription_subscribed`.
 
 ---
 
 ## 8) Tiêu chí hoàn thành (Definition of Done)
 
-- Mỗi workflow từ `4.1` đến `4.11` có:
-  - Màn hình UI truy cập được.
-  - Gọi API thật, không dùng dữ liệu hard-code cho dữ liệu nghiệp vụ.
-  - Có xử lý lỗi và trạng thái loading/empty.
-  - Có test tối thiểu (unit/widget/integration phù hợp).
-- `flutter analyze` không có lỗi chặn build.
-- Bộ test quan trọng chạy qua cho các luồng chính.
+| Workflow | Trạng thái DoD |
+|----------|----------------|
+| 4.1–4.6, 4.9–4.11 | ✅ UI + API thật, xử lý lỗi cơ bản, test unit một phần (nutrition/i18n) |
+| 4.7 | 🟡 Gợi ý an toàn OK; thiếu history/feedback UI |
+| 4.8 | ⏳ Tab placeholder |
+| Toàn app | `flutter analyze` không lỗi chặn build; hot restart sau deploy backend |
 
 ---
 
 ## 9) Điểm kiểm thử để xác nhận workflow
 
-- Đăng ký mới, OTP đúng/sai/hết hạn.
-- Đăng nhập thành công/thất bại, tình huống token hết hạn.
-- Lưu profile và cập nhật lại chỉ số.
-- Đồng bộ allergy vào recommendation.
-- Gợi ý theo calories/budget/time.
-- Fallback từ AI sang rule-based.
-- Thêm/sửa/xóa meal log và cập nhật dashboard.
-- Theo dõi cân nặng theo timeline.
-- Đăng ký/gia hạn/hủy gói thành viên.
+**Auth & onboarding**
+- Đăng ký, OTP đúng/sai/hết hạn; đăng nhập email/Google; refresh token.
+- Onboarding 5 bước; gate khi chưa complete; message lỗi hiển thị tiếng Việt.
+
+**Khám phá & gợi ý**
+- Lọc dị ứng hide/warn; gợi ý an toàn; yêu thích; ghi log từ chi tiết món.
+
+**Nutrition tracking (4.9 / 4.10)**
+- Trang chủ: calo/macro hôm nay, Thêm bữa ăn, chạm xem chi tiết món.
+- Lịch sử: Ngày/Tuần/Tháng, heatmap, biểu đồ calo & cân; sửa/xóa meal & weight.
+- Cảnh báo macro sau deploy backend mới (`WarningMessages` EN → UI VI).
+- Recipe log: 100 = 1 khẩu phần; food log: gram.
+
+**Khác**
+- Profile, đổi mật khẩu, avatar.
+- Subscription / SePay (theo `README_SEPAY_PAYMENT_WORKFLOW.md`).
 
 ---
 
 ## 10) Kết luận
 
-Hiện tại MenuGreen đã có nền tảng API khá đầy đủ cho user workflow cốt lõi, nhưng UI Flutter mới cover chắc phần Auth/Profile/Allergy/Subscription. Kế hoạch P1/P2/P3 ở trên giúp đưa app từ trạng thái "chạy được từng phần" sang trạng thái "cover đầy đủ workflow người dùng theo SRS".
+MenuGreen đã có **chuỗi cốt lõi end-to-end** cho người dùng Việt Nam: đăng ký/đăng nhập → onboarding → khám phá an toàn dị ứng → ghi nhật ký & dashboard dinh dưỡng/cân nặng → gói SePay. Backend deploy trên Render; Flutter mặc định trỏ production API.
+
+**Ưu tiên tiếp theo (Play Store):** disclaimer/compliance, test auth/onboarding, recommendation/AI/notification nâng cao, meal plan. Chi tiết roadmap hệ thống: [`README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md`](README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md).
