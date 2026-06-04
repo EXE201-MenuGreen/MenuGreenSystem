@@ -159,30 +159,5 @@ namespace MenuGreen.API.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
-
-        [HttpPost("me/change-password")]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
-            {
-                return Unauthorized();
-            }
-
-            try
-            {
-                await _profileService.ChangePasswordAsync(userId, request);
-                return Ok(new { Message = "Password changed successfully." });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
-        }
     }
 }

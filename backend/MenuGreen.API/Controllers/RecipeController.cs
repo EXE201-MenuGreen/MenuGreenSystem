@@ -116,6 +116,8 @@ namespace MenuGreen.API.Controllers
         /// Tạo mới công thức chế biến.
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Create([FromBody] RecipeUpsertRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -134,6 +136,8 @@ namespace MenuGreen.API.Controllers
         /// Cập nhật công thức theo Id.
         /// </summary>
         [HttpPut("{id:guid}")]
+        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Update(Guid id, [FromBody] RecipeUpsertRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -152,6 +156,8 @@ namespace MenuGreen.API.Controllers
         /// Xóa công thức theo Id.
         /// </summary>
         [HttpDelete("{id:guid}")]
+        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
