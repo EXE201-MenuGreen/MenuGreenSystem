@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/constants/health_profile_values.dart';
+import '../../../../core/utils/safe_date_picker.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 
@@ -52,6 +53,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   String _activityLevel = 'sedentary';
   String _goal = 'maintain weight';
   bool _saving = false;
+  bool _pickingDate = false;
 
   @override
   void initState() {
@@ -88,15 +90,21 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   }
 
   Future<void> _pickDateOfBirth() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dateOfBirth ?? DateTime(now.year - 25),
-      firstDate: DateTime(1920),
-      lastDate: now,
-      helpText: 'Chọn ngày sinh',
-    );
-    if (picked != null) setState(() => _dateOfBirth = picked);
+    if (_pickingDate) return;
+    _pickingDate = true;
+    try {
+      final now = DateTime.now();
+      final picked = await showSafeDatePicker(
+        context: context,
+        initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+        firstDate: DateTime(1920),
+        lastDate: now,
+        helpText: 'Chọn ngày sinh',
+      );
+      if (picked != null && mounted) setState(() => _dateOfBirth = picked);
+    } finally {
+      _pickingDate = false;
+    }
   }
 
   String _dateOfBirthLabel() {
@@ -157,7 +165,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -215,6 +227,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           ),
         ],
       ),
+    ),
     );
   }
 
