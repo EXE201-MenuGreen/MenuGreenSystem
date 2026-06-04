@@ -50,7 +50,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<RecipeResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
-            var items = await _unitOfWork.RecipeIngredients.FindAsync(x => x.RecipeId == id);
+            var items = await _db.RecipeIngredients
+                .AsNoTracking()
+                .Include(x => x.Ingredient)
+                .Where(x => x.RecipeId == id)
+                .ToListAsync();
             var result = Map(recipe);
             result.Ingredients = items.Select(x => new RecipeIngredientResponse
             {
