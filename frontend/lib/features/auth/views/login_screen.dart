@@ -67,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleLogin() async {
+    await FirebaseBootstrap.initialize();
     if (!FirebaseGoogleAuthService.isSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -184,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       text: 'Đăng nhập',
                       onPressed: _handleLogin,
                     ),
-              if (FirebaseBootstrap.isInitialized) ...[
+              if (FirebaseGoogleAuthService.isSupported) ...[
                 const SizedBox(height: 20),
                 Row(
                   children: [

@@ -14,6 +14,7 @@ export type FoodFormState = {
   defaultServingG: string;
   imageUrl: string;
   isActive: boolean;
+  allergenKeys: string[];
 };
 
 export const emptyFoodForm = (): FoodFormState => ({
@@ -30,6 +31,7 @@ export const emptyFoodForm = (): FoodFormState => ({
   defaultServingG: "",
   imageUrl: "",
   isActive: true,
+  allergenKeys: [],
 });
 
 function parseOptionalNumber(value: string): number | null {
@@ -54,6 +56,7 @@ export function foodToFormState(food: Food): FoodFormState {
     defaultServingG: food.defaultServingG?.toString() ?? "",
     imageUrl: food.imageUrl ?? "",
     isActive: food.isActive ?? true,
+    allergenKeys: [],
   };
 }
 
@@ -72,6 +75,7 @@ export function formStateToPayload(form: FoodFormState): FoodUpsertRequest {
     defaultServingG: parseOptionalNumber(form.defaultServingG),
     imageUrl: form.imageUrl.trim() || null,
     isActive: form.isActive,
+    allergenKeys: form.allergenKeys,
   };
 }
 

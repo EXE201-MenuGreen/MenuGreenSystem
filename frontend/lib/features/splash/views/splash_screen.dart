@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/network/token_storage.dart';
-import '../../auth/utils/post_auth_navigation.dart';
 import '../../auth/views/welcome_screen.dart';
+import '../../main/views/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,14 +17,17 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  bool _navigated = false;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
-    // Simulate initialization time (e.g., 2.5 seconds)
+    unawaited(_readTokenEarly());
+
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -36,20 +41,43 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _navigateFromSplash();
       }
     });
+
+    // Dự phòng: không để splash treo nếu animation/listener lỗi.
+    Future.delayed(const Duration(seconds: 4), _navigateFromSplash);
+  }
+
+  Future<void> _readTokenEarly() async {
+    try {
+      _token = await TokenStorage()
+          .getAccessToken()
+          .timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint('Splash token preload: $e');
+    }
   }
 
   Future<void> _navigateFromSplash() async {
-    final token = await TokenStorage().getAccessToken();
-    if (!mounted) return;
+    if (_navigated || !mounted) return;
+    _navigated = true;
 
-    if (token != null && token.isNotEmpty) {
-      await navigateAfterAuthenticated(context);
-      return;
+    if (_token == null) {
+      try {
+        _token = await TokenStorage()
+            .getAccessToken()
+            .timeout(const Duration(seconds: 2));
+      } catch (e) {
+        debugPrint('Splash token read: $e');
+      }
     }
 
+    if (!mounted) return;
+
+    final hasToken = _token != null && _token!.isNotEmpty;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+      MaterialPageRoute(
+        builder: (_) => hasToken ? const MainScreen() : const WelcomeScreen(),
+      ),
     );
   }
 
@@ -65,12 +93,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Main Content
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
                 Container(
                   width: 120,
                   height: 120,
@@ -79,7 +105,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.2),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -102,13 +128,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 const SizedBox(height: 32),
-                // Title
                 const Text(
                   'MenuGreen',
                   style: AppTextStyles.heading1,
                 ),
                 const SizedBox(height: 8),
-                // Subtitle
                 const Text(
                   'Trợ lý dinh dưỡng thông\nminh',
                   textAlign: TextAlign.center,
@@ -117,8 +141,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               ],
             ),
           ),
-          
-          // Bottom Progress
           Positioned(
             bottom: 40,
             left: 40,
@@ -128,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 AnimatedBuilder(
                   animation: _animation,
                   builder: (context, child) {
-                    int percentage = (_animation.value * 100).toInt();
+                    final percentage = (_animation.value * 100).toInt();
                     return Column(
                       children: [
                         Row(

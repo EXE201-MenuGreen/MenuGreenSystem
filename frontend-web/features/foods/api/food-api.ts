@@ -38,4 +38,24 @@ export const foodApi = {
   delete(id: string): Promise<MessageResponse> {
     return apiClient.delete<MessageResponse>(apiEndpoints.food.byId(id));
   },
+
+  getAllergenTags(id: string): Promise<FoodAllergenTagsResponse> {
+    return apiClient.get<FoodAllergenTagsResponse>(
+      apiEndpoints.adminFood.allergies(id),
+    );
+  },
+
+  setAllergenTags(id: string, allergenKeys: string[]): Promise<FoodAllergenTagsResponse> {
+    return apiClient.put<FoodAllergenTagsResponse>(
+      apiEndpoints.adminFood.allergies(id),
+      { allergenKeys },
+    );
+  },
 };
+
+export interface FoodAllergenTagsResponse {
+  foodId: string;
+  allergenKeys: string[];
+  allergenLabelsVi: string[];
+  availableAllergenKeys: string[];
+}

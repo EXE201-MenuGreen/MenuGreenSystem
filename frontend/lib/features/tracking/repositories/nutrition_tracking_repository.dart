@@ -85,7 +85,7 @@ class NutritionTrackingRepository {
     final query = (keyword != null && keyword.trim().isNotEmpty)
         ? '?keyword=${Uri.encodeQueryComponent(keyword.trim())}'
         : '';
-    final response = await _api.get('${ApiEndpoints.recipes}$query');
+    final response = await _api.get('${ApiEndpoints.recipeSearch}$query');
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) return [];

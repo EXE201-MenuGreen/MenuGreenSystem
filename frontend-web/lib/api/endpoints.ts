@@ -25,6 +25,9 @@ export const apiEndpoints = {
     base: `${API_BASE_URL}/Food`,
     byId: (id: string) => `${API_BASE_URL}/Food/${id}`,
   },
+  adminFood: {
+    allergies: (id: string) => `${API_BASE_URL}/admin/foods/${id}/allergies`,
+  },
   ingredient: {
     base: `${API_BASE_URL}/Ingredient`,
     byId: (id: string) => `${API_BASE_URL}/Ingredient/${id}`,

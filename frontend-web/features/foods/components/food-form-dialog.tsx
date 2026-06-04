@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { foodApi } from "@/features/foods/api/food-api";
+import { ALLERGEN_OPTIONS } from "@/features/foods/constants/allergens";
 import type { Food } from "@/features/foods/types";
 import {
   emptyFoodForm,
@@ -34,6 +36,20 @@ export function FoodFormDialog({
     if (!open) return;
     setForm(food ? foodToFormState(food) : emptyFoodForm());
     setError(null);
+
+    if (food?.id) {
+      foodApi
+        .getAllergenTags(food.id)
+        .then((tags) => {
+          setForm((current) => ({
+            ...current,
+            allergenKeys: tags.allergenKeys ?? [],
+          }));
+        })
+        .catch(() => {
+          // Admin có thể chưa có quyền — bỏ qua
+        });
+    }
   }, [food, open]);
 
   if (!open) return null;
@@ -168,6 +184,39 @@ export function FoodFormDialog({
               value={form.defaultServingG}
               onChange={(e) => updateField("defaultServingG", e.target.value)}
             />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+              Dị ứng / thành phần cần cảnh báo
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Chọn nhãn chuẩn để app mobile đối chiếu với dị ứng người dùng
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {ALLERGEN_OPTIONS.map((option) => {
+                const selected = form.allergenKeys.includes(option.key);
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => {
+                      const next = selected
+                        ? form.allergenKeys.filter((k) => k !== option.key)
+                        : [...form.allergenKeys, option.key];
+                      updateField("allergenKeys", next);
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      selected
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                        : "border-zinc-300 text-zinc-600 hover:border-zinc-400"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">

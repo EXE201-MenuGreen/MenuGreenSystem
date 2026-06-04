@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../repositories/profile_repository.dart';
@@ -24,6 +26,8 @@ class _ProfileViewState extends State<ProfileView> {
   Map<String, dynamic>? _profileData;
   UserSubscription? _subscription;
   bool _isLoading = true;
+  bool _subscriptionLoading = false;
+  String? _loadError;
   bool _subscriptionActionLoading = false;
 
   @override
@@ -33,19 +37,46 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _fetchData() async {
-    setState(() => _isLoading = true);
-
-    final results = await Future.wait([
-      _profileRepo.getMyProfile(),
-      _subscriptionRepo.getCurrent(),
-    ]);
-
     if (!mounted) return;
     setState(() {
-      _profileData = results[0] as Map<String, dynamic>?;
-      _subscription = results[1] as UserSubscription?;
-      _isLoading = false;
+      _isLoading = true;
+      _subscriptionLoading = true;
+      _loadError = null;
     });
+
+    try {
+      final profile = await _profileRepo
+          .getMyProfile()
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      setState(() {
+        _profileData = profile;
+        _isLoading = false;
+      });
+
+      final subscription = await _subscriptionRepo
+          .getCurrent()
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      setState(() {
+        _subscription = subscription;
+        _subscriptionLoading = false;
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _subscriptionLoading = false;
+        _loadError = 'Máy chủ phản hồi chậm. Kiểm tra mạng và thử lại.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _subscriptionLoading = false;
+        _loadError = 'Không tải được dữ liệu hồ sơ.';
+      });
+    }
   }
 
   Future<void> _handleRenew() async {
@@ -103,16 +134,44 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildProfileHeader(),
-                  const SizedBox(height: 32),
-                  _buildMembershipCard(),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            : RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: _fetchData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (_loadError != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _loadError!,
+                                  style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                                ),
+                              ),
+                              TextButton(onPressed: _fetchData, child: const Text('Thử lại')),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildProfileHeader(),
+                      const SizedBox(height: 32),
+                      _buildMembershipCard(),
                   const SizedBox(height: 32),
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -178,10 +237,12 @@ class _ProfileViewState extends State<ProfileView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -229,6 +290,25 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildMembershipCard() {
+    if (_subscriptionLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        decoration: BoxDecoration(
+          color: AppColors.progressBackground.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.progressBackground),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
+        ),
+      );
+    }
+
     final subscription = _subscription;
     final activeSubscription = subscription != null &&
             subscription.isActive &&

@@ -12,11 +12,15 @@ class ProfileRepository {
     AuthRepository? authRepository,
   })  : _api = apiClient ?? ApiClient(tokenStorage: tokenStorage),
         _storage = tokenStorage ?? TokenStorage(),
-        _authRepo = authRepository ?? AuthRepository(tokenStorage: tokenStorage);
+        _authRepoOverride = authRepository;
 
   final ApiClient _api;
   final TokenStorage _storage;
-  final AuthRepository _authRepo;
+  final AuthRepository? _authRepoOverride;
+  AuthRepository? _authRepoLazy;
+
+  AuthRepository get _authRepo =>
+      _authRepoOverride ?? (_authRepoLazy ??= AuthRepository(tokenStorage: _storage));
 
   Future<Map<String, dynamic>?> getMyProfile() async {
     try {

@@ -8,9 +8,11 @@ import 'features/splash/views/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Không chặn UI — Firebase chạy nền (tránh màn trắng/đen khi emulator chậm).
-  unawaited(FirebaseBootstrap.initialize());
   runApp(const MyApp());
+  // Sau frame đầu — giảm "Skipped N frames" lúc startup.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(FirebaseBootstrap.initialize());
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -24,7 +26,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
-        fontFamily: 'Inter', // Default to a nice font or can be changed later
       ),
       home: const SplashScreen(),
     );

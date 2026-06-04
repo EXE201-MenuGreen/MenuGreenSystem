@@ -12,6 +12,8 @@ export interface FoodUpsertRequest {
   defaultServingG?: number | null;
   imageUrl?: string | null;
   isActive?: boolean | null;
+  /** Chỉ dùng phía client khi lưu — API Food upsert không nhận field này. */
+  allergenKeys?: string[];
 }
 
 export interface Food {
