@@ -164,9 +164,11 @@ Future<bool> showMealLogSheet(
                 TextField(
                   controller: quantityController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Khối lượng (gram)',
-                    hintText: 'Ví dụ: 150',
+                  decoration: InputDecoration(
+                    labelText: sourceType == 'recipe'
+                        ? 'Phần ăn (100 = 1 khẩu phần)'
+                        : 'Khối lượng (gram)',
+                    hintText: sourceType == 'recipe' ? 'Ví dụ: 100' : 'Ví dụ: 150',
                   ),
                 ),
               ],

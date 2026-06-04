@@ -334,8 +334,16 @@ class RecipeIngredientItem {
 
   factory RecipeIngredientItem.fromJson(Map<String, dynamic> json) {
     final q = json['quantity'] ?? json['Quantity'];
+    final nested = json['ingredient'] ?? json['Ingredient'];
+    String name = (json['ingredientName'] ?? json['IngredientName'] ?? '').toString();
+    if (name.isEmpty && nested is Map<String, dynamic>) {
+      name = (nested['nameVi'] ?? nested['NameVi'] ?? nested['name'] ?? '').toString();
+    }
+    if (name.isEmpty) {
+      name = (json['nameVi'] ?? json['NameVi'] ?? '').toString();
+    }
     return RecipeIngredientItem(
-      ingredientName: (json['ingredientName'] ?? json['IngredientName'] ?? '').toString(),
+      ingredientName: name.isEmpty ? 'Nguyên liệu' : name,
       quantity: q is num ? q.toDouble() : 0,
       unit: (json['unit'] ?? json['Unit'] ?? '').toString(),
       notes: json['notes']?.toString() ?? json['Notes']?.toString(),
