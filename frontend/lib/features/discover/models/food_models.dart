@@ -250,27 +250,53 @@ class DailyMenuPlanItem {
   DailyMenuPlanItem({
     required this.id,
     required this.name,
-    required this.entityType,
+    required this.mealType,
+    this.foodId,
+    this.recipeId,
+    required this.sourceEntityType,
     required this.targetCalories,
   });
 
   final String id;
   final String name;
-  final String entityType;
+  final String mealType;
+  final String? foodId;
+  final String? recipeId;
+  final String sourceEntityType;
   final int targetCalories;
 
-  bool get isFood => entityType.toLowerCase() == 'food';
+  bool get isFood =>
+      sourceEntityType.toLowerCase() == 'food' || (foodId != null && recipeId == null);
 
   factory DailyMenuPlanItem.fromJson(Map<String, dynamic> json) {
+    final foodId = (json['foodId'] ?? json['FoodId'])?.toString();
+    final recipeId = (json['recipeId'] ?? json['RecipeId'])?.toString();
+    final source = (json['sourceEntityType'] ?? json['SourceEntityType'] ?? '').toString();
+    final inferredSource = source.isNotEmpty
+        ? source
+        : (foodId != null ? 'Food' : recipeId != null ? 'Recipe' : 'Food');
+
     return DailyMenuPlanItem(
       id: (json['id'] ?? json['Id']).toString(),
       name: (json['foodName'] ?? json['FoodName'] ?? json['recipeName'] ?? json['RecipeName'] ?? '')
           .toString(),
-      entityType: (json['mealType'] ?? json['MealType'] ?? 'Food').toString(),
+      mealType: (json['mealType'] ?? json['MealType'] ?? 'snack').toString(),
+      foodId: foodId,
+      recipeId: recipeId,
+      sourceEntityType: inferredSource,
       targetCalories: json['targetCalories'] is int
           ? json['targetCalories'] as int
           : (json['TargetCalories'] is int ? json['TargetCalories'] as int : 0),
     );
+  }
+
+  Map<String, dynamic> toPlanItemJson() {
+    return {
+      'mealType': mealType,
+      if (foodId != null) 'foodId': foodId,
+      if (recipeId != null) 'recipeId': recipeId,
+      'targetCalories': targetCalories,
+    };
   }
 }
 

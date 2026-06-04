@@ -10,6 +10,9 @@ import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 
+import '../../meal_plan/models/meal_plan_models.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../meal_plan/views/meal_plan_today_screen.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 
 class HomeView extends StatefulWidget {
@@ -30,9 +33,11 @@ class HomeViewState extends State<HomeView> {
   final _tokenStorage = TokenStorage();
   final _profileRepository = ProfileRepository();
   final _trackingRepository = NutritionTrackingRepository();
+  final _mealPlanRepository = MealPlanRepository();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
+  MealPlanAdherence? _mealPlanAdherence;
   bool _refreshing = false;
 
   @override
@@ -40,6 +45,7 @@ class HomeViewState extends State<HomeView> {
     super.initState();
     refreshHeader();
     _loadTodaySummary();
+    _loadMealPlanAdherence();
   }
 
   Future<void> refreshHeader() async {
@@ -63,7 +69,35 @@ class HomeViewState extends State<HomeView> {
     });
   }
 
-  Future<void> reloadSummary() => _loadTodaySummary(userInitiated: false);
+  Future<void> reloadSummary() async {
+    await _loadTodaySummary(userInitiated: false);
+    await _loadMealPlanAdherence();
+  }
+
+  Future<void> _loadMealPlanAdherence() async {
+    try {
+      final adherence = await _mealPlanRepository.getAdherence(DateTime.now());
+      if (!mounted) return;
+      setState(() => _mealPlanAdherence = adherence);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _mealPlanAdherence = null);
+    }
+  }
+
+  void _openMealPlanToday() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MealPlanTodayScreen(
+          onMealLogged: () {
+            reloadSummary();
+            widget.onTrackingUpdated?.call();
+          },
+        ),
+      ),
+    ).then((_) => reloadSummary());
+  }
 
   Future<void> _loadTodaySummary({bool userInitiated = false}) async {
     if (_refreshing) return;
@@ -100,6 +134,8 @@ class HomeViewState extends State<HomeView> {
             _buildHeader(),
             const SizedBox(height: 24),
             _buildCalorieCard(),
+            const SizedBox(height: 16),
+            _buildMealPlanCard(),
             const SizedBox(height: 32),
             _buildSectionHeader('Nhật ký hôm nay', showAddButton: true),
             const SizedBox(height: 16),
@@ -251,6 +287,50 @@ class HomeViewState extends State<HomeView> {
             ],
           )
         ],
+      ),
+    );
+  }
+
+  Widget _buildMealPlanCard() {
+    final adherence = _mealPlanAdherence;
+    final subtitle = adherence != null && adherence.totalCount > 0
+        ? '${adherence.completedCount}/${adherence.totalCount} bữa theo kế hoạch'
+        : 'Lập thực đơn chủ động cho hôm nay';
+
+    return InkWell(
+      onTap: _openMealPlanToday,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.restaurant_menu, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kế hoạch hôm nay',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
