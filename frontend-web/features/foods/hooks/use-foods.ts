@@ -63,7 +63,9 @@ export function useFoods() {
       setError(null);
 
       try {
-        await foodApi.create(payload);
+        const { allergenKeys, ...upsert } = payload;
+        const created = await foodApi.create(upsert);
+        await foodApi.setAllergenTags(created.id, allergenKeys ?? []);
         setNotice(`Đã tạo món "${payload.nameVi}".`);
         await search(filters);
       } catch (err) {
@@ -83,7 +85,9 @@ export function useFoods() {
       setError(null);
 
       try {
-        await foodApi.update(id, payload);
+        const { allergenKeys, ...upsert } = payload;
+        await foodApi.update(id, upsert);
+        await foodApi.setAllergenTags(id, allergenKeys ?? []);
         setNotice(`Đã cập nhật món "${payload.nameVi}".`);
         await search(filters);
       } catch (err) {

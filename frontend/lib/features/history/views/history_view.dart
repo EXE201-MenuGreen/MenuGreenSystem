@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/history_models.dart';
@@ -153,14 +155,26 @@ class _HistoryViewState extends State<HistoryView> {
 
   Future<void> _loadDailySummary() async {
     setState(() => _loading = true);
-    final summary = await _repository.getDailySummary(_selectedDate);
-    final dashboard = await _repository.getDashboard(range: 'week');
-    if (!mounted) return;
-    setState(() {
-      _dailySummary = summary;
-      _dashboard = dashboard;
-      _loading = false;
-    });
+    try {
+      final summary = await _repository
+          .getDailySummary(_selectedDate)
+          .timeout(const Duration(seconds: 25));
+      final dashboard = await _repository
+          .getDashboard(range: 'week')
+          .timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      setState(() {
+        _dailySummary = summary;
+        _dashboard = dashboard;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tải được lịch sử. Thử lại sau.')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _changeMonth(int delta) {

@@ -121,6 +121,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   Future<void> _handlePickAndUploadAvatar() async {
+    await FirebaseBootstrap.initialize();
     if (!FirebaseBootstrap.isInitialized || !FirebaseStorageService.isSupported) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

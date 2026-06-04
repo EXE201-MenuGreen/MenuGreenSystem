@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import 'package:image_picker/image_picker.dart';
 
+import 'firebase_bootstrap.dart';
+
 class FirebaseStorageService {
   FirebaseStorageService({FirebaseStorage? storage})
     : _storageOverride = storage;
@@ -48,6 +50,11 @@ class FirebaseStorageService {
       throw UnsupportedError(
         'Upload ảnh chỉ hỗ trợ trên Android/iOS. Hãy chạy app trên emulator hoặc điện thoại.',
       );
+    }
+
+    await FirebaseBootstrap.initialize();
+    if (!FirebaseBootstrap.isInitialized) {
+      throw StateError('Firebase chưa khởi tạo. Thử lại sau vài giây.');
     }
 
     if (!await imageFile.exists()) {

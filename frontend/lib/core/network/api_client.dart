@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,41 +7,56 @@ import 'api_endpoints.dart';
 import 'jwt_utils.dart';
 import 'token_storage.dart';
 
+/// HTTP client dùng chung — tránh refresh token trùng lặp khi nhiều tab gọi API cùng lúc.
 class ApiClient {
   ApiClient({
     http.Client? httpClient,
     TokenStorage? tokenStorage,
+    Duration? timeout,
   })  : _http = httpClient ?? http.Client(),
-        _storage = tokenStorage ?? TokenStorage();
+        _storage = tokenStorage ?? TokenStorage(),
+        _timeout = timeout ?? const Duration(seconds: 20);
 
   final http.Client _http;
   final TokenStorage _storage;
+  final Duration _timeout;
+
+  static Completer<bool>? _refreshInFlight;
+  static DateTime? _lastSuccessfulRefresh;
 
   Future<http.Response> get(String url) async {
-    return _sendWithAuthRetry((headers) => _http.get(Uri.parse(url), headers: headers));
+    return _sendWithAuthRetry(
+      (headers) => _http.get(Uri.parse(url), headers: headers).timeout(_timeout),
+    );
   }
 
   Future<http.Response> delete(String url) async {
-    return _sendWithAuthRetry((headers) => _http.delete(Uri.parse(url), headers: headers));
+    return _sendWithAuthRetry(
+      (headers) => _http.delete(Uri.parse(url), headers: headers).timeout(_timeout),
+    );
   }
 
   Future<http.Response> putJson(String url, Map<String, dynamic> body) async {
     return _sendWithAuthRetry(
-      (headers) => _http.put(
-        Uri.parse(url),
-        headers: headers,
-        body: jsonEncode(body),
-      ),
+      (headers) => _http
+          .put(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
     );
   }
 
   Future<http.Response> postJson(String url, Map<String, dynamic> body) async {
     return _sendWithAuthRetry(
-      (headers) => _http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: jsonEncode(body),
-      ),
+      (headers) => _http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
     );
   }
 
@@ -52,7 +68,7 @@ class ApiClient {
     final res = await send(headers);
     if (res.statusCode != 401) return res;
 
-    final refreshed = await _tryRefreshToken();
+    final refreshed = await _refreshTokenOnce();
     if (!refreshed) return res;
 
     final headers2 = await _buildAuthHeaders();
@@ -72,11 +88,13 @@ class ApiClient {
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
     try {
-      final res = await _http.post(
-        Uri.parse(ApiEndpoints.refreshToken),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refreshToken}),
-      );
+      final res = await _http
+          .post(
+            Uri.parse(ApiEndpoints.refreshToken),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refreshToken': refreshToken}),
+          )
+          .timeout(_timeout);
       if (res.statusCode != 200) return false;
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -84,11 +102,37 @@ class ApiClient {
       final refresh = (data['refreshToken'] ?? data['RefreshToken'])?.toString();
       final fullName = (data['fullName'] ?? data['FullName'])?.toString();
 
-      if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) return false;
-      await _storage.saveTokens(accessToken: access, refreshToken: refresh, fullName: fullName);
+      if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) {
+        return false;
+      }
+      await _storage.saveTokens(
+        accessToken: access,
+        refreshToken: refresh,
+        fullName: fullName,
+      );
+      _lastSuccessfulRefresh = DateTime.now();
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Chỉ một refresh chạy tại một thời điểm — các request khác chờ kết quả.
+  Future<bool> _refreshTokenOnce() async {
+    if (_refreshInFlight != null) {
+      return _refreshInFlight!.future;
+    }
+    final completer = Completer<bool>();
+    _refreshInFlight = completer;
+    try {
+      final ok = await _tryRefreshToken();
+      completer.complete(ok);
+      return ok;
+    } catch (_) {
+      completer.complete(false);
+      return false;
+    } finally {
+      _refreshInFlight = null;
     }
   }
 
@@ -100,10 +144,13 @@ class ApiClient {
     if (exp == null) return;
 
     final nowSec = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    // Refresh early when token has <= 60s remaining
-    if (exp - nowSec <= 60) {
-      await _tryRefreshToken();
+    if (exp - nowSec > 60) return;
+
+    final last = _lastSuccessfulRefresh;
+    if (last != null && DateTime.now().difference(last) < const Duration(seconds: 45)) {
+      return;
     }
+
+    await _refreshTokenOnce();
   }
 }
-

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase_bootstrap.dart';
+import 'firebase_storage_service.dart';
 
 /// Web client ID from google-services.json (client_type 3) — used for idToken on Android.
 const _kGoogleWebClientId =
@@ -12,22 +13,25 @@ class FirebaseGoogleAuthService {
   FirebaseGoogleAuthService({
     FirebaseAuth? auth,
     GoogleSignIn? googleSignIn,
-  })  : _auth = auth ?? FirebaseAuth.instance,
+  })  : _authOverride = auth,
         _googleSignIn = googleSignIn ??
             GoogleSignIn(
               scopes: const ['email', 'profile'],
               serverClientId: _kGoogleWebClientId,
             );
 
-  final FirebaseAuth _auth;
+  final FirebaseAuth? _authOverride;
   final GoogleSignIn _googleSignIn;
 
-  static bool get isSupported => FirebaseBootstrap.isInitialized;
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
+
+  static bool get isSupported => FirebaseStorageService.isSupported;
 
   Future<String> signInAndGetIdToken() async {
-    if (!isSupported) {
+    await FirebaseBootstrap.initialize();
+    if (!FirebaseBootstrap.isInitialized) {
       throw Exception(
-        'Firebase chưa khởi tạo. Chạy app trên Android/iOS emulator hoặc thiết bị.',
+        'Firebase chưa khởi tạo. Kiểm tra mạng hoặc cấu hình google-services.json.',
       );
     }
 
@@ -51,7 +55,7 @@ class FirebaseGoogleAuthService {
   }
 
   Future<void> signOut() async {
-    if (!isSupported) return;
+    if (!isSupported || !FirebaseBootstrap.isInitialized) return;
     try {
       await Future.wait([
         _auth.signOut(),

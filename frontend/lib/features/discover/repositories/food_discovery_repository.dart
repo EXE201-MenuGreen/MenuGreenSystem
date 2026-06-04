@@ -1,0 +1,161 @@
+import 'dart:convert';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
+import '../models/food_models.dart';
+
+class FoodDiscoveryRepository {
+  FoodDiscoveryRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+
+  final ApiClient _api;
+
+  Future<List<FoodItem>> searchFoods({
+    String? keyword,
+    String allergyMode = 'warn',
+  }) async {
+    try {
+      final params = <String, String>{
+        if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+        'allergyMode': allergyMode,
+      };
+      final query = params.entries
+          .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+          .join('&');
+      final url = query.isEmpty ? ApiEndpoints.foods : '${ApiEndpoints.foods}?$query';
+      final response = await _api.get(url);
+      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return [];
+      final items = decoded['items'] ?? decoded['Items'];
+      if (items is! List) return [];
+      return items.whereType<Map<String, dynamic>>().map(FoodItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<FoodItem?> getFoodById(String id, {String allergyMode = 'warn'}) async {
+    try {
+      final response = await _api.get(
+        '${ApiEndpoints.foodById(id)}?allergyMode=${Uri.encodeQueryComponent(allergyMode)}',
+      );
+      if (response.statusCode != 200 || response.body.isEmpty) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      return FoodItem.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<RecipeItem>> getFoodRecipes(String foodId) async {
+    try {
+      final response = await _api.get(ApiEndpoints.foodRecipes(foodId));
+      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+      return decoded.whereType<Map<String, dynamic>>().map(RecipeItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<RecipeItem>> searchRecipes({
+    String? keyword,
+    String allergyMode = 'warn',
+  }) async {
+    try {
+      final params = <String, String>{
+        if (keyword != null && keyword.trim().isNotEmpty)
+          'keyword': keyword.trim(),
+        'allergyMode': allergyMode,
+      };
+      final query = params.entries
+          .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+          .join('&');
+      final url = query.isEmpty ? ApiEndpoints.recipeSearch : '${ApiEndpoints.recipeSearch}?$query';
+      final response = await _api.get(url);
+      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return [];
+      final items = decoded['items'] ?? decoded['Items'];
+      if (items is! List) return [];
+      return items.whereType<Map<String, dynamic>>().map(RecipeItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<RecipeItem?> getRecipeById(String id, {String allergyMode = 'warn'}) async {
+    try {
+      final response = await _api.get(
+        '${ApiEndpoints.recipeById(id)}?allergyMode=${Uri.encodeQueryComponent(allergyMode)}',
+      );
+      if (response.statusCode != 200 || response.body.isEmpty) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      return RecipeItem.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<FavoriteFoodItem>> getFavorites() async {
+    try {
+      final response = await _api.get(ApiEndpoints.foodFavorites);
+      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+      return decoded.whereType<Map<String, dynamic>>().map(FavoriteFoodItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> addFavorite(String foodId) async {
+    try {
+      final response = await _api.postJson(ApiEndpoints.foodFavorite(foodId), {});
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> removeFavorite(String foodId) async {
+    try {
+      final response = await _api.delete(ApiEndpoints.foodFavorite(foodId));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<IngredientItem>> searchIngredients({String? keyword}) async {
+    try {
+      final query = (keyword != null && keyword.trim().isNotEmpty)
+          ? '?keyword=${Uri.encodeQueryComponent(keyword.trim())}'
+          : '';
+      final response = await _api.get('${ApiEndpoints.ingredientSearch}$query');
+      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return [];
+      final items = decoded['items'] ?? decoded['Items'];
+      if (items is! List) return [];
+      return items.whereType<Map<String, dynamic>>().map(IngredientItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> hasAllergiesConfigured() async {
+    try {
+      final response = await _api.get(ApiEndpoints.profileSummary);
+      if (response.statusCode != 200 || response.body.isEmpty) return false;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return false;
+      return decoded['hasAllergies'] == true || decoded['HasAllergies'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+}

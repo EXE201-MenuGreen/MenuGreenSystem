@@ -24,15 +24,19 @@ class UserSubscriptionRepository {
   }
 
   Future<UserSubscription?> getCurrent() async {
-    final response = await _api.get(ApiEndpoints.subscriptionCurrent);
-    if (response.statusCode == 204 || response.body.isEmpty) return null;
-    if (response.statusCode != 200) return null;
+    try {
+      final response = await _api.get(ApiEndpoints.subscriptionCurrent);
+      if (response.statusCode == 204 || response.body.isEmpty) return null;
+      if (response.statusCode != 200) return null;
 
-    final decoded = jsonDecode(response.body);
-    if (decoded == null) return null;
-    if (decoded is! Map<String, dynamic>) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded == null) return null;
+      if (decoded is! Map<String, dynamic>) return null;
 
-    return UserSubscription.fromJson(decoded);
+      return UserSubscription.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<SubscriptionTransaction>> getHistory() async {

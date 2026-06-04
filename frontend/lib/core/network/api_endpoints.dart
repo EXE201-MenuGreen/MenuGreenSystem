@@ -38,6 +38,15 @@ class ApiEndpoints {
   static String nutritionMealLogById(String mealLogId) =>
       '$baseUrl/NutritionTracking/meal-logs/$mealLogId';
   static String get foods => '$baseUrl/Food';
+  static String foodById(String id) => '$baseUrl/Food/$id';
+  static String foodRecipes(String foodId) => '$baseUrl/Food/$foodId/recipes';
+  static String foodFavorite(String foodId) => '$baseUrl/Food/$foodId/favorite';
+  static String get foodFavorites => '$baseUrl/Food/favorites';
+  static String get recipeSearch => '$baseUrl/Recipe/search';
+  static String recipeById(String id) => '$baseUrl/Recipe/$id';
+  static String recipeIngredients(String id) => '$baseUrl/Recipe/$id/ingredients';
+  static String get ingredientSearch => '$baseUrl/Ingredient/search';
+  static String get profileSummary => '$baseUrl/Profile/me/summary';
   static String get recipes => '$baseUrl/Recipe';
   static String get nutritionMealLogs => '$baseUrl/NutritionTracking/meal-logs';
 

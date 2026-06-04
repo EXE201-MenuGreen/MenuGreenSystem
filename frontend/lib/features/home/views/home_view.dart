@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
@@ -19,7 +21,7 @@ class HomeViewState extends State<HomeView> {
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
-  bool _loading = false;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -30,7 +32,14 @@ class HomeViewState extends State<HomeView> {
 
   Future<void> refreshHeader() async {
     final name = await _tokenStorage.getFullName();
-    final profile = await _profileRepository.getMyProfile();
+    Map<String, dynamic>? profile;
+    try {
+      profile = await _profileRepository
+          .getMyProfile()
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {
+      profile = null;
+    }
     if (!mounted) return;
 
     final rawAvatar = profile?['avatarUrl']?.toString();
@@ -42,20 +51,34 @@ class HomeViewState extends State<HomeView> {
     });
   }
 
-  Future<void> _loadTodaySummary() async {
-    setState(() => _loading = true);
-    final summary = await _trackingRepository.getDailySummary(DateTime.now());
-    if (!mounted) return;
-    setState(() {
-      _todaySummary = summary;
-      _loading = false;
-    });
+  Future<void> _loadTodaySummary({bool userInitiated = false}) async {
+    if (_refreshing) return;
+    if (userInitiated) setState(() => _refreshing = true);
+    try {
+      final summary = await _trackingRepository
+          .getDailySummary(DateTime.now())
+          .timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      setState(() => _todaySummary = summary);
+    } catch (_) {
+      if (!mounted) return;
+      if (userInitiated) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không tải được dữ liệu. Kiểm tra mạng và thử lại.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && userInitiated) setState(() => _refreshing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,7 +135,9 @@ class HomeViewState extends State<HomeView> {
             icon: const Icon(Icons.refresh, color: AppColors.textDark, size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            onPressed: _loading ? null : _loadTodaySummary,
+            onPressed: _refreshing
+                ? null
+                : () => _loadTodaySummary(userInitiated: true),
           ),
         )
       ],
@@ -311,8 +336,10 @@ class HomeViewState extends State<HomeView> {
                 SizedBox(
                   width: double.infinity,
                   child: PrimaryButton(
-                    text: _loading ? 'Đang tải...' : 'Làm mới dữ liệu',
-                    onPressed: _loading ? () {} : _loadTodaySummary,
+                    text: _refreshing ? 'Đang tải...' : 'Làm mới dữ liệu',
+                    onPressed: _refreshing
+                        ? null
+                        : () => _loadTodaySummary(userInitiated: true),
                   ),
                 )
               ],
@@ -324,17 +351,21 @@ class HomeViewState extends State<HomeView> {
   }
 
   Widget _buildOtherOptions() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
-      child: Row(
-        children: [
+    return SizedBox(
+      height: 200,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) => notification.metrics.axis == Axis.horizontal,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          children: [
           _buildSmallMealCard('BỮA PHỤ', 'Smoothie Bơ Hạt', '220 kcal • 5 phút'),
           const SizedBox(width: 16),
           _buildSmallMealCard('ĂN CHAY', 'Poke Chay Cầu Vồng', '380 kcal • 15 phút'),
           const SizedBox(width: 16),
           _buildSmallMealCard('THUẦN CHAY', 'Salad Đậu Hũ', '250 kcal • 10 phút'),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -348,10 +379,11 @@ class HomeViewState extends State<HomeView> {
         border: Border.all(color: AppColors.progressBackground),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 120,
+            height: 110,
             width: double.infinity,
             decoration: const BoxDecoration(
               color: AppColors.progressBackground,
@@ -360,15 +392,16 @@ class HomeViewState extends State<HomeView> {
             child: const Icon(Icons.fastfood_outlined, color: Colors.white, size: 32),
           ),
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tag, style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(meta, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 2),
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(meta, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           )
