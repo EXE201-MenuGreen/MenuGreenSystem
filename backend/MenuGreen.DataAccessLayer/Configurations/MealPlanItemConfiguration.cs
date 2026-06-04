@@ -18,6 +18,8 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.IsCompleted)
                 .HasDefaultValue(false);
 
+            builder.Property(x => x.ScheduledTime);
+
             builder.Property(x => x.CreatedAt)
                 .HasColumnType("timestamp with time zone");
 
