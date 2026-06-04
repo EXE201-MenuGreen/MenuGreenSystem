@@ -147,13 +147,35 @@ class FoodDiscoveryRepository {
     }
   }
 
+  /// Ưu tiên danh sách dị ứng user đã lưu (`/api/Allergies`) — tránh banner sai khi summary timeout/lỗi.
   Future<bool> hasAllergiesConfigured() async {
+    try {
+      final response = await _api.get(ApiEndpoints.allergies);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          final hasActive = decoded.whereType<Map<String, dynamic>>().any(
+                (row) => (row['isActive'] ?? row['IsActive']) == true,
+              );
+          if (hasActive) return true;
+        }
+      }
+    } catch (_) {
+      // Tiếp tục thử summary.
+    }
+
     try {
       final response = await _api.get(ApiEndpoints.profileSummary);
       if (response.statusCode != 200 || response.body.isEmpty) return false;
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return false;
-      return decoded['hasAllergies'] == true || decoded['HasAllergies'] == true;
+      if (decoded['hasAllergies'] == true || decoded['HasAllergies'] == true) {
+        return true;
+      }
+      final count = decoded['allergyCount'] ?? decoded['AllergyCount'];
+      if (count is int && count > 0) return true;
+      if (count is num && count > 0) return true;
+      return false;
     } catch (_) {
       return false;
     }

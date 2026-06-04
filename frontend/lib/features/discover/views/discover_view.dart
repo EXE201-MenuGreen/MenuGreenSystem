@@ -15,10 +15,10 @@ class DiscoverView extends StatefulWidget {
   const DiscoverView({super.key});
 
   @override
-  State<DiscoverView> createState() => _DiscoverViewState();
+  State<DiscoverView> createState() => DiscoverViewState();
 }
 
-class _DiscoverViewState extends State<DiscoverView> with SingleTickerProviderStateMixin {
+class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderStateMixin {
   final _repository = FoodDiscoveryRepository();
   final _keywordController = TextEditingController();
   late final TabController _tabController;
@@ -74,6 +74,21 @@ class _DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSt
     });
   }
 
+  /// Gọi khi quay lại tab Khám phá sau khi lưu dị ứng ở màn khác.
+  Future<void> refreshAllergyStatus() async {
+    _allergiesCached = null;
+    try {
+      final hasAllergies = await _repository
+          .hasAllergiesConfigured()
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      if (hasAllergies) _allergiesCached = true;
+      setState(() => _hasAllergies = hasAllergies);
+    } catch (_) {
+      // Giữ trạng thái hiện tại nếu mạng lỗi.
+    }
+  }
+
   String get _effectiveAllergyMode => _safeOnly ? 'hide' : _allergyMode;
 
   String? get _keyword =>
@@ -101,12 +116,13 @@ class _DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSt
     });
 
     try {
-      if (checkAllergy && _allergiesCached == null) {
-        _allergiesCached = await _repository
+      if (checkAllergy || _allergiesCached != true) {
+        final hasAllergies = await _repository
             .hasAllergiesConfigured()
             .timeout(const Duration(seconds: 15));
         if (!mounted || gen != _loadGeneration) return;
-        setState(() => _hasAllergies = _allergiesCached!);
+        if (hasAllergies) _allergiesCached = true;
+        setState(() => _hasAllergies = hasAllergies);
       }
 
       final foods = await _repository

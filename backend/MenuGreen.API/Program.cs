@@ -34,6 +34,24 @@ if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 
 // Add services to the container.
 builder.Services.AddDataAccessLayer(builder.Configuration);
+
+var redisConnection =
+    builder.Configuration["Redis:ConnectionString"]
+    ?? Environment.GetEnvironmentVariable("REDIS_URL");
+
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = "MenuGreen:";
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+
 builder.Services.AddBusinessLogicLayer();
 
 builder.Services.AddControllers();

@@ -20,6 +20,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final _homeKey = GlobalKey<HomeViewState>();
+  final _discoverKey = GlobalKey<DiscoverViewState>();
   DateTime? _lastHomeRefreshAt;
 
   /// Chỉ khởi tạo tab khi user mở lần đầu — tránh gọi API nền làm chậm/đơ.
@@ -28,7 +29,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget _pageAt(int index) {
     return _pageCache[index] ??= switch (index) {
       0 => HomeView(key: _homeKey),
-      1 => const DiscoverView(),
+      1 => DiscoverView(key: _discoverKey),
       2 => const Center(child: Text('Trợ lý AI')),
       3 => const HistoryView(),
       4 => ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
@@ -89,6 +90,8 @@ class _MainScreenState extends State<MainScreen> {
               _lastHomeRefreshAt = now;
               _homeKey.currentState?.refreshHeader();
             }
+          } else if (index == 1) {
+            _discoverKey.currentState?.refreshAllergyStatus();
           }
         },
         type: BottomNavigationBarType.fixed,
