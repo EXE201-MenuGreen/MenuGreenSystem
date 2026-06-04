@@ -18,6 +18,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal CarbsDeviation { get; set; }
         public decimal FatDeviation { get; set; }
         public bool HasWarning { get; set; }
+        /// <summary>Percent of daily calorie target consumed (from NutritionSnapshot rollup).</summary>
+        public decimal? GoalCompletionPercent { get; set; }
+        public bool HasSnapshot { get; set; }
         public List<MealLogResponse> MealLogs { get; set; } = new();
     }
 }

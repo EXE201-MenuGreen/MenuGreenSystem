@@ -13,13 +13,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class NutritionTrackingService : INutritionTrackingService
     {
         private readonly IUnitOfWork _unitOfWork;
-        public NutritionTrackingService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+        private readonly INutritionSnapshotService _nutritionSnapshotService;
+
+        public NutritionTrackingService(
+            IUnitOfWork unitOfWork,
+            INutritionSnapshotService nutritionSnapshotService)
+        {
+            _unitOfWork = unitOfWork;
+            _nutritionSnapshotService = nutritionSnapshotService;
+        }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
         {
             var entity = await BuildMealLogAsync(userId, request);
             await _unitOfWork.MealLogs.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
+            await SyncSnapshotForLogAsync(userId, entity);
             return await MapMealLogAsync(entity);
         }
 
@@ -29,25 +38,36 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await ApplyMealLogRequestAsync(entity, request);
             _unitOfWork.MealLogs.Update(entity);
             await _unitOfWork.CompleteAsync();
+            await SyncSnapshotForLogAsync(userId, entity);
             return await MapMealLogAsync(entity);
         }
 
         public async Task DeleteMealLogAsync(Guid userId, Guid mealLogId)
         {
             var entity = await GetOwnedMealLogAsync(userId, mealLogId);
+            var logDate = entity.LoggedAt.HasValue
+                ? DateOnly.FromDateTime(entity.LoggedAt.Value)
+                : DateOnly.FromDateTime(DateTime.UtcNow);
             _unitOfWork.MealLogs.Remove(entity);
             await _unitOfWork.CompleteAsync();
+            await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, logDate);
         }
 
         public async Task<MealDaySummaryResponse> GetDailySummaryAsync(Guid userId, DateOnly date)
         {
             var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == date);
+            await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, date);
             return await BuildDailySummaryAsync(userId, date, logs.ToList());
         }
 
         public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
         {
             var (from, to) = ResolveRange(range, startDate, endDate);
+            for (var day = from; day <= to; day = day.AddDays(1))
+            {
+                await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day);
+            }
+
             var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) >= from && DateOnly.FromDateTime(x.LoggedAt.Value) <= to);
             var days = await BuildRangeSummariesAsync(userId, from, to, logs.ToList());
             var weightLogs = await _unitOfWork.WeightLogs.FindAsync(x => x.UserId == userId && x.RecordedAt.HasValue && DateOnly.FromDateTime(x.RecordedAt.Value) >= from && DateOnly.FromDateTime(x.RecordedAt.Value) <= to);
@@ -187,6 +207,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var totalCarbs = logs.Sum(x => x.CarbsG ?? 0);
             var totalFat = logs.Sum(x => x.FatG ?? 0);
 
+            decimal? goalCompletionPercent = null;
+            var hasSnapshot = false;
+            var snapshots = await _unitOfWork.NutritionSnapshots.FindAsync(
+                x => x.UserId == userId && x.SnapshotDate == date);
+            var snapshot = snapshots.FirstOrDefault();
+            if (snapshot != null)
+            {
+                hasSnapshot = true;
+                goalCompletionPercent = snapshot.GoalCompletionPercent;
+            }
+            else if (targetCalories > 0)
+            {
+                goalCompletionPercent = Math.Round(totalCalories / targetCalories * 100m, 2);
+            }
+
             return new MealDaySummaryResponse
             {
                 Date = date.ToString("yyyy-MM-dd"),
@@ -203,8 +238,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsDeviation = totalCarbs - targetCarbs,
                 FatDeviation = totalFat - targetFat,
                 HasWarning = Math.Abs((double)(totalCalories - targetCalories)) > (double)Math.Max(100, targetCalories * 0.10m),
+                GoalCompletionPercent = goalCompletionPercent,
+                HasSnapshot = hasSnapshot,
                 MealLogs = await MapMealLogsAsync(logs)
             };
+        }
+
+        private async Task SyncSnapshotForLogAsync(Guid userId, MealLog entity)
+        {
+            var logDate = entity.LoggedAt.HasValue
+                ? DateOnly.FromDateTime(entity.LoggedAt.Value)
+                : DateOnly.FromDateTime(DateTime.UtcNow);
+            await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, logDate);
         }
 
         private async Task<List<MealDaySummaryResponse>> BuildRangeSummariesAsync(Guid userId, DateOnly from, DateOnly to, List<MealLog> logs)
