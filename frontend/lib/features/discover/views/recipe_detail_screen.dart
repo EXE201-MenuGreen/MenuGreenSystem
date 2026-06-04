@@ -114,7 +114,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${i.ingredientName} — ${i.quantity} ${i.unit}',
+                        _formatIngredientLine(i),
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),
@@ -177,5 +177,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         const SnackBar(content: Text('Đã ghi vào nhật ký bữa ăn')),
       );
     }
+  }
+
+  String _formatIngredientLine(RecipeIngredientItem item) {
+    final name = item.ingredientName.trim().isEmpty ? 'Nguyên liệu' : item.ingredientName.trim();
+    final qty = item.quantity == item.quantity.roundToDouble()
+        ? item.quantity.toStringAsFixed(0)
+        : item.quantity.toStringAsFixed(1);
+    final unit = item.unit.trim();
+    final amount = unit.isEmpty ? qty : '$qty $unit';
+    return item.notes != null && item.notes!.trim().isNotEmpty
+        ? '$name — $amount (${item.notes!.trim()})'
+        : '$name — $amount';
   }
 }

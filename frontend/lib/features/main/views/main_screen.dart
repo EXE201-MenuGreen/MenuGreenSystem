@@ -16,7 +16,9 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
+  final _historyKey = GlobalKey<HistoryViewState>();
   DateTime? _lastHomeRefreshAt;
+  DateTime? _lastHistoryRefreshAt;
 
   /// Chỉ khởi tạo tab khi user mở lần đầu — tránh gọi API nền làm chậm/đơ.
   final List<Widget?> _pageCache = List<Widget?>.filled(5, null);
@@ -26,7 +28,10 @@ class _MainScreenState extends State<MainScreen> {
       0 => HomeView(key: _homeKey),
       1 => DiscoverView(key: _discoverKey),
       2 => const Center(child: Text('Trợ lý AI')),
-      3 => const HistoryView(),
+      3 => HistoryView(
+          key: _historyKey,
+          onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
+        ),
       4 => ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
       _ => const SizedBox.shrink(),
     };
@@ -38,6 +43,25 @@ class _MainScreenState extends State<MainScreen> {
       return const SizedBox.shrink();
     }
     return _pageAt(index);
+  }
+
+  void _refreshHomeIfStale() {
+    final last = _lastHomeRefreshAt;
+    final now = DateTime.now();
+    if (last == null || now.difference(last) > const Duration(seconds: 30)) {
+      _lastHomeRefreshAt = now;
+      _homeKey.currentState?.refreshHeader();
+      _homeKey.currentState?.reloadSummary();
+    }
+  }
+
+  void _refreshHistoryIfStale() {
+    final last = _lastHistoryRefreshAt;
+    final now = DateTime.now();
+    if (last == null || now.difference(last) > const Duration(seconds: 30)) {
+      _lastHistoryRefreshAt = now;
+      _historyKey.currentState?.reloadData();
+    }
   }
 
   @override
@@ -53,14 +77,11 @@ class _MainScreenState extends State<MainScreen> {
         onTap: (index) {
           setState(() => _currentIndex = index);
           if (index == 0) {
-            final last = _lastHomeRefreshAt;
-            final now = DateTime.now();
-            if (last == null || now.difference(last) > const Duration(seconds: 60)) {
-              _lastHomeRefreshAt = now;
-              _homeKey.currentState?.refreshHeader();
-            }
+            _refreshHomeIfStale();
           } else if (index == 1) {
             _discoverKey.currentState?.refreshAllergyStatus();
+          } else if (index == 3) {
+            _refreshHistoryIfStale();
           }
         },
         type: BottomNavigationBarType.fixed,

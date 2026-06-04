@@ -37,6 +37,8 @@ class ApiEndpoints {
       '$baseUrl/NutritionTracking/weight-logs';
   static String nutritionMealLogById(String mealLogId) =>
       '$baseUrl/NutritionTracking/meal-logs/$mealLogId';
+  static String nutritionWeightLogById(String weightLogId) =>
+      '$baseUrl/NutritionTracking/weight-logs/$weightLogId';
   static String get foods => '$baseUrl/Food';
   static String foodById(String id) => '$baseUrl/Food/$id';
   static String foodRecipes(String foodId) => '$baseUrl/Food/$foodId/recipes';
