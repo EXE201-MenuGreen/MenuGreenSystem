@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MenuGreen.API.Controllers
 {
+    /// <summary>
+    /// Controller quản lý các gói Subscription Plan.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Admin")]
@@ -20,7 +23,9 @@ namespace MenuGreen.API.Controllers
             _service = service;
         }
 
-        // Lấy danh sách chính sách gói subscription, có thể lọc theo trạng thái hoạt động.
+        /// <summary>
+        /// Lấy danh sách chính sách gói subscription (có thể lọc theo trạng thái).
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
         {
@@ -34,7 +39,26 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Lấy chi tiết chính sách của một gói subscription theo Id.
+        /// <summary>
+        /// Lấy danh sách các gói subscription đang hoạt động.
+        /// </summary>
+        [HttpGet("active")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetActive()
+        {
+            try
+            {
+                return Ok(await _service.GetActiveAsync());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết chính sách của một gói subscription theo Id.
+        /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -48,7 +72,42 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Tạo mới một chính sách gói subscription.
+        /// <summary>
+        /// Lấy danh sách các tính năng của một gói subscription.
+        /// </summary>
+        [HttpGet("{id:guid}/features")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPlanFeatures(Guid id)
+        {
+            try
+            {
+                return Ok(await _service.GetPlanFeaturesAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy trạng thái hoạt động của một gói subscription.
+        /// </summary>
+        [HttpGet("{id:guid}/status")]
+        public async Task<IActionResult> GetPlanStatus(Guid id)
+        {
+            try
+            {
+                return Ok(await _service.GetPlanStatusAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Tạo mới một chính sách gói subscription.
+        /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SubscriptionPlanUpsertRequest request)
         {
@@ -64,7 +123,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Cập nhật chính sách giá và thời hạn của gói subscription.
+        /// <summary>
+        /// Cập nhật chính sách giá và thời hạn của gói subscription.
+        /// </summary>
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] SubscriptionPlanUpsertRequest request)
         {
@@ -80,7 +141,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Xóa một chính sách gói subscription không còn dùng.
+        /// <summary>
+        /// Xóa một chính sách gói subscription không còn dùng.
+        /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -95,7 +158,9 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        // Bật hoặc tắt hiệu lực của một chính sách gói subscription.
+        /// <summary>
+        /// Bật hoặc tắt hiệu lực của một chính sách gói subscription.
+        /// </summary>
         [HttpPatch("{id:guid}/status")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] SubscriptionPlanStatusRequest request)
         {

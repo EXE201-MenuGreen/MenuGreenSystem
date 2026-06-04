@@ -30,10 +30,44 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
         }
 
+        public async Task<IEnumerable<SubscriptionPlanResponse>> GetActiveAsync()
+        {
+            var plans = await _unitOfWork.SubscriptionPlans.FindAsync(x => x.IsActive == true);
+            return plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
+        }
+
         public async Task<SubscriptionPlanResponse> GetByIdAsync(Guid id)
         {
             var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");
             return Map(plan);
+        }
+
+        public async Task<SubscriptionPlanFeaturesResponse> GetPlanFeaturesAsync(Guid id)
+        {
+            var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");
+            
+            var features = ParseFeatures(plan.FeatureGroup);
+            
+            return new SubscriptionPlanFeaturesResponse
+            {
+                PlanId = plan.Id,
+                PlanName = plan.Name ?? string.Empty,
+                FeatureGroup = plan.FeatureGroup,
+                Features = features
+            };
+        }
+
+        public async Task<SubscriptionPlanStatusResponse> GetPlanStatusAsync(Guid id)
+        {
+            var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");
+            
+            return new SubscriptionPlanStatusResponse
+            {
+                PlanId = plan.Id,
+                PlanName = plan.Name ?? string.Empty,
+                IsActive = plan.IsActive ?? false,
+                StatusMessage = (plan.IsActive ?? false) ? "Gói đang hoạt động" : "Gói đã bị vô hiệu hóa"
+            };
         }
 
         public async Task<SubscriptionPlanResponse> CreateAsync(SubscriptionPlanUpsertRequest request)
@@ -133,6 +167,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 "pro" => "Pro",
                 _ => "Custom"
             };
+        }
+
+        private static List<string> ParseFeatures(string? featureGroup)
+        {
+            if (string.IsNullOrWhiteSpace(featureGroup))
+            {
+                return new List<string>();
+            }
+
+            // Giả sử FeatureGroup có format: "feature1,feature2,feature3" hoặc "feature1;feature2;feature3"
+            return featureGroup
+                .Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(f => f.Trim())
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .ToList();
         }
     }
 }

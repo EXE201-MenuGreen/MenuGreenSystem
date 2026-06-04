@@ -52,6 +52,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return notifications.OrderByDescending(x => x.CreatedAt).Select(MapNotification).ToList();
         }
 
+        public async Task<NotificationResponse> GetByIdAsync(Guid userId, Guid notificationId)
+        {
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            return MapNotification(notification);
+        }
+
         public async Task<int> GetUnreadCountAsync(Guid userId)
         {
             var notifications = await _unitOfWork.Notifications.FindAsync(x => x.UserId == userId && !x.IsRead);
@@ -79,6 +85,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task DeleteAsync(Guid userId, Guid notificationId)
+        {
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            _unitOfWork.Notifications.Remove(notification);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<int> DeleteBatchAsync(Guid userId, List<Guid> notificationIds)
+        {
+            if (notificationIds == null || notificationIds.Count == 0)
+            {
+                return 0;
+            }
+
+            var notifications = await _unitOfWork.Notifications.FindAsync(
+                x => x.UserId == userId && notificationIds.Contains(x.Id));
+
+            var notificationList = notifications.ToList();
+            
+            foreach (var notification in notificationList)
+            {
+                _unitOfWork.Notifications.Remove(notification);
+            }
+
+            await _unitOfWork.CompleteAsync();
+            return notificationList.Count;
+        }
+
+        public async Task<int> DeleteByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate)
+        {
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+
+            var notifications = await _unitOfWork.Notifications.FindAsync(
+                x => x.UserId == userId && 
+                x.CreatedAt >= startDateTime && 
+                x.CreatedAt <= endDateTime);
+
+            var notificationList = notifications.ToList();
+            
+            foreach (var notification in notificationList)
+            {
+                _unitOfWork.Notifications.Remove(notification);
+            }
+
+            await _unitOfWork.CompleteAsync();
+            return notificationList.Count;
         }
 
         public async Task<NotificationResponse> ScheduleMealReminderAsync(Guid userId, ScheduleMealReminderRequest request)
