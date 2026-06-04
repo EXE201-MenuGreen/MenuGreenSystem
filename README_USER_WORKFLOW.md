@@ -219,6 +219,8 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 - `4.2` Đăng nhập + refresh token nền + logout.
 - `4.4` Quản lý profile, avatar, đổi mật khẩu.
 - `4.5` Dị ứng (đang dùng trong onboarding).
+- `4.9` Nutrition tracking (Home, Lịch sử, CRUD meal log, dashboard ngày/tuần/tháng, cảnh báo macro).
+- `4.10` Weight tracking (CRUD + biểu đồ tiến độ cân nặng trong tab Lịch sử).
 - `4.11` Subscription (plans/current/history/subscribe/renew/cancel).
 
 ### 5.2 API đã có nhưng UI mới cover một phần
@@ -226,12 +228,6 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 - `4.3` Onboarding sức khỏe:
   - UI 5 bước đã gọi API: Profile, HealthProfile, UserAiProfile, Allergy/UserAllergy, `Onboarding/complete` (NutritionSnapshot).
   - Gate vào app dựa `Profile/me/completion`; bước dị ứng chỉ chuyển tiếp khi lưu thành công.
-- `4.9` Nutrition tracking:
-  - API đã có cho meal-log/daily/dashboard.
-  - UI đang ở mức demo/mock, chưa nối đầy đủ.
-- `4.10` Weight tracking:
-  - API ghi/sửa/xóa weight log đã có.
-  - UI biểu đồ tiến độ chưa nối dữ liệu thực.
 
 ### 5.3 API có nhưng UI chưa triển khai thực tế
 
@@ -245,11 +241,10 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ### P1 - Hoàn thiện luồng cốt lõi đang dở (ưu tiên cao nhất)
 
-- Nối dữ liệu thực cho Home và History:
-  - Bỏ dữ liệu hard-code/mock.
-  - Dùng API NutritionTracking để lấy daily/dashboard.
+- ~~Nối dữ liệu thực cho Home và History (NutritionTracking API).~~ **Đã xong (4.9/4.10).**
 - Viết test tối thiểu cho luồng auth + onboarding + profile:
   - Sửa `widget_test.dart` mặc định thành test thật theo app hiện tại.
+- Unit test nutrition models/warnings (đã có một phần).
 
 **Kết quả mong đợi P1**
 - User đi từ đăng ký -> onboarding -> màn hình chính với dữ liệu thật.
@@ -259,8 +254,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 - Hoàn thiện Recommendation nâng cao (P2):
   - Smart-schedule, lịch sử/feedback, giải thích đề xuất.
-- Triển khai màn hình ghi meal log và weight log:
-  - CRUD + cập nhật dashboard real-time.
+- ~~Triển khai màn hình ghi meal log và weight log (CRUD + dashboard real-time).~~ **Đã xong.**
 
 **Kết quả mong đợi P2**
 - User dùng app hằng ngày được trọn chu trình gợi ý -> ghi nhận -> theo dõi.
