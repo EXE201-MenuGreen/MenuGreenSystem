@@ -87,7 +87,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             if (user == null)
             {
-                throw new Exception("Tài khoản không tồn tại. Vui lòng đăng xuất và đăng nhập lại.");
+                throw new Exception("Account not found. Please sign out and sign in again.");
             }
         }
 

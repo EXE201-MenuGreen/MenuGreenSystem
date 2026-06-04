@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
+using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 
@@ -13,7 +15,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class RecipeCatalogService : IRecipeCatalogService
     {
         private readonly IUnitOfWork _unitOfWork;
-        public RecipeCatalogService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+        private readonly ApplicationDbContext _db;
+
+        public RecipeCatalogService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+        {
+            _unitOfWork = unitOfWork;
+            _db = db;
+        }
 
         public async Task<RecipeResponse> CreateAsync(RecipeUpsertRequest request)
         {
@@ -38,9 +46,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<RecipeResponse> GetByIdAsync(Guid id)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
-            var items = await _unitOfWork.RecipeIngredients.FindAsync(x => x.RecipeId == id);
             var result = Map(recipe);
-            result.Ingredients = items.Select(x => new RecipeIngredientResponse { IngredientId = x.IngredientId, IngredientName = x.Ingredient?.NameVi ?? string.Empty, Quantity = x.Quantity ?? 0, Unit = x.Unit ?? string.Empty, Notes = x.Notes }).ToList();
+            result.Ingredients = await RecipeIngredientLoader.LoadAsync(_db, id);
             return result;
         }
 

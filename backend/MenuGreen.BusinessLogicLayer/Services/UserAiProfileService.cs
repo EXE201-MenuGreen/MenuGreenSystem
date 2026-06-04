@@ -106,16 +106,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var inner = ex.InnerException?.Message ?? ex.Message;
             if (inner.Contains("invalid input syntax for type json", StringComparison.OrdinalIgnoreCase))
             {
-                return "Dữ liệu sở thích không hợp lệ. Vui lòng thử lại.";
+                return "Invalid preference data. Please try again.";
             }
 
             if (inner.Contains("user_ai_profile", StringComparison.OrdinalIgnoreCase)
                 && inner.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
             {
-                return "Bảng user_ai_profile chưa có trên database. Vui lòng chạy migration hoặc cập nhật schema.";
+                return "Database schema is outdated. Please run migrations.";
             }
 
-            return "Không thể lưu hồ sơ AI. Vui lòng thử lại sau.";
+            return "Cannot save AI profile. Please try again later.";
         }
 
         private async Task<UserAiProfile?> GetOrNullAsync(Guid userId)
