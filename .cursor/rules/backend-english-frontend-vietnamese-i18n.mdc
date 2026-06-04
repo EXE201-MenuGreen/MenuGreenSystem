@@ -1,0 +1,54 @@
+---
+description: Backend API English only; Flutter dịch response sang tiếng Việt cho UI
+alwaysApply: true
+---
+
+# Backend English · Flutter Vietnamese UI
+
+## Backend (.NET) — English only
+
+Mọi nội dung **trả về client** phải viết **tiếng Anh**:
+
+- JSON fields: `Message`, `Error`, `WarningMessages`, validation `ErrorMessage`
+- Exception messages bubble lên controller (vd. `"Recipe not found."`)
+- Enum/string constants trong response (vd. meal type `breakfast`, không `bữa sáng`)
+
+**Không** đặt câu tiếng Việt trong response API. Comment, log nội bộ, tên biến giữ tiếng Anh.
+
+Catalog/entity có thể lưu `NameVi` + `NameEn` trong DB; field hiển thị cho user trên app VN do Flutter chọn `NameVi` hoặc dịch — không nhét tiếng Việt vào DTO chỉ vì market VN.
+
+Ưu tiên **message ổn định** (cùng lỗi = cùng chuỗi) hoặc **error code** (`"code": "RECIPE_NOT_FOUND"`) để Flutter map chính xác.
+
+## Flutter — Dịch trước khi hiển thị
+
+- **Không** hiển thị trực tiếp chuỗi tiếng Anh từ API trong SnackBar, dialog, label cảnh báo.
+- Dùng `ApiMessageTranslator` tại `lib/core/i18n/api_message_translator.dart`.
+- Auth: `localizeAuthMessage()` tại `lib/features/auth/utils/auth_error_messages.dart` (đã dùng trong `AuthRepository`).
+- Repository hoặc UI gọi `ApiMessageTranslator.translate(message)` trước khi show user.
+- Text cố định trong widget (nút, empty state, tiêu đề) viết **tiếng Việt** trong code UI.
+
+## Ví dụ
+
+```csharp
+// ✅ Backend
+messages.Add("Calorie intake deviates more than 10% from daily target.");
+throw new Exception("Recipe not found.");
+
+// ❌ Backend
+messages.Add("Calo lệch hơn 10% so với mục tiêu ngày.");
+return BadRequest(new { Message = "Không tìm thấy công thức." });
+```
+
+```dart
+// ✅ Flutter
+SnackBar(content: Text(ApiMessageTranslator.translate(result['message'])));
+
+// ❌ Flutter
+SnackBar(content: Text(result['message'])); // English lọt ra UI
+```
+
+## Khi thêm API mới
+
+1. Backend: message tiếng Anh hoặc code ổn định.
+2. Flutter: thêm mapping vào `ApiMessageTranslator`.
+3. Test: assert UI nhận chuỗi tiếng Việt, không phụ thuộc chuỗi Anh từ server.

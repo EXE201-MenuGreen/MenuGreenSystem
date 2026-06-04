@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -53,7 +54,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(ApiMessageTranslator.translate(result['message']?.toString())),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
