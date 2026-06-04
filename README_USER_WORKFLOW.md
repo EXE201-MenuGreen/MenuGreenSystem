@@ -128,15 +128,17 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.6 Khám phá món ăn và công thức
+### 4.6 Khám phá món ăn và công thức (đã triển khai)
 
 #### Luồng chính
-- Tìm kiếm món theo từ khóa.
-- Lọc theo calories/protein/chi phí/thời gian/nhóm món.
-- Xem chi tiết món ăn, thành phần, công thức.
+- Tab **Khám phá**: tìm món/công thức/nguyên liệu theo từ khóa.
+- Lọc món: calories min/max, đạm (high/low), giá tối đa, category; **chỉ món an toàn** (`allergyMode=hide`).
+- Cảnh báo/ẩn theo dị ứng user; khai báo dị ứng từ màn Khám phá.
+- Chi tiết món (công thức liên quan, yêu thích, ghi nhật ký), chi tiết công thức (nguyên liệu, ghi nhật ký), chi tiết nguyên liệu (công thức liên quan).
+- **Gợi ý an toàn** (icon gợi ý): rule-based có `excludeUserAllergies`.
 
 #### Đầu ra
-- User tìm nhanh món phù hợp mục tiêu và điều kiện thực tế.
+- User tìm nhanh món phù hợp mục tiêu, ngân sách và hạn chế dị ứng.
 
 ---
 
@@ -222,8 +224,8 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 ### 5.2 API đã có nhưng UI mới cover một phần
 
 - `4.3` Onboarding sức khỏe:
-  - UI có các bước nhập liệu.
-  - Chưa đồng bộ đầy đủ với lưu Health Profile cho toàn bộ bước.
+  - UI 5 bước đã gọi API: Profile, HealthProfile, UserAiProfile, Allergy/UserAllergy, `Onboarding/complete` (NutritionSnapshot).
+  - Gate vào app dựa `Profile/me/completion`; bước dị ứng chỉ chuyển tiếp khi lưu thành công.
 - `4.9` Nutrition tracking:
   - API đã có cho meal-log/daily/dashboard.
   - UI đang ở mức demo/mock, chưa nối đầy đủ.
@@ -233,8 +235,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ### 5.3 API có nhưng UI chưa triển khai thực tế
 
-- `4.6` Khám phá món ăn/công thức (tab khám phá đang placeholder).
-- `4.7` Recommendation rule-based (chưa có màn hình/flow gọi API thực).
+- `4.7` Recommendation rule-based nâng cao (smart-schedule, history/feedback UI — chưa có màn riêng ngoài gợi ý an toàn trong Khám phá).
 - `4.8` AI assistant (tab AI đang placeholder).
 - Notification workflow (API có, UI chưa có màn hình quản lý hoàn chỉnh).
 
@@ -244,9 +245,6 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ### P1 - Hoàn thiện luồng cốt lõi đang dở (ưu tiên cao nhất)
 
-- Hoàn tất lưu onboarding vào backend:
-  - Nối các bước `BasicInfo`, `UserType`, `Preferences`, `CalorieGoal` vào payload thật.
-  - Đồng bộ với API profile/health-profile phù hợp.
 - Nối dữ liệu thực cho Home và History:
   - Bỏ dữ liệu hard-code/mock.
   - Dùng API NutritionTracking để lấy daily/dashboard.
@@ -259,10 +257,8 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ### P2 - Mở khóa giá trị sử dụng hàng ngày
 
-- Triển khai màn hình Khám phá (Food/Recipe/Ingredient):
-  - List, filter, detail.
-- Triển khai màn hình Recommendation rule-based:
-  - Calories/Eco/Lunch/Daily-menu/Smart-schedule.
+- Hoàn thiện Recommendation nâng cao (P2):
+  - Smart-schedule, lịch sử/feedback, giải thích đề xuất.
 - Triển khai màn hình ghi meal log và weight log:
   - CRUD + cập nhật dashboard real-time.
 
