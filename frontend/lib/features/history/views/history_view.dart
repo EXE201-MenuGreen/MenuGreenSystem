@@ -12,6 +12,8 @@ import '../../tracking/widgets/weight_log_sheet.dart';
 import '../../tracking/widgets/weight_trend_chart.dart';
 import '../../tracking/widgets/calendar_heatmap_legend.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key, this.onTrackingUpdated});
@@ -131,6 +133,9 @@ class HistoryViewState extends State<HistoryView> {
                       ? sectionTime
                       : TimeOfDay(hour: item.loggedAt!.hour, minute: item.loggedAt!.minute),
                   category: entry.key,
+                  foodId: item.foodId,
+                  recipeId: item.recipeId,
+                  isRecipe: item.isRecipe,
                 ),
               )
               .toList(),
@@ -479,6 +484,31 @@ class HistoryViewState extends State<HistoryView> {
     await _loadData();
   }
 
+  Future<void> _openMealDetail(HistoryMealEntry meal) async {
+    final recipeId = meal.recipeId?.trim();
+    if (recipeId != null && recipeId.isNotEmpty && recipeId.toLowerCase() != 'null') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: recipeId),
+        ),
+      );
+      return;
+    }
+
+    final foodId = meal.foodId?.trim();
+    if (foodId != null && foodId.isNotEmpty && foodId.toLowerCase() != 'null') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: foodId),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    _showSnack('Không có liên kết chi tiết cho món này.', isError: true);
+  }
+
   Future<void> _editMealLog(String mealLogId) async {
     final logs = _dailySummary?.mealLogs ?? [];
     MealLogItem? meal;
@@ -619,6 +649,7 @@ class HistoryViewState extends State<HistoryView> {
                         showLineBelow: !isLast,
                         onDeleteMeal: _deleteMealLog,
                         onEditMeal: _editMealLog,
+                        onOpenDetail: _openMealDetail,
                       );
                     }),
                 ],
@@ -949,12 +980,14 @@ class _TimelineSectionWidget extends StatelessWidget {
     required this.showLineBelow,
     required this.onDeleteMeal,
     required this.onEditMeal,
+    required this.onOpenDetail,
   });
 
   final HistoryTimelineSection section;
   final bool showLineBelow;
   final Future<void> Function(String mealId) onDeleteMeal;
   final Future<void> Function(String mealId) onEditMeal;
+  final Future<void> Function(HistoryMealEntry meal) onOpenDetail;
 
   String _formatTime(TimeOfDay time) {
     final h = time.hour.toString().padLeft(2, '0');
@@ -1031,6 +1064,7 @@ class _TimelineSectionWidget extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _MealCard(
                           meal: meal,
+                          onOpenDetail: meal.canOpenDetail ? () => onOpenDetail(meal) : null,
                           onEdit: () => onEditMeal(meal.id),
                           onDelete: () => onDeleteMeal(meal.id),
                         ),
@@ -1050,11 +1084,13 @@ class _MealCard extends StatelessWidget {
     required this.meal,
     required this.onEdit,
     required this.onDelete,
+    this.onOpenDetail,
   });
 
   final HistoryMealEntry meal;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onOpenDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -1062,7 +1098,7 @@ class _MealCard extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () {},
+        onTap: onOpenDetail,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -1089,7 +1125,7 @@ class _MealCard extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
                       )
-                    : _imagePlaceholder(),
+                    : _imagePlaceholder(meal.isRecipe),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1112,26 +1148,42 @@ class _MealCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (onOpenDetail != null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Chạm để xem chi tiết',
+                          style: TextStyle(fontSize: 11, color: AppColors.primary),
+                        ),
+                      ),
                   ],
                 ),
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
                 onSelected: (value) {
+                  if (value == 'detail') onOpenDetail?.call();
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem<String>(
+                itemBuilder: (context) => [
+                  if (onOpenDetail != null)
+                    const PopupMenuItem<String>(
+                      value: 'detail',
+                      child: Text('Xem chi tiết'),
+                    ),
+                  const PopupMenuItem<String>(
                     value: 'edit',
                     child: Text('Sửa nhật ký'),
                   ),
-                  PopupMenuItem<String>(
+                  const PopupMenuItem<String>(
                     value: 'delete',
                     child: Text('Xóa nhật ký'),
                   ),
                 ],
               ),
+              if (onOpenDetail != null)
+                const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
             ],
           ),
         ),
@@ -1139,12 +1191,16 @@ class _MealCard extends StatelessWidget {
     );
   }
 
-  Widget _imagePlaceholder() {
+  Widget _imagePlaceholder([bool isRecipe = false]) {
     return Container(
       width: 56,
       height: 56,
       color: AppColors.progressBackground,
-      child: const Icon(Icons.restaurant, color: AppColors.textLight, size: 24),
+      child: Icon(
+        isRecipe ? Icons.menu_book_outlined : Icons.restaurant,
+        color: AppColors.textLight,
+        size: 24,
+      ),
     );
   }
 }

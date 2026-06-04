@@ -34,6 +34,9 @@ class HistoryMealEntry {
     required this.time,
     required this.category,
     this.imageUrl,
+    this.foodId,
+    this.recipeId,
+    this.isRecipe = false,
   });
 
   final String id;
@@ -43,6 +46,19 @@ class HistoryMealEntry {
   final TimeOfDay time;
   final MealCategory category;
   final String? imageUrl;
+  final String? foodId;
+  final String? recipeId;
+  final bool isRecipe;
+
+  bool get canOpenDetail {
+    bool valid(String? value) {
+      if (value == null) return false;
+      final trimmed = value.trim();
+      return trimmed.isNotEmpty && trimmed.toLowerCase() != 'null';
+    }
+
+    return valid(recipeId) || valid(foodId);
+  }
 }
 
 class HistoryTimelineSection {
