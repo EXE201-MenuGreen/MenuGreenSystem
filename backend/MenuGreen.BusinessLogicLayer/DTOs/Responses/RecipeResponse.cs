@@ -21,5 +21,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? VideoUrl { get; set; }
         public bool? IsActive { get; set; }
         public List<RecipeIngredientResponse> Ingredients { get; set; } = new();
+        public List<string> MatchedAllergens { get; set; } = new();
+        public string AllergyRiskLevel { get; set; } = "none";
+        public bool IsSafeForUser { get; set; } = true;
     }
 }

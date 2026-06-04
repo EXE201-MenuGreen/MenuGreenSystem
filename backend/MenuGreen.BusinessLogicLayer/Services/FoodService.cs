@@ -16,11 +16,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _db;
+        private readonly IAllergenMatchingService _allergenMatching;
 
-        public FoodService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+        public FoodService(
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext db,
+            IAllergenMatchingService allergenMatching)
         {
             _unitOfWork = unitOfWork;
             _db = db;
+            _allergenMatching = allergenMatching;
         }
 
         public async Task<FoodResponse> CreateAsync(FoodUpsertRequest request)
@@ -77,19 +82,73 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
-        public async Task<FoodResponse> GetByIdAsync(Guid id) => Map(await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."));
-
-        public async Task<FoodSearchResponse> SearchAsync(string? keyword, decimal? minCalories, decimal? maxCalories, string? proteinLevel, int? maxPriceVnd, int? maxPrepTimeMin, string? category)
+        public async Task<FoodResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
+            var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
+            var mode = NormalizeAllergyMode(allergyMode);
+            var userKeys = userId.HasValue
+                ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(new[] { id });
+            foodKeysMap.TryGetValue(id, out var foodKeys);
+            foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            return EnrichWithAllergy(Map(food), foodKeys, userKeys);
+        }
+
+        public async Task<FoodSearchResponse> SearchAsync(
+            string? keyword,
+            decimal? minCalories,
+            decimal? maxCalories,
+            string? proteinLevel,
+            int? maxPriceVnd,
+            int? maxPrepTimeMin,
+            string? category,
+            Guid? userId = null,
+            string? allergyMode = null)
+        {
+            var mode = NormalizeAllergyMode(allergyMode);
             var foods = (await _unitOfWork.Foods.GetAllAsync()).Where(f => f.IsActive != false);
-            if (!string.IsNullOrWhiteSpace(keyword)) foods = foods.Where(f => f.NameVi.Contains(keyword, StringComparison.OrdinalIgnoreCase) || (f.NameEn ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                foods = foods.Where(f =>
+                    f.NameVi.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                    (f.NameEn ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+            }
+
             if (minCalories.HasValue) foods = foods.Where(f => (f.CaloriesKcal ?? 0) >= minCalories.Value);
             if (maxCalories.HasValue) foods = foods.Where(f => (f.CaloriesKcal ?? 0) <= maxCalories.Value);
-            if (!string.IsNullOrWhiteSpace(category)) foods = foods.Where(f => string.Equals(f.Category, category, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(category))
+                foods = foods.Where(f => string.Equals(f.Category, category, StringComparison.OrdinalIgnoreCase));
             if (maxPriceVnd.HasValue) foods = foods.Where(f => (f.EstimatedPriceVnd ?? int.MaxValue) <= maxPriceVnd.Value);
-            if (!string.IsNullOrWhiteSpace(proteinLevel)) foods = proteinLevel.Equals("high", StringComparison.OrdinalIgnoreCase) ? foods.Where(f => (f.ProteinG ?? 0) >= 20) : foods.Where(f => (f.ProteinG ?? 0) < 20);
-            if (maxPrepTimeMin.HasValue) foods = foods.Where(f => true);
-            return new FoodSearchResponse { TotalCount = foods.Count(), Items = foods.Select(Map).ToList() };
+            if (!string.IsNullOrWhiteSpace(proteinLevel))
+            {
+                foods = proteinLevel.Equals("high", StringComparison.OrdinalIgnoreCase)
+                    ? foods.Where(f => (f.ProteinG ?? 0) >= 20)
+                    : foods.Where(f => (f.ProteinG ?? 0) < 20);
+            }
+
+            var foodList = foods.ToList();
+            var userKeys = userId.HasValue
+                ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(foodList.Select(f => f.Id));
+
+            var items = new List<FoodResponse>();
+            foreach (var food in foodList)
+            {
+                foodKeysMap.TryGetValue(food.Id, out var foodKeys);
+                foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var dto = EnrichWithAllergy(Map(food), foodKeys, userKeys);
+
+                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser)
+                    continue;
+
+                items.Add(dto);
+            }
+
+            return new FoodSearchResponse { TotalCount = items.Count, Items = items };
         }
 
         public async Task<IReadOnlyList<RecipeResponse>> GetRecipesAsync(Guid foodId)
@@ -130,7 +189,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }).ToList();
         }
 
-        public async Task<IReadOnlyList<FoodResponse>> GetSimilarAsync(Guid foodId)
+        public async Task<IReadOnlyList<FoodResponse>> GetSimilarAsync(Guid foodId, Guid? userId = null, string? allergyMode = null)
         {
             var currentFood = await _unitOfWork.Foods.GetByIdAsync(foodId) ?? throw new Exception("Food not found.");
             var foods = (await _unitOfWork.Foods.GetAllAsync())
@@ -138,16 +197,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (!string.IsNullOrWhiteSpace(currentFood.Category))
             {
-                foods = foods.Where(f => string.Equals(f.Category, currentFood.Category, StringComparison.OrdinalIgnoreCase));
+                foods = foods.Where(f =>
+                    string.Equals(f.Category, currentFood.Category, StringComparison.OrdinalIgnoreCase));
             }
 
             var similar = foods
                 .OrderBy(f => Math.Abs((double)((f.CaloriesKcal ?? 0) - (currentFood.CaloriesKcal ?? 0))))
                 .Take(10)
-                .Select(Map)
                 .ToList();
 
-            return similar;
+            var userKeys = userId.HasValue
+                ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(similar.Select(f => f.Id));
+            var mode = NormalizeAllergyMode(allergyMode);
+
+            var result = new List<FoodResponse>();
+            foreach (var food in similar)
+            {
+                foodKeysMap.TryGetValue(food.Id, out var foodKeys);
+                foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var dto = EnrichWithAllergy(Map(food), foodKeys, userKeys);
+                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser) continue;
+                result.Add(dto);
+            }
+
+            return result;
         }
 
         public async Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId)
@@ -200,6 +275,48 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _db.SaveChangesAsync();
         }
 
-        private static FoodResponse Map(Food f) => new() { Id = f.Id, NameVi = f.NameVi, NameEn = f.NameEn, Category = f.Category, Description = f.Description, CaloriesKcal = f.CaloriesKcal, ProteinG = f.ProteinG, CarbsG = f.CarbsG, FatG = f.FatG, FiberG = f.FiberG, EstimatedPriceVnd = f.EstimatedPriceVnd, DefaultServingG = f.DefaultServingG, ImageUrl = f.ImageUrl, IsActive = f.IsActive };
+        private static FoodResponse Map(Food f) => new()
+        {
+            Id = f.Id,
+            NameVi = f.NameVi,
+            NameEn = f.NameEn,
+            Category = f.Category,
+            Description = f.Description,
+            CaloriesKcal = f.CaloriesKcal,
+            ProteinG = f.ProteinG,
+            CarbsG = f.CarbsG,
+            FatG = f.FatG,
+            FiberG = f.FiberG,
+            EstimatedPriceVnd = f.EstimatedPriceVnd,
+            DefaultServingG = f.DefaultServingG,
+            ImageUrl = f.ImageUrl,
+            IsActive = f.IsActive
+        };
+
+        private static FoodResponse EnrichWithAllergy(
+            FoodResponse dto,
+            HashSet<string> foodKeys,
+            HashSet<string> userKeys)
+        {
+            dto.AllergenKeys = foodKeys.OrderBy(k => k).ToList();
+            dto.AllergenLabelsVi = AllergenCatalog.ToDisplayNamesVi(dto.AllergenKeys).ToList();
+
+            var matchedKeys = foodKeys.Where(userKeys.Contains).ToList();
+            dto.MatchedAllergens = AllergenCatalog.ToDisplayNamesVi(matchedKeys).ToList();
+            dto.AllergyRiskLevel = matchedKeys.Count > 0
+                ? AllergenCatalog.RiskHigh
+                : AllergenCatalog.RiskNone;
+            dto.IsSafeForUser = AllergenCatalog.IsSafeForUser(dto.AllergyRiskLevel);
+            return dto;
+        }
+
+        private static string NormalizeAllergyMode(string? mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode)) return AllergenCatalog.ModeWarn;
+            var m = mode.Trim().ToLowerInvariant();
+            return m is AllergenCatalog.ModeHide or AllergenCatalog.ModeAll or AllergenCatalog.ModeWarn
+                ? m
+                : AllergenCatalog.ModeWarn;
+        }
     }
 }

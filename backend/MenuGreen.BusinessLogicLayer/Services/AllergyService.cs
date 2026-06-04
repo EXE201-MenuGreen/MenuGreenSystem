@@ -5,18 +5,22 @@ using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class AllergyService : IAllergyService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _db;
 
-        public AllergyService(IUnitOfWork unitOfWork)
+        public AllergyService(IUnitOfWork unitOfWork, ApplicationDbContext db)
         {
             _unitOfWork = unitOfWork;
+            _db = db;
         }
 
         public async Task<IEnumerable<AllergyResponse>> GetAllAsync(Guid userId)
@@ -40,6 +44,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.Allergies.AddAsync(allergy);
             await _unitOfWork.CompleteAsync();
+            await SyncUserAllergyAsync(userId, allergy.Id);
 
             return MapToResponse(allergy);
         }
@@ -62,8 +67,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid userId, Guid allergyId)
         {
             var allergy = await GetOwnedAllergyAsync(userId, allergyId);
+            var userAllergy = await _db.UserAllergies
+                .FirstOrDefaultAsync(x => x.UserId == userId && x.AllergyId == allergyId);
+            if (userAllergy != null) _db.UserAllergies.Remove(userAllergy);
             _unitOfWork.Allergies.Remove(allergy);
             await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task SyncUserAllergyAsync(Guid userId, Guid allergyId)
+        {
+            var exists = await _db.UserAllergies
+                .AnyAsync(x => x.UserId == userId && x.AllergyId == allergyId);
+            if (exists) return;
+
+            await _db.UserAllergies.AddAsync(new UserAllergy
+            {
+                UserId = userId,
+                AllergyId = allergyId,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync();
         }
 
         private async Task<Allergy> GetOwnedAllergyAsync(Guid userId, Guid allergyId)

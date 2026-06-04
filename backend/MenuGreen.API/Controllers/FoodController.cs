@@ -20,6 +20,12 @@ namespace MenuGreen.API.Controllers
             _foodService = foodService;
         }
 
+        private Guid? TryGetUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return Guid.TryParse(userId, out var id) ? id : null;
+        }
+
         /// <summary>
         /// Tìm kiếm món ăn theo keyword và các bộ lọc dinh dưỡng/giá/thời gian.
         /// </summary>
@@ -31,13 +37,17 @@ namespace MenuGreen.API.Controllers
             [FromQuery] string? proteinLevel,
             [FromQuery] int? maxPriceVnd,
             [FromQuery] int? maxPrepTimeMin,
-            [FromQuery] string? category)
+            [FromQuery] string? category,
+            [FromQuery] string? allergyMode)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
-                var result = await _foodService.SearchAsync(keyword, minCalories, maxCalories, proteinLevel, maxPriceVnd, maxPrepTimeMin, category);
+                var userId = TryGetUserId();
+                var result = await _foodService.SearchAsync(
+                    keyword, minCalories, maxCalories, proteinLevel, maxPriceVnd, maxPrepTimeMin, category,
+                    userId, allergyMode);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -50,11 +60,11 @@ namespace MenuGreen.API.Controllers
         /// Lấy chi tiết món ăn theo Id.
         /// </summary>
         [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _foodService.GetByIdAsync(id));
+                return Ok(await _foodService.GetByIdAsync(id, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {
@@ -82,11 +92,11 @@ namespace MenuGreen.API.Controllers
         /// Lấy danh sách món ăn tương tự món đang xem.
         /// </summary>
         [HttpGet("{id:guid}/similar")]
-        public async Task<IActionResult> GetSimilar(Guid id)
+        public async Task<IActionResult> GetSimilar(Guid id, [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _foodService.GetSimilarAsync(id));
+                return Ok(await _foodService.GetSimilarAsync(id, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {

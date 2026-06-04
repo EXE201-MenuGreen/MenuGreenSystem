@@ -11,8 +11,14 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<RecipeResponse> CreateAsync(RecipeUpsertRequest request);
         Task<RecipeResponse> UpdateAsync(Guid id, RecipeUpsertRequest request);
         Task DeleteAsync(Guid id);
-        Task<RecipeResponse> GetByIdAsync(Guid id);
-        Task<RecipeSearchResponse> SearchAsync(string? keyword, string? mealType, string? difficulty, bool? isActive);
+        Task<RecipeResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null);
+        Task<RecipeSearchResponse> SearchAsync(
+            string? keyword,
+            string? mealType,
+            string? difficulty,
+            bool? isActive,
+            Guid? userId = null,
+            string? allergyMode = null);
         Task<IReadOnlyList<RecipeIngredientResponse>> GetIngredientsAsync(Guid recipeId);
         Task<RecipeNutritionResponse> GetNutritionAsync(Guid recipeId);
         Task<IReadOnlyList<RecipeResponse>> GetRelatedAsync(Guid recipeId);

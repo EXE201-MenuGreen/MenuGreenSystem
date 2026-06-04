@@ -33,7 +33,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("calories")]
         public async Task<IActionResult> Calories([FromQuery] RecommendationRequest request)
         {
-            return Ok(await _service.RecommendByCaloriesAsync(request));
+            TryGetUserId(out var userId);
+            return Ok(await _service.RecommendByCaloriesAsync(userId, request));
         }
 
         /// <summary>
@@ -42,7 +43,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("eco")]
         public async Task<IActionResult> Eco([FromQuery] RecommendationRequest request)
         {
-            return Ok(await _service.RecommendByEcoAsync(request));
+            TryGetUserId(out var userId);
+            return Ok(await _service.RecommendByEcoAsync(userId, request));
         }
 
         /// <summary>
@@ -51,7 +53,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("lunch")]
         public async Task<IActionResult> Lunch([FromQuery] RecommendationRequest request)
         {
-            return Ok(await _service.RecommendLunchAsync(request));
+            TryGetUserId(out var userId);
+            return Ok(await _service.RecommendLunchAsync(userId, request));
         }
 
         /// <summary>
@@ -60,7 +63,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("daily-menu")]
         public async Task<IActionResult> DailyMenu([FromQuery] RecommendationRequest request)
         {
-            return Ok(await _service.BuildDailyMenuAsync(request));
+            TryGetUserId(out var userId);
+            return Ok(await _service.BuildDailyMenuAsync(userId, request));
         }
 
         /// <summary>

@@ -17,6 +17,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IAdminFoodService, AdminFoodService>();
             services.AddScoped<IAdminIngredientService, AdminIngredientService>();
             services.AddScoped<IAdminRecipeService, AdminRecipeService>();
+            services.AddScoped<IAllergenMatchingService, AllergenMatchingService>();
             services.AddScoped<IFoodService, FoodService>();
             services.AddScoped<IIngredientService, IngredientService>();
             services.AddScoped<IRecipeService, RecipeService>();

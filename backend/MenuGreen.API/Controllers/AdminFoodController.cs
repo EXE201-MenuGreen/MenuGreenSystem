@@ -53,5 +53,20 @@ namespace MenuGreen.API.Controllers
             try { await _service.DeleteAsync(id); return Ok(); }
             catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
         }
+
+        [HttpGet("{id:guid}/allergies")]
+        public async Task<IActionResult> GetAllergies(Guid id)
+        {
+            try { return Ok(await _service.GetAllergenTagsAsync(id)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        [HttpPut("{id:guid}/allergies")]
+        public async Task<IActionResult> SetAllergies(Guid id, [FromBody] FoodAllergenTagsUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try { return Ok(await _service.SetAllergenTagsAsync(id, request)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
     }
 }

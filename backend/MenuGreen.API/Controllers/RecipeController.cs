@@ -20,6 +20,12 @@ namespace MenuGreen.API.Controllers
             _recipeService = recipeService;
         }
 
+        private Guid? TryGetUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return Guid.TryParse(userId, out var id) ? id : null;
+        }
+
         /// <summary>
         /// Tìm kiếm công thức theo keyword, mealType, difficulty và trạng thái.
         /// </summary>
@@ -28,11 +34,13 @@ namespace MenuGreen.API.Controllers
             [FromQuery] string? keyword,
             [FromQuery] string? mealType,
             [FromQuery] string? difficulty,
-            [FromQuery] bool? isActive)
+            [FromQuery] bool? isActive,
+            [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _recipeService.SearchAsync(keyword, mealType, difficulty, isActive));
+                return Ok(await _recipeService.SearchAsync(
+                    keyword, mealType, difficulty, isActive, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {
@@ -44,11 +52,11 @@ namespace MenuGreen.API.Controllers
         /// Lấy chi tiết công thức theo Id.
         /// </summary>
         [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
         {
             try
             {
-                return Ok(await _recipeService.GetByIdAsync(id));
+                return Ok(await _recipeService.GetByIdAsync(id, TryGetUserId(), allergyMode));
             }
             catch (Exception ex)
             {

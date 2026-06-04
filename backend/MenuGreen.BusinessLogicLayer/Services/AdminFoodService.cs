@@ -11,10 +11,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class AdminFoodService : IAdminFoodService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IAllergenMatchingService _allergenMatching;
 
-        public AdminFoodService(IUnitOfWork unitOfWork)
+        public AdminFoodService(IUnitOfWork unitOfWork, IAllergenMatchingService allergenMatching)
         {
             _unitOfWork = unitOfWork;
+            _allergenMatching = allergenMatching;
         }
 
         public async Task<FoodResponse> CreateAsync(FoodUpsertRequest request)
@@ -75,6 +77,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
             return Map(food);
+        }
+
+        public async Task<FoodAllergenTagsResponse> GetAllergenTagsAsync(Guid id)
+        {
+            _ = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
+            var keys = await _allergenMatching.GetFoodAllergenKeysListAsync(id);
+            return new FoodAllergenTagsResponse
+            {
+                FoodId = id,
+                AllergenKeys = keys.ToList(),
+                AllergenLabelsVi = AllergenCatalog.ToDisplayNamesVi(keys).ToList(),
+                AvailableAllergenKeys = AllergenCatalog.AllKeys.ToList()
+            };
+        }
+
+        public async Task<FoodAllergenTagsResponse> SetAllergenTagsAsync(Guid id, FoodAllergenTagsUpsertRequest request)
+        {
+            _ = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
+            await _allergenMatching.SetFoodAllergenKeysAsync(id, request.AllergenKeys);
+            return await GetAllergenTagsAsync(id);
         }
 
         private static FoodResponse Map(Food f) => new() { Id = f.Id, NameVi = f.NameVi, NameEn = f.NameEn, Category = f.Category, Description = f.Description, CaloriesKcal = f.CaloriesKcal, ProteinG = f.ProteinG, CarbsG = f.CarbsG, FatG = f.FatG, FiberG = f.FiberG, EstimatedPriceVnd = f.EstimatedPriceVnd, DefaultServingG = f.DefaultServingG, ImageUrl = f.ImageUrl, IsActive = f.IsActive };

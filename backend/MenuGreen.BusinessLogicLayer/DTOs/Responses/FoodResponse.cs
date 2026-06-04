@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
@@ -18,5 +19,19 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int? DefaultServingG { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
+
+        /// <summary>Mã chuẩn (peanut, dairy, …).</summary>
+        public List<string> AllergenKeys { get; set; } = new();
+
+        /// <summary>Nhãn tiếng Việt trên món.</summary>
+        public List<string> AllergenLabelsVi { get; set; } = new();
+
+        /// <summary>Dị ứng user trùng với món (nhãn VI).</summary>
+        public List<string> MatchedAllergens { get; set; } = new();
+
+        /// <summary>none | caution | high</summary>
+        public string AllergyRiskLevel { get; set; } = "none";
+
+        public bool IsSafeForUser { get; set; } = true;
     }
 }

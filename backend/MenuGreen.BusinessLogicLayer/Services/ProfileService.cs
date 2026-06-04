@@ -89,7 +89,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
 
-            var allergies = await _unitOfWork.UserAllergies.FindAsync(x => x.UserId == userId);
+            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
 
             var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
@@ -128,7 +128,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
-            var allergies = await _unitOfWork.UserAllergies.FindAsync(x => x.UserId == userId);
+            var allergies = await _unitOfWork.Allergies.FindAsync(x => x.UserId == userId && x.IsActive);
             var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
 
             var completedSteps = BuildCompletedSteps(profile, healthProfile, allergies.Any(), aiProfile != null);
