@@ -9,7 +9,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface ISubscriptionPlanService
     {
         Task<IEnumerable<SubscriptionPlanResponse>> GetAllAsync(bool? isActive = null);
+        Task<IEnumerable<SubscriptionPlanResponse>> GetActiveAsync();
         Task<SubscriptionPlanResponse> GetByIdAsync(Guid id);
+        Task<SubscriptionPlanFeaturesResponse> GetPlanFeaturesAsync(Guid id);
+        Task<SubscriptionPlanStatusResponse> GetPlanStatusAsync(Guid id);
         Task<SubscriptionPlanResponse> CreateAsync(SubscriptionPlanUpsertRequest request);
         Task<SubscriptionPlanResponse> UpdateAsync(Guid id, SubscriptionPlanUpsertRequest request);
         Task DeleteAsync(Guid id);

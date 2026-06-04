@@ -138,6 +138,208 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
+        public async Task<MealLogListResponse> GetMealLogsAsync(Guid userId, int page = 1, int pageSize = 20)
+        {
+            var allLogs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId);
+            var totalCount = allLogs.Count();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            
+            var pagedLogs = allLogs
+                .OrderByDescending(x => x.LoggedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var mappedLogs = await MapMealLogsAsync(pagedLogs);
+
+            return new MealLogListResponse
+            {
+                MealLogs = mappedLogs,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = totalPages
+            };
+        }
+
+        public async Task<MealLogResponse> GetMealLogByIdAsync(Guid userId, Guid mealLogId)
+        {
+            var entity = await GetOwnedMealLogAsync(userId, mealLogId);
+            return await MapMealLogAsync(entity);
+        }
+
+        public async Task<MealLogListResponse> GetMealLogsByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate)
+        {
+            var logs = await _unitOfWork.MealLogs.FindAsync(
+                x => x.UserId == userId && 
+                x.LoggedAt.HasValue && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+
+            var logList = logs.OrderByDescending(x => x.LoggedAt).ToList();
+            var mappedLogs = await MapMealLogsAsync(logList);
+
+            return new MealLogListResponse
+            {
+                MealLogs = mappedLogs,
+                TotalCount = logList.Count,
+                Page = 1,
+                PageSize = logList.Count,
+                TotalPages = 1
+            };
+        }
+
+        public async Task<NutritionSummaryResponse> GetNutritionSummaryAsync(Guid userId, string period = "day", DateOnly? date = null)
+        {
+            var (startDate, endDate) = ResolvePeriod(period, date);
+            
+            var logs = await _unitOfWork.MealLogs.FindAsync(
+                x => x.UserId == userId && 
+                x.LoggedAt.HasValue && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+
+            var logList = logs.ToList();
+            var totalCalories = logList.Sum(x => x.CaloriesKcal ?? 0);
+            var totalProtein = logList.Sum(x => x.ProteinG ?? 0);
+            var totalCarbs = logList.Sum(x => x.CarbsG ?? 0);
+            var totalFat = logList.Sum(x => x.FatG ?? 0);
+
+            var dayCount = (endDate.DayNumber - startDate.DayNumber) + 1;
+
+            return new NutritionSummaryResponse
+            {
+                Period = period,
+                StartDate = startDate,
+                EndDate = endDate,
+                TotalCaloriesKcal = totalCalories,
+                TotalProteinG = totalProtein,
+                TotalCarbsG = totalCarbs,
+                TotalFatG = totalFat,
+                TotalMealLogs = logList.Count,
+                AvgCaloriesPerDay = dayCount > 0 ? Math.Round(totalCalories / dayCount, 2) : 0,
+                AvgProteinPerDay = dayCount > 0 ? Math.Round(totalProtein / dayCount, 2) : 0,
+                AvgCarbsPerDay = dayCount > 0 ? Math.Round(totalCarbs / dayCount, 2) : 0,
+                AvgFatPerDay = dayCount > 0 ? Math.Round(totalFat / dayCount, 2) : 0
+            };
+        }
+
+        public async Task<NutritionTrendResponse> GetNutritionTrendsAsync(Guid userId, DateOnly startDate, DateOnly endDate)
+        {
+            var logs = await _unitOfWork.MealLogs.FindAsync(
+                x => x.UserId == userId && 
+                x.LoggedAt.HasValue && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
+                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+
+            var logList = logs.ToList();
+            var dailyData = new List<DailyNutritionPoint>();
+
+            for (var day = startDate; day <= endDate; day = day.AddDays(1))
+            {
+                var dayLogs = logList.Where(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == day).ToList();
+                
+                dailyData.Add(new DailyNutritionPoint
+                {
+                    Date = day,
+                    CaloriesKcal = dayLogs.Sum(x => x.CaloriesKcal ?? 0),
+                    ProteinG = dayLogs.Sum(x => x.ProteinG ?? 0),
+                    CarbsG = dayLogs.Sum(x => x.CarbsG ?? 0),
+                    FatG = dayLogs.Sum(x => x.FatG ?? 0),
+                    MealCount = dayLogs.Count
+                });
+            }
+
+            return new NutritionTrendResponse
+            {
+                StartDate = startDate,
+                EndDate = endDate,
+                DailyData = dailyData
+            };
+        }
+
+        public async Task<WeightLogListResponse> GetWeightLogsAsync(Guid userId, int page = 1, int pageSize = 20)
+        {
+            var allLogs = await _unitOfWork.WeightLogs.FindAsync(x => x.UserId == userId);
+            var totalCount = allLogs.Count();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            
+            var pagedLogs = allLogs
+                .OrderByDescending(x => x.RecordedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(Map)
+                .ToList();
+
+            return new WeightLogListResponse
+            {
+                WeightLogs = pagedLogs,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = totalPages
+            };
+        }
+
+        public async Task<WeightLogResponse> GetWeightLogByIdAsync(Guid userId, Guid weightLogId)
+        {
+            var entity = await GetOwnedWeightLogAsync(userId, weightLogId);
+            return Map(entity);
+        }
+
+        public async Task<WeightTrendResponse> GetWeightTrendAsync(Guid userId, DateOnly startDate, DateOnly endDate)
+        {
+            var logs = await _unitOfWork.WeightLogs.FindAsync(
+                x => x.UserId == userId && 
+                x.RecordedAt.HasValue && 
+                DateOnly.FromDateTime(x.RecordedAt.Value) >= startDate && 
+                DateOnly.FromDateTime(x.RecordedAt.Value) <= endDate);
+
+            var logList = logs.OrderBy(x => x.RecordedAt).ToList();
+            
+            var weightData = logList
+                .Where(x => x.RecordedAt.HasValue && x.WeightKg.HasValue)
+                .Select(x => new WeightPoint
+                {
+                    Date = DateOnly.FromDateTime(x.RecordedAt!.Value),
+                    WeightKg = x.WeightKg!.Value,
+                    BodyFatPercent = x.BodyFatPercent
+                })
+                .ToList();
+
+            decimal? initialWeight = weightData.FirstOrDefault()?.WeightKg;
+            decimal? latestWeight = weightData.LastOrDefault()?.WeightKg;
+            decimal? weightChange = initialWeight.HasValue && latestWeight.HasValue 
+                ? Math.Round(latestWeight.Value - initialWeight.Value, 2) 
+                : null;
+            decimal? averageWeight = weightData.Count > 0 
+                ? Math.Round(weightData.Average(x => x.WeightKg), 2) 
+                : null;
+
+            return new WeightTrendResponse
+            {
+                StartDate = startDate,
+                EndDate = endDate,
+                InitialWeightKg = initialWeight,
+                LatestWeightKg = latestWeight,
+                WeightChangeKg = weightChange,
+                AverageWeightKg = averageWeight,
+                WeightData = weightData
+            };
+        }
+
+        private static (DateOnly startDate, DateOnly endDate) ResolvePeriod(string period, DateOnly? date)
+        {
+            var today = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            
+            return period.Trim().ToLower() switch
+            {
+                "week" => (today.AddDays(-6), today),
+                "month" => (new DateOnly(today.Year, today.Month, 1), today),
+                _ => (today, today) // "day" or default
+            };
+        }
+
         private async Task<MealLog> BuildMealLogAsync(Guid userId, MealLogUpsertRequest request)
         {
             var entity = new MealLog
