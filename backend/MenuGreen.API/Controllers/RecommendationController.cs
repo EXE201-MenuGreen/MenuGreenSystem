@@ -126,5 +126,25 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.ExplainAsync(userId, id));
         }
+
+        /// <summary>
+        /// Tính điểm phù hợp theo calories, macro, dị ứng và ngân sách.
+        /// </summary>
+        [HttpGet("scores")]
+        public async Task<IActionResult> Scores([FromQuery] RecommendationScoreRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetScoresAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Tái tính rule/model từ feedback và dữ liệu lịch sử recommendation.
+        /// </summary>
+        [HttpPost("retrain")]
+        public async Task<IActionResult> Retrain([FromBody] RecommendationRetrainRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.RetrainAsync(userId, request));
+        }
     }
 }
