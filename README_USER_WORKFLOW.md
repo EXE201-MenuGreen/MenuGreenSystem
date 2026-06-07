@@ -44,7 +44,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ## 4) Workflow chi tiết theo giai đoạn
 
-### 4.1 Guest và tạo tài khoản
+### 4.1 Guest và tạo tài khoản (Đã làm)
 
 #### Luồng chính
 - Guest chọn Đăng ký.
@@ -64,7 +64,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.2 Đăng nhập và quản lý phiên (đã triển khai)
+### 4.2 Đăng nhập và quản lý phiên (Đã làm)
 
 #### Luồng chính
 - User đăng nhập email/mật khẩu hoặc Google.
@@ -85,7 +85,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.3 Onboarding và thiết lập thông tin nền (đã triển khai)
+### 4.3 Onboarding và thiết lập thông tin nền (Đã làm)
 
 #### Luồng chính
 - `OnboardingScreen` 5 bước: thông tin cơ bản, sức khỏe, mục tiêu, dị ứng, hoàn tất.
@@ -105,7 +105,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.4 Quản lý hồ sơ cá nhân
+### 4.4 Quản lý hồ sơ cá nhân (Đã làm)
 
 #### Luồng chính
 - Xem/sửa hồ sơ.
@@ -122,7 +122,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.5 Quản lý dị ứng
+### 4.5 Quản lý dị ứng (Đã làm)
 
 #### Luồng chính
 - Xem danh sách dị ứng.
@@ -134,7 +134,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.6 Khám phá món ăn và công thức (đã triển khai)
+### 4.6 Khám phá món ăn và công thức (Đã làm)
 
 #### Luồng chính
 - Tab **Khám phá**: tìm món/công thức/nguyên liệu theo từ khóa.
@@ -153,6 +153,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 #### Luồng chính
 - **Đã có:** `SafeRecommendationsScreen` từ Khám phá — calories, lunch, eco, daily-menu với `excludeUserAllergies=true`.
 - **Chưa có UI riêng:** smart-schedule, lịch sử đề xuất, feedback, giải thích chi tiết từng món.
+- Trạng thái tổng quan: các API gợi ý an toàn trong phạm vi hiện tại đã làm.
 
 #### Xử lý hệ thống
 - Lọc theo quy tắc + profile/dị ứng user.
@@ -162,7 +163,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.8 Gợi ý AI và trợ lý AI
+### 4.8 Gợi ý AI và trợ lý AI (Chưa hoàn thiện)
 
 #### Luồng chính
 - Chat tư vấn dinh dưỡng.
@@ -177,7 +178,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.9 Nhật ký ăn uống và theo dõi dinh dưỡng (đã triển khai — cốt lõi 100%)
+### 4.9 Nhật ký ăn uống và theo dõi dinh dưỡng (Đã làm — cốt lõi 100%)
 
 #### Luồng chính
 - **Ghi log:** `showMealLogSheet` — từ Trang chủ, Lịch sử, Khám phá (chi tiết món/công thức).
@@ -188,9 +189,9 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 - **Đồng bộ:** sau khi ghi/sửa/xóa, Trang chủ và Lịch sử refresh qua `MainScreen.onTrackingUpdated`.
 
 #### API (backend production: `https://menugreensystem.onrender.com/api`)
-- `POST/PUT/DELETE /NutritionTracking/meal-logs`
-- `GET /NutritionTracking/daily?date=`
-- `GET /NutritionTracking/dashboard?range=day|week|month` (tùy chọn `startDate`/`endDate`)
+- `POST/PUT/DELETE /NutritionTracking/meal-logs` (Đã làm)
+- `GET /NutritionTracking/daily?date=` (Đã làm)
+- `GET /NutritionTracking/dashboard?range=day|week|month` (tùy chọn `startDate`/`endDate`) (Đã làm)
 
 #### UI
 - **Trang chủ:** card calo/macro, danh sách bữa hôm nay, nút Thêm bữa ăn, empty state + Khám phá.
@@ -220,7 +221,7 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 
 ---
 
-### 4.11 Quản lý gói dịch vụ
+### 4.11 Quản lý gói dịch vụ (Đã làm)
 
 #### Luồng chính
 - Xem danh sách gói.

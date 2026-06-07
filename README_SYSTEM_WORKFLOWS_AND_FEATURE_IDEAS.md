@@ -60,7 +60,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 2) Workflow hệ thống có thể có (theo domain)
 
-## 2.1 Account Lifecycle (Guest -> Active User)
+## 2.1 Account Lifecycle (Guest -> Active User) (Đã làm)
 
 **Mục tiêu:** Biến guest thành user hoạt động, bảo vệ phiên đăng nhập.
 
@@ -79,7 +79,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.2 Onboarding sức khỏe và baseline cá nhân
+## 2.2 Onboarding sức khỏe và baseline cá nhân (Đã làm)
 
 **Mục tiêu:** Thiết lập dữ liệu nền cho cá nhân hóa.
 
@@ -97,7 +97,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.3 Khám phá món ăn an toàn theo dị ứng
+## 2.3 Khám phá món ăn an toàn theo dị ứng (Đã làm)
 
 **Mục tiêu:** Cho user tìm món phù hợp mục tiêu và hạn chế sức khỏe.
 
@@ -120,7 +120,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.4 Nhật ký dinh dưỡng hằng ngày
+## 2.4 Nhật ký dinh dưỡng hằng ngày (Đã làm)
 
 **Mục tiêu:** Theo dõi thực tế ăn uống so với mục tiêu.
 
@@ -156,54 +156,250 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.5 Meal Plan và routine ăn uống
+## 2.5 Meal Plan và routine ăn uống (Đã làm)
 
-**Mục tiêu:** Chuyển từ tracking bị động sang kế hoạch chủ động.
+**Mục tiêu:** Chuyển từ tracking bị động sang kế hoạch chủ động. Đây là lớp “lập lịch” nằm giữa recommendation và meal log: hệ thống không chỉ gợi ý món, mà còn giúp user chốt trước món sẽ ăn theo ngày/tuần, đặt giờ nhắc, rồi đối chiếu kế hoạch với thực tế sau khi ăn.
+
+**Cách hiểu đúng của workflow này:**
+- `MealPlan` là “kế hoạch tổng” theo tuần hoặc theo một khung ngày.
+- `MealPlanItem` là từng dòng món/bữa cụ thể trong kế hoạch đó.
+- `MealLog` vẫn là nguồn sự thật cuối cùng sau khi user thực sự ăn.
+- Khi user ăn xong, app có thể convert nhanh từ plan item sang meal log để giảm thao tác nhập tay.
+- Notification chỉ là lớp hỗ trợ hành vi, không phải dữ liệu lõi.
 
 **Flow đề xuất:**
 
-1. Tạo kế hoạch tuần/ngày (`MealPlanHeader`).
-2. Gắn món theo từng bữa (`MealPlanItem`).
-3. Nhắc giờ ăn/nấu ăn qua notification (`Notification`, `NotificationSetting`).
-4. Sau khi ăn, chuyển plan item thành meal log để so sánh planned vs actual.
+1. User tạo kế hoạch theo ngày/tuần (`MealPlanHeader`).
+2. User thêm từng bữa (`MealPlanItem`) bằng search món, template, hoặc gợi ý từ recommendation.
+3. Hệ thống gắn target calories/macro cho cả plan và từng bữa.
+4. Đến giờ ăn, notification nhắc user theo `NotificationSetting`.
+5. Sau khi ăn, user bấm “Đã ăn” để tạo `MealLog` từ item của plan.
+6. Dashboard so sánh `planned vs actual` theo ngày/tuần và hiển thị mức lệch mục tiêu.
+7. Nếu user đổi món, app cập nhật item hoặc đánh dấu item bị bỏ qua để giữ lịch sử rõ ràng.
 
-**Giá trị:** cải thiện khả năng tuân thủ, giảm quyết định tức thời.
+**Giá trị:**
+- Giảm quyết định tức thời mỗi ngày.
+- Tăng khả năng bám mục tiêu calories/macro.
+- Tạo nền cho reminder, quick-add, streak, và meal-prep workflow sau này.
+
+**API cần có để làm đúng bài:**
+
+### A. Meal plan header
+- `POST /MealPlan` — tạo plan mới theo ngày/tuần.
+- `GET /MealPlan?from=&to=&type=` — lấy danh sách plan theo khoảng thời gian.
+- `GET /MealPlan/{id}` — xem chi tiết plan.
+- `PUT /MealPlan/{id}` — cập nhật tên, mục tiêu, trạng thái, ngày hiệu lực.
+- `DELETE /MealPlan/{id}` — xoá plan.
+
+### B. Meal plan item
+- `POST /MealPlan/{planId}/items` — thêm món/bữa vào plan.
+- `PUT /MealPlan/{planId}/items/{itemId}` — sửa giờ ăn, khẩu phần, món, ghi chú.
+- `DELETE /MealPlan/{planId}/items/{itemId}` — xoá item khỏi plan.
+- `PATCH /MealPlan/{planId}/items/{itemId}/status` — đánh dấu `planned / done / skipped / changed`.
+
+### C. Quick actions từ plan sang log
+- `POST /MealPlan/{planId}/items/{itemId}/convert-to-log` — tạo `MealLog` từ item.
+- `POST /MealPlan/{planId}/commit` — chốt plan của ngày hôm đó sang dashboard.
+- `POST /MealPlan/{planId}/duplicate` — nhân bản plan tuần trước cho tuần mới.
+
+### D. Routine / reminder
+- `POST /Notification/meal-plan-remind` — tạo reminder theo plan item.
+- `GET /Notification/settings` — đọc cấu hình nhắc.
+- `PUT /Notification/settings` — bật/tắt và chỉnh giờ nhắc.
+
+### E. Báo cáo planned vs actual
+- `GET /MealPlan/dashboard?date=` — tổng hợp plan của ngày.
+- `GET /MealPlan/compare?from=&to=` — so sánh kế hoạch và thực tế theo khoảng thời gian.
+- `GET /MealPlan/streaks` — đo mức độ bám plan theo tuần.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Làm CRUD `MealPlanHeader` + `MealPlanItem` trước.
+2. Nối action `convert-to-log` sang `MealLog`.
+3. Nối reminder với `NotificationSetting` + `Notification`.
+4. Làm dashboard compare/streak sau cùng.
+
+**Trạng thái mong muốn sau khi làm xong:**
+- User có thể lập plan trong 1-2 phút.
+- User bấm một chạm để biến plan thành log.
+- Team sản phẩm đo được tỉ lệ “planned meal → actual meal”.
 
 ---
 
-## 2.6 Recommendation engine (Rule + AI)
+## 2.6 Recommendation engine (Rule + AI) (Chưa có AI)
 
-**Mục tiêu:** Đề xuất món/thực đơn cá nhân hóa.
+**Mục tiêu:** Đề xuất món/thực đơn cá nhân hóa. Đây là lớp “đề xuất chủ động” đứng sau onboarding và khám phá: thay vì user tự lọc từng món, hệ thống sẽ gom ngữ cảnh từ hồ sơ sức khỏe, dị ứng, lịch sử ăn uống và ngân sách để sinh ra danh sách gợi ý phù hợp hơn.
 
-**Flow đề xuất:**
+### Hiểu đúng workflow 2.6
+
+- `RecommendationHistory` là nơi lưu từng lần hệ thống sinh gợi ý cho user.
+- `RecommendationFeedback` là dữ liệu user chấm chất lượng đề xuất.
+- `BudgetRequest`/ngân sách giúp recommendation không chỉ đúng dinh dưỡng mà còn khả thi khi mua và nấu.
+- Rule-based là nền an toàn tối thiểu; AI là lớp nâng cao để cá nhân hóa theo ngữ cảnh.
+- Recommendation phải trả về được lý do gợi ý để user tin và hiểu vì sao món đó xuất hiện.
+
+### Flow đề xuất
 
 1. Thu ngữ cảnh từ `HealthProfile`, `UserAllergy`, lịch sử `MealLog`, `BudgetRequest`.
 2. Sinh đề xuất và lưu lịch sử (`RecommendationHistory`).
 3. User đánh giá chất lượng (`RecommendationFeedback`).
 4. Tối ưu dần model/rule theo feedback.
 
-**Giá trị:** đề xuất càng ngày càng phù hợp, đo được chất lượng recommendation.
+### Giá trị
+
+- Đề xuất càng ngày càng phù hợp.
+- Đo được chất lượng recommendation.
+- Tạo nền cho AI assistant, smart-schedule và quick-start sau này.
+
+### API cần có để làm đúng bài
+
+#### A. Sinh recommendation (Chưa có)
+- `POST /Recommendation/generate` — sinh recommendation theo context user.
+- `POST /Recommendation/generate/safe` — sinh gợi ý an toàn, loại trừ dị ứng.
+- `POST /Recommendation/generate/daily-menu` — sinh thực đơn trong ngày.
+- `POST /Recommendation/generate/weekly-plan` — sinh plan theo tuần.
+- `POST /Recommendation/generate/budget-aware` — sinh đề xuất theo ngân sách.
+- `POST /Recommendation/generate/smart-schedule` — sinh đề xuất có giờ ăn gợi ý.
+
+#### B. Lưu lịch sử và truy vấn lại (Đã làm)
+- `GET /Recommendation/history` — danh sách lịch sử recommendation của user.
+- `GET /Recommendation/history/{id}` — xem chi tiết một lần recommendation.
+- `DELETE /Recommendation/history/{id}` — xoá lịch sử không cần thiết.
+
+#### C. Feedback loop (Đã làm)
+- `POST /Recommendation/history/{id}/feedback` — user chấm chất lượng đề xuất.
+- `PUT /Recommendation/feedback/{id}` — cập nhật feedback nếu user đổi ý.
+- `GET /Recommendation/feedback/summary` — tổng hợp tỷ lệ thích/không thích.
+
+#### D. Giải thích recommendation (Đã làm)
+- `GET /Recommendation/history/{id}/explain` — giải thích vì sao món/thực đơn được đề xuất.
+- `GET /Recommendation/{id}/why-this-item` — giải thích chi tiết từng item.
+
+#### E. Tối ưu cá nhân hóa (Đã làm)
+- `POST /Recommendation/retrain` — tái tính rule/model từ feedback (job nội bộ/admin).
+- `GET /Recommendation/scores` — điểm phù hợp theo từng tiêu chí: calories, macro, dị ứng, ngân sách.
+
+### Ưu tiên triển khai kỹ thuật
+
+1. Làm API generate safe/daily-menu trước.
+2. Lưu history và feedback.
+3. Thêm explain/why-this-item.
+4. Cuối cùng mới tối ưu retrain/scoring nâng cao.
 
 **Trạng thái triển khai (2026):** `SafeRecommendationsScreen` + API `Recommendation/*` (calories, lunch, eco, daily-menu, `excludeUserAllergies`). Chưa có UI lịch sử đề xuất, feedback, smart-schedule.
 
 ---
 
-## 2.7 AI Nutrition Assistant
+## 2.7 AI Nutrition Assistant (Chưa có)
 
-**Mục tiêu:** Tương tác hội thoại và tư vấn tình huống.
+**Mục tiêu:** Tương tác hội thoại và tư vấn tình huống. Đây là lớp chat “coach dinh dưỡng” giúp user hỏi theo ngữ cảnh thực tế như hôm nay ăn gì, còn thiếu chất gì, nên thay món nào, hoặc có nên giảm/tăng khẩu phần không. Khác với recommendation thuần danh sách, AI assistant phải trả lời theo hội thoại nhiều lượt và giữ mạch ngữ cảnh.
 
-**Flow đề xuất:**
+### Hiểu đúng workflow 2.7
+
+- `AiConversation` là một phiên chat.
+- `AiMessage` là từng lượt hỏi/đáp trong phiên.
+- `UserAiProfile` cung cấp ngữ cảnh cá nhân như mục tiêu, sở thích, hạn chế, phong cách ăn uống.
+- AI assistant có thể gọi recommendation, meal plan, nutrition tracking như các công cụ phụ trợ.
+- Output không chỉ là câu trả lời mà còn là hành động gợi ý tiếp theo.
+
+### Flow đề xuất
 
 1. Tạo cuộc hội thoại (`AiConversation`).
 2. Lưu message theo lượt hỏi đáp (`AiMessage`).
 3. Tận dụng hồ sơ AI (`UserAiProfile`) để cá nhân hóa ngữ cảnh.
 4. Đề xuất hành động tiếp theo: meal plan, thay món, tối ưu budget.
 
+### Giá trị
+
+- Tăng mức cá nhân hóa.
+- Tạo trải nghiệm giống “coach dinh dưỡng”.
+- Cho phép user hỏi tự nhiên thay vì phải tự lọc menu.
+
+### API cần có để làm đúng bài
+
+#### A. Conversation lifecycle
+- `POST /AiAssistant/conversations` — tạo phiên chat mới.
+- `GET /AiAssistant/conversations` — danh sách hội thoại của user.
+- `GET /AiAssistant/conversations/{id}` — xem chi tiết hội thoại.
+- `DELETE /AiAssistant/conversations/{id}` — xoá hội thoại.
+- `PATCH /AiAssistant/conversations/{id}/title` — đổi tiêu đề hội thoại.
+
+#### B. Message workflow
+- `POST /AiAssistant/conversations/{id}/messages` — gửi message user và nhận response AI.
+- `GET /AiAssistant/conversations/{id}/messages` — lấy toàn bộ message trong hội thoại.
+- `POST /AiAssistant/conversations/{id}/messages/{messageId}/regenerate` — tạo lại câu trả lời AI.
+- `PATCH /AiAssistant/conversations/{id}/messages/{messageId}/feedback` — user chấm câu trả lời.
+
+#### C. Context & profile
+- `GET /AiAssistant/context` — lấy context AI hiện tại từ profile/tracking/recommendation.
+- `PUT /AiAssistant/context` — cập nhật ngữ cảnh ưu tiên cho AI assistant.
+- `GET /AiAssistant/profile` — đọc `UserAiProfile` để AI dùng cá nhân hóa.
+- `PUT /AiAssistant/profile` — cập nhật hồ sơ AI của user.
+
+#### D. Action suggestions
+- `GET /AiAssistant/suggestions` — đề xuất hành động tiếp theo từ hội thoại.
+- `POST /AiAssistant/actions/meal-plan` — tạo meal plan từ gợi ý AI.
+- `POST /AiAssistant/actions/replace-food` — đề xuất món thay thế.
+- `POST /AiAssistant/actions/budget-optimize` — tối ưu thực đơn theo ngân sách.
+
+#### E. History/analytics
+- `GET /AiAssistant/insights` — thống kê chủ đề hỏi thường gặp.
+- `GET /AiAssistant/conversations/{id}/summary` — tóm tắt hội thoại.
+- `GET /AiAssistant/usage` — số lần dùng assistant theo ngày/tuần/tháng.
+
+### Plan code backend cần có
+
+#### 1) Entity / DB
+- `AiConversation`
+- `AiMessage`
+- `AiMessageFeedback`
+- `AiAssistantContext`
+- `UserAiProfile` (đã có nền)
+
+#### 2) DTOs
+- Requests:
+  - `AiConversationCreateRequest`
+  - `AiConversationRenameRequest`
+  - `AiMessageSendRequest`
+  - `AiMessageFeedbackRequest`
+  - `AiAssistantContextUpsertRequest`
+  - `AiActionRequest`
+- Responses:
+  - `AiConversationResponse`
+  - `AiMessageResponse`
+  - `AiAssistantSuggestionResponse`
+  - `AiAssistantSummaryResponse`
+  - `AiUsageResponse`
+
+#### 3) Service layer
+- `IAiAssistantService`
+- `AiAssistantService`
+- Nếu tách AI riêng: `IAiAssistantProvider`
+- Nếu cần orchestration: `IAiAssistantPromptBuilder`
+
+#### 4) Controller layer
+- `AiAssistantController`
+
+#### 5) Repository/UoW
+- `AiConversations`
+- `AiMessages`
+- `AiMessageFeedbacks`
+- `UserAiProfiles`
+- `MealLogs`
+- `MealPlanHeaders`
+- `RecommendationHistories`
+
+### Ưu tiên triển khai kỹ thuật
+
+1. Làm conversation/message CRUD trước.
+2. Nối AI provider thật vào send/regenerate.
+3. Thêm context/profile và suggestion actions.
+4. Cuối cùng mới làm insights/usage/summary.
+
 **Giá trị:** tăng mức cá nhân hóa, tạo trải nghiệm giống “coach dinh dưỡng”.
 
 ---
 
-## 2.8 Subscription & Payment lifecycle
+## 2.8 Subscription & Payment lifecycle (Đã làm)
 
 **Mục tiêu:** Quản lý quyền truy cập tính năng nâng cao và dòng tiền.
 
@@ -220,7 +416,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.9 Notification & Re-engagement
+## 2.9 Notification & Re-engagement (Chưa có)
 
 **Mục tiêu:** Nhắc user quay lại app và duy trì thói quen.
 
@@ -238,7 +434,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.10 Audit & Product analytics
+## 2.10 Audit & Product analytics (Chưa có)
 
 **Mục tiêu:** Đo usage thực tế và hỗ trợ vận hành.
 
@@ -252,7 +448,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.11 Vietnam-first local nutrition workflow
+## 2.11 Vietnam-first local nutrition workflow (Chưa có)
 
 **Mục tiêu:** Tăng mức phù hợp cho người dùng Việt Nam trong sử dụng hằng ngày.
 
@@ -267,7 +463,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.12 Beginner quick-start workflow (Hôm nay ăn gì?)
+## 2.12 Beginner quick-start workflow (Hôm nay ăn gì?) (Chưa có)
 
 **Mục tiêu:** Hỗ trợ nhóm người dùng chưa biết ăn gì mỗi ngày.
 
@@ -282,7 +478,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.13 Gym/PT goal-based workflow
+## 2.13 Gym/PT goal-based workflow (Chưa có)
 
 **Mục tiêu:** Phục vụ nhóm tập gym/PT theo mục tiêu cụ thể.
 
@@ -300,7 +496,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.14 Real-world food data capture workflow
+## 2.14 Real-world food data capture workflow (Chưa có)
 
 **Mục tiêu:** Ghi log dinh dưỡng nhanh và sát thực tế đời sống.
 
@@ -316,7 +512,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.15 Safety, trust, and compliance workflow (Play Store-ready)
+## 2.15 Safety, trust, and compliance workflow (Play Store-ready) (Chưa có)
 
 **Mục tiêu:** Đảm bảo app an toàn, đáng tin cậy và phù hợp phát hành CH Play.
 

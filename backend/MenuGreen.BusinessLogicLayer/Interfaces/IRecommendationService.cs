@@ -18,5 +18,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IReadOnlyList<RecommendationItemResponse>> PreviewAsync(Guid userId, RecommendationPreviewRequest request);
         Task SubmitFeedbackAsync(Guid userId, RecommendationFeedbackRequest request);
         Task<RecommendationExplainResponse> ExplainAsync(Guid userId, Guid recommendationId);
+        Task<RecommendationScoreResponse> GetScoresAsync(Guid userId, RecommendationScoreRequest request);
+        Task<object> RetrainAsync(Guid userId, RecommendationRetrainRequest request);
     }
 }
