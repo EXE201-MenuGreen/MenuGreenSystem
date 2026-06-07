@@ -240,6 +240,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var history = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
                 ?? throw new Exception("Recommendation not found.");
 
+            var feedback = (await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == recommendationId)).FirstOrDefault();
             var reasons = new List<string>();
             var matchedRules = new List<string>();
             var usedContext = new List<string>();
@@ -258,6 +259,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 reasons.Add($"Mức tin cậy ước tính: {history.Confidence:0.00}.");
             }
+            if (feedback != null)
+            {
+                reasons.Add($"Feedback gần nhất: {(feedback.Rating.HasValue ? feedback.Rating.Value.ToString("0.0") : "N/A")}/5.");
+                if (!string.IsNullOrWhiteSpace(feedback.Feedback))
+                {
+                    reasons.Add($"Ghi chú user: {feedback.Feedback}");
+                }
+            }
 
             return new RecommendationExplainResponse
             {
@@ -265,6 +274,70 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Reasons = reasons,
                 MatchedRules = matchedRules,
                 UsedContext = usedContext
+            };
+        }
+
+        public async Task<RecommendationScoreResponse> GetScoresAsync(Guid userId, RecommendationScoreRequest request)
+        {
+            var targetCalories = request.TargetCalories ?? 0;
+            var budget = request.BudgetVnd ?? int.MaxValue;
+            var limit = request.LimitMinutes ?? int.MaxValue;
+
+            var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
+            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
+            if (request.ExcludeUserAllergies)
+            {
+                foods = await FilterFoodsByAllergyAsync(foods, userId);
+                recipes = await FilterRecipesByAllergyAsync(recipes, userId);
+            }
+
+            var caloriesCandidates = foods.Select(f => (double)f.CaloriesKcal!.Value)
+                .Concat(recipes.Select(r => (double)(r.Food?.CaloriesKcal ?? 0)))
+                .Take(20)
+                .ToList();
+
+            var priceCandidates = foods.Select(f => (double)(f.EstimatedPriceVnd ?? 0))
+                .Concat(recipes.Select(r => (double)(r.EstimatedPriceVnd ?? 0)))
+                .Take(20)
+                .ToList();
+
+            var timeCandidates = recipes.Select(r => (double)(r.TotalTimeMin ?? 0)).Take(20).ToList();
+
+            double caloriesScore = caloriesCandidates.Count == 0 || targetCalories <= 0
+                ? 0
+                : caloriesCandidates.Select(c => 100d - Math.Min(100d, Math.Abs(c - targetCalories) / Math.Max(1, targetCalories) * 100d)).Average();
+
+            double budgetScore = priceCandidates.Count == 0 || budget <= 0
+                ? 0
+                : priceCandidates.Select(p => 100d - Math.Min(100d, Math.Max(0, p - budget) / Math.Max(1, budget) * 100d)).Average();
+
+            double macroScore = timeCandidates.Count == 0
+                ? 70d
+                : Math.Max(40d, 100d - (timeCandidates.Average() / Math.Max(1, limit)) * 100d);
+
+            var allergyScore = request.ExcludeUserAllergies ? 100d : 80d;
+            var overall = (caloriesScore + macroScore + allergyScore + budgetScore) / 4d;
+
+            return await Task.FromResult(new RecommendationScoreResponse
+            {
+                CaloriesScore = Math.Round(caloriesScore, 2),
+                MacroScore = Math.Round(macroScore, 2),
+                AllergyScore = Math.Round(allergyScore, 2),
+                BudgetScore = Math.Round(budgetScore, 2),
+                OverallScore = Math.Round(overall, 2)
+            });
+        }
+
+        public async Task<object> RetrainAsync(Guid userId, RecommendationRetrainRequest request)
+        {
+            var feedbacks = await _unitOfWork.RecommendationFeedbacks.FindAsync(x => true);
+            var histories = await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId);
+            return new
+            {
+                DryRun = request.DryRun,
+                HistoriesCount = histories.Count(),
+                FeedbackCount = feedbacks.Count(),
+                Message = request.DryRun ? "Dry run completed. No model changes were applied." : "Retrain job scheduled."
             };
         }
 

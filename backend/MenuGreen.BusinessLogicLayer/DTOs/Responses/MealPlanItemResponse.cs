@@ -17,5 +17,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? FoodName { get; set; }
         public string? RecipeName { get; set; }
         public string? SourceEntityType { get; set; }
+        public string? Status { get; set; }
     }
 }
