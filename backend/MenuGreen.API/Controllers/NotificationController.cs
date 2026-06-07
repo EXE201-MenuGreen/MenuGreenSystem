@@ -164,9 +164,10 @@ namespace MenuGreen.API.Controllers
 
         /// <summary>
         /// Tạo thông báo nhắc giờ ăn trước thời điểm ăn dự kiến.
+        /// API này phục vụ workflow meal plan để bấm nhắc cho từng bữa đã lên kế hoạch.
         /// </summary>
-        [HttpPost("schedule-meal-reminder")]
-        public async Task<IActionResult> ScheduleMealReminder([FromBody] ScheduleMealReminderRequest request)
+        [HttpPost("meal-plan-remind")]
+        public async Task<IActionResult> MealPlanRemind([FromBody] ScheduleMealReminderRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (!TryGetUserId(out var userId)) return Unauthorized();
