@@ -22,6 +22,15 @@ class ApiMessageTranslator {
     'Current password is incorrect.': 'Mật khẩu hiện tại không đúng.',
     'Confirm password does not match.': 'Mật khẩu xác nhận không khớp.',
     'Meal log not found.': 'Không tìm thấy nhật ký bữa ăn.',
+    'Meal plan not found.': 'Không tìm thấy kế hoạch bữa ăn.',
+    'Meal plan item not found.': 'Không tìm thấy mục trong kế hoạch.',
+    'Meal plan must contain at least one item.': 'Kế hoạch cần ít nhất một bữa.',
+    'Each meal plan item must have either FoodId or RecipeId.':
+        'Mỗi bữa trong kế hoạch cần chọn món hoặc công thức.',
+    'Meal plan item must have FoodId or RecipeId.':
+        'Mục kế hoạch cần món ăn hoặc công thức.',
+    'Meal reminder is disabled.': 'Đã tắt nhắc giờ ăn.',
+    'Prep reminder is disabled.': 'Đã tắt nhắc chuẩn bị nấu.',
     'Weight log not found.': 'Không tìm thấy nhật ký cân nặng.',
     'FoodId or RecipeId is required.': 'Cần chọn món ăn hoặc công thức.',
     'Please complete health profile before finishing onboarding.':

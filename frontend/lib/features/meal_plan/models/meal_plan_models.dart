@@ -1,0 +1,139 @@
+class UserMealPlan {
+  UserMealPlan({
+    required this.id,
+    required this.title,
+    required this.planType,
+    required this.startDate,
+    required this.targetCalories,
+    required this.items,
+  });
+
+  final String id;
+  final String title;
+  final String? planType;
+  final String? startDate;
+  final int targetCalories;
+  final List<MealPlanItemModel> items;
+
+  factory UserMealPlan.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] ?? json['Items'];
+    return UserMealPlan(
+      id: (json['id'] ?? json['Id']).toString(),
+      title: (json['title'] ?? json['Title'] ?? '').toString(),
+      planType: (json['planType'] ?? json['PlanType'])?.toString(),
+      startDate: (json['startDate'] ?? json['StartDate'])?.toString(),
+      targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
+      items: rawItems is List
+          ? rawItems.whereType<Map<String, dynamic>>().map(MealPlanItemModel.fromJson).toList()
+          : [],
+    );
+  }
+}
+
+class MealPlanItemModel {
+  MealPlanItemModel({
+    required this.id,
+    required this.mealType,
+    this.foodId,
+    this.recipeId,
+    required this.targetCalories,
+    required this.isCompleted,
+    this.foodName,
+    this.recipeName,
+    this.mealLogId,
+    this.scheduledTime,
+    this.sourceEntityType,
+  });
+
+  final String id;
+  final String mealType;
+  final String? foodId;
+  final String? recipeId;
+  final int targetCalories;
+  final bool isCompleted;
+  final String? foodName;
+  final String? recipeName;
+  final String? mealLogId;
+  final String? scheduledTime;
+  final String? sourceEntityType;
+
+  String get displayName {
+    final name = (foodName ?? recipeName ?? '').trim();
+    return name.isNotEmpty ? name : 'Món trong kế hoạch';
+  }
+
+  bool get isFood =>
+      (sourceEntityType ?? '').toLowerCase() == 'food' || (foodId != null && recipeId == null);
+
+  factory MealPlanItemModel.fromJson(Map<String, dynamic> json) {
+    return MealPlanItemModel(
+      id: (json['id'] ?? json['Id']).toString(),
+      mealType: (json['mealType'] ?? json['MealType'] ?? 'snack').toString(),
+      foodId: (json['foodId'] ?? json['FoodId'])?.toString(),
+      recipeId: (json['recipeId'] ?? json['RecipeId'])?.toString(),
+      targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
+      isCompleted: json['isCompleted'] == true || json['IsCompleted'] == true,
+      foodName: (json['foodName'] ?? json['FoodName'])?.toString(),
+      recipeName: (json['recipeName'] ?? json['RecipeName'])?.toString(),
+      mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
+      scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])?.toString(),
+      sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])?.toString(),
+    );
+  }
+}
+
+class MealPlanAdherence {
+  MealPlanAdherence({
+    required this.plannedKcal,
+    required this.actualKcal,
+    required this.completedCount,
+    required this.totalCount,
+    this.deviationPercent,
+  });
+
+  final int plannedKcal;
+  final double actualKcal;
+  final int completedCount;
+  final int totalCount;
+  final double? deviationPercent;
+
+  factory MealPlanAdherence.fromJson(Map<String, dynamic> json) {
+    double? dev;
+    final rawDev = json['deviationPercent'] ?? json['DeviationPercent'];
+    if (rawDev is num) dev = rawDev.toDouble();
+
+    return MealPlanAdherence(
+      plannedKcal: _int(json['plannedKcal'] ?? json['PlannedKcal']),
+      actualKcal: _double(json['actualKcal'] ?? json['ActualKcal']),
+      completedCount: _int(json['completedCount'] ?? json['CompletedCount']),
+      totalCount: _int(json['totalCount'] ?? json['TotalCount']),
+      deviationPercent: dev,
+    );
+  }
+}
+
+int _int(dynamic v) {
+  if (v is int) return v;
+  if (v is num) return v.round();
+  return 0;
+}
+
+double _double(dynamic v) {
+  if (v is num) return v.toDouble();
+  return 0;
+}
+
+String mealTypeLabelVi(String mealType) {
+  switch (mealType.toLowerCase()) {
+    case 'breakfast':
+      return 'Bữa sáng';
+    case 'lunch':
+      return 'Bữa trưa';
+    case 'dinner':
+      return 'Bữa tối';
+    case 'snack':
+      return 'Bữa phụ';
+    default:
+      return mealType;
+  }
+}

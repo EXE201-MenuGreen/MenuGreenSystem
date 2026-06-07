@@ -9,6 +9,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         // Meal Logs
         Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request);
+        Task<MealLogResponse> GetMealLogAsync(Guid userId, Guid mealLogId);
         Task<MealLogResponse> UpdateMealLogAsync(Guid userId, Guid mealLogId, MealLogUpsertRequest request);
         Task DeleteMealLogAsync(Guid userId, Guid mealLogId);
         Task<MealLogListResponse> GetMealLogsAsync(Guid userId, int page = 1, int pageSize = 20);
