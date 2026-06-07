@@ -16,6 +16,13 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.Food).WithMany().HasForeignKey(x => x.FoodId);
             builder.HasOne(x => x.Recipe).WithMany().HasForeignKey(x => x.RecipeId);
+            builder.HasOne(x => x.MealPlanItem)
+                .WithMany()
+                .HasForeignKey(x => x.MealPlanItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasIndex(x => x.MealPlanItemId)
+                .IsUnique()
+                .HasFilter("\"MealPlanItemId\" IS NOT NULL");
         }
     }
 }

@@ -8,9 +8,11 @@
 --        dotnet ef database update --project MenuGreen.DataAccessLayer --startup-project MenuGreen.API
 --   3. If Render DB has old partial schema, reset first: backend/reset_database.sql
 --      then run database update again, then run this seed file.
+--   4. Meal plan workflow (2.5) columns — run once if DB predates UserMealPlan API:
+--        backend/add_meal_plan_user_workflow.sql
 --
 -- Demo accounts (password for all): Demo@123
---   demo@menugreen.app  -> role Free   (free-tier demo, meal tracking ~1250 kcal today)
+--   demo@menugreen.app  -> role Free   (free-tier demo, meal tracking ~1250 kcal today + DAILY meal plan)
 --   pro@menugreen.app   -> role Pro    (active yearly subscription + transaction history)
 --   admin@menugreen.app -> role Admin  (admin web panel)
 --
@@ -31,10 +33,10 @@
 -- DELETE FROM recommendation_history WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM ai_messages WHERE "ConversationId" IN (SELECT "Id" FROM ai_conversations WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app'));
 -- DELETE FROM ai_conversations WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
--- DELETE FROM meal_plan_items WHERE "MealPlanId" IN (SELECT "Id" FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app'));
--- DELETE FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
--- DELETE FROM nutrition_snapshots WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM meal_logs WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
+-- DELETE FROM meal_plan_items WHERE "MealPlanId" IN (SELECT "Id" FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app') OR "UserId" = '00000000-0000-0000-0000-000000000000');
+-- DELETE FROM meal_plan_headers WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app') OR "UserId" = '00000000-0000-0000-0000-000000000000';
+-- DELETE FROM nutrition_snapshots WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM weight_logs WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM favorite_foods WHERE "UserId" IN (SELECT "Id" FROM users WHERE "Email" LIKE '%@menugreen.app');
 -- DELETE FROM food_allergies WHERE "FoodId" IN (SELECT "Id" FROM foods WHERE "Id"::text LIKE '40000000%')
@@ -429,11 +431,129 @@ VALUES
 ON CONFLICT ("UserId", "FoodId") DO NOTHING;
 
 -- =========================
+-- Meal plans (admin template + demo user DAILY for today — workflow 2.5)
+-- Insert before meal_logs when linking MealPlanItemId.
+-- =========================
+
+-- Admin web: mẫu thực đơn (UserId empty = template, không gắn user cụ thể)
+INSERT INTO meal_plan_headers (
+  "Id","UserId","Title","PlanType","StartDate","EndDate",
+  "TargetCalories","GeneratedBy","IsActive","CreatedAt","UpdatedAt"
+)
+VALUES
+  (
+    'e0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'Mẫu thực đơn tuần (admin)',
+    'WEEKLY',
+    CURRENT_DATE,
+    CURRENT_DATE + 6,
+    1954, 'ADMIN', true, now(), now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+INSERT INTO meal_plan_items (
+  "Id","MealPlanId","MealType","FoodId","RecipeId","PlannedDate",
+  "ScheduledTime","TargetCalories","IsCompleted","CreatedAt"
+)
+VALUES
+  (
+    'f0000000-0000-0000-0000-000000000001',
+    'e0000000-0000-0000-0000-000000000001',
+    'lunch',
+    NULL,
+    '50000000-0000-0000-0000-000000000001',
+    CURRENT_DATE,
+    '12:00', 450, false, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000002',
+    'e0000000-0000-0000-0000-000000000001',
+    'snack',
+    NULL,
+    '50000000-0000-0000-0000-000000000002',
+    CURRENT_DATE,
+    '15:00', 220, false, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000003',
+    'e0000000-0000-0000-0000-000000000001',
+    'dinner',
+    '40000000-0000-0000-0000-000000000006',
+    NULL,
+    CURRENT_DATE + 1,
+    '18:30', 420, false, now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- demo@menugreen.app: kế hoạch DAILY hôm nay (Flutter Home / user-meal-plans API)
+INSERT INTO meal_plan_headers (
+  "Id","UserId","Title","PlanType","StartDate","EndDate",
+  "TargetCalories","GeneratedBy","IsActive","CreatedAt","UpdatedAt"
+)
+VALUES
+  (
+    'e0000000-0000-0000-0000-000000000010',
+    '70000000-0000-0000-0000-000000000001',
+    'Kế hoạch ăn hôm nay (demo)',
+    'DAILY',
+    CURRENT_DATE,
+    CURRENT_DATE,
+    1954, 'USER', true, now(), now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+INSERT INTO meal_plan_items (
+  "Id","MealPlanId","MealType","FoodId","RecipeId","PlannedDate",
+  "ScheduledTime","TargetCalories","IsCompleted","CreatedAt"
+)
+VALUES
+  (
+    'f0000000-0000-0000-0000-000000000010',
+    'e0000000-0000-0000-0000-000000000010',
+    'breakfast',
+    '40000000-0000-0000-0000-000000000005',
+    NULL,
+    CURRENT_DATE,
+    '07:30', 330, true, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000011',
+    'e0000000-0000-0000-0000-000000000010',
+    'lunch',
+    NULL,
+    '50000000-0000-0000-0000-000000000001',
+    CURRENT_DATE,
+    '12:00', 450, true, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000012',
+    'e0000000-0000-0000-0000-000000000010',
+    'snack',
+    NULL,
+    '50000000-0000-0000-0000-000000000002',
+    CURRENT_DATE,
+    '15:00', 220, false, now()
+  ),
+  (
+    'f0000000-0000-0000-0000-000000000013',
+    'e0000000-0000-0000-0000-000000000010',
+    'dinner',
+    '40000000-0000-0000-0000-000000000004',
+    NULL,
+    CURRENT_DATE,
+    '18:30', 250, false, now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
 -- Meal logs (demo user today — total 1250 kcal vs target 1954)
+-- 2 bữa từ meal plan (IsFromMealPlan), 2 bữa ghi tay thủ công.
 -- =========================
 INSERT INTO meal_logs (
   "Id","UserId","FoodId","RecipeId","MealType","QuantityG",
-  "CaloriesKcal","ProteinG","CarbsG","FatG","SourceType","Notes","LoggedAt"
+  "CaloriesKcal","ProteinG","CarbsG","FatG","SourceType","Notes","LoggedAt",
+  "MealPlanItemId","IsFromMealPlan"
 )
 VALUES
   (
@@ -441,36 +561,40 @@ VALUES
     '70000000-0000-0000-0000-000000000001',
     '40000000-0000-0000-0000-000000000005',
     NULL,
-    'Breakfast', 280,
-    330, 12, 48, 8, 'manual', 'Yến mạch sữa chua',
-    date_trunc('day', now()) + interval '7 hours 30 minutes'
+    'breakfast', 280,
+    330, 12, 48, 8, 'Food', 'Logged from meal plan.',
+    date_trunc('day', now()) + interval '7 hours 30 minutes',
+    'f0000000-0000-0000-0000-000000000010', true
   ),
   (
     '90000000-0000-0000-0000-000000000002',
     '70000000-0000-0000-0000-000000000001',
-    '40000000-0000-0000-0000-000000000001',
+    NULL,
     '50000000-0000-0000-0000-000000000001',
-    'Lunch', 350,
-    450, 40, 20, 18, 'manual', 'Salad ức gà - bữa trưa đề xuất',
-    date_trunc('day', now()) + interval '12 hours'
+    'lunch', 350,
+    450, 40, 20, 18, 'Recipe', 'Logged from meal plan.',
+    date_trunc('day', now()) + interval '12 hours',
+    'f0000000-0000-0000-0000-000000000011', true
   ),
   (
     '90000000-0000-0000-0000-000000000003',
     '70000000-0000-0000-0000-000000000001',
     '40000000-0000-0000-0000-000000000002',
-    '50000000-0000-0000-0000-000000000002',
-    'Snack', 300,
-    220, 8, 22, 10, 'manual', 'Smoothie bơ hạt',
-    date_trunc('day', now()) + interval '15 hours'
+    NULL,
+    'snack', 300,
+    220, 8, 22, 10, 'Food', 'Smoothie bơ hạt (manual log)',
+    date_trunc('day', now()) + interval '15 hours',
+    NULL, false
   ),
   (
     '90000000-0000-0000-0000-000000000004',
     '70000000-0000-0000-0000-000000000001',
     '40000000-0000-0000-0000-000000000004',
     NULL,
-    'Dinner', 300,
-    250, 14, 18, 12, 'manual', 'Salad đậu hũ nhẹ',
-    date_trunc('day', now()) + interval '18 hours 30 minutes'
+    'dinner', 300,
+    250, 14, 18, 12, 'Food', 'Salad đậu hũ nhẹ (manual log)',
+    date_trunc('day', now()) + interval '18 hours 30 minutes',
+    NULL, false
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -555,59 +679,6 @@ VALUES
   )
 ON CONFLICT ("Id") DO NOTHING;
 
--- =========================
--- Meal plan (demo user — sample week)
--- =========================
-INSERT INTO meal_plan_headers (
-  "Id","UserId","Title","PlanType","StartDate","EndDate",
-  "TargetCalories","GeneratedBy","IsActive","CreatedAt","UpdatedAt"
-)
-VALUES
-  (
-    'e0000000-0000-0000-0000-000000000001',
-    '70000000-0000-0000-0000-000000000001',
-    'Kế hoạch ăn tuần demo',
-    'weekly',
-    CURRENT_DATE,
-    CURRENT_DATE + 6,
-    1954, 'manual', true, now(), now()
-  )
-ON CONFLICT ("Id") DO NOTHING;
-
-INSERT INTO meal_plan_items (
-  "Id","MealPlanId","MealType","FoodId","RecipeId","PlannedDate",
-  "TargetCalories","IsCompleted","CreatedAt"
-)
-VALUES
-  (
-    'f0000000-0000-0000-0000-000000000001',
-    'e0000000-0000-0000-0000-000000000001',
-    'Lunch',
-    '40000000-0000-0000-0000-000000000001',
-    '50000000-0000-0000-0000-000000000001',
-    CURRENT_DATE,
-    450, true, now()
-  ),
-  (
-    'f0000000-0000-0000-0000-000000000002',
-    'e0000000-0000-0000-0000-000000000001',
-    'Snack',
-    '40000000-0000-0000-0000-000000000002',
-    '50000000-0000-0000-0000-000000000002',
-    CURRENT_DATE,
-    220, false, now()
-  ),
-  (
-    'f0000000-0000-0000-0000-000000000003',
-    'e0000000-0000-0000-0000-000000000001',
-    'Dinner',
-    '40000000-0000-0000-0000-000000000006',
-    NULL,
-    CURRENT_DATE + 1,
-    420, false, now()
-  )
-ON CONFLICT ("Id") DO NOTHING;
-
 COMMIT;
 
 -- =========================
@@ -625,3 +696,13 @@ COMMIT;
 -- JOIN subscription_plans sp ON sp."Id" = us."SubscriptionPlanId"
 -- LEFT JOIN subscription_transactions st ON st."UserSubscriptionId" = us."Id"
 -- WHERE us."UserId" = '70000000-0000-0000-0000-000000000002';
+--
+-- SELECT h."Title", h."PlanType", h."StartDate", i."MealType", i."IsCompleted", i."ScheduledTime"
+-- FROM meal_plan_headers h
+-- JOIN meal_plan_items i ON i."MealPlanId" = h."Id"
+-- WHERE h."UserId" = '70000000-0000-0000-0000-000000000001' AND h."PlanType" = 'DAILY';
+--
+-- SELECT ml."MealType", ml."IsFromMealPlan", ml."MealPlanItemId", ml."CaloriesKcal"
+-- FROM meal_logs ml
+-- WHERE ml."UserId" = '70000000-0000-0000-0000-000000000001'
+--   AND ml."LoggedAt"::date = CURRENT_DATE;

@@ -101,34 +101,49 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var dinnerTarget = targetCalories * 0.30m;
             var snackTarget = targetCalories * 0.10m;
 
-            var breakfast = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)breakfastTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
-            var lunch = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)lunchTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
-            var dinner = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)dinnerTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
-            var snack = (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList();
+            var slots = new[]
+            {
+                ("breakfast", breakfastTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)breakfastTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
+                ("lunch", lunchTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)lunchTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
+                ("dinner", dinnerTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)dinnerTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
+                ("snack", snackTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList())
+            };
 
-            var all = breakfast.Concat(lunch).Concat(dinner).Concat(snack).ToList();
+            var items = slots
+                .Select(slot => MapDailyMenuItem(slot.Item1, slot.Item3.FirstOrDefault()))
+                .Where(x => x != null)
+                .Cast<MealPlanItemResponse>()
+                .ToList();
 
             return new MealPlanResponse
             {
                 TargetCalories = targetCalories,
-                TotalCalories = (int)Math.Round(all.Sum(x => x.CaloriesKcal)),
-                TotalProteinG = (int)Math.Round(all.Sum(x => x.ProteinG)),
-                TotalCarbsG = (int)Math.Round(all.Sum(x => x.CarbsG)),
-                TotalFatG = (int)Math.Round(all.Sum(x => x.FatG)),
-                Items = breakfast.Concat(lunch).Concat(dinner).Concat(snack)
-                    .Select(x => new MealPlanItemResponse
-                    {
-                        Id = x.Id,
-                        MealPlanId = Guid.Empty,
-                        MealType = x.Type,
-                        FoodId = null,
-                        RecipeId = null,
-                        PlannedDate = null,
-                        TargetCalories = (int)Math.Round(x.CaloriesKcal),
-                        IsCompleted = false,
-                        FoodName = x.Name,
-                        RecipeName = x.Name
-                    }).ToList()
+                TotalCalories = items.Sum(x => x.TargetCalories ?? 0),
+                TotalProteinG = 0,
+                TotalCarbsG = 0,
+                TotalFatG = 0,
+                Items = items
+            };
+        }
+
+        private static MealPlanItemResponse? MapDailyMenuItem(string mealType, RecommendationItemResponse? recommendation)
+        {
+            if (recommendation == null) return null;
+
+            var isFood = string.Equals(recommendation.Type, "Food", StringComparison.OrdinalIgnoreCase);
+            return new MealPlanItemResponse
+            {
+                Id = recommendation.Id,
+                MealPlanId = Guid.Empty,
+                MealType = mealType,
+                FoodId = isFood ? recommendation.Id : null,
+                RecipeId = isFood ? null : recommendation.Id,
+                PlannedDate = null,
+                TargetCalories = (int)Math.Round(recommendation.CaloriesKcal),
+                IsCompleted = false,
+                FoodName = isFood ? recommendation.Name : null,
+                RecipeName = isFood ? null : recommendation.Name,
+                SourceEntityType = recommendation.Type
             };
         }
 

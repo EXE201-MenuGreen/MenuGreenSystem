@@ -10,9 +10,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
         public DateOnly? PlannedDate { get; set; }
+        public TimeOnly? ScheduledTime { get; set; }
         public int? TargetCalories { get; set; }
         public bool IsCompleted { get; set; }
+        public Guid? MealLogId { get; set; }
         public string? FoodName { get; set; }
         public string? RecipeName { get; set; }
+        public string? SourceEntityType { get; set; }
     }
 }

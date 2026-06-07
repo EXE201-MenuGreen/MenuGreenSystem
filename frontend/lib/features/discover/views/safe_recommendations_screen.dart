@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/food_models.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../repositories/recommendation_repository.dart';
 import 'food_detail_screen.dart';
 import 'recipe_detail_screen.dart';
@@ -22,6 +23,8 @@ class SafeRecommendationsScreen extends StatefulWidget {
 class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
     with SingleTickerProviderStateMixin {
   final _repository = RecommendationRepository();
+  final _mealPlanRepository = MealPlanRepository();
+  bool _savingPlan = false;
   late final TabController _tabController;
 
   bool _excludeAllergies = true;
@@ -131,19 +134,51 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
 
   void _openDailyItem(DailyMenuPlanItem item) {
     if (item.isFood) {
+      final foodId = item.foodId ?? item.id;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => FoodDetailScreen(foodId: item.id, allergyMode: widget.allergyMode),
+          builder: (_) => FoodDetailScreen(foodId: foodId, allergyMode: widget.allergyMode),
         ),
       );
     } else {
+      final recipeId = item.recipeId ?? item.id;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipeId: item.id, allergyMode: widget.allergyMode),
+          builder: (_) => RecipeDetailScreen(recipeId: recipeId, allergyMode: widget.allergyMode),
         ),
       );
+    }
+  }
+
+  Future<void> _saveDailyMenuAsPlan() async {
+    final plan = _dailyMenu;
+    if (plan == null || plan.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có thực đơn để lưu.')),
+      );
+      return;
+    }
+
+    setState(() => _savingPlan = true);
+    try {
+      await _mealPlanRepository.createFromDailyMenu(
+        plannedDate: DateTime.now(),
+        targetCalories: plan.targetCalories > 0 ? plan.targetCalories : _targetCalories,
+        items: plan.items.map((e) => e.toPlanItemJson()).toList(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã lưu kế hoạch ăn hôm nay.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _savingPlan = false);
     }
   }
 
@@ -270,6 +305,18 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
         Text(
           'Tổng ~${plan.totalCalories} kcal (mục tiêu ${plan.targetCalories})',
           style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _savingPlan ? null : _saveDailyMenuAsPlan,
+          icon: _savingPlan
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.bookmark_add_outlined),
+          label: const Text('Lưu làm kế hoạch hôm nay'),
         ),
         const SizedBox(height: 12),
         ...List.generate(plan.items.length, (i) {

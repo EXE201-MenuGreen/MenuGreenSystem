@@ -17,8 +17,11 @@ namespace MenuGreen.DataAccessLayer.Entities
         public string? SourceType { get; set; }
         public string? Notes { get; set; }
         public DateTime? LoggedAt { get; set; }
+        public Guid? MealPlanItemId { get; set; }
+        public bool IsFromMealPlan { get; set; }
 
         public virtual User? User { get; set; }
+        public virtual MealPlanItem? MealPlanItem { get; set; }
         public virtual Food? Food { get; set; }
         public virtual Recipe? Recipe { get; set; }
     }

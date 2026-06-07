@@ -16,5 +16,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         public string? Notes { get; set; }
         public DateTime? LoggedAt { get; set; }
+        public Guid? MealPlanItemId { get; set; }
     }
 }
