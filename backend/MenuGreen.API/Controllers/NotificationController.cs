@@ -183,6 +183,7 @@ namespace MenuGreen.API.Controllers
 
         /// <summary>
         /// Tạo thông báo nhắc chuẩn bị nguyên liệu trước khi nấu.
+        /// API này phục vụ workflow meal plan để nhắc trước giờ cooking.
         /// </summary>
         [HttpPost("schedule-prep-reminder")]
         public async Task<IActionResult> SchedulePrepReminder([FromBody] SchedulePrepReminderRequest request)
@@ -197,6 +198,86 @@ namespace MenuGreen.API.Controllers
             {
                 return BadRequest(new { Message = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Lấy danh sách kênh thông báo mà hệ thống hỗ trợ.
+        /// </summary>
+        [HttpGet("channels")]
+        public async Task<IActionResult> GetChannels()
+        {
+            return Ok(await _service.GetChannelsAsync());
+        }
+
+        /// <summary>
+        /// Reset cấu hình thông báo của user về mặc định.
+        /// </summary>
+        [HttpPost("settings/reset")]
+        public async Task<IActionResult> ResetSettings()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _service.ResetSettingsAsync(userId);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Gửi một notification cụ thể tới user.
+        /// </summary>
+        [HttpPost("send")]
+        public async Task<IActionResult> Send([FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationSendRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try
+            {
+                return Ok(await _service.SendAsync(request));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Ghi nhận notification được mở.
+        /// </summary>
+        [HttpPost("{notificationId:guid}/track/open")]
+        public async Task<IActionResult> TrackOpen(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _service.TrackOpenAsync(userId, notificationId, request);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Ghi nhận user click vào CTA của notification.
+        /// </summary>
+        [HttpPost("{notificationId:guid}/track/click")]
+        public async Task<IActionResult> TrackClick(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _service.TrackClickAsync(userId, notificationId, request);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Ghi nhận user hoàn thành hành động sau khi click notification.
+        /// </summary>
+        [HttpPost("{notificationId:guid}/track/action-complete")]
+        public async Task<IActionResult> TrackActionComplete(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _service.TrackActionCompleteAsync(userId, notificationId, request);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Trả về thống kê tổng hợp open/click của notification.
+        /// </summary>
+        [HttpGet("analytics")]
+        public async Task<IActionResult> GetAnalytics()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetAnalyticsAsync(userId));
         }
 
         private bool TryGetUserId(out Guid userId)

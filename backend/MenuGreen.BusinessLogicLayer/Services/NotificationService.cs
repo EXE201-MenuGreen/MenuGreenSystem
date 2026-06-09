@@ -154,6 +154,74 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await CreateNotificationAsync(userId, "PREP_REMINDER", request.Title ?? "Prep reminder", request.Body ?? $"Prepare ingredients before cooking at {request.CookingTime:HH:mm}.", scheduledAt);
         }
 
+        public Task<IEnumerable<string>> GetChannelsAsync()
+        {
+            IEnumerable<string> channels = new[] { "in-app", "push", "email" };
+            return Task.FromResult(channels);
+        }
+
+        public async Task ResetSettingsAsync(Guid userId)
+        {
+            var settings = await EnsureSettingsAsync(userId);
+            settings.MealReminderEnabled = true;
+            settings.MealReminderOffsetMinutes = 30;
+            settings.PrepReminderEnabled = true;
+            settings.PrepReminderOffsetMinutes = 20;
+            settings.InAppEnabled = true;
+            settings.PushEnabled = false;
+            settings.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.NotificationSettings.Update(settings);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<NotificationResponse> SendAsync(NotificationSendRequest request)
+        {
+            return await CreateNotificationAsync(request.UserId, request.Type, request.Title, request.Body, request.ScheduledAt ?? DateTimeOffset.UtcNow);
+        }
+
+        public async Task<IEnumerable<NotificationResponse>> SendBulkAsync(IEnumerable<NotificationSendRequest> requests)
+        {
+            var result = new List<NotificationResponse>();
+            foreach (var request in requests)
+            {
+                result.Add(await SendAsync(request));
+            }
+            return result;
+        }
+
+        public async Task TrackOpenAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
+        {
+            await MarkAsReadAsync(userId, notificationId);
+        }
+
+        public Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
+        {
+            return Task.CompletedTask;
+        }
+
+        public async Task<object> GetAnalyticsAsync(Guid userId)
+        {
+            var notifications = await _unitOfWork.Notifications.FindAsync(x => x.UserId == userId);
+            var list = notifications.ToList();
+            var sent = list.Count;
+            var opened = list.Count(x => x.ReadAt.HasValue);
+            var clicked = 0;
+            return new
+            {
+                Sent = sent,
+                Opened = opened,
+                Clicked = clicked,
+                OpenRate = sent == 0 ? 0 : (double)opened / sent,
+                ClickRate = sent == 0 ? 0 : (double)clicked / sent,
+                ActionCompletionRate = 0d
+            };
+        }
+
         private async Task<NotificationSetting> EnsureSettingsAsync(Guid userId)
         {
             var settings = (await _unitOfWork.NotificationSettings.FindAsync(x => x.UserId == userId)).FirstOrDefault();
