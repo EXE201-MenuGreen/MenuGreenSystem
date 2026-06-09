@@ -20,5 +20,13 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<int> DeleteByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate);
         Task<NotificationResponse> ScheduleMealReminderAsync(Guid userId, ScheduleMealReminderRequest request);
         Task<NotificationResponse> SchedulePrepReminderAsync(Guid userId, SchedulePrepReminderRequest request);
+        Task<IEnumerable<string>> GetChannelsAsync();
+        Task ResetSettingsAsync(Guid userId);
+        Task<NotificationResponse> SendAsync(NotificationSendRequest request);
+        Task<IEnumerable<NotificationResponse>> SendBulkAsync(IEnumerable<NotificationSendRequest> requests);
+        Task TrackOpenAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
+        Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
+        Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
+        Task<object> GetAnalyticsAsync(Guid userId);
     }
 }

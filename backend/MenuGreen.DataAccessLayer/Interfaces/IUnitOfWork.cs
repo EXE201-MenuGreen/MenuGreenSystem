@@ -22,6 +22,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.NutritionSnapshot> NutritionSnapshots { get; }
         IGenericRepository<Entities.RecommendationHistory> RecommendationHistories { get; }
         IGenericRepository<Entities.RecommendationFeedback> RecommendationFeedbacks { get; }
+        IGenericRepository<Entities.ActivityLog> ActivityLogs { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }
