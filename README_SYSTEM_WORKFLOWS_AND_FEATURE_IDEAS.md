@@ -346,48 +346,6 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `GET /AiAssistant/conversations/{id}/summary` — tóm tắt hội thoại.
 - `GET /AiAssistant/usage` — số lần dùng assistant theo ngày/tuần/tháng.
 
-### Plan code backend cần có
-
-#### 1) Entity / DB
-- `AiConversation`
-- `AiMessage`
-- `AiMessageFeedback`
-- `AiAssistantContext`
-- `UserAiProfile` (đã có nền)
-
-#### 2) DTOs
-- Requests:
-  - `AiConversationCreateRequest`
-  - `AiConversationRenameRequest`
-  - `AiMessageSendRequest`
-  - `AiMessageFeedbackRequest`
-  - `AiAssistantContextUpsertRequest`
-  - `AiActionRequest`
-- Responses:
-  - `AiConversationResponse`
-  - `AiMessageResponse`
-  - `AiAssistantSuggestionResponse`
-  - `AiAssistantSummaryResponse`
-  - `AiUsageResponse`
-
-#### 3) Service layer
-- `IAiAssistantService`
-- `AiAssistantService`
-- Nếu tách AI riêng: `IAiAssistantProvider`
-- Nếu cần orchestration: `IAiAssistantPromptBuilder`
-
-#### 4) Controller layer
-- `AiAssistantController`
-
-#### 5) Repository/UoW
-- `AiConversations`
-- `AiMessages`
-- `AiMessageFeedbacks`
-- `UserAiProfiles`
-- `MealLogs`
-- `MealPlanHeaders`
-- `RecommendationHistories`
-
 ### Ưu tiên triển khai kỹ thuật
 
 1. Làm conversation/message CRUD trước.
@@ -416,25 +374,84 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.9 Notification & Re-engagement (Chưa có)
+## 2.9 Notification & Re-engagement (Đã làm)
 
 **Mục tiêu:** Nhắc user quay lại app và duy trì thói quen.
 
+**Giải thích workflow:**
+
+- `NotificationSetting` là cấu hình cá nhân hóa cho việc nhận nhắc: bật/tắt, chọn kênh, khung giờ cho phép, tần suất và loại nhắc.
+- `Notification` là bản ghi thông báo được hệ thống tạo ra để gửi cho user theo sự kiện hoặc lịch hẹn.
+- `ActivityLog` (hoặc log tracking riêng) dùng để ghi nhận open/click/action-complete nhằm đo hiệu quả re-engagement.
+- Mục tiêu không chỉ là “gửi nhắc”, mà còn là đo được user có quay lại app và hoàn thành hành động sau nhắc hay không.
+
 **Flow đề xuất:**
 
-1. User cấu hình kênh/khung giờ (`NotificationSetting`).
+1. User cấu hình kênh/khung giờ và loại nhắc (`NotificationSetting`).
 2. Hệ thống phát thông báo (`Notification`) theo sự kiện:
    - Đến giờ ăn
    - Chưa log bữa trong ngày
    - Sắp hết hạn subscription
    - Nhắc cân mỗi tuần
-3. Theo dõi open/click (có thể ghi `ActivityLog`).
+3. User mở/click thông báo, hệ thống ghi nhận tracking (`ActivityLog` hoặc tracking endpoint riêng).
+4. Dashboard/analytics tổng hợp open rate, click rate và tỷ lệ quay lại app.
 
 **Giá trị:** tăng retention và giảm drop-off.
 
+**API cần có để làm đúng bài:**
+
+### A. Notification setting
+- `GET /Notification/settings` — lấy cấu hình nhắc hiện tại của user.
+- `PUT /Notification/settings` — cập nhật cấu hình nhắc: bật/tắt, kênh, giờ nhắc, timezone, loại nhắc.
+- `POST /Notification/settings/reset` — reset cấu hình về mặc định.
+- `GET /Notification/channels` — danh sách kênh hỗ trợ.
+
+### B. Notification inbox / lịch sử thông báo
+- `GET /Notification` — danh sách thông báo của user.
+- `GET /Notification/{id}` — xem chi tiết một notification.
+- `PATCH /Notification/{id}/read` — đánh dấu đã đọc.
+- `PATCH /Notification/{id}/open` — ghi nhận user đã mở thông báo.
+- `PATCH /Notification/{id}/dismiss` — ghi nhận user bỏ qua thông báo.
+- `DELETE /Notification/{id}` — xoá một notification nếu hệ thống cho phép.
+
+### C. Gửi thông báo theo sự kiện
+- `POST /Notification/send` — gửi một thông báo cụ thể tới user.
+- `POST /Notification/send/bulk` — gửi hàng loạt theo danh sách user hoặc segment.
+- `POST /Notification/send/event` — gửi theo sự kiện: đến giờ ăn, chưa log bữa, sắp hết hạn, nhắc cân.
+- `POST /Notification/send/schedule` — lên lịch gửi vào thời điểm cụ thể.
+- `POST /Notification/send/retry` — gửi lại nếu lần trước thất bại.
+
+### D. Re-engagement campaign
+- `POST /Notification/campaigns` — tạo chiến dịch re-engagement.
+- `GET /Notification/campaigns` — danh sách chiến dịch.
+- `GET /Notification/campaigns/{id}` — xem chi tiết chiến dịch.
+- `PUT /Notification/campaigns/{id}` — cập nhật nội dung, lịch gửi, target segment.
+- `POST /Notification/campaigns/{id}/run` — chạy chiến dịch.
+- `POST /Notification/campaigns/{id}/pause` — tạm dừng chiến dịch.
+
+### E. Tracking open/click và hiệu quả
+- `POST /Notification/{id}/track/open` — ghi nhận notification được mở.
+- `POST /Notification/{id}/track/click` — ghi nhận user click vào CTA.
+- `POST /Notification/{id}/track/action-complete` — ghi nhận user đã hoàn thành hành động sau khi click.
+- `GET /Notification/analytics` — tổng hợp số sent, opened, clicked, CTR, open rate, action completion rate.
+- `GET /Notification/analytics/re-engagement` — báo cáo riêng cho các nhóm nhắc quay lại app.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Làm `NotificationSetting` CRUD trước.
+2. Làm `Notification` inbox + trạng thái đọc/mở/click.
+3. Nối job gửi notification theo event.
+4. Thêm tracking open/click.
+5. Cuối cùng mới làm analytics và campaign nâng cao.
+
+**Trạng thái mong muốn sau khi làm xong:**
+- User tự cấu hình được nhắc giờ ăn, nhắc cân, nhắc log bữa.
+- Hệ thống tự gửi notification theo event.
+- App đo được user có mở/click/quay lại hay không.
+- Team sản phẩm có số liệu rõ ràng để tối ưu retention.
+
 ---
 
-## 2.10 Audit & Product analytics (Chưa có)
+## 2.10 Audit & Product analytics (Đã làm)
 
 **Mục tiêu:** Đo usage thực tế và hỗ trợ vận hành.
 
@@ -445,6 +462,57 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 3. Phân tích điểm rơi rời bỏ để tối ưu UX.
 
 **Giá trị:** dữ liệu ra quyết định cho Product/Marketing/CS.
+
+**Giải thích đúng workflow:**
+- `ActivityLog` là nguồn dữ liệu lõi để ghi lại mọi hành vi quan trọng của user và hệ thống.
+- Funnel dùng để đo user rơi ở bước nào trong một hành trình như onboarding → log bữa đầu tiên → subscription.
+- Cohort dùng để so sánh retention giữa các nhóm user theo ngày đăng ký, ngày log bữa đầu tiên, hoặc trạng thái subscription.
+- Mục tiêu cuối cùng là tìm điểm drop-off để tối ưu UX, tăng retention và hỗ trợ ra quyết định cho Product/Marketing/CS.
+
+**API cần có để làm đúng bài:**
+
+### A. Activity logging
+- `POST /Analytics/activity-log` — ghi nhận một sự kiện quan trọng.
+- `POST /Analytics/activity-log/bulk` — ghi nhận nhiều sự kiện cùng lúc.
+- `GET /Analytics/activity-log` — lấy danh sách sự kiện theo user hoặc thời gian.
+- `GET /Analytics/activity-log/{id}` — xem chi tiết một sự kiện.
+
+### B. Funnel analytics
+- `GET /Analytics/funnel` — tổng hợp funnel theo một flow định nghĩa sẵn.
+- `POST /Analytics/funnel/preview` — xem trước funnel theo các step truyền vào.
+- `GET /Analytics/funnel/meal-onboarding` — funnel mặc định cho onboarding → log bữa đầu tiên.
+- `GET /Analytics/funnel/subscription` — funnel mặc định cho đăng ký → mua subscription.
+
+### C. Cohort analytics
+- `GET /Analytics/cohort` — lấy dữ liệu cohort tổng quát.
+- `GET /Analytics/cohort/retention` — đo retention theo D1 / D7 / D30.
+- `GET /Analytics/cohort/by-signup-date` — cohort theo ngày đăng ký.
+- `GET /Analytics/cohort/by-first-meal-log` — cohort theo ngày log bữa đầu tiên.
+- `GET /Analytics/cohort/by-subscription` — cohort theo trạng thái subscription.
+
+### D. Dashboard / report tổng hợp
+- `GET /Analytics/dashboard` — tổng hợp KPI chính.
+- `GET /Analytics/summary?from=&to=` — báo cáo tổng hợp theo khoảng thời gian.
+- `GET /Analytics/metrics?from=&to=` — trả về KPI chi tiết theo ngày / tuần / tháng.
+- `GET /Analytics/top-events?from=&to=` — danh sách event được ghi nhận nhiều nhất.
+
+### E. Drop-off / churn analysis
+- `GET /Analytics/drop-off` — phân tích các bước có rớt user nhiều nhất.
+- `GET /Analytics/churn-risk` — phân nhóm user có nguy cơ rời bỏ.
+- `GET /Analytics/inactive-users` — danh sách user không hoạt động trong khoảng thời gian xác định.
+- `GET /Analytics/reactivation-opportunities` — danh sách user có thể nhắc quay lại.
+
+### F. Export dữ liệu
+- `GET /Analytics/export/activity-log` — xuất activity log ra file hoặc CSV.
+- `GET /Analytics/export/funnel` — xuất dữ liệu funnel.
+- `GET /Analytics/export/cohort` — xuất dữ liệu cohort.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Làm `ActivityLog` trước.
+2. Làm `dashboard` và `summary`.
+3. Làm `funnel`.
+4. Làm `cohort retention`.
+5. Cuối cùng mới làm `churn-risk`, `reactivation-opportunities`, `export`.
 
 ---
 
