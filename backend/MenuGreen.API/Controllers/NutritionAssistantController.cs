@@ -11,6 +11,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = "UserOnly")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("AiPolicy")]
     public class NutritionAssistantController : ControllerBase
     {
         private readonly INutritionAssistantService _service;

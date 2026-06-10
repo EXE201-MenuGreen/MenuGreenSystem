@@ -43,8 +43,10 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IIngredientCatalogService, IngredientCatalogService>();
             services.AddScoped<IRecipeCatalogService, RecipeCatalogService>();
             services.AddScoped<INutritionAssistantService, NutritionAssistantService>();
+            services.AddScoped<ICvService, CvService>();
             services.AddHttpClient<IEmailService, EmailService>();
             services.AddHttpClient(nameof(NutritionAssistantService));
+            services.AddHttpClient(nameof(CvService));
             return services;
         }
     }
