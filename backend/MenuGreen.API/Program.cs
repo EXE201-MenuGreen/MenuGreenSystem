@@ -7,6 +7,8 @@ using Microsoft.OpenApi.Models;
 using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer.Context;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
 var renderPort = Environment.GetEnvironmentVariable("PORT");
@@ -125,9 +127,68 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
         ValidateAudience = true,
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
-        ClockSkew = TimeSpan.Zero
     };
 });
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
+
+    // 1. Global Limiter: 100 requests per 1 minute per IP
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+
+    // 2. AiPolicy: 5 requests per 1 minute per User (fallback to IP if anonymous)
+    options.AddPolicy("AiPolicy", httpContext =>
+    {
+        var identity = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                       ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                       ?? "unknown-user";
+        return RateLimitPartition.GetFixedWindowLimiter(identity, _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+
+    // 3. AuthPolicy: 5 requests per 2 minutes per IP
+    options.AddPolicy("AuthPolicy", httpContext =>
+    {
+        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(2),
+            QueueLimit = 0
+        });
+    });
+
+    // 4. OtpPolicy: 2 requests per 1 minute per IP
+    options.AddPolicy("OtpPolicy", httpContext =>
+    {
+        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = 2,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+});
+
 var app = builder.Build();
 
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
@@ -146,6 +207,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseRateLimiter();
 app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
 app.UseAuthorization();
 
