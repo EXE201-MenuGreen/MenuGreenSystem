@@ -60,6 +60,27 @@ class ApiClient {
     );
   }
 
+  Future<http.Response> postMultipart(String url, List<int> fileBytes, String fieldName, String filename) async {
+    return _sendWithAuthRetry((headers) async {
+      final uri = Uri.parse(url);
+      final request = http.MultipartRequest('POST', uri);
+      
+      // Copy headers
+      request.headers.addAll(headers);
+      
+      // Add multipart file
+      final multipartFile = http.MultipartFile.fromBytes(
+        fieldName,
+        fileBytes,
+        filename: filename,
+      );
+      request.files.add(multipartFile);
+      
+      final streamedResponse = await request.send().timeout(_timeout);
+      return http.Response.fromStream(streamedResponse);
+    });
+  }
+
   Future<http.Response> _sendWithAuthRetry(
     Future<http.Response> Function(Map<String, String> headers) send,
   ) async {
