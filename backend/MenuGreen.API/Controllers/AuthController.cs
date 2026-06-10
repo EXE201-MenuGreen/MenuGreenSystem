@@ -8,6 +8,7 @@ namespace MenuGreen.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("AuthPolicy")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -19,6 +20,7 @@ namespace MenuGreen.API.Controllers
 
         // Đăng ký tài khoản mới và gửi OTP xác thực qua email.
         [HttpPost("register")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("OtpPolicy")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -53,6 +55,7 @@ namespace MenuGreen.API.Controllers
         }
 
         [HttpPost("forgot-password")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("OtpPolicy")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);

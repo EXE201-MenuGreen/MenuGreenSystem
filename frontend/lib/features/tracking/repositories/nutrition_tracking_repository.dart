@@ -192,4 +192,17 @@ class NutritionTrackingRepository {
     final d = date.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
   }
+
+  Future<CvInferenceResponse?> analyzeFoodImage(List<int> fileBytes, String filename) async {
+    final response = await _api.postMultipart(
+      ApiEndpoints.cvAnalyze,
+      fileBytes,
+      'image',
+      filename,
+    );
+    if (response.statusCode != 200 || response.body.isEmpty) return null;
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) return null;
+    return CvInferenceResponse.fromJson(decoded);
+  }
 }

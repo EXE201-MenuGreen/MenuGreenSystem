@@ -30,6 +30,7 @@ class ApiEndpoints {
   static String get removeAvatar => '$baseUrl/Profile/me/avatar';
   static String get changePassword => '$baseUrl/User/change-password';
   static String get healthProfileMe => '$baseUrl/HealthProfile/me';
+  static String get cvAnalyze => '$baseUrl/Cv/analyze';
   static String get nutritionDaily => '$baseUrl/NutritionTracking/daily';
   static String get nutritionDashboard =>
       '$baseUrl/NutritionTracking/dashboard';
