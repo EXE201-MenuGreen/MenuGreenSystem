@@ -381,6 +381,35 @@ CREATE TABLE meal_plan_items (
     CONSTRAINT "FK_meal_plan_items_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE SET NULL
 );
 
+CREATE TABLE meal_templates (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "Title" character varying(255) NOT NULL,
+    "Description" character varying(1000) NULL,
+    "MealType" character varying(50) NULL,
+    "UsageCount" integer NOT NULL DEFAULT 0,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_templates" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_templates_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE meal_template_items (
+    "Id" uuid NOT NULL,
+    "MealTemplateId" uuid NOT NULL,
+    "FoodId" uuid NULL,
+    "RecipeId" uuid NULL,
+    "QuantityG" numeric(18,2) NOT NULL,
+    "Notes" character varying(1000) NULL,
+    "SortOrder" integer NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_template_items" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_template_items_foods_FoodId" FOREIGN KEY ("FoodId") REFERENCES foods ("Id") ON DELETE SET NULL,
+    CONSTRAINT "FK_meal_template_items_meal_templates_MealTemplateId" FOREIGN KEY ("MealTemplateId") REFERENCES meal_templates ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_template_items_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE SET NULL
+);
+
 CREATE TABLE meal_logs (
     "Id" uuid NOT NULL,
     "UserId" uuid NOT NULL,
@@ -851,6 +880,22 @@ VALUES
 ('918621f6-1517-4cc1-9a7b-c20bbb021d09', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Lunch', 'fd000002-0000-0000-0000-000000000002', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 0, '12:15:00', 400, true, now()),
 ('1533c53c-17bb-42e4-b70b-b1c2260a9f91', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Dinner', 'fd000003-0000-0000-0000-000000000003', 'ec000004-0000-0000-0000-000000000004', CURRENT_DATE + 0, '18:45:00', 600, true, now()),
 ('12dcc145-28d9-4d50-b7ab-090f3bb48df5', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Breakfast', 'fd000005-0000-0000-0000-000000000005', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 1, '07:30:00', 500, false, now()),
+
+INSERT INTO meal_templates ("Id", "UserId", "Title", "Description", "MealType", "UsageCount", "IsActive", "CreatedAt", "UpdatedAt")
+VALUES
+('a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', '48069bd5-f29a-417d-bdeb-c00797968aca', 'Template bữa sáng eat clean', 'Bữa sáng dễ lặp lại cho ngày đi làm', 'Breakfast', 3, true, now(), now()),
+('a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', '9afb13a5-e5a1-4342-9ce1-33bf7cc1de70', 'Template meal prep tăng cơ', 'Bữa nhiều protein cho lịch tập gym', 'Lunch', 1, true, now(), now())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO meal_template_items ("Id", "MealTemplateId", "FoodId", "RecipeId", "QuantityG", "Notes", "SortOrder", "CreatedAt")
+VALUES
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b201', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', 'fd000001-0000-0000-0000-000000000001', NULL, 250, 'Yến mạch + sữa chua', 1, now()),
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b202', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', 'fd000004-0000-0000-0000-000000000004', NULL, 150, 'Trứng luộc', 2, now()),
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b203', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', NULL, 'ec000002-0000-0000-0000-000000000002', 200, 'Kết hợp recipe dễ làm', 3, now()),
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b204', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', 'fd000007-0000-0000-0000-000000000007', NULL, 250, 'Ức gà áp chảo', 1, now()),
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b205', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', NULL, 'ec000003-0000-0000-0000-000000000003', 200, 'Recipe giàu protein', 2, now()),
+('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b206', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', 'fd000010-0000-0000-0000-000000000010', NULL, 150, 'Rau củ ăn kèm', 3, now())
+ON CONFLICT DO NOTHING;
 ('65db8028-ba8d-47ed-a21b-9f053281d0aa', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Lunch', 'fd000001-0000-0000-0000-000000000001', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 1, '12:15:00', 350, false, now()),
 ('fdbe131b-8843-4772-ba88-3f37a6322ee5', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Dinner', 'fd000006-0000-0000-0000-000000000006', 'ec000004-0000-0000-0000-000000000004', CURRENT_DATE + 1, '18:45:00', 500, false, now()),
 ('3a472f2e-76e2-4b9e-a6ef-f1547d6b393f', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Breakfast', 'fd000002-0000-0000-0000-000000000002', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 2, '07:30:00', 500, false, now()),
