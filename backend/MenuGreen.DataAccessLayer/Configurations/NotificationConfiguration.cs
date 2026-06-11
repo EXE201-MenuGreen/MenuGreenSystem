@@ -8,7 +8,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
     {
         public void Configure(EntityTypeBuilder<Notification> builder)
         {
-            builder.ToTable("Notifications");
+            builder.ToTable("notifications");
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Title).HasMaxLength(200);
