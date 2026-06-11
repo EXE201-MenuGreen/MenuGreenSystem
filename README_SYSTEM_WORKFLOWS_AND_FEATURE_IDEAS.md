@@ -516,9 +516,14 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.11 Vietnam-first local nutrition workflow (Chưa có)
+## 2.11 Vietnam-first local nutrition workflow (Đã làm)
 
 **Mục tiêu:** Tăng mức phù hợp cho người dùng Việt Nam trong sử dụng hằng ngày.
+
+**Giải thích đúng workflow:**
+- Người dùng Việt thường quen với món ăn, khẩu phần và đơn vị đo khác với chuẩn quốc tế, nên workflow này cần “localize” ngay từ onboarding và recommendation.
+- Hệ thống không chỉ ưu tiên món Việt mà còn phải hiểu ngữ cảnh ăn uống thực tế như ăn ngoài/nấu tại nhà, ngân sách phổ biến, và cách đo khẩu phần theo chén/bát/muỗng/đĩa.
+- Mục tiêu cuối cùng là giảm rào cản nhập liệu, tăng độ chính xác khi log bữa ăn, và làm app có cảm giác “hiểu người dùng Việt”.
 
 **Flow đề xuất:**
 
@@ -526,14 +531,68 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 2. Hệ thống ưu tiên món Việt quen thuộc trong discovery/recommendation.
 3. Gợi ý khẩu phần theo đơn vị quen thuộc (chén, bát, muỗng, đĩa) và quy đổi gram.
 4. Ưu tiên món theo ngân sách phổ biến tại Việt Nam.
+5. Khi cần, hệ thống cho phép đổi giữa đơn vị Việt Nam và gram/ml để log nhanh và chính xác hơn.
 
 **Giá trị:** giảm rào cản sử dụng, tăng cảm giác “app hiểu người dùng Việt”.
 
+**API đã triển khai theo hướng không trùng chức năng:**
+
+### A. Local preference onboarding
+- `GET /Nutrition/local-preferences` — lấy cấu hình local preference hiện tại của user.
+- `POST /Nutrition/local-preferences` — lưu cấu hình lần đầu.
+- `PUT /Nutrition/local-preferences` — cập nhật lại khẩu vị, vùng ưu tiên hoặc kiểu ăn.
+
+> Đã dùng lại `UserAiProfile` hiện có để tránh tạo thêm storage/flow trùng với onboarding AI profile.
+
+### B. Localized food discovery
+- `GET /Nutrition/discovery/local` — gợi ý món Việt theo từ khóa và ngân sách.
+- `GET /Nutrition/discovery/local/by-region/{region}` — lọc theo vùng Bắc/Trung/Nam.
+- `GET /Nutrition/discovery/local/by-budget?maxPrice=` — gợi ý món theo ngân sách.
+
+> Các endpoint này tái sử dụng `FoodService.SearchAsync` và logic phân loại món hiện có, nên không code thêm một search engine riêng.
+
+### C. Portion / unit conversion
+- `GET /Nutrition/portions/local-units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
+- `POST /Nutrition/portions/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
+- `GET /Nutrition/portions/estimate?foodId=` — ước lượng khẩu phần mặc định theo món.
+
+> `custom-estimate` chưa tách riêng vì có thể dùng chung với flow log bữa ăn và convert hiện tại; nếu sau này cần UX riêng thì tách sau.
+
+### D. Vietnamese meal logging
+- `POST /Nutrition/meal-log/vn` — log bữa ăn với hỗ trợ đơn vị Việt Nam.
+- `POST /Nutrition/meal-log/vn/quick-add` — thêm nhanh món quen thuộc bằng đơn vị địa phương.
+- `GET /Nutrition/meal-log/vn/suggestions` — gợi ý món Việt dễ log nhanh.
+- `GET /Nutrition/meal-log/vn/history` — xem lịch sử log bữa ăn theo format local.
+
+> Hai API `meal-log/vn` và `meal-log/vn/quick-add` hiện dùng chung logic create meal log để tránh duplicate handler.
+
+### E. Budget-aware recommendations
+- `GET /Nutrition/recommendations/budget-aware` — gợi ý món theo mục tiêu dinh dưỡng và ngân sách.
+- `GET /Nutrition/recommendations/local-friendly` — gợi ý món dễ ăn, dễ tìm, phù hợp thói quen Việt.
+- `POST /Nutrition/recommendations/feedback` — ghi nhận feedback để tối ưu gợi ý local.
+
+> `budget-aware` và `local-friendly` đang dùng chung recommendation engine hiện có (`RecommendByEcoAsync`) để không viết trùng một lớp recommendation mới.
+
+**Phần đã code trong backend:**
+- Tạo controller `VietnamNutritionController` để gom các endpoint Vietnam-first.
+- Tái sử dụng `UserAiProfileService`, `FoodService`, `NutritionTrackingService`, và `RecommendationService`.
+- Không code trùng những phần đã có sẵn như search món ăn, log bữa ăn, hoặc feedback recommendation.
+
+**Ưu tiên triển khai kỹ thuật tiếp theo:**
+1. Chuẩn hóa DTO riêng cho `PortionConvertRequest` và `custom-estimate` nếu muốn tách UI/UX.
+2. Tinh chỉnh rule gợi ý theo vùng/khẩu vị Việt để discovery chính xác hơn.
+3. Nếu cần, tách thêm service riêng cho metric local-specific thay vì nhét vào recommendation hiện có.
 ---
 
-## 2.12 Beginner quick-start workflow (Hôm nay ăn gì?) (Chưa có)
+## 2.12 Beginner quick-start workflow (Hôm nay ăn gì?) (Đã làm)
 
 **Mục tiêu:** Hỗ trợ nhóm người dùng chưa biết ăn gì mỗi ngày.
+
+**Giải thích đúng workflow:**
+- Đây là workflow tối ưu cho người dùng bận rộn hoặc chưa có thói quen tự lên thực đơn.
+- Thay vì bắt user search nhiều bước, hệ thống chỉ cần trả vài gợi ý đủ tốt để họ chọn ngay.
+- Workflow này nên nối liền với recommendation, meal plan và meal log hiện có để tránh code trùng.
+- Mục tiêu cuối cùng là giảm thời gian ra quyết định, tăng tỉ lệ quay lại app mỗi ngày, và biến “chọn món” thành một thao tác rất nhanh.
 
 **Flow đề xuất:**
 
@@ -541,14 +600,74 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 2. Hệ thống trả 3-5 gợi ý theo mục tiêu calories/macro và dị ứng.
 3. User chọn nhanh hoặc bấm đổi món 1 chạm.
 4. Tạo sẵn meal plan/ngày và cho phép log nhanh sau khi ăn.
+5. User có thể lưu lại lựa chọn tốt để hệ thống học cho những lần sau.
 
 **Giá trị:** rút ngắn thời gian ra quyết định, tăng tỉ lệ dùng app hằng ngày.
 
+**API đã có chức năng tương đương, nên dùng các API này thay vì tạo API quick-start mới:**
+
+### A. Quick-start suggestion
+- `GET /api/Recommendation/calories` — lấy gợi ý theo calories/macro cho màn hình “Hôm nay ăn gì?”.
+- `GET /api/Recommendation/eco` — lấy gợi ý theo ngân sách và thời gian.
+- `GET /api/Recommendation/lunch` — lấy gợi ý bữa trưa nhanh.
+- `GET /api/Recommendation/daily-menu` — tạo sẵn menu/ngày từ target calories.
+- `POST /api/Recommendation/preview` — xem trước danh sách gợi ý trước khi áp dụng.
+
+### B. One-tap refresh
+- `POST /api/Recommendation/preview` — gọi lại với input mới để đổi bộ gợi ý.
+- `POST /api/Recommendation/feedback` — user đánh giá món nào hợp/không hợp để tối ưu lần sau.
+- `GET /api/Recommendation/history` — xem lịch sử recommendation đã tạo.
+
+### C. Create meal plan from quick-start
+- `POST /api/MealPlan` — tạo meal plan/ngày từ món đã chọn nếu hệ thống đã có flow tạo plan.
+- `PUT /api/MealPlan/{id}` — cập nhật plan từ lựa chọn mới.
+- `GET /api/MealPlan/{id}` — xem trước plan trước khi lưu hoặc áp dụng.
+- `POST /api/UserMealPlan` — gắn meal plan vào user hiện tại nếu flow của app dùng user-plan riêng.
+
+### D. Quick logging
+- `POST /api/NutritionTracking/meal-logs` — log nhanh món đã chọn vào meal log.
+- `PUT /api/NutritionTracking/meal-logs/{mealLogId}` — cập nhật log nếu user đổi món.
+- `GET /api/NutritionTracking/meal-logs` — xem lịch sử meal log của user.
+
+**Ghi chú tránh code trùng với API đã có:**
+- `quick-start/today`, `quick-start/refresh`, `quick-start/preview`, `quick-start/refine` không nên tạo endpoint mới; chỉ map sang `RecommendationController` hiện có.
+- `quick-start/feedback` dùng lại `POST /api/Recommendation/feedback`, không tạo luồng feedback riêng.
+- `quick-start/log` và `quick-start/log-and-plan` dùng lại `POST /api/NutritionTracking/meal-logs`, không tạo API log riêng trùng chức năng.
+- `quick-start/create-meal-plan` dùng lại `MealPlanService` / `UserMealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
+- `quick-start/history` nếu chỉ cần lịch sử gợi ý thì dùng lại `GET /api/Recommendation/history`, không thêm history mới.
+
+**Các API quick-start chỉ là tên workflow mô tả, không phải endpoint mới cần code:**
+- `GET /Nutrition/quick-start/today` -> `GET /api/Recommendation/calories`
+- `POST /Nutrition/quick-start/preview` -> `POST /api/Recommendation/preview`
+- `POST /Nutrition/quick-start/refine` -> `POST /api/Recommendation/preview` hoặc `GET /api/Recommendation/calories` với input mới
+- `POST /Nutrition/quick-start/refresh` -> gọi lại `POST /api/Recommendation/preview` với seed khác
+- `POST /Nutrition/quick-start/feedback` -> `POST /api/Recommendation/feedback`
+- `POST /Nutrition/quick-start/log` -> `POST /api/NutritionTracking/meal-logs`
+- `POST /Nutrition/quick-start/log-and-plan` -> phối hợp `POST /api/NutritionTracking/meal-logs` + `POST /api/MealPlan`
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Tái sử dụng recommendation hiện có để sinh gợi ý nhanh.
+2. Nối với meal plan hiện có để tạo plan từ lựa chọn.
+3. Nối với meal log hiện có để log nhanh sau khi chọn món.
+4. Cuối cùng mới tối ưu feedback loop để cá nhân hóa sâu hơn.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Tái sử dụng recommendation hiện có để sinh gợi ý nhanh.
+2. Nối với meal plan hiện có để tạo plan từ lựa chọn.
+3. Nối với meal log hiện có để log nhanh sau khi chọn món.
+4. Cuối cùng mới tối ưu feedback loop để cá nhân hóa sâu hơn.
+
 ---
 
-## 2.13 Gym/PT goal-based workflow (Chưa có)
+## 2.13 Gym/PT goal-based workflow (Đã làm)
 
 **Mục tiêu:** Phục vụ nhóm tập gym/PT theo mục tiêu cụ thể.
+
+**Giải thích đúng workflow:**
+- Workflow này dành cho người tập nghiêm túc, cần chế độ ăn theo mục tiêu rõ ràng như cut, bulk, maintain, recomp.
+- Không chỉ là gợi ý món ăn, mà còn phải điều chỉnh target calories/macro theo ngày tập/ngày nghỉ.
+- Cần có guardrail an toàn để tránh kế hoạch quá cực đoan, đồng thời theo dõi planned vs actual để tái cân chỉnh mục tiêu theo tuần.
+- Nếu làm đúng, workflow này sẽ giúp app phù hợp với user gym/PT và tăng retention nhóm này.
 
 **Flow đề xuất:**
 
@@ -562,27 +681,133 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 **Giá trị:** phù hợp nhu cầu người tập nghiêm túc và tăng retention nhóm gym.
 
+**API đã có chức năng tương đương, nên dùng thay vì tạo API mới:**
+
+### A. Goal mode / recommendation
+- `GET /api/Recommendation/calories` — gợi ý theo target calories/macro cho user.
+- `GET /api/Recommendation/daily-menu` — tạo menu/ngày theo mục tiêu dinh dưỡng.
+- `POST /api/Recommendation/preview` — xem trước bộ gợi ý trước khi áp dụng.
+- `POST /api/Recommendation/feedback` — user phản hồi để cải thiện gợi ý.
+- `GET /api/Recommendation/history` — xem lịch sử recommendation.
+
+### B. Tracking planned vs actual
+- `GET /api/NutritionTracking/summary` — tổng hợp dinh dưỡng theo ngày/tuần/tháng.
+- `GET /api/NutritionTracking/trends` — phân tích xu hướng dinh dưỡng theo thời gian.
+- `GET /api/NutritionTracking/daily` — lấy tóm tắt dinh dưỡng theo ngày.
+- `GET /api/NutritionTracking/dashboard` — xem dashboard tổng hợp meal logs và weight logs.
+- `GET /api/NutritionTracking/weight-logs/trend` — theo dõi xu hướng cân nặng.
+
+### C. Logging dữ liệu thực tế
+- `POST /api/NutritionTracking/meal-logs` — ghi nhận bữa ăn thực tế.
+- `PUT /api/NutritionTracking/meal-logs/{mealLogId}` — cập nhật log nếu user đổi món/khẩu phần.
+- `GET /api/NutritionTracking/meal-logs` — xem lịch sử meal log để so sánh planned vs actual.
+- `POST /api/NutritionTracking/weight-logs` — ghi nhận cân nặng thực tế.
+- `GET /api/NutritionTracking/weight-logs` — theo dõi các mốc cân nặng.
+
+**Ghi chú tránh code trùng với API đã có:**
+- Phần recommendation cho cut/bulk/maintain/recomp nên **tái sử dụng** `RecommendationController` hiện có, không tạo recommendation engine riêng.
+- Phần planned vs actual nên **tái sử dụng** `NutritionTrackingController` để lấy summary, trends, dashboard, meal logs, weight logs.
+- `recalibrate` theo tuần có thể tính từ dữ liệu `summary`, `trends`, `weight-logs/trend`, nên chưa cần API riêng nếu chỉ là logic xử lý ở service.
+- Chia sẻ báo cáo cho PT/coach là chức năng nâng cao, hiện chưa thấy API riêng tương ứng nên có thể tách sau nếu thực sự cần.
+
+**API đã code trong backend, nhưng dùng lại API hiện có để tránh trùng chức năng:**
+- `GET /api/GymGoals/me` — lấy cấu hình goal mode hiện tại của user, được map từ `UserAiProfileService` hiện có.
+- `POST /api/GymGoals` — tạo/cập nhật cấu hình goal mode, lịch tập và target ban đầu, nhưng thực tế vẫn lưu qua `UserAiProfileService`.
+- `PUT /api/GymGoals` — cập nhật goal mode, lịch tập, ngày tập/ngày nghỉ, vẫn dùng lại `UserAiProfileService`.
+- `GET /api/GymGoals/plan` — lấy kế hoạch gợi ý theo goal mode, nhưng thực chất gọi `RecommendationController` hiện có.
+- `POST /api/GymGoals/recalibrate` — thu thập dữ liệu để recalibrate, nhưng chưa tạo engine recalibration riêng; dùng `NutritionTrackingController` để lấy summary/trends/weight trend.
+- `GET /api/GymGoals/alerts` — cảnh báo lệch mục tiêu, nhưng dữ liệu được suy ra từ `MealPlanController.GetCompareAsync` và tracking hiện có.
+- `GET /api/GymGoals/coach-report` — báo cáo nâng cao cho PT/coach, nhưng nội dung lấy từ `MealPlanController`, `UserMealPlanController`, `NutritionTrackingController` hiện có.
+
+**Ghi chú:**
+- Các endpoint `GymGoals` ở trên là lớp orchestration mới, không tạo storage/engine riêng trùng lặp.
+- Nếu muốn tối giản hơn nữa, có thể không expose `GymGoals` mà chỉ dùng thẳng các API hiện có ở `RecommendationController`, `MealPlanController`, `UserMealPlanController`, `NutritionTrackingController`.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Tái sử dụng recommendation hiện có để sinh gợi ý theo goal mode.
+2. Nối với tracking hiện có để đo planned vs actual.
+3. Thêm guardrail và recalibration logic ở service layer nếu cần.
+4. Chỉ tách API riêng cho gym-goals khi đã chắc chắn không trùng với flow tracking hiện có.
+
 ---
 
 ## 2.14 Real-world food data capture workflow (Chưa có)
 
 **Mục tiêu:** Ghi log dinh dưỡng nhanh và sát thực tế đời sống.
 
+**Giải thích đúng workflow:**
+- Workflow này tập trung vào việc ghi nhận bữa ăn trong đời thực, nơi user không phải lúc nào cũng có dữ liệu món ăn chuẩn xác.
+- Hệ thống cần hỗ trợ nhiều cách nhập khác nhau: tìm món, chọn template, quét barcode, hoặc nhập tay fallback.
+- Điểm quan trọng nhất là giảm friction khi log nhưng vẫn giữ được độ chính xác calories/macro.
+- Các luồng có sẵn như meal log, food search, recommendation, meal plan nên được tái sử dụng tối đa để tránh code trùng.
+
 **Flow đề xuất:**
 
-1. Log bữa bằng 3 cách: tìm món, chọn template, quét barcode (đồ đóng gói).
+1. Log bữa bằng 3 cách: tìm món, chọn template.
 2. Hỗ trợ chọn khẩu phần nhanh theo đơn vị thường dùng.
 3. Hệ thống quy đổi khẩu phần về gram để tính calories/macro nhất quán.
-4. Nếu không tìm thấy món/barcode lỗi, user dùng fallback nhập tay nhanh (macro ước tính + ghi chú).
+4. Nếu không tìm thấy món, user dùng fallback nhập tay nhanh (macro ước tính + ghi chú).
 5. User chỉnh tay nếu sai lệch và lưu thành quick-add lần sau.
 
 **Giá trị:** giảm friction khi ghi log và tăng độ chính xác dữ liệu.
+
+**API đã có chức năng tương đương, nên dùng thay vì tạo API mới:**
+
+### A. Tìm món / chọn món có sẵn
+- `GET /api/Food` — tìm kiếm món ăn theo keyword và các bộ lọc dinh dưỡng/giá/thời gian.
+- `GET /api/Food/{id}` — lấy chi tiết món ăn để log nhanh.
+- `GET /api/Food/{id}/similar` — lấy món tương tự khi user không tìm thấy món chính xác.
+- `GET /api/Food/{id}/recipes` — lấy công thức liên quan nếu user muốn log theo recipe.
+- `GET /api/Food/favorites` — dùng món yêu thích làm template log nhanh.
+
+### B. Ghi meal log thực tế
+- `POST /api/NutritionTracking/meal-logs` — ghi nhận bữa ăn thực tế.
+- `PUT /api/NutritionTracking/meal-logs/{mealLogId}` — chỉnh tay lại khẩu phần/macro nếu user thấy sai lệch.
+- `GET /api/NutritionTracking/meal-logs` — xem lịch sử log để dùng lại lần sau.
+- `GET /api/NutritionTracking/meal-logs/{mealLogId}` — xem chi tiết một meal log đã ghi.
+- `GET /api/NutritionTracking/meal-logs/range` — lấy log theo khoảng ngày.
+
+### C. Chọn nhanh theo template / quick-add
+- `POST /api/NutritionTracking/meal-logs` — có thể dùng làm quick-add nếu request chứa món/template sẵn.
+- `POST /api/user-meal-plans/from-daily-menu` — tạo plan mẫu để user dùng như template log nhanh.
+- `POST /api/user-meal-plans` — tạo hoặc cập nhật plan ngày để tái sử dụng như preset cho lần log sau.
+- `GET /api/user-meal-plans` — lấy plan theo ngày để chọn nhanh từ template đã lưu.
+
+### D. Hỗ trợ fallback nhập tay
+- `POST /api/NutritionTracking/meal-logs` — có thể dùng làm fallback nhập tay bằng macro ước tính và ghi chú.
+- `PUT /api/NutritionTracking/meal-logs/{mealLogId}` — chỉnh lại macro/khẩu phần sau khi user sửa tay.
+- `GET /api/NutritionTracking/daily` — kiểm tra tổng dinh dưỡng ngày hiện tại để đối chiếu sau khi nhập tay.
+
+**Ghi chú tránh code trùng với API đã có:**
+- `search món` và `similar food` nên **dùng lại** `FoodController`, không tạo endpoint search riêng cho workflow này.
+- `log bữa`, `quick-add`, `fallback nhập tay` nên **dùng lại** `NutritionTrackingController` / `meal-logs`, không tạo API meal log mới.
+- `template` và `preset` nên **dùng lại** `UserMealPlanController` nếu cần lưu meal template, không tạo storage trùng.
+- `barcode` nếu sau này cần hỗ trợ riêng thì mới tách API mới; hiện tại chưa thấy endpoint barcode riêng nên có thể triển khai sau.
+
+**API mới chưa có, đã được code để không trùng với API hiện có:**
+- `POST /api/Nutrition/food-capture/quick-template` — tạo template log nhanh từ một món hoặc meal log đã có; bên trong dùng lại `FoodController.GetById` hoặc `NutritionTrackingController.GetMealLogById`.
+- `POST /api/Nutrition/food-capture/fallback-estimate` — nhập tay macro ước tính kèm ghi chú khi không tìm thấy món; bên trong dùng lại `NutritionTrackingController.CreateMealLogAsync`.
+- `POST /api/Nutrition/food-capture/save-as-quick-add` — lưu một meal log chuẩn thành quick-add cho những lần sau; bên trong vẫn dùng `NutritionTrackingController.CreateMealLogAsync`.
+- `GET /api/Nutrition/food-capture/template-from-plan` — lấy template từ meal plan hiện có; bên trong dùng lại `UserMealPlanController.GetByDate`.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Tái sử dụng `FoodController` và `NutritionTrackingController` cho search + log trước.
+2. Dùng `UserMealPlanController` cho template/preset nếu cần.
+3. Chỉ tách barcode/fallback/quick-add riêng khi workflow thật sự cần UX chuyên biệt.
 
 ---
 
 ## 2.15 Safety, trust, and compliance workflow (Play Store-ready) (Chưa có)
 
 **Mục tiêu:** Đảm bảo app an toàn, đáng tin cậy và phù hợp phát hành CH Play.
+
+**Giải thích đúng workflow:**
+- Workflow này không nhằm tạo thêm tính năng dinh dưỡng mới, mà tập trung vào độ tin cậy, pháp lý, quyền riêng tư và khả năng vận hành an toàn khi app ra production.
+- Người dùng cần được nhìn thấy disclaimer rõ ràng để hiểu app chỉ hỗ trợ dinh dưỡng, không thay thế tư vấn y khoa.
+- Một số nhóm user có rủi ro cao cần được cảnh báo phù hợp, tránh đưa ra lời khuyên quá tự tin hoặc gây hiểu nhầm.
+- Consent cho analytics/notification phải được quản lý minh bạch, có thể bật/tắt và ghi nhận trạng thái đồng ý.
+- Người dùng cũng phải có luồng export/delete dữ liệu cá nhân để đáp ứng yêu cầu quyền riêng tư và tiêu chuẩn store.
+- Cuối cùng, app cần theo dõi sự cố, lỗi production và trạng thái hệ thống để tăng độ ổn định và trust.
 
 **Flow đề xuất:**
 
@@ -593,6 +818,59 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 5. Theo dõi sự cố quan trọng và phản hồi lỗi ổn định cho production.
 
 **Giá trị:** tăng trust, giảm rủi ro vận hành và hỗ trợ tiêu chuẩn phát hành.
+
+**API đã có chức năng tương đương, nên dùng lại thay vì tạo mới:**
+
+### A. Consent / privacy / user data
+- `GET /api/Profile/me` — lấy thông tin profile và trạng thái hiện tại của user.
+- `PUT /api/Profile/me` — cập nhật thông tin cá nhân và các lựa chọn liên quan.
+- `GET /api/UserAiProfile/me` — lấy profile AI/personalization hiện tại.
+- `PUT /api/UserAiProfile/me` — cập nhật preferences phục vụ cá nhân hóa.
+- `POST /api/Auth/logout` — đăng xuất, thường dùng kết hợp với thu hồi consent trên client.
+
+### B. Analytics / tracking consent
+- `GET /api/Analytics/dashboard` — xem tổng quan KPI để biết hệ thống đang hoạt động thế nào.
+- `GET /api/Analytics/summary` — báo cáo tổng hợp theo khoảng thời gian.
+- `GET /api/Analytics/activity-log` — theo dõi các hành vi quan trọng nếu user đã đồng ý analytics.
+- `POST /api/Analytics/activity-log` — ghi nhận sự kiện khi consent analytics đang bật.
+
+### C. Safety / health risk / disclaimer support
+- `GET /api/HealthProfile/me` — lấy dữ liệu sức khỏe để xác định nhóm rủi ro cao.
+- `PUT /api/HealthProfile/me` — cập nhật dữ liệu sức khỏe để hỗ trợ cảnh báo phù hợp.
+- `GET /api/Allergy/me` hoặc API allergy tương đương — dùng để cảnh báo dị ứng và safety warning.
+- `GET /api/Onboarding/me` hoặc API onboarding tương đương — kiểm tra user đã đọc/đồng ý disclaimer hay chưa.
+
+### D. Export / delete data
+- `GET /api/Profile/export` — xuất dữ liệu cá nhân của user.
+- `DELETE /api/Profile/me` — xóa dữ liệu cá nhân theo yêu cầu.
+- `GET /api/User/export` — xuất toàn bộ dữ liệu user nếu hệ thống tách theo user aggregate.
+- `DELETE /api/User/me` — xóa account hoặc dữ liệu liên quan nếu policy cho phép.
+
+### E. Production incident / support
+- `GET /api/Notification/history` — xem lịch sử notification nếu cần audit.
+- `POST /api/Notification/test` — kiểm tra push/notification trước khi release.
+- `GET /api/Dashboard/health` — nếu có dashboard vận hành, dùng để theo dõi trạng thái tổng thể.
+- `GET /api/Analytics/error-events` — nếu hệ thống đã ghi log lỗi vận hành, dùng để theo dõi issue production.
+
+**Ghi chú tránh code trùng với API đã có:**
+- Disclaimer nên được hiển thị từ UI/config hoặc onboarding flow hiện có, không cần một engine disclaimer riêng nếu chỉ là text tĩnh.
+- Consent analytics/notification nên tái sử dụng profile/onboarding hiện có thay vì tạo bảng consent trùng lặp.
+- Export/delete dữ liệu nên gắn vào `Profile`, `User`, hoặc `Auth` flow hiện có; chỉ tách API mới nếu policy yêu cầu luồng riêng.
+- Các cảnh báo rủi ro cao nên suy ra từ `HealthProfile`, `Allergy`, `Onboarding` và `NutritionTracking` hiện có, không tạo risk engine mới trùng chức năng.
+
+**API mới chỉ nên tách riêng nếu triển khai thật sự cần:**
+- `GET /Safety/disclaimer` — trả nội dung disclaimer chuẩn theo version.
+- `PUT /Safety/consent` — cập nhật consent analytics/notification/marketing.
+- `GET /Safety/consent` — lấy trạng thái consent hiện tại của user.
+- `GET /Safety/alerts` — trả cảnh báo an toàn/rủi ro cao theo profile sức khỏe.
+- `POST /Safety/export-data` — yêu cầu xuất toàn bộ dữ liệu cá nhân.
+- `DELETE /Safety/delete-data` — yêu cầu xóa dữ liệu cá nhân theo chính sách.
+- `POST /Safety/report-issue` — gửi phản hồi lỗi production hoặc sự cố quan trọng.
+
+**Ưu tiên triển khai kỹ thuật:**
+1. Làm disclaimer + consent trước để đáp ứng yêu cầu store và privacy.
+2. Tái sử dụng profile/health/allergy/onboarding hiện có để tránh code trùng.
+3. Chỉ tách API riêng cho export/delete/report issue khi thật sự cần luồng độc lập.
 
 ---
 
