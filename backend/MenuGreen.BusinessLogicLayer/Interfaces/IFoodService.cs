@@ -24,6 +24,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
             string? allergyMode = null);
         Task<IReadOnlyList<RecipeResponse>> GetRecipesAsync(Guid foodId);
         Task<IReadOnlyList<FoodResponse>> GetSimilarAsync(Guid foodId, Guid? userId = null, string? allergyMode = null);
+        Task<AllergenRiskResult> GetAllergyBadgeAsync(Guid foodId, Guid? userId = null);
         Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId);
         Task FavoriteAsync(Guid userId, Guid foodId);
         Task UnfavoriteAsync(Guid userId, Guid foodId);

@@ -30,6 +30,8 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<NutritionSnapshot> NutritionSnapshots { get; set; }
         public DbSet<MealPlanHeader> MealPlanHeaders { get; set; }
         public DbSet<MealPlanItem> MealPlanItems { get; set; }
+        public DbSet<MealTemplate> MealTemplates { get; set; }
+        public DbSet<MealTemplateItem> MealTemplateItems { get; set; }
         public DbSet<AiConversation> AiConversations { get; set; }
         public DbSet<AiMessage> AiMessages { get; set; }
         public DbSet<RecommendationHistory> RecommendationHistories { get; set; }
