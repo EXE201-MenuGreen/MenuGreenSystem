@@ -4,7 +4,7 @@
 -- Self-contained PostgreSQL script: creates tables for all current entities and
 -- inserts sample data. Safe to re-run with ON CONFLICT DO NOTHING.
 -- =============================================================================
-
+CREATE DATABASE "MenuGreenDb";
 BEGIN;
 
 DROP TABLE IF EXISTS activity_logs CASCADE;
@@ -466,7 +466,7 @@ CREATE TABLE recommendation_feedbacks (
     "Feedback" text NULL,
     "CreatedAt" timestamp with time zone NULL,
     CONSTRAINT "PK_recommendation_feedbacks" PRIMARY KEY ("Id"),
-    CONSTRAINT "FK_recommendation_feedbacks_recommendation_history_RecommendationId" FOREIGN KEY ("RecommendationId") REFERENCES recommendation_history ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_recommendation_history_RecommendationId" FOREIGN KEY ("RecommendationId") REFERENCES recommendation_history ("Id") ON DELETE CASCADE
 );
 
 CREATE TABLE budget_requests (

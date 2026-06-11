@@ -225,6 +225,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return result;
         }
 
+        public async Task<AllergenRiskResult> GetAllergyBadgeAsync(Guid foodId, Guid? userId = null)
+        {
+            return await _allergenMatching.EvaluateFoodRiskAsync(foodId, userId);
+        }
+
         public async Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId)
         {
             var favorites = await _db.FavoriteFoods
