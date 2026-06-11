@@ -105,6 +105,22 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Lấy badge rủi ro dị ứng cho món ăn để hiển thị trực tiếp trên danh sách hoặc chi tiết món.
+        /// </summary>
+        [HttpGet("{id:guid}/allergy-badge")]
+        public async Task<IActionResult> GetAllergyBadge(Guid id)
+        {
+            try
+            {
+                return Ok(await _foodService.GetAllergyBadgeAsync(id, TryGetUserId()));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách món ăn yêu thích của user hiện tại.
         /// </summary>
         [HttpGet("favorites")]

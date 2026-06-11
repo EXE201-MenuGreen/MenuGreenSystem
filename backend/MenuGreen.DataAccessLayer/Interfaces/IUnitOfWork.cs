@@ -18,6 +18,8 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.WeightLog> WeightLogs { get; }
         IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders { get; }
         IGenericRepository<Entities.MealPlanItem> MealPlanItems { get; }
+        IGenericRepository<Entities.MealTemplate> MealTemplates { get; }
+        IGenericRepository<Entities.MealTemplateItem> MealTemplateItems { get; }
         IGenericRepository<Entities.UserAiProfile> UserAiProfiles { get; }
         IGenericRepository<Entities.NutritionSnapshot> NutritionSnapshots { get; }
         IGenericRepository<Entities.RecommendationHistory> RecommendationHistories { get; }
