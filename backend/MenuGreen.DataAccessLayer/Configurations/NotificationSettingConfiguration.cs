@@ -8,7 +8,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
     {
         public void Configure(EntityTypeBuilder<NotificationSetting> builder)
         {
-            builder.ToTable("NotificationSettings");
+            builder.ToTable("notification_settings");
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.MealReminderEnabled).HasDefaultValue(true);
