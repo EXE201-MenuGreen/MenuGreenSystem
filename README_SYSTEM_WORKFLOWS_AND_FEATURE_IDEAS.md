@@ -900,7 +900,6 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
   - Analytics nâng cao + segmentation (2.10)
   - Safety/compliance nâng cao (risk automation, compliance analytics) + coach/PT sharing workflow
 
----
 
 ## 4) Đề xuất tính năng mới cho app dinh dưỡng
 
@@ -910,26 +909,173 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - Điểm thói quen theo chuỗi ngày log bữa, log cân, đạt mục tiêu calories.
    - Tăng động lực quay lại app.
 
+   **Chức năng tương đương đã có trong hệ thống:**
+   - `NutritionTrackingController` (`/api/NutritionTracking`) cho meal log, weight log, summary, trends.
+   - `GymGoalsController` (`/api/GymGoals`) cho alerts và recalibrate theo tuần.
+   - `NotificationController` (`/api/Notification`) cho reminder, tracking mở/click và analytics.
+
+   **Giải thích đúng workflow:**
+   - Chức năng này theo dõi hành vi duy trì đều đặn của user thay vì chỉ nhìn một ngày riêng lẻ.
+   - Hệ thống có thể cộng điểm khi user hoàn thành các hành vi tốt như log bữa đúng giờ, log cân định kỳ, bám sát mục tiêu calories và không bỏ log quá lâu.
+   - Mục tiêu cuối cùng là biến dữ liệu sử dụng hằng ngày thành một chỉ số dễ hiểu để tạo động lực, nhắc nhở và tăng retention.
+
+   **API khớp với code hiện tại (để implement Habit Score):**
+
+   > Lưu ý: hiện tại hệ thống chưa có endpoint riêng tên `habit-score`. Habit Score được build từ các API đang có bên dưới.
+
+   ### A. Nguồn dữ liệu cho Habit Score
+   - `GET /api/NutritionTracking/meal-logs` — dữ liệu meal log để tính mức độ log đều.
+   - `GET /api/NutritionTracking/weight-logs` — dữ liệu weight log để tính độ duy trì thói quen.
+   - `GET /api/NutritionTracking/dashboard` — dashboard tổng hợp phục vụ tính score.
+   - `GET /api/NutritionTracking/summary` — tổng hợp dinh dưỡng theo ngày/tuần/tháng.
+   - `GET /api/NutritionTracking/trends` — xu hướng dinh dưỡng theo thời gian.
+   - `GET /api/NutritionTracking/weight-logs/trend` — xu hướng cân nặng.
+
+   ### B. Goal / alert signals dùng cho Habit Score
+   - `GET /api/GymGoals/alerts` — cảnh báo lệch mục tiêu, dùng như tín hiệu trừ điểm.
+   - `POST /api/GymGoals/recalibrate` — thu thập dữ liệu để tái cân chỉnh mục tiêu.
+   - `GET /api/GymGoals/coach-report` — báo cáo tổng hợp cho coach/insight.
+
+   ### C. API Habit Score do mình vừa code thêm
+   - `GET /api/Engagement/habit-score` — trả Habit Score tổng hợp hiện tại.
+   - `GET /api/Engagement/habit-score/history` — lịch sử Habit Score theo ngày.
+   - `GET /api/Engagement/habit-score/breakdown` — breakdown các thành phần cấu thành score.
+   - `GET /api/Engagement/streak` — streak hiện tại để hỗ trợ Habit Score.
+   - `GET /api/Engagement/notification-engagement` — mức độ tương tác notification.
+
+   ### D. Notifications / nudges
+   - `GET /api/Notification/settings` — lấy cấu hình nhắc hiện tại.
+   - `PUT /api/Notification/settings` — cập nhật cấu hình nhắc.
+   - `POST /api/Notification/meal-plan-remind` — tạo nhắc bữa ăn.
+   - `POST /api/Notification/schedule-prep-reminder` — tạo nhắc chuẩn bị nguyên liệu.
+   - `GET /api/Notification/analytics` — xem hiệu quả nhắc.
+
 2. **Quick Add Meal Templates**
    - Lưu “bữa thường dùng” để thêm nhanh.
    - Rất phù hợp với user ăn lặp lại menu.
    - *Đã có nền:* ghi log nhanh từ Khám phá/Trang chủ/Lịch sử (`meal_log_sheet`); chưa lưu template tái sử dụng.
 
+   **Giải thích đúng workflow:**
+   - Tính năng này cho phép user biến một bữa đã ăn nhiều lần thành template để lần sau thêm chỉ bằng vài thao tác.
+   - Phù hợp nhất với user có thói quen ăn lặp lại món, đi làm theo ca cố định hoặc theo meal prep.
+   - Mục tiêu là giảm ma sát khi log bữa, giúp người dùng duy trì thói quen đều hơn.
+
+   **API cần có để làm đúng bài:**
+
+   ### A. Meal template CRUD
+   - `GET /MealTemplates` — lấy danh sách template của user.
+   - `GET /MealTemplates/{id}` — xem chi tiết một template.
+   - `POST /MealTemplates` — tạo template mới từ món/bữa hiện có.
+   - `PUT /MealTemplates/{id}` — cập nhật template.
+   - `DELETE /MealTemplates/{id}` — xoá template.
+
+   ### B. Quick add from template
+   - `POST /MealTemplates/{id}/log` — log trực tiếp template vào nhật ký ăn uống.
+   - `POST /MealTemplates/{id}/duplicate` — sao chép template để chỉnh sửa nhanh.
+   - `GET /MealTemplates/{id}/usage` — xem số lần sử dụng template.
+
 3. **Adaptive Reminder**
    - Notification tự điều chỉnh giờ nhắc theo hành vi mở app/log bữa.
    - Giảm spam, tăng tỉ lệ phản hồi.
+
+   **Giải thích đúng workflow:**
+   - Hệ thống quan sát các mốc mà user thường mở app, log bữa hoặc bỏ lỡ nhắc để tự tối ưu khung giờ gửi thông báo.
+   - Thay vì đặt giờ cố định cho tất cả, reminder sẽ dần “học” theo lịch sinh hoạt của từng người.
+   - Điều này giúp thông báo đúng lúc hơn và tránh gây khó chịu.
+
+   **API cần có để làm đúng bài:**
+
+   ### A. Reminder profile
+   - `GET /Notifications/reminder-profile` — lấy hồ sơ nhắc hiện tại của user.
+   - `POST /Notifications/reminder-profile/recalculate` — tính lại khung giờ nhắc tối ưu.
+   - `PUT /Notifications/reminder-profile` — cập nhật cấu hình nhắc theo ý user.
+
+   ### B. Reminder scheduling
+   - `GET /Notifications/reminders` — lấy danh sách reminder đã lên lịch.
+   - `POST /Notifications/reminders` — tạo reminder mới.
+   - `PATCH /Notifications/reminders/{id}` — bật/tắt hoặc đổi giờ nhắc.
+   - `DELETE /Notifications/reminders/{id}` — xoá reminder.
+
+   ### C. Engagement tracking
+   - `POST /Notifications/reminders/{id}/open-tracked` — ghi nhận user mở thông báo.
+   - `POST /Notifications/reminders/{id}/snooze` — tạm hoãn nhắc.
+   - `GET /Notifications/reminders/analytics` — xem hiệu quả nhắc theo thời gian.
 
 4. **Goal Drift Alert**
    - Cảnh báo sớm khi xu hướng lệch mục tiêu (không chỉ theo ngày, mà theo rolling 7 ngày).
    - *Đã có nền:* cảnh báo calo/macro theo ngày (`WarningMessages` API + UI Lịch sử/Trang chủ).
 
+   **Giải thích đúng workflow:**
+   - Tính năng này không chỉ nhìn một ngày vượt/nghẹt mục tiêu, mà theo dõi xu hướng kéo dài để phát hiện drift sớm.
+   - Ví dụ user ăn dư calo nhẹ nhưng liên tục trong 5–7 ngày thì hệ thống sẽ cảnh báo trước khi lệch quá xa.
+   - Cách tiếp cận này tốt hơn cảnh báo theo ngày vì phản ánh đúng xu hướng hành vi.
+
+   **API cần có để làm đúng bài:**
+
+   ### A. Drift detection
+   - `GET /Goals/drift-alerts` — lấy danh sách cảnh báo drift.
+   - `GET /Goals/drift-alerts/current` — xem cảnh báo hiện tại.
+   - `POST /Goals/drift-alerts/recalculate` — tính lại drift từ dữ liệu 7 ngày/14 ngày.
+   - `GET /Goals/drift-alerts/summary` — tóm tắt mức lệch mục tiêu theo tuần.
+
+   ### B. Trend analytics
+   - `GET /Goals/trends/calories` — xem xu hướng calories.
+   - `GET /Goals/trends/macros` — xem xu hướng macro.
+   - `GET /Goals/trends/weight` — xem xu hướng cân nặng.
+   - `GET /Goals/trends/compliance` — xem mức độ bám mục tiêu.
+
+   ### C. Alert actions
+   - `POST /Goals/drift-alerts/{id}/dismiss` — bỏ qua cảnh báo.
+   - `POST /Goals/drift-alerts/{id}/acknowledge` — xác nhận đã xem cảnh báo.
+   - `POST /Goals/drift-alerts/{id}/create-nudge` — tạo nhắc hành động từ cảnh báo.
+
 5. **Allergy Risk Badge**
    - Gắn nhãn mức rủi ro dị ứng trực tiếp trên danh sách món.
+
+   **Giải thích đúng workflow:**
+   - Khi user xem món ăn, hệ thống đối chiếu thành phần với hồ sơ dị ứng của user để gắn nhãn rủi ro ngay tại danh sách.
+   - Badge có thể phân cấp theo mức độ như an toàn, có thể chứa thành phần cần tránh, hoặc rủi ro cao.
+   - Mục tiêu là giúp user ra quyết định nhanh hơn mà không cần mở từng món.
+
+   **API cần có để làm đúng bài:**
+
+   ### A. Allergy profile
+   - `GET /Allergies/profile` — lấy hồ sơ dị ứng của user.
+   - `PUT /Allergies/profile` — cập nhật danh sách dị ứng.
+   - `GET /Allergies/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
+
+   ### B. Risk evaluation
+   - `POST /Allergies/evaluate` — đánh giá rủi ro dị ứng cho một món hoặc nhiều món.
+   - `POST /Allergies/evaluate/batch` — đánh giá hàng loạt cho danh sách món.
+   - `GET /Allergies/meal/{mealId}/badge` — lấy badge rủi ro cho món cụ thể.
+
+   ### C. User experience
+   - `GET /Allergies/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
+   - `POST /Allergies/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
 
 6. **Hôm nay ăn gì? (1-tap daily starter)**
    - Màn hình vào nhanh cho người mới, chọn ngay thực đơn trong ngày.
 
----
+   **Giải thích đúng workflow:**
+   - Đây là màn hình khởi đầu nhanh giúp user mới không bị “lạc” trong app.
+   - Chỉ cần một chạm là có thể vào luôn luồng gợi ý thực đơn hôm nay, thay vì phải tự mò từng màn hình.
+   - Rất phù hợp để tăng activation và giảm tỷ lệ thoát ở lần mở app đầu tiên.
+
+   **API cần có để làm đúng bài:**
+
+   ### A. Daily starter content
+   - `GET /DailyStarter/today` — lấy nội dung khởi đầu cho hôm nay.
+   - `GET /DailyStarter/recommendations` — lấy thực đơn gợi ý cho user mới.
+   - `GET /DailyStarter/featured-meals` — lấy các món/meal nổi bật để bắt đầu nhanh.
+
+   ### B. Quick action flows
+   - `POST /DailyStarter/select-meal` — chọn nhanh một thực đơn để tiếp tục.
+   - `POST /DailyStarter/start-log` — bắt đầu flow log bữa từ màn hình này.
+   - `POST /DailyStarter/save-preference` — lưu sở thích ban đầu của user.
+
+   ### C. Personalization
+   - `GET /DailyStarter/personalization` — lấy mức cá nhân hoá hiện tại.
+   - `PUT /DailyStarter/personalization` — cập nhật tiêu chí cá nhân hoá.
 
 ## 4.2 Nhóm “nâng cao trải nghiệm”
 

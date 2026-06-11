@@ -23,6 +23,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.WeightLog>? _weightLogs;
         private IGenericRepository<Entities.MealPlanHeader>? _mealPlanHeaders;
         private IGenericRepository<Entities.MealPlanItem>? _mealPlanItems;
+        private IGenericRepository<Entities.MealTemplate>? _mealTemplates;
+        private IGenericRepository<Entities.MealTemplateItem>? _mealTemplateItems;
         private IGenericRepository<Entities.UserAiProfile>? _userAiProfiles;
         private IGenericRepository<Entities.NutritionSnapshot>? _nutritionSnapshots;
         private IGenericRepository<Entities.RecommendationHistory>? _recommendationHistories;
@@ -54,6 +56,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.WeightLog> WeightLogs => _weightLogs ??= new GenericRepository<Entities.WeightLog>(_context);
         public IGenericRepository<Entities.MealPlanHeader> MealPlanHeaders => _mealPlanHeaders ??= new GenericRepository<Entities.MealPlanHeader>(_context);
         public IGenericRepository<Entities.MealPlanItem> MealPlanItems => _mealPlanItems ??= new GenericRepository<Entities.MealPlanItem>(_context);
+        public IGenericRepository<Entities.MealTemplate> MealTemplates => _mealTemplates ??= new GenericRepository<Entities.MealTemplate>(_context);
+        public IGenericRepository<Entities.MealTemplateItem> MealTemplateItems => _mealTemplateItems ??= new GenericRepository<Entities.MealTemplateItem>(_context);
         public IGenericRepository<Entities.UserAiProfile> UserAiProfiles => _userAiProfiles ??= new GenericRepository<Entities.UserAiProfile>(_context);
         public IGenericRepository<Entities.NutritionSnapshot> NutritionSnapshots => _nutritionSnapshots ??= new GenericRepository<Entities.NutritionSnapshot>(_context);
         public IGenericRepository<Entities.RecommendationHistory> RecommendationHistories => _recommendationHistories ??= new GenericRepository<Entities.RecommendationHistory>(_context);
