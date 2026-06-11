@@ -14,6 +14,7 @@ import '../../meal_plan/models/meal_plan_models.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../../meal_plan/views/meal_plan_today_screen.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
+import '../../tracking/views/ingredient_scan_screen.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({
@@ -171,6 +172,25 @@ class HomeViewState extends State<HomeView> {
             ],
           ),
         ),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.progressBackground.withValues(alpha: 0.5),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.camera_alt, color: AppColors.primary, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IngredientScanScreen()),
+              ).then((_) => reloadSummary());
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -412,6 +432,25 @@ class HomeViewState extends State<HomeView> {
               child: PrimaryButton(
                 text: 'Thêm bữa ăn',
                 onPressed: _refreshing ? null : _addMealFromHome,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const IngredientScanScreen()),
+                  ).then((_) => reloadSummary());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.camera_alt, color: Colors.white),
+                label: const Text('Quét nguyên liệu bằng AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 8),
