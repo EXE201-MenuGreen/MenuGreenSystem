@@ -37,6 +37,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.SubscriptionTransaction>? _subscriptionTransactions;
         private IGenericRepository<Entities.Payment>? _payments;
         private IGenericRepository<Entities.SepayTransaction>? _sepayTransactions;
+        private IGenericRepository<Entities.ReminderProfile>? _reminderProfiles;
+        private IGenericRepository<Entities.GoalDriftAlert>? _goalDriftAlerts;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -70,6 +72,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions => _subscriptionTransactions ??= new GenericRepository<Entities.SubscriptionTransaction>(_context);
         public IGenericRepository<Entities.Payment> Payments => _payments ??= new GenericRepository<Entities.Payment>(_context);
         public IGenericRepository<Entities.SepayTransaction> SepayTransactions => _sepayTransactions ??= new GenericRepository<Entities.SepayTransaction>(_context);
+        public IGenericRepository<Entities.ReminderProfile> ReminderProfiles => _reminderProfiles ??= new GenericRepository<Entities.ReminderProfile>(_context);
+        public IGenericRepository<Entities.GoalDriftAlert> GoalDriftAlerts => _goalDriftAlerts ??= new GenericRepository<Entities.GoalDriftAlert>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
