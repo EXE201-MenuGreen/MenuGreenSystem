@@ -1026,7 +1026,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
     - `POST /api/Goals/drift-alerts/{id}/acknowledge` — xác nhận đã xem cảnh báo.
     - `POST /api/Goals/drift-alerts/{id}/create-nudge` — tạo nhắc hành động từ cảnh báo.
 
-5. **Allergy Risk Badge**
+5. **Allergy Risk Badge** (Đã làm)
    - Gắn nhãn mức rủi ro dị ứng trực tiếp trên danh sách món.
 
    **Giải thích đúng workflow:**
@@ -1037,20 +1037,20 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    **API cần có để làm đúng bài:**
 
    ### A. Allergy profile
-   - `GET /Allergies/profile` — lấy hồ sơ dị ứng của user.
-   - `PUT /Allergies/profile` — cập nhật danh sách dị ứng.
-   - `GET /Allergies/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
+   - `GET /api/Allergy/profile` — lấy hồ sơ dị ứng của user.
+   - `PUT /api/Allergy/profile` — cập nhật danh sách dị ứng.
+   - `GET /api/Allergy/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
 
    ### B. Risk evaluation
-   - `POST /Allergies/evaluate` — đánh giá rủi ro dị ứng cho một món hoặc nhiều món.
-   - `POST /Allergies/evaluate/batch` — đánh giá hàng loạt cho danh sách món.
-   - `GET /Allergies/meal/{mealId}/badge` — lấy badge rủi ro cho món cụ thể.
+   - `POST /api/Allergy/evaluate` — đánh giá rủi ro dị ứng cho một món hoặc nhiều món.
+   - `POST /api/Allergy/evaluate/batch` — đánh giá hàng loạt cho danh sách món.
+   - `GET /api/Allergy/meal/{mealId}/badge` — lấy badge rủi ro cho món cụ thể.
 
    ### C. User experience
-   - `GET /Allergies/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
-   - `POST /Allergies/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
+   - `GET /api/Allergy/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
+   - `POST /api/Allergy/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
 
-6. **Hôm nay ăn gì? (1-tap daily starter)**
+6. **Hôm nay ăn gì? (1-tap daily starter)** (Đã làm)
    - Màn hình vào nhanh cho người mới, chọn ngay thực đơn trong ngày.
 
    **Giải thích đúng workflow:**

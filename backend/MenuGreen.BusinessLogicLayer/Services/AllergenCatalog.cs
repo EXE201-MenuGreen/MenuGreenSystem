@@ -43,6 +43,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (aliases.Contains(folded)) return key;
             }
 
+            // Fallback: So khớp mềm nếu tên chứa bất kỳ alias nào (độ dài >= 2)
+            foreach (var (key, aliases) in Aliases)
+            {
+                foreach (var alias in aliases)
+                {
+                    if (alias.Length >= 2 && folded.Contains(alias, StringComparison.Ordinal))
+                        return key;
+                }
+            }
+
             return null;
         }
 
