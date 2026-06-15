@@ -905,7 +905,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 4.1 Nhóm “nên làm sớm” (high impact, effort vừa phải)
 
-1. **Smart Streak & Habit Score**
+1. **Smart Streak & Habit Score** (Đã làm)
    - Điểm thói quen theo chuỗi ngày log bữa, log cân, đạt mục tiêu calories.
    - Tăng động lực quay lại app.
 
@@ -920,8 +920,6 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - Mục tiêu cuối cùng là biến dữ liệu sử dụng hằng ngày thành một chỉ số dễ hiểu để tạo động lực, nhắc nhở và tăng retention.
 
    **API khớp với code hiện tại (để implement Habit Score):**
-
-   > Lưu ý: hiện tại hệ thống chưa có endpoint riêng tên `habit-score`. Habit Score được build từ các API đang có bên dưới.
 
    ### A. Nguồn dữ liệu cho Habit Score
    - `GET /api/NutritionTracking/meal-logs` — dữ liệu meal log để tính mức độ log đều.
@@ -950,7 +948,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `POST /api/Notification/schedule-prep-reminder` — tạo nhắc chuẩn bị nguyên liệu.
    - `GET /api/Notification/analytics` — xem hiệu quả nhắc.
 
-2. **Quick Add Meal Templates**
+2. **Quick Add Meal Templates** (Đã làm)
    - Lưu “bữa thường dùng” để thêm nhanh.
    - Rất phù hợp với user ăn lặp lại menu.
    - *Đã có nền:* ghi log nhanh từ Khám phá/Trang chủ/Lịch sử (`meal_log_sheet`); chưa lưu template tái sử dụng.
@@ -974,7 +972,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `POST /MealTemplates/{id}/duplicate` — sao chép template để chỉnh sửa nhanh.
    - `GET /MealTemplates/{id}/usage` — xem số lần sử dụng template.
 
-3. **Adaptive Reminder**
+3. **Adaptive Reminder** (Đã làm)
    - Notification tự điều chỉnh giờ nhắc theo hành vi mở app/log bữa.
    - Giảm spam, tăng tỉ lệ phản hồi.
 
@@ -985,23 +983,23 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    **API cần có để làm đúng bài:**
 
-   ### A. Reminder profile
-   - `GET /Notifications/reminder-profile` — lấy hồ sơ nhắc hiện tại của user.
-   - `POST /Notifications/reminder-profile/recalculate` — tính lại khung giờ nhắc tối ưu.
-   - `PUT /Notifications/reminder-profile` — cập nhật cấu hình nhắc theo ý user.
+   ### A. Reminder profile (Đã làm)
+   - `GET /api/Reminder/profile` — lấy hồ sơ nhắc hiện tại của user.
+   - `POST /api/Reminder/profile/recalculate` — tính lại khung giờ nhắc tối ưu.
+   - `PUT /api/Reminder/profile` — cập nhật cấu hình nhắc theo ý user.
 
-   ### B. Reminder scheduling
-   - `GET /Notifications/reminders` — lấy danh sách reminder đã lên lịch.
-   - `POST /Notifications/reminders` — tạo reminder mới.
-   - `PATCH /Notifications/reminders/{id}` — bật/tắt hoặc đổi giờ nhắc.
-   - `DELETE /Notifications/reminders/{id}` — xoá reminder.
+   ### B. Reminder scheduling (Đã làm)
+   - `GET /api/Reminder/scheduled` — lấy danh sách reminder đã lên lịch.
+   - `POST /api/Reminder/scheduled` — tạo reminder mới.
+   - `PATCH /api/Reminder/scheduled/{id}` — bật/tắt hoặc đổi giờ nhắc.
+   - `DELETE /api/Reminder/scheduled/{id}` — xoá reminder.
 
-   ### C. Engagement tracking
-   - `POST /Notifications/reminders/{id}/open-tracked` — ghi nhận user mở thông báo.
-   - `POST /Notifications/reminders/{id}/snooze` — tạm hoãn nhắc.
-   - `GET /Notifications/reminders/analytics` — xem hiệu quả nhắc theo thời gian.
+   ### C. Engagement tracking & Snooze (Đã làm)
+   - `POST /api/Notification/{id}/track/open` — ghi nhận user mở thông báo (tái sử dụng hệ thống Notification hiện có).
+   - `POST /api/Reminder/scheduled/{id}/snooze` — tạm hoãn nhắc.
+   - `GET /api/Notification/analytics` — xem hiệu quả nhắc theo thời gian (tái sử dụng hệ thống Notification hiện có).
 
-4. **Goal Drift Alert**
+4. **Goal Drift Alert** (Đã làm)
    - Cảnh báo sớm khi xu hướng lệch mục tiêu (không chỉ theo ngày, mà theo rolling 7 ngày).
    - *Đã có nền:* cảnh báo calo/macro theo ngày (`WarningMessages` API + UI Lịch sử/Trang chủ).
 
@@ -1012,22 +1010,21 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    **API cần có để làm đúng bài:**
 
-   ### A. Drift detection
-   - `GET /Goals/drift-alerts` — lấy danh sách cảnh báo drift.
-   - `GET /Goals/drift-alerts/current` — xem cảnh báo hiện tại.
-   - `POST /Goals/drift-alerts/recalculate` — tính lại drift từ dữ liệu 7 ngày/14 ngày.
-   - `GET /Goals/drift-alerts/summary` — tóm tắt mức lệch mục tiêu theo tuần.
+    ### A. Drift detection (Đã triển khai)
+    - `GET /api/Goals/drift-alerts` — lấy danh sách cảnh báo drift.
+    - `GET /api/Goals/drift-alerts/current` — xem cảnh báo hiện tại.
+    - `POST /api/Goals/drift-alerts/recalculate` — tính lại drift từ dữ liệu 7 ngày/14 ngày.
+    - `GET /api/Goals/drift-alerts/summary` — tóm tắt mức lệch mục tiêu theo tuần.
 
-   ### B. Trend analytics
-   - `GET /Goals/trends/calories` — xem xu hướng calories.
-   - `GET /Goals/trends/macros` — xem xu hướng macro.
-   - `GET /Goals/trends/weight` — xem xu hướng cân nặng.
-   - `GET /Goals/trends/compliance` — xem mức độ bám mục tiêu.
+    ### B. Trend analytics (Tái sử dụng API có sẵn)
+    - `GET /api/NutritionTracking/trends` — xem xu hướng calories và macro (dùng chung API trends).
+    - `GET /api/NutritionTracking/weight-logs/trend` hoặc `GET /api/Dashboard/weight-trend` — xem xu hướng cân nặng.
+    - `GET /api/MealPlan/compare` hoặc `GET /api/Engagement/habit-score` — xem mức độ bám mục tiêu (planned vs actual & habit score).
 
-   ### C. Alert actions
-   - `POST /Goals/drift-alerts/{id}/dismiss` — bỏ qua cảnh báo.
-   - `POST /Goals/drift-alerts/{id}/acknowledge` — xác nhận đã xem cảnh báo.
-   - `POST /Goals/drift-alerts/{id}/create-nudge` — tạo nhắc hành động từ cảnh báo.
+    ### C. Alert actions (Đã triển khai)
+    - `POST /api/Goals/drift-alerts/{id}/dismiss` — bỏ qua cảnh báo.
+    - `POST /api/Goals/drift-alerts/{id}/acknowledge` — xác nhận đã xem cảnh báo.
+    - `POST /api/Goals/drift-alerts/{id}/create-nudge` — tạo nhắc hành động từ cảnh báo.
 
 5. **Allergy Risk Badge**
    - Gắn nhãn mức rủi ro dị ứng trực tiếp trên danh sách món.

@@ -47,6 +47,8 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<SepayTransaction> SepayTransactions { get; set; }
         public DbSet<ActivityLog> ActivityLogs { get; set; }
         public DbSet<BudgetRequest> BudgetRequests { get; set; }
+        public DbSet<ReminderProfile> ReminderProfiles { get; set; }
+        public DbSet<GoalDriftAlert> GoalDriftAlerts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
