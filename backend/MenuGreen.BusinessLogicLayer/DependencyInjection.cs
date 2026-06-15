@@ -39,6 +39,8 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IRevenueMetricsService, RevenueMetricsService>();
             services.AddScoped<IFoodRankingService, FoodRankingService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IReminderService, ReminderService>();
+            services.AddScoped<IGoalDriftService, GoalDriftService>();
             services.AddScoped<ICatalogService, CatalogService>();
             services.AddScoped<IFoodCatalogService, FoodCatalogService>();
             services.AddScoped<IIngredientCatalogService, IngredientCatalogService>();
