@@ -116,6 +116,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return ToRiskResult(matched);
         }
 
+        public async Task<Dictionary<Guid, AllergenRiskResult>> EvaluateFoodRiskBatchAsync(IEnumerable<Guid> foodIds, Guid? userId)
+        {
+            var ids = foodIds.Distinct().ToList();
+            var result = ids.ToDictionary(id => id, _ => SafeResult());
+            if (ids.Count == 0 || !userId.HasValue)
+                return result;
+
+            var userKeys = await GetUserAllergenKeysAsync(userId.Value);
+            if (userKeys.Count == 0)
+                return result;
+
+            var foodAllergenMap = await GetFoodAllergenKeysAsync(ids);
+            foreach (var (foodId, foodKeys) in foodAllergenMap)
+            {
+                var matched = userKeys.Where(foodKeys.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                result[foodId] = ToRiskResult(matched);
+            }
+
+            return result;
+        }
+
         public async Task<AllergenRiskResult> EvaluateRecipeRiskAsync(
             Guid? foodId,
             IEnumerable<string> ingredientNamesVi,
