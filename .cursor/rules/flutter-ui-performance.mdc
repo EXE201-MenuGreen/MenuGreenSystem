@@ -1,0 +1,256 @@
+---
+description: Flutter UI performance và design consistency guidelines
+globs: frontend/lib/**/*.dart
+alwaysApply: true
+---
+
+# Flutter UI Performance & Design Rules
+
+## 1. Const Constructors - BẮT BUỘC
+
+```dart
+// ❌ SAI - Tạo widget mới mỗi lần build
+Text('Hello', style: TextStyle(fontSize: 16))
+Icon(Icons.star)
+Container(width: 100, height: 50)
+
+// ✅ ĐÚNG - Dùng const
+const Text('Hello', style: TextStyle(fontSize: 16))
+const Icon(Icons.star)
+const SizedBox(width: 100, height: 50)
+```
+
+**Luôn dùng `const` cho widgets không thay đổi giá trị props.**
+
+---
+
+## 2. RepaintBoundary - Cho Custom Painters
+
+```dart
+// ❌ SAI - Repaint toàn bộ tree khi animation chạy
+class CalorieRing extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _RingPainter()); // Repaint khi cha thay đổi
+  }
+}
+
+// ✅ ĐÚNG - Giới hạn repaint
+class CalorieRing extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: CustomPaint(painter: _RingPainter()),
+    );
+  }
+}
+```
+
+**Áp dụng cho: CalorieProgressRing, Chart widgets, CustomPaint.**
+
+---
+
+## 3. ListView Builder Pattern
+
+```dart
+// ❌ SAI - Load tất cả items
+ListView(
+  children: items.map((i) => ItemTile(i)).toList(),
+)
+
+// ✅ ĐÚNG - Lazy loading với keys
+ListView.builder(
+  itemCount: items.length,
+  itemBuilder: (context, index) => ItemTile(
+    key: ValueKey(items[index].id), // Quan trọng!
+    item: items[index],
+  ),
+)
+
+// ✅ Cache thêm items để scroll mượt
+ListView.builder(
+  cacheExtent: 200, // pixels render trước/sau viewport
+  itemBuilder: ...,
+)
+```
+
+---
+
+## 4. Memory Management - BẮT BUỘC
+
+```dart
+class _MyWidgetState extends State<MyWidget> {
+  late final TextEditingController _controller;
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _scrollController = ScrollController();
+  }
+
+  // ❌ SAI - Quên dispose
+  // @override
+  // void dispose() { super.dispose(); }
+
+  // ✅ ĐÚNG - Dispose tất cả controllers
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+}
+```
+
+**Mọi ScrollController, TextEditingController, AnimationController phải được dispose.**
+
+---
+
+## 5. Mounted Check - Khi dùng Async
+
+```dart
+// ❌ SAI - Dùng context sau async gap
+void _loadData() async {
+  final size = MediaQuery.of(context).size; // OK
+  await fetchData();
+  showSnackBar(context, 'Done'); // ❌ Widget có thể đã dispose
+}
+
+// ✅ ĐÚNG - Check mounted trước khi dùng context
+void _loadData() async {
+  final size = MediaQuery.of(context).size;
+  await fetchData();
+  if (!mounted) return; // An toàn
+  showSnackBar(context, 'Done');
+}
+```
+
+---
+
+## 6. StatelessWidget khi có thể
+
+```dart
+// ❌ Dùng StatefulWidget không cần thiết
+class MyWidget extends StatefulWidget {
+  @override
+  State<MyWidget> createState() => _MyWidgetState();
+}
+class _MyWidgetState extends State<MyWidget> {
+  @override
+  Widget build(BuildContext context) => Text('Static');
+}
+
+// ✅ ĐÚNG - Dùng StatelessWidget
+class MyWidget extends StatelessWidget {
+  const MyWidget({super.key});
+  
+  @override
+  Widget build(BuildContext context) => const Text('Static');
+}
+```
+
+**Chỉ dùng StatefulWidget khi cần initState, dispose, hoặc setState.**
+
+---
+
+## 7. Keys cho Stateful Items
+
+```dart
+// ✅ Dùng ValueKey hoặc UniqueKey cho items có state
+ListView.builder(
+  itemBuilder: (context, index) => RecipeCard(
+    key: ValueKey(recipes[index].id), // Giữ state khi scroll lại
+    recipe: recipes[index],
+  ),
+)
+
+// ✅ PageView/TabView với state
+PageView(
+  key: const PageStorageKey('my_pageview'),
+  children: [...],
+)
+```
+
+---
+
+## 8. Image Optimization
+
+```dart
+// ✅ Resize vào đúng size hiển thị
+Image.asset(
+  'assets/recipe.jpg',
+  width: 200,
+  height: 200,
+  cacheWidth: 200, // Giảm memory usage
+  cacheHeight: 200,
+  fit: BoxFit.cover,
+)
+
+// ✅ cached_network_image cho URL
+CachedNetworkImage(
+  imageUrl: url,
+  memCacheWidth: 200,
+  memCacheHeight: 200,
+)
+```
+
+---
+
+## 9. Avoid Lambda/Anonymous Functions trong Widget Tree
+
+```dart
+// ❌ Tạo function mới mỗi lần build
+ListView.builder(
+  itemBuilder: (context, index) => Button(
+    onPressed: () => doSomething(index), // Closure mới mỗi build
+  ),
+)
+
+// ✅ ĐÚNG - Dùng callback được inject
+class ParentWidget extends StatelessWidget {
+  final void Function(int) onItemTap;
+  
+  @override
+  Widget build(BuildContext context) => ListView.builder(
+    itemBuilder: (context, index) => Button(
+      onPressed: () => onItemTap(index),
+    ),
+  );
+}
+```
+
+---
+
+## 10. shouldRepaint cho CustomPainter
+
+```dart
+class _RingPainter extends CustomPainter {
+  final double progress;
+  
+  const _RingPainter({required this.progress});
+  
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
+    return progress != oldDelegate.progress; // Quan trọng!
+  }
+  
+  @override
+  void paint(Canvas canvas, Size size) { ... }
+}
+```
+
+**Luôn override `shouldRepaint` và return false khi không cần repaint.**
+
+---
+
+## Quick Checklist trước khi commit
+
+- [ ] Tất cả widgets tĩnh đều có `const`
+- [ ] CustomPainter có `shouldRepaint` đúng
+- [ ] Mọi controller đều được dispose
+- [ ] ListView dùng `.builder()` với keys
+- [ ] Images có cacheWidth/cacheHeight phù hợp
+- [ ] Không dùng context sau async gap (check `mounted`)
+- [ ] Chỉ dùng StatefulWidget khi cần thiết
