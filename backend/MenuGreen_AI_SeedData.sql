@@ -4,13 +4,16 @@
 -- Self-contained PostgreSQL script: creates tables for all current entities and
 -- inserts sample data. Safe to re-run with ON CONFLICT DO NOTHING.
 -- =============================================================================
-CREATE DATABASE "MenuGreenDb";
 BEGIN;
 
 DROP TABLE IF EXISTS activity_logs CASCADE;
+DROP TABLE IF EXISTS goal_drift_alerts CASCADE;
+DROP TABLE IF EXISTS reminder_profiles CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS notification_settings CASCADE;
 DROP TABLE IF EXISTS budget_requests CASCADE;
+DROP TABLE IF EXISTS meal_template_items CASCADE;
+DROP TABLE IF EXISTS meal_templates CASCADE;
 DROP TABLE IF EXISTS recommendation_feedbacks CASCADE;
 DROP TABLE IF EXISTS recommendation_history CASCADE;
 DROP TABLE IF EXISTS ai_messages CASCADE;
@@ -381,35 +384,6 @@ CREATE TABLE meal_plan_items (
     CONSTRAINT "FK_meal_plan_items_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE SET NULL
 );
 
-CREATE TABLE meal_templates (
-    "Id" uuid NOT NULL,
-    "UserId" uuid NOT NULL,
-    "Title" character varying(255) NOT NULL,
-    "Description" character varying(1000) NULL,
-    "MealType" character varying(50) NULL,
-    "UsageCount" integer NOT NULL DEFAULT 0,
-    "IsActive" boolean NOT NULL DEFAULT true,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone NOT NULL,
-    CONSTRAINT "PK_meal_templates" PRIMARY KEY ("Id"),
-    CONSTRAINT "FK_meal_templates_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
-);
-
-CREATE TABLE meal_template_items (
-    "Id" uuid NOT NULL,
-    "MealTemplateId" uuid NOT NULL,
-    "FoodId" uuid NULL,
-    "RecipeId" uuid NULL,
-    "QuantityG" numeric(18,2) NOT NULL,
-    "Notes" character varying(1000) NULL,
-    "SortOrder" integer NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL,
-    CONSTRAINT "PK_meal_template_items" PRIMARY KEY ("Id"),
-    CONSTRAINT "FK_meal_template_items_foods_FoodId" FOREIGN KEY ("FoodId") REFERENCES foods ("Id") ON DELETE SET NULL,
-    CONSTRAINT "FK_meal_template_items_meal_templates_MealTemplateId" FOREIGN KEY ("MealTemplateId") REFERENCES meal_templates ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_meal_template_items_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE SET NULL
-);
-
 CREATE TABLE meal_logs (
     "Id" uuid NOT NULL,
     "UserId" uuid NOT NULL,
@@ -550,6 +524,67 @@ CREATE TABLE activity_logs (
     CONSTRAINT "PK_activity_logs" PRIMARY KEY ("Id"),
     CONSTRAINT "FK_activity_logs_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
 );
+
+CREATE TABLE meal_templates (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "Title" character varying(255) NOT NULL,
+    "Description" character varying(1000) NULL,
+    "MealType" character varying(50) NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_templates" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_templates_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+CREATE INDEX "IX_meal_templates_UserId" ON meal_templates ("UserId");
+CREATE INDEX "IX_meal_templates_MealType" ON meal_templates ("MealType");
+
+CREATE TABLE meal_template_items (
+    "Id" uuid NOT NULL,
+    "MealTemplateId" uuid NOT NULL,
+    "FoodId" uuid NULL,
+    "RecipeId" uuid NULL,
+    "QuantityG" numeric(18,2) NOT NULL,
+    "Notes" character varying(1000) NULL,
+    "SortOrder" integer NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_template_items" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_template_items_meal_templates_MealTemplateId" FOREIGN KEY ("MealTemplateId") REFERENCES meal_templates ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_template_items_foods_FoodId" FOREIGN KEY ("FoodId") REFERENCES foods ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_template_items_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE CASCADE
+);
+CREATE INDEX "IX_meal_template_items_MealTemplateId" ON meal_template_items ("MealTemplateId");
+
+CREATE TABLE reminder_profiles (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "OptimalBreakfastTime" time without time zone NOT NULL,
+    "OptimalLunchTime" time without time zone NOT NULL,
+    "OptimalDinnerTime" time without time zone NOT NULL,
+    "LastRecalculatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_reminder_profiles" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_reminder_profiles_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+CREATE INDEX "IX_reminder_profiles_UserId" ON reminder_profiles ("UserId");
+
+CREATE TABLE goal_drift_alerts (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "AlertType" character varying(50) NOT NULL,
+    "Message" character varying(1000) NOT NULL,
+    "AverageValue" numeric(18,2) NOT NULL,
+    "TargetValue" numeric(18,2) NOT NULL,
+    "PercentDeviation" numeric(18,2) NOT NULL,
+    "IsAcknowledged" boolean NOT NULL DEFAULT false,
+    "IsDismissed" boolean NOT NULL DEFAULT false,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "AcknowledgedAt" timestamp with time zone NULL,
+    "DismissedAt" timestamp with time zone NULL,
+    CONSTRAINT "PK_goal_drift_alerts" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_goal_drift_alerts_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+CREATE INDEX "IX_goal_drift_alerts_UserId" ON goal_drift_alerts ("UserId");
 
 INSERT INTO roles ("Id", "Name", "Description", "CreatedAt", "UpdatedAt")
 VALUES
@@ -880,22 +915,6 @@ VALUES
 ('918621f6-1517-4cc1-9a7b-c20bbb021d09', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Lunch', 'fd000002-0000-0000-0000-000000000002', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 0, '12:15:00', 400, true, now()),
 ('1533c53c-17bb-42e4-b70b-b1c2260a9f91', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Dinner', 'fd000003-0000-0000-0000-000000000003', 'ec000004-0000-0000-0000-000000000004', CURRENT_DATE + 0, '18:45:00', 600, true, now()),
 ('12dcc145-28d9-4d50-b7ab-090f3bb48df5', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Breakfast', 'fd000005-0000-0000-0000-000000000005', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 1, '07:30:00', 500, false, now()),
-
-INSERT INTO meal_templates ("Id", "UserId", "Title", "Description", "MealType", "UsageCount", "IsActive", "CreatedAt", "UpdatedAt")
-VALUES
-('a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', '48069bd5-f29a-417d-bdeb-c00797968aca', 'Template bữa sáng eat clean', 'Bữa sáng dễ lặp lại cho ngày đi làm', 'Breakfast', 3, true, now(), now()),
-('a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', '9afb13a5-e5a1-4342-9ce1-33bf7cc1de70', 'Template meal prep tăng cơ', 'Bữa nhiều protein cho lịch tập gym', 'Lunch', 1, true, now(), now())
-ON CONFLICT DO NOTHING;
-
-INSERT INTO meal_template_items ("Id", "MealTemplateId", "FoodId", "RecipeId", "QuantityG", "Notes", "SortOrder", "CreatedAt")
-VALUES
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b201', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', 'fd000001-0000-0000-0000-000000000001', NULL, 250, 'Yến mạch + sữa chua', 1, now()),
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b202', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', 'fd000004-0000-0000-0000-000000000004', NULL, 150, 'Trứng luộc', 2, now()),
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b203', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a101', NULL, 'ec000002-0000-0000-0000-000000000002', 200, 'Kết hợp recipe dễ làm', 3, now()),
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b204', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', 'fd000007-0000-0000-0000-000000000007', NULL, 250, 'Ức gà áp chảo', 1, now()),
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b205', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', NULL, 'ec000003-0000-0000-0000-000000000003', 200, 'Recipe giàu protein', 2, now()),
-('b1e7b1d0-3e42-4e9f-bd43-0f1e5d35b206', 'a1e7b1d0-3e42-4e9f-bd43-0f1e5d35a102', 'fd000010-0000-0000-0000-000000000010', NULL, 150, 'Rau củ ăn kèm', 3, now())
-ON CONFLICT DO NOTHING;
 ('65db8028-ba8d-47ed-a21b-9f053281d0aa', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Lunch', 'fd000001-0000-0000-0000-000000000001', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 1, '12:15:00', 350, false, now()),
 ('fdbe131b-8843-4772-ba88-3f37a6322ee5', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Dinner', 'fd000006-0000-0000-0000-000000000006', 'ec000004-0000-0000-0000-000000000004', CURRENT_DATE + 1, '18:45:00', 500, false, now()),
 ('3a472f2e-76e2-4b9e-a6ef-f1547d6b393f', 'd677be5c-3bf9-45a0-838e-be2013c93934', 'Breakfast', 'fd000002-0000-0000-0000-000000000002', 'ec000002-0000-0000-0000-000000000002', CURRENT_DATE + 2, '07:30:00', 500, false, now()),
@@ -1617,6 +1636,36 @@ VALUES
 ('6a7f2eb2-e86e-492c-8d57-b2b5c4e2bf9e', '212ea8ea-749e-44a1-92d2-636bd617cbc8', 'LogMeal', 'Meal', '4f7dd928-b2ff-4dc9-9d4a-f295db710c19', '{"action": "logmeal", "status": "completed"}', now()),
 ('abc7ecf1-420d-4f5f-acb9-40cb7f58756b', '212ea8ea-749e-44a1-92d2-636bd617cbc8', 'UpdateWeight', 'UpdateWeight', 'c1a47938-29c2-4f26-8caa-edff28002a92', '{"action": "updateweight", "status": "completed"}', now()),
 ('7c095881-3ca4-4b09-8e26-cecf1bdd6281', '212ea8ea-749e-44a1-92d2-636bd617cbc8', 'GenerateMenu', 'GenerateMenu', '1c870950-f843-45ee-be3a-ab94d5e677f3', '{"action": "generatemenu", "status": "completed"}', now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for reminder_profiles
+INSERT INTO reminder_profiles ("Id", "UserId", "OptimalBreakfastTime", "OptimalLunchTime", "OptimalDinnerTime", "LastRecalculatedAt")
+VALUES
+('77777777-7777-7777-7777-777777777701', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '08:00:00', '12:30:00', '19:15:00', now()),
+('77777777-7777-7777-7777-777777777702', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '07:30:00', '12:00:00', '18:45:00', now()),
+('77777777-7777-7777-7777-777777777703', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '08:30:00', '13:00:00', '20:00:00', now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for goal_drift_alerts
+INSERT INTO goal_drift_alerts ("Id", "UserId", "AlertType", "Message", "AverageValue", "TargetValue", "PercentDeviation", "IsAcknowledged", "IsDismissed", "CreatedAt", "AcknowledgedAt", "DismissedAt")
+VALUES
+('88888888-8888-8888-8888-888888888801', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'CalorieDrift', 'Lượng calo thực tế 7 ngày qua cao hơn 15.5% mục tiêu', 2310, 2000, 15.5, false, false, now() - interval '1 day', NULL, NULL),
+('88888888-8888-8888-8888-888888888802', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'ProteinDeficit', 'Lượng đạm trung bình tuần qua thấp hơn 20% so với mục tiêu PT thiết lập', 96, 120, -20.0, false, false, now(), NULL, NULL)
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for meal_templates
+INSERT INTO meal_templates ("Id", "UserId", "Title", "Description", "MealType", "IsActive", "CreatedAt", "UpdatedAt")
+VALUES
+('99999999-9999-9999-9999-999999999901', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Bữa sáng Eat Clean nhanh', 'Yến mạch ngâm sữa chua và chuối chín', 'Breakfast', true, now() - interval '5 days', now() - interval '5 days'),
+('99999999-9999-9999-9999-999999999902', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Bữa trưa siết mỡ PT', 'Ức gà luộc, khoai lang và súp lơ xanh', 'Lunch', true, now() - interval '3 days', now() - interval '3 days')
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for meal_template_items
+INSERT INTO meal_template_items ("Id", "MealTemplateId", "FoodId", "RecipeId", "QuantityG", "Notes", "SortOrder", "CreatedAt")
+VALUES
+('bbbbbbbb-1111-1111-1111-bbbbbbbbbb01', '99999999-9999-9999-9999-999999999901', 'fd000004-0000-0000-0000-000000000004', NULL, 150.00, 'Ăn nguội hoặc quay nóng lại', 1, now() - interval '5 days'),
+('bbbbbbbb-2222-2222-2222-bbbbbbbbbb02', '99999999-9999-9999-9999-999999999902', 'fd000001-0000-0000-0000-000000000001', NULL, 180.00, 'Ức gà nạc không da', 1, now() - interval '3 days'),
+('bbbbbbbb-2222-2222-2222-bbbbbbbbbb03', '99999999-9999-9999-9999-999999999902', 'fd000002-0000-0000-0000-000000000002', NULL, 150.00, 'Gạo lứt đỏ', 2, now() - interval '3 days')
 ON CONFLICT DO NOTHING;
 
 COMMIT;
