@@ -1,0 +1,255 @@
+---
+description: Flutter UI naming conventions và folder structure
+globs: frontend/lib/**/*.dart
+alwaysApply: true
+---
+
+# Flutter UI Conventions
+
+## 1. File Naming
+
+```dart
+// ✅ ĐÚNG - lowercase_with_underscores
+// features/meal_plan/views/meal_plan_screen.dart
+// features/meal_plan/widgets/meal_item_tile.dart
+// features/meal_plan/providers/meal_plan_provider.dart
+
+// ❌ SAI
+// MealPlanScreen.dart
+// mealPlanScreen.dart
+```
+
+---
+
+## 2. Widget Naming
+
+```dart
+// ✅ StatelessWidget
+class MealItemTile extends StatelessWidget { ... }
+class CalorieProgressRing extends StatelessWidget { ... }
+class EmptyStateWidget extends StatelessWidget { ... }
+
+// ✅ StatefulWidget  
+class HomeScreen extends StatefulWidget { ... }
+class _HomeScreenState extends State<HomeScreen> { ... }
+
+// ✅ Private classes (file scope)
+class _RingPainter extends CustomPainter { ... }
+class _MealItemState { ... } // Nếu dùng ChangeNotifier
+```
+
+---
+
+## 3. Feature Folder Structure
+
+```
+features/
+└── meal_plan/
+    ├── models/           # Data models
+    │   ├── meal_plan_model.dart
+    │   └── meal_plan_requests.dart
+    ├── providers/       # State management
+    │   └── meal_plan_provider.dart
+    ├── repositories/    # Data layer
+    │   └── meal_plan_repository.dart
+    ├── views/           # Screens
+    │   ├── meal_plan_screen.dart
+    │   └── create_meal_plan_screen.dart
+    └── widgets/         # Reusable widgets
+        ├── meal_item_tile.dart
+        └── calorie_progress_ring.dart
+```
+
+---
+
+## 4. Widget Components Pattern
+
+```dart
+// ✅ Screen = Scaffold + AppBar + Body
+class MealPlanScreen extends StatelessWidget {
+  const MealPlanScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Kế hoạch ăn uống')),
+      body: const _MealPlanBody(),
+    );
+  }
+}
+
+// ✅ Private body widget để tách logic
+class _MealPlanBody extends StatelessWidget {
+  const _MealPlanBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<MealPlanProvider>(
+      builder: (context, provider, _) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return ListView.builder(...);
+      },
+    );
+  }
+}
+```
+
+---
+
+## 5. Import Order
+
+```dart
+// ✅ ĐÚNG - Theo thứ tự
+import 'dart:async';           // 1. Dart core
+import 'package:flutter/material.dart'; // 2. Flutter
+import 'package:provider/provider.dart'; // 3. External packages
+import '../models/meal_plan_model.dart'; // 4. Relative imports (nội bộ feature)
+import '../../core/theme/app_colors.dart'; // 5. Core utilities
+```
+
+---
+
+## 6. Export barrels cho feature
+
+```dart
+// features/meal_plan/meal_plan.dart
+export 'models/meal_plan_model.dart';
+export 'models/meal_plan_requests.dart';
+export 'providers/meal_plan_provider.dart';
+export 'repositories/meal_plan_repository.dart';
+```
+
+---
+
+## 7. Padding/Margin Spacing
+
+```dart
+// ✅ Dùng const EdgeInsets
+const EdgeInsets.all(16)
+const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+const EdgeInsets.only(left: 16, right: 16, top: 8)
+
+// ✅ Screen padding pattern
+Scaffold(
+  body: SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(...),
+    ),
+  ),
+)
+```
+
+---
+
+## 8. Error & Loading States
+
+```dart
+// ✅ Error state
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+  
+  const _ErrorState({required this.message, this.onRetry});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48),
+          const SizedBox(height: 16),
+          Text(message),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ✅ Empty state
+class _EmptyState extends StatelessWidget {
+  final String message;
+  final IconData icon;
+  
+  const _EmptyState({required this.message, this.icon = Icons.inbox});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(message, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 9. Animation Controllers
+
+```dart
+// ✅ Dùng SingleTickerProviderStateMixin
+class _MyWidgetState extends State<MyWidget> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose(); // ✅ Disposed
+    super.dispose();
+  }
+}
+
+// ❌ SAI - Dùng TickerProviderStateMixin khi chỉ cần 1 controller
+class _MyWidgetState extends State<MyWidget> with TickerProviderStateMixin
+```
+
+---
+
+## 10. Colors & Theming
+
+```dart
+// ✅ Lấy colors từ theme
+Text('Hello', style: TextStyle(color: Theme.of(context).colorScheme.primary))
+
+// ✅ Hoặc dùng AppColors nếu có
+Text('Hello', style: TextStyle(color: AppColors.primary))
+
+// ❌ KHÔNG hardcode colors
+Text('Hello', style: TextStyle(color: Color(0xFF4CAF50))) // Mã màu trong code
+```
+
+---
+
+## Quick Checklist
+
+- [ ] File name: `snake_case.dart`
+- [ ] Widget name: `PascalCase`
+- [ ] Import order đúng
+- [ ] Có Error/Loading/Empty states
+- [ ] Dùng theme colors thay vì hardcode
+- [ ] Animation dùng `SingleTickerProviderStateMixin`
