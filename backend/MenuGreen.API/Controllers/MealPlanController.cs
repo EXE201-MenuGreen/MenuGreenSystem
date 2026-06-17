@@ -2,6 +2,7 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -287,6 +288,87 @@ namespace MenuGreen.API.Controllers
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.GetStreaksAsync(userId));
+        }
+
+        /// <summary>
+        /// Tự động sinh thực đơn tuần tiết kiệm dựa trên yêu cầu ngân sách mới nhất của user.
+        /// </summary>
+        [HttpPost("generate-by-budget")]
+        public async Task<IActionResult> GenerateByBudget()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.GenerateByBudgetAsync(userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin so sánh chi phí kế hoạch thực đơn hiện tại với ngân sách của user.
+        /// </summary>
+        [HttpGet("{id:guid}/budget-status")]
+        public async Task<IActionResult> GetBudgetStatus(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.GetBudgetStatusAsync(id, userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Đề xuất các món ăn/công thức thay thế có giá rẻ hơn món ăn được chọn trong kế hoạch.
+        /// </summary>
+        [HttpGet("{planId:guid}/alternatives/{itemId:guid}")]
+        public async Task<IActionResult> GetAlternatives(Guid planId, Guid itemId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.GetAlternativesAsync(planId, itemId, userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// So sánh chi phí ăn uống thực tế (meal log) với chi phí kế hoạch và ngân sách đã thiết lập.
+        /// </summary>
+        [HttpGet("compare-expenses")]
+        public async Task<IActionResult> CompareExpenses([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.CompareExpensesAsync(from, to, userId));
+        }
+
+        /// <summary>
+        /// Phân tích tỷ trọng chi tiêu theo danh mục thực phẩm và gợi ý cách tiết kiệm tiền.
+        /// </summary>
+        [HttpGet("expense-breakdown")]
+        public async Task<IActionResult> GetExpenseBreakdown()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetExpenseBreakdownAsync(userId));
+        }
+
+        /// <summary>
+        /// Tính toán điểm bám sát ngân sách ăn uống trong chuỗi ngày gần đây của user.
+        /// </summary>
+        [HttpGet("adherence-scores")]
+        public async Task<IActionResult> GetAdherenceScores()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetAdherenceScoresAsync(userId));
         }
 
         private bool TryGetUserId(out Guid userId)
