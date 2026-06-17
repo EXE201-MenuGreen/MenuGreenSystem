@@ -66,6 +66,34 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Tạo meal plan rỗng (không cần items) - user tạo plan trước, thêm items sau.
+        /// </summary>
+        [HttpPost("empty")]
+        public async Task<IActionResult> CreateEmpty([FromBody] CreateEmptyPlanRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                var upsertRequest = new MealPlanUpsertRequest
+                {
+                    Title = request.Title,
+                    PlanType = request.PlanType,
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate,
+                    TargetCalories = request.TargetCalories,
+                    IsActive = request.IsActive,
+                    Items = new List<MealPlanItemUpsertRequest>()
+                };
+                return Ok(await _service.CreateAsync(upsertRequest, userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Cập nhật thông tin meal plan hiện tại.
         /// </summary>
         [HttpPut("{id:guid}")]

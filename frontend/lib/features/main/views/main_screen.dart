@@ -4,6 +4,7 @@ import '../../discover/views/discover_view.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
+import '../../meal_plan/views/meal_plan_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -34,7 +35,7 @@ class _MainScreenState extends State<MainScreen> {
           },
         ),
       1 => DiscoverView(key: _discoverKey),
-      2 => const Center(child: Text('Trợ lý AI')),
+      2 => const MealPlanScreen(), // Kế hoạch ăn uống
       3 => HistoryView(
           key: _historyKey,
           onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
@@ -111,9 +112,9 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Khám phá',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy_outlined),
-            activeIcon: Icon(Icons.smart_toy),
-            label: 'Trợ lý AI',
+            icon: Icon(Icons.restaurant_menu_outlined),
+            activeIcon: Icon(Icons.restaurant_menu),
+            label: 'Kế hoạch',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history_outlined),
