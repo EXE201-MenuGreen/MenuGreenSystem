@@ -8,10 +8,15 @@ import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
 import '../widgets/calorie_progress_ring.dart';
 import '../widgets/meal_item_tile.dart';
+import '../widgets/add_item_sheet.dart';
+import '../widgets/edit_item_sheet.dart';
 import 'meal_plan_detail_screen.dart';
 import 'create_meal_plan_screen.dart';
 import 'meal_plan_stats_screen.dart';
 import 'meal_plan_calendar_screen.dart';
+
+/// Filter enum for history tab
+enum PlanFilter { all, active, completed }
 
 /// Main screen cho Meal Plan - kết hợp list và today dashboard
 /// Inspired by Lose It! and MyFitnessPal design
@@ -235,6 +240,11 @@ class _TodayTab extends StatelessWidget {
               onAddItem: () => _addMeal(context, mealType),
               onTapItem: (item) => _openItemDetail(context, item),
               onLogAll: () => _logAllMeal(context, grouped[mealType]!),
+              onMarkItemDone: (item) => _markItemDone(context, item),
+              onConvertToLog: (item) => _convertItemToLog(context, item),
+              onEditItem: (item) => _editItem(context, item),
+              onDeleteItem: (item) => _deleteItem(context, item),
+              onSkipItem: (item) => _skipItem(context, item),
             ),
       ],
     );
@@ -308,22 +318,202 @@ class _TodayTab extends StatelessWidget {
   }
 
   void _addMeal(BuildContext context, MealType mealType) {
-    // TODO: Open add item sheet
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Thêm bữa ${mealType.labelVi}')),
+    // User cần có plan để thêm item
+    // Nếu không có plan hôm nay, redirect sang tạo mới
+    final plans = provider.plans;
+    if (plans.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bạn cần tạo kế hoạch trước'),
+          action: SnackBarAction(
+            label: 'Tạo',
+            onPressed: () => _createPlan(context),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Lấy plan đầu tiên đang active
+    final activePlan = plans.firstWhere(
+      (p) => p.isActive,
+      orElse: () => plans.first,
     );
+
+    AddItemSheet.show(
+      context: context,
+      planId: activePlan.id,
+      mealType: mealType,
+      scheduledTime: _getDefaultMealTime(mealType),
+    ).then((request) async {
+      if (request != null && context.mounted) {
+        final item = await provider.addItem(activePlan.id, request);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(item != null ? 'Đã thêm món' : 'Không thể thêm món'),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  DateTime _getDefaultMealTime(MealType mealType) {
+    final now = DateTime.now();
+    switch (mealType) {
+      case MealType.breakfast:
+        return DateTime(now.year, now.month, now.day, 7, 0);
+      case MealType.lunch:
+        return DateTime(now.year, now.month, now.day, 12, 0);
+      case MealType.dinner:
+        return DateTime(now.year, now.month, now.day, 18, 0);
+      case MealType.snack:
+        return DateTime(now.year, now.month, now.day, 10, 0);
+    }
   }
 
   void _openItemDetail(BuildContext context, MealPlanItemDetail item) {
-    // TODO: Navigate to food/recipe detail
+    if (item.foodId != null) {
+      // Navigate to food detail
+      // TODO: Implement food detail navigation
+    } else if (item.recipeId != null) {
+      // Navigate to recipe detail
+      // TODO: Implement recipe detail navigation
+    }
   }
 
-  void _logAllMeal(BuildContext context, List<MealPlanItemDetail> items) {
-    HapticFeedback.mediumImpact();
-    // TODO: Mark all as done
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Đã log ${items.length} món')),
+  void _convertItemToLog(BuildContext context, MealPlanItemDetail item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ghi nhận ăn uống'),
+        content: Text('Chuyển "${item.displayName}" thành bản ghi ăn uống thực tế?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ghi nhận'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && context.mounted) {
+      final request = ConvertToLogRequest(
+        loggedAt: DateTime.now(),
+        quantityG: null,
+      );
+
+      // Find plan ID from item or provider
+      final planId = item.mealPlanId ?? provider.plans.firstOrNull?.id;
+      if (planId == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Không tìm thấy kế hoạch')),
+          );
+        }
+        return;
+      }
+
+      final result = await provider.convertItemToLog(planId, item.id, request);
+
+      if (context.mounted) {
+        if (result?.success == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Đã ghi nhận "${item.displayName}"')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result?.message ?? provider.error ?? 'Không thể ghi nhận')),
+          );
+        }
+      }
+    }
+  }
+
+  void _editItem(BuildContext context, MealPlanItemDetail item) {
+    final planId = item.mealPlanId ?? provider.plans.firstOrNull?.id;
+    if (planId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy kế hoạch')),
+      );
+      return;
+    }
+
+    EditItemSheet.show(
+      context: context,
+      planId: planId,
+      item: item,
+      onItemUpdated: () {
+        provider.loadTodayDashboard();
+      },
+    );
+  }
+
+  void _markItemDone(BuildContext context, MealPlanItemDetail item) async {
+    HapticFeedback.mediumImpact();
+    await provider.markItemDone(item.mealPlanId ?? '', item.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã hoàn thành "${item.displayName}"')),
+      );
+    }
+  }
+
+  void _deleteItem(BuildContext context, MealPlanItemDetail item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa món'),
+        content: Text('Xóa "${item.displayName}" khỏi kế hoạch?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final success = await provider.deleteItem(item.mealPlanId ?? '', item.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? 'Đã xóa' : 'Không thể xóa')),
+        );
+      }
+    }
+  }
+
+  void _skipItem(BuildContext context, MealPlanItemDetail item) async {
+    HapticFeedback.lightImpact();
+    await provider.skipItem(item.mealPlanId ?? '', item.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã bỏ qua "${item.displayName}"')),
+      );
+    }
+  }
+
+  void _logAllMeal(BuildContext context, List<MealPlanItemDetail> items) async {
+    HapticFeedback.mediumImpact();
+    for (final item in items.where((i) => !i.isDone)) {
+      await provider.markItemDone(item.mealPlanId ?? '', item.id);
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã log ${items.length} món')),
+      );
+    }
   }
 
   void _showTodayDetails(BuildContext context, MealPlanDayDashboard? dashboard) {
@@ -353,76 +543,200 @@ class _TodayTab extends StatelessWidget {
 }
 
 /// Tab tất cả - List plans
-class _AllPlansTab extends StatelessWidget {
+class _AllPlansTab extends StatefulWidget {
   const _AllPlansTab({required this.provider});
 
   final MealPlanProvider provider;
 
   @override
+  State<_AllPlansTab> createState() => _AllPlansTabState();
+}
+
+class _AllPlansTabState extends State<_AllPlansTab> {
+  PlanFilter _currentFilter = PlanFilter.all;
+
+  List<MealPlanListItem> get _filteredPlans {
+    final plans = widget.provider.plans;
+    switch (_currentFilter) {
+      case PlanFilter.all:
+        return plans;
+      case PlanFilter.active:
+        return plans.where((p) => p.isActive).toList();
+      case PlanFilter.completed:
+        return plans.where((p) => !p.isActive).toList();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final plans = provider.plans;
+    final plans = _filteredPlans;
 
     if (plans.isEmpty) {
-      return _buildEmptyState(context);
+      return Column(
+        children: [
+          _buildFilterHeader(),
+          Expanded(child: _buildEmptyState(context)),
+        ],
+      );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => provider.loadPlans(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: plans.length,
-        itemBuilder: (context, index) {
-          final plan = plans[index];
-          return _PlanCard(
-            plan: plan,
-            onTap: () => _openPlanDetail(context, plan),
-            onDuplicate: () => _duplicatePlan(context, plan),
-            onDelete: () => _deletePlan(context, plan),
-          );
-        },
+    return Column(
+      children: [
+        _buildFilterHeader(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => widget.provider.loadPlans(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: plans.length,
+              itemBuilder: (context, index) {
+                final plan = plans[index];
+                return _PlanCard(
+                  plan: plan,
+                  onTap: () => _openPlanDetail(context, plan),
+                  onDuplicate: () => _duplicatePlan(context, plan),
+                  onDelete: () => _deletePlan(context, plan),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildFilterChip(PlanFilter.all, 'Tất cả', widget.provider.plans.length),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            PlanFilter.active,
+            'Đang hoạt động',
+            widget.provider.plans.where((p) => p.isActive).length,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            PlanFilter.completed,
+            'Đã kết thúc',
+            widget.provider.plans.where((p) => !p.isActive).length,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(PlanFilter filter, String label, int count) {
+    final isSelected = _currentFilter == filter;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary
+              : AppColors.progressBackground.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.progressBackground,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : AppColors.textSecondary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    String message;
+    IconData icon;
+
+    switch (_currentFilter) {
+      case PlanFilter.all:
+        message = 'Chưa có kế hoạch nào\nTạo kế hoạch đầu tiên!';
+        icon = Icons.calendar_today_outlined;
+        break;
+      case PlanFilter.active:
+        message = 'Không có kế hoạch đang hoạt động';
+        icon = Icons.play_circle_outline;
+        break;
+      case PlanFilter.completed:
+        message = 'Không có kế hoạch đã kết thúc';
+        icon = Icons.check_circle_outline;
+        break;
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.calendar_today_outlined,
-            size: 64,
-            color: AppColors.textSecondary,
-          ),
+          Icon(icon, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text(
-            'Chưa có kế hoạch nào',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tạo kế hoạch để bắt đầu theo dõi dinh dưỡng',
+          Text(
+            message,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _createPlan(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Tạo kế hoạch đầu tiên'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          if (_currentFilter == PlanFilter.all) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _createPlan(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Tạo kế hoạch đầu tiên'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -437,10 +751,47 @@ class _AllPlansTab extends StatelessWidget {
     );
   }
 
-  void _duplicatePlan(BuildContext context, MealPlanListItem plan) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Nhân bản "${plan.title}"')),
+  void _duplicatePlan(BuildContext context, MealPlanListItem plan) async {
+    HapticFeedback.mediumImpact();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nhân bản kế hoạch'),
+        content: Text('Tạo bản sao của "${plan.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Nhân bản'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && context.mounted) {
+      final request = DuplicatePlanRequest(
+        newStartDate: DateTime.now(),
+        newEndDate: plan.endDate,
+        newTitle: '${plan.title} (Bản sao)',
+      );
+
+      final newPlan = await widget.provider.duplicatePlan(plan.id, request);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newPlan != null
+                  ? 'Đã nhân bản thành công'
+                  : 'Không thể nhân bản kế hoạch',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _deletePlan(BuildContext context, MealPlanListItem plan) async {
@@ -464,7 +815,7 @@ class _AllPlansTab extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      final success = await provider.deletePlan(plan.id);
+      final success = await widget.provider.deletePlan(plan.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -479,49 +830,277 @@ class _AllPlansTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-    ).then((_) => provider.loadPlans());
+    ).then((_) => widget.provider.loadPlans());
   }
 }
 
 /// Tab lịch sử
-class _HistoryTab extends StatelessWidget {
+class _HistoryTab extends StatefulWidget {
   const _HistoryTab({required this.provider});
 
   final MealPlanProvider provider;
 
   @override
+  State<_HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends State<_HistoryTab> {
+  PlanFilter _currentFilter = PlanFilter.all;
+
+  List<MealPlanListItem> get _filteredPlans {
+    final plans = widget.provider.plans;
+    switch (_currentFilter) {
+      case PlanFilter.all:
+        return plans;
+      case PlanFilter.active:
+        return plans.where((p) => p.isActive).toList();
+      case PlanFilter.completed:
+        return plans.where((p) => !p.isActive).toList();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // TODO: Implement history tab
+    final plans = _filteredPlans;
+    final completedPlans = widget.provider.plans.where((p) => !p.isActive).toList();
+
+    if (widget.provider.isLoading && widget.provider.plans.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        // Filter chips
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _buildFilterChip(PlanFilter.all, 'Tất cả', widget.provider.plans.length),
+              const SizedBox(width: 8),
+              _buildFilterChip(
+                PlanFilter.active,
+                'Đang hoạt động',
+                widget.provider.plans.where((p) => p.isActive).length,
+              ),
+              const SizedBox(width: 8),
+              _buildFilterChip(
+                PlanFilter.completed,
+                'Đã kết thúc',
+                completedPlans.length,
+              ),
+            ],
+          ),
+        ),
+
+        // Plans list
+        Expanded(
+          child: plans.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: () => widget.provider.loadPlans(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: plans.length,
+                    itemBuilder: (context, index) {
+                      final plan = plans[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PlanCard(
+                          plan: plan,
+                          onTap: () => _viewPlan(context, plan),
+                          onDuplicate: () => _duplicatePlan(context, plan),
+                          onDelete: () => _deletePlan(context, plan),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(PlanFilter filter, String label, int count) {
+    final isSelected = _currentFilter == filter;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.progressBackground.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.progressBackground,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : AppColors.textSecondary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    String message;
+    IconData icon;
+    
+    switch (_currentFilter) {
+      case PlanFilter.all:
+        message = 'Chưa có kế hoạch nào\nTạo kế hoạch đầu tiên của bạn!';
+        icon = Icons.calendar_today_outlined;
+        break;
+      case PlanFilter.active:
+        message = 'Không có kế hoạch đang hoạt động';
+        icon = Icons.play_circle_outline;
+        break;
+      case PlanFilter.completed:
+        message = 'Không có kế hoạch đã kết thúc';
+        icon = Icons.check_circle_outline;
+        break;
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.history,
-            size: 64,
-            color: AppColors.textSecondary,
-          ),
+          Icon(icon, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text(
-            'Lịch sử kế hoạch',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Các kế hoạch đã kết thúc sẽ hiển thị ở đây',
+          Text(
+            message,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
+              height: 1.5,
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _viewPlan(BuildContext context, MealPlanListItem plan) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MealPlanDetailScreen(planId: plan.id),
+      ),
+    ).then((_) {
+      widget.provider.loadPlans();
+    });
+  }
+
+  void _duplicatePlan(BuildContext context, MealPlanListItem plan) async {
+    HapticFeedback.mediumImpact();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nhân bản kế hoạch'),
+        content: Text('Tạo bản sao của "${plan.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Nhân bản'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final request = DuplicatePlanRequest(
+        newStartDate: DateTime.now(),
+        newEndDate: plan.endDate,
+        newTitle: '${plan.title} (Bản sao)',
+      );
+
+      final newPlan = await widget.provider.duplicatePlan(plan.id, request);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newPlan != null
+                  ? 'Đã nhân bản thành công'
+                  : 'Không thể nhân bản kế hoạch',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _deletePlan(BuildContext context, MealPlanListItem plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa kế hoạch'),
+        content: Text('Bạn có chắc muốn xóa "${plan.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await widget.provider.deletePlan(plan.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? 'Đã xóa kế hoạch' : 'Không thể xóa')),
+        );
+      }
+    }
   }
 }
 

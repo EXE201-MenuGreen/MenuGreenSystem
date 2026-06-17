@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/meal_plan_requests.dart';
 import '../providers/meal_plan_provider.dart';
+import 'meal_plan_detail_screen.dart';
 
-/// Screen lịch meal plan
+/// Screen lich meal plan
 class MealPlanCalendarScreen extends StatefulWidget {
   const MealPlanCalendarScreen({super.key});
 
@@ -16,16 +18,17 @@ class MealPlanCalendarScreen extends StatefulWidget {
 class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   DateTime _currentMonth = DateTime.now();
   DateTime? _selectedDate;
+  Map<DateTime, DayPlanSummary> _daySummaries = {};
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lịch kế hoạch'),
+        title: const Text('Lich ke hoach'),
         actions: [
           TextButton(
             onPressed: _goToToday,
-            child: const Text('Hôm nay'),
+            child: const Text('Hom nay'),
           ),
         ],
       ),
@@ -33,15 +36,14 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
         builder: (context, provider, child) {
           return Column(
             children: [
-              // Month navigation
               _buildMonthHeader(),
-              
-              // Calendar grid
-              _buildCalendarGrid(provider),
-              
-              // Selected day details
+              Expanded(
+                flex: 3,
+                child: _buildCalendarGrid(provider),
+              ),
               if (_selectedDate != null)
                 Expanded(
+                  flex: 2,
                   child: _buildDayDetails(provider),
                 ),
             ],
@@ -80,12 +82,10 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   Widget _buildCalendarGrid(MealPlanProvider provider) {
     final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final startingWeekday = firstDayOfMonth.weekday; // 1 = Monday
+    final startingWeekday = firstDayOfMonth.weekday;
 
-    // Build calendar days
     final days = <Widget>[];
 
-    // Weekday headers
     const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     for (final day in weekdays) {
       days.add(
@@ -102,21 +102,23 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
       );
     }
 
-    // Empty cells before first day
     for (var i = 1; i < startingWeekday; i++) {
       days.add(const SizedBox());
     }
 
-    // Day cells
     for (var day = 1; day <= daysInMonth; day++) {
       final date = DateTime(_currentMonth.year, _currentMonth.month, day);
       final isToday = _isToday(date);
       final isSelected = _selectedDate != null && _isSameDay(date, _selectedDate!);
-      final isPast = date.isBefore(DateTime.now().subtract(const Duration(days: 1)));
+      final isFuture = date.isAfter(DateTime.now());
+      final summary = _daySummaries[DateTime(date.year, date.month, date.day)];
 
       days.add(
         GestureDetector(
-          onTap: () => setState(() => _selectedDate = date),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() => _selectedDate = date);
+          },
           child: Container(
             decoration: BoxDecoration(
               color: isSelected
@@ -138,20 +140,13 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? Colors.white : AppColors.textDark,
+                      color: isSelected ? Colors.white : (isFuture ? AppColors.textSecondary : AppColors.textDark),
                     ),
                   ),
-                  // Dot indicator for planned meals
-                  if (!isPast)
-                    Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(top: 2),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.white : AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                  if (!isFuture && summary != null) ...[
+                    const SizedBox(height: 2),
+                    _buildDayIndicator(summary.adherencePercent),
+                  ],
                 ],
               ),
             ),
@@ -164,29 +159,57 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // Legend
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendItem('Hoàn thành', Colors.green),
-              const SizedBox(width: 16),
-              _buildLegendItem('Có kế hoạch', AppColors.primary),
-              const SizedBox(width: 16),
-              _buildLegendItem('Chưa có', Colors.grey),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.progressBackground.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildLegendItem('>=80%', Colors.green),
+                _buildLegendItem('50-80%', Colors.orange),
+                _buildLegendItem('<50%', Colors.red),
+                _buildLegendItem('Chua co', Colors.grey),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          // Calendar grid
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 7,
-            childAspectRatio: 1,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            children: days,
+          Expanded(
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 7,
+              childAspectRatio: 1,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              children: days,
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDayIndicator(double adherencePercent) {
+    Color color;
+    if (adherencePercent >= 0.8) {
+      color = Colors.green;
+    } else if (adherencePercent >= 0.5) {
+      color = Colors.orange;
+    } else if (adherencePercent > 0) {
+      color = Colors.red;
+    } else {
+      color = Colors.grey;
+    }
+
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
       ),
     );
   }
@@ -212,14 +235,23 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   }
 
   Widget _buildDayDetails(MealPlanProvider provider) {
-    final dashboard = provider.todayDashboard;
+    final summary = _selectedDate != null
+        ? _daySummaries[DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day)]
+        : null;
 
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,12 +259,25 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _formatDate(_selectedDate!),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatDate(_selectedDate!),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _getDaySummaryText(summary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _getSummaryColor(summary),
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 icon: const Icon(Icons.close),
@@ -240,32 +285,69 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          
-          // Stats for the day
-          if (dashboard != null) ...[
-            _buildDayStat('Calo', '${dashboard.actualCalories}/${dashboard.plannedCalories} kcal'),
-            _buildDayStat('Bữa ăn', '${dashboard.completedMeals}/${dashboard.totalMeals} hoàn thành'),
+          const SizedBox(height: 16),
+          if (summary != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.local_fire_department,
+                    label: 'Calo',
+                    value: '${summary.actualCalories}/${summary.plannedCalories}',
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.check_circle,
+                    label: 'Bua an',
+                    value: '${summary.completedMeals}/${summary.totalMeals}',
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.trending_up,
+                    label: 'Adherence',
+                    value: '${(summary.adherencePercent * 100).toStringAsFixed(0)}%',
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
           ] else ...[
-            const Text(
-              'Chưa có dữ liệu cho ngày này',
-              style: TextStyle(color: AppColors.textSecondary),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.event_note,
+                      size: 32,
+                      color: AppColors.textSecondary.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Chua co du lieu cho ngay nay',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
-          
           const Spacer(),
-          
-          // Actions
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                // Navigate to detail
-              },
+              onPressed: () => _viewDayDetail(context, provider),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Xem chi tiết'),
+              child: const Text('Xem chi tiet'),
             ),
           ),
         ],
@@ -273,30 +355,94 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
     );
   }
 
-  Widget _buildDayStat(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  String _getDaySummaryText(DayPlanSummary? summary) {
+    if (summary == null) return 'Khong co ke hoach';
+    if (summary.adherencePercent >= 0.8) return 'Hoan thanh tot';
+    if (summary.adherencePercent >= 0.5) return 'Can cai thien';
+    if (summary.adherencePercent > 0) return 'Chua dat muc tieu';
+    return 'Chua co du lieu';
+  }
+
+  Color _getSummaryColor(DayPlanSummary? summary) {
+    if (summary == null) return AppColors.textSecondary;
+    if (summary.adherencePercent >= 0.8) return Colors.green;
+    if (summary.adherencePercent >= 0.5) return Colors.orange;
+    if (summary.adherencePercent > 0) return Colors.red;
+    return AppColors.textSecondary;
+  }
+
+  void _viewDayDetail(BuildContext context, MealPlanProvider provider) {
+    final plans = provider.plans;
+    if (plans.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Khong co ke hoach nao')),
+      );
+      return;
+    }
+
+    final plan = plans.firstWhere(
+      (p) => p.isActive,
+      orElse: () => plans.first,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MealPlanDetailScreen(
+          planId: plan.id,
+          initialDate: _selectedDate,
+        ),
       ),
     );
   }
 
   String _formatMonth(DateTime date) {
     const months = [
-      'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
-      'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8',
-      'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+      'Thang 1', 'Thang 2', 'Thang 3', 'Thang 4',
+      'Thang 5', 'Thang 6', 'Thang 7', 'Thang 8',
+      'Thang 9', 'Thang 10', 'Thang 11', 'Thang 12'
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
 
   String _formatDate(DateTime date) {
-    const weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    const weekdays = ['Thu 2', 'Thu 3', 'Thu 4', 'Thu 5', 'Thu 6', 'Thu 7', 'Chu nhat'];
     return '${weekdays[date.weekday - 1]}, ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 

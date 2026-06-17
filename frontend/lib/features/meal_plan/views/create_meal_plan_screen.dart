@@ -3,12 +3,20 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/meal_plan_requests.dart';
+import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
 import 'meal_plan_detail_screen.dart';
 
-/// Screen tạo meal plan mới - 3-step wizard
+/// Screen tạo/sửa meal plan - 3-step wizard
+/// Dùng chung cho cả tạo mới và sửa
 class CreateMealPlanScreen extends StatefulWidget {
-  const CreateMealPlanScreen({super.key});
+  const CreateMealPlanScreen({
+    super.key,
+    this.existingPlan,
+  });
+
+  /// Plan hiện có - nếu null thì là tạo mới
+  final MealPlanDetail? existingPlan;
 
   @override
   State<CreateMealPlanScreen> createState() => _CreateMealPlanScreenState();
@@ -18,6 +26,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   final _pageController = PageController();
   final _titleController = TextEditingController();
   final _caloriesController = TextEditingController(text: '2000');
+
+  bool get _isEditMode => widget.existingPlan != null;
 
   int _currentStep = 0;
   PlanType _selectedPlanType = PlanType.weekly;
@@ -33,6 +43,41 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   void initState() {
     super.initState();
     _endDate = _startDate.add(const Duration(days: 6));
+    
+    // Load existing plan data if editing
+    if (_isEditMode) {
+      _loadExistingPlan();
+    }
+  }
+
+  void _loadExistingPlan() {
+    final plan = widget.existingPlan!;
+    
+    _titleController.text = plan.title;
+    _selectedPlanType = PlanType.fromString(plan.planType);
+    _startDate = plan.startDate ?? DateTime.now();
+    _endDate = plan.endDate;
+    _targetCalories = plan.targetCalories ?? 2000;
+    _caloriesController.text = _targetCalories.toString();
+    
+    // Calculate macro percentages from targets
+    if (plan.targetCalories != null && plan.targetCalories! > 0) {
+      final totalCal = plan.targetCalories!;
+      _proteinPercent = _calculatePercent(plan.targetProtein ?? 0, totalCal, 4);
+      _carbsPercent = _calculatePercent(plan.targetCarbs ?? 0, totalCal, 4);
+      _fatPercent = 100 - _proteinPercent - _carbsPercent;
+      
+      // Ensure valid percentages
+      if (_fatPercent < 10) _fatPercent = 35;
+      if (_proteinPercent < 10) _proteinPercent = 25;
+      if (_carbsPercent < 10) _carbsPercent = 40;
+    }
+  }
+
+  int _calculatePercent(int grams, int totalCalories, int caloriesPerGram) {
+    if (totalCalories == 0) return 25;
+    final calories = grams * caloriesPerGram;
+    return ((calories / totalCalories) * 100).round();
   }
 
   @override
@@ -47,7 +92,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo kế hoạch mới'),
+        title: Text(_isEditMode ? 'Sửa kế hoạch' : 'Tạo kế hoạch mới'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: _buildStepIndicator(),
@@ -331,13 +376,15 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.lightbulb_outline, color: Colors.blue),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Bạn có thể thêm bữa ăn sau khi tạo kế hoạch',
+                    _isEditMode
+                        ? 'Thay đổi sẽ được lưu ngay lập tức'
+                        : 'Bạn có thể thêm bữa ăn sau khi tạo kế hoạch',
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
@@ -362,7 +409,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createPlan,
+                  onPressed: _isLoading ? null : (_isEditMode ? _updatePlan : _createPlan),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -376,7 +423,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Tạo kế hoạch'),
+                      : Text(_isEditMode ? 'Lưu thay đổi' : 'Tạo kế hoạch'),
                 ),
               ),
             ],
@@ -533,6 +580,50 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tạo kế hoạch: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _updatePlan() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final request = CreatePlanRequest(
+        title: _titleController.text.isEmpty ? 'Kế hoạch mới' : _titleController.text,
+        planType: _selectedPlanType.value,
+        startDate: _startDate,
+        endDate: _endDate,
+        targetCalories: _targetCalories,
+        isActive: true,
+      );
+
+      final plan = await context.read<MealPlanProvider>().updatePlan(
+        widget.existingPlan!.id,
+        request,
+      );
+
+      if (mounted) {
+        if (plan != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cập nhật kế hoạch thành công!')),
+          );
+          // Reload detail screen and pop back
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.read<MealPlanProvider>().error ?? 'Không thể cập nhật kế hoạch')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi cập nhật kế hoạch: $e')),
         );
       }
     } finally {
