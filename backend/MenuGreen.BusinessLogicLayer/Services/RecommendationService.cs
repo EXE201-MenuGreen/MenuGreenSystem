@@ -494,5 +494,292 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return safe;
         }
+
+        public async Task<RecommendationGenerateResponse> GenerateAsync(Guid userId, RecommendationGenerateRequest request)
+        {
+            var targetCalories = request.TargetCalories ?? 2000;
+            var req = new RecommendationRequest
+            {
+                TargetCalories = targetCalories,
+                ExcludeUserAllergies = request.ExcludeUserAllergies,
+                Top = request.MaxResults
+            };
+
+            var items = (await RecommendByCaloriesAsync(userId, req)).ToList();
+
+            var history = new RecommendationHistory
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = "Generate",
+                Input = JsonSerializer.Serialize(request, JsonOptions),
+                Output = JsonSerializer.Serialize(items, JsonOptions),
+                Confidence = 0.95m,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            await _unitOfWork.RecommendationHistories.AddAsync(history);
+            await _unitOfWork.CompleteAsync();
+
+            return new RecommendationGenerateResponse
+            {
+                Id = history.Id,
+                Items = items,
+                TotalCalories = items.Sum(x => x.CaloriesKcal),
+                CreatedAt = history.CreatedAt.Value
+            };
+        }
+
+        public async Task<WeeklyPlanGenerateResponse> GenerateWeeklyPlanAsync(Guid userId, WeeklyPlanGenerateRequest request)
+        {
+            var targetCaloriesPerDay = request.TargetCaloriesPerDay;
+            var breakfastTarget = targetCaloriesPerDay * 0.25m;
+            var lunchTarget = targetCaloriesPerDay * 0.35m;
+            var dinnerTarget = targetCaloriesPerDay * 0.30m;
+            var snackTarget = targetCaloriesPerDay * 0.10m;
+
+            var days = new List<WeeklyDayPlanDto>();
+            var startDate = request.StartDate;
+
+            for (int i = 0; i < 7; i++)
+            {
+                var currentDate = startDate.AddDays(i);
+                var meals = new List<WeeklyMealDto>();
+                decimal dayCalories = 0;
+
+                if (request.MealPreferences.Breakfast)
+                {
+                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
+                    {
+                        TargetCalories = (int)breakfastTarget,
+                        Top = 1,
+                        ExcludeUserAllergies = true
+                    })).ToList();
+                    var calories = items.Sum(x => x.CaloriesKcal);
+                    meals.Add(new WeeklyMealDto { Type = "breakfast", Items = items, TotalCalories = calories });
+                    dayCalories += calories;
+                }
+
+                if (request.MealPreferences.Lunch)
+                {
+                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
+                    {
+                        TargetCalories = (int)lunchTarget,
+                        Top = 1,
+                        ExcludeUserAllergies = true
+                    })).ToList();
+                    var calories = items.Sum(x => x.CaloriesKcal);
+                    meals.Add(new WeeklyMealDto { Type = "lunch", Items = items, TotalCalories = calories });
+                    dayCalories += calories;
+                }
+
+                if (request.MealPreferences.Dinner)
+                {
+                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
+                    {
+                        TargetCalories = (int)dinnerTarget,
+                        Top = 1,
+                        ExcludeUserAllergies = true
+                    })).ToList();
+                    var calories = items.Sum(x => x.CaloriesKcal);
+                    meals.Add(new WeeklyMealDto { Type = "dinner", Items = items, TotalCalories = calories });
+                    dayCalories += calories;
+                }
+
+                int snacksCount = request.MealPreferences.Snacks;
+                if (snacksCount > 0)
+                {
+                    var snackCalTarget = snackTarget / snacksCount;
+                    for (int s = 0; s < snacksCount; s++)
+                    {
+                        var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
+                        {
+                            TargetCalories = (int)snackCalTarget,
+                            Top = 1,
+                            ExcludeUserAllergies = true
+                        })).ToList();
+                        var calories = items.Sum(x => x.CaloriesKcal);
+                        meals.Add(new WeeklyMealDto { Type = $"snack_{s + 1}", Items = items, TotalCalories = calories });
+                        dayCalories += calories;
+                    }
+                }
+
+                days.Add(new WeeklyDayPlanDto
+                {
+                    Date = currentDate,
+                    Meals = meals,
+                    TotalCalories = dayCalories
+                });
+            }
+
+            var history = new RecommendationHistory
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = "WeeklyPlan",
+                Input = JsonSerializer.Serialize(request, JsonOptions),
+                Output = JsonSerializer.Serialize(days, JsonOptions),
+                Confidence = 0.90m,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            await _unitOfWork.RecommendationHistories.AddAsync(history);
+            await _unitOfWork.CompleteAsync();
+
+            return new WeeklyPlanGenerateResponse
+            {
+                Id = history.Id,
+                WeekStartDate = startDate,
+                Days = days
+            };
+        }
+
+        public async Task<BudgetAwareGenerateResponse> GenerateBudgetAwareAsync(Guid userId, BudgetAwareGenerateRequest request)
+        {
+            var req = new RecommendationRequest
+            {
+                BudgetVnd = request.MaxBudgetPerMeal,
+                ExcludeUserAllergies = request.ExcludeUserAllergies,
+                Top = 5
+            };
+
+            var items = (await RecommendByEcoAsync(userId, req)).ToList();
+            var totalBudget = items.Sum(x => x.EstimatedPriceVnd);
+            var remaining = request.MaxBudgetPerMeal - totalBudget;
+
+            var history = new RecommendationHistory
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = "BudgetAware",
+                Input = JsonSerializer.Serialize(request, JsonOptions),
+                Output = JsonSerializer.Serialize(items, JsonOptions),
+                Confidence = 0.85m,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            await _unitOfWork.RecommendationHistories.AddAsync(history);
+            await _unitOfWork.CompleteAsync();
+
+            return new BudgetAwareGenerateResponse
+            {
+                Items = items,
+                TotalBudget = totalBudget,
+                Remaining = remaining
+            };
+        }
+
+        public async Task UpdateFeedbackAsync(Guid userId, Guid recommendationId, UpdateFeedbackRequest request)
+        {
+            var history = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
+
+            var feedback = (await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == recommendationId)).FirstOrDefault();
+            if (feedback == null)
+            {
+                feedback = new RecommendationFeedback
+                {
+                    Id = Guid.NewGuid(),
+                    RecommendationId = recommendationId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.RecommendationFeedbacks.AddAsync(feedback);
+            }
+
+            if (request.Rating.HasValue) feedback.Rating = request.Rating.Value;
+
+            var commentPart = request.Comment ?? string.Empty;
+            var wouldRecPart = request.WouldRecommend.HasValue ? $"WouldRecommend: {request.WouldRecommend.Value}." : string.Empty;
+            feedback.Feedback = string.Join(" ", wouldRecPart, commentPart).Trim();
+
+            if (feedback.CreatedAt == null) feedback.CreatedAt = DateTime.UtcNow;
+
+            _unitOfWork.RecommendationFeedbacks.Update(feedback);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<FeedbackSummaryResponse> GetFeedbackSummaryAsync(Guid userId)
+        {
+            var histories = await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId);
+            var historyIds = histories.Select(x => x.Id).ToList();
+
+            var feedbacks = await _unitOfWork.RecommendationFeedbacks.FindAsync(x => historyIds.Contains(x.RecommendationId));
+            var feedbackList = feedbacks.ToList();
+
+            int totalFeedbacks = feedbackList.Count;
+            int positiveCount = feedbackList.Count(x => x.Rating >= 4);
+            int negativeCount = feedbackList.Count(x => x.Rating <= 3);
+            double positiveRate = totalFeedbacks > 0 ? (double)positiveCount / totalFeedbacks : 0;
+
+            var byMealType = new Dictionary<string, MealTypeFeedbackStatsDto>(StringComparer.OrdinalIgnoreCase);
+
+            var mealTypes = new[] { "breakfast", "lunch", "dinner", "snack" };
+            foreach (var type in mealTypes)
+            {
+                byMealType[type] = new MealTypeFeedbackStatsDto { Positive = 0, Negative = 0, Rate = 0 };
+            }
+
+            foreach (var fb in feedbackList)
+            {
+                var hist = histories.FirstOrDefault(x => x.Id == fb.RecommendationId);
+                if (hist != null && !string.IsNullOrWhiteSpace(hist.Input))
+                {
+                    string? detectedMealType = null;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(hist.Input);
+                        if (doc.RootElement.TryGetProperty("MealType", out var prop))
+                        {
+                            detectedMealType = prop.GetString()?.ToLowerInvariant();
+                        }
+                    }
+                    catch
+                    {
+                        // ignore parsing error
+                    }
+
+                    if (string.IsNullOrEmpty(detectedMealType))
+                    {
+                        if (hist.Type != null && hist.Type.Contains("Lunch", StringComparison.OrdinalIgnoreCase))
+                        {
+                            detectedMealType = "lunch";
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(detectedMealType))
+                    {
+                        string matchedKey = "snack";
+                        if (detectedMealType.Contains("breakfast", StringComparison.OrdinalIgnoreCase)) matchedKey = "breakfast";
+                        else if (detectedMealType.Contains("lunch", StringComparison.OrdinalIgnoreCase)) matchedKey = "lunch";
+                        else if (detectedMealType.Contains("dinner", StringComparison.OrdinalIgnoreCase)) matchedKey = "dinner";
+
+                        if (fb.Rating >= 4)
+                        {
+                            byMealType[matchedKey].Positive++;
+                        }
+                        else
+                        {
+                            byMealType[matchedKey].Negative++;
+                        }
+                    }
+                }
+            }
+
+            foreach (var type in mealTypes)
+            {
+                var stats = byMealType[type];
+                var total = stats.Positive + stats.Negative;
+                stats.Rate = total > 0 ? (double)stats.Positive / total : 0;
+            }
+
+            return new FeedbackSummaryResponse
+            {
+                TotalFeedbacks = totalFeedbacks,
+                PositiveCount = positiveCount,
+                NegativeCount = negativeCount,
+                PositiveRate = positiveRate,
+                ByMealType = byMealType
+            };
+        }
     }
 }
