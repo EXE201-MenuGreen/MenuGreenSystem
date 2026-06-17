@@ -58,9 +58,28 @@ class ApiEndpoints {
 
   static String get userMealPlans => '$baseUrl/user-meal-plans';
   static String get userMealPlanAdherence => '$baseUrl/user-meal-plans/adherence';
+  static String userMealPlanById(String id) => '$baseUrl/user-meal-plans/$id';
+  static String userMealPlanDelete(String id) => '$baseUrl/user-meal-plans/$id';
   static String get userMealPlansFromDailyMenu => '$baseUrl/user-meal-plans/from-daily-menu';
   static String userMealPlanCompleteItem(String itemId) =>
       '$baseUrl/user-meal-plans/items/$itemId/complete';
+
+  // MealPlan endpoints (Admin/Full CRUD)
+  static String get mealPlans => '$baseUrl/MealPlan';
+  static String get mealPlansCreateEmpty => '$baseUrl/MealPlan/empty';
+  static String mealPlanById(String id) => '$baseUrl/MealPlan/$id';
+  static String mealPlanItems(String planId) => '$baseUrl/MealPlan/$planId/items';
+  static String mealPlanItem(String planId, String itemId) =>
+      '$baseUrl/MealPlan/$planId/items/$itemId';
+  static String mealPlanItemStatus(String planId, String itemId) =>
+      '$baseUrl/MealPlan/$planId/items/$itemId/status';
+  static String mealPlanItemConvertToLog(String planId, String itemId) =>
+      '$baseUrl/MealPlan/$planId/items/$itemId/convert-to-log';
+  static String mealPlanCommit(String planId) => '$baseUrl/MealPlan/$planId/commit';
+  static String mealPlanDuplicate(String planId) => '$baseUrl/MealPlan/$planId/duplicate';
+  static String get mealPlanDashboard => '$baseUrl/MealPlan/dashboard';
+  static String get mealPlanCompare => '$baseUrl/MealPlan/compare';
+  static String get mealPlanStreaks => '$baseUrl/MealPlan/streaks';
 
   static String get notificationSettings => '$baseUrl/Notification/settings';
   static String get notifications => '$baseUrl/Notification';

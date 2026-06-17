@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show min;
 
 import 'package:http/http.dart' as http;
 
@@ -48,6 +49,18 @@ class ApiClient {
     );
   }
 
+  Future<http.Response> patchJson(String url, Map<String, dynamic> body) async {
+    return _sendWithAuthRetry(
+      (headers) => _http
+          .patch(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
+    );
+  }
+
   Future<http.Response> postJson(String url, Map<String, dynamic> body) async {
     return _sendWithAuthRetry(
       (headers) => _http
@@ -86,7 +99,10 @@ class ApiClient {
   ) async {
     await _ensureFreshAccessToken();
     final headers = await _buildAuthHeaders();
+    print('[DEBUG] API Request headers: $headers');
     final res = await send(headers);
+    print('[DEBUG] API Response status: ${res.statusCode}');
+    print('[DEBUG] API Response body: ${res.body.substring(0, min(500, res.body.length))}');
     if (res.statusCode != 401) return res;
 
     final refreshed = await _refreshTokenOnce();
@@ -98,10 +114,16 @@ class ApiClient {
 
   Future<Map<String, String>> _buildAuthHeaders() async {
     final token = await _storage.getAccessToken();
-    return {
+    final headers = {
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
+    // DEBUG: print token status
+    print('[DEBUG] Token exists: ${token != null && token.isNotEmpty}');
+    if (token != null && token.isNotEmpty) {
+      print('[DEBUG] Token preview: ${token.substring(0, min(20, token.length))}...');
+    }
+    return headers;
   }
 
   Future<bool> _tryRefreshToken() async {
@@ -116,7 +138,10 @@ class ApiClient {
             body: jsonEncode({'refreshToken': refreshToken}),
           )
           .timeout(_timeout);
-      if (res.statusCode != 200) return false;
+      if (res.statusCode != 200) {
+        print('[DEBUG] Refresh token failed: status ${res.statusCode}');
+        return false;
+      }
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final access = (data['accessToken'] ?? data['AccessToken'])?.toString();
