@@ -36,9 +36,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await MapAsync(entity);
         }
 
-        public async Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null)
+        public async Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null, bool allowEmpty = false)
         {
-            ValidateItems(request.Items);
+            if (!allowEmpty) ValidateItems(request.Items);
 
             var entity = new MealPlanHeader
             {

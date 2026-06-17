@@ -85,7 +85,7 @@ namespace MenuGreen.API.Controllers
                     IsActive = request.IsActive,
                     Items = new List<MealPlanItemUpsertRequest>()
                 };
-                return Ok(await _service.CreateAsync(upsertRequest, userId));
+                return Ok(await _service.CreateAsync(upsertRequest, userId, allowEmpty: true));
             }
             catch (Exception ex)
             {
