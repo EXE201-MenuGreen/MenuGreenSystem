@@ -491,3 +491,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# User configuration files
+backend/MenuGreen.API/appsettings.json
+backend/MenuGreen.API/appsettings.Development.json

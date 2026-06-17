@@ -25,6 +25,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<INutritionTrackingService, NutritionTrackingService>();
             services.AddScoped<IRecommendationService, RecommendationService>();
             services.AddScoped<IMealPlanService, MealPlanService>();
+            services.AddScoped<IBudgetRequestService, BudgetRequestService>();
             services.AddScoped<IMealTemplateService, MealTemplateService>();
             services.AddScoped<IUserMealPlanService, UserMealPlanService>();
             services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
@@ -43,6 +44,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IGoalDriftService, GoalDriftService>();
             services.AddScoped<IDailyStarterService, DailyStarterService>();
             services.AddScoped<ICatalogService, CatalogService>();
+            services.AddScoped<IIngredientSubstitutionService, IngredientSubstitutionService>();
             services.AddScoped<IFoodCatalogService, FoodCatalogService>();
             services.AddScoped<IIngredientCatalogService, IngredientCatalogService>();
             services.AddScoped<IRecipeCatalogService, RecipeCatalogService>();
