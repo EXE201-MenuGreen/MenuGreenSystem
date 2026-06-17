@@ -39,6 +39,7 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<UserAiProfile> UserAiProfiles { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationSetting> NotificationSettings { get; set; }
+        public DbSet<Campaign> Campaigns { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<UserSubscription> UserSubscriptions { get; set; }
         public DbSet<SubscriptionTransaction> SubscriptionTransactions { get; set; }
