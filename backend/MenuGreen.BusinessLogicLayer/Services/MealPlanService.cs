@@ -27,7 +27,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 plans = plans.Where(x => x.IsActive == isActive.Value);
             }
 
-            return await Task.WhenAll(plans.Select(MapAsync));
+            var results = new List<MealPlanResponse>();
+            foreach (var plan in plans)
+            {
+                try
+                {
+                    var mapped = await MapAsync(plan);
+                    results.Add(mapped);
+                }
+                catch (Exception)
+                {
+                    // Skip plans that fail to map (corrupted data, missing references, etc.)
+                }
+            }
+            return results;
         }
 
         public async Task<MealPlanResponse> GetByIdAsync(Guid id)
