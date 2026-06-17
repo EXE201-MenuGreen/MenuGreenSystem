@@ -10,7 +10,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null);
         Task<MealPlanResponse> GetByIdAsync(Guid id);
-        Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null);
+        Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null, bool allowEmpty = false);
         Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null);
         Task DeleteAsync(Guid id, Guid? userId = null);
