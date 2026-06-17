@@ -163,6 +163,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     );
   }
 
+  void _setGender(String? val) {
+    setState(() => _gender = val);
+  }
+
+  void _setActivityLevel(String val) {
+    setState(() => _activityLevel = val);
+  }
+
+  void _setGoal(String val) {
+    setState(() => _goal = val);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -222,7 +234,6 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',
             onPressed: _saving ? null : _submit,
           ),
-          // Khoảng trống để cuộn ô nhập lên trên bàn phím (adjustNothing trên Android).
           const SizedBox(height: 280),
         ],
       ),
@@ -251,14 +262,12 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               value: _gender,
               hint: const Text('Chọn giới tính', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
               items: HealthProfileValues.genderLabels.entries
-                  .map(
-                    (e) => DropdownMenuItem<String>(
-                      value: e.key,
-                      child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                    ),
-                  )
+                  .map((e) => DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                      ))
                   .toList(),
-              onChanged: (val) => setState(() => _gender = val),
+              onChanged: _setGender,
             ),
           ),
         ),
@@ -319,16 +328,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               isExpanded: true,
               value: _activityLevel,
               items: HealthProfileValues.activityLabels.entries
-                  .map(
-                    (e) => DropdownMenuItem<String>(
-                      value: e.key,
-                      child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                    ),
-                  )
+                  .map((e) => DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                      ))
                   .toList(),
               onChanged: (val) {
-                if (val == null) return;
-                setState(() => _activityLevel = val);
+                if (val != null) _setActivityLevel(val);
               },
             ),
           ),
@@ -358,16 +364,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               isExpanded: true,
               value: _goal,
               items: HealthProfileValues.goalLabels.entries
-                  .map(
-                    (e) => DropdownMenuItem<String>(
-                      value: e.key,
-                      child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                    ),
-                  )
+                  .map((e) => DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                      ))
                   .toList(),
               onChanged: (val) {
-                if (val == null) return;
-                setState(() => _goal = val);
+                if (val != null) _setGoal(val);
               },
             ),
           ),

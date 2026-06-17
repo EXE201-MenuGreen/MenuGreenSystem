@@ -69,11 +69,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required String goal,
   }) async {
     final profilePayload = <String, dynamic>{
-      'fullName': fullName,
-      'gender': gender,
+      'FullName': fullName,
+      'Gender': gender,
       if (dateOfBirth != null)
-        'dateOfBirth':
-            '${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}',
+        'DateOfBirth': dateOfBirth.toIso8601String().split('T').first,
     };
 
     final profileResult = await _profileRepository.updateMyProfile(profilePayload);
@@ -235,7 +234,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (!didPop && _currentIndex > 0) _previousPage();
       },
       child: Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -258,10 +257,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
       ),
       body: SafeArea(
-        child: MediaQuery.removeViewInsets(
-          context: context,
-          removeBottom: true,
-          child: Column(
+        child: Column(
           children: [
             if (_currentIndex > 0)
               Padding(
@@ -326,9 +322,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
-        ),
       ),
     ),
-    );
-  }
+  );
+}
 }
