@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanResponse> GetByIdAsync(Guid id);
         Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null);
+        Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null);
         Task DeleteAsync(Guid id, Guid? userId = null);
         Task<MealPlanResponse> UpdateStatusAsync(Guid id, MealPlanStatusRequest request, Guid? userId = null);
         Task<MealPlanDistributionResponse> DistributeAsync(Guid id, string targetAudience, string? notes = null, Guid? userId = null);
