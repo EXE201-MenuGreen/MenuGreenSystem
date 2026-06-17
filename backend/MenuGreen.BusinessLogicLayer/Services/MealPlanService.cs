@@ -62,6 +62,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await GetByIdAsync(entity.Id);
         }
 
+        public async Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null)
+        {
+            var entity = new MealPlanHeader
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId ?? Guid.Empty,
+                Title = request.Title,
+                PlanType = request.PlanType,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                TargetCalories = request.TargetCalories,
+                GeneratedBy = "USER",
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MealPlanHeaders.AddAsync(entity);
+            await _unitOfWork.CompleteAsync();
+            return await GetByIdAsync(entity.Id);
+        }
+
         public async Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null)
         {
             var entity = await GetMealPlanAsync(id);
