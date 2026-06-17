@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -39,6 +41,43 @@ namespace MenuGreen.API.Controllers
 
             var result = await _service.SendMessageAsync(userId, request);
             return Ok(result);
+        }
+
+        [HttpGet("conversations")]
+        public async Task<IActionResult> GetConversations([FromQuery] int take = 20)
+        {
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _service.GetConversationsAsync(userId, take);
+            return Ok(result);
+        }
+
+        [HttpGet("conversations/{conversationId:guid}")]
+        public async Task<IActionResult> GetConversation(Guid conversationId)
+        {
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var result = await _service.GetConversationAsync(userId, conversationId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { Message = "Conversation not found." });
+            }
         }
     }
 }

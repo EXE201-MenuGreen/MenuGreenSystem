@@ -6,13 +6,14 @@ import { MenuGreenLogo } from "@/components/brand/menu-green-logo";
 import { cn } from "@/lib/utils/cn";
 
 const navItems = [
-  { href: "/dashboard", label: "Tổng quan", exact: true },
-  { href: "/dashboard/users", label: "Người dùng" },
-  { href: "/dashboard/foods", label: "Món ăn" },
-  { href: "/dashboard/ingredients", label: "Nguyên liệu" },
-  { href: "/dashboard/recipes", label: "Công thức" },
-  { href: "/dashboard/subscription-plans", label: "Gói thành viên" },
-  { href: "/dashboard/meal-plans", label: "Thực đơn mẫu" },
+  { href: "/dashboard", label: "Tong quan", exact: true },
+  { href: "/dashboard/users", label: "Nguoi dung" },
+  { href: "/dashboard/foods", label: "Mon an" },
+  { href: "/dashboard/ingredients", label: "Nguyen lieu" },
+  { href: "/dashboard/recipes", label: "Cong thuc" },
+  { href: "/dashboard/subscription-plans", label: "Goi thanh vien" },
+  { href: "/dashboard/meal-plans", label: "Thuc don mau" },
+  { href: "/dashboard/ai-assistant", label: "AI Assistant" },
 ];
 
 export function AdminSidebar() {

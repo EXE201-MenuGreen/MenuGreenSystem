@@ -73,6 +73,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+backend/_buildcheck/
+backend/_buildcheck_restore/
 
 # Tye
 .tye/
