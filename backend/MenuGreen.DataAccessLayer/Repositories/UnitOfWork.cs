@@ -32,6 +32,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.ActivityLog>? _activityLogs;
         private IGenericRepository<Entities.Notification>? _notifications;
         private IGenericRepository<Entities.NotificationSetting>? _notificationSettings;
+        private IGenericRepository<Entities.Campaign>? _campaigns;
         private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
         private IGenericRepository<Entities.UserSubscription>? _userSubscriptions;
         private IGenericRepository<Entities.SubscriptionTransaction>? _subscriptionTransactions;
@@ -67,6 +68,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.ActivityLog> ActivityLogs => _activityLogs ??= new GenericRepository<Entities.ActivityLog>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);
         public IGenericRepository<Entities.NotificationSetting> NotificationSettings => _notificationSettings ??= new GenericRepository<Entities.NotificationSetting>(_context);
+        public IGenericRepository<Entities.Campaign> Campaigns => _campaigns ??= new GenericRepository<Entities.Campaign>(_context);
         public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
         public IGenericRepository<Entities.UserSubscription> UserSubscriptions => _userSubscriptions ??= new GenericRepository<Entities.UserSubscription>(_context);
         public IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions => _subscriptionTransactions ??= new GenericRepository<Entities.SubscriptionTransaction>(_context);

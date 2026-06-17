@@ -75,9 +75,9 @@ Workflow 2.5 đã có đủ API cần thiết. Chỉ còn thiếu UI Flutter (en
 
 | Nhóm API | Trạng thái | Ghi chú |
 |----------|:----------:|---------|
-| A. Sinh recommendation | 🟡 Một phần | Có `calories`, `eco`, `lunch`, `daily-menu`, `smart-schedule`; thiếu generate mới |
+| A. Sinh recommendation | ✅ Hoàn tất | `generate`, `generate/safe`, `generate/weekly-plan`, `generate/budget-aware` |
 | B. Lưu lịch sử và truy vấn | ✅ Hoàn tất | `history`, `preview` |
-| C. Feedback loop | 🟡 Một phần | Có `POST feedback`; thiếu `PUT feedback/{id}`, `GET feedback/summary` |
+| C. Feedback loop | ✅ Hoàn tất | `POST feedback`, `PUT feedback/{id}`, `GET feedback/summary` |
 | D. Giải thích recommendation | ✅ Hoàn tất | `explain/{id}` |
 | E. Tối ưu cá nhân hóa | ✅ Hoàn tất | `scores`, `retrain` |
 
@@ -96,18 +96,15 @@ POST   /api/Recommendation/feedback
 GET    /api/Recommendation/explain/{id}
 GET    /api/Recommendation/scores
 POST   /api/Recommendation/retrain
-```
 
-### API còn thiếu
+### API còn thiếu (Đã làm)
 
-```
-❌ POST /api/Recommendation/generate              # Sinh recommendation tổng quát
-❌ POST /api/Recommendation/generate/safe         # Sinh gợi ý an toàn (loại trừ dị ứng)
-❌ POST /api/Recommendation/generate/weekly-plan # Sinh plan theo tuần
-❌ POST /api/Recommendation/generate/budget-aware # Sinh đề xuất theo ngân sách
-❌ PUT  /api/Recommendation/feedback/{id}         # Cập nhật feedback nếu đổi ý
-❌ GET  /api/Recommendation/feedback/summary      # Tổng hợp tỷ lệ thích/không thích
-```
+POST   /api/Recommendation/generate              # Sinh recommendation tổng quát & lưu lịch sử
+POST   /api/Recommendation/generate/safe         # Sinh gợi ý an toàn (loại trừ dị ứng)
+POST   /api/Recommendation/generate/weekly-plan # Sinh plan theo tuần
+POST   /api/Recommendation/generate/budget-aware # Sinh đề xuất theo ngân sách
+PUT    /api/Recommendation/feedback/{id}         # Cập nhật feedback nếu đổi ý
+GET    /api/Recommendation/feedback/summary      # Tổng hợp tỷ lệ thích/không thích
 
 ### Chi tiết API còn thiếu
 
@@ -272,22 +269,48 @@ POST   /api/Recommendation/retrain
 
 | Nhóm API | Trạng thái | Ghi chú |
 |----------|:----------:|---------|
-| A. Conversation lifecycle | ❌ Chưa có | |
-| B. Message workflow | 🟡 Một phần | Chỉ có `POST chat` đơn giản |
-| C. Context & profile | ❌ Chưa có | |
-| D. Action suggestions | ❌ Chưa có | |
-| E. History/analytics | ❌ Chưa có | |
+| A. Conversation lifecycle | ✅ Hoàn tất | `POST /conversations`, `GET /conversations`, `GET /conversations/{id}`, `DELETE /conversations/{id}`, `PATCH /conversations/{id}/title` |
+| B. Message workflow | ✅ Hoàn tất | `POST /conversations/{id}/messages`, `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages/{msgId}/regenerate`, `PATCH /conversations/{id}/messages/{msgId}/feedback` |
+| C. Context & profile | ✅ Hoàn tất | `GET /context`, `PUT /context`, `GET /profile`, `PUT /profile` |
+| D. Action suggestions | ✅ Hoàn tất | `GET /suggestions`, `POST /actions/meal-plan`, `POST /actions/replace-food`, `POST /actions/budget-optimize` |
+| E. History/analytics | ✅ Hoàn tất | `GET /insights`, `GET /conversations/{id}/summary`, `GET /usage` |
 
 ### API đã có
 
 ```
 POST   /api/NutritionAssistant/chat
+
+# AiAssistant Controller
+POST   /api/AiAssistant/conversations          # Tạo phiên chat mới
+GET    /api/AiAssistant/conversations          # Danh sách hội thoại
+GET    /api/AiAssistant/conversations/{id}     # Chi tiết hội thoại
+DELETE /api/AiAssistant/conversations/{id}     # Xoá hội thoại
+PATCH  /api/AiAssistant/conversations/{id}/title # Đổi tiêu đề
+
+POST   /api/AiAssistant/conversations/{id}/messages           # Gửi message
+GET    /api/AiAssistant/conversations/{id}/messages           # Lấy messages
+POST   /api/AiAssistant/conversations/{id}/messages/{msgId}/regenerate
+PATCH  /api/AiAssistant/conversations/{id}/messages/{msgId}/feedback
+
+GET    /api/AiAssistant/context              # Lấy context hiện tại
+PUT    /api/AiAssistant/context               # Cập nhật context ưu tiên
+GET    /api/AiAssistant/profile              # Đọc UserAiProfile
+PUT    /api/AiAssistant/profile              # Cập nhật UserAiProfile
+
+GET    /api/AiAssistant/suggestions          # Đề xuất hành động tiếp
+POST   /api/AiAssistant/actions/meal-plan     # Tạo meal plan từ gợi ý
+POST   /api/AiAssistant/actions/replace-food  # Đề xuất món thay thế
+POST   /api/AiAssistant/actions/budget-optimize # Tối ưu theo ngân sách
+
+GET    /api/AiAssistant/insights             # Thống kê chủ đề hỏi
+GET    /api/AiAssistant/conversations/{id}/summary # Tóm tắt hội thoại
+GET    /api/AiAssistant/usage                # Số lần dùng theo thời gian
 ```
 
 ### API còn thiếu
 
 ```
-❌ TẤT CẢ - Cần triển khai hoàn chỉnh
+Không còn API nào thiếu ở workflow này. Tất cả đã được cài đặt hoàn chỉnh!
 ```
 
 ### Chi tiết API còn thiếu
@@ -356,10 +379,10 @@ GET    /api/AiAssistant/usage                # Số lần dùng theo thời gian
 |----------|:----------:|---------|
 | A. Notification setting | ✅ Hoàn tất | |
 | B. Notification inbox | ✅ Hoàn tất | |
-| C. Gửi notification | 🟡 Cơ bản | Có `send`; thiếu bulk/event/schedule |
-| D. Re-engagement campaign | ❌ Chưa có | |
+| C. Gửi notification | ✅ Hoàn tất | |
+| D. Re-engagement campaign | ✅ Hoàn tất | |
 | E. Tracking open/click | ✅ Hoàn tất | |
-| E. Analytics | 🟡 Một phần | Có `analytics`; thiếu `re-engagement` |
+| E. Analytics | ✅ Hoàn tất | |
 
 ### API đã có
 
@@ -392,19 +415,19 @@ GET    /api/Notification/analytics
 ### API còn thiếu
 
 ```
-❌ POST /api/Notification/send/bulk              # Gửi hàng loạt
-❌ POST /api/Notification/send/event             # Gửi theo sự kiện
-❌ POST /api/Notification/send/schedule          # Lên lịch gửi
-❌ POST /api/Notification/send/retry             # Gửi lại nếu thất bại
+✅ POST /api/Notification/send/bulk              # Gửi hàng loạt
+✅ POST /api/Notification/send/event             # Gửi theo sự kiện
+✅ POST /api/Notification/send/schedule          # Lên lịch gửi
+✅ POST /api/Notification/send/retry             # Gửi lại nếu thất bại
 
-❌ POST /api/Notification/campaigns              # Tạo chiến dịch
-❌ GET  /api/Notification/campaigns              # Danh sách chiến dịch
-❌ GET  /api/Notification/campaigns/{id}         # Chi tiết chiến dịch
-❌ PUT  /api/Notification/campaigns/{id}         # Cập nhật chiến dịch
-❌ POST /api/Notification/campaigns/{id}/run      # Chạy chiến dịch
-❌ POST /api/Notification/campaigns/{id}/pause    # Tạm dừng chiến dịch
+✅ POST /api/Notification/campaigns              # Tạo chiến dịch
+✅ GET  /api/Notification/campaigns              # Danh sách chiến dịch
+✅ GET  /api/Notification/campaigns/{id}         # Chi tiết chiến dịch
+✅ PUT  /api/Notification/campaigns/{id}         # Cập nhật chiến dịch
+✅ POST /api/Notification/campaigns/{id}/run      # Chạy chiến dịch
+✅ POST /api/Notification/campaigns/{id}/pause    # Tạm dừng chiến dịch
 
-❌ GET  /api/Notification/analytics/re-engagement # Báo cáo re-engagement
+✅ GET  /api/Notification/analytics/re-engagement # Báo cáo re-engagement
 ```
 
 ### Chi tiết API còn thiếu
@@ -535,17 +558,17 @@ Workflow 2.10 có đầy đủ API. Chỉ còn thiếu:
 | Workflow | API Status | UI Status | Ưu tiên |
 |----------|:----------:|:---------:|---------|
 | 2.5 Meal Plan | ✅ Hoàn chỉnh | ❌ Chưa có | **P1** - Cần UI |
-| 2.6 Recommendation | 🟡 78% (11/14) | 🟡 Một phần | **P2** - Thêm 6 API + UI |
-| 2.7 AI Assistant | ❌ 7% (1/14) | ❌ Chưa nối | **P3** - Cần xây mới |
+| 2.6 Recommendation | ✅ Hoàn chỉnh | 🟡 Một phần | **P2** - Cần UI hoàn thiện |
+| 2.7 AI Assistant | ✅ Hoàn chỉnh | ❌ Chưa nối | **P3** - Cần nối UI |
 | 2.9 Notification | 🟡 73% (19/26) | ❌ Chưa đầy đủ | **P2** - Thêm 7 API + UI |
 | 2.10 Analytics | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** - Admin UI |
 
 ### Thứ tự ưu tiên triển khai
 
 1. **P1 - Meal Plan UI:** Vì API đã hoàn chỉnh, chỉ cần build UI Flutter.
-2. **P2 - Recommendation Enhancement:** Thêm 6 API còn thiếu + UI feedback/history.
+2. **P2 - Recommendation UI Completion:** Triển khai nốt UI kết nối với 6 API vừa thêm mới.
 3. **P2 - Notification Enhancement:** Thêm 7 API (campaign, bulk, event) + UI settings/inbox.
-4. **P3 - AI Assistant:** Xây mới hoàn toàn controller + tích hợp LLM.
+4. **P3 - AI Assistant UI:** Kết nối giao diện người dùng (UI) với các API trợ lý AI mới.
 5. **P3 - Analytics Admin UI:** Build admin dashboard để xem KPI.
 
 ---

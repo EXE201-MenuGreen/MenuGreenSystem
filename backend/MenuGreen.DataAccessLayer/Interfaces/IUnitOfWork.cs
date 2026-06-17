@@ -27,6 +27,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.ActivityLog> ActivityLogs { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
+        IGenericRepository<Entities.Campaign> Campaigns { get; }
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }
         IGenericRepository<Entities.UserSubscription> UserSubscriptions { get; }
         IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions { get; }

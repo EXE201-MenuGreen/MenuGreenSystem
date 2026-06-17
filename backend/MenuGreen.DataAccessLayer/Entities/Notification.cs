@@ -15,6 +15,11 @@ namespace MenuGreen.DataAccessLayer.Entities
         public DateTimeOffset? SentAt { get; set; }
         public DateTimeOffset? ReadAt { get; set; }
 
+        public Guid? CampaignId { get; set; }
+        public virtual Campaign? Campaign { get; set; }
+        public DateTimeOffset? ClickedAt { get; set; }
+        public DateTimeOffset? ActionCompletedAt { get; set; }
+
         public virtual User? User { get; set; }
     }
 }
