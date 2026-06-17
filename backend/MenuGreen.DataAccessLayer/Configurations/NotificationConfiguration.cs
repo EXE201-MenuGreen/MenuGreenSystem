@@ -21,6 +21,11 @@ namespace MenuGreen.DataAccessLayer.Configurations
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(x => x.Campaign)
+                .WithMany()
+                .HasForeignKey(x => x.CampaignId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -278,6 +279,146 @@ namespace MenuGreen.API.Controllers
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.GetAnalyticsAsync(userId));
+        }
+
+        /// <summary>
+        /// Gửi thông báo hàng loạt đến danh sách User IDs.
+        /// </summary>
+        [HttpPost("send/bulk")]
+        public async Task<IActionResult> SendBulk([FromBody] NotificationSendBulkRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            return Ok(await _service.SendBulkNotificationAsync(request));
+        }
+
+        /// <summary>
+        /// Gửi thông báo tự động dựa theo sự kiện và ngữ cảnh cụ thể.
+        /// </summary>
+        [HttpPost("send/event")]
+        public async Task<IActionResult> SendEvent([FromBody] NotificationSendEventRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try
+            {
+                return Ok(await _service.SendEventNotificationAsync(request));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lên lịch gửi thông báo cho một user cụ thể vào thời gian xác định.
+        /// </summary>
+        [HttpPost("send/schedule")]
+        public async Task<IActionResult> Schedule([FromBody] NotificationScheduleRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            return Ok(await _service.ScheduleNotificationAsync(request));
+        }
+
+        /// <summary>
+        /// Gửi lại các thông báo bị lỗi hoặc chưa được gửi đi.
+        /// </summary>
+        [HttpPost("send/retry")]
+        public async Task<IActionResult> Retry([FromBody] NotificationRetryRequest request)
+        {
+            var count = await _service.RetryNotificationsAsync(request);
+            return Ok(new { Message = $"Retried {count} notifications successfully.", Count = count });
+        }
+
+        /// <summary>
+        /// Tạo mới chiến dịch re-engagement nhắc nhở người dùng quay lại.
+        /// </summary>
+        [HttpPost("campaigns")]
+        public async Task<IActionResult> CreateCampaign([FromBody] CampaignUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            return Ok(await _service.CreateCampaignAsync(request));
+        }
+
+        /// <summary>
+        /// Lấy danh sách toàn bộ chiến dịch thông báo trong hệ thống.
+        /// </summary>
+        [HttpGet("campaigns")]
+        public async Task<IActionResult> GetCampaigns()
+        {
+            return Ok(await _service.GetCampaignsAsync());
+        }
+
+        /// <summary>
+        /// Lấy thông tin chi tiết một chiến dịch theo Campaign ID.
+        /// </summary>
+        [HttpGet("campaigns/{id:guid}")]
+        public async Task<IActionResult> GetCampaignById(Guid id)
+        {
+            try
+            {
+                return Ok(await _service.GetCampaignByIdAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật thông tin cấu hình, nội dung hoặc lịch gửi của chiến dịch.
+        /// </summary>
+        [HttpPut("campaigns/{id:guid}")]
+        public async Task<IActionResult> UpdateCampaign(Guid id, [FromBody] CampaignUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try
+            {
+                return Ok(await _service.UpdateCampaignAsync(id, request));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Kích hoạt chạy chiến dịch và tạo lịch gửi thông báo hàng loạt cho phân khúc mục tiêu.
+        /// </summary>
+        [HttpPost("campaigns/{id:guid}/run")]
+        public async Task<IActionResult> RunCampaign(Guid id)
+        {
+            try
+            {
+                return Ok(await _service.RunCampaignAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Tạm dừng chiến dịch và tự động thu hồi các thông báo chưa gửi thuộc chiến dịch này.
+        /// </summary>
+        [HttpPost("campaigns/{id:guid}/pause")]
+        public async Task<IActionResult> PauseCampaign(Guid id)
+        {
+            try
+            {
+                return Ok(await _service.PauseCampaignAsync(id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Báo cáo hiệu quả chiến dịch Re-engagement (tổng gửi, tỉ lệ mở, click và hoàn thành hành động).
+        /// </summary>
+        [HttpGet("analytics/re-engagement")]
+        public async Task<IActionResult> GetReEngagementAnalytics()
+        {
+            return Ok(await _service.GetReEngagementAnalyticsAsync());
         }
 
         private bool TryGetUserId(out Guid userId)
