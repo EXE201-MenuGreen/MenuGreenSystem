@@ -146,5 +146,73 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.RetrainAsync(userId, request));
         }
+
+        /// <summary>
+        /// Sinh gợi ý ăn uống tổng quát và lưu vào lịch sử.
+        /// </summary>
+        [HttpPost("generate")]
+        public async Task<IActionResult> Generate([FromBody] RecommendationGenerateRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GenerateAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Sinh gợi ý an toàn, tự động loại trừ dị ứng của người dùng.
+        /// </summary>
+        [HttpPost("generate/safe")]
+        public async Task<IActionResult> GenerateSafe([FromBody] SafeRecommendationGenerateRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            var generateRequest = new RecommendationGenerateRequest
+            {
+                MealType = request.MealType,
+                TargetCalories = request.TargetCalories,
+                ExcludeUserAllergies = true,
+                MaxResults = request.MaxResults
+            };
+            return Ok(await _service.GenerateAsync(userId, generateRequest));
+        }
+
+        /// <summary>
+        /// Sinh thực đơn ăn uống gợi ý cho cả tuần.
+        /// </summary>
+        [HttpPost("generate/weekly-plan")]
+        public async Task<IActionResult> GenerateWeeklyPlan([FromBody] WeeklyPlanGenerateRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GenerateWeeklyPlanAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Sinh gợi ý ăn uống dựa trên giới hạn ngân sách.
+        /// </summary>
+        [HttpPost("generate/budget-aware")]
+        public async Task<IActionResult> GenerateBudgetAware([FromBody] BudgetAwareGenerateRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GenerateBudgetAwareAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Cập nhật đánh giá/phản hồi cũ của người dùng cho gợi ý.
+        /// </summary>
+        [HttpPut("feedback/{id:guid}")]
+        public async Task<IActionResult> UpdateFeedback(Guid id, [FromBody] UpdateFeedbackRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _service.UpdateFeedbackAsync(userId, id, request);
+            return Ok(new { Message = "Feedback updated successfully." });
+        }
+
+        /// <summary>
+        /// Tổng hợp thống kê tỷ lệ phản hồi (thích/không thích) của người dùng theo bữa ăn.
+        /// </summary>
+        [HttpGet("feedback/summary")]
+        public async Task<IActionResult> GetFeedbackSummary()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetFeedbackSummaryAsync(userId));
+        }
     }
 }

@@ -36,17 +36,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existingUsers = await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail);
             if (existingUsers.Any()) throw new Exception("Email is already registered.");
 
-            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault() ?? new Role
+            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
+            if (userRole == null)
             {
-                Id = Guid.NewGuid(),
-                Name = "User",
-                Description = "Standard User Role",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            if (userRole.Id == Guid.Empty)
-            {
+                userRole = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "User",
+                    Description = "Standard User Role",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
                 await _unitOfWork.Roles.AddAsync(userRole);
                 await _unitOfWork.CompleteAsync();
             }
@@ -270,17 +270,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (user == null)
             {
-                var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault() ?? new Role
+                var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
+                if (userRole == null)
                 {
-                    Id = Guid.NewGuid(),
-                    Name = "User",
-                    Description = "Standard User Role",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                if (userRole.Id == Guid.Empty)
-                {
+                    userRole = new Role
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = "User",
+                        Description = "Standard User Role",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
                     await _unitOfWork.Roles.AddAsync(userRole);
                     await _unitOfWork.CompleteAsync();
                 }

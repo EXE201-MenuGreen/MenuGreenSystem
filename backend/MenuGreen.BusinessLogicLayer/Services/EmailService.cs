@@ -25,7 +25,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var apiKey = _configuration["Resend:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))
             {
-                throw new Exception("Resend API Key is missing in configuration.");
+                Console.WriteLine("\n==========================================================");
+                Console.WriteLine($"🌱 [MOCK EMAIL] Verification OTP for {toEmail}: {otpCode}");
+                Console.WriteLine("==========================================================\n");
+                return;
             }
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -53,7 +56,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var apiKey = _configuration["Resend:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))
             {
-                throw new Exception("Resend API Key is missing in configuration.");
+                Console.WriteLine("\n==========================================================");
+                Console.WriteLine($"🔑 [MOCK EMAIL] Forgot Password OTP for {toEmail}: {otpCode}");
+                Console.WriteLine("==========================================================\n");
+                return;
             }
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);

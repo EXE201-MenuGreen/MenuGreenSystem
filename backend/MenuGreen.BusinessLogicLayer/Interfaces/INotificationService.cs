@@ -24,6 +24,20 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task ResetSettingsAsync(Guid userId);
         Task<NotificationResponse> SendAsync(NotificationSendRequest request);
         Task<IEnumerable<NotificationResponse>> SendBulkAsync(IEnumerable<NotificationSendRequest> requests);
+        Task<IEnumerable<NotificationResponse>> SendBulkNotificationAsync(NotificationSendBulkRequest request);
+        Task<NotificationResponse> SendEventNotificationAsync(NotificationSendEventRequest request);
+        Task<NotificationResponse> ScheduleNotificationAsync(NotificationScheduleRequest request);
+        Task<int> RetryNotificationsAsync(NotificationRetryRequest request);
+
+        Task<CampaignResponse> CreateCampaignAsync(CampaignUpsertRequest request);
+        Task<IEnumerable<CampaignResponse>> GetCampaignsAsync();
+        Task<CampaignResponse> GetCampaignByIdAsync(Guid id);
+        Task<CampaignResponse> UpdateCampaignAsync(Guid id, CampaignUpsertRequest request);
+        Task<CampaignResponse> RunCampaignAsync(Guid id);
+        Task<CampaignResponse> PauseCampaignAsync(Guid id);
+
+        Task<ReEngagementAnalyticsResponse> GetReEngagementAnalyticsAsync();
+
         Task TrackOpenAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
         Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
         Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
