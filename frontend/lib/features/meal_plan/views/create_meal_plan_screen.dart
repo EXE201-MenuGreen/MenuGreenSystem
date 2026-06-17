@@ -5,7 +5,6 @@ import '../../../core/constants/app_colors.dart';
 import '../models/meal_plan_requests.dart';
 import '../providers/meal_plan_provider.dart';
 import 'meal_plan_detail_screen.dart';
-import 'meal_plan_detail_screen.dart';
 
 /// Screen tạo meal plan mới - 3-step wizard
 class CreateMealPlanScreen extends StatefulWidget {
