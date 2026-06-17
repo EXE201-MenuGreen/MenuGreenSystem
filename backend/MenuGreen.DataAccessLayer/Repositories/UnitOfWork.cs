@@ -40,6 +40,11 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.SepayTransaction>? _sepayTransactions;
         private IGenericRepository<Entities.ReminderProfile>? _reminderProfiles;
         private IGenericRepository<Entities.GoalDriftAlert>? _goalDriftAlerts;
+        private IGenericRepository<Entities.BudgetRequest>? _budgetRequests;
+        private IGenericRepository<Entities.FoodAllergy>? _foodAllergies;
+        private IGenericRepository<Entities.UserSubstitutionPreference>? _userSubstitutionPreferences;
+        private IGenericRepository<Entities.MealPlanItemSubstitution>? _mealPlanItemSubstitutions;
+        private IGenericRepository<Entities.MealLogSubstitution>? _mealLogSubstitutions;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -76,6 +81,11 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.SepayTransaction> SepayTransactions => _sepayTransactions ??= new GenericRepository<Entities.SepayTransaction>(_context);
         public IGenericRepository<Entities.ReminderProfile> ReminderProfiles => _reminderProfiles ??= new GenericRepository<Entities.ReminderProfile>(_context);
         public IGenericRepository<Entities.GoalDriftAlert> GoalDriftAlerts => _goalDriftAlerts ??= new GenericRepository<Entities.GoalDriftAlert>(_context);
+        public IGenericRepository<Entities.BudgetRequest> BudgetRequests => _budgetRequests ??= new GenericRepository<Entities.BudgetRequest>(_context);
+        public IGenericRepository<Entities.FoodAllergy> FoodAllergies => _foodAllergies ??= new GenericRepository<Entities.FoodAllergy>(_context);
+        public IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences => _userSubstitutionPreferences ??= new GenericRepository<Entities.UserSubstitutionPreference>(_context);
+        public IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions => _mealPlanItemSubstitutions ??= new GenericRepository<Entities.MealPlanItemSubstitution>(_context);
+        public IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions => _mealLogSubstitutions ??= new GenericRepository<Entities.MealLogSubstitution>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }

@@ -1118,7 +1118,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/MealPlan/expense-breakdown` — Phân tích chi tiết tỷ trọng chi tiêu (ví dụ: món nhiều thịt, ăn ngoài, nguyên liệu đắt tiền) và đưa ra các đề xuất điều chỉnh để tiết kiệm hơn.
    - `GET /api/MealPlan/adherence-scores` — Tính điểm bám sát ngân sách trong chuỗi ngày/tuần/tháng để làm dữ liệu gamification hoặc habit score.
 
-2. **Ingredient Substitution Engine** (Chưa có)
+2. **Ingredient Substitution Engine** (Đã hoàn thành)
    - Gợi ý nguyên liệu thay thế khi dị ứng/khó mua/đắt.
    - Giúp người dùng dễ dàng nấu ăn bằng cách tìm kiếm và gợi ý các nguyên liệu thay thế phù hợp khi gặp các rào cản như dị ứng, nguyên liệu không có sẵn (khó mua) hoặc quá đắt đỏ, trong khi vẫn đảm bảo tối ưu hóa dinh dưỡng (Calories, Macro) và chi phí.
 

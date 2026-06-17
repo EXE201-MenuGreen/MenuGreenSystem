@@ -26,5 +26,12 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanDashboardResponse> GetDashboardAsync(DateOnly date, Guid? userId = null);
         Task<MealPlanCompareResponse> GetCompareAsync(DateOnly from, DateOnly to, Guid? userId = null);
         Task<MealPlanStreakResponse> GetStreaksAsync(Guid? userId = null);
+
+        Task<MealPlanResponse> GenerateByBudgetAsync(Guid userId);
+        Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId);
+        Task<IEnumerable<MealPlanItemResponse>> GetAlternativesAsync(Guid planId, Guid itemId, Guid userId);
+        Task<ExpenseCompareResponse> CompareExpensesAsync(DateOnly from, DateOnly to, Guid userId);
+        Task<ExpenseBreakdownResponse> GetExpenseBreakdownAsync(Guid userId);
+        Task<BudgetAdherenceResponse> GetAdherenceScoresAsync(Guid userId);
     }
 }
