@@ -35,6 +35,11 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.SepayTransaction> SepayTransactions { get; }
         IGenericRepository<Entities.ReminderProfile> ReminderProfiles { get; }
         IGenericRepository<Entities.GoalDriftAlert> GoalDriftAlerts { get; }
+        IGenericRepository<Entities.BudgetRequest> BudgetRequests { get; }
+        IGenericRepository<Entities.FoodAllergy> FoodAllergies { get; }
+        IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences { get; }
+        IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions { get; }
+        IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions { get; }
         
         Task<int> CompleteAsync();
     }

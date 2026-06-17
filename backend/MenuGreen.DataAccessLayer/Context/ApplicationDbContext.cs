@@ -40,6 +40,9 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationSetting> NotificationSettings { get; set; }
         public DbSet<Campaign> Campaigns { get; set; }
+        public DbSet<UserSubstitutionPreference> UserSubstitutionPreferences { get; set; }
+        public DbSet<MealPlanItemSubstitution> MealPlanItemSubstitutions { get; set; }
+        public DbSet<MealLogSubstitution> MealLogSubstitutions { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<UserSubscription> UserSubscriptions { get; set; }
         public DbSet<SubscriptionTransaction> SubscriptionTransactions { get; set; }
