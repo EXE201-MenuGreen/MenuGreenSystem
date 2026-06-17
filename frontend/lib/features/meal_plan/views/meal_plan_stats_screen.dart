@@ -103,37 +103,70 @@ class _MealPlanStatsScreenState extends State<MealPlanStatsScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Icon(
-              Icons.local_fire_department,
-              size: 48,
-              color: Colors.orange,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.local_fire_department,
+                  size: 32,
+                  color: Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'STREAK',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
-              '${streak.currentStreak} NGÀY',
+              '${streak.currentStreak}',
               style: const TextStyle(
-                fontSize: 32,
+                fontSize: 64,
                 fontWeight: FontWeight.bold,
                 color: Colors.orange,
+                height: 1,
               ),
             ),
             const Text(
-              'LIÊN TIẾP',
+              'NGÀY LIÊN TIẾP',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
-                letterSpacing: 2,
+                letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStreakStat('Streak dài nhất', '${streak.longestStreak} ngày'),
-                _buildStreakStat('Tổng ngày', '${streak.totalCompletedDays} ngày'),
-                _buildStreakStat('Trung bình', '${(streak.averageAdherence * 100).toStringAsFixed(0)}%'),
-              ],
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.progressBackground.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStreakStat('Kỷ lục', '${streak.longestStreak}', Icons.emoji_events_outlined),
+                  Container(
+                    width: 1,
+                    height: 30,
+                    color: AppColors.progressBackground,
+                  ),
+                  _buildStreakStat('Tổng ngày', '${streak.totalCompletedDays}', Icons.check_circle_outline),
+                  Container(
+                    width: 1,
+                    height: 30,
+                    color: AppColors.progressBackground,
+                  ),
+                  _buildStreakStat('Trung bình', '${(streak.averageAdherence * 100).toStringAsFixed(0)}%', Icons.trending_up),
+                ],
+              ),
             ),
           ],
         ),
@@ -141,22 +174,23 @@ class _MealPlanStatsScreenState extends State<MealPlanStatsScreen> {
     );
   }
 
-  Widget _buildStreakStat(String label, String value) {
+  Widget _buildStreakStat(String label, String value, IconData icon) {
     return Column(
       children: [
+        Icon(icon, size: 20, color: AppColors.textSecondary),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: AppColors.textDark,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             color: AppColors.textSecondary,
           ),
         ),

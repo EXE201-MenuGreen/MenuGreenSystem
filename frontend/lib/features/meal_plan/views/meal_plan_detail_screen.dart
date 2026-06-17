@@ -8,6 +8,12 @@ import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
 import '../widgets/meal_item_tile.dart';
 import '../widgets/calorie_progress_ring.dart';
+import '../widgets/add_item_sheet.dart';
+import '../widgets/edit_item_sheet.dart';
+import 'create_meal_plan_screen.dart';
+import 'meal_plan_stats_screen.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 
 /// Screen chi tiết meal plan
 class MealPlanDetailScreen extends StatefulWidget {
@@ -155,6 +161,11 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                   onLogAll: items.any((i) => !i.isDone)
                       ? () => _logAllMeal(context, items)
                       : null,
+                  onMarkItemDone: (item) => _markItemDone(context, item),
+                  onConvertToLog: (item) => _convertItemToLog(context, item),
+                  onEditItem: (item) => _editItem(context, item),
+                  onDeleteItem: (item) => _deleteItemFromPlan(context, item),
+                  onSkipItem: (item) => _skipItem(context, item),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -368,13 +379,198 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
 
   void _addItem(BuildContext context, [MealType? mealType]) {
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Thêm bữa ${mealType?.labelVi ?? "ăn"}')),
-    );
+    
+    final selectedMealType = mealType ?? MealType.snack;
+    
+    AddItemSheet.show(
+      context: context,
+      planId: widget.planId,
+      mealType: selectedMealType,
+      scheduledTime: DateTime.now(),
+    ).then((request) async {
+      if (request != null && context.mounted) {
+        final provider = context.read<MealPlanProvider>();
+        final item = await provider.addItem(widget.planId, request);
+        
+        if (context.mounted) {
+          if (item != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Đã thêm món vào kế hoạch')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(provider.error ?? 'Không thể thêm món')),
+            );
+          }
+        }
+      }
+    });
   }
 
   void _openItemDetail(BuildContext context, MealPlanItemDetail item) {
-    // TODO: Navigate to food/recipe detail
+    // Navigate based on item type (food or recipe)
+    if (item.recipeId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+        ),
+      );
+    } else if (item.foodId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: item.foodId!),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy thông tin chi tiết')),
+      );
+    }
+  }
+
+  void _markItemDone(BuildContext context, MealPlanItemDetail item) async {
+    HapticFeedback.mediumImpact();
+    final provider = context.read<MealPlanProvider>();
+    
+    final updatedItem = await provider.markItemDone(widget.planId, item.id);
+    
+    if (context.mounted) {
+      if (updatedItem != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã hoàn thành "${item.displayName}"')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(provider.error ?? 'Không thể cập nhật')),
+        );
+      }
+    }
+  }
+
+  void _editItem(BuildContext context, MealPlanItemDetail item) {
+    EditItemSheet.show(
+      context: context,
+      planId: widget.planId,
+      item: item,
+      onItemUpdated: () {
+        context.read<MealPlanProvider>().loadPlanDetail(widget.planId);
+      },
+    );
+  }
+
+  void _convertItemToLog(BuildContext context, MealPlanItemDetail item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ghi nhận ăn uống'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Chuyển "${item.displayName}" thành bản ghi ăn uống thực tế?'),
+            const SizedBox(height: 8),
+            Text(
+              'Hành động này sẽ ghi nhận bữa ăn này vào lịch sử dinh dưỡng của bạn.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ghi nhận'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final provider = context.read<MealPlanProvider>();
+      final request = ConvertToLogRequest(
+        loggedAt: DateTime.now(),
+        quantityG: null, // Use default quantity from plan item
+      );
+
+      final result = await provider.convertItemToLog(
+        widget.planId,
+        item.id,
+        request,
+      );
+
+      if (context.mounted) {
+        if (result?.success == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Đã ghi nhận "${item.displayName}"')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result?.message ?? provider.error ?? 'Không thể ghi nhận'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _deleteItemFromPlan(BuildContext context, MealPlanItemDetail item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa món'),
+        content: Text('Bạn có chắc muốn xóa "${item.displayName}" khỏi kế hoạch?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final provider = context.read<MealPlanProvider>();
+      final success = await provider.deleteItem(widget.planId, item.id);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? 'Đã xóa món' : 'Không thể xóa món')),
+        );
+      }
+    }
+  }
+
+  void _skipItem(BuildContext context, MealPlanItemDetail item) async {
+    HapticFeedback.lightImpact();
+    final provider = context.read<MealPlanProvider>();
+    
+    final updatedItem = await provider.skipItem(widget.planId, item.id);
+    
+    if (context.mounted) {
+      if (updatedItem != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã bỏ qua "${item.displayName}"')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(provider.error ?? 'Không thể cập nhật')),
+        );
+      }
+    }
   }
 
   void _logAllMeal(BuildContext context, List<MealPlanItemDetail> items) async {
@@ -393,9 +589,20 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   }
 
   void _editPlan(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sửa kế hoạch')),
-    );
+    final plan = context.read<MealPlanProvider>().currentPlan;
+    if (plan == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateMealPlanScreen(existingPlan: plan),
+      ),
+    ).then((result) {
+      if (result == true && context.mounted) {
+        // Reload plan detail after edit
+        context.read<MealPlanProvider>().loadPlanDetail(widget.planId);
+      }
+    });
   }
 
   void _handleMenuAction(BuildContext context, String action, MealPlanDetail plan) {
@@ -409,10 +616,123 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     }
   }
 
-  void _duplicatePlan(BuildContext context, MealPlanDetail plan) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Nhân bản "${plan.title}"')),
+  void _duplicatePlan(BuildContext context, MealPlanDetail plan) async {
+    DateTime newStartDate = DateTime.now();
+    DateTime? newEndDate;
+    
+    // Calculate end date based on plan type
+    if (plan.endDate != null && plan.startDate != null) {
+      final duration = plan.endDate!.difference(plan.startDate!);
+      newEndDate = newStartDate.add(duration);
+    } else {
+      newEndDate = newStartDate.add(const Duration(days: 6));
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Nhân bản kế hoạch'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tạo bản sao của "${plan.title}"?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Chọn ngày bắt đầu:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: newStartDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null) {
+                          setDialogState(() {
+                            newStartDate = date;
+                            if (plan.endDate != null && plan.startDate != null) {
+                              final duration = plan.endDate!.difference(plan.startDate!);
+                              newEndDate = newStartDate.add(duration);
+                            }
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(_formatDate(newStartDate)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Đến ngày: ${newEndDate != null ? _formatDate(newEndDate!) : "..."}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Nhân bản'),
+            ),
+          ],
+        ),
+      ),
     );
+
+    if (confirmed == true && context.mounted) {
+      final provider = context.read<MealPlanProvider>();
+      final request = DuplicatePlanRequest(
+        newStartDate: newStartDate,
+        newEndDate: newEndDate,
+      );
+
+      final newPlan = await provider.duplicatePlan(plan.id, request);
+
+      if (context.mounted) {
+        if (newPlan != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã nhân bản thành "${newPlan.title}"'),
+              action: SnackBarAction(
+                label: 'Xem',
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MealPlanDetailScreen(planId: newPlan.id),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(provider.error ?? 'Không thể nhân bản kế hoạch')),
+          );
+        }
+      }
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   void _deletePlan(BuildContext context, MealPlanDetail plan) async {
@@ -450,14 +770,20 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   }
 
   void _setReminders(BuildContext context, MealPlanDetail plan) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cài đặt nhắc nhở')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MealPlanStatsScreen(),
+      ),
     );
   }
 
   void _comparePlan(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('So sánh kế hoạch')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MealPlanStatsScreen(),
+      ),
     );
   }
 }

@@ -14,6 +14,8 @@ export 'providers/meal_plan_provider.dart';
 // Widgets
 export 'widgets/calorie_progress_ring.dart';
 export 'widgets/meal_item_tile.dart';
+export 'widgets/add_item_sheet.dart';
+export 'widgets/edit_item_sheet.dart';
 
 // Views
 export 'views/meal_plan_screen.dart';

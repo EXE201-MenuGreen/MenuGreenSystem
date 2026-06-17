@@ -12,6 +12,7 @@ class MealItemTile extends StatelessWidget {
     required this.item,
     this.onTap,
     this.onLog,
+    this.onConvertToLog,
     this.onEdit,
     this.onDelete,
     this.onSkip,
@@ -22,6 +23,7 @@ class MealItemTile extends StatelessWidget {
   final MealPlanItemDetail item;
   final VoidCallback? onTap;
   final VoidCallback? onLog;
+  final VoidCallback? onConvertToLog;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onSkip;
@@ -136,6 +138,7 @@ class MealItemTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: () => _showContextMenu(context),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -348,6 +351,98 @@ class MealItemTile extends StatelessWidget {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
+  void _showContextMenu(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.progressBackground,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                item.displayName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Divider(),
+            if (!item.isDone)
+              ListTile(
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: const Text('Hoàn thành'),
+                subtitle: const Text('Đánh dấu đã ăn'),
+                onTap: () => Navigator.pop(context, 'done'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.restaurant, color: AppColors.primary),
+              title: const Text('Ghi nhận ăn uống'),
+              subtitle: const Text('Chuyển thành bản ghi dinh dưỡng'),
+              onTap: () => Navigator.pop(context, 'log'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.blue),
+              title: const Text('Sửa'),
+              subtitle: const Text('Thay đổi thông tin'),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+              title: const Text('Bỏ qua bữa này'),
+              subtitle: const Text('Đánh dấu là skipped'),
+              onTap: () => Navigator.pop(context, 'skip'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Xóa khỏi kế hoạch'),
+              subtitle: const Text('Xóa vĩnh viễn'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    ).then((result) {
+      if (result == null) return;
+      switch (result) {
+        case 'done':
+          onLog?.call();
+          break;
+        case 'log':
+          onConvertToLog?.call();
+          break;
+        case 'edit':
+          onEdit?.call();
+          break;
+        case 'skip':
+          onSkip?.call();
+          break;
+        case 'delete':
+          onDelete?.call();
+          break;
+      }
+    });
+  }
+
   Future<String?> _showSkipOptions(BuildContext context) async {
     return showModalBottomSheet<String>(
       context: context,
@@ -406,6 +501,11 @@ class PlannedMealCard extends StatelessWidget {
     this.onAddItem,
     this.onTapItem,
     this.onLogAll,
+    this.onMarkItemDone,
+    this.onConvertToLog,
+    this.onEditItem,
+    this.onDeleteItem,
+    this.onSkipItem,
     this.isExpanded = true,
   });
 
@@ -414,6 +514,11 @@ class PlannedMealCard extends StatelessWidget {
   final VoidCallback? onAddItem;
   final Function(MealPlanItemDetail)? onTapItem;
   final VoidCallback? onLogAll;
+  final Function(MealPlanItemDetail)? onMarkItemDone;
+  final Function(MealPlanItemDetail)? onConvertToLog;
+  final Function(MealPlanItemDetail)? onEditItem;
+  final Function(MealPlanItemDetail)? onDeleteItem;
+  final Function(MealPlanItemDetail)? onSkipItem;
   final bool isExpanded;
 
   @override
@@ -521,6 +626,11 @@ class PlannedMealCard extends StatelessWidget {
                 return MealItemTile(
                   item: item,
                   onTap: () => onTapItem?.call(item),
+                  onLog: () => onMarkItemDone?.call(item),
+                  onConvertToLog: () => onConvertToLog?.call(item),
+                  onEdit: () => onEditItem?.call(item),
+                  onDelete: () => onDeleteItem?.call(item),
+                  onSkip: () => onSkipItem?.call(item),
                 );
               },
             ),
