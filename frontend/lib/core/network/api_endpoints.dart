@@ -125,4 +125,14 @@ class ApiEndpoints {
 
   static String get allergies => '$baseUrl/Allergy';
   static String allergyById(String allergyId) => '$baseUrl/Allergy/$allergyId';
+
+  // AiAssistant endpoints
+  static String get aiAssistantConversations => '$baseUrl/AiAssistant/conversations';
+  static String aiAssistantConversationById(String id) => '$baseUrl/AiAssistant/conversations/$id';
+  static String aiAssistantConversationMessages(String conversationId) => '$baseUrl/AiAssistant/conversations/$conversationId/messages';
+  static String aiAssistantConversationSummary(String conversationId) => '$baseUrl/AiAssistant/conversations/$conversationId/summary';
+  static String aiAssistantMessageFeedback(String conversationId, String messageId) => '$baseUrl/AiAssistant/conversations/$conversationId/messages/$messageId/feedback';
+  static String get aiAssistantContext => '$baseUrl/AiAssistant/context';
+  static String get aiAssistantProfile => '$baseUrl/AiAssistant/profile';
+  static String get aiAssistantSuggestions => '$baseUrl/AiAssistant/suggestions';
 }

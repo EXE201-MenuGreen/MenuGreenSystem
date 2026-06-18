@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../core/constants/health_profile_values.dart';
 import '../../profile/repositories/profile_repository.dart';
 
@@ -27,13 +29,21 @@ class OnboardingGate {
           .getMyCompletion()
           .timeout(const Duration(seconds: 12));
       if (completion != null) {
-        final done = completion['isCompleted'] == true ||
-            completion['IsCompleted'] == true;
+        final isCompleted = completion['isCompleted'] ?? completion['IsCompleted'];
+        final missingSteps = completion['missingSteps'] ?? completion['MissingSteps'];
+        final nextStep = completion['nextStep'] ?? completion['NextStep'];
+        debugPrint('[OnboardingGate] completion=$completion');
+        final done = isCompleted == true;
         if (done) _sessionComplete = true;
+        if (!done) {
+          debugPrint(
+            '[OnboardingGate] Missing steps: $missingSteps | NextStep: $nextStep',
+          );
+        }
         return done;
       }
-    } catch (_) {
-      // Fall through to profile heuristic below.
+    } catch (e) {
+      debugPrint('[OnboardingGate] completion API failed: $e');
     }
 
     try {
@@ -41,21 +51,40 @@ class OnboardingGate {
           .getMyProfile()
           .timeout(const Duration(seconds: 12));
       return _isProfileOnboardingComplete(profile);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[OnboardingGate] profile API failed: $e');
       return false;
     }
   }
 
   static bool _isProfileOnboardingComplete(Map<String, dynamic>? profile) {
-    if (profile == null) return false;
-    final fullName = profile['fullName']?.toString().trim() ?? '';
-    final gender = profile['gender']?.toString().trim() ?? '';
-    if (fullName.isEmpty || gender.isEmpty) return false;
-    if (!HealthProfileValues.isHealthBaselineComplete(profile)) return false;
+    if (profile == null) {
+      debugPrint('[OnboardingGate] Profile payload is null');
+      return false;
+    }
+
+    final fullName = (profile['fullName'] ?? profile['FullName'])?.toString().trim() ?? '';
+    final gender = (profile['gender'] ?? profile['Gender'])?.toString().trim() ?? '';
+    if (fullName.isEmpty || gender.isEmpty) {
+      debugPrint('[OnboardingGate] Missing basic profile: fullName=$fullName, gender=$gender');
+      return false;
+    }
+
+    final hasHealthBaseline = HealthProfileValues.isHealthBaselineComplete(profile);
+    if (!hasHealthBaseline) {
+      debugPrint('[OnboardingGate] Health baseline incomplete: height=${profile['heightCm'] ?? profile['HeightCm']}, weight=${profile['weightKg'] ?? profile['WeightKg']}');
+      return false;
+    }
+
     final target = profile['targetCalories'] ?? profile['TargetCalories'];
     final targetCalories = target is num
         ? target.toInt()
         : int.tryParse(target?.toString() ?? '');
-    return targetCalories != null && targetCalories >= 800;
+    if (targetCalories == null || targetCalories < 800) {
+      debugPrint('[OnboardingGate] Invalid targetCalories: $targetCalories');
+      return false;
+    }
+
+    return true;
   }
 }
