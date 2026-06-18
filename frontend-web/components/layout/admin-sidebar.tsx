@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   { href: "/dashboard", label: "Tổng quan", exact: true },
+  { href: "/dashboard/analytics", label: "Analytics" },
   { href: "/dashboard/users", label: "Người dùng" },
   { href: "/dashboard/foods", label: "Món ăn" },
   { href: "/dashboard/ingredients", label: "Nguyên liệu" },
