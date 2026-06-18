@@ -11,7 +11,7 @@ import type { MessageResponse } from "@/types/common";
 export const ingredientApi = {
   search(params?: IngredientSearchParams): Promise<IngredientSearchResult> {
     return apiClient.get<IngredientSearchResult>(
-      withQuery(apiEndpoints.ingredient.base, {
+      withQuery(apiEndpoints.ingredient.search, {
         keyword: params?.keyword,
         category: params?.category,
         isActive: params?.isActive,
