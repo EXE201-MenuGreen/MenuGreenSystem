@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
 import '../providers/recommendation_provider.dart';
+import '../widgets/quick_recommendation_card.dart';
 import '../widgets/recommendation_card.dart';
 import 'budget_aware_screen.dart';
 import 'recommendation_detail_screen.dart';
@@ -30,6 +31,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
     await Future.wait([
       _provider.loadHistory(),
       _provider.loadFeedbackSummary(),
+      _provider.loadTodayRecommendations(),
     ]);
   }
 
@@ -50,7 +52,8 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
   void _openHistory() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RecommendationHistoryScreen()),
+      MaterialPageRoute(
+          builder: (_) => const RecommendationHistoryScreen()),
     );
   }
 
@@ -120,11 +123,14 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const _PersonalizedInsight(),
+            const SizedBox(height: 20),
             _buildTodaySection(),
             const SizedBox(height: 24),
             _buildExploreSection(),
             const SizedBox(height: 24),
             _buildHistorySection(),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -132,84 +138,50 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
   }
 
   Widget _buildTodaySection() {
-    return Consumer<RecommendationProvider>(
-      builder: (context, provider, _) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryLight],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.today, color: AppColors.primary, size: 18),
+            const SizedBox(width: 6),
+            const Text(
+              'Gợi ý hôm nay',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Gợi ý hôm nay',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white.withValues(alpha: 0.95),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildMealRow(Icons.wb_sunny_outlined, 'Bữa sáng', '350 kcal'),
-              _buildMealRow(Icons.lunch_dining, 'Bữa trưa', '550 kcal'),
-              _buildMealRow(Icons.dinner_dining, 'Bữa tối', '450 kcal'),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _openWeeklyPlan,
-                  icon: const Icon(Icons.auto_awesome, size: 18),
-                  label: const Text('Tạo thực đơn ngay'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+          ],
+        ),
+        const SizedBox(height: 12),
+        Consumer<RecommendationProvider>(
+          builder: (context, provider, _) {
+            return QuickRecommendationCard(
+              isLoading: provider.isLoadingToday,
+              error: provider.todayError,
+              breakfast: provider.todayBreakfast,
+              lunch: provider.todayLunch,
+              dinner: provider.todayDinner,
+              hasAllergy: false,
+              onRetry: _loadData,
+              onUseAll: _openWeeklyPlan,
+              onMealTap: _openMealDetail,
+            );
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildMealRow(IconData icon, String name, String calories) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white70, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            name,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          const Spacer(),
-          Text(
-            calories,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-        ],
+  void _openMealDetail(RecommendationItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecommendationDetailScreen(
+          recommendationItem: item,
+        ),
       ),
     );
   }
@@ -299,7 +271,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
           subtitle,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
       ),
     );
   }
@@ -392,7 +364,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
                 color: item.feedback!.isLiked ? Colors.green : Colors.orange,
                 size: 20,
               )
-            : const Icon(Icons.chevron_right),
+            : Icon(Icons.chevron_right, color: Colors.grey.shade400),
       ),
     );
   }
@@ -449,21 +421,37 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inDays == 0) return 'Hôm nay';
-    if (diff.inDays == 1) return 'Hôm qua';
-    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
-
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
   @override
   void dispose() {
     _provider.dispose();
     super.dispose();
+  }
+}
+
+class _PersonalizedInsight extends StatelessWidget {
+  const _PersonalizedInsight();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Gợi ý này được cá nhân hóa theo mục tiêu và lịch sử đánh giá của bạn.',
+              style: TextStyle(fontSize: 13, color: AppColors.textDark),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -481,7 +469,8 @@ class _RecommendationTypeScreen extends StatefulWidget {
   final String mealType;
 
   @override
-  State<_RecommendationTypeScreen> createState() => _RecommendationTypeScreenState();
+  State<_RecommendationTypeScreen> createState() =>
+      _RecommendationTypeScreenState();
 }
 
 class _RecommendationTypeScreenState extends State<_RecommendationTypeScreen> {
@@ -593,18 +582,21 @@ class _RecommendationTypeScreenState extends State<_RecommendationTypeScreen> {
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
-          return RecommendationCard(
-            item: item,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RecommendationDetailScreen(
-                    recommendationItem: item,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RecommendationCard(
+              item: item,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RecommendationDetailScreen(
+                      recommendationItem: item,
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),

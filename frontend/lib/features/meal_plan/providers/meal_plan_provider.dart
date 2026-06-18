@@ -344,6 +344,52 @@ class MealPlanProvider extends ChangeNotifier {
     }
   }
 
+  /// Thêm recommendation item vào kế hoạch hôm nay
+  /// Nếu chưa có plan hôm nay thì tạo mới với item này
+  Future<MealPlanItemDetail?> addRecommendationToTodayPlan(AddItemRequest request) async {
+    _isLoadingDetail = true;
+    notifyListeners();
+
+    try {
+      final today = DateTime.now();
+      final existingPlan = await _repository.getByDate(today);
+
+      if (existingPlan != null && existingPlan.id.isNotEmpty) {
+        final item = await _repository.addItem(existingPlan.id, request);
+        await loadPlanDetail(existingPlan.id);
+        await loadTodayDashboard();
+        return item;
+      }
+
+      final title = 'Kế hoạch ${MealType.fromString(request.mealType).labelVi} ${_formatDateShort(today)}';
+      final plan = await _repository.createPlanWithItems(
+        CreatePlanWithItemsRequest(
+          title: title,
+          planType: 'daily',
+          startDate: DateTime(today.year, today.month, today.day),
+          endDate: DateTime(today.year, today.month, today.day),
+          targetCalories: request.targetCalories,
+          isActive: true,
+          items: [request.toCreateItemRequest()],
+        ),
+      );
+      await loadPlans();
+      await loadTodayDashboard();
+      return plan.items.isNotEmpty ? plan.items.first : null;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      _isLoadingDetail = false;
+      notifyListeners();
+    }
+  }
+
+  static String _formatDateShort(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+  }
+
   // ==================== Helpers ====================
 
   /// Clear error

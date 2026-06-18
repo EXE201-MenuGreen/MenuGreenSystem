@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
 import '../providers/recommendation_provider.dart';
+import '../repositories/food_discovery_repository.dart';
+import '../views/food_detail_screen.dart';
 import '../widgets/feedback_buttons.dart';
 import '../widgets/recommendation_item_tile.dart';
 import '../widgets/score_breakdown_widget.dart';
+import '../../meal_plan/providers/meal_plan_provider.dart';
+import '../../meal_plan/models/meal_plan_requests.dart';
 
 class RecommendationDetailScreen extends StatefulWidget {
   const RecommendationDetailScreen({
@@ -25,11 +30,15 @@ class RecommendationDetailScreen extends StatefulWidget {
 
 class _RecommendationDetailScreenState extends State<RecommendationDetailScreen> {
   final _provider = RecommendationProvider();
+  final _favoriteRepository = FoodDiscoveryRepository();
 
   RecommendationDetail? _detail;
   String? _explanation;
   bool _isLoading = true;
   bool _isSubmittingFeedback = false;
+  bool _isApplyingToMealPlan = false;
+  bool _isFavorite = false;
+  bool _isTogglingFavorite = false;
 
   @override
   void initState() {
@@ -109,6 +118,75 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     }
   }
 
+  Future<void> _applyToMealPlan() async {
+    final item = widget.recommendationItem ??
+        widget.recommendationResponse?.items.firstOrNull;
+
+    if (item == null) return;
+
+    setState(() => _isApplyingToMealPlan = true);
+
+    final mealPlanProvider = Provider.of<MealPlanProvider>(context, listen: false);
+
+    final request = AddItemRequest(
+      mealType: _resolveMealType(item),
+      foodId: item.isFood ? item.id : null,
+      recipeId: item.isFood ? null : item.id,
+      targetCalories: item.caloriesKcal.round(),
+      quantityG: 100,
+    );
+
+    final result = await mealPlanProvider.addRecommendationToTodayPlan(request);
+
+    if (mounted) {
+      setState(() => _isApplyingToMealPlan = false);
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã thêm vào kế hoạch ăn!')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final item = widget.recommendationItem ??
+        widget.recommendationResponse?.items.firstOrNull;
+
+    if (item == null || !item.isFood) return;
+
+    setState(() => _isTogglingFavorite = true);
+
+    try {
+      final success = _isFavorite
+          ? await _favoriteRepository.removeFavorite(item.id)
+          : await _favoriteRepository.addFavorite(item.id);
+
+      if (mounted) {
+        setState(() => _isFavorite = success ? !_isFavorite : _isFavorite);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_isFavorite ? 'Đã thêm vào yêu thích' : 'Đã bỏ yêu thích')),
+          );
+        }
+      }
+    } catch (_) {
+      // Keep current state on error
+    }
+
+    if (mounted) {
+      setState(() => _isTogglingFavorite = false);
+    }
+  }
+
+  String _resolveMealType(RecommendationItem item) {
+    final lower = item.name.toLowerCase();
+    if (lower.contains('sáng') || lower.contains('breakfast')) return 'breakfast';
+    if (lower.contains('trưa') || lower.contains('lunch')) return 'lunch';
+    if (lower.contains('tối') || lower.contains('dinner')) return 'dinner';
+    if (lower.contains('phụ') || lower.contains('snack')) return 'snack';
+    return 'lunch';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -174,7 +252,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         ],
         _buildNutritionInfo(item),
         const SizedBox(height: 24),
-        _buildActionButtons(item),
+        _buildActions(),
       ],
     );
   }
@@ -428,7 +506,17 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         ...items.map((item) => RecommendationItemTile(
               item: item,
               onTap: () {
-                // Navigate to detail
+                if (item.isFood) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FoodDetailScreen(foodId: item.id),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chi tiết công thức đang phát triển')),
+                  );
+                }
               },
             )),
       ],
@@ -556,44 +644,69 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   Widget _buildActions() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              // Apply to meal plan
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã thêm vào kế hoạch ăn!')),
-              );
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Áp dụng vào kế hoạch'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+    final currentItem = widget.recommendationItem ??
+        widget.recommendationResponse?.items.firstOrNull;
+
+    if (widget.historyItem != null) {
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isApplyingToMealPlan ? null : _applyToMealPlan,
+              icon: _isApplyingToMealPlan
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.add),
+              label: Text(_isApplyingToMealPlan ? 'Đang thêm...' : 'Áp dụng vào kế hoạch'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
+        ],
+      );
+    }
 
-  Widget _buildActionButtons(RecommendationItem item) {
+    final hasItem = currentItem != null;
+
+    if (!hasItem) {
+      return const SizedBox.shrink();
+    }
+
+    final canFavorite = currentItem.isFood;
+
     return Row(
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {
-              // Save to favorites
-            },
-            icon: const Icon(Icons.favorite_border),
-            label: const Text('Lưu'),
+            onPressed: canFavorite
+                ? (_isTogglingFavorite ? null : _toggleFavorite)
+                : null,
+            icon: _isTogglingFavorite
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    canFavorite
+                        ? (_isFavorite ? Icons.favorite : Icons.favorite_border)
+                        : Icons.block,
+                  ),
+            label: Text(canFavorite
+                ? (_isFavorite ? 'Đã yêu thích' : 'Lưu')
+                : 'Chỉ hỗ trợ món ăn'),
             style: OutlinedButton.styleFrom(
+              foregroundColor: canFavorite && _isFavorite ? Colors.red : null,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -605,11 +718,15 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         Expanded(
           flex: 2,
           child: ElevatedButton.icon(
-            onPressed: () {
-              // Apply to meal plan
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Áp dụng'),
+            onPressed: _isApplyingToMealPlan ? null : _applyToMealPlan,
+            icon: _isApplyingToMealPlan
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.add),
+            label: Text(_isApplyingToMealPlan ? 'Đang thêm...' : 'Áp dụng'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,

@@ -184,6 +184,17 @@ class AddItemRequest {
       if (quantityG != null) 'quantityG': quantityG,
     };
   }
+
+  CreateItemRequest toCreateItemRequest() {
+    return CreateItemRequest(
+      mealType: mealType,
+      scheduledTime: scheduledTime,
+      foodId: foodId,
+      recipeId: recipeId,
+      targetCalories: targetCalories,
+      quantityG: quantityG,
+    );
+  }
 }
 
 class ConvertToLogRequest {

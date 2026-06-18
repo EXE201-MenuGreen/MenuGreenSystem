@@ -26,6 +26,7 @@ export 'widgets/allergy_risk_badge.dart';
 export 'widgets/discover_food_filters_sheet.dart';
 export 'widgets/recommendation_card.dart';
 export 'widgets/recommendation_item_tile.dart';
+export 'widgets/quick_recommendation_card.dart';
 export 'widgets/score_breakdown_widget.dart';
 export 'widgets/feedback_buttons.dart';
 export 'widgets/weekly_plan_day_card.dart';
