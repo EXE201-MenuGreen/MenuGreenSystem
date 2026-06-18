@@ -47,6 +47,29 @@ export const apiEndpoints = {
     status: (id: string) => `${API_BASE_URL}/MealPlan/${id}/status`,
     distribute: (id: string) => `${API_BASE_URL}/MealPlan/${id}/distribute`,
   },
+  analytics: {
+    base: `${API_BASE_URL}/Analytics`,
+    dashboard: `${API_BASE_URL}/Analytics/dashboard`,
+    summary: `${API_BASE_URL}/Analytics/summary`,
+    metrics: `${API_BASE_URL}/Analytics/metrics`,
+    topEvents: `${API_BASE_URL}/Analytics/top-events`,
+    funnel: `${API_BASE_URL}/Analytics/funnel`,
+    mealOnboardingFunnel: `${API_BASE_URL}/Analytics/funnel/meal-onboarding`,
+    subscriptionFunnel: `${API_BASE_URL}/Analytics/funnel/subscription`,
+    cohort: `${API_BASE_URL}/Analytics/cohort`,
+    churnRisk: `${API_BASE_URL}/Analytics/churn-risk`,
+    inactiveUsers: `${API_BASE_URL}/Analytics/inactive-users`,
+    reactivationOpportunities: `${API_BASE_URL}/Analytics/reactivation-opportunities`,
+    activityLog: `${API_BASE_URL}/Analytics/activity-log`,
+    // Nutrition Analytics
+    nutritionDashboard: `${API_BASE_URL}/Analytics/nutrition/dashboard`,
+    nutritionMacroDistribution: `${API_BASE_URL}/Analytics/nutrition/macro-distribution`,
+    nutritionGoalAchievement: `${API_BASE_URL}/Analytics/nutrition/goal-achievement`,
+    nutritionTopFoods: `${API_BASE_URL}/Analytics/nutrition/top-foods`,
+    nutritionCalorieDistribution: `${API_BASE_URL}/Analytics/nutrition/calorie-distribution`,
+    nutritionMealTypeBreakdown: `${API_BASE_URL}/Analytics/nutrition/meal-type-breakdown`,
+    nutritionUserInsights: `${API_BASE_URL}/Analytics/nutrition/user-insights`,
+  },
 } as const;
 
 export function withQuery(
