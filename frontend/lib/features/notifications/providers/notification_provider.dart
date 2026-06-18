@@ -5,6 +5,7 @@ import '../repositories/notification_repository.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationRepository _repository = NotificationRepository();
+  bool _disposed = false;
 
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
@@ -41,7 +42,7 @@ class NotificationProvider extends ChangeNotifier {
         pageSize: _pageSize,
       );
 
-      if (!mounted) return;
+      if (_disposed) return;
 
       if (refresh || _currentPage == 1) {
         _notifications = results;
@@ -54,9 +55,10 @@ class NotificationProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Không thể tải thông báo';
     } finally {
-      if (mounted) {
+      if (_disposed) {
         _isLoading = false;
         notifyListeners();
+        return;
       }
     }
   }
@@ -73,7 +75,7 @@ class NotificationProvider extends ChangeNotifier {
         pageSize: _pageSize,
       );
 
-      if (!mounted) return;
+      if (_disposed) return;
 
       _notifications.addAll(results);
       _hasMore = results.length >= _pageSize;
@@ -81,9 +83,10 @@ class NotificationProvider extends ChangeNotifier {
     } catch (e) {
       // Silent fail for load more
     } finally {
-      if (mounted) {
+      if (_disposed) {
         _isLoadingMore = false;
         notifyListeners();
+        return;
       }
     }
   }
@@ -91,7 +94,7 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> loadUnreadCount() async {
     try {
       _unreadCount = await _repository.getUnreadCount();
-      if (mounted) notifyListeners();
+      if (_disposed) notifyListeners();
     } catch (_) {
       // Silent fail
     }
@@ -109,7 +112,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     final success = await _repository.markAsRead(id);
-    if (!success && mounted) {
+    if (!success && !_disposed) {
       _notifications[index] = notification;
       _unreadCount++;
       notifyListeners();
@@ -125,7 +128,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     final success = await _repository.markAllAsRead();
-    if (!success && mounted) {
+    if (!success && !_disposed) {
       _notifications = previousNotifications;
       _unreadCount = previousCount;
       notifyListeners();
@@ -142,7 +145,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     final success = await _repository.deleteNotification(id);
-    if (!success && mounted) {
+    if (!success && !_disposed) {
       _notifications.insert(index, notification);
       if (!notification.isRead) _unreadCount++;
       notifyListeners();

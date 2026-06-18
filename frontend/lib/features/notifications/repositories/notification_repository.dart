@@ -126,7 +126,7 @@ class NotificationRepository {
 
   Future<bool> markAsRead(String id) async {
     try {
-      final response = await _api.patch(ApiEndpoints.notificationMarkRead(id));
+      final response = await _api.patchJson(ApiEndpoints.notificationMarkRead(id), {});
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
@@ -135,7 +135,7 @@ class NotificationRepository {
 
   Future<bool> markAllAsRead() async {
     try {
-      final response = await _api.patch(ApiEndpoints.notificationMarkAllRead);
+      final response = await _api.patchJson(ApiEndpoints.notificationMarkAllRead, {});
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
@@ -153,7 +153,7 @@ class NotificationRepository {
 
   Future<bool> trackOpen(String id) async {
     try {
-      final response = await _api.post(ApiEndpoints.notificationTrackOpen(id), {});
+      final response = await _api.postJson(ApiEndpoints.notificationTrackOpen(id), {});
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
@@ -162,7 +162,7 @@ class NotificationRepository {
 
   Future<bool> trackClick(String id) async {
     try {
-      final response = await _api.post(ApiEndpoints.notificationTrackClick(id), {});
+      final response = await _api.postJson(ApiEndpoints.notificationTrackClick(id), {});
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
