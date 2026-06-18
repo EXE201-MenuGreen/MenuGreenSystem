@@ -12,10 +12,10 @@ export const apiEndpoints = {
     assignRole: (id: string) => `${API_BASE_URL}/User/${id}/assign-role`,
   },
   adminUser: {
-    list: `${API_BASE_URL}/AdminUser`,
-    byId: (id: string) => `${API_BASE_URL}/AdminUser/${id}`,
-    lock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/lock`,
-    unlock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/unlock`,
+    list: `${API_BASE_URL}/User`,
+    byId: (id: string) => `${API_BASE_URL}/User/${id}`,
+    lock: (id: string) => `${API_BASE_URL}/User/${id}/lock`,
+    unlock: (id: string) => `${API_BASE_URL}/User/${id}/unlock`,
   },
   dashboard: {
     metrics: `${API_BASE_URL}/Dashboard/metrics`,
