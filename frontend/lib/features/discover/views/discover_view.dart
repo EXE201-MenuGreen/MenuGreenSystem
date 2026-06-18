@@ -8,11 +8,15 @@ import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
+import 'budget_aware_screen.dart';
 import 'favorites_screen.dart';
 import 'food_detail_screen.dart';
 import 'ingredient_detail_screen.dart';
 import 'recipe_detail_screen.dart';
+import 'recommendation_history_screen.dart';
+import 'recommendation_screen.dart';
 import 'safe_recommendations_screen.dart';
+import 'weekly_plan_screen.dart';
 
 class DiscoverView extends StatefulWidget {
   const DiscoverView({super.key});
@@ -261,9 +265,16 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Gợi ý an toàn',
-                  onPressed: _openSafeRecommendations,
-                  icon: const Icon(Icons.recommend_outlined, color: AppColors.primary),
+                  tooltip: 'Gợi ý cá nhân hóa',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RecommendationScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
                 ),
                 IconButton(
                   tooltip: 'Món yêu thích',

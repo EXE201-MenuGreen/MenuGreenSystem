@@ -164,6 +164,7 @@ class MealPlanItemDetail {
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
+  final double? quantityG;
 
   MealPlanItemDetail({
     required this.id,
@@ -183,6 +184,7 @@ class MealPlanItemDetail {
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.quantityG,
   });
 
   factory MealPlanItemDetail.fromJson(Map<String, dynamic> json) {
@@ -204,6 +206,7 @@ class MealPlanItemDetail {
       proteinG: _int(json['proteinG'] ?? json['ProteinG']),
       carbsG: _int(json['carbsG'] ?? json['CarbsG']),
       fatG: _int(json['fatG'] ?? json['FatG']),
+      quantityG: (json['quantityG'] ?? json['QuantityG'] ?? json['quantity'] ?? json['Quantity'])?.toDouble(),
     );
   }
 
@@ -454,4 +457,35 @@ int _int(dynamic v) {
   if (v is int) return v;
   if (v is num) return v.round();
   return 0;
+}
+
+class DayPlanSummary {
+  final int plannedCalories;
+  final int actualCalories;
+  final int completedItems;
+  final int totalItems;
+  final double adherencePercent;
+
+  DayPlanSummary({
+    required this.plannedCalories,
+    required this.actualCalories,
+    required this.completedItems,
+    required this.totalItems,
+    required this.adherencePercent,
+  });
+
+  factory DayPlanSummary.fromJson(Map<String, dynamic> json) {
+    return DayPlanSummary(
+      plannedCalories: _int(json['plannedCalories'] ?? json['PlannedCalories'] ?? 0),
+      actualCalories: _int(json['actualCalories'] ?? json['ActualCalories'] ?? 0),
+      completedItems: _int(json['completedItems'] ?? json['CompletedItems'] ?? 0),
+      totalItems: _int(json['totalItems'] ?? json['TotalItems'] ?? 0),
+      adherencePercent: (json['adherencePercent'] ?? json['AdherencePercent'] ?? 0).toDouble(),
+    );
+  }
+
+  int get completedMeals => completedItems;
+  int get totalMeals => totalItems;
+  bool get isCompleted => completedItems == totalItems && totalItems > 0;
+  bool get hasData => totalItems > 0;
 }

@@ -156,6 +156,20 @@ class MealPlanRepository {
     return MealPlanDetail.fromJson(decoded);
   }
 
+  /// Tạo meal plan với items ngay từ đầu
+  Future<MealPlanDetail> createPlanWithItems(CreatePlanWithItemsRequest request) async {
+    final url = ApiEndpoints.mealPlansCreateWithItems;
+    final response = await _api.postJson(url, request.toJson());
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    return MealPlanDetail.fromJson(decoded);
+  }
+
   /// Cập nhật meal plan
   Future<MealPlanDetail> updatePlan(String id, CreatePlanRequest request) async {
     final response = await _api.putJson(ApiEndpoints.mealPlanById(id), request.toJson());

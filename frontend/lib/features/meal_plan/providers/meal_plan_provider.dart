@@ -171,6 +171,25 @@ class MealPlanProvider extends ChangeNotifier {
     }
   }
 
+  /// Tạo plan với items ngay từ đầu
+  Future<MealPlanDetail?> createPlanWithItems(CreatePlanWithItemsRequest request) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final plan = await _repository.createPlanWithItems(request);
+      await loadPlans();
+      return plan;
+    } catch (e) {
+      _error = e.toString();
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Cập nhật plan
   Future<MealPlanDetail?> updatePlan(String id, CreatePlanRequest request) async {
     _isLoading = true;
