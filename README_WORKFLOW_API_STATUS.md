@@ -264,8 +264,8 @@ Cần triển khai UI Flutter (chat screen) để kết nối với các API.
 
 | Nhóm UI | Trạng thái | Ghi chú |
 |---------|:----------:|---------|
-| A. Settings screen | ❌ Chưa có | |
-| B. Inbox screen | ❌ Chưa có | |
+| A. Settings screen | ✅ Hoàn tất | Card-based UI với toggle & slider |
+| B. Inbox screen | ✅ Hoàn tất | Swipe actions, pagination, badge |
 
 ### API đã có
 
@@ -298,8 +298,11 @@ GET    /api/Notification/analytics
 ### Kết luận
 
 **Notification API: ✅ HOÀN CHỈNH**
+**Notification UI: ✅ HOÀN TẤT**
 
-Cần triển khai UI Flutter (settings, inbox screens).
+Đã triển khai đầy đủ UI Flutter (settings, inbox screens) với:
+- Settings: Card-based UI, toggle meal reminder, prep reminder, push/in-app channels
+- Inbox: Danh sách notification với swipe actions, pagination, badge count, tracking
 
 ---
 
