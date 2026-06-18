@@ -7,6 +7,7 @@ namespace MenuGreen.DataAccessLayer.Entities
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
         public Guid? UserSubscriptionId { get; set; }
+        public Guid? UserPremiumProgramId { get; set; }
         public int AmountVnd { get; set; }
         public string Status { get; set; } = "PENDING";
         public string PaymentMethod { get; set; } = "SEPAY";
@@ -19,5 +20,6 @@ namespace MenuGreen.DataAccessLayer.Entities
 
         public virtual User? User { get; set; }
         public virtual UserSubscription? UserSubscription { get; set; }
+        public virtual UserPremiumProgram? UserPremiumProgram { get; set; }
     }
 }

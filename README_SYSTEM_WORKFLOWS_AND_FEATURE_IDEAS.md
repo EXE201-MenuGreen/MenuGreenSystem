@@ -1375,7 +1375,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 4.3 Nhóm “premium/monetization”
 
-1. **Premium Program Packs** (Chưa có)
+1. **Premium Program Packs** (Đã làm)
    - Gói theo mục tiêu: giảm cân 8 tuần, tăng cơ 12 tuần.
    - Cung cấp cho người dùng các gói lộ trình ăn uống và luyện tập đóng gói sẵn theo mục tiêu chuyên sâu có thời hạn cố định (ví dụ: gói giảm mỡ bụng 8 tuần, gói tăng cơ nách/ngực 12 tuần), được thiết kế bởi các chuyên gia dinh dưỡng và tích hợp hệ thống theo dõi tiến độ chặt chẽ theo từng tuần.
 

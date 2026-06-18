@@ -6,6 +6,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
     {
         public Guid PaymentId { get; set; }
         public Guid UserSubscriptionId { get; set; }
+        public Guid? UserPremiumProgramId { get; set; }
         public int AmountVnd { get; set; }
         public string Status { get; set; } = string.Empty;
         public string ProviderOrderCode { get; set; } = string.Empty;
