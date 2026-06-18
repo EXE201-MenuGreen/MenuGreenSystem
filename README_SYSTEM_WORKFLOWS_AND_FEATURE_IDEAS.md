@@ -1076,7 +1076,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 4.2 Nhóm “nâng cao trải nghiệm”
 
-1. **Budget-aware Weekly Plan** (Chưa có)
+1. **Budget-aware Weekly Plan** (Đã làm)
    - Lập meal plan theo ngân sách tuần/tháng kết hợp `BudgetRequest`.
    - Giúp người dùng quản lý chi tiêu dinh dưỡng, tự động gợi ý và cân đối thực đơn tối ưu theo khoảng giá mong muốn nhằm hạn chế vượt quá ngân sách định sẵn.
 
@@ -1118,7 +1118,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/MealPlan/expense-breakdown` — Phân tích chi tiết tỷ trọng chi tiêu (ví dụ: món nhiều thịt, ăn ngoài, nguyên liệu đắt tiền) và đưa ra các đề xuất điều chỉnh để tiết kiệm hơn.
    - `GET /api/MealPlan/adherence-scores` — Tính điểm bám sát ngân sách trong chuỗi ngày/tuần/tháng để làm dữ liệu gamification hoặc habit score.
 
-2. **Ingredient Substitution Engine** (Đã hoàn thành)
+2. **Ingredient Substitution Engine** (Đã làm)
    - Gợi ý nguyên liệu thay thế khi dị ứng/khó mua/đắt.
    - Giúp người dùng dễ dàng nấu ăn bằng cách tìm kiếm và gợi ý các nguyên liệu thay thế phù hợp khi gặp các rào cản như dị ứng, nguyên liệu không có sẵn (khó mua) hoặc quá đắt đỏ, trong khi vẫn đảm bảo tối ưu hóa dinh dưỡng (Calories, Macro) và chi phí.
 
@@ -1255,7 +1255,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    ### C. API Ghi nhận phản hồi để tối ưu Train Model (AI Feedback loop - Đề xuất mới)
    - `POST /api/AiCoach/messages/{messageId}/feedback` — Ghi nhận phản hồi của user về câu trả lời của AI (Like/Dislike, lý do hữu ích/không hữu ích, sai sót thông tin) nhằm làm dữ liệu gán nhãn cho đội ngũ huấn luyện mô hình.
 
-4. **Planned vs Actual Insights** (Chưa có)
+4. **Planned vs Actual Insights** (Đã làm)
    - So sánh kế hoạch ăn và thực tế, chỉ ra nguyên nhân lệch.
    - Hỗ trợ người dùng đối chiếu thực đơn dự kiến trong kế hoạch ăn uống (`MealPlanItem` thuộc `MealPlanHeader`) với nhật ký ăn uống thực tế (`MealLog`), từ đó phân tích độ bám sát mục tiêu dinh dưỡng và làm rõ các nguyên nhân gây ra sự chênh lệch (lệch calo/macro).
 
@@ -1288,7 +1288,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Analytics/planned-vs-actual/recommendations` — Gợi ý hành động khắc phục cho các ngày tiếp theo dựa trên xu hướng lệch của 7 ngày gần nhất.
    - `POST /api/Analytics/planned-vs-actual/recalibrate` — Chạy thuật toán tự động tái phân bổ lượng calo/macro tuần tiếp theo dựa trên tiến độ và cân nặng thực tế thay đổi so với kế hoạch ban đầu (nhằm tránh đứng cân - weight loss plateau).
 
-5. **Micro-learning Cards** (Chưa có)
+5. **Micro-learning Cards** (Đã làm)
    - Các thẻ kiến thức ngắn theo vấn đề user đang gặp (thiếu protein, vượt fat...).
    - Cung cấp cho người dùng các bài học ngắn, mẹo thực hành ăn uống dinh dưỡng hữu ích được chọn lọc tự động dựa trên chính các vấn đề sức khỏe thực tế, thói quen ghi chép hoặc cảnh báo lệch mục tiêu mà họ đang gặp phải.
 
@@ -1320,7 +1320,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/MicroLearning/cards/saved` — Lấy danh sách toàn bộ các thẻ kiến thức mà user đã lưu trữ để đọc lại.
    - `POST /api/MicroLearning/cards/{id}/quiz/submit` — Nộp câu trả lời cho mini-quiz đính kèm trên thẻ kiến thức để củng cố kiến thức và tích điểm thưởng (tăng habit score hoặc đổi quà).
 
-6. **Vietnam Portion Converter** (Chưa có)
+6. **Vietnam Portion Converter** (Đã làm)
    - Bộ quy đổi đơn vị Việt Nam (bát/chén/muỗng/đĩa) sang gram.
    - Hỗ trợ người dùng nhập liệu nhanh chóng và chính xác bằng các đơn vị ước lượng quen thuộc trong đời sống ăn uống hằng ngày của người Việt (như chén cơm, bát phở, muỗng canh dầu ăn, đĩa rau, trái/quả...), thay vì bắt buộc phải cân đo chính xác khối lượng gram/ml.
 
