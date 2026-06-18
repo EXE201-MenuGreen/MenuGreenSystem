@@ -248,12 +248,12 @@ export async function fetchAllNutritionAnalytics(
 
   return {
     dashboard: dashboard as NutritionDashboardResponse | null,
-    macroDistribution,
-    goalAchievement,
-    topFoods,
-    calorieDistribution,
-    mealTypeBreakdown,
-    userInsights,
+    macroDistribution: macroDistribution as MacroDistributionResponse | null,
+    goalAchievement: goalAchievement as GoalAchievementResponse | null,
+    topFoods: topFoods as TopFoodsResponse | null,
+    calorieDistribution: calorieDistribution as CalorieDistributionResponse | null,
+    mealTypeBreakdown: mealTypeBreakdown as MealTypeBreakdownResponse | null,
+    userInsights: userInsights as UserInsightsResponse | null,
     isLoading: false,
     error: errors || null,
   };
