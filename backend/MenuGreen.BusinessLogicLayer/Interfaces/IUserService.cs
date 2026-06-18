@@ -12,6 +12,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<UserAdminResponse>> GetAllUsersAsync();
         Task<UserAdminResponse> GetUserByIdAsync(Guid userId);
         Task<bool> ToggleUserStatusAsync(Guid userId);
+        Task<bool> LockUserAsync(Guid userId);
+        Task<bool> UnlockUserAsync(Guid userId);
         Task<bool> AssignRoleAsync(Guid userId, string newRole);
     }
 }

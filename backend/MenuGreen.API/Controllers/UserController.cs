@@ -93,6 +93,36 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPut("{id}/lock")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> LockUser(Guid id)
+        {
+            try
+            {
+                var newStatus = await _userService.LockUserAsync(id);
+                return Ok(new { Message = $"User locked successfully. IsActive = {newStatus}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPut("{id}/unlock")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UnlockUser(Guid id)
+        {
+            try
+            {
+                var newStatus = await _userService.UnlockUserAsync(id);
+                return Ok(new { Message = $"User unlocked successfully. IsActive = {newStatus}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPut("{id}/assign-role")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest request)
