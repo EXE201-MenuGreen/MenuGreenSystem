@@ -17,9 +17,14 @@ import '../../discover/views/recipe_detail_screen.dart';
 
 /// Screen chi tiết meal plan
 class MealPlanDetailScreen extends StatefulWidget {
-  const MealPlanDetailScreen({super.key, required this.planId});
+  const MealPlanDetailScreen({
+    super.key,
+    required this.planId,
+    this.initialDate,
+  });
 
   final String planId;
+  final DateTime? initialDate;
 
   @override
   State<MealPlanDetailScreen> createState() => _MealPlanDetailScreenState();

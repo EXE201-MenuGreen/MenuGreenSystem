@@ -69,6 +69,73 @@ class CreateEmptyPlanRequest {
   }
 }
 
+/// Request để tạo kế hoạch với items ngay từ đầu
+class CreatePlanWithItemsRequest {
+  final String title;
+  final String planType;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final int? targetCalories;
+  final bool isActive;
+  final List<CreateItemRequest> items;
+
+  CreatePlanWithItemsRequest({
+    required this.title,
+    required this.planType,
+    this.startDate,
+    this.endDate,
+    this.targetCalories,
+    this.isActive = true,
+    required this.items,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'planType': planType,
+      if (startDate != null) 'startDate': _dateOnly(startDate!),
+      if (endDate != null) 'endDate': _dateOnly(endDate!),
+      if (targetCalories != null) 'targetCalories': targetCalories,
+      'isActive': isActive,
+      'items': items.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  static String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Item request dùng khi tạo plan với items
+class CreateItemRequest {
+  final String mealType;
+  final DateTime? scheduledTime;
+  final String? foodId;
+  final String? recipeId;
+  final int? targetCalories;
+  final double? quantityG;
+
+  CreateItemRequest({
+    required this.mealType,
+    this.scheduledTime,
+    this.foodId,
+    this.recipeId,
+    this.targetCalories,
+    this.quantityG,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'mealType': mealType,
+      if (scheduledTime != null) 'scheduledTime': scheduledTime!.toIso8601String(),
+      if (foodId != null) 'foodId': foodId,
+      if (recipeId != null) 'recipeId': recipeId,
+      if (targetCalories != null) 'targetCalories': targetCalories,
+      if (quantityG != null) 'quantityG': quantityG,
+    };
+  }
+}
+
 class DuplicatePlanRequest {
   final DateTime newStartDate;
   final DateTime? newEndDate;

@@ -56,6 +56,22 @@ class ApiEndpoints {
   static String get recommendationEco => '$baseUrl/Recommendation/eco';
   static String get recommendationDailyMenu => '$baseUrl/Recommendation/daily-menu';
 
+  // Recommendation endpoints (Extended)
+  static String get recommendationHistory => '$baseUrl/Recommendation/history';
+  static String recommendationById(String id) => '$baseUrl/Recommendation/$id';
+  static String get recommendationPreview => '$baseUrl/Recommendation/preview';
+  static String get recommendationFeedback => '$baseUrl/Recommendation/feedback';
+  static String recommendationExplain(String id) => '$baseUrl/Recommendation/explain/$id';
+  static String get recommendationScores => '$baseUrl/Recommendation/scores';
+  static String get recommendationRetrain => '$baseUrl/Recommendation/retrain';
+  static String get recommendationGenerate => '$baseUrl/Recommendation/generate';
+  static String get recommendationGenerateSafe => '$baseUrl/Recommendation/generate/safe';
+  static String get recommendationGenerateWeeklyPlan => '$baseUrl/Recommendation/generate/weekly-plan';
+  static String get recommendationGenerateBudgetAware => '$baseUrl/Recommendation/generate/budget-aware';
+  static String recommendationUpdateFeedback(String id) => '$baseUrl/Recommendation/feedback/$id';
+  static String get recommendationFeedbackSummary => '$baseUrl/Recommendation/feedback/summary';
+  static String get recommendationSmartSchedule => '$baseUrl/Recommendation/smart-schedule';
+
   static String get userMealPlans => '$baseUrl/user-meal-plans';
   static String get userMealPlanAdherence => '$baseUrl/user-meal-plans/adherence';
   static String userMealPlanById(String id) => '$baseUrl/user-meal-plans/$id';
@@ -67,6 +83,7 @@ class ApiEndpoints {
   // MealPlan endpoints (Admin/Full CRUD)
   static String get mealPlans => '$baseUrl/MealPlan';
   static String get mealPlansCreateEmpty => '$baseUrl/MealPlan/empty';
+  static String get mealPlansCreateWithItems => '$baseUrl/MealPlan/with-items';
   static String mealPlanById(String id) => '$baseUrl/MealPlan/$id';
   static String mealPlanItems(String planId) => '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>

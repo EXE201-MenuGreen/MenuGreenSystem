@@ -62,7 +62,7 @@ class _AddItemSheetState extends State<AddItemSheet> {
   bool _isLoading = false;
   bool _isSearching = false;
 
-  List<FoodItem> _searchResults = [];
+  List<dynamic> _searchResults = [];
   List<FavoriteFoodItem> _recentFoods = [];
   FoodItem? _selectedFood;
   RecipeItem? _selectedRecipe;

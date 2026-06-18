@@ -775,7 +775,6 @@ class _AllPlansTabState extends State<_AllPlansTab> {
       final request = DuplicatePlanRequest(
         newStartDate: DateTime.now(),
         newEndDate: plan.endDate,
-        newTitle: '${plan.title} (Bản sao)',
       );
 
       final newPlan = await widget.provider.duplicatePlan(plan.id, request);
@@ -1054,7 +1053,6 @@ class _HistoryTabState extends State<_HistoryTab> {
       final request = DuplicatePlanRequest(
         newStartDate: DateTime.now(),
         newEndDate: plan.endDate,
-        newTitle: '${plan.title} (Bản sao)',
       );
 
       final newPlan = await widget.provider.duplicatePlan(plan.id, request);
