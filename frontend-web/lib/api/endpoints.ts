@@ -30,6 +30,7 @@ export const apiEndpoints = {
   },
   ingredient: {
     base: `${API_BASE_URL}/Ingredient`,
+    search: `${API_BASE_URL}/Ingredient/search`,
     byId: (id: string) => `${API_BASE_URL}/Ingredient/${id}`,
   },
   recipe: {
