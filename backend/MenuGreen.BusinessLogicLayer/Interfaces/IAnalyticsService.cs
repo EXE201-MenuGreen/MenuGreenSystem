@@ -32,5 +32,14 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<ActivityLogResponse>> ExportActivityLogsAsync(DateTimeOffset? from = null, DateTimeOffset? to = null);
         Task<IEnumerable<AnalyticsFunnelStepResponse>> ExportFunnelAsync();
         Task<IEnumerable<AnalyticsCohortResponse>> ExportCohortAsync();
+
+        // Nutrition Analytics
+        Task<AnalyticsNutritionDashboardResponse> GetNutritionDashboardAsync(DateTimeOffset from, DateTimeOffset to);
+        Task<AnalyticsMacroDistributionResponse> GetMacroDistributionAsync(DateTimeOffset from, DateTimeOffset to);
+        Task<AnalyticsGoalAchievementResponse> GetGoalAchievementAsync(DateTimeOffset from, DateTimeOffset to);
+        Task<AnalyticsTopFoodsResponse> GetTopFoodsAsync(DateTimeOffset from, DateTimeOffset to, int limit, string sortBy);
+        Task<AnalyticsCalorieDistributionResponse> GetCalorieDistributionAsync(DateTimeOffset from, DateTimeOffset to);
+        Task<AnalyticsMealTypeBreakdownResponse> GetMealTypeBreakdownAsync(DateTimeOffset from, DateTimeOffset to);
+        Task<AnalyticsUserInsightsResponse> GetUserInsightsAsync(DateTimeOffset from, DateTimeOffset to);
     }
 }

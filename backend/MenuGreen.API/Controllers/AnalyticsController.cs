@@ -244,6 +244,73 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.ExportCohortAsync());
         }
 
+        #region Nutrition Analytics
+
+        /// <summary>
+        /// Tổng hợp nutrition dashboard với all key metrics.
+        /// </summary>
+        [HttpGet("nutrition/dashboard")]
+        public async Task<IActionResult> GetNutritionDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetNutritionDashboardAsync(from, to));
+        }
+
+        /// <summary>
+        /// Phân tích phân bổ macro (Protein/Carbs/Fat).
+        /// </summary>
+        [HttpGet("nutrition/macro-distribution")]
+        public async Task<IActionResult> GetMacroDistribution([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetMacroDistributionAsync(from, to));
+        }
+
+        /// <summary>
+        /// Tỷ lệ users đạt được daily goals.
+        /// </summary>
+        [HttpGet("nutrition/goal-achievement")]
+        public async Task<IActionResult> GetGoalAchievement([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetGoalAchievementAsync(from, to));
+        }
+
+        /// <summary>
+        /// Top foods được log nhiều nhất.
+        /// </summary>
+        [HttpGet("nutrition/top-foods")]
+        public async Task<IActionResult> GetTopFoods([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to, [FromQuery] int limit = 10, [FromQuery] string sortBy = "count")
+        {
+            return Ok(await _service.GetTopFoodsAsync(from, to, limit, sortBy));
+        }
+
+        /// <summary>
+        /// Phân bổ calorie (Below/On/Above target).
+        /// </summary>
+        [HttpGet("nutrition/calorie-distribution")]
+        public async Task<IActionResult> GetCalorieDistribution([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetCalorieDistributionAsync(from, to));
+        }
+
+        /// <summary>
+        /// Phân bổ theo meal type (Breakfast/Lunch/Dinner/Snack).
+        /// </summary>
+        [HttpGet("nutrition/meal-type-breakdown")]
+        public async Task<IActionResult> GetMealTypeBreakdown([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetMealTypeBreakdownAsync(from, to));
+        }
+
+        /// <summary>
+        /// User engagement và diet quality insights.
+        /// </summary>
+        [HttpGet("nutrition/user-insights")]
+        public async Task<IActionResult> GetUserInsights([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _service.GetUserInsightsAsync(from, to));
+        }
+
+        #endregion
+
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;
