@@ -40,6 +40,10 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences { get; }
         IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions { get; }
         IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions { get; }
+        IGenericRepository<Entities.MicroLearningCard> MicroLearningCards { get; }
+        IGenericRepository<Entities.UserCardInteraction> UserCardInteractions { get; }
+        IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings { get; }
+        IGenericRepository<Entities.CustomUserPortion> CustomUserPortions { get; }
         
         Task<int> CompleteAsync();
     }
