@@ -2,7 +2,7 @@
 
 Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng (User) trên ứng dụng MenuGreen, đồng thời tổng hợp trạng thái triển khai UI/API và kế hoạch các bước tiếp theo.
 
-**Cập nhật:** 2026-06-04 · Bản đồ hệ thống: [`README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md`](README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md) · Thanh toán: [`README_SEPAY_PAYMENT_WORKFLOW.md`](README_SEPAY_PAYMENT_WORKFLOW.md)
+**Cập nhật:** 2026-06-17 · Bản đồ hệ thống: [`README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md`](README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md) · Thanh toán: [`README_SEPAY_PAYMENT_WORKFLOW.md`](README_SEPAY_PAYMENT_WORKFLOW.md)
 
 ---
 
@@ -244,24 +244,25 @@ Tài liệu mô tả đầy đủ workflow tính năng dành cho người dùng 
 | 4.5 | Dị ứng | ✅ | ✅ | Onboarding + Khám phá |
 | 4.6 | Khám phá món/công thức | ✅ | ✅ | Allergy mode, favorite, ghi log |
 | 4.7 | Recommendation | 🟡 | ✅ | Chỉ gợi ý an toàn trong Khám phá |
-| 4.8 | AI assistant | ⏳ | 🟡 | Tab AI placeholder |
+| 4.8 | AI assistant | 🟡 | ✅ | Tab AI placeholder, API hoàn chỉnh |
 | 4.9 | Nutrition tracking | ✅ | ✅ | Home + Lịch sử, CRUD, dashboard |
 | 4.10 | Weight tracking | ✅ | ✅ | Trong tab Lịch sử |
 | 4.11 | Subscription / SePay | ✅ | ✅ | Xem doc SePay |
+| 2.5 | Meal Plan | ✅ | ✅ | API + UI scaffold, cần hoàn thiện actions |
 
 ### 5.1 Đã dùng được trên UI và đã gọi API
 
-- `4.1` – `4.6`, `4.9`, `4.10`, `4.11` (theo bảng trên).
+- `4.1` – `4.6`, `4.9`, `4.10`, `4.11`, `2.5` (theo bảng trên).
 
 ### 5.2 API đã có nhưng UI mới cover một phần
 
 - `4.7` Recommendation nâng cao: smart-schedule, history, feedback — chưa có màn riêng.
-- `4.8` AI assistant: API/backend có nền; tab AI chưa nối đầy đủ.
+- `4.8` AI assistant: API/backend hoàn chỉnh; tab AI chưa nối đầy đủ.
 - Notification: API có; chưa màn cài đặt/inbox hoàn chỉnh.
 
 ### 5.3 Chưa triển khai / roadmap
 
-- Meal plan tuần/ngày (workflow 2.5 trong doc hệ thống).
+- ~~Meal plan tuần/ngày (workflow 2.5)~~ — **Đã làm (UI scaffold + API).**
 - Màn **Hôm nay ăn gì?** (quick-start 1-tap).
 - Analytics funnel (`ActivityLog` UI).
 - E2E test Flutter; unit test backend .NET.
