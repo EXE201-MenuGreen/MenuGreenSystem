@@ -60,6 +60,9 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<PremiumProgram> PremiumPrograms { get; set; }
         public DbSet<UserPremiumProgram> UserPremiumPrograms { get; set; }
         public DbSet<UserProgramMilestone> UserProgramMilestones { get; set; }
+        public DbSet<CoachProfile> CoachProfiles { get; set; }
+        public DbSet<CoachConnection> CoachConnections { get; set; }
+        public DbSet<CoachFeedback> CoachFeedbacks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

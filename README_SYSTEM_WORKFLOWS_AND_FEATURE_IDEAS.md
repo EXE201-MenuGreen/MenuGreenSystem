@@ -1414,7 +1414,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/PremiumPrograms/my-active/wrap-up-report` — Lấy báo cáo phân tích chi tiết kết quả sau 8/12 tuần tham gia chương trình.
 
 
-2. **Coach Mode (B2B2C/B2C+)** (Chưa có)
+2. **Coach Mode (B2B2C/B2C+)** (Đã làm)
    - Cho phép chuyên gia theo dõi chỉ số và phản hồi cho user.
    - Cung cấp cổng kết nối và bảng điều khiển (Coach Dashboard) dành cho các huấn luyện viên cá nhân (PT), bác sĩ hoặc chuyên gia dinh dưỡng (Coach) để quản lý, theo dõi thời gian thực chỉ số sức khỏe, nhật ký ăn uống và trực tiếp tương tác, điều chỉnh kế hoạch dinh dưỡng của học viên (Client) nhằm tối ưu hiệu quả huấn luyện.
 
