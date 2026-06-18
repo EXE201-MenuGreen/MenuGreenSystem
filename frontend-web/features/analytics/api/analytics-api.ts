@@ -247,7 +247,7 @@ export async function fetchAllNutritionAnalytics(
     .join(", ");
 
   return {
-    dashboard,
+    dashboard: dashboard as NutritionDashboardResponse | null,
     macroDistribution,
     goalAchievement,
     topFoods,
