@@ -7,6 +7,8 @@ import '../../../core/widgets/primary_button.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
+import '../../notifications/providers/notification_provider.dart';
+import '../../notifications/views/notification_inbox_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 
@@ -35,6 +37,7 @@ class HomeViewState extends State<HomeView> {
   final _profileRepository = ProfileRepository();
   final _trackingRepository = NutritionTrackingRepository();
   final _mealPlanRepository = MealPlanRepository();
+  final _notificationProvider = NotificationProvider();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
@@ -47,6 +50,7 @@ class HomeViewState extends State<HomeView> {
     refreshHeader();
     _loadTodaySummary();
     _loadMealPlanAdherence();
+    _notificationProvider.loadUnreadCount();
   }
 
   Future<void> refreshHeader() async {
@@ -172,23 +176,52 @@ class HomeViewState extends State<HomeView> {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.progressBackground.withValues(alpha: 0.5),
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.camera_alt, color: AppColors.primary, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const IngredientScanScreen()),
-              ).then((_) => reloadSummary());
-            },
-          ),
+        ListenableBuilder(
+          listenable: _notificationProvider,
+          builder: (context, _) {
+            final unreadCount = _notificationProvider.unreadCount;
+            return Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.progressBackground.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 20),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
+                  ).then((_) => _notificationProvider.loadUnreadCount());
+                },
+              ),
+            );
+          },
         ),
         const SizedBox(width: 8),
         Container(

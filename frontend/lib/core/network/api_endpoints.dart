@@ -99,7 +99,22 @@ class ApiEndpoints {
   static String get mealPlanStreaks => '$baseUrl/MealPlan/streaks';
 
   static String get notificationSettings => '$baseUrl/Notification/settings';
+  static String get notificationSettingsReset => '$baseUrl/Notification/settings/reset';
+  static String get notificationChannels => '$baseUrl/Notification/channels';
   static String get notifications => '$baseUrl/Notification';
+  static String notificationById(String id) => '$baseUrl/Notification/$id';
+  static String get notificationUnreadCount => '$baseUrl/Notification/unread-count';
+  static String notificationMarkRead(String id) => '$baseUrl/Notification/$id/read';
+  static String get notificationMarkAllRead => '$baseUrl/Notification/read-all';
+  static String notificationDelete(String id) => '$baseUrl/Notification/$id';
+  static String get notificationDeleteBatch => '$baseUrl/Notification/batch';
+  static String get notificationMealPlanRemind => '$baseUrl/Notification/meal-plan-remind';
+  static String get notificationSchedulePrepReminder => '$baseUrl/Notification/schedule-prep-reminder';
+  static String get notificationSend => '$baseUrl/Notification/send';
+  static String notificationTrackOpen(String id) => '$baseUrl/Notification/$id/track/open';
+  static String notificationTrackClick(String id) => '$baseUrl/Notification/$id/track/click';
+  static String notificationTrackActionComplete(String id) => '$baseUrl/Notification/$id/track/action-complete';
+  static String get notificationAnalytics => '$baseUrl/Notification/analytics';
   static String get profileSummary => '$baseUrl/Profile/me/summary';
   static String get profileCompletion => '$baseUrl/Profile/me/completion';
   static String get userAiProfileMe => '$baseUrl/UserAiProfile/me';
