@@ -45,6 +45,10 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.UserSubstitutionPreference>? _userSubstitutionPreferences;
         private IGenericRepository<Entities.MealPlanItemSubstitution>? _mealPlanItemSubstitutions;
         private IGenericRepository<Entities.MealLogSubstitution>? _mealLogSubstitutions;
+        private IGenericRepository<Entities.MicroLearningCard>? _microLearningCards;
+        private IGenericRepository<Entities.UserCardInteraction>? _userCardInteractions;
+        private IGenericRepository<Entities.FoodPortionMapping>? _foodPortionMappings;
+        private IGenericRepository<Entities.CustomUserPortion>? _customUserPortions;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -86,6 +90,10 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences => _userSubstitutionPreferences ??= new GenericRepository<Entities.UserSubstitutionPreference>(_context);
         public IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions => _mealPlanItemSubstitutions ??= new GenericRepository<Entities.MealPlanItemSubstitution>(_context);
         public IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions => _mealLogSubstitutions ??= new GenericRepository<Entities.MealLogSubstitution>(_context);
+        public IGenericRepository<Entities.MicroLearningCard> MicroLearningCards => _microLearningCards ??= new GenericRepository<Entities.MicroLearningCard>(_context);
+        public IGenericRepository<Entities.UserCardInteraction> UserCardInteractions => _userCardInteractions ??= new GenericRepository<Entities.UserCardInteraction>(_context);
+        public IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings => _foodPortionMappings ??= new GenericRepository<Entities.FoodPortionMapping>(_context);
+        public IGenericRepository<Entities.CustomUserPortion> CustomUserPortions => _customUserPortions ??= new GenericRepository<Entities.CustomUserPortion>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }

@@ -73,38 +73,6 @@ namespace MenuGreen.API.Controllers
             return Ok(await _foodService.SearchAsync(null, null, null, null, maxPrice, null, null, userId, null));
         }
 
-        [HttpGet("portions/local-units")]
-        public IActionResult LocalUnits()
-        {
-            return Ok(new[] { "chén", "bát", "muỗng", "đĩa", "ly", "cốc" });
-        }
-
-        [HttpPost("portions/convert")]
-        public IActionResult ConvertPortion([FromBody] PortionConvertRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var grams = request.Unit.ToLowerInvariant() switch
-            {
-                "chén" => request.Amount * 150m,
-                "bát" => request.Amount * 200m,
-                "muỗng" => request.Amount * 15m,
-                "đĩa" => request.Amount * 250m,
-                "ly" => request.Amount * 250m,
-                "cốc" => request.Amount * 240m,
-                _ => request.Amount
-            };
-
-            return Ok(new { request.Amount, request.Unit, Grams = grams });
-        }
-
-        [HttpGet("portions/estimate")]
-        public async Task<IActionResult> EstimatePortion([FromQuery] Guid foodId)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            var food = await _foodService.GetByIdAsync(foodId, userId, null);
-            return Ok(new { foodId, food.DefaultServingG, SuggestedUnit = "chén" });
-        }
-
         [HttpPost("meal-log/vn")]
         [HttpPost("meal-log/vn/quick-add")]
         public async Task<IActionResult> QuickAddMealLog([FromBody] MealLogUpsertRequest request)
@@ -151,9 +119,5 @@ namespace MenuGreen.API.Controllers
         }
     }
 
-    public class PortionConvertRequest
-    {
-        public decimal Amount { get; set; }
-        public string Unit { get; set; } = string.Empty;
-    }
+
 }
