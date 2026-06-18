@@ -34,6 +34,7 @@ export const apiEndpoints = {
   },
   recipe: {
     base: `${API_BASE_URL}/Recipe`,
+    search: `${API_BASE_URL}/Recipe/search`,
     byId: (id: string) => `${API_BASE_URL}/Recipe/${id}`,
   },
   subscriptionPlan: {
