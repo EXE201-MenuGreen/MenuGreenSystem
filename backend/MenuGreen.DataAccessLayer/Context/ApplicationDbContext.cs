@@ -53,6 +53,10 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<BudgetRequest> BudgetRequests { get; set; }
         public DbSet<ReminderProfile> ReminderProfiles { get; set; }
         public DbSet<GoalDriftAlert> GoalDriftAlerts { get; set; }
+        public DbSet<MicroLearningCard> MicroLearningCards { get; set; }
+        public DbSet<UserCardInteraction> UserCardInteractions { get; set; }
+        public DbSet<FoodPortionMapping> FoodPortionMappings { get; set; }
+        public DbSet<CustomUserPortion> CustomUserPortions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
