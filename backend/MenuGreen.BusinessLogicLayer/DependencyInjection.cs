@@ -55,6 +55,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IMicroLearningService, MicroLearningService>();
             services.AddScoped<IPortionConverterService, PortionConverterService>();
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
+            services.AddScoped<ICoachService, CoachService>();
             services.AddHttpClient<IEmailService, EmailService>();
             services.AddHttpClient(nameof(NutritionAssistantService));
             services.AddHttpClient(nameof(CvService));

@@ -52,6 +52,9 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.PremiumProgram>? _premiumPrograms;
         private IGenericRepository<Entities.UserPremiumProgram>? _userPremiumPrograms;
         private IGenericRepository<Entities.UserProgramMilestone>? _userProgramMilestones;
+        private IGenericRepository<Entities.CoachProfile>? _coachProfiles;
+        private IGenericRepository<Entities.CoachConnection>? _coachConnections;
+        private IGenericRepository<Entities.CoachFeedback>? _coachFeedbacks;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -100,6 +103,9 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.PremiumProgram> PremiumPrograms => _premiumPrograms ??= new GenericRepository<Entities.PremiumProgram>(_context);
         public IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms => _userPremiumPrograms ??= new GenericRepository<Entities.UserPremiumProgram>(_context);
         public IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones => _userProgramMilestones ??= new GenericRepository<Entities.UserProgramMilestone>(_context);
+        public IGenericRepository<Entities.CoachProfile> CoachProfiles => _coachProfiles ??= new GenericRepository<Entities.CoachProfile>(_context);
+        public IGenericRepository<Entities.CoachConnection> CoachConnections => _coachConnections ??= new GenericRepository<Entities.CoachConnection>(_context);
+        public IGenericRepository<Entities.CoachFeedback> CoachFeedbacks => _coachFeedbacks ??= new GenericRepository<Entities.CoachFeedback>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
