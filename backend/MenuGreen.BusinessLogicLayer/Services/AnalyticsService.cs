@@ -384,7 +384,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var dailyLogs = mealLogs
                 .Where(x => x.LoggedAt.HasValue)
-                .GroupBy(x => new { x.UserId, Date = DateOnly.FromDateTime(x.LoggedAt!.Value.DateTime) })
+                .GroupBy(x => new { x.UserId, Date = DateOnly.FromDateTime(x.LoggedAt!.Value.Date) })
                 .ToList();
 
             const decimal calorieTarget = 2000;
@@ -488,7 +488,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var dailyTotals = mealLogs
                 .Where(x => x.LoggedAt.HasValue)
-                .GroupBy(x => new { x.UserId, Date = DateOnly.FromDateTime(x.LoggedAt!.Value.DateTime) })
+                .GroupBy(x => new { x.UserId, Date = DateOnly.FromDateTime(x.LoggedAt!.Value.Date) })
                 .Select(g => g.Sum(x => x.CaloriesKcal ?? 0))
                 .ToList();
 
@@ -510,7 +510,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     {
                         Percent = Math.Round((decimal)belowTarget / total * 100, 1),
                         UserCount = belowTarget,
-                        AvgVariance = total > 0 ? Math.Round(dailyTotals.Where(x => x < calorieTarget * 0.9m).DefaultIfEmpty(0).Average(), 0) - (decimal)(calorieTarget * 0.9) : 0
+                        AvgVariance = total > 0 ? Math.Round(dailyTotals.Where(x => x < calorieTarget * 0.9m).DefaultIfEmpty(0).Average(), 0) - calorieTarget * 0.9m : 0
                     },
                     OnTarget = new CalorieSegment
                     {
@@ -522,7 +522,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     {
                         Percent = Math.Round((decimal)aboveTarget / total * 100, 1),
                         UserCount = aboveTarget,
-                        AvgVariance = Math.Round(dailyTotals.Where(x => x > calorieTarget * 1.1m).DefaultIfEmpty(0).Average(), 0) - (decimal)(calorieTarget * 1.1)
+                        AvgVariance = Math.Round(dailyTotals.Where(x => x > calorieTarget * 1.1m).DefaultIfEmpty(0).Average(), 0) - calorieTarget * 1.1m
                     }
                 },
                 WeeklyTrend = new List<WeeklyCalorieDistribution>(),
