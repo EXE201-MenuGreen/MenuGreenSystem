@@ -172,6 +172,58 @@ class RecommendationProvider extends ChangeNotifier {
   }
 
   // =========================================================================
+  // TODAY RECOMMENDATIONS (Phase 1 — QuickRecommendationCard)
+  // =========================================================================
+
+  RecommendationItem? _todayBreakfast;
+  RecommendationItem? _todayLunch;
+  RecommendationItem? _todayDinner;
+  bool _isLoadingToday = false;
+  String? _todayError;
+
+  RecommendationItem? get todayBreakfast => _todayBreakfast;
+  RecommendationItem? get todayLunch => _todayLunch;
+  RecommendationItem? get todayDinner => _todayDinner;
+  bool get isLoadingToday => _isLoadingToday;
+  String? get todayError => _todayError;
+
+  Future<void> loadTodayRecommendations() async {
+    _isLoadingToday = true;
+    _todayError = null;
+    _todayBreakfast = null;
+    _todayLunch = null;
+    _todayDinner = null;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait([
+        _repository.generateSafeRecommendation(SafeRecommendationRequest(mealType: 'breakfast', maxResults: 1)),
+        _repository.generateSafeRecommendation(SafeRecommendationRequest(mealType: 'lunch', maxResults: 1)),
+        _repository.generateSafeRecommendation(SafeRecommendationRequest(mealType: 'dinner', maxResults: 1)),
+      ]);
+
+      _todayBreakfast = results[0]?.items.firstOrNull;
+      _todayLunch = results[1]?.items.firstOrNull;
+      _todayDinner = results[2]?.items.firstOrNull;
+
+      _todayError = null;
+    } catch (e) {
+      _todayError = e.toString();
+    } finally {
+      _isLoadingToday = false;
+      notifyListeners();
+    }
+  }
+
+  void clearTodayRecommendations() {
+    _todayBreakfast = null;
+    _todayLunch = null;
+    _todayDinner = null;
+    _todayError = null;
+    notifyListeners();
+  }
+
+  // =========================================================================
   // LEGACY METHODS (backward compatibility)
   // =========================================================================
 
@@ -548,6 +600,10 @@ class RecommendationProvider extends ChangeNotifier {
     _feedbackSummary = null;
     _explanation = null;
     _currentScore = null;
+    _todayBreakfast = null;
+    _todayLunch = null;
+    _todayDinner = null;
+    _todayError = null;
     _isLoading = false;
     _isGenerating = false;
     _isLoadingHistory = false;

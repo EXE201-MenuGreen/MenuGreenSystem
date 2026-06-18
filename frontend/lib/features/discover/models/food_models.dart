@@ -186,6 +186,8 @@ class RecommendationItem {
     required this.estimatedPriceVnd,
     required this.cookingTimeMin,
     required this.score,
+    this.matchReason,
+    this.matchScore,
   });
 
   final String id;
@@ -196,6 +198,8 @@ class RecommendationItem {
   final int estimatedPriceVnd;
   final int cookingTimeMin;
   final double score;
+  final String? matchReason;
+  final String? matchScore;
 
   bool get isFood => type.toLowerCase() == 'food';
 
@@ -214,6 +218,8 @@ class RecommendationItem {
           ? json['cookingTimeMin'] as int
           : (json['CookingTimeMin'] is int ? json['CookingTimeMin'] as int : 0),
       score: numVal(json['score'] ?? json['Score']),
+      matchReason: json['matchReason']?.toString() ?? json['MatchReason']?.toString(),
+      matchScore: json['matchScore']?.toString() ?? json['MatchScore']?.toString(),
     );
   }
 }
