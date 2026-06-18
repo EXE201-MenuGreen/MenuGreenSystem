@@ -57,6 +57,9 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<UserCardInteraction> UserCardInteractions { get; set; }
         public DbSet<FoodPortionMapping> FoodPortionMappings { get; set; }
         public DbSet<CustomUserPortion> CustomUserPortions { get; set; }
+        public DbSet<PremiumProgram> PremiumPrograms { get; set; }
+        public DbSet<UserPremiumProgram> UserPremiumPrograms { get; set; }
+        public DbSet<UserProgramMilestone> UserProgramMilestones { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

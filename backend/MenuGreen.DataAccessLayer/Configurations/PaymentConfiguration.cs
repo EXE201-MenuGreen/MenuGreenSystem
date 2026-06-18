@@ -20,12 +20,14 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasIndex(x => x.ProviderOrderCode).IsUnique();
             builder.HasIndex(x => new { x.UserId, x.CreatedAt });
             builder.HasIndex(x => x.UserSubscriptionId);
+            builder.HasIndex(x => x.UserPremiumProgramId);
 
             builder.ToTable(t =>
                 t.HasCheckConstraint("CK_payments_status", "\"Status\" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED')"));
 
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.UserSubscription).WithMany().HasForeignKey(x => x.UserSubscriptionId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(x => x.UserPremiumProgram).WithMany().HasForeignKey(x => x.UserPremiumProgramId).OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
