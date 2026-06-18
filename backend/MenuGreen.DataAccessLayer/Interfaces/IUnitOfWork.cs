@@ -44,6 +44,9 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.UserCardInteraction> UserCardInteractions { get; }
         IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings { get; }
         IGenericRepository<Entities.CustomUserPortion> CustomUserPortions { get; }
+        IGenericRepository<Entities.PremiumProgram> PremiumPrograms { get; }
+        IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms { get; }
+        IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones { get; }
         
         Task<int> CompleteAsync();
     }
