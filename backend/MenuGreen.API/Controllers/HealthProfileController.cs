@@ -33,23 +33,6 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Lấy hồ sơ sức khỏe tổng hợp của user hiện tại.
-        /// </summary>
-        [HttpGet("me/summary")]
-        public async Task<IActionResult> GetSummary()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!Guid.TryParse(userId, out var id)) return Unauthorized();
-            try
-            {
-                return Ok(await _service.GetSummaryAsync(id));
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
-        }
 
         /// <summary>
         /// Tính lại BMI, BMR, TDEE, target calories và macro từ dữ liệu sức khỏe hiện tại.

@@ -189,47 +189,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }).ToList();
         }
 
-        public async Task<IReadOnlyList<FoodResponse>> GetSimilarAsync(Guid foodId, Guid? userId = null, string? allergyMode = null)
-        {
-            var currentFood = await _unitOfWork.Foods.GetByIdAsync(foodId) ?? throw new Exception("Food not found.");
-            var foods = (await _unitOfWork.Foods.GetAllAsync())
-                .Where(f => f.IsActive != false && f.Id != foodId);
-
-            if (!string.IsNullOrWhiteSpace(currentFood.Category))
-            {
-                foods = foods.Where(f =>
-                    string.Equals(f.Category, currentFood.Category, StringComparison.OrdinalIgnoreCase));
-            }
-
-            var similar = foods
-                .OrderBy(f => Math.Abs((double)((f.CaloriesKcal ?? 0) - (currentFood.CaloriesKcal ?? 0))))
-                .Take(10)
-                .ToList();
-
-            var userKeys = userId.HasValue
-                ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
-                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(similar.Select(f => f.Id));
-            var mode = NormalizeAllergyMode(allergyMode);
-
-            var result = new List<FoodResponse>();
-            foreach (var food in similar)
-            {
-                foodKeysMap.TryGetValue(food.Id, out var foodKeys);
-                foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var dto = EnrichWithAllergy(Map(food), foodKeys, userKeys);
-                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser) continue;
-                result.Add(dto);
-            }
-
-            return result;
-        }
-
-        public async Task<AllergenRiskResult> GetAllergyBadgeAsync(Guid foodId, Guid? userId = null)
-        {
-            return await _allergenMatching.EvaluateFoodRiskAsync(foodId, userId);
-        }
-
         public async Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId)
         {
             var favorites = await _db.FavoriteFoods
