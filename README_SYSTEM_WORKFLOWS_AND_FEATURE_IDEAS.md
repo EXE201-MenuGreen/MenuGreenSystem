@@ -1570,7 +1570,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Family/grocery-list` — Lấy danh sách nguyên liệu đi chợ tổng hợp của cả nhà cho tuần tới (gộp nguyên liệu từ tất cả thực đơn thành viên).
 
 
-5. **PT Review Mode** (Chưa có)
+5. **PT Review Mode** (Đã làm)
    - Người dùng chia sẻ báo cáo tuần để PT nhận xét và điều chỉnh kế hoạch.
    - Hỗ trợ người dùng tự tạo một liên kết chia sẻ an toàn chứa báo cáo phân tích dinh dưỡng/luyện tập tuần của mình (Weekly Report) để gửi cho huấn luyện viên cá nhân (PT) bên ngoài xem nhanh và ghi nhận các nhận xét, đề xuất điều chỉnh thực đơn mà không bắt buộc PT phải đăng ký tài khoản dài hạn hoặc kết nối thường trực trên app.
 
