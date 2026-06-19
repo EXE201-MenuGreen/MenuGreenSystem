@@ -63,6 +63,7 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<CoachProfile> CoachProfiles { get; set; }
         public DbSet<CoachConnection> CoachConnections { get; set; }
         public DbSet<CoachFeedback> CoachFeedbacks { get; set; }
+        public DbSet<PtReviewRequest> PtReviewRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

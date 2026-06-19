@@ -52,6 +52,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IAiAssistantService, AiAssistantService>();
             services.AddScoped<ICvService, CvService>();
             services.AddScoped<IPlannedVsActualService, PlannedVsActualService>();
+            services.AddScoped<IPtReviewService, PtReviewService>();
             services.AddScoped<IMicroLearningService, MicroLearningService>();
             services.AddScoped<IPortionConverterService, PortionConverterService>();
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
