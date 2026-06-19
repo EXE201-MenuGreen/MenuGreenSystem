@@ -1037,7 +1037,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    **API cần có để làm đúng bài:**
 
    ### A. Allergy profile
-   - `GET /api/Allergy/profile` — lấy hồ sơ dị ứng của user.
+    - `GET /api/Allergy` — lấy danh sách dị ứng của user.
    - `PUT /api/Allergy/profile` — cập nhật danh sách dị ứng.
    - `GET /api/Allergy/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
 
@@ -1048,7 +1048,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    ### C. User experience
    - `GET /api/Allergy/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
-   - `POST /api/Allergy/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
+
 
 6. **Hôm nay ăn gì? (1-tap daily starter)** (Đã làm)
    - Màn hình vào nhanh cho người mới, chọn ngay thực đơn trong ngày.
@@ -1146,7 +1146,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    ### A. Tái sử dụng APIs Dị ứng & Nguyên liệu hiện có
    - `GET /api/Ingredient/{id}` — Lấy chi tiết nguyên liệu gốc và kiểm tra độ an toàn dị ứng (`IsSafeForUser`) (đã có).
    - `GET /api/Ingredient/catalog` — Lấy danh mục nguyên liệu để tìm nhóm tương đồng (đã có).
-   - `GET /api/Allergy/profile` — Lấy hồ sơ dị ứng hiện tại của người dùng (đã có).
+    - `GET /api/Allergy` — Lấy danh sách dị ứng hiện tại của người dùng (đã có).
 
    ### B. API Gợi ý Nguyên liệu thay thế (Substitution Engine đề xuất mới)
    - `GET /api/Ingredient/{id}/substitutes` — Tìm các nguyên liệu thay thế phù hợp cho một nguyên liệu cụ thể.

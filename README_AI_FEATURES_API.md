@@ -190,7 +190,7 @@ UserAiProfile
 
 ### Allergy APIs (Tái sử dụng)
 - `GET /api/Allergy/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
-- `POST /api/Allergy/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
+
 - `GET /api/Recipe/{recipeId}/safe-alternatives` — tìm công thức thay thế an toàn.
 
 ### Meal Plan APIs (Tái sử dụng)
