@@ -55,6 +55,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.CoachProfile>? _coachProfiles;
         private IGenericRepository<Entities.CoachConnection>? _coachConnections;
         private IGenericRepository<Entities.CoachFeedback>? _coachFeedbacks;
+        private IGenericRepository<Entities.PtReviewRequest>? _ptReviewRequests;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -106,6 +107,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.CoachProfile> CoachProfiles => _coachProfiles ??= new GenericRepository<Entities.CoachProfile>(_context);
         public IGenericRepository<Entities.CoachConnection> CoachConnections => _coachConnections ??= new GenericRepository<Entities.CoachConnection>(_context);
         public IGenericRepository<Entities.CoachFeedback> CoachFeedbacks => _coachFeedbacks ??= new GenericRepository<Entities.CoachFeedback>(_context);
+        public IGenericRepository<Entities.PtReviewRequest> PtReviewRequests => _ptReviewRequests ??= new GenericRepository<Entities.PtReviewRequest>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
