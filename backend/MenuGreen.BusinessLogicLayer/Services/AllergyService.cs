@@ -201,63 +201,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return Task.FromResult<IEnumerable<AllergyCatalogResponse>>(catalog);
         }
 
-        public async Task<IEnumerable<FoodResponse>> GetRecommendationsAsync(Guid userId)
-        {
-            var userKeys = await _allergenMatchingService.GetUserAllergenKeysAsync(userId);
-            var foods = await _db.Foods.AsNoTracking().Where(f => f.IsActive != false).ToListAsync();
-
-            if (userKeys.Count == 0)
-            {
-                return foods.Take(20).Select(f => MapFoodToResponse(f, new HashSet<string>(), userKeys)).ToList();
-            }
-
-            var foodIds = foods.Select(f => f.Id).ToList();
-            var foodAllergenMap = await _allergenMatchingService.GetFoodAllergenKeysAsync(foodIds);
-
-            var safeFoods = new List<FoodResponse>();
-            foreach (var food in foods)
-            {
-                foodAllergenMap.TryGetValue(food.Id, out var foodKeys);
-                foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                if (!foodKeys.Overlaps(userKeys))
-                {
-                    safeFoods.Add(MapFoodToResponse(food, foodKeys, userKeys));
-                }
-            }
-
-            return safeFoods.Take(20).ToList();
-        }
-
-        private static FoodResponse MapFoodToResponse(Food f, HashSet<string> foodKeys, HashSet<string> userKeys)
-        {
-            var dto = new FoodResponse
-            {
-                Id = f.Id,
-                NameVi = f.NameVi,
-                NameEn = f.NameEn,
-                Category = f.Category,
-                Description = f.Description,
-                CaloriesKcal = f.CaloriesKcal,
-                ProteinG = f.ProteinG,
-                CarbsG = f.CarbsG,
-                FatG = f.FatG,
-                FiberG = f.FiberG,
-                EstimatedPriceVnd = f.EstimatedPriceVnd,
-                DefaultServingG = f.DefaultServingG,
-                ImageUrl = f.ImageUrl,
-                IsActive = f.IsActive,
-                AllergenKeys = foodKeys.OrderBy(k => k).ToList(),
-                AllergenLabelsVi = AllergenCatalog.ToDisplayNamesVi(foodKeys).ToList()
-            };
-
-            var matchedKeys = foodKeys.Where(userKeys.Contains).ToList();
-            dto.MatchedAllergens = AllergenCatalog.ToDisplayNamesVi(matchedKeys).ToList();
-            dto.AllergyRiskLevel = matchedKeys.Count > 0 ? AllergenCatalog.RiskHigh : AllergenCatalog.RiskNone;
-            dto.IsSafeForUser = AllergenCatalog.IsSafeForUser(dto.AllergyRiskLevel);
-            return dto;
-        }
-
         private static AllergyResponse MapToResponse(Allergy allergy)
         {
             return new AllergyResponse

@@ -131,9 +131,9 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = true,
+        ValidateIssuer = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Issuer"]),
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-        ValidateAudience = true,
+        ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Audience"]),
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
     };
 });
@@ -215,7 +215,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseRateLimiter();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseRateLimiter();
+}
 app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
 app.UseAuthorization();
 
