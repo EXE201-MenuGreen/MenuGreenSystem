@@ -73,27 +73,11 @@ namespace MenuGreen.API.Controllers
             return Ok(await _foodService.SearchAsync(null, null, null, null, maxPrice, null, null, userId, null));
         }
 
-        [HttpPost("meal-log/vn")]
-        [HttpPost("meal-log/vn/quick-add")]
-        public async Task<IActionResult> QuickAddMealLog([FromBody] MealLogUpsertRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _nutritionTrackingService.CreateMealLogAsync(userId, request));
-        }
-
         [HttpGet("meal-log/vn/suggestions")]
         public async Task<IActionResult> MealLogSuggestions([FromQuery] string? keyword, [FromQuery] int? maxPriceVnd)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _foodService.SearchAsync(keyword, null, null, null, maxPriceVnd, null, null, userId, null));
-        }
-
-        [HttpGet("meal-log/vn/history")]
-        public async Task<IActionResult> MealLogHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _nutritionTrackingService.GetMealLogsAsync(userId, page, pageSize));
         }
 
         [HttpGet("recommendations/budget-aware")]

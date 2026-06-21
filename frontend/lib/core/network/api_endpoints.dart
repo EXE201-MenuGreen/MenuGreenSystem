@@ -83,7 +83,7 @@ class ApiEndpoints {
   // MealPlan endpoints (Admin/Full CRUD)
   static String get mealPlans => '$baseUrl/MealPlan';
   static String get mealPlansCreateEmpty => '$baseUrl/MealPlan/empty';
-  static String get mealPlansCreateWithItems => '$baseUrl/MealPlan/with-items';
+  static String get mealPlansCreateWithItems => '$baseUrl/MealPlan';
   static String mealPlanById(String id) => '$baseUrl/MealPlan/$id';
   static String mealPlanItems(String planId) => '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>

@@ -22,20 +22,17 @@ namespace MenuGreen.API.Controllers
         private readonly IRecommendationService _recommendationService;
         private readonly INutritionTrackingService _nutritionTrackingService;
         private readonly IMealPlanService _mealPlanService;
-        private readonly IUserMealPlanService _userMealPlanService;
 
         public GymGoalsController(
             IUserAiProfileService userAiProfileService,
             IRecommendationService recommendationService,
             INutritionTrackingService nutritionTrackingService,
-            IMealPlanService mealPlanService,
-            IUserMealPlanService userMealPlanService)
+            IMealPlanService mealPlanService)
         {
             _userAiProfileService = userAiProfileService;
             _recommendationService = recommendationService;
             _nutritionTrackingService = nutritionTrackingService;
             _mealPlanService = mealPlanService;
-            _userMealPlanService = userMealPlanService;
         }
 
         /// <summary>
@@ -135,7 +132,7 @@ namespace MenuGreen.API.Controllers
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             var dashboard = await _mealPlanService.GetDashboardAsync(date, userId);
-            var adherence = await _userMealPlanService.GetAdherenceAsync(userId, date);
+            var adherence = await _mealPlanService.GetAdherenceAsync(userId, date);
             var tracking = await _nutritionTrackingService.GetDailySummaryAsync(userId, date);
 
             return Ok(new
