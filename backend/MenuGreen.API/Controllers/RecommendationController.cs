@@ -158,23 +158,6 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Sinh gợi ý an toàn, tự động loại trừ dị ứng của người dùng.
-        /// </summary>
-        [HttpPost("generate/safe")]
-        public async Task<IActionResult> GenerateSafe([FromBody] SafeRecommendationGenerateRequest request)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            var generateRequest = new RecommendationGenerateRequest
-            {
-                MealType = request.MealType,
-                TargetCalories = request.TargetCalories,
-                ExcludeUserAllergies = true,
-                MaxResults = request.MaxResults
-            };
-            return Ok(await _service.GenerateAsync(userId, generateRequest));
-        }
-
-        /// <summary>
         /// Sinh thực đơn ăn uống gợi ý cho cả tuần.
         /// </summary>
         [HttpPost("generate/weekly-plan")]
