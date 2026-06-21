@@ -18,5 +18,14 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         /// <summary>Loại món có dị ứng trùng user (mặc định true khi có userId).</summary>
         public bool ExcludeUserAllergies { get; set; } = true;
+
+        /// <summary>Vietnamese taste region preference: north, central, south.</summary>
+        public string? Region { get; set; }
+
+        /// <summary>Typical meal context: eat-out, home-cooked, mixed.</summary>
+        public string? MealContext { get; set; }
+
+        /// <summary>Boost familiar Vietnamese foods and portions.</summary>
+        public bool LocalFriendly { get; set; }
     }
 }

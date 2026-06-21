@@ -552,9 +552,9 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 > Các endpoint này tái sử dụng `FoodService.SearchAsync` và logic phân loại món hiện có, nên không code thêm một search engine riêng.
 
 ### C. Portion / unit conversion
-- `GET /Nutrition/portions/local-units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
-- `POST /Nutrition/portions/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
-- `GET /Nutrition/portions/estimate?foodId=` — ước lượng khẩu phần mặc định theo món.
+- `GET /PortionConverter/units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
+- `POST /PortionConverter/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
+- `GET /PortionConverter/units/food/{foodId}` — ước lượng khẩu phần mặc định theo món.
 
 > `custom-estimate` chưa tách riêng vì có thể dùng chung với flow log bữa ăn và convert hiện tại; nếu sau này cần UX riêng thì tách sau.
 
@@ -1325,7 +1325,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - Hỗ trợ người dùng nhập liệu nhanh chóng và chính xác bằng các đơn vị ước lượng quen thuộc trong đời sống ăn uống hằng ngày của người Việt (như chén cơm, bát phở, muỗng canh dầu ăn, đĩa rau, trái/quả...), thay vì bắt buộc phải cân đo chính xác khối lượng gram/ml.
 
    **Chức năng tương đương đã có trong hệ thống:**
-   - `/api/Nutrition/portions/local-units` và `/api/portions/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong Vietnam-first local nutrition workflow.
+   - `/api/PortionConverter/units` và `/api/PortionConverter/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong PortionConverterController.
 
    **Giải thích đúng workflow:**
    - **Định nghĩa bảng quy đổi (Mapping Database):** Hệ thống duy trì bảng cấu hình quy đổi đơn vị dân dã cho từng món ăn/nguyên liệu (ví dụ: 1 chén cơm trắng = 150g, 1 bát phở bò = 650g, 1 muỗng cà phê dầu ăn = 5g, 1 đĩa rau cải luộc = 200g, 1 quả chuối sứ = 80g).

@@ -39,22 +39,6 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Lấy danh sách các gói subscription đang hoạt động.
-        /// </summary>
-        [HttpGet("active")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetActive()
-        {
-            try
-            {
-                return Ok(await _service.GetActiveAsync());
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
-        }
 
         /// <summary>
         /// Lấy chi tiết chính sách của một gói subscription theo Id.

@@ -21,7 +21,11 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
             int? maxPrepTimeMin,
             string? category,
             Guid? userId = null,
-            string? allergyMode = null);
+            string? allergyMode = null,
+            string? region = null,
+            bool? localOnly = null,
+            string? mealContext = null,
+            string? sort = null);
         Task<IReadOnlyList<RecipeResponse>> GetRecipesAsync(Guid foodId);
         Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId);
         Task FavoriteAsync(Guid userId, Guid foodId);

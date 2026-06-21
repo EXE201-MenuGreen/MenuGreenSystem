@@ -20,6 +20,9 @@ namespace MenuGreen.DataAccessLayer.Entities
         public DateTimeOffset? ClickedAt { get; set; }
         public DateTimeOffset? ActionCompletedAt { get; set; }
 
+        public bool IsDismissed { get; set; } = false;
+        public DateTimeOffset? DismissedAt { get; set; }
+
         public virtual User? User { get; set; }
     }
 }
