@@ -14,9 +14,9 @@ namespace MenuGreen.API.Controllers
     [Authorize(Policy = "UserOnly")]
     public class UserMealPlanController : ControllerBase
     {
-        private readonly IUserMealPlanService _service;
+        private readonly IMealPlanService _service;
 
-        public UserMealPlanController(IUserMealPlanService service)
+        public UserMealPlanController(IMealPlanService service)
         {
             _service = service;
         }
@@ -87,7 +87,7 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             try
             {
-                await _service.DeleteAsync(userId, mealPlanId);
+                await _service.DeleteAsync(mealPlanId, userId);
                 return Ok(new { Message = "Deleted successfully." });
             }
             catch (Exception ex)

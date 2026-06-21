@@ -13,10 +13,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class MealPlanService : IMealPlanService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INutritionTrackingService _nutritionTracking;
 
-        public MealPlanService(IUnitOfWork unitOfWork)
+        public MealPlanService(IUnitOfWork unitOfWork, INutritionTrackingService nutritionTracking)
         {
             _unitOfWork = unitOfWork;
+            _nutritionTracking = nutritionTracking;
         }
 
         public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null)
@@ -100,7 +102,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null)
         {
             var entity = await GetMealPlanAsync(id);
-            ValidateItems(request.Items);
 
             entity.Title = request.Title;
             entity.PlanType = request.PlanType;
@@ -114,11 +115,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
 
-            var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == entity.Id);
-            _unitOfWork.MealPlanItems.RemoveRange(existingItems);
-            await _unitOfWork.CompleteAsync();
+            if (request.Items != null && request.Items.Any())
+            {
+                ValidateItems(request.Items);
+                var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == entity.Id);
+                _unitOfWork.MealPlanItems.RemoveRange(existingItems);
+                await _unitOfWork.CompleteAsync();
 
-            await ReplaceItemsAsync(entity.Id, request.Items);
+                await ReplaceItemsAsync(entity.Id, request.Items);
+            }
+
             return await GetByIdAsync(entity.Id);
         }
 
@@ -216,48 +222,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealLogResponse> ConvertItemToLogAsync(Guid planId, Guid itemId, MealPlanConvertToLogRequest request, Guid? userId = null)
         {
             var item = await GetPlanItemAsync(planId, itemId);
-            var mealLog = new MealLog
+
+            var mealLogRequest = new MealLogUpsertRequest
             {
-                Id = Guid.NewGuid(),
-                UserId = userId ?? Guid.Empty,
                 FoodId = item.FoodId,
                 RecipeId = item.RecipeId,
-                MealType = item.MealType,
+                MealType = item.MealType ?? "snack",
                 QuantityG = 100,
-                CaloriesKcal = item.TargetCalories,
-                ProteinG = 0,
-                CarbsG = 0,
-                FatG = 0,
-                SourceType = "MEAL_PLAN",
-                Notes = request.Notes,
+                Notes = request.Notes ?? "Logged from meal plan.",
                 LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
-                MealPlanItemId = item.Id,
-                IsFromMealPlan = true
+                MealPlanItemId = item.Id
             };
 
-            await _unitOfWork.MealLogs.AddAsync(mealLog);
+            var mealLog = await _nutritionTracking.CreateMealLogAsync(userId ?? Guid.Empty, mealLogRequest);
             item.IsCompleted = true;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
 
-            return new MealLogResponse
-            {
-                Id = mealLog.Id,
-                UserId = mealLog.UserId,
-                FoodId = mealLog.FoodId,
-                RecipeId = mealLog.RecipeId,
-                MealType = mealLog.MealType,
-                QuantityG = mealLog.QuantityG,
-                CaloriesKcal = mealLog.CaloriesKcal,
-                ProteinG = mealLog.ProteinG,
-                CarbsG = mealLog.CarbsG,
-                FatG = mealLog.FatG,
-                SourceType = mealLog.SourceType,
-                Notes = mealLog.Notes,
-                LoggedAt = mealLog.LoggedAt,
-                MealPlanItemId = mealLog.MealPlanItemId,
-                IsFromMealPlan = mealLog.IsFromMealPlan
-            };
+            return mealLog;
         }
 
         public async Task<MealPlanResponse> CommitAsync(Guid planId, MealPlanCommitRequest request, Guid? userId = null)
@@ -916,6 +898,256 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 WithinBudgetDays = withinBudgetDays,
                 TotalEvaluatedDays = totalEvaluatedDays,
                 FeedbackMessage = feedback
+            };
+        }
+
+        // ==================== Daily Meal Plan Implementations ====================
+
+        public async Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date)
+        {
+            var plan = await FindDailyPlanAsync(userId, date);
+            if (plan == null) return null;
+            return await MapAsync(plan);
+        }
+
+        public async Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date)
+        {
+            var plan = await FindDailyPlanAsync(userId, date);
+            if (plan == null)
+            {
+                return new MealPlanAdherenceResponse
+                {
+                    Date = date,
+                    PlannedKcal = 0,
+                    ActualKcal = 0,
+                    DeviationPercent = null,
+                    CompletedCount = 0,
+                    TotalCount = 0
+                };
+            }
+
+            var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id)).ToList();
+            var itemIds = items.Select(x => x.Id).ToHashSet();
+            var logs = (await _unitOfWork.MealLogs.FindAsync(
+                x => x.UserId == userId
+                    && x.MealPlanItemId.HasValue
+                    && itemIds.Contains(x.MealPlanItemId.Value))).ToList();
+
+            var plannedKcal = items.Sum(x => x.TargetCalories ?? 0);
+            var actualKcal = logs.Sum(x => x.CaloriesKcal ?? 0);
+            decimal? deviation = plannedKcal > 0
+                ? Math.Round((actualKcal - plannedKcal) / plannedKcal * 100m, 2)
+                : null;
+
+            return new MealPlanAdherenceResponse
+            {
+                Date = date,
+                PlannedKcal = plannedKcal,
+                ActualKcal = actualKcal,
+                DeviationPercent = deviation,
+                CompletedCount = items.Count(x => x.IsCompleted),
+                TotalCount = items.Count
+            };
+        }
+
+        public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
+        {
+            ValidateItems(request.Items);
+            var plan = await FindDailyPlanAsync(userId, request.PlannedDate);
+            if (plan == null)
+            {
+                plan = new MealPlanHeader
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = request.Title ?? $"Daily plan {request.PlannedDate:yyyy-MM-dd}",
+                    PlanType = "DAILY",
+                    StartDate = request.PlannedDate,
+                    EndDate = request.PlannedDate,
+                    TargetCalories = request.TargetCalories,
+                    GeneratedBy = "USER",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanHeaders.AddAsync(plan);
+                await _unitOfWork.CompleteAsync();
+            }
+            else
+            {
+                plan.Title = request.Title ?? plan.Title;
+                plan.TargetCalories = request.TargetCalories ?? plan.TargetCalories;
+                plan.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.MealPlanHeaders.Update(plan);
+                await _unitOfWork.CompleteAsync();
+
+                var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id);
+                _unitOfWork.MealPlanItems.RemoveRange(existingItems);
+                await _unitOfWork.CompleteAsync();
+            }
+
+            await AddDailyItemsAsync(plan.Id, request.PlannedDate, request.Items);
+            return (await GetByDateAsync(userId, request.PlannedDate))!;
+        }
+
+        public async Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request)
+        {
+            var items = request.Items.Select(x => new MealPlanItemUpsertRequest
+            {
+                MealType = NormalizeMealType(x.MealType),
+                FoodId = x.FoodId,
+                RecipeId = x.RecipeId,
+                PlannedDate = request.PlannedDate,
+                ScheduledTime = x.ScheduledTime,
+                TargetCalories = x.TargetCalories,
+                IsCompleted = false
+            }).ToList();
+
+            return await CreateOrUpdateDailyAsync(userId, new UserMealPlanUpsertRequest
+            {
+                PlannedDate = request.PlannedDate,
+                TargetCalories = request.TargetCalories,
+                Title = $"Daily plan {request.PlannedDate:yyyy-MM-dd}",
+                Items = items
+            });
+        }
+
+        public async Task<CompleteMealPlanItemResponse> CompleteItemAsync(
+            Guid userId,
+            Guid itemId,
+            CompleteMealPlanItemRequest request)
+        {
+            var item = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId)
+                ?? throw new Exception("Meal plan item not found.");
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(item.MealPlanId)
+                ?? throw new Exception("Meal plan not found.");
+
+            if (plan.UserId != userId) throw new Exception("Forbidden.");
+
+            var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == itemId);
+            var existingLog = existingLogs.FirstOrDefault();
+            if (existingLog != null)
+            {
+                item.IsCompleted = true;
+                _unitOfWork.MealPlanItems.Update(item);
+                await _unitOfWork.CompleteAsync();
+                return new CompleteMealPlanItemResponse
+                {
+                    Item = await MapItemAsync(item, existingLog.Id),
+                    MealLog = await _nutritionTracking.GetMealLogAsync(userId, existingLog.Id)
+                };
+            }
+
+            if (!item.FoodId.HasValue && !item.RecipeId.HasValue)
+            {
+                throw new Exception("Meal plan item must have FoodId or RecipeId.");
+            }
+
+            var quantity = request.QuantityG ?? 100m;
+            var mealLogRequest = new MealLogUpsertRequest
+            {
+                FoodId = item.FoodId,
+                RecipeId = item.RecipeId,
+                MealType = item.MealType ?? "snack",
+                QuantityG = quantity,
+                Notes = "Logged from meal plan.",
+                LoggedAt = DateTime.UtcNow,
+                MealPlanItemId = item.Id
+            };
+
+            var mealLog = await _nutritionTracking.CreateMealLogAsync(userId, mealLogRequest);
+            item.IsCompleted = true;
+            _unitOfWork.MealPlanItems.Update(item);
+            await _unitOfWork.CompleteAsync();
+
+            return new CompleteMealPlanItemResponse
+            {
+                Item = await MapItemAsync(item, mealLog.Id),
+                MealLog = mealLog
+            };
+        }
+
+        private async Task AddDailyItemsAsync(Guid mealPlanId, DateOnly plannedDate, IEnumerable<MealPlanItemUpsertRequest> items)
+        {
+            foreach (var item in items)
+            {
+                var planItem = new MealPlanItem
+                {
+                    Id = Guid.NewGuid(),
+                    MealPlanId = mealPlanId,
+                    MealType = NormalizeMealType(item.MealType),
+                    FoodId = item.FoodId,
+                    RecipeId = item.RecipeId,
+                    PlannedDate = item.PlannedDate ?? plannedDate,
+                    ScheduledTime = item.ScheduledTime,
+                    TargetCalories = item.TargetCalories,
+                    IsCompleted = item.IsCompleted,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanItems.AddAsync(planItem);
+            }
+
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task<MealPlanHeader?> FindDailyPlanAsync(Guid userId, DateOnly date)
+        {
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId
+                && x.PlanType == "DAILY"
+                && x.StartDate == date
+                && x.IsActive);
+
+            return plans.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).FirstOrDefault();
+        }
+
+        private static string NormalizeMealType(string mealType)
+        {
+            var normalized = (mealType ?? string.Empty).Trim().ToLowerInvariant();
+            return normalized switch
+            {
+                "breakfast" or "lunch" or "dinner" or "snack" => normalized,
+                "bữa sáng" or "bua sang" => "breakfast",
+                "bữa trưa" or "bua trua" => "lunch",
+                "bữa tối" or "bua toi" => "dinner",
+                "bữa phụ" or "bua phu" => "snack",
+                _ => normalized.Length > 0 ? normalized : "snack"
+            };
+        }
+
+        private async Task<MealPlanItemResponse> MapItemAsync(MealPlanItem item, Guid? mealLogId)
+        {
+            Food? food = null;
+            Recipe? recipe = null;
+            if (item.FoodId.HasValue) food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
+            if (item.RecipeId.HasValue) recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+
+            if (!mealLogId.HasValue)
+            {
+                var logs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == item.Id);
+                mealLogId = logs.FirstOrDefault()?.Id;
+            }
+
+            var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
+
+            return new MealPlanItemResponse
+            {
+                Id = item.Id,
+                MealPlanId = item.MealPlanId,
+                MealType = item.MealType,
+                FoodId = item.FoodId,
+                RecipeId = item.RecipeId,
+                PlannedDate = item.PlannedDate,
+                ScheduledTime = item.ScheduledTime,
+                TargetCalories = item.TargetCalories,
+                IsCompleted = item.IsCompleted,
+                MealLogId = mealLogId,
+                FoodName = food?.NameVi,
+                RecipeName = recipe?.Title,
+                SourceEntityType = item.FoodId.HasValue ? "Food" : item.RecipeId.HasValue ? "Recipe" : null,
+                Status = item.IsCompleted ? "done" : "planned",
+                EstimatedPriceVnd = price
             };
         }
     }

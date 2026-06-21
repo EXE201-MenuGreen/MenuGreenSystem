@@ -217,21 +217,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Recommendation not found.");
 
             var feedback = (await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == request.RecommendationId)).FirstOrDefault();
+            bool isNew = false;
             if (feedback == null)
             {
+                isNew = true;
                 feedback = new RecommendationFeedback
                 {
                     Id = Guid.NewGuid(),
                     RecommendationId = request.RecommendationId,
                     CreatedAt = DateTime.UtcNow
                 };
-                await _unitOfWork.RecommendationFeedbacks.AddAsync(feedback);
             }
 
             feedback.Rating = request.Rating;
             feedback.Feedback = request.Feedback;
             if (feedback.CreatedAt == null) feedback.CreatedAt = DateTime.UtcNow;
-            _unitOfWork.RecommendationFeedbacks.Update(feedback);
+
+            if (isNew)
+            {
+                await _unitOfWork.RecommendationFeedbacks.AddAsync(feedback);
+            }
+            else
+            {
+                _unitOfWork.RecommendationFeedbacks.Update(feedback);
+            }
             await _unitOfWork.CompleteAsync();
         }
 
@@ -663,6 +672,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return new BudgetAwareGenerateResponse
             {
+                Id = history.Id,
                 Items = items,
                 TotalBudget = totalBudget,
                 Remaining = remaining

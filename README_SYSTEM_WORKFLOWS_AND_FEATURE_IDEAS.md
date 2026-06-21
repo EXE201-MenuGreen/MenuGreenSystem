@@ -552,9 +552,9 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 > Các endpoint này tái sử dụng `FoodService.SearchAsync` và logic phân loại món hiện có, nên không code thêm một search engine riêng.
 
 ### C. Portion / unit conversion
-- `GET /Nutrition/portions/local-units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
-- `POST /Nutrition/portions/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
-- `GET /Nutrition/portions/estimate?foodId=` — ước lượng khẩu phần mặc định theo món.
+- `GET /PortionConverter/units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
+- `POST /PortionConverter/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
+- `GET /PortionConverter/units/food/{foodId}` — ước lượng khẩu phần mặc định theo món.
 
 > `custom-estimate` chưa tách riêng vì có thể dùng chung với flow log bữa ăn và convert hiện tại; nếu sau này cần UX riêng thì tách sau.
 
@@ -633,7 +633,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `quick-start/today`, `quick-start/refresh`, `quick-start/preview`, `quick-start/refine` không nên tạo endpoint mới; chỉ map sang `RecommendationController` hiện có.
 - `quick-start/feedback` dùng lại `POST /api/Recommendation/feedback`, không tạo luồng feedback riêng.
 - `quick-start/log` và `quick-start/log-and-plan` dùng lại `POST /api/NutritionTracking/meal-logs`, không tạo API log riêng trùng chức năng.
-- `quick-start/create-meal-plan` dùng lại `MealPlanService` / `UserMealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
+- `quick-start/create-meal-plan` dùng lại `MealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
 - `quick-start/history` nếu chỉ cần lịch sử gợi ý thì dùng lại `GET /api/Recommendation/history`, không thêm history mới.
 
 **Các API quick-start chỉ là tên workflow mô tả, không phải endpoint mới cần code:**
@@ -1037,7 +1037,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    **API cần có để làm đúng bài:**
 
    ### A. Allergy profile
-   - `GET /api/Allergy/profile` — lấy hồ sơ dị ứng của user.
+    - `GET /api/Allergy` — lấy danh sách dị ứng của user.
    - `PUT /api/Allergy/profile` — cập nhật danh sách dị ứng.
    - `GET /api/Allergy/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
 
@@ -1048,7 +1048,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    ### C. User experience
    - `GET /api/Allergy/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
-   - `POST /api/Allergy/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
+
 
 6. **Hôm nay ăn gì? (1-tap daily starter)** (Đã làm)
    - Màn hình vào nhanh cho người mới, chọn ngay thực đơn trong ngày.
@@ -1146,7 +1146,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    ### A. Tái sử dụng APIs Dị ứng & Nguyên liệu hiện có
    - `GET /api/Ingredient/{id}` — Lấy chi tiết nguyên liệu gốc và kiểm tra độ an toàn dị ứng (`IsSafeForUser`) (đã có).
    - `GET /api/Ingredient/catalog` — Lấy danh mục nguyên liệu để tìm nhóm tương đồng (đã có).
-   - `GET /api/Allergy/profile` — Lấy hồ sơ dị ứng hiện tại của người dùng (đã có).
+    - `GET /api/Allergy` — Lấy danh sách dị ứng hiện tại của người dùng (đã có).
 
    ### B. API Gợi ý Nguyên liệu thay thế (Substitution Engine đề xuất mới)
    - `GET /api/Ingredient/{id}/substitutes` — Tìm các nguyên liệu thay thế phù hợp cho một nguyên liệu cụ thể.
@@ -1325,7 +1325,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - Hỗ trợ người dùng nhập liệu nhanh chóng và chính xác bằng các đơn vị ước lượng quen thuộc trong đời sống ăn uống hằng ngày của người Việt (như chén cơm, bát phở, muỗng canh dầu ăn, đĩa rau, trái/quả...), thay vì bắt buộc phải cân đo chính xác khối lượng gram/ml.
 
    **Chức năng tương đương đã có trong hệ thống:**
-   - `/api/Nutrition/portions/local-units` và `/api/portions/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong Vietnam-first local nutrition workflow.
+   - `/api/PortionConverter/units` và `/api/PortionConverter/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong PortionConverterController.
 
    **Giải thích đúng workflow:**
    - **Định nghĩa bảng quy đổi (Mapping Database):** Hệ thống duy trì bảng cấu hình quy đổi đơn vị dân dã cho từng món ăn/nguyên liệu (ví dụ: 1 chén cơm trắng = 150g, 1 bát phở bò = 650g, 1 muỗng cà phê dầu ăn = 5g, 1 đĩa rau cải luộc = 200g, 1 quả chuối sứ = 80g).
@@ -1414,7 +1414,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/PremiumPrograms/my-active/wrap-up-report` — Lấy báo cáo phân tích chi tiết kết quả sau 8/12 tuần tham gia chương trình.
 
 
-2. **Coach Mode (B2B2C/B2C+)** (Chưa có)
+2. **Coach Mode (B2B2C/B2C+)** (Đã làm)
    - Cho phép chuyên gia theo dõi chỉ số và phản hồi cho user.
    - Cung cấp cổng kết nối và bảng điều khiển (Coach Dashboard) dành cho các huấn luyện viên cá nhân (PT), bác sĩ hoặc chuyên gia dinh dưỡng (Coach) để quản lý, theo dõi thời gian thực chỉ số sức khỏe, nhật ký ăn uống và trực tiếp tương tác, điều chỉnh kế hoạch dinh dưỡng của học viên (Client) nhằm tối ưu hiệu quả huấn luyện.
 
@@ -1570,7 +1570,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Family/grocery-list` — Lấy danh sách nguyên liệu đi chợ tổng hợp của cả nhà cho tuần tới (gộp nguyên liệu từ tất cả thực đơn thành viên).
 
 
-5. **PT Review Mode** (Chưa có)
+5. **PT Review Mode** (Đã làm)
    - Người dùng chia sẻ báo cáo tuần để PT nhận xét và điều chỉnh kế hoạch.
    - Hỗ trợ người dùng tự tạo một liên kết chia sẻ an toàn chứa báo cáo phân tích dinh dưỡng/luyện tập tuần của mình (Weekly Report) để gửi cho huấn luyện viên cá nhân (PT) bên ngoài xem nhanh và ghi nhận các nhận xét, đề xuất điều chỉnh thực đơn mà không bắt buộc PT phải đăng ký tài khoản dài hạn hoặc kết nối thường trực trên app.
 

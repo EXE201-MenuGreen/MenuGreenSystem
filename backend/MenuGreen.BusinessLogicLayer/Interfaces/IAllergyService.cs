@@ -14,6 +14,5 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task DeleteAsync(Guid userId, Guid allergyId);
         Task<IEnumerable<AllergyResponse>> UpdateProfileAsync(Guid userId, List<AllergenProfileItem> allergens);
         Task<IEnumerable<AllergyCatalogResponse>> GetCatalogAsync();
-        Task<IEnumerable<FoodResponse>> GetRecommendationsAsync(Guid userId);
     }
 }
