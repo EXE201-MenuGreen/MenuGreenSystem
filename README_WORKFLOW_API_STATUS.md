@@ -11,8 +11,8 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 1. [2.5 Meal Plan](#25-meal-plan) - ✅ HOÀN THÀNH
 2. [2.6 Recommendation](#26-recommendation) - ✅ HOÀN THÀNH
 3. [2.7 AI Assistant](#27-ai-assistant)
-4. [2.8 Subscription & Payment](#28-subscription--payment) - ✅ HOÀN THÀNH
-5. [2.9 Notification](#29-notification)
+4. [2.9 Notification](#29-notification) - ✅ HOÀN THÀNH
+5. [2.10 Analytics](#210-analytics) - ⏸️ OUT OF SCOPE
 6. [2.10 Analytics](#210-analytics)
 7. [2.11 Vietnam-first Local Nutrition](#211-vietnam-first-local-nutrition) - ✅ HOÀN THÀNH
 8. [2.12 Beginner quick-start workflow](#212-beginner-quick-start-workflow-hôm-nay-ăn-gì) - ✅ HOÀN THÀNH
@@ -30,21 +30,21 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Meal plan header CRUD | ✅ Hoàn tất | |
-| B. Meal plan item CRUD | ✅ Hoàn tất | |
-| C. Quick actions (convert/commit/duplicate) | ✅ Hoàn tất | |
-| D. Routine / reminder | ✅ Hoàn tất | `NotificationController` |
-| E. Báo cáo planned vs actual | ✅ Hoàn tất | |
+| Nhóm API                                    | Trạng thái  | Ghi chú                  |
+| ------------------------------------------- | :---------: | ------------------------ |
+| A. Meal plan header CRUD                    | ✅ Hoàn tất |                          |
+| B. Meal plan item CRUD                      | ✅ Hoàn tất |                          |
+| C. Quick actions (convert/commit/duplicate) | ✅ Hoàn tất |                          |
+| D. Routine / reminder                       | ✅ Hoàn tất | `NotificationController` |
+| E. Báo cáo planned vs actual                | ✅ Hoàn tất |                          |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
-| A. Models & Requests | ✅ Hoàn tất | |
-| B. Provider & Repository | ✅ Hoàn tất | |
-| C. Screens (5 screens) | ✅ Hoàn tất | |
-| D. Widgets (4 widgets) | ✅ Hoàn tất | |
-| E. Navigation integration | ✅ Hoàn tất | |
+| Nhóm UI                   | Trạng thái  | Ghi chú |
+| ------------------------- | :---------: | ------- |
+| A. Models & Requests      | ✅ Hoàn tất |         |
+| B. Provider & Repository  | ✅ Hoàn tất |         |
+| C. Screens (5 screens)    | ✅ Hoàn tất |         |
+| D. Widgets (4 widgets)    | ✅ Hoàn tất |         |
+| E. Navigation integration | ✅ Hoàn tất |         |
 
 ### Backend API đã có
 
@@ -77,36 +77,36 @@ PUT    /api/Notification/settings
 
 ### Flutter Components đã có
 
-| Component | File | Trạng thái |
-|-----------|------|:-----------:|
-| **Models** | | |
-| MealPlanListItem | `models/meal_plan_models.dart` | ✅ |
-| MealPlanDetail | `models/meal_plan_responses.dart` | ✅ |
-| MealPlanItemDetail | `models/meal_plan_responses.dart` | ✅ |
-| MealPlanDayDashboard | `models/meal_plan_responses.dart` | ✅ |
-| MealPlanCompare | `models/meal_plan_responses.dart` | ✅ |
-| MealPlanStreak | `models/meal_plan_responses.dart` | ✅ |
-| **Requests** | | |
-| CreatePlanRequest | `models/meal_plan_requests.dart` | ✅ |
-| CreateEmptyPlanRequest | `models/meal_plan_requests.dart` | ✅ |
-| DuplicatePlanRequest | `models/meal_plan_requests.dart` | ✅ |
-| AddItemRequest | `models/meal_plan_requests.dart` | ✅ |
-| ConvertToLogRequest | `models/meal_plan_requests.dart` | ✅ |
-| **Provider** | | |
-| MealPlanProvider | `providers/meal_plan_provider.dart` | ✅ |
-| **Repository** | | |
-| MealPlanRepository | `repositories/meal_plan_repository.dart` | ✅ |
-| **Views** | | |
-| MealPlanScreen | `views/meal_plan_screen.dart` | ✅ |
-| MealPlanDetailScreen | `views/meal_plan_detail_screen.dart` | ✅ |
-| CreateMealPlanScreen | `views/create_meal_plan_screen.dart` | ✅ |
-| MealPlanStatsScreen | `views/meal_plan_stats_screen.dart` | ✅ |
-| MealPlanCalendarScreen | `views/meal_plan_calendar_screen.dart` | ✅ |
-| **Widgets** | | |
-| CalorieProgressRing | `widgets/calorie_progress_ring.dart` | ✅ |
-| MealItemTile | `widgets/meal_item_tile.dart` | ✅ |
-| AddItemSheet | `widgets/add_item_sheet.dart` | ✅ |
-| EditItemSheet | `widgets/edit_item_sheet.dart` | ✅ |
+| Component              | File                                     | Trạng thái |
+| ---------------------- | ---------------------------------------- | :--------: |
+| **Models**             |                                          |            |
+| MealPlanListItem       | `models/meal_plan_models.dart`           |     ✅     |
+| MealPlanDetail         | `models/meal_plan_responses.dart`        |     ✅     |
+| MealPlanItemDetail     | `models/meal_plan_responses.dart`        |     ✅     |
+| MealPlanDayDashboard   | `models/meal_plan_responses.dart`        |     ✅     |
+| MealPlanCompare        | `models/meal_plan_responses.dart`        |     ✅     |
+| MealPlanStreak         | `models/meal_plan_responses.dart`        |     ✅     |
+| **Requests**           |                                          |            |
+| CreatePlanRequest      | `models/meal_plan_requests.dart`         |     ✅     |
+| CreateEmptyPlanRequest | `models/meal_plan_requests.dart`         |     ✅     |
+| DuplicatePlanRequest   | `models/meal_plan_requests.dart`         |     ✅     |
+| AddItemRequest         | `models/meal_plan_requests.dart`         |     ✅     |
+| ConvertToLogRequest    | `models/meal_plan_requests.dart`         |     ✅     |
+| **Provider**           |                                          |            |
+| MealPlanProvider       | `providers/meal_plan_provider.dart`      |     ✅     |
+| **Repository**         |                                          |            |
+| MealPlanRepository     | `repositories/meal_plan_repository.dart` |     ✅     |
+| **Views**              |                                          |            |
+| MealPlanScreen         | `views/meal_plan_screen.dart`            |     ✅     |
+| MealPlanDetailScreen   | `views/meal_plan_detail_screen.dart`     |     ✅     |
+| CreateMealPlanScreen   | `views/create_meal_plan_screen.dart`     |     ✅     |
+| MealPlanStatsScreen    | `views/meal_plan_stats_screen.dart`      |     ✅     |
+| MealPlanCalendarScreen | `views/meal_plan_calendar_screen.dart`   |     ✅     |
+| **Widgets**            |                                          |            |
+| CalorieProgressRing    | `widgets/calorie_progress_ring.dart`     |     ✅     |
+| MealItemTile           | `widgets/meal_item_tile.dart`            |     ✅     |
+| AddItemSheet           | `widgets/add_item_sheet.dart`            |     ✅     |
+| EditItemSheet          | `widgets/edit_item_sheet.dart`           |     ✅     |
 
 ### Navigation Flow
 
@@ -149,17 +149,17 @@ CreateMealPlanScreen
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Sinh recommendation | ✅ Hoàn tất | `generate`, `generate/safe`, `generate/weekly-plan`, `generate/budget-aware` |
-| B. Lưu lịch sử và truy vấn | ✅ Hoàn tất | `history`, `preview` |
-| C. Feedback loop | ✅ Hoàn tất | `POST feedback`, `PUT feedback/{id}`, `GET feedback/summary` |
-| D. Giải thích recommendation | ✅ Hoàn tất | `explain/{id}` |
-| E. Tối ưu cá nhân hóa | ✅ Hoàn tất | `scores`, `retrain` |
+| Nhóm API                     | Trạng thái  | Ghi chú                                                                      |
+| ---------------------------- | :---------: | ---------------------------------------------------------------------------- |
+| A. Sinh recommendation       | ✅ Hoàn tất | `generate`, `generate/safe`, `generate/weekly-plan`, `generate/budget-aware` |
+| B. Lưu lịch sử và truy vấn   | ✅ Hoàn tất | `history`, `preview`                                                         |
+| C. Feedback loop             | ✅ Hoàn tất | `POST feedback`, `PUT feedback/{id}`, `GET feedback/summary`                 |
+| D. Giải thích recommendation | ✅ Hoàn tất | `explain/{id}`                                                               |
+| E. Tối ưu cá nhân hóa        | ✅ Hoàn tất | `scores`, `retrain`                                                          |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
-| A. Screens & Widgets | ✅ Hoàn thành | |
+| Nhóm UI              |  Trạng thái   | Ghi chú |
+| -------------------- | :-----------: | ------- |
+| A. Screens & Widgets | ✅ Hoàn thành |         |
 
 ### API đã có
 
@@ -204,16 +204,16 @@ GET    /api/Recommendation/feedback/summary
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Conversation lifecycle | ✅ Hoàn tất | CRUD conversations |
-| B. Message workflow | ✅ Hoàn tất | Send/regenerate/feedback |
-| C. Context & profile | ✅ Hoàn tất | |
-| D. Action suggestions | ✅ Hoàn tất | |
-| E. History/analytics | ✅ Hoàn tất | |
+| Nhóm API                  | Trạng thái  | Ghi chú                  |
+| ------------------------- | :---------: | ------------------------ |
+| A. Conversation lifecycle | ✅ Hoàn tất | CRUD conversations       |
+| B. Message workflow       | ✅ Hoàn tất | Send/regenerate/feedback |
+| C. Context & profile      | ✅ Hoàn tất |                          |
+| D. Action suggestions     | ✅ Hoàn tất |                          |
+| E. History/analytics      | ✅ Hoàn tất |                          |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
+| Nhóm UI        |   Trạng thái   | Ghi chú         |
+| -------------- | :------------: | --------------- |
 | A. Chat screen | 🟡 Placeholder | Cần nối với API |
 
 ### API đã có
@@ -255,7 +255,8 @@ Cần triển khai UI Flutter (chat screen) để kết nối với các API.
 
 ## 2.8 Subscription & Payment
 
-**File Controllers:** 
+**File Controllers:**
+
 - `backend/MenuGreen.API/Controllers/UserSubscriptionController.cs`
 - `backend/MenuGreen.API/Controllers/SepayController.cs`
 - `backend/MenuGreen.API/Controllers/SubscriptionPlanController.cs` (Admin CRUD)
@@ -264,17 +265,17 @@ Cần triển khai UI Flutter (chat screen) để kết nối với các API.
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. SubscriptionPlan CRUD (Admin) | ✅ Hoàn tất | |
-| B. UserSubscription Workflow | ✅ Hoàn tất | subscribe/renew/cancel (gia hạn gói miễn phí trực tiếp) |
-| C. SePay Payment QR & Webhook | ✅ Hoàn tất | create-order/create-renew-order/webhook |
-| D. Subscription History & Metrics | ✅ Hoàn tất | |
+| Nhóm API                          | Trạng thái  | Ghi chú                                                 |
+| --------------------------------- | :---------: | ------------------------------------------------------- |
+| A. SubscriptionPlan CRUD (Admin)  | ✅ Hoàn tất |                                                         |
+| B. UserSubscription Workflow      | ✅ Hoàn tất | subscribe/renew/cancel (gia hạn gói miễn phí trực tiếp) |
+| C. SePay Payment QR & Webhook     | ✅ Hoàn tất | create-order/create-renew-order/webhook                 |
+| D. Subscription History & Metrics | ✅ Hoàn tất |                                                         |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
-| A. Upgrade Screen | ✅ Hoàn tất | Màn hình chọn gói & lịch sử |
-| B. SePay Payment Screen | ✅ Hoàn tất | Màn hiển thị QR thanh toán |
+| Nhóm UI                 | Trạng thái  | Ghi chú                     |
+| ----------------------- | :---------: | --------------------------- |
+| A. Upgrade Screen       | ✅ Hoàn tất | Màn hình chọn gói & lịch sử |
+| B. SePay Payment Screen | ✅ Hoàn tất | Màn hiển thị QR thanh toán  |
 
 ### API đã có
 
@@ -314,19 +315,19 @@ POST   /api/payments/sepay/webhook               # Webhook xác thực SePay
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Notification setting | ✅ Hoàn tất | |
-| B. Notification inbox | ✅ Hoàn tất | |
-| C. Gửi notification | ✅ Hoàn tất | |
-| D. Re-engagement campaign | ✅ Hoàn tất | |
-| E. Tracking open/click | ✅ Hoàn tất | |
-| F. Analytics | ✅ Hoàn tất | |
+| Nhóm API                  | Trạng thái  | Ghi chú |
+| ------------------------- | :---------: | ------- |
+| A. Notification setting   | ✅ Hoàn tất |         |
+| B. Notification inbox     | ✅ Hoàn tất |         |
+| C. Gửi notification       | ✅ Hoàn tất |         |
+| D. Re-engagement campaign | ✅ Hoàn tất |         |
+| E. Tracking open/click    | ✅ Hoàn tất |         |
+| F. Analytics              | ✅ Hoàn tất |         |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
+| Nhóm UI            | Trạng thái  | Ghi chú                           |
+| ------------------ | :---------: | --------------------------------- |
 | A. Settings screen | ✅ Hoàn tất | Card-based UI với toggle & slider |
-| B. Inbox screen | ✅ Hoàn tất | Swipe actions, pagination, badge |
+| B. Inbox screen    | ✅ Hoàn tất | Swipe actions, pagination, badge  |
 
 ### API đã có
 
@@ -364,6 +365,7 @@ GET    /api/Notification/analytics
 **Notification UI: ✅ HOÀN TẤT**
 
 Đã triển khai đầy đủ UI Flutter (settings, inbox screens) với:
+
 - Settings: Card-based UI, toggle meal reminder, prep reminder, push/in-app channels
 - Inbox: Danh sách notification với swipe actions, pagination, badge count, tracking
 
@@ -375,18 +377,18 @@ GET    /api/Notification/analytics
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Activity log | ✅ Hoàn tất | |
-| B. Dashboard & metrics | ✅ Hoàn tất | |
-| C. Funnel analysis | ✅ Hoàn tất | |
-| D. Cohort analysis | ✅ Hoàn tất | |
-| E. Churn & retention | ✅ Hoàn tất | |
-| F. Export | ✅ Hoàn tất | |
+| Nhóm API               | Trạng thái  | Ghi chú |
+| ---------------------- | :---------: | ------- |
+| A. Activity log        | ✅ Hoàn tất |         |
+| B. Dashboard & metrics | ✅ Hoàn tất |         |
+| C. Funnel analysis     | ✅ Hoàn tất |         |
+| D. Cohort analysis     | ✅ Hoàn tất |         |
+| E. Churn & retention   | ✅ Hoàn tất |         |
+| F. Export              | ✅ Hoàn tất |         |
 
-| Nhóm UI | Trạng thái | Ghi chú |
-|---------|:----------:|---------|
-| A. Admin dashboard | ❌ Chưa có | |
+| Nhóm UI            | Trạng thái | Ghi chú |
+| ------------------ | :--------: | ------- |
+| A. Admin dashboard | ❌ Chưa có |         |
 
 ### API đã có
 
@@ -425,8 +427,9 @@ GET    /api/Analytics/export/cohort
 ### Kết luận
 
 **Analytics API: ✅ HOÀN CHỈNH**
+**Analytics Admin UI: ⏸️ OUT OF SCOPE**
 
-Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
+Admin Dashboard là backend-only feature, không nằm trong mobile app scope.
 
 ---
 
@@ -436,13 +439,13 @@ Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Local preference onboarding | ✅ Hoàn tất | `GET/POST/PUT /api/Nutrition/local-preferences` |
-| B. Localized food discovery | ✅ Hoàn tất | `/api/Nutrition/discovery/local/...` |
-| C. Portion / unit conversion | ✅ Hoàn tất | `/api/PortionConverter/...` |
-| D. Vietnamese meal logging | ✅ Hoàn tất | `/api/Nutrition/meal-log/vn/...` |
-| E. Budget-aware recommendations | ✅ Hoàn tất | `/api/Nutrition/recommendations/...` |
+| Nhóm API                        | Trạng thái  | Ghi chú                                         |
+| ------------------------------- | :---------: | ----------------------------------------------- |
+| A. Local preference onboarding  | ✅ Hoàn tất | `GET/POST/PUT /api/Nutrition/local-preferences` |
+| B. Localized food discovery     | ✅ Hoàn tất | `/api/Nutrition/discovery/local/...`            |
+| C. Portion / unit conversion    | ✅ Hoàn tất | `/api/PortionConverter/...`                     |
+| D. Vietnamese meal logging      | ✅ Hoàn tất | `/api/Nutrition/meal-log/vn/...`                |
+| E. Budget-aware recommendations | ✅ Hoàn tất | `/api/Nutrition/recommendations/...`            |
 
 ### API đã có
 
@@ -487,12 +490,12 @@ DELETE /api/PortionConverter/custom-units/{id}
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Quick-start suggestion | ✅ Hoàn tất | `GET /api/DailyStarter/today` và `GET /api/DailyStarter/recommendations` |
-| B. One-tap refresh / Food capture | ✅ Hoàn tất | `GET /api/DailyStarter/featured-meals` và `POST /api/DailyStarter/start-log` |
-| C. Create meal plan from quick-start | ✅ Hoàn tất | `POST /api/DailyStarter/select-meal` (uỷ thác cho `IMealPlanService`) |
-| D. Quick personalization | ✅ Hoàn tất | `GET/PUT /api/DailyStarter/personalization` |
+| Nhóm API                             | Trạng thái  | Ghi chú                                                                      |
+| ------------------------------------ | :---------: | ---------------------------------------------------------------------------- |
+| A. Quick-start suggestion            | ✅ Hoàn tất | `GET /api/DailyStarter/today` và `GET /api/DailyStarter/recommendations`     |
+| B. One-tap refresh / Food capture    | ✅ Hoàn tất | `GET /api/DailyStarter/featured-meals` và `POST /api/DailyStarter/start-log` |
+| C. Create meal plan from quick-start | ✅ Hoàn tất | `POST /api/DailyStarter/select-meal` (uỷ thác cho `IMealPlanService`)        |
+| D. Quick personalization             | ✅ Hoàn tất | `GET/PUT /api/DailyStarter/personalization`                                  |
 
 ### API đã có
 
@@ -517,12 +520,12 @@ PUT    /api/DailyStarter/personalization
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Goal mode / recommendation | ✅ Hoàn tất | `GET /api/GymGoals/me` và `POST/PUT /api/GymGoals` |
-| B. Tracking planned vs actual | ✅ Hoàn tất | `GET /api/GymGoals/alerts` và `GET /api/GymGoals/plan` |
-| C. Smart Recalibration | ✅ Hoàn tất | `POST /api/GymGoals/recalibrate` (tự động điều chỉnh calo theo cân nặng) |
-| D. Advanced PT/Coach report | ✅ Hoàn tất | `GET /api/GymGoals/coach-report` |
+| Nhóm API                      | Trạng thái  | Ghi chú                                                                  |
+| ----------------------------- | :---------: | ------------------------------------------------------------------------ |
+| A. Goal mode / recommendation | ✅ Hoàn tất | `GET /api/GymGoals/me` và `POST/PUT /api/GymGoals`                       |
+| B. Tracking planned vs actual | ✅ Hoàn tất | `GET /api/GymGoals/alerts` và `GET /api/GymGoals/plan`                   |
+| C. Smart Recalibration        | ✅ Hoàn tất | `POST /api/GymGoals/recalibrate` (tự động điều chỉnh calo theo cân nặng) |
+| D. Advanced PT/Coach report   | ✅ Hoàn tất | `GET /api/GymGoals/coach-report`                                         |
 
 ### API đã có
 
@@ -549,12 +552,12 @@ GET    /api/GymGoals/coach-report
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Quick template | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/quick-template` |
-| B. Template from plan | ✅ Hoàn tất | `GET /api/Nutrition/food-capture/template-from-plan` |
+| Nhóm API                          | Trạng thái  | Ghi chú                                              |
+| --------------------------------- | :---------: | ---------------------------------------------------- |
+| A. Quick template                 | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/quick-template`    |
+| B. Template from plan             | ✅ Hoàn tất | `GET /api/Nutrition/food-capture/template-from-plan` |
 | C. Fallback estimate manual entry | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/fallback-estimate` |
-| D. Save as quick-add | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/save-as-quick-add` |
+| D. Save as quick-add              | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/save-as-quick-add` |
 
 ### API đã có
 
@@ -578,14 +581,14 @@ POST   /api/Nutrition/food-capture/save-as-quick-add
 
 ### Trạng thái hiện tại
 
-| Nhóm API | Trạng thái | Ghi chú |
-|----------|:----------:|---------|
-| A. Disclaimer | ✅ Hoàn tất | `GET /api/Safety/disclaimer` |
-| B. Consent management | ✅ Hoàn tất | `GET /api/Safety/consent` và `PUT /api/Safety/consent` (Lưu trữ thực tế trong AI Profile preferences) |
-| C. Cảnh báo y khoa tự động | ✅ Hoàn tất | `GET /api/Safety/alerts` (Tính toán BMI y khoa và quét chất dị ứng) |
-| D. Export data | ✅ Hoàn tất | `POST /api/Safety/export-data` (Đóng gói Profile, Health Profile, AI preferences và Dị ứng) |
-| E. Delete data / account | ✅ Hoàn tất | `DELETE /api/Safety/delete-data` (Vô hiệu hóa IsActive = false) |
-| F. Report issue / support | ✅ Hoàn tất | `POST /api/Safety/report-issue` (Ghi nhận trực tiếp sự cố vào Activity Logs) |
+| Nhóm API                   | Trạng thái  | Ghi chú                                                                                               |
+| -------------------------- | :---------: | ----------------------------------------------------------------------------------------------------- |
+| A. Disclaimer              | ✅ Hoàn tất | `GET /api/Safety/disclaimer`                                                                          |
+| B. Consent management      | ✅ Hoàn tất | `GET /api/Safety/consent` và `PUT /api/Safety/consent` (Lưu trữ thực tế trong AI Profile preferences) |
+| C. Cảnh báo y khoa tự động | ✅ Hoàn tất | `GET /api/Safety/alerts` (Tính toán BMI y khoa và quét chất dị ứng)                                   |
+| D. Export data             | ✅ Hoàn tất | `POST /api/Safety/export-data` (Đóng gói Profile, Health Profile, AI preferences và Dị ứng)           |
+| E. Delete data / account   | ✅ Hoàn tất | `DELETE /api/Safety/delete-data` (Vô hiệu hóa IsActive = false)                                       |
+| F. Report issue / support  | ✅ Hoàn tất | `POST /api/Safety/report-issue` (Ghi nhận trực tiếp sự cố vào Activity Logs)                          |
 
 ### API đã có
 
@@ -608,28 +611,27 @@ POST   /api/Safety/report-issue
 
 ## Tổng kết
 
-| Workflow | API Status | UI Status | Ưu tiên |
-|----------|:----------:|:---------:|---------|
-| **2.5 Meal Plan** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
-| 2.6 Recommendation | ✅ Hoàn chỉnh | 🟡 Một phần | **P2** |
-| 2.7 AI Assistant | ✅ Hoàn chỉnh | 🟡 Placeholder | **P3** |
-| **2.8 Subscription & Payment** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
-| 2.9 Notification | ✅ Hoàn chỉnh | ❌ Chưa có | **P2** |
-| 2.10 Analytics | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
-| **2.11 Vietnam-first Local Nutrition** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
-| **2.12 Beginner quick-start workflow** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
-| **2.13 Gym/PT goal-based workflow** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
-| **2.14 Real-world Food Data Capture** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
-| **2.15 Safety, trust, and compliance** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| Workflow                               |  API Status   |     UI Status     | Ưu tiên     |
+| -------------------------------------- | :-----------: | :---------------: | ----------- |
+| **2.5 Meal Plan**                      | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
+| 2.6 Recommendation                     | ✅ Hoàn chỉnh |    🟡 Một phần    | **P2**      |
+| 2.7 AI Assistant                       | ✅ Hoàn chỉnh |  🟡 Placeholder   | **P3**      |
+| **2.9 Notification**                   | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
+| 2.10 Analytics                         | ✅ Hoàn chỉnh |  ⏸️ Out of scope  | -           |
+| **2.8 Subscription & Payment**         | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
+| **2.11 Vietnam-first Local Nutrition** | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.12 Beginner quick-start workflow** | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.13 Gym/PT goal-based workflow**    | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.14 Real-world Food Data Capture**  | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.15 Safety, trust, and compliance** | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
 
 ### Thứ tự ưu tiên triển khai
 
 1. ~~**P1 - Meal Plan:**~~ ✅ **HOÀN THÀNH**
 2. ~~**P2 - Recommendation UI:**~~ ✅ **HOÀN THÀNH**
-3. ~~**P2 - Subscription & Payment:**~~ ✅ **HOÀN THÀNH**
-4. **P3 - Notification UI:** Triển khai settings/inbox screens.
-5. **P3 - AI Assistant UI:** Kết nối chat interface với các API.
-6. **P3 - Analytics Admin UI:** Build admin dashboard.
+3. ~~**P2 - Notification UI:**~~ ✅ **HOÀN THÀNH**
+4. **P3 - AI Assistant UI:** Kết nối chat interface với các API.
+5. ~~**P3 - Analytics Admin UI:**~~ ⏸️ Out of scope (Admin panel, không trong mobile app)
 
 ---
 

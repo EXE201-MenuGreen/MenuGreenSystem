@@ -78,6 +78,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/toggle-status")]
         [HttpPut("{id}/toggle-status")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ToggleUserStatus(Guid id)
@@ -93,6 +94,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/lock")]
         [HttpPut("{id}/lock")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> LockUser(Guid id)
@@ -108,6 +110,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/unlock")]
         [HttpPut("{id}/unlock")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UnlockUser(Guid id)
@@ -123,6 +126,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/assign-role")]
         [HttpPut("{id}/assign-role")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest request)
