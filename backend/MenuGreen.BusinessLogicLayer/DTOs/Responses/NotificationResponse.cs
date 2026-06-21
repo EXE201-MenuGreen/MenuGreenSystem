@@ -14,5 +14,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public DateTimeOffset? ScheduledAt { get; set; }
         public DateTimeOffset? SentAt { get; set; }
         public DateTimeOffset? ReadAt { get; set; }
+        public bool IsDismissed { get; set; }
+        public DateTimeOffset? DismissedAt { get; set; }
+        public DateTimeOffset? ClickedAt { get; set; }
+        public DateTimeOffset? ActionCompletedAt { get; set; }
     }
 }

@@ -42,5 +42,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
         Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request);
         Task<object> GetAnalyticsAsync(Guid userId);
+        Task<NotificationResponse> DismissAsync(Guid userId, Guid notificationId);
     }
 }

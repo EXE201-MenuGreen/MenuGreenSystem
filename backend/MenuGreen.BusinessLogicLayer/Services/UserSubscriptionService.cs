@@ -31,6 +31,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var now = DateTime.UtcNow;
+            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
             var subscription = new UserSubscription
             {
                 Id = Guid.NewGuid(),
@@ -38,7 +39,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 SubscriptionPlanId = plan.Id,
                 Status = "Active",
                 StartDate = now,
-                EndDate = now.AddDays(plan.DurationDays ?? 0),
+                EndDate = now.AddDays(durationDays),
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -51,9 +52,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await MapAsync(subscription);
         }
 
-        public Task<UserSubscriptionResponse> RenewAsync(Guid userId, RenewSubscriptionRequest request)
+        public async Task<UserSubscriptionResponse> RenewAsync(Guid userId, RenewSubscriptionRequest request)
         {
-            throw new InvalidOperationException(SepayPaymentRequiredMessage);
+            var subscription = await GetOwnedSubscriptionAsync(userId, request.UserSubscriptionId);
+            var plan = await GetActivePlanAsync(subscription.SubscriptionPlanId);
+            if ((plan.PriceVnd ?? 0) > 0)
+            {
+                throw new InvalidOperationException(SepayPaymentRequiredMessage);
+            }
+
+            var now = DateTime.UtcNow;
+            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            
+            var baseDate = subscription.EndDate > now ? subscription.EndDate : now;
+            subscription.EndDate = baseDate.AddDays(durationDays);
+            subscription.Status = "Active";
+            subscription.RenewedAt = now;
+            subscription.UpdatedAt = now;
+
+            _unitOfWork.UserSubscriptions.Update(subscription);
+            await _unitOfWork.SubscriptionTransactions.AddAsync(
+                CreateTransaction(userId, subscription.Id, "Renew", 0, request.Note ?? "Gia hạn gói miễn phí", now));
+            await _unitOfWork.CompleteAsync();
+
+            return await MapAsync(subscription);
         }
 
         public async Task<UserSubscriptionResponse> CancelAsync(Guid userId, CancelSubscriptionRequest request)
