@@ -78,16 +78,6 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy tóm tắt meal logs theo ngày cụ thể.
-        /// </summary>
-        [HttpGet("meal-logs/daily")]
-        public async Task<IActionResult> GetMealLogsDaily([FromQuery] DateOnly date)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.GetDailySummaryAsync(userId, date));
-        }
-
-        /// <summary>
         /// Lấy danh sách meal logs trong khoảng thời gian.
         /// </summary>
         [HttpGet("meal-logs/range")]

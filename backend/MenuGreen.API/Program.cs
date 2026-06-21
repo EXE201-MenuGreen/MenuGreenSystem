@@ -70,7 +70,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("User", "Admin"));
+    options.AddPolicy("UserOnly", policy => policy.RequireRole("User", "Admin", "Free", "Pro"));
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
 });
 

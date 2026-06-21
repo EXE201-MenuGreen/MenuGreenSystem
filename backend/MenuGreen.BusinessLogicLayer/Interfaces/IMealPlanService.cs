@@ -33,5 +33,12 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<ExpenseCompareResponse> CompareExpensesAsync(DateOnly from, DateOnly to, Guid userId);
         Task<ExpenseBreakdownResponse> GetExpenseBreakdownAsync(Guid userId);
         Task<BudgetAdherenceResponse> GetAdherenceScoresAsync(Guid userId);
+
+        // Daily Meal Plan Methods
+        Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date);
+        Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request);
+        Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request);
+        Task<CompleteMealPlanItemResponse> CompleteItemAsync(Guid userId, Guid itemId, CompleteMealPlanItemRequest request);
+        Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date);
     }
 }

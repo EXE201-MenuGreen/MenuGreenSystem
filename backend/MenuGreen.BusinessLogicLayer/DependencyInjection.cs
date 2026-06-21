@@ -27,7 +27,6 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IMealPlanService, MealPlanService>();
             services.AddScoped<IBudgetRequestService, BudgetRequestService>();
             services.AddScoped<IMealTemplateService, MealTemplateService>();
-            services.AddScoped<IUserMealPlanService, UserMealPlanService>();
             services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
             services.AddScoped<IUserSubscriptionService, UserSubscriptionService>();
             services.AddScoped<SepayWebhookHmacValidator>();
