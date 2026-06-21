@@ -92,6 +92,50 @@ namespace MenuGreen.API.Controllers
             });
         }
 
+        /// <summary>
+        /// Nhập tay macro ước tính kèm ghi chú khi không tìm thấy món.
+        /// </summary>
+        [HttpPost("fallback-estimate")]
+        public async Task<IActionResult> FallbackEstimate([FromBody] MealLogUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _nutritionTrackingService.CreateMealLogAsync(userId, request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lưu một meal log chuẩn thành quick-add cho những lần sau.
+        /// </summary>
+        [HttpPost("save-as-quick-add")]
+        public async Task<IActionResult> SaveAsQuickAdd([FromBody] MealLogUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _nutritionTrackingService.CreateMealLogAsync(userId, request);
+                return Ok(new
+                {
+                    Message = "Saved as quick add successfully.",
+                    MealLog = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;
