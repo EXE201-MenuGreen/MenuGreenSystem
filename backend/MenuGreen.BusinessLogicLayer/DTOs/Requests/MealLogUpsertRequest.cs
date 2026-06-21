@@ -24,6 +24,18 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateTime? LoggedAt { get; set; }
         public Guid? MealPlanItemId { get; set; }
 
+        [Range(0, double.MaxValue, ErrorMessage = "Calories must be positive.")]
+        public decimal? CaloriesKcal { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Protein must be positive.")]
+        public decimal? ProteinG { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Carbs must be positive.")]
+        public decimal? CarbsG { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Fat must be positive.")]
+        public decimal? FatG { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (!QuantityG.HasValue && !Quantity.HasValue)
