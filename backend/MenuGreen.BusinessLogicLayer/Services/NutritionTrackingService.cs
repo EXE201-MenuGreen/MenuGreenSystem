@@ -397,7 +397,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return;
             }
 
-            throw new Exception("FoodId or RecipeId is required.");
+            if (request.CaloriesKcal.HasValue || request.ProteinG.HasValue || request.CarbsG.HasValue || request.FatG.HasValue)
+            {
+                entity.CaloriesKcal = request.CaloriesKcal;
+                entity.ProteinG = request.ProteinG;
+                entity.CarbsG = request.CarbsG;
+                entity.FatG = request.FatG;
+                entity.SourceType = "Manual";
+                return;
+            }
+
+            throw new Exception("FoodId or RecipeId or custom nutritional values are required.");
         }
 
         private static void ApplyNutritionFromFood(MealLog entity, Food food, decimal quantityG)

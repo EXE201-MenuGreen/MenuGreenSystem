@@ -15,6 +15,10 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 5. [2.9 Notification](#29-notification)
 6. [2.10 Analytics](#210-analytics)
 7. [2.11 Vietnam-first Local Nutrition](#211-vietnam-first-local-nutrition) - ✅ HOÀN THÀNH
+8. [2.12 Beginner quick-start workflow](#212-beginner-quick-start-workflow-hôm-nay-ăn-gì) - ✅ HOÀN THÀNH
+9. [2.13 Gym/PT goal-based workflow](#213-gympt-goal-based-workflow) - ✅ HOÀN THÀNH
+10. [2.14 Real-world food data capture](#214-real-world-food-data-capture) - ✅ HOÀN THÀNH
+11. [2.15 Safety, trust, and compliance](#215-safety-trust-and-compliance) - ✅ HOÀN THÀNH
 
 ---
 
@@ -477,6 +481,131 @@ DELETE /api/PortionConverter/custom-units/{id}
 
 ---
 
+## 2.12 Beginner quick-start workflow (Hôm nay ăn gì?)
+
+**File Controller:** `backend/MenuGreen.API/Controllers/DailyStarterController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. Quick-start suggestion | ✅ Hoàn tất | `GET /api/DailyStarter/today` và `GET /api/DailyStarter/recommendations` |
+| B. One-tap refresh / Food capture | ✅ Hoàn tất | `GET /api/DailyStarter/featured-meals` và `POST /api/DailyStarter/start-log` |
+| C. Create meal plan from quick-start | ✅ Hoàn tất | `POST /api/DailyStarter/select-meal` (uỷ thác cho `IMealPlanService`) |
+| D. Quick personalization | ✅ Hoàn tất | `GET/PUT /api/DailyStarter/personalization` |
+
+### API đã có
+
+```
+# DailyStarterController
+GET    /api/DailyStarter/today
+GET    /api/DailyStarter/recommendations
+GET    /api/DailyStarter/featured-meals
+POST   /api/DailyStarter/select-meal
+POST   /api/DailyStarter/start-log
+GET    /api/DailyStarter/personalization
+PUT    /api/DailyStarter/personalization
+```
+
+### Kết luận
+
+**Beginner quick-start workflow (Hôm nay ăn gì?) API: ✅ HOÀN CHỈNH (Trùng lặp logic được refactor triệt để về các service gốc)**
+
+## 2.13 Gym/PT goal-based workflow
+
+**File Controller:** `backend/MenuGreen.API/Controllers/GymGoalsController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. Goal mode / recommendation | ✅ Hoàn tất | `GET /api/GymGoals/me` và `POST/PUT /api/GymGoals` |
+| B. Tracking planned vs actual | ✅ Hoàn tất | `GET /api/GymGoals/alerts` và `GET /api/GymGoals/plan` |
+| C. Smart Recalibration | ✅ Hoàn tất | `POST /api/GymGoals/recalibrate` (tự động điều chỉnh calo theo cân nặng) |
+| D. Advanced PT/Coach report | ✅ Hoàn tất | `GET /api/GymGoals/coach-report` |
+
+### API đã có
+
+```
+# GymGoalsController
+GET    /api/GymGoals/me
+POST   /api/GymGoals
+PUT    /api/GymGoals
+GET    /api/GymGoals/plan
+POST   /api/GymGoals/recalibrate
+GET    /api/GymGoals/alerts
+GET    /api/GymGoals/coach-report
+```
+
+### Kết luận
+
+**Gym/PT goal-based workflow API: ✅ HOÀN CHỈNH (Tích hợp logic tự động đổi calo theo ngày tập/ngày nghỉ, áp dụng guardrail và tự động recalibrate calo theo tuần)**
+
+---
+
+## 2.14 Real-world food data capture
+
+**File Controller:** `backend/MenuGreen.API/Controllers/FoodCaptureController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. Quick template | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/quick-template` |
+| B. Template from plan | ✅ Hoàn tất | `GET /api/Nutrition/food-capture/template-from-plan` |
+| C. Fallback estimate manual entry | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/fallback-estimate` |
+| D. Save as quick-add | ✅ Hoàn tất | `POST /api/Nutrition/food-capture/save-as-quick-add` |
+
+### API đã có
+
+```
+# FoodCaptureController
+POST   /api/Nutrition/food-capture/quick-template
+GET    /api/Nutrition/food-capture/template-from-plan
+POST   /api/Nutrition/food-capture/fallback-estimate
+POST   /api/Nutrition/food-capture/save-as-quick-add
+```
+
+### Kết luận
+
+**Real-world Food Data Capture API: ✅ HOÀN CHỈNH**
+
+---
+
+## 2.15 Safety, trust, and compliance
+
+**File Controller:** `backend/MenuGreen.API/Controllers/SafetyController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. Disclaimer | ✅ Hoàn tất | `GET /api/Safety/disclaimer` |
+| B. Consent management | ✅ Hoàn tất | `GET /api/Safety/consent` và `PUT /api/Safety/consent` (Lưu trữ thực tế trong AI Profile preferences) |
+| C. Cảnh báo y khoa tự động | ✅ Hoàn tất | `GET /api/Safety/alerts` (Tính toán BMI y khoa và quét chất dị ứng) |
+| D. Export data | ✅ Hoàn tất | `POST /api/Safety/export-data` (Đóng gói Profile, Health Profile, AI preferences và Dị ứng) |
+| E. Delete data / account | ✅ Hoàn tất | `DELETE /api/Safety/delete-data` (Vô hiệu hóa IsActive = false) |
+| F. Report issue / support | ✅ Hoàn tất | `POST /api/Safety/report-issue` (Ghi nhận trực tiếp sự cố vào Activity Logs) |
+
+### API đã có
+
+```
+# SafetyController
+GET    /api/Safety/disclaimer
+GET    /api/Safety/consent
+PUT    /api/Safety/consent
+GET    /api/Safety/alerts
+POST   /api/Safety/export-data
+DELETE /api/Safety/delete-data
+POST   /api/Safety/report-issue
+```
+
+### Kết luận
+
+**Safety, trust, and compliance API: ✅ HOÀN CHỈNH (Tích hợp thực tế vào Database/Services, loại bỏ hoàn toàn mã mock)**
+
+---
+
 ## Tổng kết
 
 | Workflow | API Status | UI Status | Ưu tiên |
@@ -488,6 +617,10 @@ DELETE /api/PortionConverter/custom-units/{id}
 | 2.9 Notification | ✅ Hoàn chỉnh | ❌ Chưa có | **P2** |
 | 2.10 Analytics | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
 | **2.11 Vietnam-first Local Nutrition** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.12 Beginner quick-start workflow** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.13 Gym/PT goal-based workflow** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.14 Real-world Food Data Capture** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.15 Safety, trust, and compliance** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
 
 ### Thứ tự ưu tiên triển khai
 

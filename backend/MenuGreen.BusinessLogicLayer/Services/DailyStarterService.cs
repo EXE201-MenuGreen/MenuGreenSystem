@@ -18,17 +18,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly ApplicationDbContext _db;
         private readonly IAllergenMatchingService _allergenMatchingService;
         private readonly IAllergyService _allergyService;
+        private readonly IMealPlanService _mealPlanService;
+        private readonly IHealthProfileService _healthProfileService;
+        private readonly IUserAiProfileService _userAiProfileService;
 
         public DailyStarterService(
             IUnitOfWork unitOfWork,
             ApplicationDbContext db,
             IAllergenMatchingService allergenMatchingService,
-            IAllergyService allergyService)
+            IAllergyService allergyService,
+            IMealPlanService mealPlanService,
+            IHealthProfileService healthProfileService,
+            IUserAiProfileService userAiProfileService)
         {
             _unitOfWork = unitOfWork;
             _db = db;
             _allergenMatchingService = allergenMatchingService;
             _allergyService = allergyService;
+            _mealPlanService = mealPlanService;
+            _healthProfileService = healthProfileService;
+            _userAiProfileService = userAiProfileService;
         }
 
         public async Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId)
@@ -83,49 +92,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             
-            // Tìm plan active hôm nay của user
-            var existingPlans = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId && x.IsActive && x.StartDate <= today && x.EndDate >= today);
-            var planHeader = existingPlans.FirstOrDefault();
+            // Tìm target calories từ HealthProfile để kế hoạch có calorie mục tiêu đúng đắn
+            var health = await _healthProfileService.GetAsync(userId);
+            var targetCalories = health?.TargetCalories ?? 2000;
 
-            if (planHeader == null)
+            var items = request.Meals.Select(x => new DailyMenuPlanItemRequest
             {
-                planHeader = new MealPlanHeader
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = userId,
-                    Title = $"Kế hoạch ăn uống hôm nay ({today:dd/MM})",
-                    PlanType = "Daily",
-                    StartDate = today,
-                    EndDate = today,
-                    TargetCalories = 2000,
-                    GeneratedBy = "DAILY_STARTER",
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.MealPlanHeaders.AddAsync(planHeader);
-                await _unitOfWork.CompleteAsync();
-            }
+                MealType = x.MealType,
+                FoodId = x.FoodId,
+                RecipeId = null,
+                ScheduledTime = new TimeOnly(8, 0),
+                TargetCalories = null
+            }).ToList();
 
-            foreach (var item in request.Meals)
+            var menuRequest = new CreateMealPlanFromDailyMenuRequest
             {
-                var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId);
-                var targetCal = food != null ? (int?)(food.CaloriesKcal) : 300;
+                PlannedDate = today,
+                TargetCalories = targetCalories,
+                Items = items
+            };
 
-                await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
-                {
-                    Id = Guid.NewGuid(),
-                    MealPlanId = planHeader.Id,
-                    MealType = item.MealType,
-                    FoodId = item.FoodId,
-                    PlannedDate = today,
-                    TargetCalories = targetCal,
-                    IsCompleted = false,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-
-            await _unitOfWork.CompleteAsync();
+            await _mealPlanService.CreateFromDailyMenuAsync(userId, menuRequest);
         }
 
         public async Task<DailyStarterStartLogResponse> StartLogFlowAsync(Guid userId)
@@ -158,8 +145,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<DailyStarterPersonalizationResponse> GetPersonalizationAsync(Guid userId)
         {
-            var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == userId)).FirstOrDefault();
-            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == userId)).FirstOrDefault();
+            var health = await _healthProfileService.GetAsync(userId);
+            var aiProfile = await _userAiProfileService.GetAsync(userId);
             
             var activeAllergies = await _unitOfWork.Allergies.FindAsync(a => a.UserId == userId && a.IsActive);
             var userKeys = activeAllergies
@@ -189,49 +176,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<DailyStarterPersonalizationResponse> UpdatePersonalizationAsync(Guid userId, DailyStarterPersonalizationUpdateRequest request)
         {
-            // 1. Cập nhật HealthProfile
-            var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == userId)).FirstOrDefault();
-            if (health == null)
+            // 1. Cập nhật HealthProfile sử dụng IHealthProfileService
+            var currentHealth = await _healthProfileService.GetAsync(userId);
+            var updateHealthRequest = new UpdateHealthProfileRequest
             {
-                health = new HealthProfile
-                {
-                    UserId = userId,
-                    HeightCm = request.HeightCm,
-                    WeightKg = request.WeightKg,
-                    TargetCalories = (int?)(request.TargetCalories ?? 2000),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                HealthProfileMetricsCalculator.ApplyMacroTargets(health);
-                await _unitOfWork.HealthProfiles.AddAsync(health);
-            }
-            else
-            {
-                if (request.HeightCm.HasValue) health.HeightCm = request.HeightCm;
-                if (request.WeightKg.HasValue) health.WeightKg = request.WeightKg;
-                if (request.TargetCalories.HasValue) health.TargetCalories = (int?)request.TargetCalories;
-                health.UpdatedAt = DateTime.UtcNow;
-                HealthProfileMetricsCalculator.ApplyMacroTargets(health);
-                _unitOfWork.HealthProfiles.Update(health);
-            }
+                HeightCm = request.HeightCm ?? currentHealth.HeightCm ?? 170m,
+                WeightKg = request.WeightKg ?? currentHealth.WeightKg ?? 60m,
+                BodyFatPercent = currentHealth.BodyFatPercent,
+                ActivityLevel = currentHealth.ActivityLevel ?? "Light",
+                Goal = currentHealth.Goal ?? "Maintain",
+                TargetCalories = request.TargetCalories.HasValue ? (int?)request.TargetCalories.Value : currentHealth.TargetCalories
+            };
+            var health = await _healthProfileService.UpdateAsync(userId, updateHealthRequest);
 
-            // 2. Cập nhật AI Profile
-            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == userId)).FirstOrDefault();
-            if (aiProfile == null)
+            // 2. Cập nhật AI Profile sử dụng IUserAiProfileService
+            UserAiProfileResponse? aiProfile = null;
+            if (request.DietaryPreference != null)
             {
-                aiProfile = new UserAiProfile
+                var updateAiRequest = new UpdateUserAiProfileRequest
                 {
-                    UserId = userId,
-                    Preferences = request.DietaryPreference,
-                    UpdatedAt = DateTime.UtcNow
+                    Preferences = request.DietaryPreference
                 };
-                await _unitOfWork.UserAiProfiles.AddAsync(aiProfile);
+                aiProfile = await _userAiProfileService.UpsertAsync(userId, updateAiRequest);
             }
             else
             {
-                if (request.DietaryPreference != null) aiProfile.Preferences = request.DietaryPreference;
-                aiProfile.UpdatedAt = DateTime.UtcNow;
-                _unitOfWork.UserAiProfiles.Update(aiProfile);
+                aiProfile = await _userAiProfileService.GetAsync(userId);
             }
 
             // 3. Cập nhật hồ sơ chất dị ứng (nếu có) thông qua IAllergyService
@@ -239,9 +209,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 await _allergyService.UpdateProfileAsync(userId, request.Allergens);
             }
-
-            await _unitOfWork.CompleteAsync();
-            await _db.SaveChangesAsync();
 
             var activeAllergies = await _unitOfWork.Allergies.FindAsync(a => a.UserId == userId && a.IsActive);
             var updatedUserKeys = activeAllergies
@@ -263,7 +230,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 HeightCm = health.HeightCm,
                 WeightKg = health.WeightKg,
                 TargetCalories = health.TargetCalories,
-                DietaryPreference = aiProfile.Preferences,
+                DietaryPreference = aiProfile?.Preferences,
                 AllergenKeys = updatedUserKeys,
                 Allergens = allergensList
             };
