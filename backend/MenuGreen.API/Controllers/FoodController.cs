@@ -42,7 +42,11 @@ namespace MenuGreen.API.Controllers
             [FromQuery] int? maxPriceVnd,
             [FromQuery] int? maxPrepTimeMin,
             [FromQuery] string? category,
-            [FromQuery] string? allergyMode)
+            [FromQuery] string? allergyMode,
+            [FromQuery] string? region,
+            [FromQuery] bool? localOnly,
+            [FromQuery] string? mealContext,
+            [FromQuery] string? sort)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
@@ -51,7 +55,7 @@ namespace MenuGreen.API.Controllers
                 var userId = TryGetUserId();
                 var result = await _foodService.SearchAsync(
                     keyword, minCalories, maxCalories, proteinLevel, maxPriceVnd, maxPrepTimeMin, category,
-                    userId, allergyMode);
+                    userId, allergyMode, region, localOnly, mealContext, sort);
                 return Ok(result);
             }
             catch (Exception ex)

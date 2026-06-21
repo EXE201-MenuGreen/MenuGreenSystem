@@ -16,15 +16,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly INutritionSnapshotService _nutritionSnapshotService;
         private readonly IRecipeService _recipeService;
+        private readonly IPortionConverterService _portionConverterService;
 
         public NutritionTrackingService(
             IUnitOfWork unitOfWork,
             INutritionSnapshotService nutritionSnapshotService,
-            IRecipeService recipeService)
+            IRecipeService recipeService,
+            IPortionConverterService portionConverterService)
         {
             _unitOfWork = unitOfWork;
             _nutritionSnapshotService = nutritionSnapshotService;
             _recipeService = recipeService;
+            _portionConverterService = portionConverterService;
         }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
@@ -33,7 +36,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.MealLogs.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
             await SyncSnapshotForLogAsync(userId, entity);
-            return await MapMealLogAsync(entity);
+            var response = await MapMealLogAsync(entity);
+            ApplyRequestDisplayPortion(response, request);
+            return response;
         }
 
         public async Task<MealLogResponse> GetMealLogAsync(Guid userId, Guid mealLogId)
@@ -49,7 +54,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.MealLogs.Update(entity);
             await _unitOfWork.CompleteAsync();
             await SyncSnapshotForLogAsync(userId, entity);
-            return await MapMealLogAsync(entity);
+            var response = await MapMealLogAsync(entity);
+            ApplyRequestDisplayPortion(response, request);
+            return response;
         }
 
         public async Task DeleteMealLogAsync(Guid userId, Guid mealLogId)
@@ -349,7 +356,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
                 MealType = request.MealType,
-                QuantityG = request.QuantityG,
                 Notes = request.Notes,
                 LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
                 MealPlanItemId = request.MealPlanItemId,
@@ -365,7 +371,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.FoodId = request.FoodId;
             entity.RecipeId = request.RecipeId;
             entity.MealType = request.MealType;
-            entity.QuantityG = request.QuantityG;
+            var quantityG = await ResolveQuantityGAsync(request, entity.UserId);
+            entity.QuantityG = quantityG;
             entity.Notes = request.Notes;
             entity.LoggedAt = request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow;
             if (request.MealPlanItemId.HasValue)
@@ -377,7 +384,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.FoodId.HasValue)
             {
                 var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId.Value) ?? throw new Exception("Food not found.");
-                ApplyNutritionFromFood(entity, food, request.QuantityG);
+                ApplyNutritionFromFood(entity, food, quantityG);
                 entity.SourceType = "Food";
                 return;
             }
@@ -385,7 +392,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.RecipeId.HasValue)
             {
                 _ = await _unitOfWork.Recipes.GetByIdAsync(request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
-                await ApplyNutritionFromRecipeAsync(entity, request.RecipeId.Value, request.QuantityG);
+                await ApplyNutritionFromRecipeAsync(entity, request.RecipeId.Value, quantityG);
                 entity.SourceType = "Recipe";
                 return;
             }
@@ -582,10 +589,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IsFromMealPlan = x.IsFromMealPlan,
                 FoodName = foodName,
                 RecipeTitle = recipeTitle,
-                DisplayName = displayName
+                DisplayName = displayName,
+                DisplayPortion = x.QuantityG.HasValue ? $"{x.QuantityG.Value:0.##}g" : null
             };
         }
 
         private static WeightLogResponse Map(WeightLog x) => new() { Id = x.Id, UserId = x.UserId, WeightKg = x.WeightKg, BodyFatPercent = x.BodyFatPercent, RecordedAt = x.RecordedAt };
+
+        private async Task<decimal> ResolveQuantityGAsync(MealLogUpsertRequest request, Guid userId)
+        {
+            if (request.QuantityG.HasValue && request.QuantityG.Value > 0)
+            {
+                return request.QuantityG.Value;
+            }
+
+            if (!request.Quantity.HasValue || request.Quantity.Value <= 0)
+            {
+                throw new Exception("QuantityG or Quantity must be greater than 0.");
+            }
+
+            var unit = request.Unit?.Trim();
+            if (string.IsNullOrWhiteSpace(unit) ||
+                unit.Equals("g", StringComparison.OrdinalIgnoreCase) ||
+                unit.Equals("gram", StringComparison.OrdinalIgnoreCase) ||
+                unit.Equals("grams", StringComparison.OrdinalIgnoreCase))
+            {
+                return request.Quantity.Value;
+            }
+
+            if (!request.FoodId.HasValue)
+            {
+                throw new Exception("FoodId is required when converting a local portion unit.");
+            }
+
+            var converted = await _portionConverterService.ConvertPortionAsync(new PortionConvertRequest
+            {
+                FoodId = request.FoodId.Value,
+                Unit = unit,
+                Quantity = request.Quantity.Value
+            }, userId);
+
+            return converted.ConvertedGrams;
+        }
+
+        private static void ApplyRequestDisplayPortion(MealLogResponse response, MealLogUpsertRequest request)
+        {
+            if (request.Quantity.HasValue && !string.IsNullOrWhiteSpace(request.Unit))
+            {
+                response.DisplayPortion = $"{request.Quantity.Value:0.##} {request.Unit.Trim()}";
+            }
+        }
     }
 }

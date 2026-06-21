@@ -11,8 +11,10 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 1. [2.5 Meal Plan](#25-meal-plan) - ✅ HOÀN THÀNH
 2. [2.6 Recommendation](#26-recommendation) - ✅ HOÀN THÀNH
 3. [2.7 AI Assistant](#27-ai-assistant)
-4. [2.9 Notification](#29-notification)
-5. [2.10 Analytics](#210-analytics)
+4. [2.8 Subscription & Payment](#28-subscription--payment) - ✅ HOÀN THÀNH
+5. [2.9 Notification](#29-notification)
+6. [2.10 Analytics](#210-analytics)
+7. [2.11 Vietnam-first Local Nutrition](#211-vietnam-first-local-nutrition) - ✅ HOÀN THÀNH
 
 ---
 
@@ -247,6 +249,61 @@ Cần triển khai UI Flutter (chat screen) để kết nối với các API.
 
 ---
 
+## 2.8 Subscription & Payment
+
+**File Controllers:** 
+- `backend/MenuGreen.API/Controllers/UserSubscriptionController.cs`
+- `backend/MenuGreen.API/Controllers/SepayController.cs`
+- `backend/MenuGreen.API/Controllers/SubscriptionPlanController.cs` (Admin CRUD)
+
+**File Flutter:** `frontend/lib/features/subscription/`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. SubscriptionPlan CRUD (Admin) | ✅ Hoàn tất | |
+| B. UserSubscription Workflow | ✅ Hoàn tất | subscribe/renew/cancel (gia hạn gói miễn phí trực tiếp) |
+| C. SePay Payment QR & Webhook | ✅ Hoàn tất | create-order/create-renew-order/webhook |
+| D. Subscription History & Metrics | ✅ Hoàn tất | |
+
+| Nhóm UI | Trạng thái | Ghi chú |
+|---------|:----------:|---------|
+| A. Upgrade Screen | ✅ Hoàn tất | Màn hình chọn gói & lịch sử |
+| B. SePay Payment Screen | ✅ Hoàn tất | Màn hiển thị QR thanh toán |
+
+### API đã có
+
+```
+# SubscriptionPlan (Admin)
+GET    /api/SubscriptionPlan                     # GetAll
+GET    /api/SubscriptionPlan/{id}                # GetById
+GET    /api/SubscriptionPlan/{id}/features       # GetFeatures
+GET    /api/SubscriptionPlan/{id}/status         # GetStatus
+POST   /api/SubscriptionPlan                     # Create
+PUT    /api/SubscriptionPlan/{id}                # Update
+DELETE /api/SubscriptionPlan/{id}                # Delete
+PATCH  /api/SubscriptionPlan/{id}/status         # UpdateStatus
+
+# UserSubscription (User)
+GET    /api/UserSubscription/plans               # GetAvailablePlans (Lấy gói active)
+POST   /api/UserSubscription/subscribe           # Subscribe (Gói miễn phí)
+POST   /api/UserSubscription/renew               # Renew (Gói miễn phí)
+POST   /api/UserSubscription/cancel              # Cancel
+GET    /api/UserSubscription/me                  # GetCurrent
+GET    /api/UserSubscription/{id}                # GetById
+GET    /api/UserSubscription/me/history          # GetHistory
+
+# SePay Payments
+POST   /api/payments/sepay/create-order          # Tạo đơn mới
+POST   /api/payments/sepay/create-renew-order    # Tạo đơn gia hạn
+GET    /api/payments/sepay/pending               # Đơn hàng đang chờ
+GET    /api/payments/sepay/{paymentId}           # Trạng thái đơn hàng
+POST   /api/payments/sepay/webhook               # Webhook xác thực SePay
+```
+
+---
+
 ## 2.9 Notification
 
 **File Controller:** `backend/MenuGreen.API/Controllers/NotificationController.cs`
@@ -279,6 +336,8 @@ GET    /api/Notification
 GET    /api/Notification/{id}
 GET    /api/Notification/unread-count
 PATCH  /api/Notification/{id}/read
+PATCH  /api/Notification/{id}/open
+PATCH  /api/Notification/{id}/dismiss
 PATCH  /api/Notification/read-all
 DELETE /api/Notification/{id}
 DELETE /api/Notification/batch
@@ -367,6 +426,57 @@ Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
 
 ---
 
+## 2.11 Vietnam-first Local Nutrition
+
+**File Controller:** `backend/MenuGreen.API/Controllers/VietnamNutritionController.cs` và `backend/MenuGreen.API/Controllers/PortionConverterController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API | Trạng thái | Ghi chú |
+|----------|:----------:|---------|
+| A. Local preference onboarding | ✅ Hoàn tất | `GET/POST/PUT /api/Nutrition/local-preferences` |
+| B. Localized food discovery | ✅ Hoàn tất | `/api/Nutrition/discovery/local/...` |
+| C. Portion / unit conversion | ✅ Hoàn tất | `/api/PortionConverter/...` |
+| D. Vietnamese meal logging | ✅ Hoàn tất | `/api/Nutrition/meal-log/vn/...` |
+| E. Budget-aware recommendations | ✅ Hoàn tất | `/api/Nutrition/recommendations/...` |
+
+### API đã có
+
+```
+# VietnamNutritionController
+GET    /api/Nutrition/local-preferences
+POST   /api/Nutrition/local-preferences
+PUT    /api/Nutrition/local-preferences
+
+GET    /api/Nutrition/discovery/local
+GET    /api/Nutrition/discovery/local/by-region/{region}
+GET    /api/Nutrition/discovery/local/by-budget
+
+GET    /api/Nutrition/meal-log/vn/suggestions
+POST   /api/Nutrition/meal-log/vn
+POST   /api/Nutrition/meal-log/vn/quick-add
+GET    /api/Nutrition/meal-log/vn/history
+
+GET    /api/Nutrition/recommendations/budget-aware
+GET    /api/Nutrition/recommendations/local-friendly
+POST   /api/Nutrition/recommendations/feedback
+
+# PortionConverterController
+GET    /api/PortionConverter/units
+GET    /api/PortionConverter/units/food/{foodId}
+POST   /api/PortionConverter/convert
+GET    /api/PortionConverter/custom-units
+POST   /api/PortionConverter/custom-units
+PUT    /api/PortionConverter/custom-units/{id}
+DELETE /api/PortionConverter/custom-units/{id}
+```
+
+### Kết luận
+
+**Vietnam-first Local Nutrition API: ✅ HOÀN CHỈNH**
+
+---
+
 ## Tổng kết
 
 | Workflow | API Status | UI Status | Ưu tiên |
@@ -374,16 +484,19 @@ Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
 | **2.5 Meal Plan** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
 | 2.6 Recommendation | ✅ Hoàn chỉnh | 🟡 Một phần | **P2** |
 | 2.7 AI Assistant | ✅ Hoàn chỉnh | 🟡 Placeholder | **P3** |
+| **2.8 Subscription & Payment** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
 | 2.9 Notification | ✅ Hoàn chỉnh | ❌ Chưa có | **P2** |
 | 2.10 Analytics | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.11 Vietnam-first Local Nutrition** | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
 
 ### Thứ tự ưu tiên triển khai
 
 1. ~~**P1 - Meal Plan:**~~ ✅ **HOÀN THÀNH**
 2. ~~**P2 - Recommendation UI:**~~ ✅ **HOÀN THÀNH**
-3. **P3 - Notification UI:** Triển khai settings/inbox screens.
-4. **P3 - AI Assistant UI:** Kết nối chat interface với các API.
-5. **P3 - Analytics Admin UI:** Build admin dashboard.
+3. ~~**P2 - Subscription & Payment:**~~ ✅ **HOÀN THÀNH**
+4. **P3 - Notification UI:** Triển khai settings/inbox screens.
+5. **P3 - AI Assistant UI:** Kết nối chat interface với các API.
+6. **P3 - Analytics Admin UI:** Build admin dashboard.
 
 ---
 
