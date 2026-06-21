@@ -47,6 +47,10 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.PremiumProgram> PremiumPrograms { get; }
         IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms { get; }
         IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones { get; }
+        IGenericRepository<Entities.CoachProfile> CoachProfiles { get; }
+        IGenericRepository<Entities.CoachConnection> CoachConnections { get; }
+        IGenericRepository<Entities.CoachFeedback> CoachFeedbacks { get; }
+        IGenericRepository<Entities.PtReviewRequest> PtReviewRequests { get; }
         
         Task<int> CompleteAsync();
     }

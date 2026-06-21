@@ -214,6 +214,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
+        public async Task<NotificationResponse> DismissAsync(Guid userId, Guid notificationId)
+        {
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            notification.IsDismissed = true;
+            notification.DismissedAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.CompleteAsync();
+            return MapNotification(notification);
+        }
+
         public async Task<object> GetAnalyticsAsync(Guid userId)
         {
             var notifications = await _unitOfWork.Notifications.FindAsync(x => x.UserId == userId);
@@ -598,7 +608,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CreatedAt = notification.CreatedAt,
                 ScheduledAt = notification.ScheduledAt,
                 SentAt = notification.SentAt,
-                ReadAt = notification.ReadAt
+                ReadAt = notification.ReadAt,
+                IsDismissed = notification.IsDismissed,
+                DismissedAt = notification.DismissedAt,
+                ClickedAt = notification.ClickedAt,
+                ActionCompletedAt = notification.ActionCompletedAt
             };
         }
     }

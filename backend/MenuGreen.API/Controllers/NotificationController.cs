@@ -95,6 +95,33 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Ghi nhận user đã mở thông báo.
+        /// </summary>
+        [HttpPatch("{id:guid}/open")]
+        public async Task<IActionResult> Open(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.MarkAsReadAsync(userId, id));
+        }
+
+        /// <summary>
+        /// Ghi nhận user đã bỏ qua thông báo.
+        /// </summary>
+        [HttpPatch("{id:guid}/dismiss")]
+        public async Task<IActionResult> Dismiss(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.DismissAsync(userId, id));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Đánh dấu toàn bộ thông báo của user là đã đọc.
         /// </summary>
         [HttpPatch("read-all")]

@@ -72,12 +72,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 entity.DislikedFoods = NormalizeJsonColumnValue(request.DislikedFoods);
             }
 
-            if (request.Preferences != null || request.AllergiesAcknowledged.HasValue)
+            if (request.Preferences != null ||
+                request.AllergiesAcknowledged.HasValue ||
+                request.VietnamRegion != null ||
+                request.MealContext != null ||
+                request.BudgetPerMealVnd.HasValue ||
+                request.PreferredPortionUnits != null)
             {
                 entity.Preferences = UserAiProfilePreferencesHelper.MergePreferences(
                     entity.Preferences,
                     request.Preferences,
-                    request.AllergiesAcknowledged);
+                    request.AllergiesAcknowledged,
+                    request.VietnamRegion,
+                    request.MealContext,
+                    request.BudgetPerMealVnd,
+                    request.PreferredPortionUnits);
             }
         }
 
@@ -132,6 +141,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 DislikedFoods = entity?.DislikedFoods,
                 EatingPattern = ParseEatingPattern(entity?.EatingPattern),
                 AllergiesAcknowledged = UserAiProfilePreferencesHelper.TryGetAllergiesAcknowledged(entity?.Preferences),
+                VietnamRegion = UserAiProfilePreferencesHelper.TryGetVietnamRegion(entity?.Preferences),
+                MealContext = UserAiProfilePreferencesHelper.TryGetMealContext(entity?.Preferences),
+                BudgetPerMealVnd = UserAiProfilePreferencesHelper.TryGetBudgetPerMealVnd(entity?.Preferences),
+                PreferredPortionUnits = UserAiProfilePreferencesHelper.TryGetPreferredPortionUnits(entity?.Preferences),
                 UpdatedAt = entity?.UpdatedAt
             };
         }
