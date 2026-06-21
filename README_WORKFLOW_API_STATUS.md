@@ -11,8 +11,8 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 1. [2.5 Meal Plan](#25-meal-plan) - ✅ HOÀN THÀNH
 2. [2.6 Recommendation](#26-recommendation) - ✅ HOÀN THÀNH
 3. [2.7 AI Assistant](#27-ai-assistant)
-4. [2.9 Notification](#29-notification)
-5. [2.10 Analytics](#210-analytics)
+4. [2.9 Notification](#29-notification) - ✅ HOÀN THÀNH
+5. [2.10 Analytics](#210-analytics) - ⏸️ OUT OF SCOPE
 
 ---
 
@@ -362,8 +362,9 @@ GET    /api/Analytics/export/cohort
 ### Kết luận
 
 **Analytics API: ✅ HOÀN CHỈNH**
+**Analytics Admin UI: ⏸️ OUT OF SCOPE**
 
-Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
+Admin Dashboard là backend-only feature, không nằm trong mobile app scope.
 
 ---
 
@@ -374,16 +375,16 @@ Cần triển khai Admin UI Flutter để hiển thị dashboard và báo cáo.
 | **2.5 Meal Plan** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
 | 2.6 Recommendation | ✅ Hoàn chỉnh | 🟡 Một phần | **P2** |
 | 2.7 AI Assistant | ✅ Hoàn chỉnh | 🟡 Placeholder | **P3** |
-| 2.9 Notification | ✅ Hoàn chỉnh | ❌ Chưa có | **P2** |
-| 2.10 Analytics | ✅ Hoàn chỉnh | ❌ Chưa có | **P3** |
+| **2.9 Notification** | ✅ Hoàn chỉnh | ✅ **Hoàn thành** | ✅ **DONE** |
+| 2.10 Analytics | ✅ Hoàn chỉnh | ⏸️ Out of scope | - |
 
 ### Thứ tự ưu tiên triển khai
 
 1. ~~**P1 - Meal Plan:**~~ ✅ **HOÀN THÀNH**
 2. ~~**P2 - Recommendation UI:**~~ ✅ **HOÀN THÀNH**
-3. **P3 - Notification UI:** Triển khai settings/inbox screens.
+3. ~~**P2 - Notification UI:**~~ ✅ **HOÀN THÀNH**
 4. **P3 - AI Assistant UI:** Kết nối chat interface với các API.
-5. **P3 - Analytics Admin UI:** Build admin dashboard.
+5. ~~**P3 - Analytics Admin UI:**~~ ⏸️ Out of scope (Admin panel, không trong mobile app)
 
 ---
 
