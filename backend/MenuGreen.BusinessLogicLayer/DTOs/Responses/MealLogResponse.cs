@@ -22,5 +22,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? FoodName { get; set; }
         public string? RecipeTitle { get; set; }
         public string? DisplayName { get; set; }
+        public string? DisplayPortion { get; set; }
     }
 }
