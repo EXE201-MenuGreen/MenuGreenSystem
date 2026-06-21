@@ -83,27 +83,6 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Tạo meal plan với items ngay từ đầu - user chọn món ăn trước khi tạo.
-        /// </summary>
-        [HttpPost("with-items")]
-        public async Task<IActionResult> CreateWithItems([FromBody] MealPlanUpsertRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            try
-            {
-                if (request.Items == null || !request.Items.Any())
-                {
-                    return BadRequest(new { Message = "A meal plan must contain at least one meal item." });
-                }
-                return Ok(await _service.CreateAsync(request, userId));
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
-        }
 
         /// <summary>
         /// Cập nhật thông tin meal plan hiện tại.

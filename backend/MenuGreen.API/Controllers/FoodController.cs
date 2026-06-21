@@ -2,7 +2,9 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,10 +16,12 @@ namespace MenuGreen.API.Controllers
     public class FoodController : ControllerBase
     {
         private readonly IFoodService _foodService;
+        private readonly IAllergenMatchingService _allergenMatching;
 
-        public FoodController(IFoodService foodService)
+        public FoodController(IFoodService foodService, IAllergenMatchingService allergenMatching)
         {
             _foodService = foodService;
+            _allergenMatching = allergenMatching;
         }
 
         private Guid? TryGetUserId()
@@ -196,6 +200,43 @@ namespace MenuGreen.API.Controllers
             {
                 await _foodService.DeleteAsync(id);
                 return Ok(new { Message = "Deleted successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật danh sách chất gây dị ứng của món ăn (Admin only).
+        /// </summary>
+        [HttpPut("{id:guid}/allergies")]
+        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> SetAllergies(Guid id, [FromBody] FoodAllergenTagsUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                // Verify food exists
+                var food = await _foodService.GetByIdAsync(id);
+                if (food == null) return NotFound(new { Message = "Food not found." });
+
+                await _allergenMatching.SetFoodAllergenKeysAsync(id, request.AllergenKeys);
+
+                var keys = await _allergenMatching.GetFoodAllergenKeysListAsync(id);
+                var labels = AllergenCatalog.ToDisplayNamesVi(keys).ToList();
+
+                var response = new FoodAllergenTagsResponse
+                {
+                    FoodId = id,
+                    AllergenKeys = keys.ToList(),
+                    AllergenLabelsVi = labels,
+                    AvailableAllergenKeys = AllergenCatalog.AllKeys.ToList()
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {

@@ -633,7 +633,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `quick-start/today`, `quick-start/refresh`, `quick-start/preview`, `quick-start/refine` không nên tạo endpoint mới; chỉ map sang `RecommendationController` hiện có.
 - `quick-start/feedback` dùng lại `POST /api/Recommendation/feedback`, không tạo luồng feedback riêng.
 - `quick-start/log` và `quick-start/log-and-plan` dùng lại `POST /api/NutritionTracking/meal-logs`, không tạo API log riêng trùng chức năng.
-- `quick-start/create-meal-plan` dùng lại `MealPlanService` / `UserMealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
+- `quick-start/create-meal-plan` dùng lại `MealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
 - `quick-start/history` nếu chỉ cần lịch sử gợi ý thì dùng lại `GET /api/Recommendation/history`, không thêm history mới.
 
 **Các API quick-start chỉ là tên workflow mô tả, không phải endpoint mới cần code:**
