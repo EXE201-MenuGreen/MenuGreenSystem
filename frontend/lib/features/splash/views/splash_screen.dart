@@ -80,7 +80,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       try {
         final complete = await OnboardingGate().isOnboardingComplete();
         destination = complete ? const MainScreen() : const OnboardingScreen();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[Splash] OnboardingGate error: $e — going to MainScreen');
         destination = const MainScreen();
       }
     }
