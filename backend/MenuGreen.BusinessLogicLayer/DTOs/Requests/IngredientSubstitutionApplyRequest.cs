@@ -12,11 +12,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid SubstituteIngredientId { get; set; }
 
         [Required]
-        [Range(0.01, 100000.0, ErrorMessage = "Khối lượng nguyên liệu gốc phải lớn hơn 0.")]
+        [Range(0.01, 100000.0, ErrorMessage = "Original ingredient quantity must be greater than 0.")]
         public double OriginalQuantity { get; set; }
 
         [Required]
-        [Range(0.01, 100000.0, ErrorMessage = "Khối lượng nguyên liệu thay thế phải lớn hơn 0.")]
+        [Range(0.01, 100000.0, ErrorMessage = "Substitute ingredient quantity must be greater than 0.")]
         public double SubstituteQuantity { get; set; }
     }
 }

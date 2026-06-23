@@ -10,8 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý engagement workflow như Habit Score, streak và nhắc nhở.
-    /// Tái sử dụng dữ liệu meal log, weight log, meal plan và notification hiện có.
+    /// Controller for engagement workflow including Habit Score, streaks, and reminders.
+    /// Reuses existing meal log, weight log, meal plan, and notification data.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -34,7 +34,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy Habit Score tổng hợp của user từ tracking hiện có.
+        /// Get user overall Habit Score from existing tracking data.
         /// </summary>
         [HttpGet("habit-score")]
         public async Task<IActionResult> GetHabitScore([FromQuery] string period = "week")
@@ -46,7 +46,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy lịch sử Habit Score theo ngày trong một khoảng thời gian.
+        /// Get Habit Score history by day over a time period.
         /// </summary>
         [HttpGet("habit-score/history")]
         public async Task<IActionResult> GetHabitScoreHistory([FromQuery] int days = 30)
@@ -78,7 +78,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Trả breakdown các thành phần tạo nên Habit Score.
+        /// Return breakdown of Habit Score components.
         /// </summary>
         [HttpGet("habit-score/breakdown")]
         public async Task<IActionResult> GetHabitScoreBreakdown([FromQuery] string period = "week")
@@ -98,7 +98,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy streak hiện tại từ meal plan để hỗ trợ Habit Score.
+        /// Get current streak from meal plan for Habit Score support.
         /// </summary>
         [HttpGet("streak")]
         public async Task<IActionResult> GetStreak()
@@ -108,7 +108,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy dashboard notification analytics để xem mức độ engagement.
+        /// Get notification analytics dashboard for engagement level.
         /// </summary>
         [HttpGet("notification-engagement")]
         public async Task<IActionResult> GetNotificationEngagement()
@@ -161,14 +161,14 @@ namespace MenuGreen.API.Controllers
                         Name = "Meal consistency",
                         Score = mealConsistency,
                         Weight = 0.35,
-                        Detail = $"{mealDays}/{totalDays} ngày có meal log"
+                        Detail = $"{mealDays}/{totalDays} days with meal log"
                     },
                     new HabitScoreComponent
                     {
                         Name = "Calorie consistency",
                         Score = calorieConsistency,
                         Weight = 0.35,
-                        Detail = $"Avg {Math.Round(avgCalories, 2)} kcal/ngày"
+                        Detail = $"Avg {Math.Round(avgCalories, 2)} kcal/day"
                     },
                     new HabitScoreComponent
                     {
@@ -193,14 +193,14 @@ namespace MenuGreen.API.Controllers
         {
             var items = new List<string>();
 
-            if (mealConsistency < 70) items.Add("Log bữa đều hơn mỗi ngày để tăng tính ổn định.");
-            if (calorieConsistency < 70) items.Add("Giữ calories gần mục tiêu hơn để score tăng nhanh.");
-            if (streakScore < 50) items.Add("Duy trì chuỗi ngày liên tiếp để cải thiện streak.");
-            if (engagementScore < 50) items.Add("Mở và tương tác với notification thường xuyên hơn.");
+            if (mealConsistency < 70) items.Add("Log meals more consistently each day to improve stability.");
+            if (calorieConsistency < 70) items.Add("Keep calories closer to target for faster score improvement.");
+            if (streakScore < 50) items.Add("Maintain consecutive days to improve streak.");
+            if (engagementScore < 50) items.Add("Open and interact with notifications more often.");
 
             if (items.Count == 0)
             {
-                items.Add("Bạn đang duy trì thói quen khá tốt, hãy giữ nhịp này.");
+                items.Add("You are maintaining good habits, keep up the pace.");
             }
 
             return items;

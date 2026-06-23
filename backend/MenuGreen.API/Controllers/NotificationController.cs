@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý Notification - Thông báo và nhắc nhở.
+    /// Controller for Notification management - notifications and reminders.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -26,7 +26,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy cấu hình nhắc nhở hiện tại của user.
+        /// Get current user reminder settings.
         /// </summary>
         [HttpGet("settings")]
         public async Task<IActionResult> GetSettings()
@@ -36,7 +36,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật cấu hình nhắc nhở của user.
+        /// Update user reminder settings.
         /// </summary>
         [HttpPut("settings")]
         public async Task<IActionResult> UpdateSettings([FromBody] NotificationSettingUpsertRequest request)
@@ -47,7 +47,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách thông báo của user (có thể lọc chưa đọc).
+        /// Get user notifications (can filter by unread).
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] bool? unreadOnly = null)
@@ -57,7 +57,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một thông báo cụ thể theo ID.
+        /// Get details of a specific notification by ID.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -75,7 +75,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đếm số thông báo chưa đọc để hiển thị badge.
+        /// Count unread notifications for badge display.
         /// </summary>
         [HttpGet("unread-count")]
         public async Task<IActionResult> GetUnreadCount()
@@ -85,7 +85,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đánh dấu một thông báo cụ thể là đã đọc.
+        /// Mark a specific notification as read.
         /// </summary>
         [HttpPatch("{notificationId:guid}/read")]
         public async Task<IActionResult> MarkAsRead(Guid notificationId)
@@ -95,7 +95,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận user đã mở thông báo.
+        /// Record when user opens a notification.
         /// </summary>
         [HttpPatch("{id:guid}/open")]
         public async Task<IActionResult> Open(Guid id)
@@ -105,7 +105,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận user đã bỏ qua thông báo.
+        /// Record when user dismisses a notification.
         /// </summary>
         [HttpPatch("{id:guid}/dismiss")]
         public async Task<IActionResult> Dismiss(Guid id)
@@ -122,7 +122,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đánh dấu toàn bộ thông báo của user là đã đọc.
+        /// Mark all user notifications as read.
         /// </summary>
         [HttpPatch("read-all")]
         public async Task<IActionResult> MarkAllAsRead()
@@ -133,7 +133,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một thông báo.
+        /// Delete a notification.
         /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
@@ -152,7 +152,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa nhiều thông báo cùng lúc theo danh sách IDs.
+        /// Delete multiple notifications at once by list of IDs.
         /// </summary>
         [HttpDelete("batch")]
         public async Task<IActionResult> DeleteBatch([FromBody] DeleteNotificationBatchRequest request)
@@ -172,7 +172,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa thông báo trong khoảng thời gian.
+        /// Delete notifications within a date range.
         /// </summary>
         [HttpDelete("range")]
         public async Task<IActionResult> DeleteByRange([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
@@ -191,8 +191,8 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo thông báo nhắc giờ ăn trước thời điểm ăn dự kiến.
-        /// API này phục vụ workflow meal plan để bấm nhắc cho từng bữa đã lên kế hoạch.
+        /// Create meal time reminder notification before planned meal time.
+        /// This API serves meal plan workflow to remind for each planned meal.
         /// </summary>
         [HttpPost("meal-plan-remind")]
         public async Task<IActionResult> MealPlanRemind([FromBody] ScheduleMealReminderRequest request)
@@ -210,8 +210,8 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo thông báo nhắc chuẩn bị nguyên liệu trước khi nấu.
-        /// API này phục vụ workflow meal plan để nhắc trước giờ cooking.
+        /// Create ingredient prep reminder notification before cooking time.
+        /// This API serves meal plan workflow to remind before cooking time.
         /// </summary>
         [HttpPost("schedule-prep-reminder")]
         public async Task<IActionResult> SchedulePrepReminder([FromBody] SchedulePrepReminderRequest request)
@@ -229,7 +229,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách kênh thông báo mà hệ thống hỗ trợ.
+        /// Get list of notification channels supported by the system.
         /// </summary>
         [HttpGet("channels")]
         public async Task<IActionResult> GetChannels()
@@ -238,7 +238,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Reset cấu hình thông báo của user về mặc định.
+        /// Reset user notification settings to default.
         /// </summary>
         [HttpPost("settings/reset")]
         public async Task<IActionResult> ResetSettings()
@@ -249,7 +249,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi một notification cụ thể tới user.
+        /// Send a specific notification to a user.
         /// </summary>
         [HttpPost("send")]
         public async Task<IActionResult> Send([FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationSendRequest request)
@@ -266,7 +266,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận notification được mở.
+        /// Record when a notification is opened.
         /// </summary>
         [HttpPost("{notificationId:guid}/track/open")]
         public async Task<IActionResult> TrackOpen(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
@@ -277,7 +277,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận user click vào CTA của notification.
+        /// Record when user clicks on notification CTA.
         /// </summary>
         [HttpPost("{notificationId:guid}/track/click")]
         public async Task<IActionResult> TrackClick(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
@@ -288,7 +288,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận user hoàn thành hành động sau khi click notification.
+        /// Record when user completes action after clicking notification.
         /// </summary>
         [HttpPost("{notificationId:guid}/track/action-complete")]
         public async Task<IActionResult> TrackActionComplete(Guid notificationId, [FromBody] MenuGreen.BusinessLogicLayer.DTOs.Requests.NotificationTrackRequest request)
@@ -299,7 +299,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Trả về thống kê tổng hợp open/click của notification.
+        /// Return aggregated open/click notification statistics.
         /// </summary>
         [HttpGet("analytics")]
         public async Task<IActionResult> GetAnalytics()
@@ -309,7 +309,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi thông báo hàng loạt đến danh sách User IDs.
+        /// Send bulk notifications to a list of User IDs.
         /// </summary>
         [HttpPost("send/bulk")]
         public async Task<IActionResult> SendBulk([FromBody] NotificationSendBulkRequest request)
@@ -319,7 +319,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi thông báo tự động dựa theo sự kiện và ngữ cảnh cụ thể.
+        /// Send automatic notifications based on specific events and context.
         /// </summary>
         [HttpPost("send/event")]
         public async Task<IActionResult> SendEvent([FromBody] NotificationSendEventRequest request)
@@ -336,7 +336,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lên lịch gửi thông báo cho một user cụ thể vào thời gian xác định.
+        /// Schedule a notification for a specific user at a specified time.
         /// </summary>
         [HttpPost("send/schedule")]
         public async Task<IActionResult> Schedule([FromBody] NotificationScheduleRequest request)
@@ -346,7 +346,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi lại các thông báo bị lỗi hoặc chưa được gửi đi.
+        /// Retry sending failed or pending notifications.
         /// </summary>
         [HttpPost("send/retry")]
         public async Task<IActionResult> Retry([FromBody] NotificationRetryRequest request)
@@ -356,7 +356,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới chiến dịch re-engagement nhắc nhở người dùng quay lại.
+        /// Create new re-engagement campaign to remind users to return.
         /// </summary>
         [HttpPost("campaigns")]
         public async Task<IActionResult> CreateCampaign([FromBody] CampaignUpsertRequest request)
@@ -366,7 +366,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách toàn bộ chiến dịch thông báo trong hệ thống.
+        /// Get list of all notification campaigns in the system.
         /// </summary>
         [HttpGet("campaigns")]
         public async Task<IActionResult> GetCampaigns()
@@ -375,7 +375,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin chi tiết một chiến dịch theo Campaign ID.
+        /// Get detailed information of a campaign by Campaign ID.
         /// </summary>
         [HttpGet("campaigns/{id:guid}")]
         public async Task<IActionResult> GetCampaignById(Guid id)
@@ -391,7 +391,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin cấu hình, nội dung hoặc lịch gửi của chiến dịch.
+        /// Update campaign settings, content, or sending schedule.
         /// </summary>
         [HttpPut("campaigns/{id:guid}")]
         public async Task<IActionResult> UpdateCampaign(Guid id, [FromBody] CampaignUpsertRequest request)
@@ -408,7 +408,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Kích hoạt chạy chiến dịch và tạo lịch gửi thông báo hàng loạt cho phân khúc mục tiêu.
+        /// Activate and run campaign, creating bulk notification schedule for target segment.
         /// </summary>
         [HttpPost("campaigns/{id:guid}/run")]
         public async Task<IActionResult> RunCampaign(Guid id)
@@ -424,7 +424,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạm dừng chiến dịch và tự động thu hồi các thông báo chưa gửi thuộc chiến dịch này.
+        /// Pause campaign and automatically withdraw unsent notifications for this campaign.
         /// </summary>
         [HttpPost("campaigns/{id:guid}/pause")]
         public async Task<IActionResult> PauseCampaign(Guid id)
@@ -440,7 +440,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Báo cáo hiệu quả chiến dịch Re-engagement (tổng gửi, tỉ lệ mở, click và hoàn thành hành động).
+        /// Report re-engagement campaign effectiveness (total sent, open rate, click rate, and action completion rate).
         /// </summary>
         [HttpGet("analytics/re-engagement")]
         public async Task<IActionResult> GetReEngagementAnalytics()

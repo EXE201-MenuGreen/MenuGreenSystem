@@ -60,7 +60,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlanId = plan.Id,
                 PlanName = plan.Name ?? string.Empty,
                 IsActive = plan.IsActive ?? false,
-                StatusMessage = (plan.IsActive ?? false) ? "Gói đang hoạt động" : "Gói đã bị vô hiệu hóa"
+                StatusMessage = (plan.IsActive ?? false) ? "Plan is active" : "Plan is disabled"
             };
         }
 

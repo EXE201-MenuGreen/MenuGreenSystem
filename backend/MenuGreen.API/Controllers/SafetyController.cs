@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Trả nội dung disclaimer chuẩn theo version.
+        /// Return disclaimer content by version.
         /// </summary>
         [HttpGet("disclaimer")]
         public IActionResult GetDisclaimer()
@@ -57,13 +57,13 @@ namespace MenuGreen.API.Controllers
             {
                 Version = "1.0",
                 Title = "MenuGreen Nutrition Disclaimer",
-                Content = "MenuGreen chỉ hỗ trợ theo dõi và gợi ý dinh dưỡng, không thay thế chẩn đoán hoặc điều trị y khoa.",
+                Content = "MenuGreen only provides tracking and nutrition recommendations, and does not replace medical diagnosis or treatment.",
                 UpdatedAt = DateTime.UtcNow
             });
         }
 
         /// <summary>
-        /// Lấy trạng thái consent hiện tại của user được lưu trữ trong AI Profile preferences.
+        /// Get current user consent status stored in AI Profile preferences.
         /// </summary>
         [HttpGet("consent")]
         public async Task<IActionResult> GetConsent()
@@ -99,7 +99,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật consent analytics/notification/marketing vào AI Profile Preferences.
+        /// Update analytics/notification/marketing consent in AI Profile Preferences.
         /// </summary>
         [HttpPut("consent")]
         public async Task<IActionResult> UpdateConsent([FromBody] SafetyConsentRequest request)
@@ -123,7 +123,7 @@ namespace MenuGreen.API.Controllers
                 catch { }
             }
 
-            // Ghi đè hoặc thêm consent mới
+            // Overwrite or add new consent values
             preferencesData["analyticsConsent"] = request.Analytics;
             preferencesData["notificationConsent"] = request.Notification;
             preferencesData["marketingConsent"] = request.Marketing;
@@ -138,7 +138,7 @@ namespace MenuGreen.API.Controllers
                 AllergiesAcknowledged = aiProfile?.AllergiesAcknowledged
             });
 
-            // Ghi nhận Activity Log
+            // Record Activity Log
             try
             {
                 await _analyticsService.CreateActivityLogAsync(userId, new ActivityLogCreateRequest
@@ -161,7 +161,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Trả cảnh báo an toàn/rủi ro cao dựa trên chỉ số BMI thực tế và danh sách dị ứng của người dùng.
+        /// Return high-risk safety/alerts based on actual BMI and user allergy list.
         /// </summary>
         [HttpGet("alerts")]
         public async Task<IActionResult> GetAlerts()
@@ -174,7 +174,7 @@ namespace MenuGreen.API.Controllers
             string riskLevel = "low";
             var alertList = new List<string>
             {
-                "MenuGreen chỉ cung cấp hướng dẫn dinh dưỡng và không thay thế chẩn đoán y khoa từ bác sĩ chuyên môn."
+                "MenuGreen only provides nutrition guidance and does not replace professional medical diagnosis."
             };
 
             if (healthProfile != null && healthProfile.Bmi.HasValue)
@@ -183,24 +183,24 @@ namespace MenuGreen.API.Controllers
                 if (bmi < 16.0m)
                 {
                     riskLevel = "high";
-                    alertList.Add($"Cảnh báo an toàn: Chỉ số BMI của bạn rất thấp ({bmi:0.0}) - nguy cơ suy dinh dưỡng mức độ nặng. Hãy tham vấn ý kiến bác sĩ hoặc chuyên gia dinh dưỡng để thiết lập chế độ phục hồi phù hợp.");
+                    alertList.Add($"Safety alert: Your BMI is very low ({bmi:0.0}) - risk of severe malnutrition. Please consult a doctor or nutrition specialist to establish a proper recovery plan.");
                 }
                 else if (bmi > 30.0m)
                 {
                     riskLevel = "high";
-                    alertList.Add($"Cảnh báo an toàn: Chỉ số BMI của bạn phản ánh béo phì mức độ cao ({bmi:0.0}). Vui lòng kiểm tra sức khỏe tim mạch và tham khảo ý kiến chuyên gia trước khi thay đổi chế độ dinh dưỡng đột ngột.");
+                    alertList.Add($"Safety alert: Your BMI reflects high obesity level ({bmi:0.0}). Please check cardiovascular health and consult a specialist before making sudden dietary changes.");
                 }
                 else if (bmi >= 25.0m && bmi <= 30.0m)
                 {
                     riskLevel = "medium";
-                    alertList.Add($"Lưu ý: Chỉ số BMI của bạn đang ở ngưỡng thừa cân ({bmi:0.0}). Hãy cân nhắc điều chỉnh lượng calo vừa phải.");
+                    alertList.Add($"Note: Your BMI is in the overweight range ({bmi:0.0}). Consider moderate calorie adjustment.");
                 }
             }
 
             if (allergies != null && allergies.Any())
             {
                 var allergyNames = string.Join(", ", allergies.Select(a => a.Name));
-                alertList.Add($"Cảnh báo dị ứng: Bạn có đăng ký dị ứng với: {allergyNames}. Hệ thống đề xuất bạn luôn kiểm tra kỹ các thành phần món ăn trước khi chuẩn bị hoặc log bữa ăn.");
+                alertList.Add($"Allergy alert: You have registered allergies: {allergyNames}. We recommend always checking food ingredients carefully before preparing or logging meals.");
             }
 
             return Ok(new
@@ -214,7 +214,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Yêu cầu xuất toàn bộ dữ liệu cá nhân (đóng gói trực tiếp Profile, Health Profile, AI Profile, Dị ứng).
+        /// Request to export all personal data (including Profile, Health Profile, AI Profile, Allergies).
         /// </summary>
         [HttpPost("export-data")]
         public async Task<IActionResult> ExportData()
@@ -236,7 +236,7 @@ namespace MenuGreen.API.Controllers
                 Allergies = allergies
             };
 
-            // Ghi nhận Activity Log
+            // Record Activity Log
             try
             {
                 await _analyticsService.CreateActivityLogAsync(userId, new ActivityLogCreateRequest
@@ -258,17 +258,17 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Yêu cầu xóa dữ liệu cá nhân bằng cách vô hiệu hóa tài khoản của người dùng.
+        /// Request to delete personal data by deactivating user account.
         /// </summary>
         [HttpDelete("delete-data")]
         public async Task<IActionResult> DeleteData()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
 
-            // Vô hiệu hóa tài khoản của người dùng
+            // Deactivate user account
             var isActive = await _userService.ToggleUserStatusAsync(userId);
 
-            // Ghi nhận Activity Log
+            // Record Activity Log
             try
             {
                 await _analyticsService.CreateActivityLogAsync(userId, new ActivityLogCreateRequest
@@ -285,12 +285,12 @@ namespace MenuGreen.API.Controllers
                 UserId = userId,
                 Status = "Deactivated",
                 IsActive = isActive,
-                Message = "Tài khoản của bạn đã được vô hiệu hóa thành công theo chính sách bảo mật và xóa dữ liệu của Google Play."
+                Message = "Your account has been successfully deactivated per Google Play privacy and data deletion policy."
             });
         }
 
         /// <summary>
-        /// Gửi phản hồi lỗi production hoặc sự cố quan trọng và lưu vào Activity Log.
+        /// Report production error or critical issue and save to Activity Log.
         /// </summary>
         [HttpPost("report-issue")]
         public async Task<IActionResult> ReportIssue([FromBody] SafetyReportIssueRequest request)
@@ -306,7 +306,7 @@ namespace MenuGreen.API.Controllers
                 request.ContactEmail
             });
 
-            // Ghi nhận sự cố vào Activity Logs
+            // Record issue in Activity Logs
             try
             {
                 await _analyticsService.CreateActivityLogAsync(userId, new ActivityLogCreateRequest
@@ -322,7 +322,7 @@ namespace MenuGreen.API.Controllers
             {
                 UserId = userId,
                 Status = "Received",
-                Message = "Báo cáo sự cố của bạn đã được ghi nhận thành công.",
+                Message = "Your issue report has been successfully recorded.",
                 request.Category,
                 request.Severity
             });
@@ -351,4 +351,3 @@ namespace MenuGreen.API.Controllers
         public string? ContactEmail { get; set; }
     }
 }
-

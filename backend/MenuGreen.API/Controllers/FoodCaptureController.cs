@@ -33,8 +33,8 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo template log nhanh từ một món hoặc meal log đã có.
-        /// Endpoint này không tạo storage mới, chỉ chuẩn hóa dữ liệu để user dùng lại.
+        /// Create quick log template from an existing food or meal log.
+        /// This endpoint does not create new storage, only normalizes data for user reuse.
         /// </summary>
         [HttpPost("quick-template")]
         public async Task<IActionResult> QuickTemplate([FromBody] FoodCaptureQuickTemplateRequest request)
@@ -70,11 +70,11 @@ namespace MenuGreen.API.Controllers
                 });
             }
 
-            return BadRequest(new { Message = "FoodId hoặc MealLogId là bắt buộc." });
+            return BadRequest(new { Message = "FoodId or MealLogId is required." });
         }
 
         /// <summary>
-        /// Gợi ý template từ meal plan hiện có nếu user muốn lấy preset thay vì tìm món.
+        /// Suggest template from existing meal plan if user wants preset instead of searching.
         /// </summary>
         [HttpGet("template-from-plan")]
         public async Task<IActionResult> TemplateFromPlan([FromQuery] DateOnly date)
@@ -88,12 +88,12 @@ namespace MenuGreen.API.Controllers
                 TemplateType = "meal-plan",
                 Source = "UserMealPlanController.GetByDate",
                 MealPlan = plan,
-                Note = "Dùng lại meal plan hiện có, không tạo template storage mới."
+                Note = "Reuses existing meal plan, no new template storage created."
             });
         }
 
         /// <summary>
-        /// Nhập tay macro ước tính kèm ghi chú khi không tìm thấy món.
+        /// Manually input estimated macros with notes when food is not found.
         /// </summary>
         [HttpPost("fallback-estimate")]
         public async Task<IActionResult> FallbackEstimate([FromBody] MealLogUpsertRequest request)
@@ -113,7 +113,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lưu một meal log chuẩn thành quick-add cho những lần sau.
+        /// Save a standard meal log as quick-add for future use.
         /// </summary>
         [HttpPost("save-as-quick-add")]
         public async Task<IActionResult> SaveAsQuickAdd([FromBody] MealLogUpsertRequest request)

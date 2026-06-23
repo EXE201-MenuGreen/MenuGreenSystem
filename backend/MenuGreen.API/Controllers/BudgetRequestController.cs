@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý Yêu cầu Ngân sách (Budget Request) của người dùng.
+    /// Controller for managing User Budget Requests.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -25,19 +25,19 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin yêu cầu ngân sách đang hoạt động (gần nhất) của user hiện tại.
+        /// Get active (most recent) budget request of current user.
         /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetActive()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             var result = await _service.GetActiveBudgetAsync(userId);
-            if (result == null) return NotFound(new { Message = "Không tìm thấy cấu hình ngân sách nào." });
+            if (result == null) return NotFound(new { Message = "No budget configuration found." });
             return Ok(result);
         }
 
         /// <summary>
-        /// Thiết lập ngân sách ăn uống mong muốn và giới hạn thời gian nấu ăn.
+        /// Set desired food budget and cooking time limits.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] BudgetRequestUpsertRequest request)
@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin ngân sách hoặc giới hạn thời gian nấu ăn theo Id.
+        /// Update budget or cooking time limit by Id.
         /// </summary>
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] BudgetRequestUpsertRequest request)
@@ -66,7 +66,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa cấu hình ngân sách đã thiết lập.
+        /// Delete configured budget.
         /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
@@ -75,7 +75,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.DeleteAsync(userId, id);
-                return Ok(new { Message = "Xóa cấu hình ngân sách thành công." });
+                return Ok(new { Message = "Budget configuration deleted successfully." });
             }
             catch (Exception ex)
             {

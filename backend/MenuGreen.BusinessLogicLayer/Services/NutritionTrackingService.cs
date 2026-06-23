@@ -578,7 +578,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ? foodName
                 : !string.IsNullOrWhiteSpace(recipeTitle)
                     ? recipeTitle
-                    : "Món đã ghi";
+                    : "Logged item";
 
             return new MealLogResponse
             {

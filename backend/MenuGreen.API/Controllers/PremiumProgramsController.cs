@@ -19,7 +19,7 @@ namespace MenuGreen.API.Controllers
             _premiumProgramService = premiumProgramService;
         }
 
-        /// <summary>Lấy danh sách các chương trình Premium đang hoạt động.</summary>
+        /// <summary>Get list of active Premium programs.</summary>
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetActivePrograms()
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy thông tin chi tiết một gói chương trình Premium.</summary>
+        /// <summary>Get detailed information of a Premium program package.</summary>
         [HttpGet("{id:guid}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetProgramById(Guid id)
@@ -51,7 +51,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Tạo yêu cầu mua chương trình Premium qua cổng thanh toán SePay QR.</summary>
+        /// <summary>Create purchase request for Premium program via SePay QR payment gateway.</summary>
         [HttpPost("{id:guid}/checkout")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -70,7 +70,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Kích hoạt bắt đầu chương trình sau khi đã thanh toán thành công.</summary>
+        /// <summary>Activate program after successful payment.</summary>
         [HttpPost("{id:guid}/activate")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -90,7 +90,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy thông tin chương trình Premium hiện tại của user.</summary>
+        /// <summary>Get current user's active Premium program.</summary>
         [HttpGet("my-active")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -101,7 +101,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _premiumProgramService.GetMyActiveProgramAsync(userId);
-                if (result == null) return NotFound(new { Message = "Bạn không có chương trình Premium nào đang hoạt động." });
+                if (result == null) return NotFound(new { Message = "You do not have any active Premium programs." });
                 return Ok(result);
             }
             catch (Exception ex)
@@ -110,7 +110,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy lịch sử các gói lộ trình đăng ký của user.</summary>
+        /// <summary>Get user subscription history.</summary>
         [HttpGet("my-programs")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -129,7 +129,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy các cột mốc tuần của gói Premium đang hoạt động.</summary>
+        /// <summary>Get weekly milestones of active Premium program.</summary>
         [HttpGet("my-active/milestones")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -148,7 +148,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Thực hiện check-in nộp chỉ số cân nặng và mỡ của tuần hiện tại.</summary>
+        /// <summary>Check-in weight and body fat metrics for current week.</summary>
         [HttpPost("my-active/milestones/{weekNumber:int}/checkin")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -168,7 +168,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy xu hướng thay đổi cân nặng/mỡ cơ thể của user trong chương trình.</summary>
+        /// <summary>Get user weight/body fat change trend in program.</summary>
         [HttpGet("my-active/progress-trend")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -187,7 +187,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Yêu cầu hoàn thành và tốt nghiệp chương trình sau khi hoàn thành tuần cuối.</summary>
+        /// <summary>Request completion and graduation after final week.</summary>
         [HttpPost("my-active/graduate")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -206,7 +206,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Lấy báo cáo tổng kết chi tiết lộ trình sau khi tốt nghiệp (hoặc tiến trình đang chạy).</summary>
+        /// <summary>Get detailed journey summary report after graduation (or ongoing progress).</summary>
         [HttpGet("my-active/wrap-up-report")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -217,7 +217,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var active = await _premiumProgramService.GetMyActiveProgramAsync(userId);
-                if (active == null) return BadRequest(new { Message = "Bạn không có chương trình Premium nào đang hoạt động để lấy báo cáo." });
+                if (active == null) return BadRequest(new { Message = "You do not have an active Premium program to get report from." });
                 var result = await _premiumProgramService.GetMyProgramReportAsync(userId, active.Id);
                 return Ok(result);
             }

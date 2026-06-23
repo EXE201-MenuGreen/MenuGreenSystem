@@ -188,16 +188,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<PtReviewRequestDetailResponse> GetSharedReportAsync(string token)
         {
             var requests = await _unitOfWork.PtReviewRequests.FindAsync(x => x.ReviewToken == token);
-            var request = requests.FirstOrDefault() ?? throw new Exception("Yêu cầu review không tồn tại hoặc token không hợp lệ.");
+            var request = requests.FirstOrDefault() ?? throw new Exception("Review request does not exist or token is invalid.");
 
             if (request.ExpiresAt < DateTime.UtcNow)
             {
-                throw new Exception("Liên kết đã hết hạn.");
+                throw new Exception("Link has expired.");
             }
 
             var user = await _unitOfWork.Users.GetByIdAsync(request.UserId);
             var profile = user != null ? await _unitOfWork.Profiles.GetByIdAsync(request.UserId) : null;
-            var studentName = profile?.FullName ?? user?.Email ?? "Học viên";
+            var studentName = profile?.FullName ?? user?.Email ?? "Student";
 
             var reportData = System.Text.Json.JsonSerializer.Deserialize<WeeklyReportSnapshot>(request.ReportDataJson, new System.Text.Json.JsonSerializerOptions
             {
@@ -236,7 +236,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var requests = await _unitOfWork.PtReviewRequests.FindAsync(x => x.UserId == userId);
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             var profile = user != null ? await _unitOfWork.Profiles.GetByIdAsync(userId) : null;
-            var studentName = profile?.FullName ?? user?.Email ?? "Học viên";
+            var studentName = profile?.FullName ?? user?.Email ?? "Student";
 
             var list = new List<PtReviewRequestDetailResponse>();
             foreach (var req in requests.OrderByDescending(r => r.CreatedAt))

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý các gói Subscription Plan.
+    /// Controller for managing Subscription Plans.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,7 +24,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách chính sách gói subscription (có thể lọc theo trạng thái).
+        /// Get list of subscription plan policies (can filter by status).
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
@@ -41,7 +41,7 @@ namespace MenuGreen.API.Controllers
 
 
         /// <summary>
-        /// Lấy chi tiết chính sách của một gói subscription theo Id.
+        /// Get detailed policy of a subscription plan by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -57,7 +57,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các tính năng của một gói subscription.
+        /// Get list of features for a subscription plan.
         /// </summary>
         [HttpGet("{id:guid}/features")]
         [AllowAnonymous]
@@ -74,7 +74,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy trạng thái hoạt động của một gói subscription.
+        /// Get active status of a subscription plan.
         /// </summary>
         [HttpGet("{id:guid}/status")]
         public async Task<IActionResult> GetPlanStatus(Guid id)
@@ -90,7 +90,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới một chính sách gói subscription.
+        /// Create new subscription plan policy.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SubscriptionPlanUpsertRequest request)
@@ -108,7 +108,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật chính sách giá và thời hạn của gói subscription.
+        /// Update plan policy price and duration.
         /// </summary>
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] SubscriptionPlanUpsertRequest request)
@@ -126,7 +126,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một chính sách gói subscription không còn dùng.
+        /// Delete unused subscription plan policy.
         /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
@@ -143,7 +143,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Bật hoặc tắt hiệu lực của một chính sách gói subscription.
+        /// Enable or disable subscription plan policy.
         /// </summary>
         [HttpPatch("{id:guid}/status")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] SubscriptionPlanStatusRequest request)

@@ -75,21 +75,21 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
     public class CoachRegisterRequest
     {
-        [Required(ErrorMessage = "Lĩnh vực chuyên môn không được để trống.")]
+        [Required(ErrorMessage = "Specialty field is required.")]
         [StringLength(255)]
         public string Specialty { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Giới thiệu bản thân không được để trống.")]
+        [Required(ErrorMessage = "Bio is required.")]
         public string Bio { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Số năm kinh nghiệm không được để trống.")]
+        [Required(ErrorMessage = "Years of experience is required.")]
         [Range(0, 100)]
         public int ExperienceYears { get; set; }
 
         [StringLength(500)]
         public string? CertificateUrl { get; set; }
 
-        [Required(ErrorMessage = "Mức phí dịch vụ không được để trống.")]
+        [Required(ErrorMessage = "Service fee is required.")]
         [Range(0, int.MaxValue)]
         public int PriceVnd { get; set; }
     }
@@ -102,20 +102,20 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
     public class CoachFeedbackCreateRequest
     {
-        [Required(ErrorMessage = "Loại nhận xét không được để trống.")]
+        [Required(ErrorMessage = "Feedback type is required.")]
         public string FeedbackType { get; set; } = "General"; // Meal, Daily, General
 
         public Guid? TargetId { get; set; }
         public string? MealType { get; set; }
         public DateOnly? LogDate { get; set; }
 
-        [Required(ErrorMessage = "Nội dung nhận xét không được để trống.")]
+        [Required(ErrorMessage = "Feedback content is required.")]
         public string Content { get; set; } = string.Empty;
     }
 
     public class ClientHealthTargetsAdjustRequest
     {
-        [Required(ErrorMessage = "Calorie mục tiêu không được để trống.")]
+        [Required(ErrorMessage = "Target calories is required.")]
         [Range(500, 10000)]
         public int TargetCalories { get; set; }
 

@@ -258,22 +258,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (!string.IsNullOrWhiteSpace(history.Type)) usedContext.Add(history.Type);
             if ((history.Confidence ?? 0) > 0) usedContext.Add("Confidence score");
 
-            reasons.Add("Recommendation được tạo dựa trên dữ liệu lịch sử và context của user.");
+            reasons.Add("Recommendation is generated based on historical data and user context.");
             if (!string.IsNullOrWhiteSpace(history.Type))
             {
                 matchedRules.Add(history.Type);
-                reasons.Add($"Áp dụng rule theo kiểu recommendation: {history.Type}.");
+                reasons.Add($"Applied recommendation rule type: {history.Type}.");
             }
             if (history.Confidence.HasValue)
             {
-                reasons.Add($"Mức tin cậy ước tính: {history.Confidence:0.00}.");
+                reasons.Add($"Estimated confidence level: {history.Confidence:0.00}.");
             }
             if (feedback != null)
             {
-                reasons.Add($"Feedback gần nhất: {(feedback.Rating.HasValue ? feedback.Rating.Value.ToString("0.0") : "N/A")}/5.");
+                reasons.Add($"Latest feedback: {(feedback.Rating.HasValue ? feedback.Rating.Value.ToString("0.0") : "N/A")}/5.");
                 if (!string.IsNullOrWhiteSpace(feedback.Feedback))
                 {
-                    reasons.Add($"Ghi chú user: {feedback.Feedback}");
+                    reasons.Add($"User note: {feedback.Feedback}");
                 }
             }
 
