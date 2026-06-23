@@ -118,7 +118,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (hasCalDrift)
             {
-                var direction = calDev > 0 ? "vượt quá" : "thấp hơn";
+                var direction = calDev > 0 ? "exceeds" : "is below";
                 representativeAlert = new GoalDriftAlert
                 {
                     Id = Guid.NewGuid(),
@@ -127,7 +127,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     AverageValue = avgCal,
                     TargetValue = targetCal,
                     PercentDeviation = Math.Round(calDev, 1),
-                    Message = $"Lượng calo tiêu thụ trung bình 7 ngày qua của bạn ({Math.Round(avgCal, 0)} kcal) {direction} {Math.Round(Math.Abs(calDev), 1)}% so với mục tiêu ({targetCal} kcal).",
+                    Message = $"Your average calorie intake over the past 7 days ({Math.Round(avgCal, 0)} kcal) {direction} your target by {Math.Round(Math.Abs(calDev), 1)}% ({targetCal} kcal).",
                     CreatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.GoalDriftAlerts.AddAsync(representativeAlert);
@@ -143,7 +143,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 if (targetProtein > 0 && Math.Abs(protDev) > 15m)
                 {
-                    details.Add($"Protein {(protDev > 0 ? "dư" : "thiếu")} {Math.Round(Math.Abs(protDev), 1)}%");
+                    details.Add($"Protein {(protDev > 0 ? "excess" : "deficit")} {Math.Round(Math.Abs(protDev), 1)}%");
                     if (Math.Abs(protDev) > maxDeviation)
                     {
                         maxDeviation = Math.Abs(protDev);
@@ -154,7 +154,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
                 if (targetCarbs > 0 && Math.Abs(carbDev) > 15m)
                 {
-                    details.Add($"Carbs {(carbDev > 0 ? "dư" : "thiếu")} {Math.Round(Math.Abs(carbDev), 1)}%");
+                    details.Add($"Carbs {(carbDev > 0 ? "excess" : "deficit")} {Math.Round(Math.Abs(carbDev), 1)}%");
                     if (Math.Abs(carbDev) > maxDeviation)
                     {
                         maxDeviation = Math.Abs(carbDev);
@@ -165,7 +165,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
                 if (targetFat > 0 && Math.Abs(fatDev) > 15m)
                 {
-                    details.Add($"Chất béo {(fatDev > 0 ? "dư" : "thiếu")} {Math.Round(Math.Abs(fatDev), 1)}%");
+                    details.Add($"Fat {(fatDev > 0 ? "excess" : "deficit")} {Math.Round(Math.Abs(fatDev), 1)}%");
                     if (Math.Abs(fatDev) > maxDeviation)
                     {
                         maxDeviation = Math.Abs(fatDev);
@@ -183,7 +183,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     AverageValue = repAverage,
                     TargetValue = repTarget,
                     PercentDeviation = Math.Round(representativeDev, 1),
-                    Message = $"Tỷ lệ chất dinh dưỡng (Macros) trung bình 7 ngày qua của bạn có sự lệch lớn: {string.Join(", ", details)}.",
+                    Message = $"Your average macro nutrient ratio over the past 7 days shows significant deviation: {string.Join(", ", details)}.",
                     CreatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.GoalDriftAlerts.AddAsync(macroAlert);
