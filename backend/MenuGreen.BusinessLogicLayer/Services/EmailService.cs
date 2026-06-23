@@ -33,9 +33,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
+            var fromEmail = _configuration["Resend:FromEmail"];
+            var fromName = _configuration["Resend:FromName"];
+            var from = string.IsNullOrWhiteSpace(fromEmail)
+                ? "MenuGreen <onboarding@resend.dev>"
+                : string.IsNullOrWhiteSpace(fromName)
+                    ? fromEmail
+                    : $"{fromName} <{fromEmail}>";
+
             var payload = new
             {
-                from = "MenuGreen <onboarding@resend.dev>",
+                from = from,
                 to = new[] { toEmail },
                 subject = "MenuGreen - Mã OTP xác thực tài khoản",
                 html = $@"
@@ -64,9 +72,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
+            var fromEmail = _configuration["Resend:FromEmail"];
+            var fromName = _configuration["Resend:FromName"];
+            var from = string.IsNullOrWhiteSpace(fromEmail)
+                ? "MenuGreen <onboarding@resend.dev>"
+                : string.IsNullOrWhiteSpace(fromName)
+                    ? fromEmail
+                    : $"{fromName} <{fromEmail}>";
+
             var payload = new
             {
-                from = "MenuGreen <onboarding@resend.dev>",
+                from = from,
                 to = new[] { toEmail },
                 subject = "MenuGreen - OTP đặt lại mật khẩu",
                 html = $@"
