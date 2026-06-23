@@ -292,22 +292,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (overallScore >= 85)
             {
                 rating = "EXCELLENT";
-                feedback = "Tuyệt vời! Bạn bám sát kế hoạch ăn uống rất xuất sắc. Hãy tiếp tục duy trì phong độ này.";
+                feedback = "Excellent! You are closely following your meal plan. Keep up this great work.";
             }
             else if (overallScore >= 70)
             {
                 rating = "GOOD";
-                feedback = "Rất tốt! Bạn bám sát kế hoạch khá ổn định. Cố gắng giảm bớt các bữa ăn ngoài kế hoạch để đạt hiệu quả cao hơn.";
+                feedback = "Good job! You are fairly consistent with your plan. Try to reduce unplanned meals for better results.";
             }
             else if (overallScore >= 50)
             {
                 rating = "FAIR";
-                feedback = "Khá tốt nhưng còn nhiều sai lệch. Hãy chú ý check-in đầy đủ các bữa ăn và hạn chế ăn vặt ngoài plan.";
+                feedback = "Decent but there are some deviations. Make sure to check in on all your meals and limit unplanned snacks.";
             }
             else
             {
                 rating = "POOR";
-                feedback = "Bạn đang lệch mục tiêu khá nhiều. Hãy xem lại drift analysis để tìm hiểu nguyên nhân chính xác và thiết lập lại thói quen.";
+                feedback = "You are significantly off track. Review the drift analysis to understand the causes and reset your habits.";
             }
 
             return new AdherenceScoreResponse
@@ -485,55 +485,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (score.OverallScore >= 85)
             {
-                summaryMessage = "Tuyệt vời! Bạn đang duy trì tiến độ hoàn hảo. Dưới đây là phân tích chi tiết để nâng cao hiệu quả.";
-                insights.Add("Bạn bám sát kế hoạch ăn uống rất sát sao (Điểm: " + score.OverallScore + ").");
+                summaryMessage = "Excellent! You are maintaining perfect progress. Below is detailed analysis to further improve efficiency.";
+                insights.Add("You are closely following your meal plan (Score: " + score.OverallScore + ").");
             }
             else
             {
-                summaryMessage = "Phân tích 7 ngày qua của bạn cho thấy một số cơ hội cải thiện để bám sát mục tiêu calo/macro tốt hơn.";
+                summaryMessage = "Your 7-day analysis shows opportunities to better align with your calorie/macro targets.";
             }
 
-            // Bỏ bữa
+            // Skipped meals
             if (drift.SkippedMealsCount >= 2)
             {
                 var favoriteSkippedMealType = drift.SkippedMeals
                     .GroupBy(x => x.MealType)
                     .OrderByDescending(g => g.Count())
                     .First().Key;
-                insights.Add($"Bạn có xu hướng bỏ bữa nhiều lần trong tuần ({drift.SkippedMealsCount} lần), đặc biệt là bữa {favoriteSkippedMealType.ToLower()}.");
-                steps.Add($"Cố gắng không bỏ bữa {favoriteSkippedMealType.ToLower()}. Hãy lên lịch nhắc nhở hoặc chuẩn bị đồ ăn nhanh gọn như các loại hạt hoặc sinh tố từ trước.");
+                insights.Add($"You tend to skip meals multiple times in the week ({drift.SkippedMealsCount} times), especially {favoriteSkippedMealType.ToLower()}.");
+                steps.Add($"Try not to skip {favoriteSkippedMealType.ToLower()}. Set reminders or prepare quick meals like nuts or smoothies in advance.");
             }
 
-            // Ăn tự do
+            // Unplanned intake
             if (drift.UnplannedIntakeCount >= 3)
             {
                 var totalUnplannedCal = drift.UnplannedIntakes.Sum(x => x.CaloriesKcal);
-                insights.Add($"Bạn ghi nhận nhiều bữa ăn ngoài kế hoạch ({drift.UnplannedIntakeCount} lần) với tổng năng lượng khoảng {Math.Round(totalUnplannedCal, 0)} kcal.");
-                steps.Add("Hạn chế ăn vặt tự do. Nếu thấy đói giữa các bữa, hãy thêm một bữa phụ lành mạnh có sẵn trong kế hoạch (ví dụ: sữa chua, hoa quả ít calo).");
+                insights.Add($"You logged many unplanned meals ({drift.UnplannedIntakeCount} times) totaling approximately {Math.Round(totalUnplannedCal, 0)} kcal.");
+                steps.Add("Limit unplanned snacking. If you feel hungry between meals, add a healthy snack from your plan (e.g., yogurt, low-calorie fruit).");
             }
 
-            // Sai định lượng
+            // Portion mismatch
             if (drift.PortionMismatchesCount >= 2)
             {
                 var avgPortionDev = drift.PortionMismatches.Average(x => x.PercentDeviation);
-                string direction = avgPortionDev > 0 ? "nhiều calo hơn" : "ít calo hơn";
-                insights.Add($"Bạn ăn đúng món nhưng định lượng bị lệch so với kế hoạch (trung bình {direction} {Math.Abs(Math.Round(avgPortionDev, 1))}%).");
-                steps.Add("Sử dụng cân thực phẩm hoặc các công cụ đo lượng ăn chính xác để đảm bảo khẩu phần ăn khớp với kế hoạch dinh dưỡng.");
+                string direction = avgPortionDev > 0 ? "more calories" : "fewer calories";
+                insights.Add($"You ate the right dishes but portions deviated from plan (averaging {direction} {Math.Abs(Math.Round(avgPortionDev, 1))}% off).");
+                steps.Add("Use a food scale or portion tools to ensure meals match your nutrition plan.");
             }
 
-            // Thay đổi món
+            // Substituted items
             if (drift.SubstitutedItemsCount >= 2)
             {
-                insights.Add($"Bạn thường thay đổi món ăn so với kế hoạch ban đầu ({drift.SubstitutedItemsCount} lần).");
-                steps.Add("Nếu cần đổi món, hãy sử dụng tính năng 'Gợi ý món ăn thay thế' của MenuGreen để đảm bảo món thay thế có tương đương calo và dinh dưỡng.");
+                insights.Add($"You often substitute dishes from the original plan ({drift.SubstitutedItemsCount} times).");
+                steps.Add("If you need to substitute, use MenuGreen's 'Alternative food suggestions' to ensure replacement has equivalent calories and nutrition.");
             }
 
             // General steps if empty
             if (!steps.Any())
             {
-                insights.Add("Thói quen ăn uống của bạn đang bám sát rất tốt theo mục tiêu.");
-                steps.Add("Hãy tiếp tục chuẩn bị bữa ăn theo thực đơn đã lên.");
-                steps.Add("Ghi nhận cân nặng đều đặn vào buổi sáng để thuật toán hiệu chỉnh calo hoạt động chính xác nhất.");
+                insights.Add("Your eating habits are closely aligned with your goals.");
+                steps.Add("Continue preparing meals according to your plan.");
+                steps.Add("Log your weight regularly in the morning so the algorithm can fine-tune calorie recommendations.");
             }
 
             return new RecommendationResponse
