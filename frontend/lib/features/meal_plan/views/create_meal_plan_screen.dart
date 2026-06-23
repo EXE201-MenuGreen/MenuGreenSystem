@@ -7,7 +7,6 @@ import '../../discover/repositories/food_discovery_repository.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
-import 'meal_plan_detail_screen.dart';
 
 /// Screen tạo/sửa meal plan - 4-step wizard
 /// Dùng chung cho cả tạo mới và sửa
@@ -394,6 +393,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
   Widget _buildMealTab(MealType mealType) {
     final meals = _selectedMeals[mealType] ?? [];
+    final mealTarget = mealType.getCaloriesTarget(_targetCalories);
 
     return Column(
       children: [
@@ -409,9 +409,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                '${_calculateMealCalories(meals)} / $_targetCalories kcal',
+                '${_calculateMealCalories(meals)} / $mealTarget kcal',
                 style: TextStyle(
-                  color: _calculateMealCalories(meals) > _targetCalories
+                  color: _calculateMealCalories(meals) > mealTarget
                       ? Colors.red
                       : AppColors.textSecondary,
                 ),
@@ -531,7 +531,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       isScrollControlled: true,
       builder: (context) => _FoodPickerSheet(
         mealType: mealType,
-        targetCalories: _targetCalories ~/ 4,
+        targetCalories: mealType.getCaloriesTarget(_targetCalories),
       ),
     );
 

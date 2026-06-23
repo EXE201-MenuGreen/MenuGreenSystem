@@ -315,4 +315,21 @@ enum MealType {
         return '🍿';
     }
   }
+
+  double get caloriesRatio {
+    switch (this) {
+      case MealType.breakfast:
+        return 0.25;
+      case MealType.lunch:
+        return 0.35;
+      case MealType.dinner:
+        return 0.30;
+      case MealType.snack:
+        return 0.10;
+    }
+  }
+
+  int getCaloriesTarget(int totalCalories) {
+    return (totalCalories * caloriesRatio).round();
+  }
 }
