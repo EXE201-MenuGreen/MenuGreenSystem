@@ -141,6 +141,12 @@ class ApiEndpoints {
   static String get allergies => '$baseUrl/Allergy';
   static String allergyById(String allergyId) => '$baseUrl/Allergy/$allergyId';
 
+  // FCM Push Notification endpoints
+  static String get fcmRegister => '$baseUrl/Fcm/register';
+  static String get fcmRemove => '$baseUrl/Fcm/remove';
+  static String get fcmTokens => '$baseUrl/Fcm/tokens';
+  static String get fcmSend => '$baseUrl/Fcm/send';
+
   // AiAssistant endpoints
   static String get aiAssistantConversations => '$baseUrl/AiAssistant/conversations';
   static String aiAssistantConversationById(String id) => '$baseUrl/AiAssistant/conversations/$id';

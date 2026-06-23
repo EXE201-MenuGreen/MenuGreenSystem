@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../main/views/main_screen.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../onboarding/views/onboarding_screen.dart';
+import '../../../core/services/push_notification_provider.dart';
 
 /// After login / Google sign-in / app resume with token: go to onboarding or home.
 Future<void> navigateAfterAuthenticated(BuildContext context) async {
@@ -17,6 +19,9 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
   }
   if (!context.mounted) return;
 
+  // Register FCM token with backend after successful login
+  _registerPushToken(context);
+
   final Widget destination = complete ? const MainScreen() : const OnboardingScreen();
 
   Navigator.pushAndRemoveUntil(
@@ -24,4 +29,14 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
     MaterialPageRoute(builder: (_) => destination),
     (_) => false,
   );
+}
+
+Future<void> _registerPushToken(BuildContext context) async {
+  try {
+    final provider = context.read<PushNotificationProvider>();
+    await provider.initialize(context);
+    await provider.registerToken();
+  } catch (e) {
+    debugPrint('[PostAuthNavigation] Failed to register push token: $e');
+  }
 }
