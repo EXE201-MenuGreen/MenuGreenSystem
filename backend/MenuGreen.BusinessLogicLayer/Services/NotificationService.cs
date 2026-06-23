@@ -261,34 +261,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<NotificationResponse> SendEventNotificationAsync(NotificationSendEventRequest request)
         {
-            string title = "Thông báo từ MenuGreen";
+            string title = "MenuGreen Notification";
             string body = "";
 
             if (request.EventType == "meal_time")
             {
-                var mealType = request.Context != null && request.Context.TryGetValue("mealType", out var mt) ? mt.ToString() : "bữa ăn";
-                title = "Đến giờ ăn rồi!";
-                body = $"Đã đến giờ ăn {mealType} của bạn. Hãy ghi nhận món ăn nhé!";
+                var mealType = request.Context != null && request.Context.TryGetValue("mealType", out var mt) ? mt.ToString() : "meal";
+                title = "Meal Time!";
+                body = $"It's time for your {mealType}. Please log your meal!";
             }
             else if (request.EventType == "subscription_expiring")
             {
-                var days = request.Context != null && request.Context.TryGetValue("daysUntilExpiry", out var d) ? d.ToString() : "vài";
-                title = "Gói đăng ký sắp hết hạn";
-                body = $"Gói đăng ký của bạn sẽ hết hạn sau {days} ngày. Gia hạn ngay để không gián đoạn dịch vụ.";
+                var days = request.Context != null && request.Context.TryGetValue("daysUntilExpiry", out var d) ? d.ToString() : "a few";
+                title = "Subscription Expiring Soon";
+                body = $"Your subscription expires in {days} days. Renew now to avoid interruption.";
             }
             else if (request.EventType == "weight_reminder")
             {
-                title = "Cập nhật cân nặng";
-                body = "Hãy dành ít phút ghi nhận cân nặng hôm nay để theo dõi tiến trình nhé!";
+                title = "Update Your Weight";
+                body = "Take a moment to log today's weight and track your progress!";
             }
             else if (request.EventType == "meal_not_logged")
             {
-                title = "Ghi nhận bữa ăn";
-                body = "Bạn chưa ghi nhận bữa ăn nào hôm nay. Hãy tiếp tục duy trì thói quen nhé!";
+                title = "Log Your Meal";
+                body = "You haven't logged any meals today. Keep up your habit!";
             }
             else
             {
-                body = $"Sự kiện {request.EventType} đã xảy ra.";
+                body = $"Event {request.EventType} occurred.";
             }
 
             return await CreateNotificationAsync(request.UserId, request.EventType, title, body, DateTimeOffset.UtcNow);
