@@ -212,7 +212,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     IsDuplicate = true,
                     Message = "Payment already marked as paid.",
                     PaymentId = payment.Id,
-                    UserSubscriptionId = payment.UserSubscriptionId
+                    UserSubscriptionId = payment.UserSubscriptionId,
+                    UserPremiumProgramId = payment.UserPremiumProgramId
                 };
             }
 
@@ -255,6 +256,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 await ActivateSubscriptionAfterPaymentAsync(payment);
             }
+            else if (payment.UserPremiumProgramId.HasValue)
+            {
+                await ActivatePremiumProgramAfterPaymentAsync(payment);
+            }
 
             try
             {
@@ -269,7 +274,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     IsDuplicate = true,
                     Message = "Duplicate transaction ignored (database constraint).",
                     PaymentId = payment.Id,
-                    UserSubscriptionId = payment.UserSubscriptionId
+                    UserSubscriptionId = payment.UserSubscriptionId,
+                    UserPremiumProgramId = payment.UserPremiumProgramId
                 };
             }
 
@@ -281,8 +287,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IsDuplicate = false,
                 Message = "Webhook processed successfully.",
                 PaymentId = payment.Id,
-                UserSubscriptionId = payment.UserSubscriptionId
+                UserSubscriptionId = payment.UserSubscriptionId,
+                UserPremiumProgramId = payment.UserPremiumProgramId
             };
+        }
+
+        private async Task ActivatePremiumProgramAfterPaymentAsync(Payment payment)
+        {
+            var userProgram = await _unitOfWork.UserPremiumPrograms.GetByIdAsync(payment.UserPremiumProgramId!.Value)
+                ?? throw new Exception("User premium program registration not found.");
+
+            userProgram.Status = "Paid";
+            userProgram.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.UserPremiumPrograms.Update(userProgram);
         }
 
         private async Task ActivateSubscriptionAfterPaymentAsync(Payment payment)
@@ -294,7 +311,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Subscription plan not found.");
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 0;
+            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
             var isRenewal = subscription.Status == "Active";
 
             if (isRenewal)

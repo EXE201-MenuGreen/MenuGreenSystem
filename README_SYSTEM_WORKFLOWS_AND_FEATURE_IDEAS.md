@@ -552,9 +552,9 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 > Các endpoint này tái sử dụng `FoodService.SearchAsync` và logic phân loại món hiện có, nên không code thêm một search engine riêng.
 
 ### C. Portion / unit conversion
-- `GET /Nutrition/portions/local-units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
-- `POST /Nutrition/portions/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
-- `GET /Nutrition/portions/estimate?foodId=` — ước lượng khẩu phần mặc định theo món.
+- `GET /PortionConverter/units` — trả về danh sách đơn vị quen thuộc như chén, bát, muỗng, đĩa.
+- `POST /PortionConverter/convert` — quy đổi giữa đơn vị Việt Nam và gram/ml.
+- `GET /PortionConverter/units/food/{foodId}` — ước lượng khẩu phần mặc định theo món.
 
 > `custom-estimate` chưa tách riêng vì có thể dùng chung với flow log bữa ăn và convert hiện tại; nếu sau này cần UX riêng thì tách sau.
 
@@ -633,7 +633,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `quick-start/today`, `quick-start/refresh`, `quick-start/preview`, `quick-start/refine` không nên tạo endpoint mới; chỉ map sang `RecommendationController` hiện có.
 - `quick-start/feedback` dùng lại `POST /api/Recommendation/feedback`, không tạo luồng feedback riêng.
 - `quick-start/log` và `quick-start/log-and-plan` dùng lại `POST /api/NutritionTracking/meal-logs`, không tạo API log riêng trùng chức năng.
-- `quick-start/create-meal-plan` dùng lại `MealPlanService` / `UserMealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
+- `quick-start/create-meal-plan` dùng lại `MealPlanService` hiện có, không viết lại engine tạo meal plan từ đầu.
 - `quick-start/history` nếu chỉ cần lịch sử gợi ý thì dùng lại `GET /api/Recommendation/history`, không thêm history mới.
 
 **Các API quick-start chỉ là tên workflow mô tả, không phải endpoint mới cần code:**
@@ -1037,7 +1037,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    **API cần có để làm đúng bài:**
 
    ### A. Allergy profile
-   - `GET /api/Allergy/profile` — lấy hồ sơ dị ứng của user.
+    - `GET /api/Allergy` — lấy danh sách dị ứng của user.
    - `PUT /api/Allergy/profile` — cập nhật danh sách dị ứng.
    - `GET /api/Allergy/catalog` — lấy danh mục chất gây dị ứng hỗ trợ hệ thống.
 
@@ -1048,7 +1048,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    ### C. User experience
    - `GET /api/Allergy/recommendations` — gợi ý món phù hợp với hồ sơ dị ứng.
-   - `POST /api/Allergy/recommendations/refresh` — làm mới gợi ý sau khi user đổi hồ sơ.
+
 
 6. **Hôm nay ăn gì? (1-tap daily starter)** (Đã làm)
    - Màn hình vào nhanh cho người mới, chọn ngay thực đơn trong ngày.
@@ -1076,7 +1076,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 4.2 Nhóm “nâng cao trải nghiệm”
 
-1. **Budget-aware Weekly Plan** (Chưa có)
+1. **Budget-aware Weekly Plan** (Đã làm)
    - Lập meal plan theo ngân sách tuần/tháng kết hợp `BudgetRequest`.
    - Giúp người dùng quản lý chi tiêu dinh dưỡng, tự động gợi ý và cân đối thực đơn tối ưu theo khoảng giá mong muốn nhằm hạn chế vượt quá ngân sách định sẵn.
 
@@ -1118,7 +1118,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/MealPlan/expense-breakdown` — Phân tích chi tiết tỷ trọng chi tiêu (ví dụ: món nhiều thịt, ăn ngoài, nguyên liệu đắt tiền) và đưa ra các đề xuất điều chỉnh để tiết kiệm hơn.
    - `GET /api/MealPlan/adherence-scores` — Tính điểm bám sát ngân sách trong chuỗi ngày/tuần/tháng để làm dữ liệu gamification hoặc habit score.
 
-2. **Ingredient Substitution Engine** (Chưa có)
+2. **Ingredient Substitution Engine** (Đã làm)
    - Gợi ý nguyên liệu thay thế khi dị ứng/khó mua/đắt.
    - Giúp người dùng dễ dàng nấu ăn bằng cách tìm kiếm và gợi ý các nguyên liệu thay thế phù hợp khi gặp các rào cản như dị ứng, nguyên liệu không có sẵn (khó mua) hoặc quá đắt đỏ, trong khi vẫn đảm bảo tối ưu hóa dinh dưỡng (Calories, Macro) và chi phí.
 
@@ -1146,7 +1146,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    ### A. Tái sử dụng APIs Dị ứng & Nguyên liệu hiện có
    - `GET /api/Ingredient/{id}` — Lấy chi tiết nguyên liệu gốc và kiểm tra độ an toàn dị ứng (`IsSafeForUser`) (đã có).
    - `GET /api/Ingredient/catalog` — Lấy danh mục nguyên liệu để tìm nhóm tương đồng (đã có).
-   - `GET /api/Allergy/profile` — Lấy hồ sơ dị ứng hiện tại của người dùng (đã có).
+    - `GET /api/Allergy` — Lấy danh sách dị ứng hiện tại của người dùng (đã có).
 
    ### B. API Gợi ý Nguyên liệu thay thế (Substitution Engine đề xuất mới)
    - `GET /api/Ingredient/{id}/substitutes` — Tìm các nguyên liệu thay thế phù hợp cho một nguyên liệu cụ thể.
@@ -1255,7 +1255,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    ### C. API Ghi nhận phản hồi để tối ưu Train Model (AI Feedback loop - Đề xuất mới)
    - `POST /api/AiCoach/messages/{messageId}/feedback` — Ghi nhận phản hồi của user về câu trả lời của AI (Like/Dislike, lý do hữu ích/không hữu ích, sai sót thông tin) nhằm làm dữ liệu gán nhãn cho đội ngũ huấn luyện mô hình.
 
-4. **Planned vs Actual Insights** (Chưa có)
+4. **Planned vs Actual Insights** (Đã làm)
    - So sánh kế hoạch ăn và thực tế, chỉ ra nguyên nhân lệch.
    - Hỗ trợ người dùng đối chiếu thực đơn dự kiến trong kế hoạch ăn uống (`MealPlanItem` thuộc `MealPlanHeader`) với nhật ký ăn uống thực tế (`MealLog`), từ đó phân tích độ bám sát mục tiêu dinh dưỡng và làm rõ các nguyên nhân gây ra sự chênh lệch (lệch calo/macro).
 
@@ -1288,7 +1288,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Analytics/planned-vs-actual/recommendations` — Gợi ý hành động khắc phục cho các ngày tiếp theo dựa trên xu hướng lệch của 7 ngày gần nhất.
    - `POST /api/Analytics/planned-vs-actual/recalibrate` — Chạy thuật toán tự động tái phân bổ lượng calo/macro tuần tiếp theo dựa trên tiến độ và cân nặng thực tế thay đổi so với kế hoạch ban đầu (nhằm tránh đứng cân - weight loss plateau).
 
-5. **Micro-learning Cards** (Chưa có)
+5. **Micro-learning Cards** (Đã làm)
    - Các thẻ kiến thức ngắn theo vấn đề user đang gặp (thiếu protein, vượt fat...).
    - Cung cấp cho người dùng các bài học ngắn, mẹo thực hành ăn uống dinh dưỡng hữu ích được chọn lọc tự động dựa trên chính các vấn đề sức khỏe thực tế, thói quen ghi chép hoặc cảnh báo lệch mục tiêu mà họ đang gặp phải.
 
@@ -1320,12 +1320,12 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/MicroLearning/cards/saved` — Lấy danh sách toàn bộ các thẻ kiến thức mà user đã lưu trữ để đọc lại.
    - `POST /api/MicroLearning/cards/{id}/quiz/submit` — Nộp câu trả lời cho mini-quiz đính kèm trên thẻ kiến thức để củng cố kiến thức và tích điểm thưởng (tăng habit score hoặc đổi quà).
 
-6. **Vietnam Portion Converter** (Chưa có)
+6. **Vietnam Portion Converter** (Đã làm)
    - Bộ quy đổi đơn vị Việt Nam (bát/chén/muỗng/đĩa) sang gram.
    - Hỗ trợ người dùng nhập liệu nhanh chóng và chính xác bằng các đơn vị ước lượng quen thuộc trong đời sống ăn uống hằng ngày của người Việt (như chén cơm, bát phở, muỗng canh dầu ăn, đĩa rau, trái/quả...), thay vì bắt buộc phải cân đo chính xác khối lượng gram/ml.
 
    **Chức năng tương đương đã có trong hệ thống:**
-   - `/api/Nutrition/portions/local-units` và `/api/portions/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong Vietnam-first local nutrition workflow.
+   - `/api/PortionConverter/units` và `/api/PortionConverter/convert`: Các API hỗ trợ quy đổi đơn vị địa phương đang nằm trong PortionConverterController.
 
    **Giải thích đúng workflow:**
    - **Định nghĩa bảng quy đổi (Mapping Database):** Hệ thống duy trì bảng cấu hình quy đổi đơn vị dân dã cho từng món ăn/nguyên liệu (ví dụ: 1 chén cơm trắng = 150g, 1 bát phở bò = 650g, 1 muỗng cà phê dầu ăn = 5g, 1 đĩa rau cải luộc = 200g, 1 quả chuối sứ = 80g).
@@ -1375,7 +1375,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ## 4.3 Nhóm “premium/monetization”
 
-1. **Premium Program Packs** (Chưa có)
+1. **Premium Program Packs** (Đã làm)
    - Gói theo mục tiêu: giảm cân 8 tuần, tăng cơ 12 tuần.
    - Cung cấp cho người dùng các gói lộ trình ăn uống và luyện tập đóng gói sẵn theo mục tiêu chuyên sâu có thời hạn cố định (ví dụ: gói giảm mỡ bụng 8 tuần, gói tăng cơ nách/ngực 12 tuần), được thiết kế bởi các chuyên gia dinh dưỡng và tích hợp hệ thống theo dõi tiến độ chặt chẽ theo từng tuần.
 
@@ -1414,7 +1414,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/PremiumPrograms/my-active/wrap-up-report` — Lấy báo cáo phân tích chi tiết kết quả sau 8/12 tuần tham gia chương trình.
 
 
-2. **Coach Mode (B2B2C/B2C+)** (Chưa có)
+2. **Coach Mode (B2B2C/B2C+)** (Đã làm)
    - Cho phép chuyên gia theo dõi chỉ số và phản hồi cho user.
    - Cung cấp cổng kết nối và bảng điều khiển (Coach Dashboard) dành cho các huấn luyện viên cá nhân (PT), bác sĩ hoặc chuyên gia dinh dưỡng (Coach) để quản lý, theo dõi thời gian thực chỉ số sức khỏe, nhật ký ăn uống và trực tiếp tương tác, điều chỉnh kế hoạch dinh dưỡng của học viên (Client) nhằm tối ưu hiệu quả huấn luyện.
 
@@ -1570,7 +1570,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Family/grocery-list` — Lấy danh sách nguyên liệu đi chợ tổng hợp của cả nhà cho tuần tới (gộp nguyên liệu từ tất cả thực đơn thành viên).
 
 
-5. **PT Review Mode** (Chưa có)
+5. **PT Review Mode** (Đã làm)
    - Người dùng chia sẻ báo cáo tuần để PT nhận xét và điều chỉnh kế hoạch.
    - Hỗ trợ người dùng tự tạo một liên kết chia sẻ an toàn chứa báo cáo phân tích dinh dưỡng/luyện tập tuần của mình (Weekly Report) để gửi cho huấn luyện viên cá nhân (PT) bên ngoài xem nhanh và ghi nhận các nhận xét, đề xuất điều chỉnh thực đơn mà không bắt buộc PT phải đăng ký tài khoản dài hạn hoặc kết nối thường trực trên app.
 

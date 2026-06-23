@@ -20,5 +20,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<RecommendationExplainResponse> ExplainAsync(Guid userId, Guid recommendationId);
         Task<RecommendationScoreResponse> GetScoresAsync(Guid userId, RecommendationScoreRequest request);
         Task<object> RetrainAsync(Guid userId, RecommendationRetrainRequest request);
+        Task<RecommendationGenerateResponse> GenerateAsync(Guid userId, RecommendationGenerateRequest request);
+        Task<WeeklyPlanGenerateResponse> GenerateWeeklyPlanAsync(Guid userId, WeeklyPlanGenerateRequest request);
+        Task<BudgetAwareGenerateResponse> GenerateBudgetAwareAsync(Guid userId, BudgetAwareGenerateRequest request);
+        Task UpdateFeedbackAsync(Guid userId, Guid recommendationId, UpdateFeedbackRequest request);
+        Task<FeedbackSummaryResponse> GetFeedbackSummaryAsync(Guid userId);
     }
 }

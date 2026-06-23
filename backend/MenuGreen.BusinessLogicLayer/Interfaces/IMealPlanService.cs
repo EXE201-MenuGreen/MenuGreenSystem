@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanResponse> GetByIdAsync(Guid id);
         Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null);
+        Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null);
         Task DeleteAsync(Guid id, Guid? userId = null);
         Task<MealPlanResponse> UpdateStatusAsync(Guid id, MealPlanStatusRequest request, Guid? userId = null);
         Task<MealPlanDistributionResponse> DistributeAsync(Guid id, string targetAudience, string? notes = null, Guid? userId = null);
@@ -25,5 +26,19 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanDashboardResponse> GetDashboardAsync(DateOnly date, Guid? userId = null);
         Task<MealPlanCompareResponse> GetCompareAsync(DateOnly from, DateOnly to, Guid? userId = null);
         Task<MealPlanStreakResponse> GetStreaksAsync(Guid? userId = null);
+
+        Task<MealPlanResponse> GenerateByBudgetAsync(Guid userId);
+        Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId);
+        Task<IEnumerable<MealPlanItemResponse>> GetAlternativesAsync(Guid planId, Guid itemId, Guid userId);
+        Task<ExpenseCompareResponse> CompareExpensesAsync(DateOnly from, DateOnly to, Guid userId);
+        Task<ExpenseBreakdownResponse> GetExpenseBreakdownAsync(Guid userId);
+        Task<BudgetAdherenceResponse> GetAdherenceScoresAsync(Guid userId);
+
+        // Daily Meal Plan Methods
+        Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date);
+        Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request);
+        Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request);
+        Task<CompleteMealPlanItemResponse> CompleteItemAsync(Guid userId, Guid itemId, CompleteMealPlanItemRequest request);
+        Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date);
     }
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle } from "lucide-react";
+
 import { MenuGreenLogo } from "@/components/brand/menu-green-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,9 +90,19 @@ export function LoginForm() {
           required
         />
         {error ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
-            {error}
-          </p>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/30">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Đăng nhập thất bại
+                </p>
+                <p className="mt-0.5 text-sm text-red-700 dark:text-red-300">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
         ) : null}
         <Button type="submit" loading={loading} className="w-full">
           Đăng nhập

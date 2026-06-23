@@ -78,6 +78,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/toggle-status")]
         [HttpPut("{id}/toggle-status")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ToggleUserStatus(Guid id)
@@ -93,6 +94,39 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPatch("{id}/lock")]
+        [HttpPut("{id}/lock")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> LockUser(Guid id)
+        {
+            try
+            {
+                var newStatus = await _userService.LockUserAsync(id);
+                return Ok(new { Message = $"User locked successfully. IsActive = {newStatus}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPatch("{id}/unlock")]
+        [HttpPut("{id}/unlock")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UnlockUser(Guid id)
+        {
+            try
+            {
+                var newStatus = await _userService.UnlockUserAsync(id);
+                return Ok(new { Message = $"User unlocked successfully. IsActive = {newStatus}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPatch("{id}/assign-role")]
         [HttpPut("{id}/assign-role")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest request)

@@ -107,6 +107,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return user.IsActive;
         }
 
+        public async Task<bool> LockUserAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null) throw new Exception("Account not found.");
+
+            user.IsActive = false;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CompleteAsync();
+
+            return user.IsActive;
+        }
+
+        public async Task<bool> UnlockUserAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null) throw new Exception("Account not found.");
+
+            user.IsActive = true;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CompleteAsync();
+
+            return user.IsActive;
+        }
+
         public async Task<bool> AssignRoleAsync(Guid userId, string newRole)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);

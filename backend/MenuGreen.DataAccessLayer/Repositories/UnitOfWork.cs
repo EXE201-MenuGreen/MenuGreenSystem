@@ -32,6 +32,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.ActivityLog>? _activityLogs;
         private IGenericRepository<Entities.Notification>? _notifications;
         private IGenericRepository<Entities.NotificationSetting>? _notificationSettings;
+        private IGenericRepository<Entities.Campaign>? _campaigns;
         private IGenericRepository<Entities.SubscriptionPlan>? _subscriptionPlans;
         private IGenericRepository<Entities.UserSubscription>? _userSubscriptions;
         private IGenericRepository<Entities.SubscriptionTransaction>? _subscriptionTransactions;
@@ -39,6 +40,22 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.SepayTransaction>? _sepayTransactions;
         private IGenericRepository<Entities.ReminderProfile>? _reminderProfiles;
         private IGenericRepository<Entities.GoalDriftAlert>? _goalDriftAlerts;
+        private IGenericRepository<Entities.BudgetRequest>? _budgetRequests;
+        private IGenericRepository<Entities.FoodAllergy>? _foodAllergies;
+        private IGenericRepository<Entities.UserSubstitutionPreference>? _userSubstitutionPreferences;
+        private IGenericRepository<Entities.MealPlanItemSubstitution>? _mealPlanItemSubstitutions;
+        private IGenericRepository<Entities.MealLogSubstitution>? _mealLogSubstitutions;
+        private IGenericRepository<Entities.MicroLearningCard>? _microLearningCards;
+        private IGenericRepository<Entities.UserCardInteraction>? _userCardInteractions;
+        private IGenericRepository<Entities.FoodPortionMapping>? _foodPortionMappings;
+        private IGenericRepository<Entities.CustomUserPortion>? _customUserPortions;
+        private IGenericRepository<Entities.PremiumProgram>? _premiumPrograms;
+        private IGenericRepository<Entities.UserPremiumProgram>? _userPremiumPrograms;
+        private IGenericRepository<Entities.UserProgramMilestone>? _userProgramMilestones;
+        private IGenericRepository<Entities.CoachProfile>? _coachProfiles;
+        private IGenericRepository<Entities.CoachConnection>? _coachConnections;
+        private IGenericRepository<Entities.CoachFeedback>? _coachFeedbacks;
+        private IGenericRepository<Entities.PtReviewRequest>? _ptReviewRequests;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -67,6 +84,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.ActivityLog> ActivityLogs => _activityLogs ??= new GenericRepository<Entities.ActivityLog>(_context);
         public IGenericRepository<Entities.Notification> Notifications => _notifications ??= new GenericRepository<Entities.Notification>(_context);
         public IGenericRepository<Entities.NotificationSetting> NotificationSettings => _notificationSettings ??= new GenericRepository<Entities.NotificationSetting>(_context);
+        public IGenericRepository<Entities.Campaign> Campaigns => _campaigns ??= new GenericRepository<Entities.Campaign>(_context);
         public IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans => _subscriptionPlans ??= new GenericRepository<Entities.SubscriptionPlan>(_context);
         public IGenericRepository<Entities.UserSubscription> UserSubscriptions => _userSubscriptions ??= new GenericRepository<Entities.UserSubscription>(_context);
         public IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions => _subscriptionTransactions ??= new GenericRepository<Entities.SubscriptionTransaction>(_context);
@@ -74,6 +92,22 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.SepayTransaction> SepayTransactions => _sepayTransactions ??= new GenericRepository<Entities.SepayTransaction>(_context);
         public IGenericRepository<Entities.ReminderProfile> ReminderProfiles => _reminderProfiles ??= new GenericRepository<Entities.ReminderProfile>(_context);
         public IGenericRepository<Entities.GoalDriftAlert> GoalDriftAlerts => _goalDriftAlerts ??= new GenericRepository<Entities.GoalDriftAlert>(_context);
+        public IGenericRepository<Entities.BudgetRequest> BudgetRequests => _budgetRequests ??= new GenericRepository<Entities.BudgetRequest>(_context);
+        public IGenericRepository<Entities.FoodAllergy> FoodAllergies => _foodAllergies ??= new GenericRepository<Entities.FoodAllergy>(_context);
+        public IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences => _userSubstitutionPreferences ??= new GenericRepository<Entities.UserSubstitutionPreference>(_context);
+        public IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions => _mealPlanItemSubstitutions ??= new GenericRepository<Entities.MealPlanItemSubstitution>(_context);
+        public IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions => _mealLogSubstitutions ??= new GenericRepository<Entities.MealLogSubstitution>(_context);
+        public IGenericRepository<Entities.MicroLearningCard> MicroLearningCards => _microLearningCards ??= new GenericRepository<Entities.MicroLearningCard>(_context);
+        public IGenericRepository<Entities.UserCardInteraction> UserCardInteractions => _userCardInteractions ??= new GenericRepository<Entities.UserCardInteraction>(_context);
+        public IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings => _foodPortionMappings ??= new GenericRepository<Entities.FoodPortionMapping>(_context);
+        public IGenericRepository<Entities.CustomUserPortion> CustomUserPortions => _customUserPortions ??= new GenericRepository<Entities.CustomUserPortion>(_context);
+        public IGenericRepository<Entities.PremiumProgram> PremiumPrograms => _premiumPrograms ??= new GenericRepository<Entities.PremiumProgram>(_context);
+        public IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms => _userPremiumPrograms ??= new GenericRepository<Entities.UserPremiumProgram>(_context);
+        public IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones => _userProgramMilestones ??= new GenericRepository<Entities.UserProgramMilestone>(_context);
+        public IGenericRepository<Entities.CoachProfile> CoachProfiles => _coachProfiles ??= new GenericRepository<Entities.CoachProfile>(_context);
+        public IGenericRepository<Entities.CoachConnection> CoachConnections => _coachConnections ??= new GenericRepository<Entities.CoachConnection>(_context);
+        public IGenericRepository<Entities.CoachFeedback> CoachFeedbacks => _coachFeedbacks ??= new GenericRepository<Entities.CoachFeedback>(_context);
+        public IGenericRepository<Entities.PtReviewRequest> PtReviewRequests => _ptReviewRequests ??= new GenericRepository<Entities.PtReviewRequest>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }

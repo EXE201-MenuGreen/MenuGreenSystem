@@ -27,6 +27,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.ActivityLog> ActivityLogs { get; }
         IGenericRepository<Entities.Notification> Notifications { get; }
         IGenericRepository<Entities.NotificationSetting> NotificationSettings { get; }
+        IGenericRepository<Entities.Campaign> Campaigns { get; }
         IGenericRepository<Entities.SubscriptionPlan> SubscriptionPlans { get; }
         IGenericRepository<Entities.UserSubscription> UserSubscriptions { get; }
         IGenericRepository<Entities.SubscriptionTransaction> SubscriptionTransactions { get; }
@@ -34,6 +35,22 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.SepayTransaction> SepayTransactions { get; }
         IGenericRepository<Entities.ReminderProfile> ReminderProfiles { get; }
         IGenericRepository<Entities.GoalDriftAlert> GoalDriftAlerts { get; }
+        IGenericRepository<Entities.BudgetRequest> BudgetRequests { get; }
+        IGenericRepository<Entities.FoodAllergy> FoodAllergies { get; }
+        IGenericRepository<Entities.UserSubstitutionPreference> UserSubstitutionPreferences { get; }
+        IGenericRepository<Entities.MealPlanItemSubstitution> MealPlanItemSubstitutions { get; }
+        IGenericRepository<Entities.MealLogSubstitution> MealLogSubstitutions { get; }
+        IGenericRepository<Entities.MicroLearningCard> MicroLearningCards { get; }
+        IGenericRepository<Entities.UserCardInteraction> UserCardInteractions { get; }
+        IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings { get; }
+        IGenericRepository<Entities.CustomUserPortion> CustomUserPortions { get; }
+        IGenericRepository<Entities.PremiumProgram> PremiumPrograms { get; }
+        IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms { get; }
+        IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones { get; }
+        IGenericRepository<Entities.CoachProfile> CoachProfiles { get; }
+        IGenericRepository<Entities.CoachConnection> CoachConnections { get; }
+        IGenericRepository<Entities.CoachFeedback> CoachFeedbacks { get; }
+        IGenericRepository<Entities.PtReviewRequest> PtReviewRequests { get; }
         
         Task<int> CompleteAsync();
     }

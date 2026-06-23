@@ -30,12 +30,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
         }
 
-        public async Task<IEnumerable<SubscriptionPlanResponse>> GetActiveAsync()
-        {
-            var plans = await _unitOfWork.SubscriptionPlans.FindAsync(x => x.IsActive == true);
-            return plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
-        }
-
         public async Task<SubscriptionPlanResponse> GetByIdAsync(Guid id)
         {
             var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");

@@ -11,7 +11,7 @@ import type { MessageResponse } from "@/types/common";
 export const recipeApi = {
   search(params?: RecipeSearchParams): Promise<RecipeSearchResult> {
     return apiClient.get<RecipeSearchResult>(
-      withQuery(apiEndpoints.recipe.base, {
+      withQuery(apiEndpoints.recipe.search, {
         keyword: params?.keyword,
         mealType: params?.mealType,
         difficulty: params?.difficulty,

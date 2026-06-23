@@ -191,17 +191,37 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task TrackOpenAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
         {
-            await MarkAsReadAsync(userId, notificationId);
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            notification.IsRead = true;
+            notification.ReadAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.CompleteAsync();
         }
 
-        public Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
+        public async Task TrackClickAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
         {
-            return Task.CompletedTask;
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            notification.ClickedAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.CompleteAsync();
         }
 
-        public Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
+        public async Task TrackActionCompleteAsync(Guid userId, Guid notificationId, NotificationTrackRequest request)
         {
-            return Task.CompletedTask;
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            notification.ActionCompletedAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<NotificationResponse> DismissAsync(Guid userId, Guid notificationId)
+        {
+            var notification = await GetOwnedNotificationAsync(userId, notificationId);
+            notification.IsDismissed = true;
+            notification.DismissedAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.CompleteAsync();
+            return MapNotification(notification);
         }
 
         public async Task<object> GetAnalyticsAsync(Guid userId)
@@ -210,7 +230,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var list = notifications.ToList();
             var sent = list.Count;
             var opened = list.Count(x => x.ReadAt.HasValue);
-            var clicked = 0;
+            var clicked = list.Count(x => x.ClickedAt.HasValue);
+            var actionCompleted = list.Count(x => x.ActionCompletedAt.HasValue);
             return new
             {
                 Sent = sent,
@@ -218,7 +239,292 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Clicked = clicked,
                 OpenRate = sent == 0 ? 0 : (double)opened / sent,
                 ClickRate = sent == 0 ? 0 : (double)clicked / sent,
-                ActionCompletionRate = 0d
+                ActionCompletionRate = sent == 0 ? 0 : (double)actionCompleted / sent
+            };
+        }
+
+        public async Task<IEnumerable<NotificationResponse>> SendBulkNotificationAsync(NotificationSendBulkRequest request)
+        {
+            var result = new List<NotificationResponse>();
+            foreach (var userId in request.UserIds)
+            {
+                var notification = await CreateNotificationAsync(
+                    userId,
+                    request.Notification.Type,
+                    request.Notification.Title,
+                    request.Notification.Body,
+                    request.ScheduleAt ?? DateTimeOffset.UtcNow);
+                result.Add(notification);
+            }
+            return result;
+        }
+
+        public async Task<NotificationResponse> SendEventNotificationAsync(NotificationSendEventRequest request)
+        {
+            string title = "Thông báo từ MenuGreen";
+            string body = "";
+
+            if (request.EventType == "meal_time")
+            {
+                var mealType = request.Context != null && request.Context.TryGetValue("mealType", out var mt) ? mt.ToString() : "bữa ăn";
+                title = "Đến giờ ăn rồi!";
+                body = $"Đã đến giờ ăn {mealType} của bạn. Hãy ghi nhận món ăn nhé!";
+            }
+            else if (request.EventType == "subscription_expiring")
+            {
+                var days = request.Context != null && request.Context.TryGetValue("daysUntilExpiry", out var d) ? d.ToString() : "vài";
+                title = "Gói đăng ký sắp hết hạn";
+                body = $"Gói đăng ký của bạn sẽ hết hạn sau {days} ngày. Gia hạn ngay để không gián đoạn dịch vụ.";
+            }
+            else if (request.EventType == "weight_reminder")
+            {
+                title = "Cập nhật cân nặng";
+                body = "Hãy dành ít phút ghi nhận cân nặng hôm nay để theo dõi tiến trình nhé!";
+            }
+            else if (request.EventType == "meal_not_logged")
+            {
+                title = "Ghi nhận bữa ăn";
+                body = "Bạn chưa ghi nhận bữa ăn nào hôm nay. Hãy tiếp tục duy trì thói quen nhé!";
+            }
+            else
+            {
+                body = $"Sự kiện {request.EventType} đã xảy ra.";
+            }
+
+            return await CreateNotificationAsync(request.UserId, request.EventType, title, body, DateTimeOffset.UtcNow);
+        }
+
+        public async Task<NotificationResponse> ScheduleNotificationAsync(NotificationScheduleRequest request)
+        {
+            return await CreateNotificationAsync(request.UserId, request.Type, request.Title, request.Body, request.ScheduledAt);
+        }
+
+        public async Task<int> RetryNotificationsAsync(NotificationRetryRequest request)
+        {
+            IEnumerable<Notification> notificationsToRetry;
+            if (request.NotificationIds != null && request.NotificationIds.Count > 0)
+            {
+                notificationsToRetry = await _unitOfWork.Notifications.FindAsync(
+                    x => request.NotificationIds.Contains(x.Id));
+            }
+            else
+            {
+                var now = DateTimeOffset.UtcNow;
+                notificationsToRetry = await _unitOfWork.Notifications.FindAsync(
+                    x => x.SentAt == null && x.ScheduledAt <= now);
+            }
+
+            var count = 0;
+            foreach (var notif in notificationsToRetry)
+            {
+                notif.SentAt = DateTimeOffset.UtcNow;
+                _unitOfWork.Notifications.Update(notif);
+                count++;
+            }
+
+            if (count > 0)
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+
+            return count;
+        }
+
+        public async Task<CampaignResponse> CreateCampaignAsync(CampaignUpsertRequest request)
+        {
+            var campaign = new Campaign
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                TargetSegment = request.TargetSegment,
+                Title = request.Notification.Title,
+                Body = request.Notification.Body,
+                StartDate = request.Schedule.StartDate,
+                EndDate = request.Schedule.EndDate,
+                SendTime = request.Schedule.SendTime,
+                IsActive = request.IsActive,
+                Status = request.IsActive ? "Running" : "Draft",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.Campaigns.AddAsync(campaign);
+            await _unitOfWork.CompleteAsync();
+
+            return MapCampaign(campaign);
+        }
+
+        public async Task<IEnumerable<CampaignResponse>> GetCampaignsAsync()
+        {
+            var campaigns = await _unitOfWork.Campaigns.GetAllAsync();
+            return campaigns.Select(MapCampaign).ToList();
+        }
+
+        public async Task<CampaignResponse> GetCampaignByIdAsync(Guid id)
+        {
+            var campaign = await _unitOfWork.Campaigns.GetByIdAsync(id);
+            if (campaign == null) throw new Exception("Campaign not found.");
+            return MapCampaign(campaign);
+        }
+
+        public async Task<CampaignResponse> UpdateCampaignAsync(Guid id, CampaignUpsertRequest request)
+        {
+            var campaign = await _unitOfWork.Campaigns.GetByIdAsync(id);
+            if (campaign == null) throw new Exception("Campaign not found.");
+
+            campaign.Name = request.Name;
+            campaign.TargetSegment = request.TargetSegment;
+            campaign.Title = request.Notification.Title;
+            campaign.Body = request.Notification.Body;
+            campaign.StartDate = request.Schedule.StartDate;
+            campaign.EndDate = request.Schedule.EndDate;
+            campaign.SendTime = request.Schedule.SendTime;
+            campaign.IsActive = request.IsActive;
+            campaign.Status = request.IsActive ? "Running" : "Paused";
+            campaign.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Campaigns.Update(campaign);
+            await _unitOfWork.CompleteAsync();
+
+            return MapCampaign(campaign);
+        }
+
+        public async Task<CampaignResponse> RunCampaignAsync(Guid id)
+        {
+            var campaign = await _unitOfWork.Campaigns.GetByIdAsync(id);
+            if (campaign == null) throw new Exception("Campaign not found.");
+
+            campaign.IsActive = true;
+            campaign.Status = "Running";
+            campaign.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Campaigns.Update(campaign);
+
+            var users = await _unitOfWork.Users.GetAllAsync();
+            var targetUsers = new List<User>();
+
+            if (campaign.TargetSegment == "inactive_7_days")
+            {
+                var threshold = DateTime.UtcNow.AddDays(-7);
+                targetUsers = users.Where(u => u.IsActive &&
+                    ((u.LastSignInAt.HasValue && u.LastSignInAt.Value <= threshold) ||
+                     (!u.LastSignInAt.HasValue && u.CreatedAt <= threshold))).ToList();
+            }
+            else if (campaign.TargetSegment == "inactive_30_days")
+            {
+                var threshold = DateTime.UtcNow.AddDays(-30);
+                targetUsers = users.Where(u => u.IsActive &&
+                    ((u.LastSignInAt.HasValue && u.LastSignInAt.Value <= threshold) ||
+                     (!u.LastSignInAt.HasValue && u.CreatedAt <= threshold))).ToList();
+            }
+            else
+            {
+                targetUsers = users.Where(u => u.IsActive).ToList();
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var startDate = campaign.StartDate > today ? campaign.StartDate : today;
+            var endDate = campaign.EndDate;
+
+            if (startDate <= endDate)
+            {
+                foreach (var user in targetUsers)
+                {
+                    var scheduledDateTime = startDate.ToDateTime(campaign.SendTime);
+                    var scheduledAt = new DateTimeOffset(scheduledDateTime, TimeSpan.Zero);
+
+                    var notification = new Notification
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = user.Id,
+                        CampaignId = campaign.Id,
+                        Title = campaign.Title,
+                        Body = campaign.Body,
+                        Type = "campaign_re_engagement",
+                        IsRead = false,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        ScheduledAt = scheduledAt,
+                        SentAt = null,
+                        ReadAt = null
+                    };
+
+                    await _unitOfWork.Notifications.AddAsync(notification);
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+            return MapCampaign(campaign);
+        }
+
+        public async Task<CampaignResponse> PauseCampaignAsync(Guid id)
+        {
+            var campaign = await _unitOfWork.Campaigns.GetByIdAsync(id);
+            if (campaign == null) throw new Exception("Campaign not found.");
+
+            campaign.IsActive = false;
+            campaign.Status = "Paused";
+            campaign.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Campaigns.Update(campaign);
+
+            var unsentNotifications = await _unitOfWork.Notifications.FindAsync(
+                x => x.CampaignId == campaign.Id && x.SentAt == null);
+
+            foreach (var notif in unsentNotifications)
+            {
+                _unitOfWork.Notifications.Remove(notif);
+            }
+
+            await _unitOfWork.CompleteAsync();
+            return MapCampaign(campaign);
+        }
+
+        public async Task<ReEngagementAnalyticsResponse> GetReEngagementAnalyticsAsync()
+        {
+            var notifications = await _unitOfWork.Notifications.FindAsync(
+                x => x.CampaignId != null || x.Type == "campaign_re_engagement");
+
+            var list = notifications.ToList();
+            var sent = list.Count;
+            var opened = list.Count(x => x.ReadAt.HasValue);
+            var clicked = list.Count(x => x.ClickedAt.HasValue);
+            var actionCompleted = list.Count(x => x.ActionCompletedAt.HasValue);
+
+            return new ReEngagementAnalyticsResponse
+            {
+                TotalSent = sent,
+                TotalOpened = opened,
+                TotalClicked = clicked,
+                TotalActionCompleted = actionCompleted,
+                OpenRate = sent == 0 ? 0 : (double)opened / sent,
+                ClickRate = sent == 0 ? 0 : (double)clicked / sent,
+                ActionCompletionRate = sent == 0 ? 0 : (double)actionCompleted / sent
+            };
+        }
+
+        private static CampaignResponse MapCampaign(Campaign campaign)
+        {
+            return new CampaignResponse
+            {
+                Id = campaign.Id,
+                Name = campaign.Name,
+                TargetSegment = campaign.TargetSegment,
+                Notification = new NotificationPayload
+                {
+                    Title = campaign.Title,
+                    Body = campaign.Body,
+                    Type = "campaign_re_engagement"
+                },
+                Schedule = new CampaignScheduleDto
+                {
+                    StartDate = campaign.StartDate,
+                    EndDate = campaign.EndDate,
+                    SendTime = campaign.SendTime
+                },
+                IsActive = campaign.IsActive,
+                Status = campaign.Status,
+                CreatedAt = campaign.CreatedAt,
+                UpdatedAt = campaign.UpdatedAt
             };
         }
 
@@ -302,7 +608,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CreatedAt = notification.CreatedAt,
                 ScheduledAt = notification.ScheduledAt,
                 SentAt = notification.SentAt,
-                ReadAt = notification.ReadAt
+                ReadAt = notification.ReadAt,
+                IsDismissed = notification.IsDismissed,
+                DismissedAt = notification.DismissedAt,
+                ClickedAt = notification.ClickedAt,
+                ActionCompletedAt = notification.ActionCompletedAt
             };
         }
     }

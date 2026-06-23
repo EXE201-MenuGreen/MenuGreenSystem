@@ -12,10 +12,10 @@ export const apiEndpoints = {
     assignRole: (id: string) => `${API_BASE_URL}/User/${id}/assign-role`,
   },
   adminUser: {
-    list: `${API_BASE_URL}/AdminUser`,
-    byId: (id: string) => `${API_BASE_URL}/AdminUser/${id}`,
-    lock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/lock`,
-    unlock: (id: string) => `${API_BASE_URL}/AdminUser/${id}/unlock`,
+    list: `${API_BASE_URL}/User`,
+    byId: (id: string) => `${API_BASE_URL}/User/${id}`,
+    lock: (id: string) => `${API_BASE_URL}/User/${id}/lock`,
+    unlock: (id: string) => `${API_BASE_URL}/User/${id}/unlock`,
   },
   dashboard: {
     metrics: `${API_BASE_URL}/Dashboard/metrics`,
@@ -30,10 +30,12 @@ export const apiEndpoints = {
   },
   ingredient: {
     base: `${API_BASE_URL}/Ingredient`,
+    search: `${API_BASE_URL}/Ingredient/search`,
     byId: (id: string) => `${API_BASE_URL}/Ingredient/${id}`,
   },
   recipe: {
     base: `${API_BASE_URL}/Recipe`,
+    search: `${API_BASE_URL}/Recipe/search`,
     byId: (id: string) => `${API_BASE_URL}/Recipe/${id}`,
   },
   subscriptionPlan: {
@@ -56,6 +58,29 @@ export const apiEndpoints = {
     conversations: `${API_BASE_URL}/NutritionAssistant/conversations`,
     conversationById: (id: string) =>
       `${API_BASE_URL}/NutritionAssistant/conversations/${id}`,
+  },
+  analytics: {
+    base: `${API_BASE_URL}/Analytics`,
+    dashboard: `${API_BASE_URL}/Analytics/dashboard`,
+    summary: `${API_BASE_URL}/Analytics/summary`,
+    metrics: `${API_BASE_URL}/Analytics/metrics`,
+    topEvents: `${API_BASE_URL}/Analytics/top-events`,
+    funnel: `${API_BASE_URL}/Analytics/funnel`,
+    mealOnboardingFunnel: `${API_BASE_URL}/Analytics/funnel/meal-onboarding`,
+    subscriptionFunnel: `${API_BASE_URL}/Analytics/funnel/subscription`,
+    cohort: `${API_BASE_URL}/Analytics/cohort`,
+    churnRisk: `${API_BASE_URL}/Analytics/churn-risk`,
+    inactiveUsers: `${API_BASE_URL}/Analytics/inactive-users`,
+    reactivationOpportunities: `${API_BASE_URL}/Analytics/reactivation-opportunities`,
+    activityLog: `${API_BASE_URL}/Analytics/activity-log`,
+    // Nutrition Analytics
+    nutritionDashboard: `${API_BASE_URL}/Analytics/nutrition/dashboard`,
+    nutritionMacroDistribution: `${API_BASE_URL}/Analytics/nutrition/macro-distribution`,
+    nutritionGoalAchievement: `${API_BASE_URL}/Analytics/nutrition/goal-achievement`,
+    nutritionTopFoods: `${API_BASE_URL}/Analytics/nutrition/top-foods`,
+    nutritionCalorieDistribution: `${API_BASE_URL}/Analytics/nutrition/calorie-distribution`,
+    nutritionMealTypeBreakdown: `${API_BASE_URL}/Analytics/nutrition/meal-type-breakdown`,
+    nutritionUserInsights: `${API_BASE_URL}/Analytics/nutrition/user-insights`,
   },
 } as const;
 

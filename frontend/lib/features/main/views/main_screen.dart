@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../ai_assistant/providers/ai_assistant_provider.dart';
+import '../../ai_assistant/views/ai_conversation_list_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
+import '../../meal_plan/views/meal_plan_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -20,8 +25,7 @@ class _MainScreenState extends State<MainScreen> {
   DateTime? _lastHomeRefreshAt;
   DateTime? _lastHistoryRefreshAt;
 
-  /// Chỉ khởi tạo tab khi user mở lần đầu — tránh gọi API nền làm chậm/đơ.
-  final List<Widget?> _pageCache = List<Widget?>.filled(5, null);
+  final List<Widget?> _pageCache = List<Widget?>.filled(6, null);
 
   Widget _pageAt(int index) {
     return _pageCache[index] ??= switch (index) {
@@ -34,17 +38,20 @@ class _MainScreenState extends State<MainScreen> {
           },
         ),
       1 => DiscoverView(key: _discoverKey),
-      2 => const Center(child: Text('Trợ lý AI')),
+      2 => const MealPlanScreen(),
       3 => HistoryView(
           key: _historyKey,
           onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
         ),
-      4 => ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
+      4 => ChangeNotifierProvider(
+          create: (_) => AiAssistantProvider()..loadConversations(),
+          child: const AiConversationListScreen(),
+        ),
+      5 => ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
       _ => const SizedBox.shrink(),
     };
   }
 
-  /// Chỉ build tab đã từng mở — tránh List.generate gọi _pageAt cho cả 5 tab ngay lúc vào app.
   Widget _stackChild(int index) {
     if (_pageCache[index] == null && index != _currentIndex) {
       return const SizedBox.shrink();
@@ -77,7 +84,7 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: Colors.white,
       body: IndexedStack(
         index: _currentIndex,
-        children: List.generate(5, _stackChild),
+        children: List.generate(6, _stackChild),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -111,14 +118,19 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Khám phá',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy_outlined),
-            activeIcon: Icon(Icons.smart_toy),
-            label: 'Trợ lý AI',
+            icon: Icon(Icons.restaurant_menu_outlined),
+            activeIcon: Icon(Icons.restaurant_menu),
+            label: 'Kế hoạch',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history_outlined),
             activeIcon: Icon(Icons.history),
             label: 'Lịch sử',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome_outlined),
+            activeIcon: Icon(Icons.auto_awesome),
+            label: 'Trợ lý AI',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

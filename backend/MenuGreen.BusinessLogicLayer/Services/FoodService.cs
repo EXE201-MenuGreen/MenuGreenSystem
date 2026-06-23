@@ -105,7 +105,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             int? maxPrepTimeMin,
             string? category,
             Guid? userId = null,
-            string? allergyMode = null)
+            string? allergyMode = null,
+            string? region = null,
+            bool? localOnly = null,
+            string? mealContext = null,
+            string? sort = null)
         {
             var mode = NormalizeAllergyMode(allergyMode);
             var foods = (await _unitOfWork.Foods.GetAllAsync()).Where(f => f.IsActive != false);
@@ -129,6 +133,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     : foods.Where(f => (f.ProteinG ?? 0) < 20);
             }
 
+            if (localOnly == true)
+            {
+                foods = foods.Where(IsVietnameseFriendlyFood);
+            }
+
+            foods = ApplyRegionPreference(foods, region);
+
             var foodList = foods.ToList();
             var userKeys = userId.HasValue
                 ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
@@ -146,6 +157,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     continue;
 
                 items.Add(dto);
+            }
+
+            if (ShouldSortLocalFriendly(sort, region, localOnly, mealContext))
+            {
+                items = items
+                    .OrderByDescending(x => GetLocalFriendlyScore(x.NameVi, x.Category, x.Description, region, mealContext))
+                    .ThenBy(x => x.EstimatedPriceVnd ?? int.MaxValue)
+                    .ThenBy(x => x.NameVi)
+                    .ToList();
             }
 
             return new FoodSearchResponse { TotalCount = items.Count, Items = items };
@@ -187,47 +207,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Notes = ri.Notes
                 }).ToList()
             }).ToList();
-        }
-
-        public async Task<IReadOnlyList<FoodResponse>> GetSimilarAsync(Guid foodId, Guid? userId = null, string? allergyMode = null)
-        {
-            var currentFood = await _unitOfWork.Foods.GetByIdAsync(foodId) ?? throw new Exception("Food not found.");
-            var foods = (await _unitOfWork.Foods.GetAllAsync())
-                .Where(f => f.IsActive != false && f.Id != foodId);
-
-            if (!string.IsNullOrWhiteSpace(currentFood.Category))
-            {
-                foods = foods.Where(f =>
-                    string.Equals(f.Category, currentFood.Category, StringComparison.OrdinalIgnoreCase));
-            }
-
-            var similar = foods
-                .OrderBy(f => Math.Abs((double)((f.CaloriesKcal ?? 0) - (currentFood.CaloriesKcal ?? 0))))
-                .Take(10)
-                .ToList();
-
-            var userKeys = userId.HasValue
-                ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
-                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var foodKeysMap = await _allergenMatching.GetFoodAllergenKeysAsync(similar.Select(f => f.Id));
-            var mode = NormalizeAllergyMode(allergyMode);
-
-            var result = new List<FoodResponse>();
-            foreach (var food in similar)
-            {
-                foodKeysMap.TryGetValue(food.Id, out var foodKeys);
-                foodKeys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var dto = EnrichWithAllergy(Map(food), foodKeys, userKeys);
-                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser) continue;
-                result.Add(dto);
-            }
-
-            return result;
-        }
-
-        public async Task<AllergenRiskResult> GetAllergyBadgeAsync(Guid foodId, Guid? userId = null)
-        {
-            return await _allergenMatching.EvaluateFoodRiskAsync(foodId, userId);
         }
 
         public async Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId)
@@ -322,6 +301,92 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return m is AllergenCatalog.ModeHide or AllergenCatalog.ModeAll or AllergenCatalog.ModeWarn
                 ? m
                 : AllergenCatalog.ModeWarn;
+        }
+
+        private static IEnumerable<Food> ApplyRegionPreference(IEnumerable<Food> foods, string? region)
+        {
+            if (string.IsNullOrWhiteSpace(region))
+            {
+                return foods;
+            }
+
+            var list = foods.ToList();
+            var matched = list.Where(f => IsRegionMatch(f.NameVi, f.Category, f.Description, region)).ToList();
+            return matched.Count > 0 ? matched : list;
+        }
+
+        private static bool ShouldSortLocalFriendly(string? sort, string? region, bool? localOnly, string? mealContext)
+        {
+            return localOnly == true ||
+                   !string.IsNullOrWhiteSpace(region) ||
+                   !string.IsNullOrWhiteSpace(mealContext) ||
+                   string.Equals(sort, "local-friendly", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsVietnameseFriendlyFood(Food food)
+        {
+            return GetLocalFriendlyScore(food.NameVi, food.Category, food.Description, null, null) > 0;
+        }
+
+        private static bool IsRegionMatch(string? name, string? category, string? description, string? region)
+        {
+            var terms = GetRegionTerms(region);
+            return terms.Length > 0 && ContainsAny(JoinText(name, category, description), terms);
+        }
+
+        private static int GetLocalFriendlyScore(string? name, string? category, string? description, string? region, string? mealContext)
+        {
+            var text = JoinText(name, category, description);
+            var score = 0;
+
+            if (ContainsAny(text, "com", "cơm", "pho", "phở", "bun", "bún", "mien", "miến", "xoi", "xôi", "banh", "bánh", "goi", "gỏi", "hu tieu", "hủ tiếu"))
+            {
+                score += 20;
+            }
+
+            if (!string.IsNullOrWhiteSpace(region) && ContainsAny(text, GetRegionTerms(region)))
+            {
+                score += 30;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mealContext))
+            {
+                var normalized = mealContext.Trim().ToLowerInvariant();
+                if ((normalized.Contains("home") || normalized.Contains("nau") || normalized.Contains("nấu")) &&
+                    ContainsAny(text, "canh", "kho", "luoc", "luộc", "xao", "xào", "rau", "thit", "thịt", "ca ", "cá "))
+                {
+                    score += 10;
+                }
+                else if ((normalized.Contains("out") || normalized.Contains("ngoai") || normalized.Contains("ngoài")) &&
+                         ContainsAny(text, "pho", "phở", "bun", "bún", "com tam", "cơm tấm", "banh mi", "bánh mì", "hu tieu", "hủ tiếu"))
+                {
+                    score += 10;
+                }
+            }
+
+            return score;
+        }
+
+        private static string[] GetRegionTerms(string? region)
+        {
+            var normalized = region?.Trim().ToLowerInvariant();
+            return normalized switch
+            {
+                "north" or "bac" or "bắc" => new[] { "phở", "pho", "bún chả", "bun cha", "bún thang", "bun thang", "chả cá", "cha ca", "cốm", "com dep", "miến", "mien", "xôi", "xoi" },
+                "central" or "trung" or "miền trung" => new[] { "bún bò", "bun bo", "mì quảng", "mi quang", "cao lầu", "cao lau", "cơm hến", "com hen", "bánh bèo", "banh beo", "bánh xèo", "banh xeo" },
+                "south" or "nam" or "miền nam" => new[] { "cơm tấm", "com tam", "hủ tiếu", "hu tieu", "bánh mì", "banh mi", "gỏi cuốn", "goi cuon", "bún mắm", "bun mam", "cá kho", "ca kho" },
+                _ => Array.Empty<string>()
+            };
+        }
+
+        private static string JoinText(params string?[] values)
+        {
+            return string.Join(' ', values.Where(x => !string.IsNullOrWhiteSpace(x))).ToLowerInvariant();
+        }
+
+        private static bool ContainsAny(string text, params string[] terms)
+        {
+            return terms.Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

@@ -39,6 +39,10 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<UserAiProfile> UserAiProfiles { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationSetting> NotificationSettings { get; set; }
+        public DbSet<Campaign> Campaigns { get; set; }
+        public DbSet<UserSubstitutionPreference> UserSubstitutionPreferences { get; set; }
+        public DbSet<MealPlanItemSubstitution> MealPlanItemSubstitutions { get; set; }
+        public DbSet<MealLogSubstitution> MealLogSubstitutions { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<UserSubscription> UserSubscriptions { get; set; }
         public DbSet<SubscriptionTransaction> SubscriptionTransactions { get; set; }
@@ -49,6 +53,17 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<BudgetRequest> BudgetRequests { get; set; }
         public DbSet<ReminderProfile> ReminderProfiles { get; set; }
         public DbSet<GoalDriftAlert> GoalDriftAlerts { get; set; }
+        public DbSet<MicroLearningCard> MicroLearningCards { get; set; }
+        public DbSet<UserCardInteraction> UserCardInteractions { get; set; }
+        public DbSet<FoodPortionMapping> FoodPortionMappings { get; set; }
+        public DbSet<CustomUserPortion> CustomUserPortions { get; set; }
+        public DbSet<PremiumProgram> PremiumPrograms { get; set; }
+        public DbSet<UserPremiumProgram> UserPremiumPrograms { get; set; }
+        public DbSet<UserProgramMilestone> UserProgramMilestones { get; set; }
+        public DbSet<CoachProfile> CoachProfiles { get; set; }
+        public DbSet<CoachConnection> CoachConnections { get; set; }
+        public DbSet<CoachFeedback> CoachFeedbacks { get; set; }
+        public DbSet<PtReviewRequest> PtReviewRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

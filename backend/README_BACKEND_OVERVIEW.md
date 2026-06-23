@@ -138,7 +138,6 @@ Neu khong co se throw exception khi khoi dong.
 - GET /api/Profile/me/summary
 - GET /api/Profile/me/completion
 - GET/PUT /api/HealthProfile/me
-- GET /api/HealthProfile/me/summary
 - POST /api/HealthProfile/me/calculate
 - PATCH /api/HealthProfile/me/goal
 

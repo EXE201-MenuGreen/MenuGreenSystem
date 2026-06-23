@@ -1122,6 +1122,8 @@ class _MealCard extends StatelessWidget {
                         meal.imageUrl!,
                         width: 56,
                         height: 56,
+                        cacheWidth: 56,
+                        cacheHeight: 56,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
                       )
