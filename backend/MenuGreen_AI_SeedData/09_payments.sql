@@ -10,6 +10,7 @@ CREATE TABLE payments (
     "Id" uuid NOT NULL,
     "UserId" uuid NOT NULL,
     "UserSubscriptionId" uuid NULL,
+    "UserPremiumProgramId" uuid NULL,
     "AmountVnd" integer NOT NULL,
     "Status" character varying(32) NOT NULL,
     "PaymentMethod" character varying(32) NOT NULL,
@@ -21,9 +22,10 @@ CREATE TABLE payments (
     "PaidAt" timestamp with time zone NULL,
     CONSTRAINT "PK_payments" PRIMARY KEY ("Id"),
     CONSTRAINT "CK_payments_status" CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED')),
-    CONSTRAINT "FK_payments_user_subscriptions_UserSubscriptionId" FOREIGN KEY ("UserSubscriptionId") REFERENCES user_subscriptions ("Id") ON DELETE SET NULL,
-    CONSTRAINT "FK_payments_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_payments_user_subscriptions_UserSubscriptionId" FOREIGN KEY ("UserSubscriptionId") REFERENCES user_subscriptions ("Id") ON DELETE SET NULL
 );
+
+CREATE INDEX "IX_payments_UserPremiumProgramId" ON payments ("UserPremiumProgramId");
 
 INSERT INTO payments ("Id", "UserId", "UserSubscriptionId", "AmountVnd", "Status", "PaymentMethod", "Provider", "ProviderOrderCode", "CreatedAt", "UpdatedAt", "ExpiredAt", "PaidAt")
 VALUES
