@@ -22,7 +22,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly ApplicationDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
 
         public NutritionAssistantService(
             ApplicationDbContext db,
@@ -241,7 +244,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var configuredUrl = _configuration["NutritionAssistant:WorkerUrl"];
             var workerUrl = BuildWorkerChatUrl(configuredUrl);
-            var healthUrl = BuildWorkerHealthUrl(workerUrl);
+            var healthUrl = BuildWorkerEndpointUrl("/health");
 
             var result = new NutritionAssistantBridgeHealthResponse
             {
@@ -273,6 +276,139 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return result;
+        }
+
+        public Task<JsonElement> GetWorkerDebugDbAsync(string? userId = null)
+        {
+            var path = "/debug/db";
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                path += "?user_id=" + Uri.EscapeDataString(userId.Trim());
+            }
+
+            return GetWorkerJsonElementAsync(path, TimeSpan.FromSeconds(15));
+        }
+
+        public Task<JsonElement> GetWorkerDebugPostgresAsync(string? userId = null)
+        {
+            var path = "/debug/postgres";
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                path += "?user_id=" + Uri.EscapeDataString(userId.Trim());
+            }
+
+            return GetWorkerJsonElementAsync(path, TimeSpan.FromSeconds(15));
+        }
+
+        public Task<NutritionAssistantFeedbackResponse> CreateFeedbackAsync(
+            string userId,
+            NutritionAssistantFeedbackRequest request)
+        {
+            var payload = new
+            {
+                user_id = userId,
+                conversation_id = request.ConversationId,
+                message_id = request.MessageId,
+                thread_id = request.ThreadId,
+                feedback_type = request.FeedbackType,
+                rating = request.Rating,
+                user_note = request.UserNote,
+                assistant_response = request.AssistantResponse,
+                corrected_response = request.CorrectedResponse,
+                feature_area = request.FeatureArea,
+            };
+
+            return PostWorkerJsonAsync<NutritionAssistantFeedbackResponse>(
+                "/api/ai/feedback",
+                payload,
+                TimeSpan.FromSeconds(30));
+        }
+
+        public Task<NutritionAssistantMealPlan7dResponse> GenerateMealPlan7dAsync(
+            string userId,
+            NutritionAssistantMealPlan7dRequest request)
+        {
+            var payload = new
+            {
+                user_id = userId,
+                budget_vnd_per_day = request.BudgetVndPerDay,
+                max_cook_time_min = request.MaxCookTimeMin,
+                target_calories_per_day = request.TargetCaloriesPerDay,
+            };
+
+            return PostWorkerJsonAsync<NutritionAssistantMealPlan7dResponse>(
+                "/api/ai/meal-plans/7d",
+                payload,
+                TimeSpan.FromSeconds(60));
+        }
+
+        public Task<AiWorkerCrawlerNormalizeResponse> NormalizeCrawlerDataAsync(AiWorkerCrawlerNormalizeRequest request)
+        {
+            return PostWorkerJsonAsync<AiWorkerCrawlerNormalizeResponse>(
+                "/admin/crawler/normalize",
+                request,
+                TimeSpan.FromSeconds(60));
+        }
+
+        public Task<AiWorkerCrawlerIngestResponse> IngestCrawlerDataAsync(AiWorkerCrawlerIngestRequest request)
+        {
+            return PostWorkerJsonAsync<AiWorkerCrawlerIngestResponse>(
+                "/admin/crawler/ingest",
+                request,
+                TimeSpan.FromMinutes(5));
+        }
+
+        public Task<AiWorkerCreateTrainingSampleResponse> CreateTrainingSampleAsync(AiWorkerCreateTrainingSampleRequest request)
+        {
+            return PostWorkerJsonAsync<AiWorkerCreateTrainingSampleResponse>(
+                "/api/ai/training-samples",
+                request,
+                TimeSpan.FromSeconds(30));
+        }
+
+        public Task<AiWorkerCreateTrainingSampleResponse> CreateTrainingSampleFromFeedbackAsync(
+            string feedbackId,
+            AiWorkerCreateSampleFromFeedbackRequest request)
+        {
+            var path = "/api/ai/feedback/" + Uri.EscapeDataString(feedbackId.Trim()) + "/to-training-sample";
+            return PostWorkerJsonAsync<AiWorkerCreateTrainingSampleResponse>(
+                path,
+                request,
+                TimeSpan.FromSeconds(30));
+        }
+
+        public Task<AiWorkerTrainingSampleListResponse> ListTrainingSamplesAsync(string? status = null, int limit = 50)
+        {
+            var safeLimit = Math.Clamp(limit, 1, 500);
+            var query = "?limit=" + safeLimit;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query += "&status=" + Uri.EscapeDataString(status.Trim());
+            }
+
+            return GetWorkerJsonAsync<AiWorkerTrainingSampleListResponse>(
+                "/api/ai/training-samples" + query,
+                TimeSpan.FromSeconds(30));
+        }
+
+        public Task<AiWorkerTrainingSampleResponse> ReviewTrainingSampleAsync(
+            string sampleId,
+            AiWorkerReviewTrainingSampleRequest request)
+        {
+            var path = "/api/ai/training-samples/" + Uri.EscapeDataString(sampleId.Trim()) + "/review";
+            return PatchWorkerJsonAsync<AiWorkerTrainingSampleResponse>(
+                path,
+                request,
+                TimeSpan.FromSeconds(30));
+        }
+
+        public Task<JsonElement> RunNightlyCurationAsync(int limit = 200)
+        {
+            var safeLimit = Math.Clamp(limit, 1, 2000);
+            return PostWorkerJsonElementAsync(
+                "/api/ai/curation/nightly?limit=" + safeLimit,
+                new { },
+                TimeSpan.FromMinutes(5));
         }
 
         private async Task<AiConversation> ResolveConversationAsync(Guid userId, Guid? conversationId, string message)
@@ -423,6 +559,92 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return body;
         }
 
+        private async Task<TResponse> GetWorkerJsonAsync<TResponse>(string path, TimeSpan timeout)
+        {
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = timeout;
+
+            using var response = await client.GetAsync(BuildWorkerEndpointUrl(path));
+            await EnsureWorkerSuccessAsync(response);
+
+            var body = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+            return body ?? throw new InvalidOperationException("Worker response is empty.");
+        }
+
+        private async Task<JsonElement> GetWorkerJsonElementAsync(string path, TimeSpan timeout)
+        {
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = timeout;
+
+            using var response = await client.GetAsync(BuildWorkerEndpointUrl(path));
+            await EnsureWorkerSuccessAsync(response);
+            return await ReadJsonElementAsync(response.Content);
+        }
+
+        private async Task<TResponse> PostWorkerJsonAsync<TResponse>(string path, object payload, TimeSpan timeout)
+        {
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = timeout;
+
+            using var response = await client.PostAsJsonAsync(BuildWorkerEndpointUrl(path), payload, JsonOptions);
+            await EnsureWorkerSuccessAsync(response);
+
+            var body = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+            return body ?? throw new InvalidOperationException("Worker response is empty.");
+        }
+
+        private async Task<JsonElement> PostWorkerJsonElementAsync(string path, object payload, TimeSpan timeout)
+        {
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = timeout;
+
+            using var response = await client.PostAsJsonAsync(BuildWorkerEndpointUrl(path), payload, JsonOptions);
+            await EnsureWorkerSuccessAsync(response);
+            return await ReadJsonElementAsync(response.Content);
+        }
+
+        private async Task<TResponse> PatchWorkerJsonAsync<TResponse>(string path, object payload, TimeSpan timeout)
+        {
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = timeout;
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, BuildWorkerEndpointUrl(path))
+            {
+                Content = JsonContent.Create(payload, options: JsonOptions),
+            };
+
+            using var response = await client.SendAsync(request);
+            await EnsureWorkerSuccessAsync(response);
+
+            var body = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+            return body ?? throw new InvalidOperationException("Worker response is empty.");
+        }
+
+        private static async Task EnsureWorkerSuccessAsync(HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"AI worker returned {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+        }
+
+        private static async Task<JsonElement> ReadJsonElementAsync(HttpContent content)
+        {
+            await using var stream = await content.ReadAsStreamAsync();
+            using var document = await JsonDocument.ParseAsync(stream);
+            return document.RootElement.Clone();
+        }
+
+        private string BuildWorkerEndpointUrl(string path)
+        {
+            var rootUrl = BuildWorkerRootUrl(_configuration["NutritionAssistant:WorkerUrl"]);
+            return rootUrl.TrimEnd('/') + "/" + path.TrimStart('/');
+        }
+
         private static string BuildConversationTitle(string message)
         {
             var normalized = message.Trim();
@@ -484,6 +706,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return workerChatUrl.TrimEnd('/') + "/health";
+        }
+
+        private static string BuildWorkerRootUrl(string? configuredUrl)
+        {
+            var workerChatUrl = BuildWorkerChatUrl(configuredUrl);
+            if (workerChatUrl.EndsWith("/worker/chat", StringComparison.OrdinalIgnoreCase))
+            {
+                return workerChatUrl[..^"/worker/chat".Length];
+            }
+
+            return workerChatUrl.TrimEnd('/');
         }
 
         private sealed class WorkerConversationMessage

@@ -79,5 +79,59 @@ namespace MenuGreen.API.Controllers
                 return NotFound(new { Message = "Conversation not found." });
             }
         }
+
+        [HttpPost("feedback")]
+        public async Task<IActionResult> CreateFeedback([FromBody] NutritionAssistantFeedbackRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var result = await _service.CreateFeedbackAsync(userId, request);
+                return StatusCode(201, result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { ex.Message });
+            }
+        }
+
+        [HttpPost("meal-plans/7d")]
+        public async Task<IActionResult> GenerateMealPlan7d([FromBody] NutritionAssistantMealPlan7dRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var result = await _service.GenerateMealPlan7dAsync(userId, request);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { ex.Message });
+            }
+        }
     }
 }

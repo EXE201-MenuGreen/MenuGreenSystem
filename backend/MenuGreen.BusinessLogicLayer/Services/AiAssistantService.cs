@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -17,10 +18,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class AiAssistantService : IAiAssistantService
     {
+        private const string DefaultWorkerChatUrl = "http://127.0.0.1:8000/worker/chat";
         private readonly ApplicationDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
 
         public AiAssistantService(
             ApplicationDbContext db,
@@ -163,6 +168,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Conversation not found.");
             }
 
+            var context = await BuildUserContextAsync(userId);
+            var conversationHistory = await BuildConversationHistoryAsync(conversationId, context);
+
             // 1. Save User Message
             var userMessage = new AiMessage
             {
@@ -176,8 +184,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _db.SaveChangesAsync();
 
             // 2. Query AI Worker
-            var context = await BuildUserContextAsync(userId);
-            var workerResponse = await CallWorkerAsync(request.Message, conversationId, context, request.Language, request.Stream);
+            var workerResponse = await CallWorkerAsync(
+                userId,
+                request.Message,
+                conversationId,
+                conversationHistory,
+                request.Language,
+                request.Stream);
 
             // 3. Save Assistant Message
             var assistantMessage = new AiMessage
@@ -266,7 +279,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Call AI worker again
             var context = await BuildUserContextAsync(userId);
-            var workerResponse = await CallWorkerAsync(promptText, conversationId, context);
+            var conversationHistory = await BuildConversationHistoryAsync(conversationId, context, targetMsg.CreatedAt);
+            var workerResponse = await CallWorkerAsync(userId, promptText, conversationId, conversationHistory);
 
             // Update content and timestamp of the assistant message
             targetMsg.Content = workerResponse.Response;
@@ -302,10 +316,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Message not found.");
             }
 
-            // Appending feedback inside tokens or logs (Since we don't have separate feedback columns/tables for AiMessage)
-            // We can write it into the content metadata or log/console. Let's write it to console for debugging.
-            Console.WriteLine($"[FEEDBACK] MessageId: {messageId}, User: {userId}, IsPositive: {request.IsPositive}, Comment: {request.Comment}");
-            await Task.CompletedTask;
+            await CreateWorkerFeedbackAsync(userId, conversationId, msg, request);
         }
 
         // ==========================================
@@ -452,6 +463,38 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<object> GenerateMealPlanFromAiAsync(Guid userId, string prompt)
         {
+            var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var targetCalories = (int?)healthProfile?.TargetCalories ?? 2000;
+
+            var payload = new
+            {
+                user_id = userId.ToString(),
+                budget_vnd_per_day = 100000,
+                max_cook_time_min = 60,
+                target_calories_per_day = targetCalories,
+                prompt = prompt,
+            };
+
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = TimeSpan.FromSeconds(60);
+
+            using var response = await client.PostAsJsonAsync(
+                BuildWorkerRootUrl().TrimEnd('/') + "/api/ai/meal-plans/7d",
+                payload,
+                JsonOptions);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException(
+                    $"AI worker meal plan failed with {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var document = await JsonDocument.ParseAsync(stream);
+            return document.RootElement.Clone();
+
+#if false
             // Returns a structured weekly mockup meal plan suggested by AI
             return await Task.FromResult(new
             {
@@ -463,6 +506,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     new { Day = "Thứ 3", Breakfast = "Sinh tố chuối bơ hạt", Lunch = "Cơm gạo lứt thịt bò bông cải", Dinner = "Cá hồi áp chảo sốt chanh" }
                 }
             });
+#endif
         }
 
         public async Task<object> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason)
@@ -572,18 +616,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
         }
 
         private async Task<WorkerChatResponse> CallWorkerAsync(
+            Guid userId,
             string message,
             Guid conversationId,
-            object context,
+            IReadOnlyList<WorkerConversationMessage> conversationHistory,
             string language = "vi",
             bool stream = false)
         {
-            var baseUrl = _configuration["NutritionAssistant:WorkerUrl"];
-            if (string.IsNullOrEmpty(baseUrl))
-            {
-                return GetMockResponse(message);
-            }
-
             try
             {
                 var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
@@ -591,17 +630,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 var payload = new
                 {
-                    conversationId = conversationId,
+                    message = message.Trim(),
+                    user_id = userId.ToString(),
                     thread_id = conversationId.ToString(),
-                    language = language,
-                    stream = stream,
-                    domain = "nutrition",
-                    systemPrompt = "Bạn là AI Nutrition Assistant của MenuGreen. Hãy tư vấn dinh dưỡng bằng tiếng Việt, ngắn gọn, dễ hiểu, thực tế, an toàn. Không chẩn đoán bệnh, không thay thế bác sĩ. Nếu câu hỏi có nguy cơ sức khỏe, hãy khuyên người dùng gặp chuyên gia y tế.",
-                    userMessage = message,
-                    context
+                    request_id = Guid.NewGuid().ToString(),
+                    conversation_history = conversationHistory
                 };
 
-                using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
+                using var response = await client.PostAsJsonAsync(BuildWorkerChatUrl(), payload, JsonOptions);
                 if (!response.IsSuccessStatusCode)
                 {
                     return GetMockResponse(message);
@@ -614,6 +650,117 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 return GetMockResponse(message);
             }
+        }
+
+        private async Task<IReadOnlyList<WorkerConversationMessage>> BuildConversationHistoryAsync(
+            Guid conversationId,
+            object context,
+            DateTimeOffset? before = null)
+        {
+            var query = _db.AiMessages
+                .AsNoTracking()
+                .Where(x => x.ConversationId == conversationId);
+
+            if (before.HasValue)
+            {
+                query = query.Where(x => x.CreatedAt < before.Value);
+            }
+
+            var history = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(12)
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new WorkerConversationMessage
+                {
+                    Role = NormalizeRole(x.Role),
+                    Content = x.Content ?? string.Empty,
+                })
+                .ToListAsync();
+
+            history.Insert(0, new WorkerConversationMessage
+            {
+                Role = "system",
+                Content = "MenuGreen user context. Use it only when relevant. "
+                    + JsonSerializer.Serialize(context, JsonOptions),
+            });
+
+            return history;
+        }
+
+        private async Task CreateWorkerFeedbackAsync(
+            Guid userId,
+            Guid conversationId,
+            AiMessage message,
+            MessageFeedbackRequest request)
+        {
+            var payload = new
+            {
+                user_id = userId.ToString(),
+                conversation_id = conversationId.ToString(),
+                message_id = message.Id.ToString(),
+                thread_id = conversationId.ToString(),
+                feedback_type = request.IsPositive ? "thumbs_up" : "thumbs_down",
+                user_note = request.Comment,
+                assistant_response = message.Content,
+                feature_area = "nutrition_chat",
+            };
+
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            using var response = await client.PostAsJsonAsync(
+                BuildWorkerRootUrl().TrimEnd('/') + "/api/ai/feedback",
+                payload,
+                JsonOptions);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException(
+                    $"AI worker feedback failed with {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            }
+        }
+
+        private string BuildWorkerChatUrl()
+        {
+            return BuildWorkerChatUrl(_configuration["NutritionAssistant:WorkerUrl"]);
+        }
+
+        private string BuildWorkerRootUrl()
+        {
+            var workerChatUrl = BuildWorkerChatUrl();
+            if (workerChatUrl.EndsWith("/worker/chat", StringComparison.OrdinalIgnoreCase))
+            {
+                return workerChatUrl[..^"/worker/chat".Length];
+            }
+
+            return workerChatUrl.TrimEnd('/');
+        }
+
+        private static string BuildWorkerChatUrl(string? configuredUrl)
+        {
+            if (string.IsNullOrWhiteSpace(configuredUrl))
+            {
+                return DefaultWorkerChatUrl;
+            }
+
+            var trimmed = configuredUrl.Trim().TrimEnd('/');
+            if (trimmed.EndsWith("/worker/chat", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            return trimmed + "/worker/chat";
+        }
+
+        private static string NormalizeRole(string? role)
+        {
+            return role switch
+            {
+                "system" => "system",
+                "assistant" => "assistant",
+                _ => "user",
+            };
         }
 
         private WorkerChatResponse GetMockResponse(string userMessage)
@@ -646,7 +793,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RequestId = Guid.NewGuid().ToString(),
                 ThreadId = Guid.NewGuid().ToString(),
                 IntentConfidence = 1.0m,
-                SubscriptionTier = "Free"
+                SubscriptionTier = "free"
             };
         }
 
@@ -659,13 +806,35 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private sealed class WorkerChatResponse
         {
+            [JsonPropertyName("response")]
             public string Response { get; set; } = string.Empty;
+
+            [JsonPropertyName("intent")]
             public string? Intent { get; set; }
+
+            [JsonPropertyName("source")]
             public string? Source { get; set; }
+
+            [JsonPropertyName("request_id")]
             public string? RequestId { get; set; }
+
+            [JsonPropertyName("thread_id")]
             public string? ThreadId { get; set; }
+
+            [JsonPropertyName("intent_confidence")]
             public decimal? IntentConfidence { get; set; }
+
+            [JsonPropertyName("subscription_tier")]
             public string? SubscriptionTier { get; set; }
+        }
+
+        private sealed class WorkerConversationMessage
+        {
+            [JsonPropertyName("role")]
+            public string Role { get; set; } = "user";
+
+            [JsonPropertyName("content")]
+            public string Content { get; set; } = string.Empty;
         }
     }
 }
