@@ -73,7 +73,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.MealPlanHeaders.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
 
-            await ReplaceItemsAsync(entity.Id, request.Items);
+            await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
             return await GetByIdAsync(entity.Id);
         }
 
@@ -122,7 +122,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _unitOfWork.MealPlanItems.RemoveRange(existingItems);
                 await _unitOfWork.CompleteAsync();
 
-                await ReplaceItemsAsync(entity.Id, request.Items);
+                await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
             }
 
             return await GetByIdAsync(entity.Id);
@@ -175,7 +175,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = request.MealType,
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
-                PlannedDate = request.PlannedDate,
+                PlannedDate = request.PlannedDate ?? plan.StartDate,
                 ScheduledTime = request.ScheduledTime,
                 TargetCalories = request.TargetCalories,
                 IsCompleted = request.IsCompleted,
@@ -361,7 +361,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
         }
 
-        private async Task ReplaceItemsAsync(Guid mealPlanId, IEnumerable<MealPlanItemUpsertRequest> items)
+        private async Task ReplaceItemsAsync(Guid mealPlanId, IEnumerable<MealPlanItemUpsertRequest> items, DateOnly? defaultDate)
         {
             foreach (var item in items)
             {
@@ -372,7 +372,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     MealType = item.MealType,
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
-                    PlannedDate = item.PlannedDate,
+                    PlannedDate = item.PlannedDate ?? defaultDate,
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = item.TargetCalories,
                     IsCompleted = item.IsCompleted,
@@ -412,9 +412,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var items = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == entity.Id);
             var responseItems = new List<MealPlanItemResponse>();
+            decimal totalProtein = 0;
+            decimal totalCarbs = 0;
+            decimal totalFat = 0;
+            decimal totalCalories = 0;
+
             foreach (var item in items)
             {
-                responseItems.Add(await MapItemAsync(item));
+                var mappedItem = await MapItemAsync(item);
+                responseItems.Add(mappedItem);
+
+                var macros = await GetItemMacrosAsync(item);
+                totalProtein += macros.protein;
+                totalCarbs += macros.carbs;
+                totalFat += macros.fat;
+                totalCalories += macros.calories;
             }
 
             return new MealPlanResponse
@@ -427,12 +439,56 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
                 IsActive = entity.IsActive,
-                TotalCalories = responseItems.Sum(x => x.TargetCalories ?? 0),
-                TotalProteinG = 0,
-                TotalCarbsG = 0,
-                TotalFatG = 0,
+                TotalCalories = (int)Math.Round(totalCalories),
+                TotalProteinG = (int)Math.Round(totalProtein),
+                TotalCarbsG = (int)Math.Round(totalCarbs),
+                TotalFatG = (int)Math.Round(totalFat),
                 Items = responseItems
             };
+        }
+
+        private async Task<(decimal protein, decimal carbs, decimal fat, decimal calories)> GetItemMacrosAsync(MealPlanItem item)
+        {
+            if (item.FoodId.HasValue)
+            {
+                var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
+                if (food != null)
+                {
+                    return (
+                        food.ProteinG ?? 0,
+                        food.CarbsG ?? 0,
+                        food.FatG ?? 0,
+                        food.CaloriesKcal ?? 0
+                    );
+                }
+            }
+            else if (item.RecipeId.HasValue)
+            {
+                var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(
+                    ri => ri.RecipeId == item.RecipeId.Value);
+
+                decimal totalProtein = 0;
+                decimal totalCarbs = 0;
+                decimal totalFat = 0;
+                decimal totalCalories = 0;
+
+                foreach (var ri in recipeIngredients)
+                {
+                    var ingredient = await _unitOfWork.Ingredients.GetByIdAsync(ri.IngredientId);
+                    if (ingredient != null)
+                    {
+                        var quantity = ri.Quantity ?? 1;
+                        totalProtein += (ingredient.ProteinG ?? 0) * quantity;
+                        totalCarbs += (ingredient.CarbsG ?? 0) * quantity;
+                        totalFat += (ingredient.FatG ?? 0) * quantity;
+                        totalCalories += (ingredient.CaloriesKcal ?? 0) * quantity;
+                    }
+                }
+
+                return (totalProtein, totalCarbs, totalFat, totalCalories);
+            }
+
+            return (0, 0, 0, 0);
         }
 
         private async Task<MealPlanItemResponse> MapItemAsync(MealPlanItem x)
@@ -567,8 +623,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var mealTypes = new[] { "breakfast", "lunch", "dinner" };
 
                 var breakfastCal = targetCalories * 0.25;
-                var lunchCal = targetCalories * 0.40;
-                var dinnerCal = targetCalories * 0.35;
+                var lunchCal = targetCalories * 0.35;
+                var dinnerCal = targetCalories * 0.30;
 
                 foreach (var mealType in mealTypes)
                 {
@@ -588,17 +644,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     {
                         var selectedRecipe = candidateRecipes.First();
                         recipeId = selectedRecipe.Id;
-                        selectedCalories = (int)targetCal;
+                        selectedCalories = await GetRecipeCaloriesAsync(selectedRecipe.Id);
                     }
                     else
                     {
                         var candidateFoods = allFoods
+                            .Where(f => f.CaloriesKcal.HasValue)
                             .OrderBy(f => f.EstimatedPriceVnd ?? 50000)
                             .ToList();
+
                         if (candidateFoods.Any())
                         {
                             var selectedFood = candidateFoods.First();
                             foodId = selectedFood.Id;
+                            selectedCalories = (int)(selectedFood.CaloriesKcal ?? 0);
                         }
                     }
 
@@ -1100,6 +1159,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 && x.IsActive);
 
             return plans.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).FirstOrDefault();
+        }
+
+        private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)
+        {
+            var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(ri => ri.RecipeId == recipeId);
+            decimal totalCalories = 0;
+
+            foreach (var ri in recipeIngredients)
+            {
+                var ingredient = await _unitOfWork.Ingredients.GetByIdAsync(ri.IngredientId);
+                if (ingredient != null && ingredient.CaloriesKcal.HasValue)
+                {
+                    var quantity = ri.Quantity ?? 1;
+                    totalCalories += ingredient.CaloriesKcal.Value * quantity;
+                }
+            }
+
+            return (int)Math.Round(totalCalories);
         }
 
         private static string NormalizeMealType(string mealType)
