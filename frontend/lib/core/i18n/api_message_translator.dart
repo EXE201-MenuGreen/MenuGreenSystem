@@ -91,6 +91,20 @@ class ApiMessageTranslator {
     return messages.map(translate).where((m) => m.isNotEmpty).toList();
   }
 
+  /// Dịch title/body từ FCM push notification.
+  static String translateNotification(String? text) {
+    if (text == null) return '';
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (_looksVietnamese(trimmed)) return trimmed;
+
+    // Already translated exact messages
+    final exact = _exact[trimmed];
+    if (exact != null) return exact;
+
+    return trimmed;
+  }
+
   static bool _looksVietnamese(String text) {
     return RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false)
         .hasMatch(text);

@@ -16,19 +16,28 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FCM] Background message: ${message.messageId}');
 }
 
+/// Global pending notification to route after splash screen (terminated state).
+RemoteMessage? _pendingInitialNotification;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Register background handler for FCM
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
+  // Check if app was launched from a notification (terminated state).
+  await FirebaseBootstrap.initialize();
+  _pendingInitialNotification = await FirebaseMessaging.instance.getInitialMessage();
+
   runApp(const MyApp());
 
-  // Sau frame đầu — giảm "Skipped N frames" lúc startup.
+  // Sau frame dau - giam "Skipped N frames" luc startup.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(FirebaseBootstrap.initialize());
   });
 }
+
+RemoteMessage? getPendingInitialNotification() => _pendingInitialNotification;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
