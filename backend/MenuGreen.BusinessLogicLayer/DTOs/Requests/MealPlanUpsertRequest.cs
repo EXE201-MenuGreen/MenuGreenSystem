@@ -20,7 +20,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public List<MealPlanItemUpsertRequest> Items { get; set; } = new();
     }
 
-    /// DTO riêng cho phép tạo plan rỗng (user tạo plan trước, thêm items sau)
+    /// DTO to create an empty plan (user creates plan first, adds items later).
     public class CreateEmptyPlanRequest
     {
         [Required]

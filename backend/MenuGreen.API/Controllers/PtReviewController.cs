@@ -21,7 +21,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Học viên tạo báo cáo tuần tĩnh và link chia sẻ cho PT.
+        /// Student creates weekly report and share link for PT.
         /// </summary>
         [HttpPost("reports")]
         [Authorize]
@@ -40,7 +40,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// PT hoặc khách xem chi tiết báo cáo tuần của học viên thông qua token (không cần login).
+        /// PT or guest views student weekly report via token (no login required).
         /// </summary>
         [HttpGet("shared-reports/{token}")]
         [AllowAnonymous]
@@ -58,7 +58,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Học viên lấy danh sách các yêu cầu review đã tạo.
+        /// Student gets list of review requests they have created.
         /// </summary>
         [HttpGet("my-requests")]
         [Authorize]
@@ -77,7 +77,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// PT gửi nhận xét và các đề xuất điều chỉnh thực đơn/calo thông qua token (không cần login).
+        /// PT submits review and menu/calorie adjustment suggestions via token (no login required).
         /// </summary>
         [HttpPost("shared-reports/{token}/submit")]
         [AllowAnonymous]
@@ -86,7 +86,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.SubmitReviewAsync(token, request);
-                return Ok(new { message = "Gửi nhận xét thành công." });
+                return Ok(new { message = "Review submitted successfully." });
             }
             catch (Exception ex)
             {
@@ -95,7 +95,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Học viên xem chi tiết phản hồi và các đề xuất chỉnh sửa thực đơn từ PT.
+        /// Student views detailed feedback and menu adjustment suggestions from PT.
         /// </summary>
         [HttpGet("requests/{requestId}/result")]
         [Authorize]
@@ -114,7 +114,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Học viên phê duyệt và áp dụng các đề xuất của PT vào thực đơn/mục tiêu của mình.
+        /// Student approves and applies PT suggestions to their menu/goals.
         /// </summary>
         [HttpPost("requests/{requestId}/apply")]
         [Authorize]
@@ -124,7 +124,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.ApplyReviewAsync(userId, requestId);
-                return Ok(new { message = "Áp dụng đề xuất thành công. Kế hoạch dinh dưỡng và mục tiêu calo/macro của bạn đã được cập nhật." });
+                return Ok(new { message = "Suggestions applied successfully. Your nutrition plan and calorie/macro goals have been updated." });
             }
             catch (Exception ex)
             {
@@ -133,7 +133,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Học viên từ chối áp dụng các đề xuất và đóng yêu cầu review.
+        /// Student rejects applying suggestions and closes the review request.
         /// </summary>
         [HttpPost("requests/{requestId}/reject")]
         [Authorize]
@@ -143,7 +143,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.RejectReviewAsync(userId, requestId);
-                return Ok(new { message = "Đã từ chối áp dụng đề xuất của PT." });
+                return Ok(new { message = "PT suggestions rejected." });
             }
             catch (Exception ex)
             {

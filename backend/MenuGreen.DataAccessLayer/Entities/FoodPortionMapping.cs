@@ -6,7 +6,7 @@ namespace MenuGreen.DataAccessLayer.Entities
     {
         public Guid Id { get; set; }
         public Guid FoodId { get; set; }
-        public string Unit { get; set; } = string.Empty; // chén, tô, bát, đĩa, muỗng, quả/trái
+        public string Unit { get; set; } = string.Empty; // bowl, cup, plate, spoon, piece
         public decimal GramsPerUnit { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -72,7 +72,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _unitOfWork.UserSubscriptions.Update(subscription);
             await _unitOfWork.SubscriptionTransactions.AddAsync(
-                CreateTransaction(userId, subscription.Id, "Renew", 0, request.Note ?? "Gia hạn gói miễn phí", now));
+                CreateTransaction(userId, subscription.Id, "Renew", 0, request.Note ?? "Free plan renewal", now));
             await _unitOfWork.CompleteAsync();
 
             return await MapAsync(subscription);

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý Nutrition Tracking - Theo dõi dinh dưỡng và cân nặng.
+    /// Controller for Nutrition Tracking - nutritional and weight monitoring.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -25,7 +25,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách tất cả meal logs của user (có phân trang).
+        /// Get paginated list of user meal logs.
         /// </summary>
         [HttpGet("meal-logs")]
         public async Task<IActionResult> GetMealLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một meal log cụ thể theo ID.
+        /// Get details of a specific meal log by ID.
         /// </summary>
         [HttpGet("meal-logs/{mealLogId:guid}")]
         public async Task<IActionResult> GetMealLogById(Guid mealLogId)
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo meal log mới (ghi nhận bữa ăn).
+        /// Create a new meal log (record a meal).
         /// </summary>
         [HttpPost("meal-logs")]
         public async Task<IActionResult> CreateMealLog([FromBody] MealLogUpsertRequest request)
@@ -56,7 +56,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin meal log.
+        /// Update meal log information.
         /// </summary>
         [HttpPut("meal-logs/{mealLogId:guid}")]
         public async Task<IActionResult> UpdateMealLog(Guid mealLogId, [FromBody] MealLogUpsertRequest request)
@@ -67,7 +67,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa meal log.
+        /// Delete a meal log.
         /// </summary>
         [HttpDelete("meal-logs/{mealLogId:guid}")]
         public async Task<IActionResult> DeleteMealLog(Guid mealLogId)
@@ -78,7 +78,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách meal logs trong khoảng thời gian.
+        /// Get meal logs within a date range.
         /// </summary>
         [HttpGet("meal-logs/range")]
         public async Task<IActionResult> GetMealLogsByRange([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
@@ -88,7 +88,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tổng hợp dinh dưỡng theo khoảng thời gian (day/week/month).
+        /// Aggregate nutrition data for a time period (day/week/month).
         /// </summary>
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary([FromQuery] string period = "day", [FromQuery] DateOnly? date = null)
@@ -98,7 +98,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích xu hướng dinh dưỡng theo thời gian (dùng cho biểu đồ).
+        /// Analyze nutrition trends over time (for charts).
         /// </summary>
         [HttpGet("trends")]
         public async Task<IActionResult> GetTrends([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
@@ -108,7 +108,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy tóm tắt dinh dưỡng theo ngày.
+        /// Get daily nutrition summary.
         /// </summary>
         [HttpGet("daily")]
         public async Task<IActionResult> GetDaily([FromQuery] DateOnly date)
@@ -118,7 +118,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy dashboard tổng hợp (meal logs và weight logs).
+        /// Get combined dashboard (meal logs and weight logs).
         /// </summary>
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] string range = "day", [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null)
@@ -128,7 +128,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách tất cả weight logs của user (có phân trang).
+        /// Get paginated list of user weight logs.
         /// </summary>
         [HttpGet("weight-logs")]
         public async Task<IActionResult> GetWeightLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
@@ -138,7 +138,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một weight log cụ thể theo ID.
+        /// Get details of a specific weight log by ID.
         /// </summary>
         [HttpGet("weight-logs/{weightLogId:guid}")]
         public async Task<IActionResult> GetWeightLogById(Guid weightLogId)
@@ -148,7 +148,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích xu hướng thay đổi cân nặng theo thời gian (dùng cho biểu đồ).
+        /// Analyze weight change trends over time (for charts).
         /// </summary>
         [HttpGet("weight-logs/trend")]
         public async Task<IActionResult> GetWeightTrend([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
@@ -158,7 +158,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo weight log mới (ghi nhận cân nặng).
+        /// Create a new weight log (record weight).
         /// </summary>
         [HttpPost("weight-logs")]
         public async Task<IActionResult> CreateWeightLog([FromBody] WeightLogUpsertRequest request)
@@ -169,7 +169,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin weight log.
+        /// Update weight log information.
         /// </summary>
         [HttpPut("weight-logs/{weightLogId:guid}")]
         public async Task<IActionResult> UpdateWeightLog(Guid weightLogId, [FromBody] WeightLogUpsertRequest request)
@@ -180,7 +180,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa weight log.
+        /// Delete a weight log.
         /// </summary>
         [HttpDelete("weight-logs/{weightLogId:guid}")]
         public async Task<IActionResult> DeleteWeightLog(Guid weightLogId)

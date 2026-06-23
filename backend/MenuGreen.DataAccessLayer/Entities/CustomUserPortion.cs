@@ -6,7 +6,7 @@ namespace MenuGreen.DataAccessLayer.Entities
     {
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
-        public string UnitName { get; set; } = string.Empty; // Tô sứ nhà, Chén sứ nhỏ
+        public string UnitName { get; set; } = string.Empty; // e.g. Small bowl, Rice bowl
         public decimal GramsEquivalent { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

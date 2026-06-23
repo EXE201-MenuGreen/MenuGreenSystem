@@ -23,10 +23,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         /// <summary>Mã chuẩn (peanut, dairy, …).</summary>
         public List<string> AllergenKeys { get; set; } = new();
 
-        /// <summary>Nhãn tiếng Việt trên món.</summary>
+        /// <summary>Vietnamese allergen label displayed on the food item.</summary>
         public List<string> AllergenLabelsVi { get; set; } = new();
 
-        /// <summary>Dị ứng user trùng với món (nhãn VI).</summary>
+        /// <summary>User allergies matching this food (VI labels).</summary>
         public List<string> MatchedAllergens { get; set; } = new();
 
         /// <summary>none | caution | high</summary>

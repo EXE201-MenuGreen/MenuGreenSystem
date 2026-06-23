@@ -23,7 +23,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách meal plan của user hiện tại, có thể lọc theo trạng thái hoạt động.
+        /// Get current user meal plans, can filter by active status.
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
@@ -32,7 +32,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một meal plan theo Id.
+        /// Get details of a specific meal plan by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo meal plan mới cho user hiện tại.
+        /// Create a new meal plan for the current user.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] MealPlanUpsertRequest request)
@@ -66,7 +66,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo meal plan rỗng (không cần items) - user tạo plan trước, thêm items sau.
+        /// Create an empty meal plan (no items) - user creates plan first, adds items later.
         /// </summary>
         [HttpPost("empty")]
         public async Task<IActionResult> CreateEmpty([FromBody] CreateEmptyPlanRequest request)
@@ -85,7 +85,7 @@ namespace MenuGreen.API.Controllers
 
 
         /// <summary>
-        /// Cập nhật thông tin meal plan hiện tại.
+        /// Update current meal plan information.
         /// </summary>
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] MealPlanUpsertRequest request)
@@ -103,7 +103,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa meal plan theo Id.
+        /// Delete a meal plan by Id.
         /// </summary>
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
@@ -121,7 +121,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật trạng thái hoạt động của meal plan.
+        /// Update active status of a meal plan.
         /// </summary>
         [HttpPatch("{id:guid}/status")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] MealPlanStatusRequest request)
@@ -139,7 +139,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân phối meal plan cho nhóm đối tượng mục tiêu.
+        /// Distribute meal plan to target audience.
         /// </summary>
         [HttpPost("{id:guid}/distribute")]
         public async Task<IActionResult> Distribute(Guid id, [FromQuery] string targetAudience, [FromQuery] string? notes = null)
@@ -156,7 +156,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thêm một món hoặc một bữa mới vào meal plan.
+        /// Add a new item or meal to a meal plan.
         /// </summary>
         [HttpPost("{planId:guid}/items")]
         public async Task<IActionResult> AddItem(Guid planId, [FromBody] MealPlanItemUpsertRequest request)
@@ -174,7 +174,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật một item đã có trong meal plan.
+        /// Update an existing item in the meal plan.
         /// </summary>
         [HttpPut("{planId:guid}/items/{itemId:guid}")]
         public async Task<IActionResult> UpdateItem(Guid planId, Guid itemId, [FromBody] MealPlanItemUpsertRequest request)
@@ -192,7 +192,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một item khỏi meal plan.
+        /// Remove an item from a meal plan.
         /// </summary>
         [HttpDelete("{planId:guid}/items/{itemId:guid}")]
         public async Task<IActionResult> DeleteItem(Guid planId, Guid itemId)
@@ -210,7 +210,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đánh dấu trạng thái của item trong meal plan.
+        /// Update item status in meal plan.
         /// </summary>
         [HttpPatch("{planId:guid}/items/{itemId:guid}/status")]
         public async Task<IActionResult> UpdateItemStatus(Guid planId, Guid itemId, [FromBody] MealPlanStatusRequest request)
@@ -228,7 +228,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Chuyển item trong meal plan thành meal log thực tế.
+        /// Convert meal plan item to actual meal log.
         /// </summary>
         [HttpPost("{planId:guid}/items/{itemId:guid}/convert-to-log")]
         public async Task<IActionResult> ConvertToLog(Guid planId, Guid itemId, [FromBody] MealPlanConvertToLogRequest request)
@@ -245,7 +245,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Chốt meal plan của ngày hiện tại để phục vụ dashboard và báo cáo.
+        /// Commit today's meal plan for dashboard and reporting.
         /// </summary>
         [HttpPost("{planId:guid}/commit")]
         public async Task<IActionResult> Commit(Guid planId, [FromBody] MealPlanCommitRequest request)
@@ -262,7 +262,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Nhân bản meal plan sang khung ngày mới.
+        /// Duplicate meal plan to a new date range.
         /// </summary>
         [HttpPost("{planId:guid}/duplicate")]
         public async Task<IActionResult> Duplicate(Guid planId, [FromBody] MealPlanDuplicateRequest request)
@@ -280,7 +280,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy dashboard theo ngày: kế hoạch, meal log thực tế và tỷ lệ hoàn thành.
+        /// Get daily dashboard: planned meals, actual meal logs, and completion rate.
         /// </summary>
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] DateOnly date)
@@ -290,7 +290,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// So sánh kế hoạch và thực tế theo khoảng ngày.
+        /// Compare planned vs actual for a date range.
         /// </summary>
         [HttpGet("compare")]
         public async Task<IActionResult> GetCompare([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -300,7 +300,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thống kê mức độ bám plan theo chuỗi ngày.
+        /// Statistics on plan adherence over consecutive days.
         /// </summary>
         [HttpGet("streaks")]
         public async Task<IActionResult> GetStreaks()
@@ -310,7 +310,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tự động sinh thực đơn tuần tiết kiệm dựa trên yêu cầu ngân sách mới nhất của user.
+        /// Auto-generate weekly budget-friendly menu based on user's latest budget requirements.
         /// </summary>
         [HttpPost("generate-by-budget")]
         public async Task<IActionResult> GenerateByBudget()
@@ -327,7 +327,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin so sánh chi phí kế hoạch thực đơn hiện tại với ngân sách của user.
+        /// Get cost comparison of current meal plan against user budget.
         /// </summary>
         [HttpGet("{id:guid}/budget-status")]
         public async Task<IActionResult> GetBudgetStatus(Guid id)
@@ -344,7 +344,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đề xuất các món ăn/công thức thay thế có giá rẻ hơn món ăn được chọn trong kế hoạch.
+        /// Suggest cheaper alternative meals/recipes for items in the plan.
         /// </summary>
         [HttpGet("{planId:guid}/alternatives/{itemId:guid}")]
         public async Task<IActionResult> GetAlternatives(Guid planId, Guid itemId)
@@ -361,7 +361,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// So sánh chi phí ăn uống thực tế (meal log) với chi phí kế hoạch và ngân sách đã thiết lập.
+        /// Compare actual food expenses (meal logs) with planned costs and set budget.
         /// </summary>
         [HttpGet("compare-expenses")]
         public async Task<IActionResult> CompareExpenses([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -371,7 +371,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích tỷ trọng chi tiêu theo danh mục thực phẩm và gợi ý cách tiết kiệm tiền.
+        /// Analyze expense distribution by food category and suggest savings.
         /// </summary>
         [HttpGet("expense-breakdown")]
         public async Task<IActionResult> GetExpenseBreakdown()
@@ -381,7 +381,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tính toán điểm bám sát ngân sách ăn uống trong chuỗi ngày gần đây của user.
+        /// Calculate budget adherence score over recent days for user.
         /// </summary>
         [HttpGet("adherence-scores")]
         public async Task<IActionResult> GetAdherenceScores()
