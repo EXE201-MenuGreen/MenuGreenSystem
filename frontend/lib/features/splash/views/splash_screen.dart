@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/network/token_storage.dart';
+import '../../../core/services/notification_handler.dart';
+import '../../../main.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../main/views/main_screen.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
@@ -81,9 +83,29 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         final complete = await OnboardingGate().isOnboardingComplete();
         destination = complete ? const MainScreen() : const OnboardingScreen();
       } catch (e) {
-        debugPrint('[Splash] OnboardingGate error: $e — going to MainScreen');
+        debugPrint('[Splash] OnboardingGate error: $e - going to MainScreen');
         destination = const MainScreen();
       }
+    }
+
+    if (!mounted) return;
+
+    final pendingNotification = getPendingInitialNotification();
+    if (pendingNotification != null && hasToken) {
+      final handler = NotificationHandler();
+      final capturedContext = context;
+      final safeToNavigate = mounted;
+      // Capture navigator before async gap to avoid build_context_synchronously lint.
+      // ignore: use_build_context_synchronously
+      final navigator = Navigator.of(capturedContext);
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (_) => destination),
+      ).then((_) {
+        if (!safeToNavigate) return;
+        // ignore: use_build_context_synchronously
+        handler.handleNotificationTap(capturedContext, pendingNotification);
+      });
+      return;
     }
 
     if (!mounted) return;

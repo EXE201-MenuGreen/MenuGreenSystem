@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/notifications/views/notification_inbox_screen.dart';
 import '../../features/meal_plan/views/meal_plan_detail_screen.dart';
 import '../../features/profile/views/profile_view.dart';
+import '../../core/i18n/api_message_translator.dart';
 
 enum NotificationActionType {
   openApp,
@@ -207,10 +208,11 @@ class NotificationHandler {
     BuildContext context,
     RemoteMessage message,
   ) {
-    final title = message.notification?.title;
-    final body = message.notification?.body;
+    // Translate notification title/body if coming from backend (English).
+    final title = ApiMessageTranslator.translateNotification(message.notification?.title);
+    final body = ApiMessageTranslator.translateNotification(message.notification?.body);
 
-    if (title == null && body == null) return;
+    if (title.isEmpty && body.isEmpty) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -218,12 +220,12 @@ class NotificationHandler {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (title != null)
+            if (title.isNotEmpty)
               Text(
                 title,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            if (body != null) Text(body),
+            if (body.isNotEmpty) Text(body),
           ],
         ),
         behavior: SnackBarBehavior.floating,
