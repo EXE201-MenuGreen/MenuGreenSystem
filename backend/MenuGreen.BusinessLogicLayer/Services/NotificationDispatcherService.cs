@@ -35,6 +35,44 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await DispatchPendingAsync(beforeProcessing: null);
         }
 
+        public async Task<NotificationDispatchResult> GetDispatchStatsAsync()
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            var pendingNotifications = await _unitOfWork.Notifications.FindAsync(
+                n => n.SentAt == null
+                     && n.ScheduledAt != null
+                     && n.ScheduledAt <= now
+                     && !n.IsDismissed);
+
+            var notificationList = pendingNotifications.ToList();
+
+            var totalProcessed = notificationList.Count;
+            var skipped = 0;
+
+            foreach (var notification in notificationList)
+            {
+                var userSettings = (await _unitOfWork.NotificationSettings
+                    .FindAsync(s => s.UserId == notification.UserId))
+                    .FirstOrDefault();
+
+                if (!(userSettings?.PushEnabled ?? false))
+                {
+                    skipped++;
+                }
+            }
+
+            return new NotificationDispatchResult
+            {
+                TotalProcessed = totalProcessed,
+                NotificationsCreated = 0,
+                PushSent = 0,
+                PushFailed = 0,
+                Skipped = skipped,
+                Summary = $"Found {totalProcessed} pending notifications: {skipped} would be skipped (push disabled)."
+            };
+        }
+
         private async Task<NotificationDispatchResult> DispatchPendingAsync(
             Func<IEnumerable<Notification>, Task>? beforeProcessing)
         {

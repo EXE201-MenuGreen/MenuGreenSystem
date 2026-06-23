@@ -153,12 +153,12 @@ class NotificationHandler {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _buildDestinationScreen(action, message),
+        builder: (_) => buildDestinationScreen(action, message),
       ),
     );
   }
 
-  Widget _buildDestinationScreen(
+  Widget buildDestinationScreen(
     NotificationAction action,
     RemoteMessage message,
   ) {

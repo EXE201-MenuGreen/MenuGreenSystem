@@ -37,9 +37,7 @@ namespace MenuGreen.API.Controllers
         [HttpGet("pending")]
         public async Task<IActionResult> GetPendingCount()
         {
-            var now = System.DateTimeOffset.UtcNow;
-            // We'll get this from dispatcher stats
-            var result = await _dispatcher.DispatchDueNotificationsAsync();
+            var result = await _dispatcher.GetDispatchStatsAsync();
             return Ok(new
             {
                 PendingProcessed = result.TotalProcessed,

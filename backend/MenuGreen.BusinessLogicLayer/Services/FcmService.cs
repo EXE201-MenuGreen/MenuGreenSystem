@@ -35,13 +35,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new ArgumentException("Token is required.");
             }
 
-            var existingTokens = await _unitOfWork.DeviceTokens.FindAsync(
-                x => x.UserId == userId && x.Token == request.Token);
-
-            var existingToken = existingTokens.FirstOrDefault();
+            var existingToken = (await _unitOfWork.DeviceTokens.FindAsync(
+                x => x.Token == request.Token)).FirstOrDefault();
 
             if (existingToken != null)
             {
+                if (existingToken.UserId != userId)
+                {
+                    throw new InvalidOperationException("This token is already registered by another user.");
+                }
+
                 existingToken.LastUsedAt = DateTime.UtcNow;
                 existingToken.DeviceType = request.DeviceType;
                 existingToken.DeviceName = request.DeviceName;
@@ -122,7 +125,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<FcmSendResponse> SendToUsersAsync(IEnumerable<Guid> userIds, string title, string body, string? data = null)
         {
             var allTokens = new List<string>();
-            var failedCount = 0;
+            var usersWithoutToken = 0;
 
             foreach (var userId in userIds)
             {
@@ -132,7 +135,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var tokenList = tokens.Select(x => x.Token).ToList();
                 if (tokenList.Count == 0)
                 {
-                    failedCount++;
+                    usersWithoutToken++;
                 }
                 else
                 {
@@ -145,12 +148,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return new FcmSendResponse
                 {
                     SuccessCount = 0,
-                    FailureCount = failedCount,
+                    FailureCount = usersWithoutToken,
                     Message = "No active device tokens found."
                 };
             }
 
-            return await SendFcmMessageAsync(allTokens.Distinct().ToList(), title, body, data);
+            var result = await SendFcmMessageAsync(allTokens.Distinct().ToList(), title, body, data);
+            result.FailureCount += usersWithoutToken;
+            return result;
         }
 
         public async Task<int> SendTestNotificationAsync()

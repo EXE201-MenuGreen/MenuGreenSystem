@@ -8,6 +8,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         Task<NotificationDispatchResult> DispatchDueNotificationsAsync();
         Task<NotificationDispatchResult> DispatchAllPendingAsync();
+        Task<NotificationDispatchResult> GetDispatchStatsAsync();
     }
 
     public class NotificationDispatchResult

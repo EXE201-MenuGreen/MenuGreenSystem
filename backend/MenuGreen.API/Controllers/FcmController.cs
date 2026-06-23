@@ -6,6 +6,7 @@ using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace MenuGreen.API.Controllers
 {
@@ -16,10 +17,12 @@ namespace MenuGreen.API.Controllers
     public class FcmController : ControllerBase
     {
         private readonly IFcmService _fcmService;
+        private readonly ILogger<FcmController> _logger;
 
-        public FcmController(IFcmService fcmService)
+        public FcmController(IFcmService fcmService, ILogger<FcmController> logger)
         {
             _fcmService = fcmService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -45,7 +48,8 @@ namespace MenuGreen.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { Message = ex.Message });
+                _logger.LogError(ex, "Failed to register FCM token.");
+                return StatusCode(500, new { Message = "Internal server error." });
             }
         }
 
@@ -55,6 +59,11 @@ namespace MenuGreen.API.Controllers
         [HttpDelete("remove")]
         public async Task<IActionResult> RemoveToken([FromBody] RemoveTokenRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Token))
+            {
+                return BadRequest(new { Message = "Token is required." });
+            }
+
             if (!TryGetUserId(out var userId))
             {
                 return Unauthorized();
@@ -102,7 +111,8 @@ namespace MenuGreen.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { Message = ex.Message });
+                _logger.LogError(ex, "Failed to send push notification.");
+                return StatusCode(500, new { Message = "Internal server error." });
             }
         }
 
