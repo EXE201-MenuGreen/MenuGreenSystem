@@ -40,6 +40,8 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IFoodRankingService, FoodRankingService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IFcmService, FcmService>();
+            services.AddScoped<INotificationDispatcherService, NotificationDispatcherService>();
+            services.AddHostedService<NotificationDispatchBackgroundService>();
             services.AddScoped<IReminderService, ReminderService>();
             services.AddScoped<IGoalDriftService, GoalDriftService>();
             services.AddScoped<IDailyStarterService, DailyStarterService>();
