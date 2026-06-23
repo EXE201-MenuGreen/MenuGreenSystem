@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +11,7 @@ import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../../core/services/push_notification_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -26,6 +29,22 @@ class _MainScreenState extends State<MainScreen> {
   DateTime? _lastHistoryRefreshAt;
 
   final List<Widget?> _pageCache = List<Widget?>.filled(6, null);
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initPushNotifications());
+  }
+
+  Future<void> _initPushNotifications() async {
+    try {
+      final provider = PushNotificationProvider();
+      await provider.initialize(context);
+      await provider.registerToken();
+    } catch (e) {
+      debugPrint('[MainScreen] Failed to init push notifications: $e');
+    }
+  }
 
   Widget _pageAt(int index) {
     return _pageCache[index] ??= switch (index) {

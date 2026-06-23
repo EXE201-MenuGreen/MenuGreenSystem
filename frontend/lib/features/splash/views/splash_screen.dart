@@ -93,18 +93,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final pendingNotification = getPendingInitialNotification();
     if (pendingNotification != null && hasToken) {
       final handler = NotificationHandler();
-      final capturedContext = context;
-      final safeToNavigate = mounted;
-      // Capture navigator before async gap to avoid build_context_synchronously lint.
-      // ignore: use_build_context_synchronously
-      final navigator = Navigator.of(capturedContext);
-      navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => destination),
-      ).then((_) {
-        if (!safeToNavigate) return;
-        // ignore: use_build_context_synchronously
-        handler.handleNotificationTap(capturedContext, pendingNotification);
-      });
+      final action = handler.parseNotificationData(pendingNotification.data);
+      final notificationDestination = handler.buildDestinationScreen(action, pendingNotification);
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => notificationDestination),
+      );
       return;
     }
 

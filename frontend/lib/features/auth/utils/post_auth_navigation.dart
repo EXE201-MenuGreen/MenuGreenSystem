@@ -20,7 +20,9 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
   if (!context.mounted) return;
 
   // Register FCM token with backend after successful login
-  _registerPushToken(context);
+  await _registerPushToken(context);
+
+  if (!context.mounted) return;
 
   final Widget destination = complete ? const MainScreen() : const OnboardingScreen();
 

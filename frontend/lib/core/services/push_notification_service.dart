@@ -45,7 +45,7 @@ class PushNotificationService {
       _foregroundSubscription = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Handle notification tap (app was in background)
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      _backgroundSubscription = FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       // Check if app was launched from notification
       final initialMessage = await _messaging.getInitialMessage();
@@ -121,7 +121,8 @@ class PushNotificationService {
   }
 
   Future<void> _onTokenRefresh(String newToken) async {
-    debugPrint('[FCM] Token refreshed: ${newToken.substring(0, 20)}...');
+    final safeToken = newToken.length > 20 ? '${newToken.substring(0, 20)}...' : newToken;
+    debugPrint('[FCM] Token refreshed: $safeToken');
     
     final deviceInfo = await _getDeviceInfo();
     await _fcmRepository.registerToken(

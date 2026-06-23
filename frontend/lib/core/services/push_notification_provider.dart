@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'push_notification_service.dart';
 import 'notification_handler.dart';
@@ -48,14 +47,19 @@ class PushNotificationProvider extends ChangeNotifier {
 
   void _handleForegroundMessage(BuildContext context, RemoteMessage message) {
     debugPrint('[PushNotificationProvider] Foreground message: ${message.messageId}');
-    _handler.showInAppNotification(context, message);
+    if (context.mounted) {
+      _handler.showInAppNotification(context, message);
+    }
   }
 
   void _handleNotificationTap(BuildContext context, RemoteMessage message) {
     debugPrint('[PushNotificationProvider] Notification tap: ${message.messageId}');
-    _handler.handleNotificationTap(context, message);
+    if (context.mounted) {
+      _handler.handleNotificationTap(context, message);
+    }
   }
 
+  @override
   void dispose() {
     _foregroundSubscription?.cancel();
     _service.dispose();
