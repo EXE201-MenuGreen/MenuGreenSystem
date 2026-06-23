@@ -54,9 +54,9 @@ class PushNotificationService {
       }
 
       // Listen for token refresh
-      _tokenRefreshSubscription = _fcmRepository.onTokenRefresh.listen((newToken) {
+      _tokenRefreshSubscription = FcmRepository.onTokenRefresh.listen((newToken) {
         debugPrint('[FCM] Token refreshed: ${newToken.length > 20 ? '${newToken.substring(0, 20)}...' : newToken}');
-        _registerTokenAsync(newToken);
+        _onTokenRefresh(newToken);
       });
 
       _isInitialized = true;
