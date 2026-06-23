@@ -119,7 +119,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       context,
       MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
     ).then((_) {
-      context.read<MealPlanProvider>().loadPlans();
+      context.read<MealPlanProvider>().loadAllForHome();
     });
   }
 }
@@ -133,7 +133,6 @@ class _TodayTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dashboard = provider.todayDashboard;
-    final adherence = provider.todayAdherence;
     final streaks = provider.streaks;
 
     return RefreshIndicator(
