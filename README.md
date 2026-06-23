@@ -92,7 +92,27 @@ cd backend
 dotnet ef database update --project MenuGreen.DataAccessLayer --startup-project MenuGreen.API
 ```
 
-### 3. Running the Web API
+### 3. Database Seeding (Nạp dữ liệu mẫu)
+
+Hệ thống cung cấp sẵn dữ liệu mẫu (Seed Data) được chia nhỏ thành các file SQL trong thư mục [MenuGreen_AI_SeedData](file:///e:/EXE201-MenuGreen/MenuGreenSystem/backend/MenuGreen_AI_SeedData).
+
+Để tự động nạp toàn bộ các file SQL này vào cơ sở dữ liệu, bạn sử dụng script PowerShell [run_seed_data.ps1](file:///e:/EXE201-MenuGreen/MenuGreenSystem/backend/run_seed_data.ps1) trong thư mục `backend`:
+
+1. **Mở PowerShell** (hoặc Terminal trong VS Code).
+2. **Di chuyển vào thư mục `backend`**:
+   ```powershell
+   cd backend
+   ```
+3. **Thực thi script** (bỏ qua chính sách bảo mật của PowerShell nếu bị chặn):
+   ```powershell
+   PowerShell -ExecutionPolicy Bypass -File .\run_seed_data.ps1
+   ```
+4. **Nhập lựa chọn**:
+   - **`1`**: Chạy trên Docker container `menugreen_db`.
+   - **`2`**: Chạy trên PostgreSQL cục bộ (local psql) — *Script sẽ tự động kiểm tra và tạo database `MenuGreenDb` nếu chưa tồn tại*.
+   - **`3`**: Gộp 55 file thành 1 file duy nhất `combined_seed_data.sql` để import thủ công qua PgAdmin/DBeaver.
+
+### 4. Running the Web API
 
 Khởi chạy dự án API:
 
@@ -458,4 +478,19 @@ Sau khi chạy thành công, truy cập Swagger UI tại địa chỉ:
   - `frontend/lib/features/tracking/repositories/nutrition_tracking_repository.dart`
   - `frontend/lib/features/history/views/history_view.dart`
   - `frontend/lib/features/home/views/home_view.dart`
+  - `README.md`
+
+### 2026-06-23 - Database seeding automation instruction
+
+- Main objective:
+  - Add instructions and support for automated seed data running using PowerShell.
+- Completed tasks:
+  - Modified script `backend/run_seed_data.ps1` to automatically check if PostgreSQL database exists and create it before importing seed data (when option 2 is chosen).
+  - Documented running steps under the `Setup & Execution` section in `README.md`.
+- Key decisions and solutions:
+  - Used PostgreSQL command line tools (`psql`) to inspect existing databases non-interactively.
+- Tech stack used:
+  - PowerShell scripting, Markdown documentation.
+- Files modified:
+  - `backend/run_seed_data.ps1`
   - `README.md`
