@@ -42,6 +42,39 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int TargetCaloriesPerDay { get; set; } = 2000;
     }
 
+    public class AiWorkerRecommendationRequest
+    {
+        public string? Date { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? BudgetVnd { get; set; }
+
+        [RegularExpression("^(breakfast|lunch|dinner|snack|any)$")]
+        public string? MealSlot { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? MaxCookTimeMin { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? TargetCalories { get; set; }
+
+        public IReadOnlyList<string> ExcludeFoodIds { get; set; } = new List<string>();
+
+        [Range(1, 50)]
+        public int Limit { get; set; } = 5;
+    }
+
+    public class AiWorkerActionExecuteRequest
+    {
+        [Required]
+        [RegularExpression("^(generate_meal_plan|replace_food|budget_optimize|schedule_meal|show_recipe|log_meal|ask_followup)$")]
+        public string Type { get; set; } = "ask_followup";
+
+        public JsonElement? Payload { get; set; }
+
+        public bool Confirmed { get; set; }
+    }
+
     public class AiWorkerCrawlerNormalizeRequest
     {
         [Required]

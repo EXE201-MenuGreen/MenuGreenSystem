@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -98,6 +100,52 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IntentConfidence = workerResponse.IntentConfidence,
                 SubscriptionTier = workerResponse.SubscriptionTier,
             };
+        }
+
+        public async Task StreamMessageAsync(
+            string userId,
+            NutritionAssistantChatRequest request,
+            Stream output,
+            CancellationToken cancellationToken = default)
+        {
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                throw new InvalidOperationException("User id is invalid.");
+            }
+
+            var threadId = request.ConversationId?.ToString() ?? Guid.NewGuid().ToString();
+            var context = await BuildUserContextAsync(userGuid);
+            var conversationHistory = new List<WorkerConversationMessage>();
+            if (!string.IsNullOrWhiteSpace(context))
+            {
+                conversationHistory.Add(new WorkerConversationMessage
+                {
+                    Role = "system",
+                    Content = context,
+                });
+            }
+
+            var payload = new
+            {
+                message = request.Message.Trim(),
+                user_id = userId,
+                thread_id = threadId,
+                request_id = Guid.NewGuid().ToString(),
+                conversation_history = conversationHistory,
+            };
+
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = TimeSpan.FromMinutes(2);
+
+            using var workerRequest = CreateWorkerRequest(HttpMethod.Post, "/worker/chat/stream");
+            workerRequest.Content = JsonContent.Create(payload, options: JsonOptions);
+
+            using var response = await client.SendAsync(
+                workerRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            await EnsureWorkerSuccessAsync(response);
+            await response.Content.CopyToAsync(output, cancellationToken);
         }
 
         public async Task<IReadOnlyList<NutritionAssistantConversationSummaryResponse>> GetConversationsAsync(string userId, int take = 20)
@@ -300,6 +348,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return GetWorkerJsonElementAsync(path, TimeSpan.FromSeconds(15));
         }
 
+        public Task<JsonElement> GetWorkerContextAsync(string userId, string? date = null)
+        {
+            var path = "/worker/context?user_id=" + Uri.EscapeDataString(userId.Trim());
+            if (!string.IsNullOrWhiteSpace(date))
+            {
+                path += "&date=" + Uri.EscapeDataString(date.Trim());
+            }
+
+            return GetWorkerJsonElementAsync(path, TimeSpan.FromSeconds(30));
+        }
+
         public Task<NutritionAssistantFeedbackResponse> CreateFeedbackAsync(
             string userId,
             NutritionAssistantFeedbackRequest request)
@@ -338,6 +397,53 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return PostWorkerJsonAsync<NutritionAssistantMealPlan7dResponse>(
                 "/api/ai/meal-plans/7d",
+                payload,
+                TimeSpan.FromSeconds(60));
+        }
+
+        public async Task<JsonElement> GenerateWorkerRecommendationAsync(
+            string userId,
+            string mode,
+            AiWorkerRecommendationRequest request)
+        {
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                throw new InvalidOperationException("User id is invalid.");
+            }
+
+            var path = BuildRecommendationPath(mode);
+            var payload = new
+            {
+                user_id = userId,
+                date = request.Date,
+                budget_vnd = request.BudgetVnd,
+                meal_slot = request.MealSlot,
+                max_cook_time_min = request.MaxCookTimeMin,
+                target_calories = request.TargetCalories,
+                exclude_food_ids = request.ExcludeFoodIds,
+                limit = request.Limit,
+            };
+
+            var result = await PostWorkerJsonElementAsync(path, payload, TimeSpan.FromSeconds(60));
+            await SaveWorkerRecommendationHistoryAsync(userGuid, mode, payload, result);
+            return result;
+        }
+
+        public Task<JsonElement> ExecuteWorkerActionAsync(string userId, AiWorkerActionExecuteRequest request)
+        {
+            object payloadValue = request.Payload.HasValue
+                ? request.Payload.Value
+                : new Dictionary<string, object>();
+            var payload = new
+            {
+                user_id = userId,
+                type = request.Type,
+                payload = payloadValue,
+                confirmed = request.Confirmed,
+            };
+
+            return PostWorkerJsonElementAsync(
+                "/api/ai/actions/execute",
                 payload,
                 TimeSpan.FromSeconds(60));
         }
@@ -547,7 +653,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 conversation_history = conversationHistory,
             };
 
-            using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
+            using var workerRequest = CreateWorkerRequest(HttpMethod.Post, baseUrl, isAbsoluteUrl: true);
+            workerRequest.Content = JsonContent.Create(payload, options: JsonOptions);
+            using var response = await client.SendAsync(workerRequest);
             response.EnsureSuccessStatusCode();
 
             var body = await response.Content.ReadFromJsonAsync<WorkerChatResponse>(JsonOptions);
@@ -564,7 +672,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = timeout;
 
-            using var response = await client.GetAsync(BuildWorkerEndpointUrl(path));
+            using var request = CreateWorkerRequest(HttpMethod.Get, path);
+            using var response = await client.SendAsync(request);
             await EnsureWorkerSuccessAsync(response);
 
             var body = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
@@ -576,7 +685,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = timeout;
 
-            using var response = await client.GetAsync(BuildWorkerEndpointUrl(path));
+            using var request = CreateWorkerRequest(HttpMethod.Get, path);
+            using var response = await client.SendAsync(request);
             await EnsureWorkerSuccessAsync(response);
             return await ReadJsonElementAsync(response.Content);
         }
@@ -586,7 +696,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = timeout;
 
-            using var response = await client.PostAsJsonAsync(BuildWorkerEndpointUrl(path), payload, JsonOptions);
+            using var request = CreateWorkerRequest(HttpMethod.Post, path);
+            request.Content = JsonContent.Create(payload, options: JsonOptions);
+            using var response = await client.SendAsync(request);
             await EnsureWorkerSuccessAsync(response);
 
             var body = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
@@ -598,7 +710,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = timeout;
 
-            using var response = await client.PostAsJsonAsync(BuildWorkerEndpointUrl(path), payload, JsonOptions);
+            using var request = CreateWorkerRequest(HttpMethod.Post, path);
+            request.Content = JsonContent.Create(payload, options: JsonOptions);
+            using var response = await client.SendAsync(request);
             await EnsureWorkerSuccessAsync(response);
             return await ReadJsonElementAsync(response.Content);
         }
@@ -608,10 +722,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = timeout;
 
-            using var request = new HttpRequestMessage(HttpMethod.Patch, BuildWorkerEndpointUrl(path))
-            {
-                Content = JsonContent.Create(payload, options: JsonOptions),
-            };
+            using var request = CreateWorkerRequest(HttpMethod.Patch, path);
+            request.Content = JsonContent.Create(payload, options: JsonOptions);
 
             using var response = await client.SendAsync(request);
             await EnsureWorkerSuccessAsync(response);
@@ -637,6 +749,91 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await using var stream = await content.ReadAsStreamAsync();
             using var document = await JsonDocument.ParseAsync(stream);
             return document.RootElement.Clone();
+        }
+
+        private async Task SaveWorkerRecommendationHistoryAsync(
+            Guid userId,
+            string mode,
+            object input,
+            JsonElement output)
+        {
+            var history = new RecommendationHistory
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = "AIWorker:" + mode,
+                Input = JsonSerializer.Serialize(input, JsonOptions),
+                Output = output.GetRawText(),
+                Confidence = TryReadConfidence(output),
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            _db.RecommendationHistories.Add(history);
+            await _db.SaveChangesAsync();
+        }
+
+        private static decimal? TryReadConfidence(JsonElement output)
+        {
+            if (output.ValueKind != JsonValueKind.Object)
+            {
+                return 0.85m;
+            }
+
+            if (output.TryGetProperty("scores", out var scores) && scores.ValueKind == JsonValueKind.Object)
+            {
+                var totals = new List<decimal>();
+                foreach (var score in scores.EnumerateObject())
+                {
+                    if (score.Value.ValueKind == JsonValueKind.Object
+                        && score.Value.TryGetProperty("total", out var total)
+                        && total.TryGetDecimal(out var value))
+                    {
+                        totals.Add(value);
+                    }
+                }
+
+                if (totals.Count > 0)
+                {
+                    return Math.Round(totals.Average(), 4);
+                }
+            }
+
+            return 0.85m;
+        }
+
+        private HttpRequestMessage CreateWorkerRequest(HttpMethod method, string pathOrUrl, bool isAbsoluteUrl = false)
+        {
+            var url = isAbsoluteUrl ? pathOrUrl : BuildWorkerEndpointUrl(pathOrUrl);
+            var request = new HttpRequestMessage(method, url);
+            var internalKey = _configuration["NutritionAssistant:WorkerInternalKey"]
+                ?? _configuration["AI_RUNTIME_INTERNAL_KEY"];
+            if (!string.IsNullOrWhiteSpace(internalKey))
+            {
+                request.Headers.TryAddWithoutValidation("X-AI-Runtime-Key", internalKey.Trim());
+            }
+
+            return request;
+        }
+
+        private static string BuildRecommendationPath(string mode)
+        {
+            var normalized = (mode ?? string.Empty).Trim().ToLowerInvariant();
+            var allowedModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "generate",
+                "safe",
+                "daily-menu",
+                "weekly-plan",
+                "budget-aware",
+                "smart-schedule",
+            };
+
+            if (!allowedModes.Contains(normalized))
+            {
+                throw new InvalidOperationException("Unsupported AI recommendation mode.");
+            }
+
+            return "/api/ai/recommendations/" + normalized;
         }
 
         private string BuildWorkerEndpointUrl(string path)

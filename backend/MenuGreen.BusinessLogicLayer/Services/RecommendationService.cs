@@ -191,6 +191,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
+        public async Task DeleteHistoryAsync(Guid userId, Guid recommendationId)
+        {
+            var item = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
+
+            var feedbacks = await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == recommendationId);
+            var feedbackList = feedbacks.ToList();
+            if (feedbackList.Count > 0)
+            {
+                _unitOfWork.RecommendationFeedbacks.RemoveRange(feedbackList);
+            }
+
+            _unitOfWork.RecommendationHistories.Remove(item);
+            await _unitOfWork.CompleteAsync();
+        }
+
         public async Task<IReadOnlyList<RecommendationItemResponse>> PreviewAsync(Guid userId, RecommendationPreviewRequest request)
         {
             var recommendationRequest = new RecommendationRequest

@@ -43,6 +43,92 @@ namespace MenuGreen.API.Controllers
             return Ok(result);
         }
 
+        [HttpPost("chat/stream")]
+        public async Task<IActionResult> ChatStream([FromBody] NutritionAssistantChatRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            await _service.StreamMessageAsync(userId, request, Response.Body, HttpContext.RequestAborted);
+            return new EmptyResult();
+        }
+
+        [HttpGet("context")]
+        public async Task<IActionResult> GetWorkerContext([FromQuery] string? date = null)
+        {
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _service.GetWorkerContextAsync(userId, date);
+            return Ok(result);
+        }
+
+        [HttpPost("recommendations/{mode}")]
+        public async Task<IActionResult> GenerateWorkerRecommendation(
+            string mode,
+            [FromBody] AiWorkerRecommendationRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var result = await _service.GenerateWorkerRecommendationAsync(userId, mode, request);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { ex.Message });
+            }
+        }
+
+        [HttpPost("actions/execute")]
+        public async Task<IActionResult> ExecuteWorkerAction([FromBody] AiWorkerActionExecuteRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _service.ExecuteWorkerActionAsync(userId, request);
+            return Ok(result);
+        }
+
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations([FromQuery] int take = 20)
         {

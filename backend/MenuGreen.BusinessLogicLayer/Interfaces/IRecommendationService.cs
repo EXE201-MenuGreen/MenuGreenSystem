@@ -15,6 +15,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<SmartScheduleResponse> BuildSmartScheduleAsync(SmartScheduleRequest request);
         Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId);
         Task<RecommendationDetailResponse> GetByIdAsync(Guid userId, Guid recommendationId);
+        Task DeleteHistoryAsync(Guid userId, Guid recommendationId);
         Task<IReadOnlyList<RecommendationItemResponse>> PreviewAsync(Guid userId, RecommendationPreviewRequest request);
         Task SubmitFeedbackAsync(Guid userId, RecommendationFeedbackRequest request);
         Task<RecommendationExplainResponse> ExplainAsync(Guid userId, Guid recommendationId);
