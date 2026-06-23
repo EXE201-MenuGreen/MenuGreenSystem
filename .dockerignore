@@ -1,0 +1,68 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build outputs - tránh conflict với build trong container
+**/bin/
+**/obj/
+**/out/
+
+# Test
+**/*[Tt]est*
+**/__[Tt]ests__/
+*.TestResults*
+*.trx
+
+# Documentation
+*.md
+docs/
+
+# Docker files (tránh recursion)
+**/Dockerfile*
+**/.dockerignore
+
+# Secrets & Config local
+**/.env
+**/.env.*
+**/appsettings.*.local.json
+**/secrets.json
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Frontend (nếu có trong root)
+frontend/node_modules/
+frontend/.dart_tool/
+frontend/.pub-cache/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/pubspec.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.bak
+
+# Certificates & keys
+*.pfx
+*.pem
+*.key
+*.crt

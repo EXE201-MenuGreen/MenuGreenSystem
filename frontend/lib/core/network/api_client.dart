@@ -37,6 +37,18 @@ class ApiClient {
     );
   }
 
+  Future<http.Response> deleteWithBody(String url, Map<String, dynamic> body) async {
+    return _sendWithAuthRetry(
+      (headers) => _http
+          .delete(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
+    );
+  }
+
   Future<http.Response> putJson(String url, Map<String, dynamic> body) async {
     return _sendWithAuthRetry(
       (headers) => _http
