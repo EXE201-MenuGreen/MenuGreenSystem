@@ -35,7 +35,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var payload = new
             {
-                from = "MenuGreen <noreply@menugreen.food>",
+                from = "MenuGreen <onboarding@resend.dev>",
                 to = new[] { toEmail },
                 subject = "MenuGreen - Mã OTP xác thực tài khoản",
                 html = $@"
@@ -66,7 +66,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var payload = new
             {
-                from = "MenuGreen <noreply@menugreen.food>",
+                from = "MenuGreen <onboarding@resend.dev>",
                 to = new[] { toEmail },
                 subject = "MenuGreen - OTP đặt lại mật khẩu",
                 html = $@"
