@@ -5,7 +5,21 @@
 -- inserts sample data. Safe to re-run with ON CONFLICT DO NOTHING.
 -- =============================================================================
 BEGIN;
-
+DROP TABLE IF EXISTS "PtReviewRequests" CASCADE;
+DROP TABLE IF EXISTS user_substitution_preferences CASCADE;
+DROP TABLE IF EXISTS user_program_milestones CASCADE;
+DROP TABLE IF EXISTS user_premium_programs CASCADE;
+DROP TABLE IF EXISTS premium_programs CASCADE;
+DROP TABLE IF EXISTS user_card_interactions CASCADE;
+DROP TABLE IF EXISTS micro_learning_cards CASCADE;
+DROP TABLE IF EXISTS meal_plan_item_substitutions CASCADE;
+DROP TABLE IF EXISTS meal_log_substitutions CASCADE;
+DROP TABLE IF EXISTS food_portion_mappings CASCADE;
+DROP TABLE IF EXISTS custom_user_portions CASCADE;
+DROP TABLE IF EXISTS coach_feedbacks CASCADE;
+DROP TABLE IF EXISTS coach_connections CASCADE;
+DROP TABLE IF EXISTS coach_profiles CASCADE;
+DROP TABLE IF EXISTS campaigns CASCADE;
 DROP TABLE IF EXISTS activity_logs CASCADE;
 DROP TABLE IF EXISTS goal_drift_alerts CASCADE;
 DROP TABLE IF EXISTS reminder_profiles CASCADE;
@@ -586,6 +600,227 @@ CREATE TABLE goal_drift_alerts (
 );
 CREATE INDEX "IX_goal_drift_alerts_UserId" ON goal_drift_alerts ("UserId");
 
+CREATE TABLE campaigns (
+    "Id" uuid NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "TargetSegment" character varying(100) NOT NULL,
+    "Title" character varying(200) NOT NULL,
+    "Body" character varying(1000) NOT NULL,
+    "StartDate" date NOT NULL,
+    "EndDate" date NOT NULL,
+    "SendTime" time without time zone NOT NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "Status" character varying(50) NOT NULL DEFAULT 'Draft',
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_campaigns" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE coach_profiles (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "Specialty" character varying(255) NOT NULL,
+    "Bio" text NOT NULL,
+    "ExperienceYears" integer NOT NULL,
+    "CertificateUrl" text NULL,
+    "PriceVnd" integer NOT NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_coach_profiles" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_coach_profiles_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE coach_connections (
+    "Id" uuid NOT NULL,
+    "ClientId" uuid NOT NULL,
+    "CoachId" uuid NOT NULL,
+    "Status" character varying(50) NOT NULL DEFAULT 'Pending',
+    "IsAccessGranted" boolean NOT NULL DEFAULT false,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_coach_connections" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_coach_connections_users_ClientId" FOREIGN KEY ("ClientId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_coach_connections_users_CoachId" FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE coach_feedbacks (
+    "Id" uuid NOT NULL,
+    "ClientId" uuid NOT NULL,
+    "CoachId" uuid NOT NULL,
+    "FeedbackType" character varying(50) NOT NULL DEFAULT 'General',
+    "TargetId" uuid NULL,
+    "MealType" character varying(50) NULL,
+    "LogDate" date NULL,
+    "Content" text NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_coach_feedbacks" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_coach_feedbacks_users_ClientId" FOREIGN KEY ("ClientId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_coach_feedbacks_users_CoachId" FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE custom_user_portions (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "UnitName" character varying(150) NOT NULL,
+    "GramsEquivalent" numeric(18,2) NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_custom_user_portions" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_custom_user_portions_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX "IX_custom_user_portions_UserId_UnitName" ON custom_user_portions ("UserId", "UnitName");
+
+CREATE TABLE food_portion_mappings (
+    "Id" uuid NOT NULL,
+    "FoodId" uuid NOT NULL,
+    "Unit" character varying(100) NOT NULL,
+    "GramsPerUnit" numeric(18,2) NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_food_portion_mappings" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_food_portion_mappings_foods_FoodId" FOREIGN KEY ("FoodId") REFERENCES foods ("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX "IX_food_portion_mappings_FoodId_Unit" ON food_portion_mappings ("FoodId", "Unit");
+
+CREATE TABLE meal_log_substitutions (
+    "Id" uuid NOT NULL,
+    "MealLogId" uuid NOT NULL,
+    "OriginalIngredientId" uuid NOT NULL,
+    "SubstituteIngredientId" uuid NOT NULL,
+    "OriginalQuantity" double precision NOT NULL,
+    "SubstituteQuantity" double precision NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_log_substitutions" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_log_substitutions_meal_logs_MealLogId" FOREIGN KEY ("MealLogId") REFERENCES meal_logs ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_log_substitutions_ingredients_OriginalIngredientId" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_log_substitutions_ingredients_SubstituteIngredientId" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE meal_plan_item_substitutions (
+    "Id" uuid NOT NULL,
+    "MealPlanItemId" uuid NOT NULL,
+    "OriginalIngredientId" uuid NOT NULL,
+    "SubstituteIngredientId" uuid NOT NULL,
+    "OriginalQuantity" double precision NOT NULL,
+    "SubstituteQuantity" double precision NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_meal_plan_item_substitutions" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_plan_item_substitutions_meal_plan_items_MealPlanItemId" FOREIGN KEY ("MealPlanItemId") REFERENCES meal_plan_items ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_plan_item_substitutions_ingredients_OriginalIngredientId" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_meal_plan_item_substitutions_ingredients_Sub_IngredientId" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE micro_learning_cards (
+    "Id" uuid NOT NULL,
+    "Title" character varying(255) NOT NULL,
+    "Summary" text NOT NULL,
+    "Category" character varying(100) NOT NULL,
+    "Tips" text NULL,
+    "ImageUrl" character varying(500) NULL,
+    "QuizQuestion" text NULL,
+    "QuizOptions" text NULL,
+    "CorrectOptionIndex" integer NULL,
+    "PointsReward" integer NOT NULL DEFAULT 10,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_micro_learning_cards" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE user_card_interactions (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "CardId" uuid NOT NULL,
+    "IsSaved" boolean NOT NULL DEFAULT false,
+    "IsDismissed" boolean NOT NULL DEFAULT false,
+    "IsRead" boolean NOT NULL DEFAULT false,
+    "IsQuizCompleted" boolean NOT NULL DEFAULT false,
+    "SelectedQuizOption" integer NULL,
+    "IsQuizCorrect" boolean NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_user_card_interactions" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_user_card_interactions_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_user_card_interactions_micro_learning_cards_CardId" FOREIGN KEY ("CardId") REFERENCES micro_learning_cards ("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX "IX_user_card_interactions_UserId_CardId" ON user_card_interactions ("UserId", "CardId");
+
+CREATE TABLE premium_programs (
+    "Id" uuid NOT NULL,
+    "Title" character varying(255) NOT NULL,
+    "Description" text NOT NULL,
+    "DurationWeeks" integer NOT NULL,
+    "TargetCaloriesDaily" integer NOT NULL,
+    "GoalType" character varying(100) NOT NULL,
+    "PriceVnd" integer NOT NULL,
+    "SampleMenu" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_premium_programs" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE user_premium_programs (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "ProgramId" uuid NOT NULL,
+    "StartDate" date NULL,
+    "Status" character varying(50) NOT NULL DEFAULT 'PendingPayment',
+    "CurrentWeek" integer NOT NULL DEFAULT 1,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "UpdatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_user_premium_programs" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_user_premium_programs_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_user_premium_programs_premium_programs_ProgramId" FOREIGN KEY ("ProgramId") REFERENCES premium_programs ("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX "IX_user_premium_programs_UserId_ProgramId" ON user_premium_programs ("UserId", "ProgramId");
+
+CREATE TABLE user_program_milestones (
+    "Id" uuid NOT NULL,
+    "UserProgramId" uuid NOT NULL,
+    "WeekNumber" integer NOT NULL,
+    "IsUnlocked" boolean NOT NULL DEFAULT false,
+    "IsCheckedIn" boolean NOT NULL DEFAULT false,
+    "WeightKg" numeric(18,2) NULL,
+    "BodyFatPercent" numeric(18,2) NULL,
+    "CheckInDate" timestamp with time zone NULL,
+    "UnlockedAt" timestamp with time zone NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_user_program_milestones" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_user_program_milestones_user_premium_programs_UserProgramId" FOREIGN KEY ("UserProgramId") REFERENCES user_premium_programs ("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX "IX_user_program_milestones_UserProgramId_WeekNumber" ON user_program_milestones ("UserProgramId", "WeekNumber");
+
+CREATE TABLE user_substitution_preferences (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "OriginalIngredientId" uuid NOT NULL,
+    "SubstituteIngredientId" uuid NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_user_substitution_preferences" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_user_substitution_preferences_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_user_substitution_preferences_ingredients_OriginalIngredientId" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_user_substitution_preferences_ingredients_SubstituteIngredientId" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
+);
+
+CREATE TABLE "PtReviewRequests" (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "WeekStartDate" date NOT NULL,
+    "ReviewToken" character varying(100) NOT NULL,
+    "ExpiresAt" timestamp with time zone NOT NULL,
+    "Status" character varying(20) NOT NULL DEFAULT 'Pending',
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "ReportDataJson" text NOT NULL,
+    "PtComment" character varying(1000) NULL,
+    "SuggestedCalorieTarget" integer NULL,
+    "SuggestedProteinTarget" integer NULL,
+    "SuggestedFatTarget" integer NULL,
+    "SuggestedCarbsTarget" integer NULL,
+    "SuggestedChangesJson" text NULL,
+    "ReviewedAt" timestamp with time zone NULL,
+    "ActionedAt" timestamp with time zone NULL,
+    CONSTRAINT "PK_PtReviewRequests" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_PtReviewRequests_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+
 INSERT INTO roles ("Id", "Name", "Description", "CreatedAt", "UpdatedAt")
 VALUES
 ('00000000-0000-0000-0000-000000000001', 'Free', 'Gói người dùng miễn phí', now(), now()),
@@ -658,6 +893,25 @@ VALUES
 ('396f9dff-6c2a-422f-b0cc-8eb451168ed3', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('5dc50160-db9e-447a-ba33-9026d8800ab5', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('212ea8ea-749e-44a1-92d2-636bd617cbc8', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO sessions ("Id", "UserId", "RefreshToken", "UserAgent", "IpAddress", "ExpiresAt", "CreatedAt")
+VALUES
+('55555555-5555-5555-5555-555555555501', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'REFRESH_TOKEN_DEMO_123456', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', '127.0.0.1', now() + interval '7 days', now()),
+('55555555-5555-5555-5555-555555555502', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'REFRESH_TOKEN_PRO_123456', 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)', '192.168.1.5', now() + interval '7 days', now()),
+('55555555-5555-5555-5555-555555555503', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'REFRESH_TOKEN_PREMIUM_123456', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', '172.16.0.2', now() + interval '7 days', now())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO email_verifications ("Id", "UserId", "OtpCode", "ExpiresAt", "VerifiedAt", "CreatedAt")
+VALUES
+('66666666-6666-6666-6666-666666666601', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '123456', now() - interval '30 days' + interval '10 minutes', now() - interval '30 days' + interval '2 minutes', now() - interval '30 days'),
+('66666666-6666-6666-6666-666666666602', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '654321', now() - interval '30 days' + interval '10 minutes', now() - interval '30 days' + interval '2 minutes', now() - interval '30 days'),
+('66666666-6666-6666-6666-666666666603', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '987654', now() - interval '30 days' + interval '10 minutes', now() - interval '30 days' + interval '2 minutes', now() - interval '30 days')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO password_reset_tokens ("Id", "UserId", "Token", "ExpiresAt", "UsedAt", "CreatedAt")
+VALUES
+('88888888-9999-aaaa-bbbb-cccccccccccc', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'RESET_TOKEN_DEMO_XYZ', now() - interval '5 days' + interval '1 hour', now() - interval '5 days' + interval '15 minutes', now() - interval '5 days')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO health_profiles ("UserId", "HeightCm", "WeightKg", "BodyFatPercent", "ActivityLevel", "Goal", "Bmi", "BmrKcal", "TdeeKcal", "TargetCalories", "TargetProteinG", "TargetCarbsG", "TargetFatG", "CreatedAt", "UpdatedAt")
@@ -879,6 +1133,13 @@ VALUES
 ('870646a4-f4e7-47ea-a524-1c16c74403c6', '396f9dff-6c2a-422f-b0cc-8eb451168ed3', '26a8241f-a665-45c8-a083-aba9bfa8c008', 'Subscribe', 790000, 'Success', 'Đăng ký dịch vụ MenuGreen Pro', now() - interval '20 days', now() - interval '20 days'),
 ('14a337a9-d36b-4e6e-a468-7a4bd43a872a', '5dc50160-db9e-447a-ba33-9026d8800ab5', '6a54cb24-29ae-49ce-b950-628c76f85fb3', 'Subscribe', 99000, 'Success', 'Đăng ký dịch vụ MenuGreen Pro', now() - interval '20 days', now() - interval '20 days'),
 ('48120f28-e30a-4c75-b0e4-a3b075e7b0dc', '212ea8ea-749e-44a1-92d2-636bd617cbc8', 'acbfd092-bc85-4b14-b509-d2da7f969903', 'Subscribe', 790000, 'Success', 'Đăng ký dịch vụ MenuGreen Pro', now() - interval '20 days', now() - interval '20 days')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO subscriptions ("Id", "UserId", "PlanId", "Status", "AutoRenew", "StartedAt", "ExpiresAt")
+VALUES
+('00000000-1111-2222-3333-444444444401', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '10000000-0000-0000-0000-000000000003', 'Expired', false, now() - interval '375 days', now() - interval '10 days'),
+('00000000-1111-2222-3333-444444444402', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '10000000-0000-0000-0000-000000000002', 'Active', true, now() - interval '15 days', now() + interval '15 days'),
+('00000000-1111-2222-3333-444444444403', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '10000000-0000-0000-0000-000000000003', 'Active', true, now() - interval '15 days', now() + interval '350 days')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO meal_plan_headers ("Id", "UserId", "Title", "PlanType", "StartDate", "EndDate", "TargetCalories", "GeneratedBy", "IsActive", "CreatedAt", "UpdatedAt")
@@ -1666,6 +1927,110 @@ VALUES
 ('bbbbbbbb-1111-1111-1111-bbbbbbbbbb01', '99999999-9999-9999-9999-999999999901', 'fd000004-0000-0000-0000-000000000004', NULL, 150.00, 'Ăn nguội hoặc quay nóng lại', 1, now() - interval '5 days'),
 ('bbbbbbbb-2222-2222-2222-bbbbbbbbbb02', '99999999-9999-9999-9999-999999999902', 'fd000001-0000-0000-0000-000000000001', NULL, 180.00, 'Ức gà nạc không da', 1, now() - interval '3 days'),
 ('bbbbbbbb-2222-2222-2222-bbbbbbbbbb03', '99999999-9999-9999-9999-999999999902', 'fd000002-0000-0000-0000-000000000002', NULL, 150.00, 'Gạo lứt đỏ', 2, now() - interval '3 days')
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for campaigns
+INSERT INTO campaigns ("Id", "Name", "TargetSegment", "Title", "Body", "StartDate", "EndDate", "SendTime", "IsActive", "Status", "CreatedAt", "UpdatedAt")
+VALUES
+('c0000000-0000-0000-0000-000000000001', 'Re-engagement 7d', 'inactive_7_days', 'Chúng tôi nhớ bạn!', 'Hãy quay lại và tiếp tục hành trình ăn xanh cùng MenuGreen nhé.', CURRENT_DATE - 5, CURRENT_DATE + 30, '09:00:00', true, 'Running', now(), now()),
+('c0000000-0000-0000-0000-000000000002', 'Pro Promo', 'all_users', 'Ưu đãi Pro 20%', 'Nâng cấp Pro ngay hôm nay để nhận thực đơn gym cá nhân hóa.', CURRENT_DATE, CURRENT_DATE + 15, '14:00:00', true, 'Draft', now(), now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for coach_profiles
+INSERT INTO coach_profiles ("Id", "UserId", "Specialty", "Bio", "ExperienceYears", "CertificateUrl", "PriceVnd", "IsActive", "CreatedAt", "UpdatedAt")
+VALUES
+('90000000-0000-0000-0000-000000000001', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Tăng cơ giảm mỡ & Thể hình chuyên nghiệp', 'Chào bạn, tôi là PT Hoàng Thị Premium với hơn 5 năm kinh nghiệm huấn luyện thể hình và thiết kế thực đơn ăn uống lành mạnh.', 5, 'https://example.com/certificates/pt_premium.pdf', 500000, true, now(), now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for coach_connections
+INSERT INTO coach_connections ("Id", "ClientId", "CoachId", "Status", "IsAccessGranted", "CreatedAt", "UpdatedAt")
+VALUES
+('80000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Connected', true, now() - interval '10 days', now() - interval '10 days')
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for coach_feedbacks
+INSERT INTO coach_feedbacks ("Id", "ClientId", "CoachId", "FeedbackType", "TargetId", "MealType", "LogDate", "Content", "CreatedAt")
+VALUES
+('70000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'General', NULL, NULL, NULL, 'Bạn đang thực hiện rất tốt việc thâm hụt calo tuần này. Cố gắng duy trì lượng nước uống và tập luyện đều đặn nhé!', now() - interval '1 day')
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for custom_user_portions
+INSERT INTO custom_user_portions ("Id", "UserId", "UnitName", "GramsEquivalent", "CreatedAt", "UpdatedAt")
+VALUES
+('55000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tô sứ gia đình', 450.00, now(), now()),
+('55000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Chén cơm nhỏ', 120.00, now(), now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for food_portion_mappings
+INSERT INTO food_portion_mappings ("Id", "FoodId", "Unit", "GramsPerUnit", "CreatedAt")
+VALUES
+('44000000-0000-0000-0000-000000000001', 'fd000001-0000-0000-0000-000000000001', 'Chén', 150.00, now()),
+('44000000-0000-0000-0000-000000000002', 'fd000001-0000-0000-0000-000000000001', 'Tô', 350.00, now()),
+('44000000-0000-0000-0000-000000000003', 'fd000002-0000-0000-0000-000000000002', 'Đĩa', 200.00, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for meal_logs
+INSERT INTO meal_logs ("Id", "UserId", "FoodId", "RecipeId", "MealType", "QuantityG", "CaloriesKcal", "ProteinG", "CarbsG", "FatG", "SourceType", "Notes", "LoggedAt", "MealPlanItemId", "IsFromMealPlan")
+VALUES
+('50000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'fd000001-0000-0000-0000-000000000001', NULL, 'Breakfast', 200.00, 350.0, 25.0, 45.0, 8.0, 'QuickLog', 'Bữa sáng nhanh gọn', now() - interval '2 hours', NULL, false),
+('50000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'fd000002-0000-0000-0000-000000000002', NULL, 'Lunch', 300.00, 500.0, 35.0, 60.0, 12.0, 'PlanConvert', 'Ăn trưa theo kế hoạch', now() - interval '6 hours', NULL, true)
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for meal_log_substitutions
+INSERT INTO meal_log_substitutions ("Id", "MealLogId", "OriginalIngredientId", "SubstituteIngredientId", "OriginalQuantity", "SubstituteQuantity", "CreatedAt")
+VALUES
+('33000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '73cb3e0a-5abc-5c6c-a7a2-7a9ac350f4cd', '01619128-a551-5bcb-84a9-5f7ddf562db4', 150.00, 180.00, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for meal_plan_item_substitutions
+INSERT INTO meal_plan_item_substitutions ("Id", "MealPlanItemId", "OriginalIngredientId", "SubstituteIngredientId", "OriginalQuantity", "SubstituteQuantity", "CreatedAt")
+VALUES
+('22000000-0000-0000-0000-000000000001', 'cae386dd-3682-4e12-82a0-537df7a6461d', '73cb3e0a-5abc-5c6c-a7a2-7a9ac350f4cd', 'ea000002-1111-2222-3333-444444444444', 100.00, 120.00, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for user_substitution_preferences
+INSERT INTO user_substitution_preferences ("Id", "UserId", "OriginalIngredientId", "SubstituteIngredientId", "CreatedAt")
+VALUES
+('11000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '73cb3e0a-5abc-5c6c-a7a2-7a9ac350f4cd', '01619128-a551-5bcb-84a9-5f7ddf562db4', now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for premium_programs
+INSERT INTO premium_programs ("Id", "Title", "Description", "DurationWeeks", "TargetCaloriesDaily", "GoalType", "PriceVnd", "SampleMenu", "IsActive", "CreatedAt")
+VALUES
+('p1000000-0000-0000-0000-000000000001', 'Chương trình Siết Cơ Giảm Mỡ 8 Tuần', 'Chương trình luyện tập và dinh dưỡng cường độ cao dành cho người muốn giảm mỡ hiệu quả trong 8 tuần.', 8, 1600, 'LoseWeight', 299000, 'Ức gà áp chảo | Sinh tố bơ chuối | Gạo lứt thịt bò thăn', true, now()),
+('p1000000-0000-0000-0000-000000000002', 'Ăn Sạch Sống Khỏe 12 Tuần', 'Học cách thiết lập thói quen ăn uống lành mạnh tự nhiên không áp lực.', 12, 1800, 'HealthyEating', 399000, 'Yến mạch ngâm sữa chua | Đậu hũ sốt cà chua | Cá hồi nướng súp lơ', true, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for user_premium_programs
+INSERT INTO user_premium_programs ("Id", "UserId", "ProgramId", "StartDate", "Status", "CurrentWeek", "CreatedAt", "UpdatedAt")
+VALUES
+('p2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'p1000000-0000-0000-0000-000000000001', CURRENT_DATE - 10, 'Active', 2, now(), now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for user_program_milestones
+INSERT INTO user_program_milestones ("Id", "UserProgramId", "WeekNumber", "IsUnlocked", "IsCheckedIn", "WeightKg", "BodyFatPercent", "CheckInDate", "UnlockedAt", "CreatedAt")
+VALUES
+('p3000000-0000-0000-0000-000000000001', 'p2000000-0000-0000-0000-000000000001', 1, true, true, 71.00, 18.20, now() - interval '7 days', now() - interval '10 days', now() - interval '10 days'),
+('p3000000-0000-0000-0000-000000000002', 'p2000000-0000-0000-0000-000000000001', 2, true, false, NULL, NULL, NULL, now() - interval '3 days', now() - interval '10 days')
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for micro_learning_cards
+INSERT INTO micro_learning_cards ("Id", "Title", "Summary", "Category", "Tips", "ImageUrl", "QuizQuestion", "QuizOptions", "CorrectOptionIndex", "PointsReward", "IsActive", "CreatedAt")
+VALUES
+('m1000000-0000-0000-0000-000000000001', 'Hiểu đúng về Protein', 'Protein là khối xây dựng cơ bắp, hỗ trợ trao đổi chất và duy trì cảm giác no lâu. Người trưởng thành cần nạp tối thiểu 0.8g protein trên mỗi kg thể trọng.', 'Protein', 'Ăn ức gà, trứng gà để bổ sung đạm tinh khiết|Kết hợp đạm thực vật từ các loại hạt', 'https://example.com/images/protein.jpg', 'Lượng protein khuyến nghị tối thiểu cho người ít vận động là bao nhiêu?', '0.5g/kg|0.8g/kg|1.5g/kg|2.0g/kg', 1, 15, true, now()),
+('m1000000-0000-0000-0000-000000000002', 'Cảnh giác với Muối ẩn', 'Muối có nhiều trong thực phẩm chế biến sẵn, giò chả, nước mắm, làm tăng nguy cơ cao huyết áp và tích nước cơ thể.', 'Sodium', 'Hạn chế chấm ngập nước mắm|Sử dụng gia vị thảo mộc thay thế muối', 'https://example.com/images/salt.jpg', 'Ăn nhiều muối ẩn gây ra tình trạng gì?', 'Mất ngủ|Tích nước và tăng huyết áp|Giảm cơ bắp|Đau xương khớp', 1, 10, true, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for user_card_interactions
+INSERT INTO user_card_interactions ("Id", "UserId", "CardId", "IsSaved", "IsDismissed", "IsRead", "IsQuizCompleted", "SelectedQuizOption", "IsQuizCorrect", "UpdatedAt")
+VALUES
+('m2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'm1000000-0000-0000-0000-000000000001', true, false, true, true, 1, true, now())
+ON CONFLICT DO NOTHING;
+
+-- Seed Data for PtReviewRequests
+INSERT INTO "PtReviewRequests" ("Id", "UserId", "WeekStartDate", "ReviewToken", "ExpiresAt", "Status", "CreatedAt", "ReportDataJson", "PtComment", "SuggestedCalorieTarget", "SuggestedProteinTarget", "SuggestedFatTarget", "SuggestedCarbsTarget", "SuggestedChangesJson", "ReviewedAt", "ActionedAt")
+VALUES
+('r1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CURRENT_DATE - 7, 'TOKEN_REVIEW_12345', now() + interval '5 days', 'Reviewed', now() - interval '2 days', '{"total_calories": 14000, "avg_weight": 71.2}', 'Tôi thấy bạn đang tập luyện tốt nhưng thiếu đạm. Hãy tăng cường ăn thêm lòng trắng trứng và ức gà vào bữa sáng nhé!', 1800, 130, 50, 200, '[]', now() - interval '1 day', NULL)
 ON CONFLICT DO NOTHING;
 
 COMMIT;
