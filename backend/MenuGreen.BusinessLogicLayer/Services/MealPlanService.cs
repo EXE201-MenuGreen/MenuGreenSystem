@@ -518,7 +518,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var latestBudget = budgets.OrderByDescending(b => b.CreatedAt).FirstOrDefault();
             if (latestBudget == null)
             {
-                throw new Exception("Vui lòng thiết lập ngân sách (Budget Request) trước khi tự động sinh kế hoạch.");
+                throw new Exception("Please set up a budget (Budget Request) before automatically generating a plan.");
             }
 
             var weeklyBudget = latestBudget.BudgetVnd ?? 1500000;
@@ -535,7 +535,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Title = $"Kế hoạch ăn uống tiết kiệm theo ngân sách ({startDate:dd/MM} - {endDate:dd/MM})",
+                Title = $"Budget-friendly meal plan ({startDate:dd/MM} - {endDate:dd/MM})",
                 PlanType = "weekly",
                 StartDate = startDate,
                 EndDate = endDate,
@@ -791,19 +791,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 foreach (var item in items)
                 {
                     var price = 0;
-                    var category = "Khác";
+                    var category = "Other";
 
                     if (item.FoodId.HasValue)
                     {
                         var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                         price = food?.EstimatedPriceVnd ?? 0;
-                        category = "Nguyên liệu tươi";
+                        category = "Fresh ingredients";
                     }
                     else if (item.RecipeId.HasValue)
                     {
                         var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
                         price = recipe?.EstimatedPriceVnd ?? 0;
-                        category = recipe?.MealType ?? "Món chính";
+                        category = recipe?.MealType ?? "Main dishes";
                     }
 
                     if (price > 0)
@@ -826,9 +826,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var savingTips = new List<string>
             {
-                "Hãy ưu tiên sử dụng nguyên liệu thay thế theo mùa để tiết kiệm đến 15% tổng chi tiêu.",
-                "Thay thế các bữa ăn chứa nhiều thịt bằng các nguồn đạm thực vật như đậu phụ, đậu nành.",
-                "Sử dụng tính năng alternatives trên từng món ăn bị vượt chi phí dự kiến để tối ưu dòng tiền."
+                "Prioritize seasonal produce to save up to 15% on total food expenses.",
+                "Replace meat-heavy meals with plant-based protein sources like tofu or soybeans.",
+                "Use the alternatives feature for any over-budget items to optimize spending."
             };
 
             return new ExpenseBreakdownResponse
@@ -889,8 +889,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var adherenceScore = totalEvaluatedDays == 0 ? 100 : (withinBudgetDays * 100 / totalEvaluatedDays);
             var feedback = adherenceScore >= 80 
-                ? "Tuyệt vời! Bạn đang bám sát ngân sách cực kỳ tốt." 
-                : (adherenceScore >= 50 ? "Khá tốt! Hãy lưu ý thay thế các món ăn đắt tiền để tiết kiệm hơn." : "Cảnh báo: Bạn đã vượt ngân sách chi tiêu quá nhiều ngày.");
+                ? "Excellent! You are sticking to your budget very well." 
+                : (adherenceScore >= 50 ? "Good progress! Consider substituting expensive items to save more." : "Warning: You have exceeded your budget for many days.");
 
             return new BudgetAdherenceResponse
             {

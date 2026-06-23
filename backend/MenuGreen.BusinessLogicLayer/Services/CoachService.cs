@@ -49,7 +49,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     Id = item.Id,
                     UserId = item.UserId,
-                    FullName = profile?.FullName ?? "Chuyên gia MenuGreen",
+                    FullName = profile?.FullName ?? "MenuGreen Expert",
                     AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                     Specialty = item.Specialty,
                     Bio = item.Bio,
@@ -67,14 +67,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<CoachProfileResponse> GetCoachByIdAsync(Guid coachId)
         {
             var item = await _unitOfWork.CoachProfiles.GetByIdAsync(coachId)
-                ?? throw new Exception("Không tìm thấy hồ sơ Coach.");
+                ?? throw new Exception("Coach profile not found.");
 
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == item.UserId)).FirstOrDefault();
             return new CoachProfileResponse
             {
                 Id = item.Id,
                 UserId = item.UserId,
-                FullName = profile?.FullName ?? "Chuyên gia MenuGreen",
+                FullName = profile?.FullName ?? "MenuGreen Expert",
                 AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                 Specialty = item.Specialty,
                 Bio = item.Bio,
@@ -89,7 +89,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<CoachProfileResponse> RegisterCoachAsync(Guid userId, CoachRegisterRequest request)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId)
-                ?? throw new Exception("Người dùng không tồn tại.");
+                ?? throw new Exception("User does not exist.");
 
             // Find or create Coach Role
             var coachRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "Coach")).FirstOrDefault();
@@ -172,7 +172,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (clientUser == null || coachUser == null)
             {
-                throw new Exception("Học viên hoặc Coach không tồn tại.");
+                throw new Exception("Student or Coach does not exist.");
             }
 
             var existingConnection = (await _unitOfWork.CoachConnections.FindAsync(
@@ -208,8 +208,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 UserId = coachUserId,
                 Type = "connection_request",
-                Title = "Yêu cầu kết nối học viên mới",
-                Body = $"{clientName} muốn kết nối và thuê bạn làm huấn luyện viên dinh dưỡng.",
+                Title = "New student connection request",
+                Body = $"{clientName} wants to connect and hire you as their nutrition coach.",
                 ScheduledAt = null
             });
 
@@ -220,7 +220,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var connection = (await _unitOfWork.CoachConnections.FindAsync(
                 c => c.CoachId == coachId && c.ClientId == clientId)).FirstOrDefault()
-                ?? throw new Exception("Không tìm thấy yêu cầu kết nối.");
+                ?? throw new Exception("Connection request not found.");
 
             connection.Status = approve ? "Connected" : "Rejected";
             connection.UpdatedAt = DateTime.UtcNow;
@@ -229,14 +229,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Send notification to Client
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
-            var coachName = coachProfile?.FullName ?? "Huấn luyện viên của bạn";
-            var actionText = approve ? "chấp nhận" : "từ chối";
+            var coachName = coachProfile?.FullName ?? "Your coach";
+            var actionText = approve ? "accepted" : "rejected";
             await _notificationService.SendAsync(new NotificationSendRequest
             {
                 UserId = clientId,
                 Type = "connection_response",
-                Title = approve ? "Yêu cầu kết nối thành công" : "Yêu cầu kết nối bị từ chối",
-                Body = $"Huấn luyện viên {coachName} đã {actionText} yêu cầu kết nối của bạn.",
+                Title = approve ? "Connection request accepted" : "Connection request rejected",
+                Body = $"Coach {coachName} has {actionText} your connection request.",
                 ScheduledAt = null
             });
 
@@ -301,7 +301,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var connection = (await _unitOfWork.CoachConnections.FindAsync(
                 c => c.ClientId == clientId && c.CoachId == coachUserId && c.Status == "Connected")).FirstOrDefault()
-                ?? throw new Exception("Không tìm thấy kết nối hoạt động với Coach này.");
+                ?? throw new Exception("Active connection with this coach not found.");
 
             connection.IsAccessGranted = true;
             connection.UpdatedAt = DateTime.UtcNow;
@@ -318,7 +318,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var connection = (await _unitOfWork.CoachConnections.FindAsync(
                 c => c.ClientId == clientId && c.CoachId == coachUserId && c.Status == "Connected")).FirstOrDefault()
-                ?? throw new Exception("Không tìm thấy kết nối hoạt động với Coach này.");
+                ?? throw new Exception("Active connection with this coach not found.");
 
             connection.IsAccessGranted = false;
             connection.UpdatedAt = DateTime.UtcNow;
@@ -335,12 +335,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (connection == null)
             {
-                throw new UnauthorizedAccessException("Bạn không có kết nối huấn luyện hợp lệ với học viên này.");
+                throw new UnauthorizedAccessException("You do not have a valid coaching connection with this student.");
             }
 
             if (!connection.IsAccessGranted)
             {
-                throw new UnauthorizedAccessException("Học viên chưa cấp quyền cho bạn truy cập dữ liệu sức khỏe.");
+                throw new UnauthorizedAccessException("Student has not granted you access to their health data.");
             }
         }
 
@@ -360,7 +360,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new
             {
                 ClientId = clientId,
-                FullName = profile?.FullName ?? "Chưa thiết lập",
+                FullName = profile?.FullName ?? "Not set",
                 AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                 HeightCm = health?.HeightCm,
                 WeightKg = health?.WeightKg,
@@ -451,15 +451,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
 
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
-            var coachName = coachProfile?.FullName ?? "Huấn luyện viên của bạn";
+            var coachName = coachProfile?.FullName ?? "Your coach";
 
             // Trigger notification to Client
-            var bodyText = $"Huấn luyện viên {coachName} đã gửi nhận xét mới cho bạn: \"{request.Content}\"";
+            var bodyText = $"Coach {coachName} sent you new feedback: \"{request.Content}\"";
             await _notificationService.SendAsync(new NotificationSendRequest
             {
                 UserId = clientId,
                 Type = "coach_feedback",
-                Title = "Lời khuyên mới từ Coach",
+                Title = "New advice from Coach",
                 Body = bodyText,
                 ScheduledAt = null
             });
@@ -493,7 +493,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Id = item.Id,
                     ClientId = item.ClientId,
                     CoachId = item.CoachId,
-                    CoachName = coachProfile?.FullName ?? "Huấn luyện viên",
+                    CoachName = coachProfile?.FullName ?? "Coach",
                     FeedbackType = item.FeedbackType,
                     TargetId = item.TargetId,
                     MealType = item.MealType,
@@ -511,11 +511,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await EnsureAccessAllowedAsync(coachId, clientId);
 
             var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId)
-                ?? throw new Exception("Không tìm thấy thực đơn kế hoạch.");
+                ?? throw new Exception("Meal plan not found.");
             
             if (plan.UserId != clientId)
             {
-                throw new Exception("Thực đơn này không phải của học viên được chỉ định.");
+                throw new Exception("This meal plan does not belong to the specified student.");
             }
 
             plan.Title = request.Title;
@@ -554,13 +554,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Send notification to Client
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
-            var coachName = coachProfile?.FullName ?? "Huấn luyện viên";
+            var coachName = coachProfile?.FullName ?? "Coach";
             await _notificationService.SendAsync(new NotificationSendRequest
             {
                 UserId = clientId,
                 Type = "meal_plan_adjusted",
-                Title = "Thực đơn đã được điều chỉnh",
-                Body = $"Huấn luyện viên {coachName} đã trực tiếp điều chỉnh thực đơn kế hoạch của bạn.",
+                Title = "Meal plan has been adjusted",
+                Body = $"Coach {coachName} has directly adjusted your meal plan.",
                 ScheduledAt = null
             });
 
@@ -572,7 +572,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await EnsureAccessAllowedAsync(coachId, clientId);
 
             var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault()
-                ?? throw new Exception("Học viên chưa thiết lập hồ sơ sức khỏe.");
+                ?? throw new Exception("Student has not set up their health profile.");
 
             health.TargetCalories = request.TargetCalories;
             health.TargetProteinG = request.TargetProteinG;
@@ -585,13 +585,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Send notification to Client
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
-            var coachName = coachProfile?.FullName ?? "Huấn luyện viên";
+            var coachName = coachProfile?.FullName ?? "Coach";
             await _notificationService.SendAsync(new NotificationSendRequest
             {
                 UserId = clientId,
                 Type = "targets_adjusted",
-                Title = "Mục tiêu dinh dưỡng được cập nhật",
-                Body = $"Huấn luyện viên {coachName} đã thiết lập lại mục tiêu Calo/Macros cho bạn.",
+                Title = "Nutrition targets have been updated",
+                Body = $"Coach {coachName} has updated your Calorie/Macros targets.",
                 ScheduledAt = null
             });
 
