@@ -2,7 +2,7 @@ using System;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
-    /// <summary>Đơn SePay đang chờ thanh toán (PENDING), kèm thông tin gói để app hiển thị QR tiếp tục.</summary>
+    /// <summary>Pending SePay order (PENDING status), includes subscription info for QR display continuation.</summary>
     public class SepayPendingOrderResponse
     {
         public Guid PaymentId { get; set; }

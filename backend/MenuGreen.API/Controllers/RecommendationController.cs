@@ -28,7 +28,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý món ăn/công thức theo mục tiêu calories của user.
+        /// Recommend meals/recipes based on user calorie targets.
         /// </summary>
         [HttpGet("calories")]
         public async Task<IActionResult> Calories([FromQuery] RecommendationRequest request)
@@ -38,7 +38,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý món ăn/công thức tối ưu theo ngân sách và thời gian nấu.
+        /// Recommend optimal meals/recipes based on budget and cooking time.
         /// </summary>
         [HttpGet("eco")]
         public async Task<IActionResult> Eco([FromQuery] RecommendationRequest request)
@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý bữa trưa nhanh, phù hợp calories và budget.
+        /// Recommend quick lunch that fits calorie target and budget.
         /// </summary>
         [HttpGet("lunch")]
         public async Task<IActionResult> Lunch([FromQuery] RecommendationRequest request)
@@ -58,7 +58,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo thực đơn cả ngày từ target calories của user.
+        /// Generate full-day menu from user target calories.
         /// </summary>
         [HttpGet("daily-menu")]
         public async Task<IActionResult> DailyMenu([FromQuery] RecommendationRequest request)
@@ -68,7 +68,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo lịch nhắc nấu ăn dựa trên giờ ăn dự kiến và thời gian chuẩn bị.
+        /// Generate cooking schedule based on planned meal times and prep time.
         /// </summary>
         [HttpPost("smart-schedule")]
         public async Task<IActionResult> SmartSchedule([FromBody] SmartScheduleRequest request)
@@ -77,7 +77,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy lịch sử các recommendation đã tạo của user hiện tại.
+        /// Get history of recommendations created by the current user.
         /// </summary>
         [HttpGet("history")]
         public async Task<IActionResult> History()
@@ -87,7 +87,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy chi tiết một recommendation cụ thể theo Id.
+        /// Get details of a specific recommendation by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -97,7 +97,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem trước kết quả recommendation trước khi lưu hoặc áp dụng.
+        /// Preview recommendation results before saving or applying.
         /// </summary>
         [HttpPost("preview")]
         public async Task<IActionResult> Preview([FromBody] RecommendationPreviewRequest request)
@@ -107,7 +107,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lưu đánh giá/feedback của user cho một recommendation.
+        /// Save user feedback for a recommendation.
         /// </summary>
         [HttpPost("feedback")]
         public async Task<IActionResult> Feedback([FromBody] RecommendationFeedbackRequest request)
@@ -118,7 +118,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Giải thích vì sao recommendation này được đề xuất.
+        /// Explain why this recommendation was suggested.
         /// </summary>
         [HttpGet("explain/{id:guid}")]
         public async Task<IActionResult> Explain(Guid id)
@@ -128,7 +128,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tính điểm phù hợp theo calories, macro, dị ứng và ngân sách.
+        /// Calculate suitability scores based on calories, macros, allergies, and budget.
         /// </summary>
         [HttpGet("scores")]
         public async Task<IActionResult> Scores([FromQuery] RecommendationScoreRequest request)
@@ -138,7 +138,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tái tính rule/model từ feedback và dữ liệu lịch sử recommendation.
+        /// Retrain rule/model from feedback and recommendation history.
         /// </summary>
         [HttpPost("retrain")]
         public async Task<IActionResult> Retrain([FromBody] RecommendationRetrainRequest request)
@@ -148,7 +148,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Sinh gợi ý ăn uống tổng quát và lưu vào lịch sử.
+        /// Generate general eating suggestions and save to history.
         /// </summary>
         [HttpPost("generate")]
         public async Task<IActionResult> Generate([FromBody] RecommendationGenerateRequest request)
@@ -158,7 +158,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Sinh thực đơn ăn uống gợi ý cho cả tuần.
+        /// Generate weekly meal plan suggestions.
         /// </summary>
         [HttpPost("generate/weekly-plan")]
         public async Task<IActionResult> GenerateWeeklyPlan([FromBody] WeeklyPlanGenerateRequest request)
@@ -168,7 +168,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Sinh gợi ý ăn uống dựa trên giới hạn ngân sách.
+        /// Generate eating suggestions based on budget constraints.
         /// </summary>
         [HttpPost("generate/budget-aware")]
         public async Task<IActionResult> GenerateBudgetAware([FromBody] BudgetAwareGenerateRequest request)
@@ -178,7 +178,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật đánh giá/phản hồi cũ của người dùng cho gợi ý.
+        /// Update existing user feedback for a recommendation.
         /// </summary>
         [HttpPut("feedback/{id:guid}")]
         public async Task<IActionResult> UpdateFeedback(Guid id, [FromBody] UpdateFeedbackRequest request)
@@ -189,7 +189,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tổng hợp thống kê tỷ lệ phản hồi (thích/không thích) của người dùng theo bữa ăn.
+        /// Aggregate feedback ratio statistics (like/dislike) by meal type.
         /// </summary>
         [HttpGet("feedback/summary")]
         public async Task<IActionResult> GetFeedbackSummary()

@@ -35,25 +35,25 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
     public class CustomUserPortionUpsertRequest
     {
-        [Required(ErrorMessage = "Tên đơn vị không được để trống.")]
-        [MaxLength(150, ErrorMessage = "Tên đơn vị không được dài quá 150 ký tự.")]
+        [Required(ErrorMessage = "Unit name is required.")]
+        [MaxLength(150, ErrorMessage = "Unit name cannot exceed 150 characters.")]
         public string UnitName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Trọng lượng quy đổi không được để trống.")]
-        [Range(0.1, 10000.0, ErrorMessage = "Trọng lượng quy đổi phải từ 0.1g đến 10000g.")]
+        [Required(ErrorMessage = "Equivalent weight is required.")]
+        [Range(0.1, 10000.0, ErrorMessage = "Equivalent weight must be between 0.1g and 10000g.")]
         public decimal GramsEquivalent { get; set; }
     }
 
     public class PortionConvertRequest
     {
-        [Required(ErrorMessage = "FoodId không được để trống.")]
+        [Required(ErrorMessage = "Food ID is required.")]
         public Guid FoodId { get; set; }
 
-        [Required(ErrorMessage = "Đơn vị quy đổi không được để trống.")]
+        [Required(ErrorMessage = "Conversion unit is required.")]
         public string Unit { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Số lượng không được để trống.")]
-        [Range(0.01, 1000.0, ErrorMessage = "Số lượng quy đổi phải từ 0.01 đến 1000.")]
+        [Required(ErrorMessage = "Quantity is required.")]
+        [Range(0.01, 1000.0, ErrorMessage = "Conversion quantity must be between 0.01 and 1000.")]
         public decimal Quantity { get; set; }
     }
 }

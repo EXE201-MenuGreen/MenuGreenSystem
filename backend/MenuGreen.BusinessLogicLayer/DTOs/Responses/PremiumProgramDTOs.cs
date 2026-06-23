@@ -73,17 +73,17 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
     public class ProgramCheckInRequest
     {
-        [Required(ErrorMessage = "Cân nặng không được để trống.")]
-        [Range(30.0, 300.0, ErrorMessage = "Cân nặng phải từ 30kg đến 300kg.")]
+        [Required(ErrorMessage = "Weight is required.")]
+        [Range(30.0, 300.0, ErrorMessage = "Weight must be between 30kg and 300kg.")]
         public decimal WeightKg { get; set; }
 
-        [Range(1.0, 80.0, ErrorMessage = "Tỷ lệ mỡ cơ thể phải từ 1% đến 80%.")]
+        [Range(1.0, 80.0, ErrorMessage = "Body fat percentage must be between 1% and 80%.")]
         public decimal? BodyFatPercent { get; set; }
     }
 
     public class ProgramActivationRequest
     {
-        [Required(ErrorMessage = "Ngày bắt đầu không được để trống.")]
+        [Required(ErrorMessage = "Start date is required.")]
         public DateOnly StartDate { get; set; }
     }
 }
