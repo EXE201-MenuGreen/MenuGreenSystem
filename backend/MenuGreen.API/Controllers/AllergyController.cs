@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Điều khiển các hoạt động liên quan đến quản lý hồ sơ dị ứng, đánh giá rủi ro dị ứng và gợi ý món ăn an toàn.
+    /// Controller for allergy profile management, allergy risk assessment, and safe food recommendations.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy toàn bộ danh sách dị ứng của người dùng đang đăng nhập.
+        /// Get all allergies of the currently logged-in user.
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thêm một mục dị ứng mới cho người dùng.
+        /// Add a new allergy entry for the user.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AllergyUpsertRequest request)
@@ -56,7 +56,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin của một mục dị ứng hiện có.
+        /// Update an existing allergy entry.
         /// </summary>
         [HttpPut("{allergyId:guid}")]
         public async Task<IActionResult> Update(Guid allergyId, [FromBody] AllergyUpsertRequest request)
@@ -67,7 +67,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa bỏ một mục dị ứng của người dùng.
+        /// Delete an allergy entry for the user.
         /// </summary>
         [HttpDelete("{allergyId:guid}")]
         public async Task<IActionResult> Delete(Guid allergyId)
@@ -78,7 +78,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật hàng loạt hồ sơ chất dị ứng của người dùng (ví dụ khi hoàn tất Onboarding hoặc chỉnh sửa nhanh).
+        /// Bulk update user allergen profile (e.g., after Onboarding completion or quick edit).
         /// </summary>
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] AllergyProfileUpdateRequest request)
@@ -89,7 +89,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh mục tất cả các chất gây dị ứng được hệ thống MenuGreen hỗ trợ chuẩn hóa.
+        /// Get catalog of all standardized allergens supported by MenuGreen.
         /// </summary>
         [HttpGet("catalog")]
         public async Task<IActionResult> GetCatalog()

@@ -39,7 +39,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy cấu hình Gym/PT goal hiện tại của user.
+        /// Get current user Gym/PT goal configuration.
         /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
@@ -49,7 +49,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo hoặc cập nhật cấu hình goal mode, lịch tập và target ban đầu cho user.
+        /// Create or update goal mode, training schedule, and initial targets for user.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> CreateOrUpdate([FromBody] GymGoalUpsertRequest request)
@@ -59,7 +59,7 @@ namespace MenuGreen.API.Controllers
 
             var profile = await _userAiProfileService.GetAsync(userId);
             
-            // Serialize toàn bộ request thành preferences để lưu đầy đủ và an toàn
+            // Serialize entire request to preferences to store fully and safely
             var preferencesData = new
             {
                 goalMode = request.GoalMode,
@@ -77,7 +77,7 @@ namespace MenuGreen.API.Controllers
 
             var preferencesJson = System.Text.Json.JsonSerializer.Serialize(preferencesData);
 
-            // Đồng thời đồng bộ cập nhật TargetCalories ở HealthProfile nếu có trainingDayTargetCalories
+            // Sync HealthProfile TargetCalories if trainingDayTargetCalories is provided
             if (request.TrainingDayTargetCalories.HasValue)
             {
                 var health = await _healthProfileService.GetAsync(userId);
@@ -87,7 +87,7 @@ namespace MenuGreen.API.Controllers
                     WeightKg = health.WeightKg ?? 60m,
                     BodyFatPercent = health.BodyFatPercent,
                     ActivityLevel = health.ActivityLevel ?? "Light",
-                    Goal = request.GoalMode, // Đồng bộ Goal mode
+                    Goal = request.GoalMode,
                     TargetCalories = request.TrainingDayTargetCalories.Value
                 };
                 await _healthProfileService.UpdateAsync(userId, updateHealthRequest);
@@ -103,7 +103,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật lại goal mode và lịch tập hiện tại của user.
+        /// Update current goal mode and training schedule.
         /// </summary>
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] GymGoalUpsertRequest request)
@@ -112,7 +112,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy kế hoạch dinh dưỡng gợi ý theo goal mode và target calories.
+        /// Get suggested nutrition plan based on goal mode and target calories.
         /// </summary>
         [HttpGet("plan")]
         public async Task<IActionResult> GetPlan([FromQuery] int targetCalories = 0, [FromQuery] int top = 10)
@@ -121,11 +121,11 @@ namespace MenuGreen.API.Controllers
 
             if (targetCalories == 0)
             {
-                // Mặc định lấy từ HealthProfile
+                // Default from HealthProfile
                 var health = await _healthProfileService.GetAsync(userId);
                 targetCalories = health?.TargetCalories ?? 2000;
                 
-                // Điều chỉnh theo Gym Goal preferences (ngày tập/ngày nghỉ)
+                // Adjust based on Gym Goal preferences (training day/rest day)
                 var profile = await _userAiProfileService.GetAsync(userId);
                 if (profile != null && !string.IsNullOrEmpty(profile.Preferences))
                 {
@@ -135,7 +135,7 @@ namespace MenuGreen.API.Controllers
                         var root = doc.RootElement;
 
                         string schedule = root.TryGetProperty("weeklyTrainingSchedule", out var scheduleProp) ? (scheduleProp.GetString() ?? "") : "";
-                        var todayDay = DateTime.UtcNow.AddHours(7).DayOfWeek.ToString(); // Ngày VN hiện tại
+                        var todayDay = DateTime.UtcNow.AddHours(7).DayOfWeek.ToString();
                         bool isTrainingDay = schedule.Contains(todayDay, StringComparison.OrdinalIgnoreCase);
 
                         if (isTrainingDay && root.TryGetProperty("trainingDayTargetCalories", out var trainCalProp) && trainCalProp.TryGetInt32(out var trainCal))
@@ -147,7 +147,7 @@ namespace MenuGreen.API.Controllers
                             targetCalories = restCal;
                         }
 
-                        // Áp dụng guardrail an toàn
+                        // Apply safe guardrail
                         if (root.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCal) && targetCalories < minCal)
                         {
                             targetCalories = minCal;
@@ -169,7 +169,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thu thập dữ liệu tracking để tái cân chỉnh target calories/macro theo tuần.
+        /// Collect tracking data to recalibrate target calories/macros weekly.
         /// </summary>
         [HttpPost("recalibrate")]
         public async Task<IActionResult> Recalibrate([FromBody] GymGoalRecalibrateRequest request)
@@ -179,15 +179,15 @@ namespace MenuGreen.API.Controllers
             var dashboard = await _nutritionTrackingService.GetDashboardAsync(userId, request.Range ?? "week", request.StartDate, request.EndDate);
             var weightTrend = await _nutritionTrackingService.GetWeightTrendAsync(userId, request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-7)), request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow));
 
-            // TÍNH TOÁN RECALIBRATION:
-            // Đề xuất TargetCalories mới dựa trên GoalMode của AI Profile
+            // RECALIBRATION CALCULATION:
+            // Suggest new TargetCalories based on AI Profile GoalMode
             var profile = await _userAiProfileService.GetAsync(userId);
             var goalMode = profile?.EatingPattern ?? "maintain";
 
             var health = await _healthProfileService.GetAsync(userId);
             int currentTargetCalories = health?.TargetCalories ?? 2000;
             int suggestedCalories = currentTargetCalories;
-            string reason = "Lượng calo mục tiêu của bạn đang ở trạng thái tối ưu.";
+            string reason = "Your target calorie intake is at an optimal level.";
 
             if (weightTrend != null && weightTrend.WeightChangeKg.HasValue)
             {
@@ -195,26 +195,26 @@ namespace MenuGreen.API.Controllers
                 
                 if (goalMode.Equals("cut", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (weightChange >= 0) // Mục tiêu giảm cân nhưng cân nặng tăng hoặc không đổi
+                    if (weightChange >= 0)
                     {
-                        suggestedCalories = (int)(currentTargetCalories * 0.9); // Giảm 10%
-                        reason = $"Mục tiêu là Cut nhưng cân nặng của bạn tăng hoặc không đổi ({weightChange:0.0} kg) trong tuần qua. Đề xuất giảm 10% lượng calo tiêu thụ.";
+                        suggestedCalories = (int)(currentTargetCalories * 0.9);
+                        reason = $"Goal is Cut but your weight increased or stayed the same ({weightChange:0.0} kg) over the past week. Suggesting 10% reduction in calorie intake.";
                     }
                     else
                     {
-                        reason = $"Tiến độ giảm cân tốt ({weightChange:0.0} kg). Hãy tiếp tục giữ mức calo hiện tại.";
+                        reason = $"Good weight loss progress ({weightChange:0.0} kg). Continue maintaining current calorie level.";
                     }
                 }
                 else if (goalMode.Equals("bulk", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (weightChange <= 0) // Mục tiêu tăng cân nhưng cân nặng giảm hoặc giữ nguyên
+                    if (weightChange <= 0)
                     {
-                        suggestedCalories = (int)(currentTargetCalories * 1.1); // Tăng 10%
-                        reason = $"Mục tiêu là Bulk nhưng cân nặng của bạn giảm hoặc giữ nguyên ({weightChange:0.0} kg) trong tuần qua. Đề xuất tăng 10% lượng calo tiêu thụ.";
+                        suggestedCalories = (int)(currentTargetCalories * 1.1);
+                        reason = $"Goal is Bulk but your weight decreased or stayed the same ({weightChange:0.0} kg) over the past week. Suggesting 10% increase in calorie intake.";
                     }
                     else
                     {
-                        reason = $"Tiến độ tăng cân tốt (+{weightChange:0.0} kg). Hãy tiếp tục giữ mức calo hiện tại.";
+                        reason = $"Good weight gain progress (+{weightChange:0.0} kg). Continue maintaining current calorie level.";
                     }
                 }
                 else if (goalMode.Equals("maintain", StringComparison.OrdinalIgnoreCase) || goalMode.Equals("recomp", StringComparison.OrdinalIgnoreCase))
@@ -224,18 +224,18 @@ namespace MenuGreen.API.Controllers
                         if (weightChange > 0)
                         {
                             suggestedCalories = (int)(currentTargetCalories * 0.95);
-                            reason = $"Cân nặng tăng ({weightChange:0.0} kg) so với mục tiêu duy trì. Đề xuất giảm 5% calo.";
+                            reason = $"Weight increased ({weightChange:0.0} kg) versus maintain goal. Suggesting 5% calorie reduction.";
                         }
                         else
                         {
                             suggestedCalories = (int)(currentTargetCalories * 1.05);
-                            reason = $"Cân nặng giảm ({weightChange:0.0} kg) so với mục tiêu duy trì. Đề xuất tăng 5% calo.";
+                            reason = $"Weight decreased ({weightChange:0.0} kg) versus maintain goal. Suggesting 5% calorie increase.";
                         }
                     }
                 }
             }
 
-            // Tự động áp dụng target calories đề xuất mới vào HealthProfile
+            // Auto-apply suggested target calories to HealthProfile
             if (suggestedCalories != currentTargetCalories)
             {
                 var updateHealthRequest = new UpdateHealthProfileRequest
@@ -263,7 +263,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo cảnh báo lệch mục tiêu dựa trên dữ liệu meal plan compare và tracking.
+        /// Generate alerts based on goal deviation from meal plan compare and tracking data.
         /// </summary>
         [HttpGet("alerts")]
         public async Task<IActionResult> GetAlerts([FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null)
@@ -278,7 +278,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo báo cáo nâng cao để PT/coach review, tổng hợp từ meal plan và tracking hiện có.
+        /// Generate advanced report for PT/coach review, aggregated from existing meal plan and tracking.
         /// </summary>
         [HttpGet("coach-report")]
         public async Task<IActionResult> CoachReport([FromQuery] DateOnly date)

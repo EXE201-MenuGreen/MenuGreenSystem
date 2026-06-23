@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý thói quen nhắc nhở thích ứng (Adaptive Reminder) của người dùng.
+    /// Controller for Adaptive Reminder habit management.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -25,7 +25,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy cấu hình thời gian ăn uống tối ưu hiện tại của người dùng.
+        /// Get current user optimal meal time configuration.
         /// </summary>
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tự động phân tích lịch sử ăn uống (MealLog) để tính toán lại các khung giờ ăn tối ưu.
+        /// Auto-analyze meal log history to recalculate optimal meal time windows.
         /// </summary>
         [HttpPost("profile/recalculate")]
         public async Task<IActionResult> RecalculateProfile()
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thủ công các khung giờ ăn uống tối ưu trong hồ sơ nhắc nhở của người dùng.
+        /// Manually update optimal meal time windows in user reminder profile.
         /// </summary>
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] ReminderProfileUpdateRequest request)
@@ -63,7 +63,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các thông báo nhắc nhở đã lên lịch trong tương lai chưa được gửi.
+        /// Get list of scheduled reminders not yet sent.
         /// </summary>
         [HttpGet("scheduled")]
         public async Task<IActionResult> GetScheduledReminders()
@@ -73,7 +73,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới một nhắc nhở tùy chỉnh được lên lịch gửi vào thời điểm xác định.
+        /// Create a new custom reminder scheduled to be sent at specified time.
         /// </summary>
         [HttpPost("scheduled")]
         public async Task<IActionResult> CreateReminder([FromBody] ScheduledReminderCreateRequest request)
@@ -91,7 +91,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin, thời gian hoặc trạng thái bật/tắt của một nhắc nhở đã lên lịch.
+        /// Update scheduled reminder information, time, or enabled/disabled status.
         /// </summary>
         [HttpPatch("scheduled/{id:guid}")]
         public async Task<IActionResult> UpdateReminder(Guid id, [FromBody] ScheduledReminderUpdateRequest request)
@@ -109,7 +109,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa bỏ hoàn toàn một nhắc nhở đã lên lịch theo ID.
+        /// Permanently delete a scheduled reminder by ID.
         /// </summary>
         [HttpDelete("scheduled/{id:guid}")]
         public async Task<IActionResult> DeleteReminder(Guid id)
@@ -127,7 +127,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạm hoãn thông báo nhắc nhở thêm một số phút nhất định (mặc định hoãn 15 phút).
+        /// Snooze reminder notification for specified minutes (default 15 minutes).
         /// </summary>
         [HttpPost("scheduled/{id:guid}/snooze")]
         public async Task<IActionResult> SnoozeReminder(Guid id, [FromQuery] int minutes = 15)

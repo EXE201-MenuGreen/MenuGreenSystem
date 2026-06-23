@@ -59,7 +59,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Danh sách đơn SePay PENDING của user (để tiếp tục thanh toán QR).</summary>
+        /// <summary>List of PENDING SePay orders for user (to continue QR payment).</summary>
         [HttpGet("pending")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]

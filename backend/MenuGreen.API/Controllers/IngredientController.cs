@@ -27,7 +27,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tìm kiếm nguyên liệu theo keyword, category và trạng thái.
+        /// Search ingredients by keyword, category, and status.
         /// </summary>
         [HttpGet("search")]
         public async Task<IActionResult> Search(
@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách công thức đang sử dụng nguyên liệu này.
+        /// Get list of recipes using this ingredient.
         /// </summary>
         [HttpGet("{id:guid}/recipes")]
         public async Task<IActionResult> GetRecipes(Guid id)
@@ -64,7 +64,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh mục nguyên liệu để hiển thị trong catalog.
+        /// Get ingredient catalog for display.
         /// </summary>
         [HttpGet("catalog")]
         public async Task<IActionResult> GetCatalog()
@@ -80,7 +80,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy chi tiết nguyên liệu theo Id.
+        /// Get ingredient details by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
@@ -96,7 +96,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới nguyên liệu.
+        /// Create new ingredient.
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
@@ -116,7 +116,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin nguyên liệu theo Id.
+        /// Update ingredient information by Id.
         /// </summary>
         [HttpPut("{id:guid}")]
         [Authorize(Roles = "Admin")]
@@ -136,7 +136,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa nguyên liệu theo Id.
+        /// Delete ingredient by Id.
         /// </summary>
         [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin")]

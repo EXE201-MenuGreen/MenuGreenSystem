@@ -31,7 +31,7 @@ namespace MenuGreen.API.Controllers
         // ==========================================
 
         /// <summary>
-        /// Tạo một phiên hội thoại chat mới với trợ lý AI.
+        /// Create a new chat session with AI assistant.
         /// </summary>
         [HttpPost("conversations")]
         public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
@@ -41,7 +41,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách toàn bộ các hội thoại của người dùng hiện tại.
+        /// Get all conversations of current user.
         /// </summary>
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations()
@@ -51,7 +51,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy chi tiết một phiên hội thoại theo Id.
+        /// Get details of a conversation by Id.
         /// </summary>
         [HttpGet("conversations/{id:guid}")]
         public async Task<IActionResult> GetConversationById(Guid id)
@@ -68,7 +68,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một phiên hội thoại chat theo Id.
+        /// Delete a chat conversation by Id.
         /// </summary>
         [HttpDelete("conversations/{id:guid}")]
         public async Task<IActionResult> DeleteConversation(Guid id)
@@ -79,7 +79,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật/đổi tên tiêu đề của phiên hội thoại chat.
+        /// Update/rename chat conversation title.
         /// </summary>
         [Obsolete]
         [HttpPatch("conversations/{id:guid}/title")]
@@ -97,10 +97,10 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật/đổi tên tiêu đề của phiên hội thoại chat (Hỗ trợ JSON payload).
+        /// Update/rename chat conversation title (JSON payload support).
         /// </summary>
         [HttpPatch("conversations/{id:guid}/title-json")]
-        [HttpPost("conversations/{id:guid}/title")] // Hỗ trợ cả hai để dễ dàng gọi từ UI
+        [HttpPost("conversations/{id:guid}/title")] // Support both for easier UI calls
         public async Task<IActionResult> UpdateConversationTitle(Guid id, [FromBody] TitleUpdateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -119,7 +119,7 @@ namespace MenuGreen.API.Controllers
         // ==========================================
 
         /// <summary>
-        /// Gửi tin nhắn mới vào một cuộc hội thoại và nhận phản hồi của AI.
+        /// Send a new message to a conversation and receive AI response.
         /// </summary>
         [HttpPost("conversations/{id:guid}/messages")]
         public async Task<IActionResult> SendMessage(Guid id, [FromBody] SendMessageRequest request)
@@ -136,7 +136,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy toàn bộ các tin nhắn thuộc cuộc hội thoại cụ thể.
+        /// Get all messages in a specific conversation.
         /// </summary>
         [HttpGet("conversations/{id:guid}/messages")]
         public async Task<IActionResult> GetMessages(Guid id)
@@ -153,7 +153,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Yêu cầu AI sinh lại câu trả lời thay thế cho tin nhắn assistant chỉ định.
+        /// Request AI to regenerate alternative response for specified assistant message.
         /// </summary>
         [HttpPost("conversations/{id:guid}/messages/{msgId:guid}/regenerate")]
         public async Task<IActionResult> RegenerateMessage(Guid id, Guid msgId)
@@ -170,7 +170,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi đánh giá/feedback (like/dislike) cho tin nhắn cụ thể của AI.
+        /// Submit feedback (like/dislike) for specific AI message.
         /// </summary>
         [HttpPatch("conversations/{id:guid}/messages/{msgId:guid}/feedback")]
         [HttpPost("conversations/{id:guid}/messages/{msgId:guid}/feedback")]
@@ -193,7 +193,7 @@ namespace MenuGreen.API.Controllers
         // ==========================================
 
         /// <summary>
-        /// Lấy toàn bộ ngữ cảnh sức khỏe, dinh dưỡng hiện tại của người dùng.
+        /// Get full current user health and nutrition context.
         /// </summary>
         [HttpGet("context")]
         public async Task<IActionResult> GetContext()
@@ -203,7 +203,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật sở thích/ngữ cảnh ưu tiên của người dùng.
+        /// Update user preference/priority context.
         /// </summary>
         [HttpPut("context")]
         public async Task<IActionResult> UpdateContext([FromBody] UpdateAiProfileRequest request)
@@ -213,7 +213,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin hồ sơ AI của người dùng (Preferences, DislikedFoods, EatingPattern).
+        /// Get user AI profile information (Preferences, DislikedFoods, EatingPattern).
         /// </summary>
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
@@ -223,7 +223,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật hồ sơ AI của người dùng.
+        /// Update user AI profile.
         /// </summary>
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateAiProfileRequest request)
@@ -237,7 +237,7 @@ namespace MenuGreen.API.Controllers
         // ==========================================
 
         /// <summary>
-        /// Lấy danh sách câu hỏi đề xuất hành động tiếp theo dựa trên hồ sơ dinh dưỡng.
+        /// Get list of suggested next action questions based on nutrition profile.
         /// </summary>
         [HttpGet("suggestions")]
         public async Task<IActionResult> GetSuggestions()
@@ -247,7 +247,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// AI phân tích và đề xuất tạo kế hoạch Meal Plan dựa trên yêu cầu văn bản.
+        /// AI analyzes and suggests creating Meal Plan from text prompt.
         /// </summary>
         [HttpPost("actions/meal-plan")]
         public async Task<IActionResult> GenerateMealPlan([FromBody] PromptRequest request)
@@ -257,7 +257,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// AI đề xuất món ăn/nguyên liệu thay thế lành mạnh dựa trên lý do cụ thể.
+        /// AI suggests healthy food/ingredient replacements based on specific reason.
         /// </summary>
         [HttpPost("actions/replace-food")]
         public async Task<IActionResult> ReplaceFood([FromBody] ReplaceFoodRequest request)
@@ -267,17 +267,16 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// AI đề xuất phương án tối ưu hóa ngân sách thực đơn ăn uống.
+        /// AI suggests optimal food budget optimization.
         /// </summary>
         [HttpPost("actions/budget-optimize")]
         public async Task<IActionResult> BudgetOptimize()
         {
-            // Mock action suggestion
             return Ok(new
             {
-                Message = "Tối ưu hóa ngân sách hoàn tất.",
+                Message = "Budget optimization complete.",
                 SuggestedSavingsVnd = 50000,
-                Tip = "Hãy thay thế ức gà tươi bằng trứng gà hoặc đậu hũ trong 2 bữa phụ để tiết kiệm chi phí mà vẫn đảm bảo lượng protein cần thiết."
+                Tip = "Replace fresh chicken breast with eggs or tofu in 2 snacks to save costs while maintaining required protein."
             });
         }
 
@@ -286,7 +285,7 @@ namespace MenuGreen.API.Controllers
         // ==========================================
 
         /// <summary>
-        /// Lấy thống kê các chủ đề trao đổi chính với trợ lý AI.
+        /// Get statistics on main discussion topics with AI assistant.
         /// </summary>
         [HttpGet("insights")]
         public async Task<IActionResult> GetInsights()
@@ -296,7 +295,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy văn bản tóm tắt nội dung ngắn gọn của một phiên hội thoại chỉ định.
+        /// Get brief summary text of specified conversation.
         /// </summary>
         [HttpGet("conversations/{id:guid}/summary")]
         public async Task<IActionResult> SummarizeConversation(Guid id)
@@ -314,7 +313,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thống kê số lượng sử dụng tin nhắn theo thời gian của người dùng.
+        /// Usage metrics statistics by time for user.
         /// </summary>
         [HttpGet("usage")]
         public async Task<IActionResult> GetUsageMetrics()

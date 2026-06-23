@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý User Subscription - Đăng ký gói thành viên.
+    /// Controller for User Subscription management.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -29,7 +29,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách gói subscription đang hoạt động để user chọn đăng ký.
+        /// Get list of active subscription plans for user selection.
         /// </summary>
         [HttpGet("plans")]
         public async Task<IActionResult> GetAvailablePlans()
@@ -38,7 +38,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đăng ký mới một gói thành viên cho user hiện tại.
+        /// Subscribe to a new plan for current user.
         /// </summary>
         [HttpPost("subscribe")]
         public async Task<IActionResult> Subscribe([FromBody] SubscribeRequest request)
@@ -57,7 +57,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gia hạn gói thành viên hiện tại.
+        /// Renew current subscription.
         /// </summary>
         [HttpPost("renew")]
         public async Task<IActionResult> Renew([FromBody] RenewSubscriptionRequest request)
@@ -76,7 +76,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Hủy gói thành viên trước thời hạn.
+        /// Cancel subscription before expiration.
         /// </summary>
         [HttpPost("cancel")]
         public async Task<IActionResult> Cancel([FromBody] CancelSubscriptionRequest request)
@@ -95,7 +95,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy gói thành viên hiện tại của user.
+        /// Get current user subscription.
         /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrent()
@@ -105,7 +105,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một subscription cụ thể theo ID.
+        /// View details of a specific subscription by ID.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -123,7 +123,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy toàn bộ lịch sử giao dịch đăng ký/gia hạn/hủy của user.
+        /// Get full subscription/renew/cancel transaction history for user.
         /// </summary>
         [HttpGet("me/history")]
         public async Task<IActionResult> GetHistory()

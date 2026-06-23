@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý việc Gợi ý và Áp dụng nguyên liệu thay thế (Ingredient Substitution).
+    /// Controller for managing Ingredient Substitution suggestions and application.
     /// </summary>
     [ApiController]
     [Authorize]
@@ -25,12 +25,12 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tìm kiếm danh sách các nguyên liệu thay thế phù hợp cho một nguyên liệu cụ thể.
+        /// Search for suitable substitute ingredients for a specific ingredient.
         /// </summary>
-        /// <param name="id">Mã nguyên liệu gốc</param>
-        /// <param name="reason">Lý do thay thế (allergy, not_available, expensive)</param>
-        /// <param name="maxPrice">Giá tiền trần tối đa mong muốn cho sản phẩm thay thế</param>
-        /// <param name="macroMatch">So khớp thành phần Calo/Macro tương đồng</param>
+        /// <param name="id">Original ingredient ID</param>
+        /// <param name="reason">Substitution reason (allergy, not_available, expensive)</param>
+        /// <param name="maxPrice">Maximum price ceiling for substitute</param>
+        /// <param name="macroMatch">Match similar Calo/Macro content</param>
         [HttpGet("api/Ingredient/{id:guid}/substitutes")]
         public async Task<IActionResult> GetSubstitutes(
             Guid id, [FromQuery] string reason = "not_available", [FromQuery] int? maxPrice = null, [FromQuery] bool macroMatch = false)
@@ -48,7 +48,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý nguyên liệu thay thế hàng loạt từ danh sách đầu vào phục vụ đi chợ hoặc chuẩn bị giỏ hàng.
+        /// Suggest batch substitutes from input list for grocery shopping or cart preparation.
         /// </summary>
         [HttpPost("api/Ingredient/substitutes/batch")]
         public async Task<IActionResult> GetBatchSubstitutes([FromBody] BatchSubstitutionRequest request)
@@ -59,7 +59,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý nguyên liệu thay thế phù hợp trong ngữ cảnh ẩm thực của một công thức cụ thể kèm theo khối lượng cần dùng tương đương.
+        /// Suggest suitable substitutes in the culinary context of a specific recipe with equivalent weight.
         /// </summary>
         [HttpGet("api/Recipe/{recipeId:guid}/substitute-ingredient/{ingredientId:guid}")]
         public async Task<IActionResult> GetRecipeIngredientSubstitutes(Guid recipeId, Guid ingredientId)
@@ -76,7 +76,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tìm các công thức nấu ăn tương đồng và an toàn để thay thế cho công thức bị dính chất gây dị ứng.
+        /// Find similar and safe recipes to substitute for recipe with allergen risk.
         /// </summary>
         [HttpGet("api/Recipe/{recipeId:guid}/safe-alternatives")]
         public async Task<IActionResult> GetSafeRecipeAlternatives(Guid recipeId)
@@ -93,7 +93,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Áp dụng thay thế nguyên liệu trong một món ăn/công thức cụ thể đã lên kế hoạch và cập nhật calo.
+        /// Apply ingredient substitution in a planned meal/recipe and update calories.
         /// </summary>
         [HttpPost("api/MealPlan/{planId:guid}/items/{itemId:guid}/substitute-ingredient")]
         public async Task<IActionResult> ApplyMealPlanSubstitution(
@@ -104,7 +104,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.ApplyMealPlanSubstitutionAsync(userId, planId, itemId, request);
-                return Ok(new { Message = "Thay thế nguyên liệu trong kế hoạch thành công." });
+                return Ok(new { Message = "Ingredient substitution in plan applied successfully." });
             }
             catch (Exception ex)
             {
@@ -113,7 +113,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận thay thế nguyên liệu trực tiếp khi người dùng đang nấu ăn thực tế vào nhật ký ăn uống.
+        /// Record ingredient substitution when user is actually cooking to meal log.
         /// </summary>
         [HttpPost("api/NutritionTracking/meal-logs/{mealLogId:guid}/substitute-ingredient")]
         public async Task<IActionResult> ApplyMealLogSubstitution(
@@ -124,7 +124,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.ApplyMealLogSubstitutionAsync(userId, mealLogId, request);
-                return Ok(new { Message = "Ghi nhận thay thế nguyên liệu thực tế thành công." });
+                return Ok(new { Message = "Actual ingredient substitution recorded successfully." });
             }
             catch (Exception ex)
             {
@@ -133,7 +133,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các cặp nguyên liệu thay thế ưa thích mặc định của người dùng hiện tại.
+        /// Get list of user's preferred default substitute pairs.
         /// </summary>
         [HttpGet("api/Ingredient/preferences/substitutes")]
         public async Task<IActionResult> GetPersonalPreferences()
@@ -143,7 +143,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thiết lập cấu hình mặc định tự động thay thế nguyên liệu gốc bằng nguyên liệu thay thế.
+        /// Set default configuration to auto-substitute original ingredient with preferred substitute.
         /// </summary>
         [HttpPost("api/Ingredient/preferences/substitutes")]
         public async Task<IActionResult> CreatePersonalPreference([FromBody] UserSubstitutePreferenceUpsertRequest request)
@@ -161,7 +161,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa thiết lập tự động thay thế nguyên liệu mặc định.
+        /// Delete default auto-substitution configuration.
         /// </summary>
         [HttpDelete("api/Ingredient/preferences/substitutes/{id:guid}")]
         public async Task<IActionResult> DeletePersonalPreference(Guid id)
@@ -170,7 +170,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.DeletePersonalPreferenceAsync(userId, id);
-                return Ok(new { Message = "Xóa cấu hình thành công." });
+                return Ok(new { Message = "Configuration deleted successfully." });
             }
             catch (Exception ex)
             {

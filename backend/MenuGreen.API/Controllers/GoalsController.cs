@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý cảnh báo trôi lệch mục tiêu (Goal Drift Alert) của người dùng.
+    /// Controller for Goal Drift Alert management.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,7 +24,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách tất cả cảnh báo trôi lệch mục tiêu của người dùng.
+        /// Get all goal drift alerts for user.
         /// </summary>
         [HttpGet("drift-alerts")]
         public async Task<IActionResult> GetAlerts()
@@ -34,31 +34,31 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy cảnh báo trôi lệch mục tiêu hiện tại (chưa xác nhận và chưa ẩn).
+        /// Get current goal drift alert (unconfirmed and unhidden).
         /// </summary>
         [HttpGet("drift-alerts/current")]
         public async Task<IActionResult> GetCurrentAlert()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             var alert = await _service.GetCurrentAlertAsync(userId);
-            if (alert == null) return NotFound(new { Message = "Không có cảnh báo trôi lệch mục tiêu nào hiện tại." });
+            if (alert == null) return NotFound(new { Message = "No current goal drift alert." });
             return Ok(alert);
         }
 
         /// <summary>
-        /// Phân tích lịch sử dinh dưỡng 7 ngày qua và tính toán lại cảnh báo trôi lệch mục tiêu.
+        /// Analyze 7-day nutrition history and recalculate goal drift alerts.
         /// </summary>
         [HttpPost("drift-alerts/recalculate")]
         public async Task<IActionResult> RecalculateDrift()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             var alert = await _service.RecalculateDriftAsync(userId);
-            if (alert == null) return Ok(new { Message = "Dữ liệu dinh dưỡng của bạn ổn định, không phát hiện trôi lệch mục tiêu." });
+            if (alert == null) return Ok(new { Message = "Your nutrition data is stable, no goal drift detected." });
             return Ok(alert);
         }
 
         /// <summary>
-        /// Lấy báo cáo tóm tắt tình hình trôi lệch dinh dưỡng 7 ngày qua của người dùng.
+        /// Get summary report of 7-day nutrition drift situation for user.
         /// </summary>
         [HttpGet("drift-alerts/summary")]
         public async Task<IActionResult> GetSummary()
@@ -68,7 +68,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ẩn cảnh báo trôi lệch mục tiêu theo ID.
+        /// Dismiss goal drift alert by ID.
         /// </summary>
         [HttpPost("drift-alerts/{id:guid}/dismiss")]
         public async Task<IActionResult> DismissAlert(Guid id)
@@ -77,7 +77,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.DismissAlertAsync(userId, id);
-                return Ok(new { Message = "Cảnh báo đã được ẩn thành công." });
+                return Ok(new { Message = "Alert dismissed successfully." });
             }
             catch (Exception ex)
             {
@@ -86,7 +86,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xác nhận đã đọc/hiểu cảnh báo trôi lệch mục tiêu theo ID.
+        /// Acknowledge reading/understanding goal drift alert by ID.
         /// </summary>
         [HttpPost("drift-alerts/{id:guid}/acknowledge")]
         public async Task<IActionResult> AcknowledgeAlert(Guid id)
@@ -95,7 +95,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.AcknowledgeAlertAsync(userId, id);
-                return Ok(new { Message = "Cảnh báo đã được xác nhận thành công." });
+                return Ok(new { Message = "Alert acknowledged successfully." });
             }
             catch (Exception ex)
             {
@@ -104,7 +104,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gửi thông báo nhắc nhở in-app động từ cảnh báo trôi lệch mục tiêu theo ID.
+        /// Send in-app reminder notification from goal drift alert by ID.
         /// </summary>
         [HttpPost("drift-alerts/{id:guid}/create-nudge")]
         public async Task<IActionResult> CreateNudge(Guid id)
@@ -113,7 +113,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _service.CreateNudgeAsync(userId, id);
-                return Ok(new { Message = "Thông báo nhắc nhở đã được gửi thành công." });
+                return Ok(new { Message = "Reminder notification sent successfully." });
             }
             catch (Exception ex)
             {
