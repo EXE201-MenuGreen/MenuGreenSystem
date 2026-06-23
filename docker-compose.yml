@@ -24,7 +24,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=5000
-      # Quan trọng: Đổi Host=localhost thành Host=db (trỏ đến container db ở trên)
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345
       - CvService__BaseUrl=http://cv-service:8000
       - CvService__ApiSecretKey=
