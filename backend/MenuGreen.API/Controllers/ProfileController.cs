@@ -21,7 +21,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin hồ sơ tổng quan của user hiện tại.
+        /// Get overview profile of current user.
         /// </summary>
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
@@ -82,7 +82,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin hồ sơ cá nhân và hồ sơ sức khỏe cơ bản.
+        /// Update personal profile and basic health profile.
         /// </summary>
         [HttpPut("me")]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request)
@@ -110,7 +110,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật avatar của user hiện tại.
+        /// Update current user avatar.
         /// </summary>
         [HttpPut("me/avatar")]
         public async Task<IActionResult> UpdateAvatar([FromBody] UpdateAvatarRequest request)
@@ -138,7 +138,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa avatar hiện tại của user.
+        /// Delete current user avatar.
         /// </summary>
         [HttpDelete("me/avatar")]
         public async Task<IActionResult> RemoveAvatar()

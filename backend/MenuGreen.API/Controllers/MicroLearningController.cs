@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý tính năng Micro-learning Cards - học dinh dưỡng ngắn và đố vui tích điểm.
+    /// Controller for Micro-learning Cards feature - short nutrition learning and quiz for points.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,7 +24,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các thẻ kiến thức ngắn đề xuất dựa trên vấn đề dinh dưỡng/sức khỏe thực tế của user.
+        /// Get list of recommended short knowledge cards based on user's actual nutrition/health issues.
         /// </summary>
         [HttpGet("cards/recommended")]
         public async Task<IActionResult> GetRecommended()
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem nội dung chi tiết của một thẻ micro-learning (bao gồm tiêu đề, tóm tắt, mẹo nhanh, đố vui).
+        /// View detailed content of a micro-learning card (including title, summary, quick tips, quiz).
         /// </summary>
         [HttpGet("cards/{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -53,7 +53,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh mục các nhóm chủ đề kiến thức (Protein, Sodium, Allergy, Hydration, General).
+        /// Get catalog of knowledge topic categories (Protein, Sodium, Allergy, Hydration, General).
         /// </summary>
         [HttpGet("categories")]
         public async Task<IActionResult> GetCategories()
@@ -63,7 +63,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận hành động tương tác của user đối với thẻ (read - đã đọc, save - lưu, unsave - bỏ lưu, dismiss - ẩn thẻ).
+        /// Record user interaction with a card (read, save, unsave, dismiss).
         /// </summary>
         [HttpPost("cards/{id:guid}/action")]
         public async Task<IActionResult> RecordAction(Guid id, [FromBody] CardActionRequest request)
@@ -74,7 +74,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _service.RecordCardActionAsync(userId, id, request.Action);
-                return Ok(new { success = result, message = $"Hành động '{request.Action}' được ghi nhận thành công." });
+                return Ok(new { success = result, message = $"Action '{request.Action}' recorded successfully." });
             }
             catch (ArgumentException ex)
             {
@@ -87,7 +87,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách toàn bộ các thẻ kiến thức mà user đã lưu trữ.
+        /// Get list of all saved knowledge cards for user.
         /// </summary>
         [HttpGet("cards/saved")]
         public async Task<IActionResult> GetSavedCards()
@@ -98,7 +98,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Nộp câu trả lời cho mini-quiz đính kèm trên thẻ để nhận phản hồi và tích lũy điểm thưởng.
+        /// Submit quiz answer on card to receive feedback and earn bonus points.
         /// </summary>
         [HttpPost("cards/{id:guid}/quiz/submit")]
         public async Task<IActionResult> SubmitQuiz(Guid id, [FromBody] QuizSubmitRequest request)

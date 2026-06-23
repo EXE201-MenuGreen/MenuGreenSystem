@@ -17,7 +17,7 @@ namespace MenuGreen.API.Controllers
         private readonly IHealthProfileService _service;
         public HealthProfileController(IHealthProfileService service) => _service = service;
 
-        // Xem hồ sơ sức khỏe của chính mình.
+        // View own health profile.
         [HttpGet("me")]
         public async Task<IActionResult> Get()
         {
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
 
 
         /// <summary>
-        /// Tính lại BMI, BMR, TDEE, target calories và macro từ dữ liệu sức khỏe hiện tại.
+        /// Recalculate BMI, BMR, TDEE, target calories and macros from current health data.
         /// </summary>
         [HttpPost("me/calculate")]
         public async Task<IActionResult> Calculate()
@@ -53,7 +53,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật riêng mục tiêu sức khỏe của user.
+        /// Update user health goal target.
         /// </summary>
         [HttpPatch("me/goal")]
         public async Task<IActionResult> UpdateGoal([FromBody] UpdateHealthGoalRequest request)
@@ -72,7 +72,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật hồ sơ sức khỏe của chính mình.
+        /// Update own health profile.
         /// </summary>
         [HttpPut("me")]
         public async Task<IActionResult> Update([FromBody] UpdateHealthProfileRequest request)

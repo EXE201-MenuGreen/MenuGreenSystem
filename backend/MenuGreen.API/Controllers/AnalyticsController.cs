@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý Analytics - Audit và Product analytics.
+    /// Controller for Analytics - Audit and Product analytics.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -25,7 +25,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận một sự kiện quan trọng.
+        /// Record an important event.
         /// </summary>
         [HttpPost("activity-log")]
         [Authorize(Policy = "UserOnly")]
@@ -37,7 +37,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Ghi nhận nhiều sự kiện cùng lúc.
+        /// Record multiple events at once.
         /// </summary>
         [HttpPost("activity-log/bulk")]
         [Authorize(Policy = "UserOnly")]
@@ -49,7 +49,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách sự kiện theo user hoặc thời gian.
+        /// Get events by user or time.
         /// </summary>
         [HttpGet("activity-log")]
         [Authorize(Policy = "AdminOnly")]
@@ -59,7 +59,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem chi tiết một sự kiện.
+        /// View event details.
         /// </summary>
         [HttpGet("activity-log/{id:guid}")]
         [Authorize(Policy = "AdminOnly")]
@@ -69,7 +69,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tổng hợp KPI chính.
+        /// Aggregate main KPIs.
         /// </summary>
         [HttpGet("dashboard")]
         [Authorize(Policy = "AdminOnly")]
@@ -79,7 +79,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Báo cáo tổng hợp theo khoảng thời gian.
+        /// Summary report for a time period.
         /// </summary>
         [HttpGet("summary")]
         [Authorize(Policy = "AdminOnly")]
@@ -89,7 +89,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Trả về KPI chi tiết theo ngày / tuần / tháng.
+        /// Return detailed KPIs by day/week/month.
         /// </summary>
         [HttpGet("metrics")]
         [Authorize(Policy = "AdminOnly")]
@@ -99,7 +99,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Danh sách event được ghi nhận nhiều nhất.
+        /// Most frequently recorded events.
         /// </summary>
         [HttpGet("top-events")]
         [Authorize(Policy = "AdminOnly")]
@@ -109,7 +109,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tổng hợp funnel theo một flow định nghĩa sẵn.
+        /// Aggregate funnel by predefined flow.
         /// </summary>
         [HttpGet("funnel")]
         [Authorize(Policy = "AdminOnly")]
@@ -119,7 +119,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xem trước funnel theo các step truyền vào.
+        /// Preview funnel by input steps.
         /// </summary>
         [HttpPost("funnel/preview")]
         [Authorize(Policy = "AdminOnly")]
@@ -129,7 +129,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Funnel mặc định cho onboarding → log bữa đầu tiên.
+        /// Default funnel for onboarding to logging first meal.
         /// </summary>
         [HttpGet("funnel/meal-onboarding")]
         [Authorize(Policy = "AdminOnly")]
@@ -139,7 +139,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Funnel mặc định cho đăng ký → mua subscription.
+        /// Default funnel for registration to subscription purchase.
         /// </summary>
         [HttpGet("funnel/subscription")]
         [Authorize(Policy = "AdminOnly")]
@@ -149,7 +149,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy dữ liệu cohort tổng quát.
+        /// Get general cohort data.
         /// </summary>
         [HttpGet("cohort")]
         [Authorize(Policy = "AdminOnly")]
@@ -159,7 +159,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đo retention theo D1 / D7 / D30.
+        /// Measure retention by D1/D7/D30.
         /// </summary>
         [HttpGet("cohort/retention")]
         [Authorize(Policy = "AdminOnly")]
@@ -169,7 +169,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cohort theo ngày đăng ký.
+        /// Cohort by signup date.
         /// </summary>
         [HttpGet("cohort/by-signup-date")]
         [Authorize(Policy = "AdminOnly")]
@@ -179,7 +179,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cohort theo ngày log bữa đầu tiên.
+        /// Cohort by first meal log date.
         /// </summary>
         [HttpGet("cohort/by-first-meal-log")]
         [Authorize(Policy = "AdminOnly")]
@@ -189,7 +189,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cohort theo trạng thái subscription.
+        /// Cohort by subscription status.
         /// </summary>
         [HttpGet("cohort/by-subscription")]
         [Authorize(Policy = "AdminOnly")]
@@ -199,7 +199,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích các bước có rớt user nhiều nhất.
+        /// Analyze steps with highest user drop-off.
         /// </summary>
         [HttpGet("drop-off")]
         [Authorize(Policy = "AdminOnly")]
@@ -209,7 +209,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân nhóm user có nguy cơ rời bỏ.
+        /// Segment users at churn risk.
         /// </summary>
         [HttpGet("churn-risk")]
         [Authorize(Policy = "AdminOnly")]
@@ -219,7 +219,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Danh sách user không hoạt động trong khoảng thời gian xác định.
+        /// List inactive users in specified time period.
         /// </summary>
         [HttpGet("inactive-users")]
         [Authorize(Policy = "AdminOnly")]
@@ -229,7 +229,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Danh sách user có thể nhắc quay lại.
+        /// List users eligible for re-engagement reminders.
         /// </summary>
         [HttpGet("reactivation-opportunities")]
         [Authorize(Policy = "AdminOnly")]
@@ -239,7 +239,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xuất activity log ra file hoặc CSV.
+        /// Export activity log to file or CSV.
         /// </summary>
         [HttpGet("export/activity-log")]
         [Authorize(Policy = "AdminOnly")]
@@ -249,7 +249,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xuất dữ liệu funnel.
+        /// Export funnel data.
         /// </summary>
         [HttpGet("export/funnel")]
         [Authorize(Policy = "AdminOnly")]
@@ -259,7 +259,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xuất dữ liệu cohort.
+        /// Export cohort data.
         /// </summary>
         [HttpGet("export/cohort")]
         [Authorize(Policy = "AdminOnly")]
@@ -271,7 +271,7 @@ namespace MenuGreen.API.Controllers
         #region Nutrition Analytics
 
         /// <summary>
-        /// Tổng hợp nutrition dashboard với all key metrics.
+        /// Aggregate nutrition dashboard with all key metrics.
         /// </summary>
         [HttpGet("nutrition/dashboard")]
         public async Task<IActionResult> GetNutritionDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
@@ -280,7 +280,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích phân bổ macro (Protein/Carbs/Fat).
+        /// Analyze macro distribution (Protein/Carbs/Fat).
         /// </summary>
         [HttpGet("nutrition/macro-distribution")]
         public async Task<IActionResult> GetMacroDistribution([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
@@ -289,7 +289,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tỷ lệ users đạt được daily goals.
+        /// Ratio of users achieving daily goals.
         /// </summary>
         [HttpGet("nutrition/goal-achievement")]
         public async Task<IActionResult> GetGoalAchievement([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
@@ -298,7 +298,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Top foods được log nhiều nhất.
+        /// Top foods most frequently logged.
         /// </summary>
         [HttpGet("nutrition/top-foods")]
         public async Task<IActionResult> GetTopFoods([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to, [FromQuery] int limit = 10, [FromQuery] string sortBy = "count")
@@ -307,7 +307,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân bổ calorie (Below/On/Above target).
+        /// Calorie distribution (Below/On/Above target).
         /// </summary>
         [HttpGet("nutrition/calorie-distribution")]
         public async Task<IActionResult> GetCalorieDistribution([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
@@ -316,7 +316,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân bổ theo meal type (Breakfast/Lunch/Dinner/Snack).
+        /// Distribution by meal type (Breakfast/Lunch/Dinner/Snack).
         /// </summary>
         [HttpGet("nutrition/meal-type-breakdown")]
         public async Task<IActionResult> GetMealTypeBreakdown([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)
@@ -325,7 +325,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// User engagement và diet quality insights.
+        /// User engagement and diet quality insights.
         /// </summary>
         [HttpGet("nutrition/user-insights")]
         public async Task<IActionResult> GetUserInsights([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to)

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MenuGreen.API.Controllers
 {
-    /// <summary>Controller User Dashboard - Dashboard cá nhân của user.</summary>
+    /// <summary>User Dashboard - Personal user dashboard.</summary>
     [ApiController]
     [Route("api/Dashboard")]
     [Authorize]
@@ -21,7 +21,7 @@ namespace MenuGreen.API.Controllers
             _userDashboardService = userDashboardService;
         }
 
-        /// <summary>Lấy tổng hợp thông tin cá nhân của user cho dashboard.</summary>
+        /// <summary>Get aggregated user personal information for dashboard.</summary>
         [HttpGet("user-summary")]
         public async Task<IActionResult> GetUserSummary()
         {
@@ -29,7 +29,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _userDashboardService.GetUserSummaryAsync(userId));
         }
 
-        /// <summary>Lấy xu hướng dinh dưỡng trong khoảng thời gian (cho biểu đồ).</summary>
+        /// <summary>Get nutrition trend over time period (for charts).</summary>
         [HttpGet("nutrition-trend")]
         public async Task<IActionResult> GetNutritionTrend([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
         {
@@ -37,7 +37,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _userDashboardService.GetNutritionTrendAsync(userId, startDate, endDate));
         }
 
-        /// <summary>Lấy xu hướng cân nặng trong khoảng thời gian (cho biểu đồ).</summary>
+        /// <summary>Get weight trend over time period (for charts).</summary>
         [HttpGet("weight-trend")]
         public async Task<IActionResult> GetWeightTrend([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
         {
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
             return Ok(await _userDashboardService.GetWeightTrendAsync(userId, startDate, endDate));
         }
 
-        /// <summary>Lấy tóm tắt các recommendation gần đây.</summary>
+        /// <summary>Get summary of recent recommendations.</summary>
         [HttpGet("recommendation-summary")]
         public async Task<IActionResult> GetRecommendationSummary([FromQuery] int topCount = 5)
         {

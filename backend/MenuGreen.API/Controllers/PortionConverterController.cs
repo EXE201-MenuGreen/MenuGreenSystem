@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý bộ quy đổi đơn vị Việt Nam dân dã sang hệ chuẩn gram/ml.
+    /// Controller for Vietnamese traditional portion converter to standard gram/ml units.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -25,7 +25,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách toàn bộ các đơn vị quy đổi dân dã mặc định của Việt Nam cùng mô tả.
+        /// Get list of all default Vietnamese traditional portion units with descriptions.
         /// </summary>
         [HttpGet("units")]
         public async Task<IActionResult> GetDefaultUnits()
@@ -35,7 +35,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách đơn vị quy đổi dân dã được định nghĩa riêng cho một món ăn cụ thể.
+        /// Get custom portion units defined for a specific food item.
         /// </summary>
         [HttpGet("units/food/{foodId:guid}")]
         public async Task<IActionResult> GetFoodUnits(Guid foodId)
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thực hiện quy đổi số lượng đơn vị địa phương sang gram/ml và tính toán trước giá trị Calo/Macro tương ứng.
+        /// Convert traditional portion quantity to gram/ml and calculate corresponding Calo/Macro values.
         /// </summary>
         [HttpPost("convert")]
         public async Task<IActionResult> Convert([FromBody] PortionConvertRequest request)
@@ -66,7 +66,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các đơn vị quy đổi cá nhân hóa do user tự tạo.
+        /// Get personalized custom portion units created by user.
         /// </summary>
         [HttpGet("custom-units")]
         public async Task<IActionResult> GetCustomUnits()
@@ -77,7 +77,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đăng ký một đơn vị cá nhân mới (Ví dụ: "Tô sứ nhà" = 500g).
+        /// Register a new custom portion unit (Example: "Ceramic bowl" = 500g).
         /// </summary>
         [HttpPost("custom-units")]
         public async Task<IActionResult> CreateCustomUnit([FromBody] CustomUserPortionUpsertRequest request)
@@ -97,7 +97,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông số trọng lượng của một đơn vị tùy chỉnh cá nhân.
+        /// Update weight parameters of a custom personal portion unit.
         /// </summary>
         [HttpPut("custom-units/{id:guid}")]
         public async Task<IActionResult> UpdateCustomUnit(Guid id, [FromBody] CustomUserPortionUpsertRequest request)
@@ -117,7 +117,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một đơn vị tùy chỉnh cá nhân.
+        /// Delete a custom personal portion unit.
         /// </summary>
         [HttpDelete("custom-units/{id:guid}")]
         public async Task<IActionResult> DeleteCustomUnit(Guid id)
@@ -127,7 +127,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _service.DeleteCustomUnitAsync(userId, id);
-                return Ok(new { success = result, message = "Xóa đơn vị tùy chỉnh thành công." });
+                return Ok(new { success = result, message = "Custom unit deleted successfully." });
             }
             catch (Exception ex)
             {

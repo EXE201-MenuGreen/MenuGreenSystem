@@ -27,28 +27,28 @@ namespace MenuGreen.API.Controllers
             _foodRankingService = foodRankingService;
         }
 
-        // Lấy toàn bộ chỉ số tổng quan hệ thống để admin theo dõi tăng trưởng.
+        // Get all high-level system metrics for admin to monitor growth.
         [HttpGet("metrics")]
         public async Task<IActionResult> GetMetrics([FromQuery] int topCount = 10)
         {
             return Ok(await _dashboardService.GetMetricsAsync(topCount));
         }
 
-        // Lấy nhóm chỉ số về user: tổng user, active users, premium users, pro users.
+        // Get user metrics: total users, active users, premium users, pro users.
         [HttpGet("users")]
         public async Task<IActionResult> GetUserMetrics()
         {
             return Ok(await _userMetricsService.GetSummaryAsync());
         }
 
-        // Lấy nhóm chỉ số doanh thu tài chính của hệ thống.
+        // Get financial revenue metrics of the system.
         [HttpGet("revenue")]
         public async Task<IActionResult> GetRevenueMetrics()
         {
             return Ok(await _revenueMetricsService.GetSummaryAsync());
         }
 
-        // Lấy bảng xếp hạng món ăn được dùng phổ biến nhất.
+        // Get ranking of most commonly used foods.
         [HttpGet("foods/top")]
         public async Task<IActionResult> GetTopFoods([FromQuery] int topCount = 10)
         {

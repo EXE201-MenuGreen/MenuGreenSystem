@@ -19,7 +19,7 @@ namespace MenuGreen.API.Controllers
             _coachService = coachService;
         }
 
-        /// <summary>Lọc và tìm kiếm danh sách các huấn luyện viên/chuyên gia.</summary>
+        /// <summary>Filter and search list of coaches/experts.</summary>
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetCoaches(
@@ -38,7 +38,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Xem chi tiết hồ sơ một Coach.</summary>
+        /// <summary>View detailed profile of a Coach.</summary>
         [HttpGet("{id:guid}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetCoachById(Guid id)
@@ -54,7 +54,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Đăng ký nâng cấp tài khoản của mình lên vai trò Coach chuyên gia.</summary>
+        /// <summary>Register to upgrade account to expert Coach role.</summary>
         [HttpPost("register")]
         [Authorize]
         public async Task<IActionResult> RegisterCoach([FromBody] CoachRegisterRequest request)
@@ -73,7 +73,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Học viên gửi yêu cầu kết nối với một Coach.</summary>
+        /// <summary>Student sends request to connect with a Coach.</summary>
         [HttpPost("connect/{coachId:guid}")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -84,7 +84,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _coachService.ConnectCoachAsync(userId, coachId);
-                return Ok(new { Success = result, Message = "Yêu cầu kết nối đã được gửi đến Coach." });
+                return Ok(new { Success = result, Message = "Connection request sent to Coach." });
             }
             catch (Exception ex)
             {
@@ -92,7 +92,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach phê duyệt hoặc từ chối yêu cầu kết nối của học viên.</summary>
+        /// <summary>Coach approves or rejects student connection request.</summary>
         [HttpPost("approve-connection/{clientId:guid}")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -104,7 +104,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _coachService.ApproveConnectionAsync(userId, clientId, request.Approve);
-                return Ok(new { Success = result, Message = request.Approve ? "Đã chấp nhận kết nối học viên." : "Đã từ chối kết nối học viên." });
+                return Ok(new { Success = result, Message = request.Approve ? "Student connection approved." : "Student connection rejected." });
             }
             catch (Exception ex)
             {
@@ -112,7 +112,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach lấy danh sách các học viên đang kết nối với mình.</summary>
+        /// <summary>Coach gets list of students currently connected to them.</summary>
         [HttpGet("my-clients")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -131,7 +131,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Học viên chủ động cấp quyền truy cập dữ liệu sức khỏe cho Coach.</summary>
+        /// <summary>Student grants health data access to Coach.</summary>
         [HttpPost("grant-access/{coachId:guid}")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -142,7 +142,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _coachService.GrantAccessAsync(userId, coachId);
-                return Ok(new { Success = result, Message = "Đã cấp quyền truy cập dữ liệu cho Coach." });
+                return Ok(new { Success = result, Message = "Data access granted to Coach." });
             }
             catch (Exception ex)
             {
@@ -150,7 +150,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Học viên thu hồi quyền truy cập dữ liệu sức khỏe của Coach.</summary>
+        /// <summary>Student revokes Coach health data access.</summary>
         [HttpPost("revoke-access/{coachId:guid}")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -161,7 +161,7 @@ namespace MenuGreen.API.Controllers
             try
             {
                 var result = await _coachService.RevokeAccessAsync(userId, coachId);
-                return Ok(new { Success = result, Message = "Đã thu hồi quyền truy cập dữ liệu của Coach." });
+                return Ok(new { Success = result, Message = "Coach data access revoked." });
             }
             catch (Exception ex)
             {
@@ -169,7 +169,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach xem chi tiết chỉ số cơ thể, mục tiêu và dị ứng của học viên.</summary>
+        /// <summary>Coach views student body metrics, goals, and allergies.</summary>
         [HttpGet("clients/{clientId:guid}/profile")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -192,7 +192,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach xem tổng hợp dinh dưỡng thực tế nạp vào của học viên.</summary>
+        /// <summary>Coach views actual nutrition intake summary of student.</summary>
         [HttpGet("clients/{clientId:guid}/nutrition-summary")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -215,7 +215,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach xem xu hướng cân nặng thực tế của học viên.</summary>
+        /// <summary>Coach views actual weight trend of student.</summary>
         [HttpGet("clients/{clientId:guid}/weight-trend")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -238,7 +238,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach gửi nhận xét, đánh giá cho học viên.</summary>
+        /// <summary>Coach sends feedback/review for student.</summary>
         [HttpPost("clients/{clientId:guid}/feedback")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -262,7 +262,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Học viên (hoặc Coach) lấy danh sách nhận xét, phản hồi.</summary>
+        /// <summary>Student (or Coach) gets list of feedback/responses.</summary>
         [HttpGet("clients/{clientId:guid}/feedback")]
         [Authorize]
         public async Task<IActionResult> GetFeedbacks(Guid clientId)
@@ -271,17 +271,15 @@ namespace MenuGreen.API.Controllers
 
             try
             {
-                // Verify user is either the client himself or the coach who has connected access
                 if (userId != clientId)
                 {
-                    // If not client, must be coach
                     var connection = (await _coachService.GetMyClientsAsync(userId));
                     bool isConnected = false;
                     foreach (var c in connection)
                     {
                         if (c.ClientId == clientId) isConnected = true;
                     }
-                    if (!isConnected) return Forbid("Bạn không có quyền truy cập phản hồi của học viên này.");
+                    if (!isConnected) return Forbid("You do not have access to this student's feedback.");
                 }
 
                 var result = await _coachService.GetFeedbacksAsync(clientId);
@@ -293,7 +291,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach điều chỉnh/sửa đổi thực đơn kế hoạch ăn uống của học viên.</summary>
+        /// <summary>Coach adjusts/modifies student's meal plan.</summary>
         [HttpPut("clients/{clientId:guid}/meal-plan/{planId:guid}")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
@@ -317,7 +315,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Coach trực tiếp cập nhật mục tiêu Calo/Macros của học viên.</summary>
+        /// <summary>Coach directly updates student's Calo/Macros targets.</summary>
         [HttpPut("clients/{clientId:guid}/health-targets")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
