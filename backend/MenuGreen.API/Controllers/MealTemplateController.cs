@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý meal templates để log nhanh các bữa ăn dùng lặp lại.
+    /// Controller for meal templates to quickly log repeated meals.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]

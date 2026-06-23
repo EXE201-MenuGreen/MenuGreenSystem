@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/constants/app_colors.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/push_notification_provider.dart';
+import 'features/notifications/providers/notification_provider.dart';
 import 'features/splash/views/splash_screen.dart';
 import 'features/meal_plan/providers/meal_plan_provider.dart';
 
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => MealPlanProvider()),
         ChangeNotifierProvider(create: (_) => PushNotificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         title: 'MenuGreen',

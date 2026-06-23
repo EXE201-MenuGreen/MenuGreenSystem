@@ -27,7 +27,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tìm kiếm công thức theo keyword, mealType, difficulty và trạng thái.
+        /// Search recipes by keyword, mealType, difficulty, and status.
         /// </summary>
         [HttpGet("search")]
         public async Task<IActionResult> Search(
@@ -49,7 +49,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy chi tiết công thức theo Id.
+        /// Get recipe details by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
@@ -65,7 +65,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách nguyên liệu của công thức.
+        /// Get ingredient list of a recipe.
         /// </summary>
         [HttpGet("{id:guid}/ingredients")]
         public async Task<IActionResult> GetIngredients(Guid id)
@@ -81,7 +81,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin dinh dưỡng của công thức.
+        /// Get recipe nutrition information.
         /// </summary>
         [HttpGet("{id:guid}/nutrition")]
         public async Task<IActionResult> GetNutrition(Guid id)
@@ -97,7 +97,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách công thức liên quan.
+        /// Get list of related recipes.
         /// </summary>
         [HttpGet("{id:guid}/related")]
         public async Task<IActionResult> GetRelated(Guid id)
@@ -113,7 +113,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới công thức chế biến.
+        /// Create new recipe.
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
@@ -133,7 +133,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật công thức theo Id.
+        /// Update recipe by Id.
         /// </summary>
         [HttpPut("{id:guid}")]
         [Authorize(Roles = "Admin")]
@@ -153,7 +153,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa công thức theo Id.
+        /// Delete recipe by Id.
         /// </summary>
         [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin")]

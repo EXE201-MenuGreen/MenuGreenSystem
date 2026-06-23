@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Controller quản lý so sánh Kế hoạch ăn uống và Thực tế ăn uống của User.
+    /// Controller for comparing User Meal Plan and Actual Eating.
     /// </summary>
     [ApiController]
     [Route("api/Analytics/planned-vs-actual")]
@@ -24,7 +24,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// So sánh tổng Calo/Macro kế hoạch và thực tế theo khoảng thời gian.
+        /// Compare planned vs actual Calo/Macro for a time period.
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetSummary([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
@@ -37,7 +37,7 @@ namespace MenuGreen.API.Controllers
 
             if (fromDate > toDate)
             {
-                return BadRequest("Ngày bắt đầu (from) không được lớn hơn ngày kết thúc (to).");
+                return BadRequest("Start date (from) cannot be greater than end date (to).");
             }
 
             var result = await _service.GetSummaryAsync(userId, fromDate, toDate);
@@ -45,7 +45,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tính toán điểm số bám sát kế hoạch ăn uống của user (thang điểm 100).
+        /// Calculate user meal plan adherence score (100-point scale).
         /// </summary>
         [HttpGet("adherence-score")]
         public async Task<IActionResult> GetAdherenceScore([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
@@ -58,7 +58,7 @@ namespace MenuGreen.API.Controllers
 
             if (fromDate > toDate)
             {
-                return BadRequest("Ngày bắt đầu (from) không được lớn hơn ngày kết thúc (to).");
+                return BadRequest("Start date (from) cannot be greater than end date (to).");
             }
 
             var result = await _service.GetAdherenceScoreAsync(userId, fromDate, toDate);
@@ -66,7 +66,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Phân tích chi tiết các nguyên nhân gây lệch kế hoạch (bỏ bữa, ăn ngoài plan, thay món, sai định lượng).
+        /// Analyze detailed causes of plan deviation (skipped meals, eating off-plan, food substitution, wrong portions).
         /// </summary>
         [HttpGet("drift-analysis")]
         public async Task<IActionResult> GetDriftAnalysis([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
@@ -79,7 +79,7 @@ namespace MenuGreen.API.Controllers
 
             if (fromDate > toDate)
             {
-                return BadRequest("Ngày bắt đầu (from) không được lớn hơn ngày kết thúc (to).");
+                return BadRequest("Start date (from) cannot be greater than end date (to).");
             }
 
             var result = await _service.GetDriftAnalysisAsync(userId, fromDate, toDate);
@@ -87,7 +87,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Đưa ra gợi ý hành động khắc phục dựa trên xu hướng lệch trong 7 ngày gần nhất.
+        /// Provide corrective action suggestions based on deviation trends in the past 7 days.
         /// </summary>
         [HttpGet("recommendations")]
         public async Task<IActionResult> GetRecommendations()
@@ -98,7 +98,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Chạy thuật toán tự động tái phân bổ lượng calo/macro dựa trên log cân nặng và tiến độ bám sát.
+        /// Run auto-redistribution algorithm for calorie/macro based on weight log and adherence progress.
         /// </summary>
         [HttpPost("recalibrate")]
         public async Task<IActionResult> Recalibrate()
@@ -109,7 +109,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xuất báo cáo tiến độ và kết quả bám sát kế hoạch ăn uống (JSON hoặc HTML report).
+        /// Export meal plan adherence progress report (JSON or HTML report).
         /// </summary>
         [HttpGet("monthly-report")]
         public async Task<IActionResult> GetMonthlyReport([FromQuery] int? month = null, [FromQuery] int? year = null, [FromQuery] string format = "json")
@@ -122,12 +122,12 @@ namespace MenuGreen.API.Controllers
 
             if (reportMonth < 1 || reportMonth > 12)
             {
-                return BadRequest("Tháng không hợp lệ (phải từ 1 đến 12).");
+                return BadRequest("Invalid month (must be between 1 and 12).");
             }
 
             if (reportYear < 2000 || reportYear > 2100)
             {
-                return BadRequest("Năm không hợp lệ.");
+                return BadRequest("Invalid year.");
             }
 
             if (format.Trim().ToLower() == "html")
@@ -136,7 +136,6 @@ namespace MenuGreen.API.Controllers
                 return Content(html, "text/html", Encoding.UTF8);
             }
 
-            // Mặc định trả về JSON tổng hợp báo cáo đầy đủ
             var fromDate = new DateOnly(reportYear, reportMonth, 1);
             var toDate = fromDate.AddMonths(1).AddDays(-1);
             if (toDate > DateOnly.FromDateTime(DateTime.UtcNow))

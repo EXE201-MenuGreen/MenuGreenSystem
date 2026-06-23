@@ -8,13 +8,13 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
 
-        [Required(ErrorMessage = "Bữa ăn không được để trống.")]
+        [Required(ErrorMessage = "Meal type is required.")]
         public string MealType { get; set; } = string.Empty;
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng phải lớn hơn 0.")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0.")]
         public decimal Quantity { get; set; }
 
-        [Required(ErrorMessage = "Đơn vị không được để trống.")]
+        [Required(ErrorMessage = "Unit is required.")]
         public string Unit { get; set; } = "gram";
 
         public string? Notes { get; set; }

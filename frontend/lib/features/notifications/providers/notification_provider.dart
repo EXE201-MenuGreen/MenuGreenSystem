@@ -55,11 +55,8 @@ class NotificationProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Không thể tải thông báo';
     } finally {
-      if (_disposed) {
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
+      _isLoading = false;
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -83,11 +80,8 @@ class NotificationProvider extends ChangeNotifier {
     } catch (e) {
       // Silent fail for load more
     } finally {
-      if (_disposed) {
-        _isLoadingMore = false;
-        notifyListeners();
-        return;
-      }
+      _isLoadingMore = false;
+      if (!_disposed) notifyListeners();
     }
   }
 

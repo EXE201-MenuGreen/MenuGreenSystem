@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MenuGreen.API.Controllers
 {
     /// <summary>
-    /// Điều khiển các hoạt động hỗ trợ người dùng mới (1-tap daily starter) khởi động nhanh trong ứng dụng.
+    /// Controller for new user daily starter (1-tap) quick start support.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -34,7 +34,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin tóm tắt khởi đầu ngày mới cho người dùng (Quote động, banner, calories mục tiêu, trạng thái onboarding).
+        /// Get daily starter summary for user (dynamic quote, banner, target calories, onboarding status).
         /// </summary>
         [HttpGet("today")]
         public async Task<IActionResult> GetTodayStarter()
@@ -44,7 +44,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Gợi ý thực đơn mẫu cho người dùng mới (tái sử dụng thuật toán tạo thực đơn hàng ngày).
+        /// Suggest menu templates for new users (reuses daily menu generation algorithm).
         /// </summary>
         [HttpGet("recommendations")]
         public async Task<IActionResult> GetRecommendations([FromQuery] int? targetCalories)
@@ -60,7 +60,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các món ăn nổi bật (phổ biến, lành mạnh) để bắt đầu nhanh.
+        /// Get list of featured foods (popular, healthy) for quick start.
         /// </summary>
         [HttpGet("featured-meals")]
         public async Task<IActionResult> GetFeaturedMeals()
@@ -69,7 +69,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Chọn nhanh một thực đơn mẫu để áp dụng trực tiếp vào kế hoạch ăn uống (MealPlan) của ngày hôm nay.
+        /// Quickly select a menu template to apply directly to today's meal plan.
         /// </summary>
         [HttpPost("select-meal")]
         public async Task<IActionResult> SelectMeal([FromBody] DailyStarterSelectMealRequest request)
@@ -78,11 +78,11 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             
             await _service.SelectMealPlanAsync(userId, request);
-            return Ok(new { Message = "Áp dụng thực đơn mẫu vào kế hoạch hôm nay thành công." });
+            return Ok(new { Message = "Menu template applied to today's plan successfully." });
         }
 
         /// <summary>
-        /// Bắt đầu ghi nhật ký nhanh. Trả về gợi ý bữa ăn phù hợp dựa vào giờ hệ thống hiện tại.
+        /// Start quick meal logging. Returns meal suggestions based on current system time.
         /// </summary>
         [HttpPost("start-log")]
         public async Task<IActionResult> StartLog()
@@ -92,7 +92,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy thông tin gộp về cá nhân hóa hiện tại của người dùng (chỉ số sức khỏe, sở thích AI, dị ứng).
+        /// Get combined user personalization info (health metrics, AI preferences, allergies).
         /// </summary>
         [HttpGet("personalization")]
         public async Task<IActionResult> GetPersonalization()
@@ -102,7 +102,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật đồng thời các chỉ số cá nhân hóa của người dùng (HealthProfile, AI Profile, Allergy).
+        /// Update user personalization metrics simultaneously (HealthProfile, AI Profile, Allergy).
         /// </summary>
         [HttpPut("personalization")]
         public async Task<IActionResult> UpdatePersonalization([FromBody] DailyStarterPersonalizationUpdateRequest request)
