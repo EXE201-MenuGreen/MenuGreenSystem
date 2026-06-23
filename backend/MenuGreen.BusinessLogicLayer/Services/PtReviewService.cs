@@ -274,16 +274,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task SubmitReviewAsync(string token, PtSubmitReviewRequest request)
         {
             var requests = await _unitOfWork.PtReviewRequests.FindAsync(x => x.ReviewToken == token);
-            var requestEntity = requests.FirstOrDefault() ?? throw new Exception("Yêu cầu review không tồn tại.");
+            var requestEntity = requests.FirstOrDefault() ?? throw new Exception("Review request does not exist.");
 
             if (requestEntity.ExpiresAt < DateTime.UtcNow)
             {
-                throw new Exception("Liên kết đã hết hạn.");
+                throw new Exception("Link has expired.");
             }
 
             if (requestEntity.Status != "Pending")
             {
-                throw new Exception("Yêu cầu review này đã được phản hồi hoặc áp dụng trước đó.");
+                throw new Exception("This review request has already been responded to or applied.");
             }
 
             requestEntity.PtComment = request.Comment;
@@ -306,8 +306,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     UserId = requestEntity.UserId,
                     Type = "PT_REVIEW",
-                    Title = "Phản hồi từ huấn luyện viên",
-                    Body = "PT đã gửi phản hồi cho báo cáo tuần của bạn. Hãy xem và cập nhật kế hoạch dinh dưỡng mới nhé!"
+                    Title = "Feedback from your coach",
+                    Body = "Your PT has sent feedback for your weekly report. Check it out and update your nutrition plan!"
                 });
             }
             catch
@@ -319,16 +319,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<PtReviewRequestDetailResponse> GetReviewResultAsync(Guid userId, Guid requestId)
         {
             var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
-                ?? throw new Exception("Yêu cầu review không tồn tại.");
+                ?? throw new Exception("Review request does not exist.");
 
             if (requestEntity.UserId != userId)
             {
-                throw new Exception("Không có quyền truy cập thông tin này.");
+                throw new Exception("Access denied.");
             }
 
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             var profile = user != null ? await _unitOfWork.Profiles.GetByIdAsync(userId) : null;
-            var studentName = profile?.FullName ?? user?.Email ?? "Học viên";
+            var studentName = profile?.FullName ?? user?.Email ?? "Student";
 
             var reportData = System.Text.Json.JsonSerializer.Deserialize<WeeklyReportSnapshot>(requestEntity.ReportDataJson, new System.Text.Json.JsonSerializerOptions
             {
@@ -365,16 +365,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task ApplyReviewAsync(Guid userId, Guid requestId)
         {
             var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
-                ?? throw new Exception("Yêu cầu review không tồn tại.");
+                ?? throw new Exception("Review request does not exist.");
 
             if (requestEntity.UserId != userId)
             {
-                throw new Exception("Không có quyền thực hiện thao tác này.");
+                throw new Exception("Access denied.");
             }
 
             if (requestEntity.Status != "Reviewed")
             {
-                throw new Exception("Yêu cầu review chưa được PT phản hồi hoặc đã được xử lý.");
+                throw new Exception("Review request has not been responded to by PT or has already been processed.");
             }
 
             // 1. Update Health Profile target calorie/protein/macros
@@ -562,16 +562,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task RejectReviewAsync(Guid userId, Guid requestId)
         {
             var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
-                ?? throw new Exception("Yêu cầu review không tồn tại.");
+                ?? throw new Exception("Review request does not exist.");
 
             if (requestEntity.UserId != userId)
             {
-                throw new Exception("Không có quyền thực hiện thao tác này.");
+                throw new Exception("Access denied.");
             }
 
             if (requestEntity.Status != "Reviewed")
             {
-                throw new Exception("Yêu cầu review chưa được PT phản hồi hoặc đã được xử lý.");
+                throw new Exception("Review request has not been responded to by PT or has already been processed.");
             }
 
             requestEntity.Status = "Rejected";

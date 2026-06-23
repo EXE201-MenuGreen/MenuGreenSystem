@@ -87,7 +87,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             await EnsureSeedDataAsync();
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(id)
-                ?? throw new Exception("Chương trình Premium không tồn tại.");
+                ?? throw new Exception("Premium program not found.");
             return MapToResponse(program);
         }
 
@@ -95,14 +95,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             await EnsureSeedDataAsync();
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(programId)
-                ?? throw new Exception("Chương trình Premium không tồn tại.");
+                ?? throw new Exception("Premium program not found.");
 
             // Check if user already has an active program
             var currentActive = (await _unitOfWork.UserPremiumPrograms.FindAsync(
                 x => x.UserId == userId && x.Status == "Active")).FirstOrDefault();
             if (currentActive != null)
             {
-                throw new Exception("Bạn đang có một chương trình Premium đang hoạt động. Hãy hoàn thành lộ trình hiện tại trước khi bắt đầu chương trình mới.");
+                throw new Exception("You have an active Premium program. Please complete your current program before starting a new one.");
             }
 
             // Check if there's already a pending purchase for this same program
@@ -175,16 +175,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserPremiumProgramResponse> ActivateProgramAsync(Guid userId, Guid userProgramId, ProgramActivationRequest request)
         {
             var userProgram = await _unitOfWork.UserPremiumPrograms.GetByIdAsync(userProgramId)
-                ?? throw new Exception("Không tìm thấy thông tin đăng ký chương trình.");
+                ?? throw new Exception("Program enrollment not found.");
 
             if (userProgram.UserId != userId)
             {
-                throw new Exception("Thao tác không hợp lệ.");
+                throw new Exception("Invalid operation.");
             }
 
             if (userProgram.Status != "Paid")
             {
-                throw new Exception("Chương trình này chưa được thanh toán hoặc đã được kích hoạt.");
+                throw new Exception("This program has not been paid for or is already activated.");
             }
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(userProgram.ProgramId)
@@ -245,7 +245,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var active = await GetMyActiveProgramAsync(userId);
             if (active == null)
             {
-                throw new Exception("Bạn không có chương trình Premium nào đang hoạt động.");
+                throw new Exception("You do not have any active Premium program.");
             }
             return active.Milestones;
         }
@@ -254,24 +254,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var activeProgram = (await _unitOfWork.UserPremiumPrograms.FindAsync(
                 p => p.UserId == userId && p.Status == "Active")).FirstOrDefault()
-                ?? throw new Exception("Bạn không có chương trình Premium nào đang hoạt động.");
+                ?? throw new Exception("You do not have any active Premium program.");
 
             if (activeProgram.CurrentWeek != weekNumber)
             {
-                throw new Exception($"Yêu cầu check-in tuần {weekNumber} không khớp với tuần hiện tại ({activeProgram.CurrentWeek}).");
+                throw new Exception($"Week {weekNumber} check-in request does not match the current week ({activeProgram.CurrentWeek}).");
             }
 
             var milestone = (await _unitOfWork.UserProgramMilestones.FindAsync(
                 m => m.UserProgramId == activeProgram.Id && m.WeekNumber == weekNumber)).FirstOrDefault()
-                ?? throw new Exception($"Không tìm thấy cột mốc cho tuần {weekNumber}.");
+                ?? throw new Exception($"Milestone for week {weekNumber} not found.");
 
             if (milestone.IsCheckedIn)
             {
-                throw new Exception($"Tuần {weekNumber} đã được check-in trước đó.");
+                throw new Exception($"Week {weekNumber} has already been checked in.");
             }
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(activeProgram.ProgramId)
-                ?? throw new Exception("Không tìm thấy thông tin gói lộ trình gốc.");
+                ?? throw new Exception("Original program details not found.");
 
             // Update milestone
             milestone.WeightKg = request.WeightKg;
@@ -322,7 +322,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var active = (await _unitOfWork.UserPremiumPrograms.FindAsync(
                 p => p.UserId == userId && p.Status == "Active")).FirstOrDefault()
-                ?? throw new Exception("Bạn không có chương trình Premium nào đang hoạt động.");
+                ?? throw new Exception("You do not have any active Premium program.");
 
             var milestones = await _unitOfWork.UserProgramMilestones.FindAsync(
                 m => m.UserProgramId == active.Id);
@@ -343,7 +343,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var active = (await _unitOfWork.UserPremiumPrograms.FindAsync(
                 p => p.UserId == userId && p.Status == "Active")).FirstOrDefault()
-                ?? throw new Exception("Bạn không có chương trình Premium nào đang hoạt động.");
+                ?? throw new Exception("You do not have any active Premium program.");
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(active.ProgramId)
                 ?? throw new Exception("Chương trình không tồn tại.");
