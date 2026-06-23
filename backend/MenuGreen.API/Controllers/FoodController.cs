@@ -31,7 +31,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tìm kiếm món ăn theo keyword và các bộ lọc dinh dưỡng/giá/thời gian.
+        /// Search for food by keyword and nutrition/price/cooking time filters.
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> Search(
@@ -65,7 +65,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy chi tiết món ăn theo Id.
+        /// Get food details by Id.
         /// </summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id, [FromQuery] string? allergyMode)
@@ -81,7 +81,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách công thức liên quan đến một món ăn.
+        /// Get list of recipes related to a food item.
         /// </summary>
         [HttpGet("{id:guid}/recipes")]
         public async Task<IActionResult> GetRecipes(Guid id)
@@ -97,7 +97,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách món ăn yêu thích của user hiện tại.
+        /// Get current user favorite foods.
         /// </summary>
         [HttpGet("favorites")]
         public async Task<IActionResult> GetFavorites()
@@ -115,7 +115,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Thêm một món ăn vào danh sách yêu thích của user.
+        /// Add a food to current user favorites.
         /// </summary>
         [HttpPost("{id:guid}/favorite")]
         public async Task<IActionResult> Favorite(Guid id)
@@ -134,7 +134,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa một món ăn khỏi danh sách yêu thích của user.
+        /// Remove a food from current user favorites.
         /// </summary>
         [HttpDelete("{id:guid}/favorite")]
         public async Task<IActionResult> Unfavorite(Guid id)
@@ -153,7 +153,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Tạo mới món ăn.
+        /// Create new food.
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
@@ -173,7 +173,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin món ăn theo Id.
+        /// Update food information by Id.
         /// </summary>
         [HttpPut("{id:guid}")]
         [Authorize(Roles = "Admin")]
@@ -193,7 +193,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Xóa món ăn theo Id.
+        /// Delete food by Id.
         /// </summary>
         [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin")]
@@ -212,7 +212,7 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật danh sách chất gây dị ứng của món ăn (Admin only).
+        /// Update food allergen list (Admin only).
         /// </summary>
         [HttpPut("{id:guid}/allergies")]
         [Authorize(Roles = "Admin")]
@@ -223,7 +223,6 @@ namespace MenuGreen.API.Controllers
 
             try
             {
-                // Verify food exists
                 var food = await _foodService.GetByIdAsync(id);
                 if (food == null) return NotFound(new { Message = "Food not found." });
 
