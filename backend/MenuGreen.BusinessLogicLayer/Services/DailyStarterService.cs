@@ -64,7 +64,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return new DailyStarterTodayResponse
             {
-                WelcomeMessage = "Chào mừng bạn đến với ngày mới cùng MenuGreen!",
+                WelcomeMessage = "Welcome to a new day with MenuGreen!",
                 Quote = quote,
                 Author = author,
                 CaloriesTarget = targetCalories,
