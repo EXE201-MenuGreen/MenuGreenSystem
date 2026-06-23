@@ -64,6 +64,7 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<CoachConnection> CoachConnections { get; set; }
         public DbSet<CoachFeedback> CoachFeedbacks { get; set; }
         public DbSet<PtReviewRequest> PtReviewRequests { get; set; }
+        public DbSet<DeviceToken> DeviceTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
