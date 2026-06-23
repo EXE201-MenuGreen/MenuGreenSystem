@@ -109,19 +109,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ("snack", snackTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList())
             };
 
-            var items = slots
-                .Select(slot => MapDailyMenuItem(slot.Item1, slot.Item3.FirstOrDefault()))
-                .Where(x => x != null)
-                .Cast<MealPlanItemResponse>()
-                .ToList();
+            var items = new List<MealPlanItemResponse>();
+            decimal totalProtein = 0;
+            decimal totalCarbs = 0;
+            decimal totalFat = 0;
+
+            foreach (var slot in slots)
+            {
+                var firstRecommendation = slot.Item3.FirstOrDefault();
+                var mappedItem = MapDailyMenuItem(slot.Item1, firstRecommendation);
+                if (mappedItem != null)
+                {
+                    items.Add(mappedItem);
+                    if (firstRecommendation != null)
+                    {
+                        totalProtein += firstRecommendation.ProteinG;
+                        totalCarbs += firstRecommendation.CarbsG;
+                        totalFat += firstRecommendation.FatG;
+                    }
+                }
+            }
 
             return new MealPlanResponse
             {
                 TargetCalories = targetCalories,
                 TotalCalories = items.Sum(x => x.TargetCalories ?? 0),
-                TotalProteinG = 0,
-                TotalCarbsG = 0,
-                TotalFatG = 0,
+                TotalProteinG = (int)totalProtein,
+                TotalCarbsG = (int)totalCarbs,
+                TotalFatG = (int)totalFat,
                 Items = items
             };
         }
