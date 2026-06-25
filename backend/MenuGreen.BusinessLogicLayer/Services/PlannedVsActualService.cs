@@ -552,7 +552,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return new RecalibrationResponse
                 {
                     IsUpdated = false,
-                    RecalibrationReason = "Không tìm thấy hồ sơ sức khỏe (Health Profile) của người dùng để thực hiện hiệu chỉnh."
+                    RecalibrationReason = "User health profile not found for recalibration."
                 };
             }
 
@@ -589,7 +589,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return new RecalibrationResponse
                 {
                     IsUpdated = false,
-                    RecalibrationReason = "Không đủ dữ liệu cân nặng (cần ít nhất cân nặng ban đầu hoặc log cân nặng 7 ngày qua) để đánh giá tiến trình và tái cân chỉnh."
+                    RecalibrationReason = "Insufficient weight data (requires initial weight or logs from the last 7 days) to evaluate progress and recalibrate."
                 };
             }
 

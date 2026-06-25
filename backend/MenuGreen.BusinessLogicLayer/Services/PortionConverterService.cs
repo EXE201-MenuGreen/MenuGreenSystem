@@ -123,7 +123,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             await EnsureSeedDataAsync();
 
-            var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId) ?? throw new Exception("Không tìm thấy thực phẩm/món ăn yêu cầu.");
+            var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId) ?? throw new Exception("Requested food/dish not found.");
 
             decimal factor = 1.0m;
             bool found = false;
@@ -206,7 +206,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existing = await _unitOfWork.CustomUserPortions.FindAsync(c => c.UserId == userId && c.UnitName.ToLower() == nameNormalized.ToLower());
             if (existing.Any())
             {
-                throw new Exception($"Đơn vị tùy chỉnh '{nameNormalized}' đã tồn tại.");
+                throw new Exception($"Custom unit '{nameNormalized}' already exists.");
             }
 
             var entity = new CustomUserPortion
@@ -233,17 +233,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<CustomUserPortionResponse> UpdateCustomUnitAsync(Guid userId, Guid id, CustomUserPortionUpsertRequest request)
         {
-            var entity = await _unitOfWork.CustomUserPortions.GetByIdAsync(id) ?? throw new Exception("Không tìm thấy đơn vị tùy chỉnh yêu cầu.");
+            var entity = await _unitOfWork.CustomUserPortions.GetByIdAsync(id) ?? throw new Exception("Requested custom unit not found.");
             if (entity.UserId != userId)
             {
-                throw new Exception("Bạn không có quyền chỉnh sửa đơn vị tùy chỉnh này.");
+                throw new Exception("You do not have permission to edit this custom unit.");
             }
 
             var nameNormalized = request.UnitName.Trim();
             var duplicate = await _unitOfWork.CustomUserPortions.FindAsync(c => c.UserId == userId && c.Id != id && c.UnitName.ToLower() == nameNormalized.ToLower());
             if (duplicate.Any())
             {
-                throw new Exception($"Đơn vị tùy chỉnh '{nameNormalized}' đã tồn tại.");
+                throw new Exception($"Custom unit '{nameNormalized}' already exists.");
             }
 
             entity.UnitName = nameNormalized;
@@ -264,10 +264,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> DeleteCustomUnitAsync(Guid userId, Guid id)
         {
-            var entity = await _unitOfWork.CustomUserPortions.GetByIdAsync(id) ?? throw new Exception("Không tìm thấy đơn vị tùy chỉnh yêu cầu.");
+            var entity = await _unitOfWork.CustomUserPortions.GetByIdAsync(id) ?? throw new Exception("Requested custom unit not found.");
             if (entity.UserId != userId)
             {
-                throw new Exception("Bạn không có quyền xóa đơn vị tùy chỉnh này.");
+                throw new Exception("You do not have permission to delete this custom unit.");
             }
 
             _unitOfWork.CustomUserPortions.Remove(entity);
