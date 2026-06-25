@@ -57,6 +57,7 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<UserCardInteraction> UserCardInteractions { get; set; }
         public DbSet<FoodPortionMapping> FoodPortionMappings { get; set; }
         public DbSet<CustomUserPortion> CustomUserPortions { get; set; }
+        public DbSet<DefaultPortionUnit> DefaultPortionUnits { get; set; }
         public DbSet<PremiumProgram> PremiumPrograms { get; set; }
         public DbSet<UserPremiumProgram> UserPremiumPrograms { get; set; }
         public DbSet<UserProgramMilestone> UserProgramMilestones { get; set; }
@@ -70,6 +71,9 @@ namespace MenuGreen.DataAccessLayer.Context
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+            // Global Query Filters for Soft Deletion
+            modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);
         }
     }
 }

@@ -19,6 +19,8 @@ Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng wor
 9. [2.13 Gym/PT goal-based workflow](#213-gympt-goal-based-workflow) - ✅ HOÀN THÀNH
 10. [2.14 Real-world food data capture](#214-real-world-food-data-capture) - ✅ HOÀN THÀNH
 11. [2.15 Safety, trust, and compliance](#215-safety-trust-and-compliance) - ✅ HOÀN THÀNH
+12. [2.16 Allergy Risk Badge](#216-allergy-risk-badge) - ✅ HOÀN THÀNH
+13. [2.17 Planned vs Actual Insights](#217-planned-vs-actual-insights) - ✅ HOÀN THÀNH
 
 ---
 
@@ -609,6 +611,63 @@ POST   /api/Safety/report-issue
 
 ---
 
+## 2.16 Allergy Risk Badge
+
+**File Controller:** `backend/MenuGreen.API/Controllers/AllergyController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API             | Trạng thái  | Ghi chú |
+| -------------------- | :---------: | ------- |
+| A. Allergy profile   | ✅ Hoàn tất |         |
+| B. Risk evaluation   | ✅ Hoàn tất |         |
+| C. Gợi ý món an toàn | ✅ Hoàn tất |         |
+
+### API đã có
+
+```
+# AllergyController
+GET    /api/Allergy
+POST   /api/Allergy
+PUT    /api/Allergy/{allergyId}
+DELETE /api/Allergy/{allergyId}
+PUT    /api/Allergy/profile
+GET    /api/Allergy/catalog
+
+POST   /api/Allergy/evaluate
+POST   /api/Allergy/evaluate/batch
+GET    /api/Allergy/meal/{mealId}/badge
+GET    /api/Allergy/recommendations
+```
+
+---
+
+## 2.17 Planned vs Actual Insights
+
+**File Controller:** `backend/MenuGreen.API/Controllers/PlannedVsActualController.cs`
+
+### Trạng thái hiện tại
+
+| Nhóm API                     | Trạng thái  | Ghi chú |
+| ---------------------------- | :---------: | ------- |
+| A. Thống kê & So sánh        | ✅ Hoàn tất |         |
+| B. Phân tích lệch & Gợi ý    | ✅ Hoàn tất |         |
+| C. Tái cân chỉnh Calo/Macro  | ✅ Hoàn tất |         |
+
+### API đã có
+
+```
+# PlannedVsActualController
+GET    /api/Analytics/planned-vs-actual
+GET    /api/Analytics/planned-vs-actual/adherence-score
+GET    /api/Analytics/planned-vs-actual/drift-analysis
+GET    /api/Analytics/planned-vs-actual/recommendations
+GET    /api/Analytics/planned-vs-actual/monthly-report
+POST   /api/Analytics/planned-vs-actual/recalibrate
+```
+
+---
+
 ## Tổng kết
 
 | Workflow                               |  API Status   |     UI Status     | Ưu tiên     |
@@ -624,6 +683,8 @@ POST   /api/Safety/report-issue
 | **2.13 Gym/PT goal-based workflow**    | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
 | **2.14 Real-world Food Data Capture**  | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
 | **2.15 Safety, trust, and compliance** | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.16 Allergy Risk Badge**           | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
+| **2.17 Planned vs Actual Insights**    | ✅ Hoàn chỉnh |    ❌ Chưa có     | **P3**      |
 
 ### Thứ tự ưu tiên triển khai
 

@@ -64,11 +64,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid id)
         {
             var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
-            _unitOfWork.Foods.Remove(food);
+            food.IsActive = false;
+            _unitOfWork.Foods.Update(food);
             await _unitOfWork.CompleteAsync();
         }
 
-        public async Task<FoodResponse> GetByIdAsync(Guid id) => Map(await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."));
+        public async Task<FoodResponse> GetByIdAsync(Guid id)
+        {
+            var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
+            if (food.IsActive == false) throw new Exception("Food not found.");
+            return Map(food);
+        }
 
         public async Task<FoodSearchResponse> SearchAsync(string? keyword, decimal? minCalories, decimal? maxCalories, string? proteinLevel, int? maxPriceVnd, int? maxPrepTimeMin, string? category)
         {

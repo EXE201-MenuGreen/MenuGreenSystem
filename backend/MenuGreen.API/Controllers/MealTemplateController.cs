@@ -83,6 +83,21 @@ namespace MenuGreen.API.Controllers
             return Ok(new { UsageCount = await _service.GetUsageAsync(userId, id) });
         }
 
+        [HttpPost("from-log/{mealLogId:guid}")]
+        public async Task<IActionResult> CreateFromLog(Guid mealLogId, [FromQuery] string title)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (string.IsNullOrWhiteSpace(title)) return BadRequest("Title is required.");
+            try
+            {
+                return Ok(await _service.CreateFromLogAsync(userId, mealLogId, title));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;

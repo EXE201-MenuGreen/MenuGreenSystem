@@ -14,19 +14,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
 
-        private static readonly Dictionary<string, (decimal Grams, string Desc)> DefaultUnits = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { "chén", (150m, "Chén cơm, chén chấm gia vị thông thường (khoảng 150g)") },
-            { "bát", (200m, "Bát ăn canh hoặc bát cơm nhỡ (khoảng 200g)") },
-            { "tô", (500m, "Tô lớn đựng phở, bún, hủ tiếu (khoảng 500g-650g)") },
-            { "đĩa", (250m, "Đĩa thức ăn, đĩa rau luộc trung bình (khoảng 200g-250g)") },
-            { "muỗng", (5m, "Muỗng cà phê dầu ăn, gia vị nhỏ (khoảng 5g)") },
-            { "muỗng canh", (15m, "Muỗng canh lớn ăn cơm, muỗng ăn lẩu (khoảng 15g)") },
-            { "ly", (250m, "Ly uống nước lọc, nước ngọt tiêu chuẩn (khoảng 250ml)") },
-            { "cốc", (240m, "Cốc uống trà đá, sữa đậu nành nhỡ (khoảng 240ml)") },
-            { "trái", (100m, "Trái cây nhỡ như táo, cam, chuối quả (khoảng 80g-150g)") },
-            { "quả", (100m, "Trái quả nhỡ tiêu chuẩn (khoảng 100g)") }
-        };
+
 
         public PortionConverterService(IUnitOfWork unitOfWork)
         {
@@ -99,15 +87,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
         }
 
-        public Task<IEnumerable<PortionUnitResponse>> GetDefaultUnitsAsync()
+        public async Task<IEnumerable<PortionUnitResponse>> GetDefaultUnitsAsync()
         {
-            var list = DefaultUnits.Select(x => new PortionUnitResponse
+            var units = await _unitOfWork.DefaultPortionUnits.GetAllAsync();
+            return units.Where(u => u.IsActive).Select(x => new PortionUnitResponse
             {
-                UnitName = x.Key,
-                GramsPerUnit = x.Value.Grams,
-                Description = x.Value.Desc
+                UnitName = x.UnitName,
+                GramsPerUnit = x.GramsEquivalent,
+                Description = x.Description
             });
-            return Task.FromResult(list);
         }
 
         public async Task<IEnumerable<PortionUnitResponse>> GetUnitsByFoodAsync(Guid foodId)
@@ -167,9 +155,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // 3. Tìm trong Default Units
             if (!found)
             {
-                if (DefaultUnits.TryGetValue(request.Unit.Trim(), out var def))
+                var defUnits = await _unitOfWork.DefaultPortionUnits.FindAsync(d => d.UnitName.ToLower() == request.Unit.ToLower().Trim() && d.IsActive);
+                var def = defUnits.FirstOrDefault();
+                if (def != null)
                 {
-                    factor = def.Grams;
+                    factor = def.GramsEquivalent;
                     found = true;
                 }
             }

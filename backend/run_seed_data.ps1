@@ -1,5 +1,5 @@
 # =============================================================================
-# MenuGreen - PowerShell Script to execute 55 split SQL files sequentially
+# MenuGreen - PowerShell Script to execute split SQL files sequentially
 # =============================================================================
 
 # Cấu hình Database
@@ -29,7 +29,7 @@ Write-Host ""
 Write-Host "Chon phuong thuc chay:"
 Write-Host "  [1] Chay tren Docker container '$DbContainer' (Khuyen nghi neu dang chay Docker)"
 Write-Host "  [2] Chay bang lenh 'psql' tren may cuc bo (Yeu cau co PostgreSQL client tren Windows)"
-Write-Host "  [3] Gop 55 file thanh 1 file duy nhat 'combined_seed_data.sql' de chay bang PgAdmin/DBeaver"
+Write-Host "  [3] Gop $($files.Count) file thanh 1 file duy nhat 'combined_seed_data.sql' de chay bang PgAdmin/DBeaver"
 Write-Host "  [4] Thoat"
 Write-Host ""
 
@@ -108,7 +108,7 @@ elseif ($choice -eq "2") {
     Write-Host "`nHoan thanh import seed data cuc bo!" -ForegroundColor Green
 }
 elseif ($choice -eq "3") {
-    Write-Host "`nDang gop 55 file SQL..." -ForegroundColor Cyan
+    Write-Host "`nDang gop $($files.Count) file SQL..." -ForegroundColor Cyan
     $combinedPath = Join-Path $PSScriptRoot "combined_seed_data.sql"
     
     # Khoi tao file voi BEGIN

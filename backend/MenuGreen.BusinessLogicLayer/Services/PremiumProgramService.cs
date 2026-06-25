@@ -182,7 +182,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Invalid operation.");
             }
 
-            if (userProgram.Status != "Paid")
+            if (userProgram.Status != "Paid" && userProgram.Status != "PendingPayment")
             {
                 throw new Exception("This program has not been paid for or is already activated.");
             }

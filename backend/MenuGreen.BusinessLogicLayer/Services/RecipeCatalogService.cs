@@ -41,11 +41,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await GetByIdAsync(id);
         }
 
-        public async Task DeleteAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); _unitOfWork.Recipes.Remove(recipe); await _unitOfWork.CompleteAsync(); }
+        public async Task DeleteAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); recipe.IsActive = false; _unitOfWork.Recipes.Update(recipe); await _unitOfWork.CompleteAsync(); }
 
         public async Task<RecipeResponse> GetByIdAsync(Guid id)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
+            if (recipe.IsActive == false) throw new Exception("Recipe not found.");
             var result = Map(recipe);
             result.Ingredients = await RecipeIngredientLoader.LoadAsync(_db, id);
             return result;

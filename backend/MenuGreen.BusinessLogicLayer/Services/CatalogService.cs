@@ -38,8 +38,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.Foods.Update(food); await _unitOfWork.CompleteAsync(); return Map(food);
         }
 
-        public async Task DeleteFoodAsync(Guid id) { var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."); _unitOfWork.Foods.Remove(food); await _unitOfWork.CompleteAsync(); }
-        public async Task<FoodResponse> GetFoodByIdAsync(Guid id) => Map(await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."));
+        public async Task DeleteFoodAsync(Guid id) { var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."); food.IsActive = false; _unitOfWork.Foods.Update(food); await _unitOfWork.CompleteAsync(); }
+        public async Task<FoodResponse> GetFoodByIdAsync(Guid id) { var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found."); if (food.IsActive == false) throw new Exception("Food not found."); return Map(food); }
 
         public async Task<FoodSearchResponse> SearchFoodsAsync(string? keyword, decimal? minCalories, decimal? maxCalories, string? proteinLevel, int? maxPriceVnd, int? maxPrepTimeMin, string? category)
         {
@@ -56,8 +56,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IngredientResponse> CreateIngredientAsync(IngredientUpsertRequest request) { var e = new Ingredient { Id = Guid.NewGuid(), NameVi = request.NameVi, NameEn = request.NameEn, Category = request.Category, CaloriesKcal = request.CaloriesKcal, ProteinG = request.ProteinG, CarbsG = request.CarbsG, FatG = request.FatG, EstimatedPriceVnd = request.EstimatedPriceVnd, UnitDefault = request.UnitDefault, ImageUrl = request.ImageUrl, IsActive = request.IsActive ?? true, CreatedAt = DateTime.UtcNow }; await _unitOfWork.Ingredients.AddAsync(e); await _unitOfWork.CompleteAsync(); return Map(e); }
         public async Task<IngredientResponse> UpdateIngredientAsync(Guid id, IngredientUpsertRequest request) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); e.NameVi=request.NameVi; e.NameEn=request.NameEn; e.Category=request.Category; e.CaloriesKcal=request.CaloriesKcal; e.ProteinG=request.ProteinG; e.CarbsG=request.CarbsG; e.FatG=request.FatG; e.EstimatedPriceVnd=request.EstimatedPriceVnd; e.UnitDefault=request.UnitDefault; e.ImageUrl=request.ImageUrl; e.IsActive=request.IsActive ?? e.IsActive; _unitOfWork.Ingredients.Update(e); await _unitOfWork.CompleteAsync(); return Map(e); }
-        public async Task DeleteIngredientAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); _unitOfWork.Ingredients.Remove(e); await _unitOfWork.CompleteAsync(); }
-        public async Task<IngredientResponse> GetIngredientByIdAsync(Guid id) => Map(await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."));
+        public async Task DeleteIngredientAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); e.IsActive = false; _unitOfWork.Ingredients.Update(e); await _unitOfWork.CompleteAsync(); }
+        public async Task<IngredientResponse> GetIngredientByIdAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); if (e.IsActive == false) throw new Exception("Ingredient not found."); return Map(e); }
 
         public async Task<RecipeResponse> CreateRecipeAsync(RecipeUpsertRequest request)
         {
@@ -78,10 +78,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await GetRecipeByIdAsync(id);
         }
 
-        public async Task DeleteRecipeAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); _unitOfWork.Recipes.Remove(recipe); await _unitOfWork.CompleteAsync(); }
+        public async Task DeleteRecipeAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); recipe.IsActive = false; _unitOfWork.Recipes.Update(recipe); await _unitOfWork.CompleteAsync(); }
         public async Task<RecipeResponse> GetRecipeByIdAsync(Guid id)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
+            if (recipe.IsActive == false) throw new Exception("Recipe not found.");
             var result = Map(recipe);
             result.Ingredients = await RecipeIngredientLoader.LoadAsync(_db, id);
             return result;

@@ -284,6 +284,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
             var interaction = interactions.FirstOrDefault();
+            bool isNew = false;
 
             if (interaction == null)
             {
@@ -295,6 +296,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     UpdatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.UserCardInteractions.AddAsync(interaction);
+                isNew = true;
             }
 
             switch (action.Trim().ToLower())
@@ -316,7 +318,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             interaction.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.UserCardInteractions.Update(interaction);
+            if (!isNew)
+            {
+                _unitOfWork.UserCardInteractions.Update(interaction);
+            }
             await _unitOfWork.CompleteAsync();
 
             return true;
@@ -348,6 +353,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
             var interaction = interactions.FirstOrDefault();
+            bool isNew = false;
 
             if (interaction == null)
             {
@@ -358,6 +364,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     CardId = cardId
                 };
                 await _unitOfWork.UserCardInteractions.AddAsync(interaction);
+                isNew = true;
             }
 
             if (interaction.IsQuizCompleted)
@@ -373,7 +380,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             interaction.IsQuizCorrect = isCorrect;
             interaction.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.UserCardInteractions.Update(interaction);
+            if (!isNew)
+            {
+                _unitOfWork.UserCardInteractions.Update(interaction);
+            }
             await _unitOfWork.CompleteAsync();
 
             string feedback = isCorrect

@@ -43,10 +43,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.Ingredients.Update(e); await _unitOfWork.CompleteAsync(); return Map(e);
         }
 
-        public async Task DeleteAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); _unitOfWork.Ingredients.Remove(e); await _unitOfWork.CompleteAsync(); }
+        public async Task DeleteAsync(Guid id) { var e = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); e.IsActive = false; _unitOfWork.Ingredients.Update(e); await _unitOfWork.CompleteAsync(); }
         public async Task<IngredientResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
             var entity = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found.");
+            if (entity.IsActive == false) throw new Exception("Ingredient not found.");
             return await EnrichIngredientAsync(Map(entity), entity.NameVi, entity.NameEn, userId, allergyMode);
         }
 
