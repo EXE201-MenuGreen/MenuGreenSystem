@@ -98,17 +98,6 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
-        /// Run auto-redistribution algorithm for calorie/macro based on weight log and adherence progress.
-        /// </summary>
-        [HttpPost("recalibrate")]
-        public async Task<IActionResult> Recalibrate()
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            var result = await _service.RecalibrateNutritionAsync(userId);
-            return Ok(result);
-        }
-
-        /// <summary>
         /// Export meal plan adherence progress report (JSON or HTML report).
         /// </summary>
         [HttpGet("monthly-report")]
@@ -155,6 +144,17 @@ namespace MenuGreen.API.Controllers
                 AdherenceScore = score,
                 DriftAnalysis = drift
             });
+        }
+
+        /// <summary>
+        /// Chạy thuật toán tự động tái phân bổ lượng calo/macro tuần tiếp theo dựa trên cân nặng thay đổi.
+        /// </summary>
+        [HttpPost("recalibrate")]
+        public async Task<IActionResult> Recalibrate()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            var result = await _service.RecalibrateNutritionAsync(userId);
+            return Ok(result);
         }
 
         private bool TryGetUserId(out Guid userId)

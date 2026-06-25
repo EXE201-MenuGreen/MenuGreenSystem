@@ -49,6 +49,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.UserCardInteraction>? _userCardInteractions;
         private IGenericRepository<Entities.FoodPortionMapping>? _foodPortionMappings;
         private IGenericRepository<Entities.CustomUserPortion>? _customUserPortions;
+        private IGenericRepository<Entities.DefaultPortionUnit>? _defaultPortionUnits;
         private IGenericRepository<Entities.PremiumProgram>? _premiumPrograms;
         private IGenericRepository<Entities.UserPremiumProgram>? _userPremiumPrograms;
         private IGenericRepository<Entities.UserProgramMilestone>? _userProgramMilestones;
@@ -102,6 +103,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.UserCardInteraction> UserCardInteractions => _userCardInteractions ??= new GenericRepository<Entities.UserCardInteraction>(_context);
         public IGenericRepository<Entities.FoodPortionMapping> FoodPortionMappings => _foodPortionMappings ??= new GenericRepository<Entities.FoodPortionMapping>(_context);
         public IGenericRepository<Entities.CustomUserPortion> CustomUserPortions => _customUserPortions ??= new GenericRepository<Entities.CustomUserPortion>(_context);
+        public IGenericRepository<Entities.DefaultPortionUnit> DefaultPortionUnits => _defaultPortionUnits ??= new GenericRepository<Entities.DefaultPortionUnit>(_context);
         public IGenericRepository<Entities.PremiumProgram> PremiumPrograms => _premiumPrograms ??= new GenericRepository<Entities.PremiumProgram>(_context);
         public IGenericRepository<Entities.UserPremiumProgram> UserPremiumPrograms => _userPremiumPrograms ??= new GenericRepository<Entities.UserPremiumProgram>(_context);
         public IGenericRepository<Entities.UserProgramMilestone> UserProgramMilestones => _userProgramMilestones ??= new GenericRepository<Entities.UserProgramMilestone>(_context);

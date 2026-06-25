@@ -17,8 +17,14 @@ CREATE TABLE notifications (
     "ScheduledAt" timestamp with time zone NULL,
     "SentAt" timestamp with time zone NULL,
     "ReadAt" timestamp with time zone NULL,
+    "CampaignId" uuid NULL,
+    "ClickedAt" timestamp with time zone NULL,
+    "ActionCompletedAt" timestamp with time zone NULL,
+    "IsDismissed" boolean NOT NULL DEFAULT false,
+    "DismissedAt" timestamp with time zone NULL,
     CONSTRAINT "PK_notifications" PRIMARY KEY ("Id"),
-    CONSTRAINT "FK_notifications_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_notifications_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_notifications_campaigns_CampaignId" FOREIGN KEY ("CampaignId") REFERENCES campaigns ("Id") ON DELETE SET NULL
 );
 
 INSERT INTO notifications ("Id", "UserId", "Title", "Body", "Type", "IsRead", "CreatedAt", "ScheduledAt", "SentAt", "ReadAt")

@@ -14,5 +14,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<DailyStarterStartLogResponse> StartLogFlowAsync(Guid userId);
         Task<DailyStarterPersonalizationResponse> GetPersonalizationAsync(Guid userId);
         Task<DailyStarterPersonalizationResponse> UpdatePersonalizationAsync(Guid userId, DailyStarterPersonalizationUpdateRequest request);
+        Task<IEnumerable<RecommendationItemResponse>> GetRecommendationsAsync(Guid userId, RecommendationRequest request);
+        Task<UserAiProfileResponse> SavePreferenceAsync(Guid userId, UpdateUserAiProfileRequest request);
     }
 }

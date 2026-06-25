@@ -261,7 +261,6 @@ namespace MenuGreen.API.Controllers
                 WeightTrend = weightTrend
             });
         }
-
         /// <summary>
         /// Generate alerts based on goal deviation from meal plan compare and tracking data.
         /// </summary>

@@ -136,6 +136,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;

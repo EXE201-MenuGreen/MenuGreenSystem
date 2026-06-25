@@ -22,15 +22,18 @@ namespace MenuGreen.API.Controllers
         private readonly INutritionTrackingService _nutritionTrackingService;
         private readonly IMealPlanService _mealPlanService;
         private readonly INotificationService _notificationService;
+        private readonly IHealthProfileService _healthProfileService;
 
         public EngagementController(
             INutritionTrackingService nutritionTrackingService,
             IMealPlanService mealPlanService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IHealthProfileService healthProfileService)
         {
             _nutritionTrackingService = nutritionTrackingService;
             _mealPlanService = mealPlanService;
             _notificationService = notificationService;
+            _healthProfileService = healthProfileService;
         }
 
         /// <summary>
@@ -96,7 +99,6 @@ namespace MenuGreen.API.Controllers
                 score.Recommendations
             });
         }
-
         /// <summary>
         /// Get current streak from meal plan for Habit Score support.
         /// </summary>
@@ -116,7 +118,6 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _notificationService.GetAnalyticsAsync(userId));
         }
-
         private async Task<HabitScoreResponse> BuildHabitScoreAsync(Guid userId, string period, DateOnly? dayOverride = null)
         {
             var (startDate, endDate) = ResolveRange(period, dayOverride);
@@ -125,13 +126,16 @@ namespace MenuGreen.API.Controllers
             var dashboard = await _nutritionTrackingService.GetDashboardAsync(userId, period, startDate, endDate);
             var streak = await _mealPlanService.GetStreaksAsync(userId);
             var notificationAnalytics = await _notificationService.GetAnalyticsAsync(userId);
+            var healthProfile = await _healthProfileService.GetAsync(userId);
 
             var totalDays = Math.Max(1, endDate.DayNumber - startDate.DayNumber + 1);
             var mealDays = dashboard.Days.Count(d => d.TotalCalories > 0);
             var mealConsistency = Math.Min(100, (int)Math.Round((mealDays / (double)totalDays) * 100));
 
             var avgCalories = summary.AvgCaloriesPerDay;
-            var calorieConsistency = avgCalories <= 0 ? 0 : Math.Max(0, 100 - (int)Math.Min(60, Math.Abs(avgCalories - 2000) / 20));
+            var targetCalories = healthProfile?.TargetCalories ?? 2000;
+            var divisor = targetCalories > 0 ? (targetCalories / 100m) : 20m;
+            var calorieConsistency = avgCalories <= 0 ? 0 : Math.Max(0, 100 - (int)Math.Min(60m, Math.Abs(avgCalories - targetCalories) / divisor));
 
             var streakScore = Math.Min(100, (int)(streak.CurrentStreakDays * 10));
             var engagementScore = GetOpenRateScore(notificationAnalytics);

@@ -30,7 +30,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<AllergyResponse>> GetAllAsync(Guid userId)
         {
-            var allergies = await _unitOfWork.Allergies.FindAsync(allergy => allergy.UserId == userId);
+            var allergies = await _unitOfWork.Allergies.FindAsync(allergy => allergy.UserId == userId && allergy.IsActive);
             return allergies.Select(MapToResponse).ToList();
         }
 
@@ -75,7 +75,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var userAllergy = await _db.UserAllergies
                 .FirstOrDefaultAsync(x => x.UserId == userId && x.AllergyId == allergyId);
             if (userAllergy != null) _db.UserAllergies.Remove(userAllergy);
-            _unitOfWork.Allergies.Remove(allergy);
+            allergy.IsActive = false;
+            _unitOfWork.Allergies.Update(allergy);
             await _unitOfWork.CompleteAsync();
         }
 
@@ -98,7 +99,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var allergy = await _unitOfWork.Allergies.GetByIdAsync(allergyId);
 
-            if (allergy == null)
+            if (allergy == null || !allergy.IsActive)
             {
                 throw new Exception("Allergy not found.");
             }
@@ -114,6 +115,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<AllergyResponse>> UpdateProfileAsync(Guid userId, List<AllergenProfileItem> allergens)
         {
             var existingAllergies = await _unitOfWork.Allergies.FindAsync(a => a.UserId == userId);
+            var existingList = existingAllergies.ToList();
             
             // Lọc và chuẩn hóa danh sách gửi lên
             var normalizedItems = new List<(string Key, string? Name, string? Notes)>();
@@ -130,8 +132,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
             }
 
+            var userAllergiesInDb = await _db.UserAllergies.Where(x => x.UserId == userId).ToListAsync();
+
             // Cập nhật các dị ứng hiện tại của user
-            foreach (var allergy in existingAllergies)
+            foreach (var allergy in existingList)
             {
                 var key = AllergenCatalog.NormalizeToKey(allergy.Name);
                 var matchedItem = key != null 
@@ -153,7 +157,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     }
                     allergy.UpdatedAt = DateTime.UtcNow;
                     _unitOfWork.Allergies.Update(allergy);
-                    await SyncUserAllergyAsync(userId, allergy.Id);
+
+                    if (!userAllergiesInDb.Any(x => x.AllergyId == allergy.Id))
+                    {
+                        await _db.UserAllergies.AddAsync(new UserAllergy
+                        {
+                            UserId = userId,
+                            AllergyId = allergy.Id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
                 }
                 else
                 {
@@ -161,17 +174,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     allergy.UpdatedAt = DateTime.UtcNow;
                     _unitOfWork.Allergies.Update(allergy);
                 }
+
+                // Lưu thay đổi tuần tự cho từng Allergy để tránh lỗi Circular Dependency
+                await _unitOfWork.CompleteAsync();
             }
 
             // Thêm mới các dị ứng chưa có
             foreach (var item in normalizedItems)
             {
-                var exists = existingAllergies.Any(a => string.Equals(AllergenCatalog.NormalizeToKey(a.Name), item.Key, StringComparison.OrdinalIgnoreCase));
+                var exists = existingList.Any(a => string.Equals(AllergenCatalog.NormalizeToKey(a.Name), item.Key, StringComparison.OrdinalIgnoreCase));
                 if (!exists)
                 {
+                    var allergyId = Guid.NewGuid();
                     var allergy = new Allergy
                     {
-                        Id = Guid.NewGuid(),
+                        Id = allergyId,
                         UserId = userId,
                         Name = item.Name ?? AllergenCatalog.GetDisplayNameVi(item.Key),
                         Notes = item.Notes ?? "Cập nhật hồ sơ hàng loạt",
@@ -180,12 +197,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         UpdatedAt = DateTime.UtcNow
                     };
                     await _unitOfWork.Allergies.AddAsync(allergy);
-                    await _unitOfWork.CompleteAsync(); // Hoàn thành trước để sinh ID
-                    await SyncUserAllergyAsync(userId, allergy.Id);
+
+                    await _db.UserAllergies.AddAsync(new UserAllergy
+                    {
+                        UserId = userId,
+                        AllergyId = allergyId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+
+                    // Lưu thay đổi tuần tự cho từng Allergy thêm mới
+                    await _unitOfWork.CompleteAsync();
                 }
             }
-
-            await _unitOfWork.CompleteAsync();
 
             var updatedAllergies = await _unitOfWork.Allergies.FindAsync(a => a.UserId == userId);
             return updatedAllergies.Select(MapToResponse).ToList();

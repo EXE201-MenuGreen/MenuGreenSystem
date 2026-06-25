@@ -181,16 +181,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 context,
             };
 
-            using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
-            response.EnsureSuccessStatusCode();
-
-            var body = await response.Content.ReadFromJsonAsync<WorkerChatResponse>(JsonOptions);
-            if (body == null || string.IsNullOrWhiteSpace(body.Response))
+            try
             {
-                throw new InvalidOperationException("Worker response is empty.");
-            }
+                using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
+                response.EnsureSuccessStatusCode();
 
-            return body;
+                var body = await response.Content.ReadFromJsonAsync<WorkerChatResponse>(JsonOptions);
+                if (body == null || string.IsNullOrWhiteSpace(body.Response))
+                {
+                    throw new InvalidOperationException("Worker response is empty.");
+                }
+
+                return body;
+            }
+            catch (Exception)
+            {
+                return new WorkerChatResponse
+                {
+                    Response = $"[AI Assistant Fallback] Xin lỗi, hệ thống AI Worker hiện tại không khả dụng. Bạn đã hỏi: \"{request.Message}\". Gợi ý tự động: Hãy ăn uống cân bằng, tập thể dục đều đặn và uống đủ nước mỗi ngày.",
+                    Intent = "general",
+                    Source = "fallback",
+                    RequestId = Guid.NewGuid().ToString()
+                };
+            }
         }
 
         private static string BuildSystemPrompt()
