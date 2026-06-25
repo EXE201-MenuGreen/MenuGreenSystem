@@ -188,7 +188,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(userProgram.ProgramId)
-                ?? throw new Exception("Chương trình không tồn tại.");
+                ?? throw new Exception("Program does not exist.");
 
             userProgram.Status = "Active";
             userProgram.StartDate = request.StartDate;
@@ -346,7 +346,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("You do not have any active Premium program.");
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(active.ProgramId)
-                ?? throw new Exception("Chương trình không tồn tại.");
+                ?? throw new Exception("Program does not exist.");
 
             var milestones = await _unitOfWork.UserProgramMilestones.FindAsync(
                 m => m.UserProgramId == active.Id);
@@ -354,7 +354,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var list = milestones.ToList();
             if (list.Count < program.DurationWeeks || list.Any(m => !m.IsCheckedIn))
             {
-                throw new Exception("Bạn cần thực hiện check-in tất cả các tuần để tốt nghiệp chương trình.");
+                throw new Exception("You need to check in for all weeks to graduate from the program.");
             }
 
             active.Status = "Completed";
@@ -368,15 +368,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<ProgramReportResponse> GetMyProgramReportAsync(Guid userId, Guid userProgramId)
         {
             var userProgram = await _unitOfWork.UserPremiumPrograms.GetByIdAsync(userProgramId)
-                ?? throw new Exception("Không tìm thấy thông tin lộ trình đăng ký.");
+                ?? throw new Exception("Subscription program registration details not found.");
 
             if (userProgram.UserId != userId)
             {
-                throw new Exception("Không có quyền truy cập báo cáo.");
+                throw new Exception("You do not have permission to access this report.");
             }
 
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(userProgram.ProgramId)
-                ?? throw new Exception("Gói chương trình gốc đã bị xóa.");
+                ?? throw new Exception("The original program has been deleted.");
 
             var milestones = (await _unitOfWork.UserProgramMilestones.FindAsync(
                 m => m.UserProgramId == userProgram.Id)).OrderBy(m => m.WeekNumber).ToList();
@@ -436,7 +436,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private async Task GenerateWeeklyMealPlanAsync(Guid userId, UserPremiumProgram userProgram, int weekNumber, DateOnly startDate)
         {
             var program = await _unitOfWork.PremiumPrograms.GetByIdAsync(userProgram.ProgramId)
-                ?? throw new Exception("Chương trình không tồn tại.");
+                ?? throw new Exception("Program does not exist.");
 
             var mealPlanHeader = new MealPlanHeader
             {

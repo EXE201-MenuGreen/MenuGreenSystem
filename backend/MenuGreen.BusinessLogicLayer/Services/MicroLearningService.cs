@@ -217,7 +217,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MicroLearningCardResponse> GetCardByIdAsync(Guid id, Guid userId)
         {
             await EnsureSeedDataAsync();
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id) ?? throw new Exception("Micro-learning card not found.");
             
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == id);
             var interaction = interactions.FirstOrDefault();
@@ -280,7 +280,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> RecordCardActionAsync(Guid userId, Guid cardId, string action)
         {
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Micro-learning card not found.");
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
             var interaction = interactions.FirstOrDefault();
@@ -314,7 +314,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     interaction.IsDismissed = true;
                     break;
                 default:
-                    throw new ArgumentException("Hành động không hợp lệ. Chỉ chấp nhận 'read', 'save', 'unsave', 'dismiss'.");
+                    throw new ArgumentException("Invalid action. Only 'read', 'save', 'unsave', 'dismiss' are accepted.");
             }
 
             interaction.UpdatedAt = DateTime.UtcNow;
@@ -345,10 +345,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<QuizSubmitResponse> SubmitQuizAnswerAsync(Guid userId, Guid cardId, int selectedOptionIndex)
         {
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Micro-learning card not found.");
             if (!card.CorrectOptionIndex.HasValue || string.IsNullOrEmpty(card.QuizQuestion))
             {
-                throw new Exception("Thẻ kiến thức này không đính kèm câu hỏi đố vui.");
+                throw new Exception("This micro-learning card does not have an attached quiz question.");
             }
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
@@ -369,7 +369,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (interaction.IsQuizCompleted)
             {
-                throw new Exception("Bạn đã hoàn thành câu hỏi đố vui này trước đó.");
+                throw new Exception("You have already completed this quiz question.");
             }
 
             bool isCorrect = card.CorrectOptionIndex.Value == selectedOptionIndex;

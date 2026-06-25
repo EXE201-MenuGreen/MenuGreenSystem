@@ -198,7 +198,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 return new WorkerChatResponse
                 {
-                    Response = $"[AI Assistant Fallback] Xin lỗi, hệ thống AI Worker hiện tại không khả dụng. Bạn đã hỏi: \"{request.Message}\". Gợi ý tự động: Hãy ăn uống cân bằng, tập thể dục đều đặn và uống đủ nước mỗi ngày.",
+                    Response = $"[AI Assistant Fallback] Sorry, the AI Worker system is currently unavailable. You asked: \"{request.Message}\". Auto recommendation: Maintain a balanced diet, exercise regularly, and drink enough water every day.",
                     Intent = "general",
                     Source = "fallback",
                     RequestId = Guid.NewGuid().ToString()
