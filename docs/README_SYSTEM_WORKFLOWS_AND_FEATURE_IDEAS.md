@@ -330,10 +330,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `PATCH /AiAssistant/conversations/{id}/messages/{messageId}/feedback` — user chấm câu trả lời.
 
 #### C. Context & profile
-- `GET /AiAssistant/context` — lấy context AI hiện tại từ profile/tracking/recommendation.
-- `PUT /AiAssistant/context` — cập nhật ngữ cảnh ưu tiên cho AI assistant.
-- `GET /AiAssistant/profile` — đọc `UserAiProfile` để AI dùng cá nhân hóa.
-- `PUT /AiAssistant/profile` — cập nhật hồ sơ AI của user.
+- (Đã xóa `/AiAssistant/context` và `/AiAssistant/profile` — Thay thế bằng cách gọi trực tiếp `/api/UserAiProfile/me` để tránh trùng lặp)
 
 #### D. Action suggestions
 - `GET /AiAssistant/suggestions` — đề xuất hành động tiếp theo từ hội thoại.
@@ -731,7 +728,7 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
 ---
 
-## 2.14 Real-world food data capture workflow (Chưa có)
+## 2.14 Real-world food data capture workflow (Đã làm)
 
 **Mục tiêu:** Ghi log dinh dưỡng nhanh và sát thực tế đời sống.
 
@@ -938,8 +935,8 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
    - `GET /api/Engagement/habit-score` — trả Habit Score tổng hợp hiện tại.
    - `GET /api/Engagement/habit-score/history` — lịch sử Habit Score theo ngày.
    - `GET /api/Engagement/habit-score/breakdown` — breakdown các thành phần cấu thành score.
-   - `GET /api/Engagement/streak` — streak hiện tại để hỗ trợ Habit Score.
-   - `GET /api/Engagement/notification-engagement` — mức độ tương tác notification.
+   - (Đã xóa `/api/Engagement/streak` — dùng `GET /api/MealPlan/streaks` để thay thế tránh trùng lặp)
+   - (Đã xóa `/api/Engagement/notification-engagement` — dùng `GET /api/Notification/analytics` để thay thế tránh trùng lặp)
 
    ### D. Notifications / nudges
    - `GET /api/Notification/settings` — lấy cấu hình nhắc hiện tại.
@@ -960,17 +957,18 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 
    **API cần có để làm đúng bài:**
 
-   ### A. Meal template CRUD
-   - `GET /MealTemplates` — lấy danh sách template của user.
-   - `GET /MealTemplates/{id}` — xem chi tiết một template.
-   - `POST /MealTemplates` — tạo template mới từ món/bữa hiện có.
-   - `PUT /MealTemplates/{id}` — cập nhật template.
-   - `DELETE /MealTemplates/{id}` — xoá template.
+   ### A. Meal template CRUD (Đã triển khai chuẩn)
+   - `GET /api/MealTemplate` — lấy danh sách template của user.
+   - `GET /api/MealTemplate/{id}` — xem chi tiết một template.
+   - `POST /api/MealTemplate` — tạo template mới với danh sách món/công thức.
+   - `POST /api/MealTemplate/from-log/{mealLogId}?title={title}` — tạo template mới từ bữa ăn (meal log) hiện có trong nhật ký.
+   - `PUT /api/MealTemplate/{id}` — cập nhật template.
+   - `DELETE /api/MealTemplate/{id}` — xoá template.
 
-   ### B. Quick add from template
-   - `POST /MealTemplates/{id}/log` — log trực tiếp template vào nhật ký ăn uống.
-   - `POST /MealTemplates/{id}/duplicate` — sao chép template để chỉnh sửa nhanh.
-   - `GET /MealTemplates/{id}/usage` — xem số lần sử dụng template.
+   ### B. Quick add from template (Đã triển khai chuẩn)
+   - `POST /api/MealTemplate/{id}/log` — log trực tiếp các món từ template vào nhật ký ăn uống.
+   - `POST /api/MealTemplate/{id}/duplicate` — sao chép template để chỉnh sửa nhanh.
+   - `GET /api/MealTemplate/{id}/usage` — xem số lần sử dụng template.
 
 3. **Adaptive Reminder** (Đã làm)
    - Notification tự điều chỉnh giờ nhắc theo hành vi mở app/log bữa.

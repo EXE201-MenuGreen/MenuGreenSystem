@@ -16,5 +16,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealTemplateLogResponse> LogAsync(Guid userId, Guid id, MealTemplateLogRequest request);
         Task<MealTemplateResponse> DuplicateAsync(Guid userId, Guid id);
         Task<int> GetUsageAsync(Guid userId, Guid id);
+        Task<MealTemplateResponse> CreateFromLogAsync(Guid userId, Guid mealLogId, string title);
     }
 }

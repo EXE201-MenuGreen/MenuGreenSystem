@@ -42,23 +42,6 @@ namespace MenuGreen.API.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.GetTodayStarterAsync(userId));
         }
-
-        /// <summary>
-        /// Suggest menu templates for new users (reuses daily menu generation algorithm).
-        /// </summary>
-        [HttpGet("recommendations")]
-        public async Task<IActionResult> GetRecommendations([FromQuery] int? targetCalories)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            var request = new RecommendationRequest
-            {
-                TargetCalories = targetCalories,
-                ExcludeUserAllergies = true,
-                Top = 5
-            };
-            return Ok(await _recommendationService.BuildDailyMenuAsync(userId, request));
-        }
-
         /// <summary>
         /// Get list of featured foods (popular, healthy) for quick start.
         /// </summary>
@@ -110,6 +93,27 @@ namespace MenuGreen.API.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.UpdatePersonalizationAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Lấy thực đơn gợi ý cho user mới dựa vào calorie mục tiêu.
+        /// </summary>
+        [HttpGet("recommendations")]
+        public async Task<IActionResult> GetRecommendations([FromQuery] RecommendationRequest request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetRecommendationsAsync(userId, request));
+        }
+
+        /// <summary>
+        /// Lưu sở thích ăn uống ban đầu của user.
+        /// </summary>
+        [HttpPost("save-preference")]
+        public async Task<IActionResult> SavePreference([FromBody] UpdateUserAiProfileRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.SavePreferenceAsync(userId, request));
         }
     }
 }

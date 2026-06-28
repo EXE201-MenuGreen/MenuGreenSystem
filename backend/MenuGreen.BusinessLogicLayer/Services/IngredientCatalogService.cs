@@ -26,8 +26,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.Ingredients.Update(entity); await _unitOfWork.CompleteAsync(); return Map(entity);
         }
 
-        public async Task DeleteAsync(Guid id) { var entity = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); _unitOfWork.Ingredients.Remove(entity); await _unitOfWork.CompleteAsync(); }
-        public async Task<IngredientResponse> GetByIdAsync(Guid id) => Map(await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."));
+        public async Task DeleteAsync(Guid id) { var entity = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found."); entity.IsActive = false; _unitOfWork.Ingredients.Update(entity); await _unitOfWork.CompleteAsync(); }
+        public async Task<IngredientResponse> GetByIdAsync(Guid id)
+        {
+            var entity = await _unitOfWork.Ingredients.GetByIdAsync(id) ?? throw new Exception("Ingredient not found.");
+            if (entity.IsActive == false) throw new Exception("Ingredient not found.");
+            return Map(entity);
+        }
 
         private static IngredientResponse Map(Ingredient e) => new() { Id = e.Id, NameVi = e.NameVi, NameEn = e.NameEn, Category = e.Category, CaloriesKcal = e.CaloriesKcal, ProteinG = e.ProteinG, CarbsG = e.CarbsG, FatG = e.FatG, EstimatedPriceVnd = e.EstimatedPriceVnd, UnitDefault = e.UnitDefault, ImageUrl = e.ImageUrl, IsActive = e.IsActive };
     }

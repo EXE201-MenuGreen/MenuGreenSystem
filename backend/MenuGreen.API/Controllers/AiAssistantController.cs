@@ -187,11 +187,6 @@ namespace MenuGreen.API.Controllers
                 return NotFound(new { ex.Message });
             }
         }
-
-        // ==========================================
-        // C. Context & Profile
-        // ==========================================
-
         /// <summary>
         /// Get full current user health and nutrition context.
         /// </summary>

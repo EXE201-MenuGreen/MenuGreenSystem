@@ -119,7 +119,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 UserId = userId,
                 WeightKg = request.WeightKg,
                 BodyFatPercent = request.BodyFatPercent,
-                RecordedAt = request.RecordedAt ?? DateTime.UtcNow
+                RecordedAt = EnsureUtc(request.RecordedAt ?? DateTime.UtcNow)
             };
 
             await _unitOfWork.WeightLogs.AddAsync(entity);
@@ -132,7 +132,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var entity = await GetOwnedWeightLogAsync(userId, weightLogId);
             entity.WeightKg = request.WeightKg;
             entity.BodyFatPercent = request.BodyFatPercent;
-            entity.RecordedAt = request.RecordedAt ?? entity.RecordedAt;
+            entity.RecordedAt = EnsureUtc(request.RecordedAt ?? entity.RecordedAt);
             _unitOfWork.WeightLogs.Update(entity);
             await _unitOfWork.CompleteAsync();
             return Map(entity);
@@ -357,7 +357,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = request.RecipeId,
                 MealType = request.MealType,
                 Notes = request.Notes,
-                LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
+                LoggedAt = EnsureUtc(request.LoggedAt ?? DateTime.UtcNow),
                 MealPlanItemId = request.MealPlanItemId,
                 IsFromMealPlan = request.MealPlanItemId.HasValue
             };
@@ -374,7 +374,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var quantityG = await ResolveQuantityGAsync(request, entity.UserId);
             entity.QuantityG = quantityG;
             entity.Notes = request.Notes;
-            entity.LoggedAt = request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow;
+            entity.LoggedAt = EnsureUtc(request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow);
             if (request.MealPlanItemId.HasValue)
             {
                 entity.MealPlanItemId = request.MealPlanItemId;
@@ -648,6 +648,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 response.DisplayPortion = $"{request.Quantity.Value:0.##} {request.Unit.Trim()}";
             }
+        }
+
+        private static DateTime EnsureUtc(DateTime dt)
+        {
+            return dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+        }
+
+        private static DateTime? EnsureUtc(DateTime? dt)
+        {
+            if (!dt.HasValue) return null;
+            return dt.Value.Kind == DateTimeKind.Utc ? dt.Value : dt.Value.ToUniversalTime();
         }
     }
 }

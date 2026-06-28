@@ -117,8 +117,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<int> DeleteByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
-            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
-            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+            var startDateTime = new DateTimeOffset(startDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            var endDateTime = new DateTimeOffset(endDate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
 
             var notifications = await _unitOfWork.Notifications.FindAsync(
                 x => x.UserId == userId && 

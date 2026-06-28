@@ -81,20 +81,7 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        [HttpDelete("{mealPlanId:guid}")]
-        public async Task<IActionResult> Delete(Guid mealPlanId)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            try
-            {
-                await _service.DeleteAsync(mealPlanId, userId);
-                return Ok(new { Message = "Deleted successfully." });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
-        }
+
 
         private bool TryGetUserId(out Guid userId)
         {
