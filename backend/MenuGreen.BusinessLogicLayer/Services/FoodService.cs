@@ -78,13 +78,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid id)
         {
             var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
-            _unitOfWork.Foods.Remove(food);
+            food.IsActive = false;
+            _unitOfWork.Foods.Update(food);
             await _unitOfWork.CompleteAsync();
         }
 
         public async Task<FoodResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
             var food = await _unitOfWork.Foods.GetByIdAsync(id) ?? throw new Exception("Food not found.");
+            if (food.IsActive == false) throw new Exception("Food not found.");
             var mode = NormalizeAllergyMode(allergyMode);
             var userKeys = userId.HasValue
                 ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)

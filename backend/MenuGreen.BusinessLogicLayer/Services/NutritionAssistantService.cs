@@ -181,16 +181,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 context,
             };
 
-            using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
-            response.EnsureSuccessStatusCode();
-
-            var body = await response.Content.ReadFromJsonAsync<WorkerChatResponse>(JsonOptions);
-            if (body == null || string.IsNullOrWhiteSpace(body.Response))
+            try
             {
-                throw new InvalidOperationException("Worker response is empty.");
-            }
+                using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
+                response.EnsureSuccessStatusCode();
 
-            return body;
+                var body = await response.Content.ReadFromJsonAsync<WorkerChatResponse>(JsonOptions);
+                if (body == null || string.IsNullOrWhiteSpace(body.Response))
+                {
+                    throw new InvalidOperationException("Worker response is empty.");
+                }
+
+                return body;
+            }
+            catch (Exception)
+            {
+                return new WorkerChatResponse
+                {
+                    Response = $"[AI Assistant Fallback] Sorry, the AI Worker system is currently unavailable. You asked: \"{request.Message}\". Auto recommendation: Maintain a balanced diet, exercise regularly, and drink enough water every day.",
+                    Intent = "general",
+                    Source = "fallback",
+                    RequestId = Guid.NewGuid().ToString()
+                };
+            }
         }
 
         private static string BuildSystemPrompt()

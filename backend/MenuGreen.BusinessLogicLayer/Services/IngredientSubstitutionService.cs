@@ -24,7 +24,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid userId, Guid ingredientId, string reason, int? maxPrice, bool macroMatch)
         {
             var original = await _unitOfWork.Ingredients.GetByIdAsync(ingredientId);
-            if (original == null) throw new Exception("Không tìm thấy nguyên liệu gốc.");
+            if (original == null) throw new Exception("Original ingredient not found.");
 
             var allIngredients = await _unitOfWork.Ingredients.GetAllAsync();
             var candidates = allIngredients.Where(x => x.Id != ingredientId && 
@@ -133,10 +133,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid userId, Guid recipeId, Guid ingredientId)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId);
-            if (recipe == null) throw new Exception("Không tìm thấy công thức.");
+            if (recipe == null) throw new Exception("Recipe not found.");
 
             var original = await _unitOfWork.Ingredients.GetByIdAsync(ingredientId);
-            if (original == null) throw new Exception("Không tìm thấy nguyên liệu gốc.");
+            if (original == null) throw new Exception("Original ingredient not found.");
 
             var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(x => x.RecipeId == recipeId && x.IngredientId == ingredientId);
             var recipeIng = recipeIngredients.FirstOrDefault();
@@ -180,7 +180,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<RecipeResponse>> GetSafeRecipeAlternativesAsync(Guid userId, Guid recipeId)
         {
             var targetRecipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId);
-            if (targetRecipe == null) throw new Exception("Không tìm thấy công thức.");
+            if (targetRecipe == null) throw new Exception("Recipe not found.");
 
             // Get safe recipes matching same MealType
             var userAllergies = await _unitOfWork.UserAllergies.FindAsync(ua => ua.UserId == userId);
@@ -209,7 +209,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var mealPlanItem = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId);
             if (mealPlanItem == null || mealPlanItem.MealPlanId != planId)
             {
-                throw new Exception("Không tìm thấy món ăn trong kế hoạch.");
+                throw new Exception("Meal in meal plan not found.");
             }
 
             var substitution = new MealPlanItemSubstitution
@@ -248,7 +248,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var mealLog = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId);
             if (mealLog == null || mealLog.UserId != userId)
             {
-                throw new Exception("Không tìm thấy nhật ký ăn uống.");
+                throw new Exception("Food log not found.");
             }
 
             var substitution = new MealLogSubstitution
@@ -310,10 +310,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid userId, UserSubstitutePreferenceUpsertRequest request)
         {
             var original = await _unitOfWork.Ingredients.GetByIdAsync(request.OriginalIngredientId);
-            if (original == null) throw new Exception("Không tìm thấy nguyên liệu gốc.");
+            if (original == null) throw new Exception("Original ingredient not found.");
 
             var substitute = await _unitOfWork.Ingredients.GetByIdAsync(request.SubstituteIngredientId);
-            if (substitute == null) throw new Exception("Không tìm thấy nguyên liệu thay thế.");
+            if (substitute == null) throw new Exception("Substitute ingredient not found.");
 
             var preference = new UserSubstitutionPreference
             {
@@ -344,7 +344,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var preference = await _unitOfWork.UserSubstitutionPreferences.GetByIdAsync(id);
             if (preference == null || preference.UserId != userId)
             {
-                throw new Exception("Không tìm thấy cấu hình thay thế.");
+                throw new Exception("Substitution configuration not found.");
             }
 
             _unitOfWork.UserSubstitutionPreferences.Remove(preference);

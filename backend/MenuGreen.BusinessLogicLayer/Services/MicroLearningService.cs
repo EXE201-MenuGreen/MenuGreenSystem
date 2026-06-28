@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
@@ -26,90 +27,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return;
             }
 
-            var seedCards = new List<MicroLearningCard>
-            {
-                new MicroLearningCard
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Làm sao tăng đạm không tăng mỡ?",
-                    Summary = "Để tăng cơ hoặc hỗ trợ giảm béo mà không nạp quá nhiều calo, việc chọn đúng nguồn đạm tinh khiết là vô cùng quan trọng. Bạn nên ưu tiên đạm trắng từ ức gà, cá, lòng trắng trứng, hoặc các nguồn đạm thực vật từ đậu hũ, các loại đậu hạt thay vì đạm đỏ từ thịt bò, thịt heo nhiều mỡ.",
-                    Category = "Protein",
-                    Tips = "Ưu tiên ức gà bỏ da và các loại cá hấp thay vì chiên rán|Bổ sung đạm thực vật để đa dạng dinh dưỡng|Tránh thịt đỏ chế biến sẵn như xúc xích, thịt xông khói",
-                    ImageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
-                    QuizQuestion = "Nguồn đạm nào sau đây ít calo và chất béo bão hòa nhất?",
-                    QuizOptions = "Thịt ba chỉ heo|Ức gà bỏ da|Thịt bò bít tết nhiều vân mỡ|Lạp xưởng rán",
-                    CorrectOptionIndex = 1,
-                    PointsReward = 10,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new MicroLearningCard
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Nhận diện Natri ẩn trong đồ ăn ngoài",
-                    Summary = "Ăn ngoài quán hoặc dùng đồ ăn chế biến sẵn thường khiến bạn nạp quá nhiều muối (Natri) mà không hề hay biết. Natri ẩn rất nhiều trong nước lèo hủ tiếu/phở, nước sốt chấm, dưa muối, và các gia vị tẩm ướp sẵn để tăng vị đậm đà.",
-                    Category = "Sodium",
-                    Tips = "Không húp hết nước lèo khi ăn bún, phở ngoài tiệm|Yêu cầu ít sốt hoặc để sốt chấm riêng khi gọi món|Đọc kỹ nhãn dinh dưỡng và tránh sản phẩm có lượng Natri vượt quá 20% DV",
-                    ImageUrl = "https://images.unsplash.com/photo-1502741126161-b048400d085d",
-                    QuizQuestion = "Muối ẩn (Natri) thường xuất hiện nhiều nhất ở đâu khi đi ăn ngoài tiệm?",
-                    QuizOptions = "Rau xà lách sống|Nước lèo bún, phở và nước sốt chấm|Cơm trắng|Nước lọc nguội",
-                    CorrectOptionIndex = 1,
-                    PointsReward = 10,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new MicroLearningCard
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Thay thế Canxi khi bị dị ứng sữa bò",
-                    Summary = "Nếu bạn bị dị ứng sữa bò hoặc bất dung nạp đường lactose, sữa không còn là nguồn canxi an toàn. Tuy nhiên, bạn vẫn có thể nạp đủ canxi từ thực vật và các loại sữa thay thế lành mạnh khác.",
-                    Category = "Allergy",
-                    Tips = "Sử dụng sữa hạt được bổ sung canxi (như sữa đậu nành, sữa hạnh nhân)|Tăng cường ăn rau lá xanh đậm như rau cải xoăn, cải bó xôi|Bổ sung các loại cá ăn cả xương như cá mòi, cá diếc",
-                    ImageUrl = "https://images.unsplash.com/photo-1550583724-b2692b85b150",
-                    QuizQuestion = "Thực phẩm thực vật nào sau đây là nguồn cung cấp canxi dồi dào phù hợp cho người dị ứng sữa bò?",
-                    QuizOptions = "Khoai tây chiên|Rau cải xoăn (kale) và cải bó xôi|Cơm nếp|Bột mì trắng",
-                    CorrectOptionIndex = 1,
-                    PointsReward = 10,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new MicroLearningCard
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Bí quyết thay đạm khi dị ứng hải sản",
-                    Summary = "Hải sản là nguồn cung cấp axit béo Omega-3 (EPA và DHA) dồi dào giúp bảo vệ tim mạch. Nếu bị dị ứng hải sản, bạn cần tìm nguồn cung cấp chất béo lành mạnh từ thực vật hoặc dầu tảo thay thế.",
-                    Category = "Allergy",
-                    Tips = "Sử dụng dầu tảo (algae oil) chứa DHA tinh khiết từ thực vật|Bổ sung hạt lanh, hạt chia, và quả óc chó trong thực đơn|Sử dụng dầu hạt cải hoặc dầu đậu nành để nấu ăn",
-                    ImageUrl = "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb",
-                    QuizQuestion = "Nguồn chất béo thực vật nào sau đây giàu Omega-3 (ALA) thích hợp cho người dị ứng hải sản?",
-                    QuizOptions = "Mỡ heo|Hạt chia và hạt lanh|Bơ thực vật chứa nhiều chất béo chuyển hóa|Dầu dừa tinh luyện",
-                    CorrectOptionIndex = 1,
-                    PointsReward = 10,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new MicroLearningCard
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Nguyên tắc uống nước 8x8 khoa học",
-                    Summary = "Nước đóng vai trò thiết yếu giúp thải độc, hỗ trợ tiêu hóa và kiểm soát cơn đói. Quy tắc 8x8 khuyên bạn nên uống 8 ly nước mỗi ly khoảng 240ml (khoảng 2 lít nước) mỗi ngày, phân bổ đều thay vì uống dồn dập một lúc.",
-                    Category = "Hydration",
-                    Tips = "Uống 1 ly nước ấm ngay khi thức dậy|Uống nước trước bữa ăn 30 phút để hỗ trợ tiêu hóa và tránh ăn quá nhiều|Mang theo bình nước cá nhân để nhắc nhở bản thân uống đều đặn",
-                    ImageUrl = "https://images.unsplash.com/photo-1548839134-2472e395222f",
-                    QuizQuestion = "Thời điểm nào uống nước tốt nhất giúp hỗ trợ hệ tiêu hóa và hạn chế ăn quá đà?",
-                    QuizOptions = "Ngay sau khi ăn no xong|30 phút trước bữa ăn|Trong khi đang nhai đồ ăn|Chỉ uống khi thấy thật khát",
-                    CorrectOptionIndex = 1,
-                    PointsReward = 10,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                }
-            };
-
-            foreach (var card in seedCards)
-            {
-                await _unitOfWork.MicroLearningCards.AddAsync(card);
-            }
-            await _unitOfWork.CompleteAsync();
+            throw new InvalidOperationException(
+                "Micro-learning cards are empty. Please run the seed script at backend/MenuGreen_AI_SeedData/49_micro_learning_cards.sql before starting the app."
+            );
         }
 
         public async Task<IEnumerable<MicroLearningCardResponse>> GetRecommendedCardsAsync(Guid userId)
@@ -217,7 +137,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MicroLearningCardResponse> GetCardByIdAsync(Guid id, Guid userId)
         {
             await EnsureSeedDataAsync();
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id) ?? throw new Exception("Micro-learning card not found.");
             
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == id);
             var interaction = interactions.FirstOrDefault();
@@ -280,10 +200,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> RecordCardActionAsync(Guid userId, Guid cardId, string action)
         {
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Micro-learning card not found.");
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
             var interaction = interactions.FirstOrDefault();
+            bool isNew = false;
 
             if (interaction == null)
             {
@@ -295,6 +216,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     UpdatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.UserCardInteractions.AddAsync(interaction);
+                isNew = true;
             }
 
             switch (action.Trim().ToLower())
@@ -312,11 +234,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     interaction.IsDismissed = true;
                     break;
                 default:
-                    throw new ArgumentException("Hành động không hợp lệ. Chỉ chấp nhận 'read', 'save', 'unsave', 'dismiss'.");
+                    throw new ArgumentException("Invalid action. Only 'read', 'save', 'unsave', 'dismiss' are accepted.");
             }
 
             interaction.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.UserCardInteractions.Update(interaction);
+            if (!isNew)
+            {
+                _unitOfWork.UserCardInteractions.Update(interaction);
+            }
             await _unitOfWork.CompleteAsync();
 
             return true;
@@ -340,14 +265,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<QuizSubmitResponse> SubmitQuizAnswerAsync(Guid userId, Guid cardId, int selectedOptionIndex)
         {
-            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Không tìm thấy thẻ kiến thức.");
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(cardId) ?? throw new Exception("Micro-learning card not found.");
             if (!card.CorrectOptionIndex.HasValue || string.IsNullOrEmpty(card.QuizQuestion))
             {
-                throw new Exception("Thẻ kiến thức này không đính kèm câu hỏi đố vui.");
+                throw new Exception("This micro-learning card does not have an attached quiz question.");
             }
 
             var interactions = await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId && i.CardId == cardId);
             var interaction = interactions.FirstOrDefault();
+            bool isNew = false;
 
             if (interaction == null)
             {
@@ -358,11 +284,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     CardId = cardId
                 };
                 await _unitOfWork.UserCardInteractions.AddAsync(interaction);
+                isNew = true;
             }
 
             if (interaction.IsQuizCompleted)
             {
-                throw new Exception("Bạn đã hoàn thành câu hỏi đố vui này trước đó.");
+                throw new Exception("You have already completed this quiz question.");
             }
 
             bool isCorrect = card.CorrectOptionIndex.Value == selectedOptionIndex;
@@ -373,7 +300,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             interaction.IsQuizCorrect = isCorrect;
             interaction.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.UserCardInteractions.Update(interaction);
+            if (!isNew)
+            {
+                _unitOfWork.UserCardInteractions.Update(interaction);
+            }
             await _unitOfWork.CompleteAsync();
 
             string feedback = isCorrect
@@ -386,6 +316,90 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CorrectOptionIndex = card.CorrectOptionIndex.Value,
                 Feedback = feedback,
                 PointsEarned = pointsEarned
+            };
+        }
+
+        public async Task<MicroLearningCardResponse> CreateCardAsync(MicroLearningCardUpsertRequest request)
+        {
+            var card = new MicroLearningCard
+            {
+                Id = Guid.NewGuid(),
+                Title = request.Title,
+                Summary = request.Summary,
+                Category = request.Category,
+                Tips = request.Tips,
+                ImageUrl = request.ImageUrl,
+                QuizQuestion = request.QuizQuestion,
+                QuizOptions = request.QuizOptions,
+                CorrectOptionIndex = request.CorrectOptionIndex,
+                PointsReward = request.PointsReward,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MicroLearningCards.AddAsync(card);
+            await _unitOfWork.CompleteAsync();
+
+            return MapToResponse(card, null);
+        }
+
+        public async Task<MicroLearningCardResponse> UpdateCardAsync(Guid id, MicroLearningCardUpsertRequest request)
+        {
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id)
+                ?? throw new Exception("Micro-learning card not found.");
+
+            card.Title = request.Title;
+            card.Summary = request.Summary;
+            card.Category = request.Category;
+            card.Tips = request.Tips;
+            card.ImageUrl = request.ImageUrl;
+            card.QuizQuestion = request.QuizQuestion;
+            card.QuizOptions = request.QuizOptions;
+            card.CorrectOptionIndex = request.CorrectOptionIndex;
+            card.PointsReward = request.PointsReward;
+            card.IsActive = request.IsActive;
+
+            _unitOfWork.MicroLearningCards.Update(card);
+            await _unitOfWork.CompleteAsync();
+
+            // Lấy interaction map để trả về đầy đủ thông tin
+            var interactionMap = (await _unitOfWork.UserCardInteractions
+                .FindAsync(i => i.CardId == id))
+                .ToDictionary(i => i.UserId);
+
+            // Note: MapToResponse hiện tại chỉ nhận 1 interaction, 
+            // với admin view thì IsSaved/IsRead thường là false
+            return MapToResponse(card, null);
+        }
+
+        public async Task<bool> DeleteCardAsync(Guid id)
+        {
+            var card = await _unitOfWork.MicroLearningCards.GetByIdAsync(id)
+                ?? throw new Exception("Micro-learning card not found.");
+
+            _unitOfWork.MicroLearningCards.Remove(card);
+            await _unitOfWork.CompleteAsync();
+
+            return true;
+        }
+
+        public async Task<PagedResult<MicroLearningCardResponse>> GetAllCardsAsync(int page, int pageSize)
+        {
+            var query = await _unitOfWork.MicroLearningCards.GetAllAsync();
+            var totalCount = query.Count();
+
+            var cards = query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return new PagedResult<MicroLearningCardResponse>
+            {
+                Items = cards.Select(c => MapToResponse(c, null)).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
             };
         }
 

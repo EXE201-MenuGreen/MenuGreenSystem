@@ -82,9 +82,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid userId, Guid id)
         {
             var entity = await GetOwnedAsync(userId, id);
-            var items = await _unitOfWork.MealTemplateItems.FindAsync(x => x.MealTemplateId == entity.Id);
-            _unitOfWork.MealTemplateItems.RemoveRange(items);
-            _unitOfWork.MealTemplates.Remove(entity);
+            entity.IsActive = false;
+            _unitOfWork.MealTemplates.Update(entity);
             await _unitOfWork.CompleteAsync();
         }
 
@@ -299,6 +298,46 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Math.Round((carbs ?? 0) * ratio, 2),
                 Math.Round((fat ?? 0) * ratio, 2)
             );
+        }
+
+        public async Task<MealTemplateResponse> CreateFromLogAsync(Guid userId, Guid mealLogId, string title)
+        {
+            var mealLog = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId);
+            if (mealLog == null) throw new Exception("Meal log not found.");
+            if (mealLog.UserId != userId) throw new Exception("Forbidden.");
+
+            var template = new MealTemplate
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = title,
+                Description = $"Created from meal log on {mealLog.LoggedAt:yyyy-MM-dd}",
+                MealType = mealLog.MealType ?? "SNACK",
+                UsageCount = 0,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MealTemplates.AddAsync(template);
+            await _unitOfWork.CompleteAsync();
+
+            var templateItem = new MealTemplateItem
+            {
+                Id = Guid.NewGuid(),
+                MealTemplateId = template.Id,
+                FoodId = mealLog.FoodId,
+                RecipeId = mealLog.RecipeId,
+                QuantityG = mealLog.QuantityG ?? 100,
+                Notes = mealLog.Notes,
+                SortOrder = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MealTemplateItems.AddAsync(templateItem);
+            await _unitOfWork.CompleteAsync();
+
+            return await GetByIdAsync(userId, template.Id);
         }
 
         private MealTemplateResponse Map(MealTemplate entity, List<MealTemplateItemResponse>? items = null)

@@ -91,7 +91,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");
             var normalizedName = request.Name.Trim();
-            var existing = await _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == normalizedName && x.Id != id);
+            var existing = await _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == normalizedName && x.Id != id && x.IsActive != false);
             if (existing.Any()) throw new Exception("Subscription plan name already exists.");
 
             plan.Name = normalizedName;
@@ -109,7 +109,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid id)
         {
             var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(id) ?? throw new Exception("Subscription plan not found.");
-            _unitOfWork.SubscriptionPlans.Remove(plan);
+            plan.IsActive = false;
+            _unitOfWork.SubscriptionPlans.Update(plan);
             await _unitOfWork.CompleteAsync();
         }
 
@@ -132,7 +133,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private void EnsureUniqueName(string name)
         {
             var normalizedName = name.Trim();
-            var existing = _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == normalizedName).GetAwaiter().GetResult();
+            var existing = _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == normalizedName && x.IsActive != false).GetAwaiter().GetResult();
             if (existing.Any()) throw new Exception("Subscription plan name already exists.");
         }
 

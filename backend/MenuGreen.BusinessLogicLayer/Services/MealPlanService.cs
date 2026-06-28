@@ -131,7 +131,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid id, Guid? userId = null)
         {
             var entity = await GetMealPlanAsync(id);
-            _unitOfWork.MealPlanHeaders.Remove(entity);
+            entity.IsActive = false;
+            _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
         }
 
@@ -351,14 +352,116 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        public Task<MealPlanStreakResponse> GetStreaksAsync(Guid? userId = null)
+        public async Task<MealPlanStreakResponse> GetStreaksAsync(Guid? userId = null)
         {
-            return Task.FromResult(new MealPlanStreakResponse
+            if (userId == null || userId == Guid.Empty)
             {
-                CurrentStreakDays = 0,
-                BestStreakDays = 0,
-                WeeklyAdherenceRate = 0
-            });
+                return new MealPlanStreakResponse
+                {
+                    CurrentStreakDays = 0,
+                    BestStreakDays = 0,
+                    WeeklyAdherenceRate = 0
+                };
+            }
+
+            var mealLogs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId.Value);
+            var loggedDates = mealLogs
+                .Where(x => x.LoggedAt.HasValue)
+                .Select(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList();
+
+            int currentStreak = 0;
+            int bestStreak = 0;
+
+            if (loggedDates.Any())
+            {
+                // Calculate current streak
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                var yesterday = today.AddDays(-1);
+
+                if (loggedDates.Last() == today || loggedDates.Last() == yesterday)
+                {
+                    currentStreak = 1;
+                    for (int i = loggedDates.Count - 2; i >= 0; i--)
+                    {
+                        if (loggedDates[i + 1].DayNumber - loggedDates[i].DayNumber == 1)
+                        {
+                            currentStreak++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                // Calculate best streak
+                int currentRunning = 0;
+                DateOnly? prevDate = null;
+
+                foreach (var date in loggedDates)
+                {
+                    if (prevDate == null)
+                    {
+                        currentRunning = 1;
+                    }
+                    else
+                    {
+                        var diff = date.DayNumber - prevDate.Value.DayNumber;
+                        if (diff == 1)
+                        {
+                            currentRunning++;
+                        }
+                        else if (diff > 1)
+                        {
+                            if (currentRunning > bestStreak)
+                            {
+                                bestStreak = currentRunning;
+                            }
+                            currentRunning = 1;
+                        }
+                    }
+                    prevDate = date;
+                }
+
+                if (currentRunning > bestStreak)
+                {
+                    bestStreak = currentRunning;
+                }
+            }
+
+            // Calculate weekly adherence rate
+            var sevenDaysAgo = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-6);
+            var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId.Value && x.IsActive);
+            var planIds = plans.Select(x => x.Id).ToList();
+            var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => planIds.Contains(x.MealPlanId) && x.PlannedDate >= sevenDaysAgo && x.PlannedDate <= todayDate);
+
+            var totalItems = planItems.Count();
+            var completedItems = planItems.Count(x => x.IsCompleted);
+
+            decimal weeklyAdherenceRate = 0;
+            if (totalItems > 0)
+            {
+                weeklyAdherenceRate = Math.Round((decimal)completedItems / totalItems * 100, 2);
+            }
+            else
+            {
+                // Fallback to meal logging consistency
+                var loggedDaysLast7 = loggedDates
+                    .Count(x => x >= sevenDaysAgo && x <= todayDate);
+                weeklyAdherenceRate = Math.Round((decimal)loggedDaysLast7 / 7 * 100, 2);
+            }
+
+            return new MealPlanStreakResponse
+            {
+                CurrentStreakDays = currentStreak,
+                BestStreakDays = bestStreak,
+                WeeklyAdherenceRate = weeklyAdherenceRate
+            };
         }
 
         private async Task ReplaceItemsAsync(Guid mealPlanId, IEnumerable<MealPlanItemUpsertRequest> items, DateOnly? defaultDate)

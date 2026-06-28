@@ -11,6 +11,7 @@ using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer.Context;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
 var renderPort = Environment.GetEnvironmentVariable("PORT");

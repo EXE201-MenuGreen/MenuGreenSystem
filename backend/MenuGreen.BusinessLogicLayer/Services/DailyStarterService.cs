@@ -21,6 +21,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IMealPlanService _mealPlanService;
         private readonly IHealthProfileService _healthProfileService;
         private readonly IUserAiProfileService _userAiProfileService;
+        private readonly IRecommendationService _recommendationService;
 
         public DailyStarterService(
             IUnitOfWork unitOfWork,
@@ -29,7 +30,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IAllergyService allergyService,
             IMealPlanService mealPlanService,
             IHealthProfileService healthProfileService,
-            IUserAiProfileService userAiProfileService)
+            IUserAiProfileService userAiProfileService,
+            IRecommendationService recommendationService)
         {
             _unitOfWork = unitOfWork;
             _db = db;
@@ -38,6 +40,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _mealPlanService = mealPlanService;
             _healthProfileService = healthProfileService;
             _userAiProfileService = userAiProfileService;
+            _recommendationService = recommendationService;
         }
 
         public async Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId)
@@ -263,6 +266,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             dto.AllergyRiskLevel = matchedKeys.Count > 0 ? AllergenCatalog.RiskHigh : AllergenCatalog.RiskNone;
             dto.IsSafeForUser = AllergenCatalog.IsSafeForUser(dto.AllergyRiskLevel);
             return dto;
+        }
+
+        public async Task<IEnumerable<RecommendationItemResponse>> GetRecommendationsAsync(Guid userId, RecommendationRequest request)
+        {
+            if (request.TargetCalories == null || request.TargetCalories <= 0)
+            {
+                var health = await _healthProfileService.GetAsync(userId);
+                request.TargetCalories = health?.TargetCalories ?? 2000;
+            }
+
+            return await _recommendationService.RecommendByCaloriesAsync(userId, request);
+        }
+
+        public async Task<UserAiProfileResponse> SavePreferenceAsync(Guid userId, UpdateUserAiProfileRequest request)
+        {
+            return await _userAiProfileService.UpsertAsync(userId, request);
         }
     }
 }
