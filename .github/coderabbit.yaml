@@ -1,0 +1,267 @@
+# CodeRabbit PR Review Configuration
+# https://docs.coderabbit.ai
+
+language: en-US
+
+early_access: true
+
+reviews:
+  path_filters:
+    include:
+      - '**/*'
+    exclude:
+      - '**/*.md'
+      - '**/node_modules/**'
+      - '**/.dart_tool/**'
+      - '**/build/**'
+      - '**/.git/**'
+      - '**/.github/**'
+
+  profile:
+    # High quality reviews with detailed explanations
+    name: high_quality_review
+
+  high_level_summary: true
+  auto_title_placeholder: true
+  poem: false
+  review_status: true
+  collapse walkthrough: false
+  sequence_flows_enabled: true
+
+  review_status_draft:
+    enabled: true
+
+  sequence_flows:
+    max_depth: 3
+
+  path_configs:
+    backend:
+      root: backend
+      patterns:
+        - '**/*.cs'
+        - '**/*.csproj'
+      tests_root: ''
+      test_patterns: []
+
+    frontend:
+      root: frontend
+      patterns:
+        - '**/*.dart'
+      tests_root: ''
+      test_patterns:
+        - '**/*_test.dart'
+        - '**/*_widget_test.dart'
+
+    frontend_web:
+      root: frontend-web
+      patterns:
+        - '**/*.ts'
+        - '**/*.tsx'
+        - '**/*.js'
+        - '!node_modules/**'
+        - '!**/*.config.js'
+        - '!**/dist/**'
+      tests_root: ''
+      test_patterns:
+        - '**/*.test.ts'
+        - '**/*.test.tsx'
+        - '**/*.spec.ts'
+        - '**/*.spec.tsx'
+
+  llm_opt_in: true
+
+chat:
+  auto_reply: true
+
+tools:
+  swiftlint:
+    enabled: false
+
+  ruff:
+    enabled: false
+
+  ruff_lsp:
+    enabled: false
+
+  golangci_lint:
+    enabled: false
+
+  detekt:
+    enabled: false
+
+  msbuild:
+    enabled: true
+
+  eslint:
+    enabled: false
+
+  flutter_analyze:
+    enabled: true
+    run_available_check: true
+
+  dotnet_build:
+    enabled: true
+
+  csharp_analyzer:
+    enabled: true
+
+  cargo_clippy:
+    enabled: false
+
+  biome:
+    enabled: false
+
+  markdown_link_check:
+    enabled: true
+    run_available_check: true
+
+  checkstyle:
+    enabled: false
+
+  hadolint:
+    enabled: false
+
+  actionlint:
+    enabled: true
+
+  phpstan:
+    enabled: false
+
+  python_bin:
+    enabled: false
+
+  shiki_coc:
+    enabled: false
+
+  prettier:
+    enabled: false
+
+  yamllint:
+    enabled: true
+
+  gitleaks:
+    enabled: true
+
+  trufflehog:
+    enabled: true
+
+uploads:
+  reports:
+    jar: true
+    junit_xml: true
+    sarif: true
+    hotspot: true
+
+notifications:
+  wait_for_coderabbit: true
+
+  requesators_workflow:
+    enabled: true
+
+  high_level_summary:
+    auto_title: true
+    bearer_token: $CR_GITHUB_TOKEN
+    repo_token: $GITHUB_TOKEN
+    update_filter_requested_by_reviewer: true
+    update_branch: false
+    update_branch_rebase: false
+
+  collapse_walkthrough: false
+  sequence_diagrams:
+    enabled: true
+    repos:
+      frontend:
+        languages:
+          - dart
+      backend:
+        languages:
+          - csharp
+      frontend_web:
+        languages:
+          - typescript
+
+  status_badge:
+    enabled: true
+    branded: false
+    simple: true
+
+# Custom prompts for this project
+custom_pr_templates:
+  - name: bug_fix
+    description: Bug Fix PR
+    body: |
+      ## Bug Fix
+
+      ### Issue
+      <!-- Link to the issue -->
+
+      ### Root Cause
+      <!-- Explain the root cause -->
+
+      ### Solution
+      <!-- Describe the fix -->
+
+      ### Testing
+      <!-- How was this tested? -->
+
+  - name: feature
+    description: Feature PR
+    body: |
+      ## New Feature
+
+      ### Summary
+      <!-- Brief description -->
+
+      ### Changes
+      <!-- List of changes -->
+
+      ### Screenshots (if applicable)
+      <!-- Add screenshots -->
+
+      ### Testing
+      <!-- How was this tested? -->
+
+  - name: refactor
+    description: Refactor PR
+    body: |
+      ## Refactor
+
+      ### Reason
+      <!-- Why is this refactor needed? -->
+
+      ### Changes
+      <!-- List of changes -->
+
+      ### Impact
+      <!-- Any impact on functionality? -->
+
+  - name: hotfix
+    description: Hotfix PR
+    body: |
+      ## Hotfix
+
+      ### Critical Issue
+      <!-- Describe the critical issue -->
+
+      ### Fix
+      <!-- The fix applied -->
+
+      ### Testing
+      <!-- Verification steps -->
+
+# Webhooks for notifications
+webhooks:
+  - enabled: true
+    url: $CR_WEBHOOK_URL
+    events:
+      - 'pr.created'
+      - 'pr.modified'
+      - 'pr.reopened'
+      - 'pr.merged'
+      - 'pr.closed'
+      - 'review.started'
+      - 'review.finished'
+      - 'comment.created'
+      - 'comment.modified'
+    on_errors:
+      - enabled: true
