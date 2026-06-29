@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 
 namespace MenuGreen.BusinessLogicLayer.Interfaces
@@ -12,6 +13,16 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         /// polling for completion, verifying allergy risks, logging the action,
         /// and returning the result.
         /// </summary>
-        Task<CvInferenceResponse> AnalyzeImageAsync(Guid userId, Stream imageStream, string fileName, string contentType);
+        Task<CvInferenceResponse> AnalyzeImageAsync(
+            Guid userId,
+            Stream imageStream,
+            string fileName,
+            string contentType
+        );
+
+        Task<MealLogResponse> CreateMealLogFromCvDishAsync(
+            Guid userId,
+            CvMealLogCreateRequest request
+        );
     }
 }

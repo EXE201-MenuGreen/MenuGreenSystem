@@ -1,13 +1,17 @@
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Configuration;
 using MenuGreen.BusinessLogicLayer.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MenuGreen.BusinessLogicLayer
 {
     public static class DependencyInjection
     {
-        public static IServiceCollection AddBusinessLogicLayer(this IServiceCollection services)
+        public static IServiceCollection AddBusinessLogicLayer(this IServiceCollection services, IConfiguration configuration)
         {
+            services.AddCvServiceOptions(configuration);
+
             services.AddSingleton<ISepayPaymentStatusCache, SepayPaymentStatusCache>();
 
             services.AddScoped<IAuthService, AuthService>();
