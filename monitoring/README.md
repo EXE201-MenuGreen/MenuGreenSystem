@@ -92,34 +92,46 @@ git clone https://github.com/your-repo/MenuGreenSystem.git
 cd MenuGreenSystem
 ```
 
-### 4. Generate htpasswd password
+### 4. Setup Environment Variables
 
 ```bash
-# Thay đổi password mặc định
+# Copy template
+cp .env.example .env
+
+# Edit .env với password của bạn
+nano .env
+
+# Hoặc generate htpasswd password
 cd monitoring/scripts
 chmod +x generate-password.sh
 ./generate-password.sh admin
 # Nhập password mới khi được yêu cầu
+# Copy output vào monitoring/nginx/.htpasswd
 
-# Hoặc tạo thủ công với openssl
-openssl passwd -apr1
-# Nhập password, copy output vào monitoring/nginx/.htpasswd
+# Quay lại thư mục root
+cd ../../
 ```
 
-### 5. Build và Start
+### 5. Tạo Docker Network
 
 ```bash
-# Tạo Docker network
 docker network create menugreen-net
+```
 
+### 6. Build và Start
+
+```bash
 # Build và start tất cả services
 docker-compose up -d --build
 
 # Kiểm tra status
 docker-compose ps
+
+# Xem logs nếu có lỗi
+docker-compose logs -f
 ```
 
-### 6. Verify Services
+### 7. Verify Services
 
 ```bash
 # API Health
@@ -128,7 +140,7 @@ curl http://localhost/health
 # Prometheus
 curl http://localhost:9090
 
-# Grafana (user: admin, pass: changeme123)
+# Grafana
 http://your-ip:3000
 
 # cAdvisor
@@ -137,20 +149,40 @@ http://your-ip:8080
 
 ---
 
+## Access Credentials
+
+Credentials được cấu hình trong file `.env` trên server.
+
+| Service | URL | Auth |
+|---------|-----|------|
+| API | `http://your-ip/` | None |
+| Health | `http://your-ip/health` | None |
+| Grafana | `http://your-ip/grafana` | ${GF_SECURITY_ADMIN_USER}/${GF_SECURITY_ADMIN_PASSWORD} |
+| Prometheus | `http://your-ip/prometheus` | ${NGINX_BASIC_AUTH_USER}/${NGINX_BASIC_AUTH_PASSWORD} |
+| cAdvisor | `http://your-ip/cadvisor` | ${NGINX_BASIC_AUTH_USER}/${NGINX_BASIC_AUTH_PASSWORD} |
+| Metrics | `http://your-ip/metrics` | ${NGINX_BASIC_AUTH_USER}/${NGINX_BASIC_AUTH_PASSWORD} |
+
+**Lưu ý:** 
+- ${GF_SECURITY_ADMIN_USER} và ${GF_SECURITY_ADMIN_PASSWORD} là giá trị trong file `.env`
+- ${NGINX_BASIC_AUTH_USER} và ${NGINX_BASIC_AUTH_PASSWORD} là giá trị trong file `.env`
+- Trên production, **đỔI TẤT CẢ PASSWORDS** sang giá trị mạnh hơn
+
+---
+
 ## Grafana Setup
 
 ### 1. Login
 
 Truy cập: `http://your-ip:3000`
-- Username: `admin`
-- Password: `changeme123`
+- Username: giá trị `GF_SECURITY_ADMIN_USER` trong `.env`
+- Password: giá trị `GF_SECURITY_ADMIN_PASSWORD` trong `.env`
 
 ### 2. Change Password
 
 Đổi password ngay sau khi login:
 1. Click avatar (góc trái dưới)
 2. Chọn "Change password"
-3. Đặt password mới
+3. Đặt password mới mạnh hơn
 
 ### 3. Dashboard
 
@@ -172,10 +204,10 @@ Truy cập: Menu (hamburger) → Dashboards → MenuGreen System Overview
 
 ### 1. Access
 
-Truy cập: `http://your-ip:9090`
+Truy cập: `http://your-ip/prometheus`
 - Sẽ được hỏi basic auth
-- Username: `admin`
-- Password: password đã đặt ở bước 4
+- Username: giá trị `NGINX_BASIC_AUTH_USER` trong `.env`
+- Password: giá trị `NGINX_BASIC_AUTH_PASSWORD` trong `.env`
 
 ### 2. Check Targets
 
@@ -248,21 +280,6 @@ crontab -e
 # Chạy thủ công để test
 ./monitoring/scripts/alert.sh
 ```
-
----
-
-## UptimeRobot Setup
-
-Xem chi tiết: `monitoring/docs/uptimerobot-setup.md`
-
-### Quick Setup
-
-1. Đăng ký: https://uptimerobot.com
-2. Thêm monitor:
-   - Type: HTTP(s)
-   - URL: `http://your-domain.com/health`
-   - Interval: 5 minutes
-3. Thêm alert contacts
 
 ---
 
@@ -377,22 +394,9 @@ docker volume inspect menugreen_prometheus_data
 
 ---
 
-## Access URLs
-
-| Service | URL | Auth |
-|---------|-----|------|
-| API | `http://your-ip/` | None |
-| Health | `http://your-ip/health` | None |
-| Grafana | `http://your-ip/grafana` | admin/changeme123 |
-| Prometheus | `http://your-ip/prometheus` | admin/*password* |
-| cAdvisor | `http://your-ip/cadvisor` | admin/*password* |
-| Metrics | `http://your-ip/metrics` | admin/*password* |
-
----
-
 ## Security Checklist
 
-- [ ] Đổi Grafana password (admin)
+- [ ] Đổi Grafana password (admin/changeme123)
 - [ ] Đổi htpasswd cho Nginx
 - [ ] Cập nhật ALERT_EMAIL trong alert.sh
 - [ ] Setup SSL với Let's Encrypt
