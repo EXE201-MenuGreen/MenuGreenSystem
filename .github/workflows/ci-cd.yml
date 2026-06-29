@@ -44,17 +44,17 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore backend/MenuGreen.sln
 
       - name: Build
-        run: dotnet build --no-restore -c Release
+        run: dotnet build backend/MenuGreen.sln --no-restore -c Release
 
       - name: Test
         env:
           ConnectionStrings__DefaultConnection: >-
             Host=localhost;Port=5432;Database=menugreen_test;
             Username=test;Password=test123;SSL Mode=Prefer
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: dotnet test backend/MenuGreen.sln --no-build -c Release --verbosity normal
 
   # ===========================================================================
   # Job 2: Build Docker Image
