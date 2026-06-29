@@ -118,34 +118,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-
-      - name: Add known hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-
       - name: Deploy via SSH
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_IMAGE: ghcr.io/${{ env.IMAGE_NAME }}
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} << 'ENDSSH'
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          envs: GHCR_IMAGE
+          env:
+            GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GHCR_IMAGE: ghcr.io/${{ env.IMAGE_NAME }}
+            DB_HOST: ${{ secrets.DB_HOST }}
+            DB_PORT: ${{ secrets.DB_PORT }}
+            DB_NAME: ${{ secrets.DB_NAME }}
+            DB_USER: ${{ secrets.DB_USER }}
+            DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+            REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+            GF_ADMIN_PASSWORD: ${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+          script: |
             set -e
 
             # Configuration
             APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
             REGISTRY="$GHCR_IMAGE"
-            IMAGE_TAG="{{ steps.meta.outputs.tags }}"
-            DB_HOST="${{ secrets.DB_HOST }}"
-            DB_PORT="${{ secrets.DB_PORT }}"
-            DB_NAME="${{ secrets.DB_NAME }}"
-            DB_USER="${{ secrets.DB_USER }}"
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-            REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
-            GF_ADMIN_PASSWORD="${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}"
 
             # Create app directory
             mkdir -p $APP_DIR
@@ -161,7 +156,7 @@ jobs:
             docker rm menugreen-api || true
 
             # Create .env file
-            cat > $APP_DIR/.env << EOF
+            cat > $APP_DIR/.env << 'EOF'
             ASPNETCORE_ENVIRONMENT=Production
             ASPNETCORE_URLS=http://+:5000
             ConnectionStrings__DefaultConnection=Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;SSL Mode=Require
@@ -187,7 +182,6 @@ jobs:
             docker system prune -f
 
             echo "Deployment completed successfully!"
-          ENDSSH
 
       - name: Wait for API to be healthy
         run: |
