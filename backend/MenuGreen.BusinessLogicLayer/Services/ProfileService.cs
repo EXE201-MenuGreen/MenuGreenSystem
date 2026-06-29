@@ -33,6 +33,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
 
+            var dob = request.DateOfBirth ?? profile.DateOfBirth;
+            if (!dob.HasValue)
+            {
+                throw new ArgumentException("Date of birth is required to calculate your profile and target metrics.");
+            }
+
             if (request.FullName != null) profile.FullName = request.FullName;
             if (request.DateOfBirth != null) profile.DateOfBirth = request.DateOfBirth;
             if (request.Gender != null) profile.Gender = request.Gender;

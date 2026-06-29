@@ -61,6 +61,9 @@ else
 
 builder.Services.AddBusinessLogicLayer();
 
+builder.Services.AddSignalR();
+builder.Services.AddScoped<MenuGreen.BusinessLogicLayer.Interfaces.INotificationHubService, MenuGreen.API.Hubs.NotificationHubService>();
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -92,15 +95,17 @@ builder.Services.AddCors(options =>
     {
         if (isDevelopment || allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
         {
-            policy.AllowAnyOrigin()
+            policy.SetIsOriginAllowed(origin => true)
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         }
         else
         {
             policy.WithOrigins(allowedOrigins)
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         }
     });
 });
@@ -155,6 +160,19 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
         ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Audience"]),
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -262,6 +280,7 @@ app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<MenuGreen.API.Hubs.NotificationHub>("/notificationHub");
 
 // Health check endpoints
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

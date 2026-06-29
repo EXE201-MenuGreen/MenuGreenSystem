@@ -96,9 +96,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> BuildDailyMenuAsync(Guid? userId, RecommendationRequest request)
         {
             var targetCalories = request.TargetCalories ?? 0;
-            var breakfastTarget = targetCalories * 0.25m;
+            var breakfastTarget = targetCalories * 0.30m;
             var lunchTarget = targetCalories * 0.35m;
-            var dinnerTarget = targetCalories * 0.30m;
+            var dinnerTarget = targetCalories * 0.25m;
             var snackTarget = targetCalories * 0.10m;
 
             var slots = new[]
@@ -557,9 +557,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<WeeklyPlanGenerateResponse> GenerateWeeklyPlanAsync(Guid userId, WeeklyPlanGenerateRequest request)
         {
             var targetCaloriesPerDay = request.TargetCaloriesPerDay;
-            var breakfastTarget = targetCaloriesPerDay * 0.25m;
+            var breakfastTarget = targetCaloriesPerDay * 0.30m;
             var lunchTarget = targetCaloriesPerDay * 0.35m;
-            var dinnerTarget = targetCaloriesPerDay * 0.30m;
+            var dinnerTarget = targetCaloriesPerDay * 0.25m;
             var snackTarget = targetCaloriesPerDay * 0.10m;
 
             var days = new List<WeeklyDayPlanDto>();

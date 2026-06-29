@@ -95,7 +95,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var carbDev = targetCarbs > 0 ? ((avgCarbs - targetCarbs) / targetCarbs) * 100m : 0m;
             var fatDev = targetFat > 0 ? ((avgFat - targetFat) / targetFat) * 100m : 0m;
 
-            var hasCalDrift = targetCal > 0 && Math.Abs(calDev) > 10m;
+            var hasCalDrift = targetCal > 0 && Math.Abs(calDev) > 8m;
             var hasMacroDrift = (targetProtein > 0 && Math.Abs(protDev) > 15m) ||
                                 (targetCarbs > 0 && Math.Abs(carbDev) > 15m) ||
                                 (targetFat > 0 && Math.Abs(fatDev) > 15m);

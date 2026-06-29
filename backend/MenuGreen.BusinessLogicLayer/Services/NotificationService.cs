@@ -13,10 +13,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class NotificationService : INotificationService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationHubService _notificationHubService;
+        private readonly IFcmService _fcmService;
 
-        public NotificationService(IUnitOfWork unitOfWork)
+        public NotificationService(IUnitOfWork unitOfWork, INotificationHubService notificationHubService, IFcmService fcmService)
         {
             _unitOfWork = unitOfWork;
+            _notificationHubService = notificationHubService;
+            _fcmService = fcmService;
         }
 
         public async Task<NotificationSettingResponse> GetSettingsAsync(Guid userId)
@@ -71,7 +75,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             notification.ReadAt = DateTimeOffset.UtcNow;
             _unitOfWork.Notifications.Update(notification);
             await _unitOfWork.CompleteAsync();
-            return MapNotification(notification);
+            var response = MapNotification(notification);
+
+            try
+            {
+                var count = await GetUnreadCountAsync(userId);
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+            }
+            catch { }
+
+            return response;
         }
 
         public async Task MarkAllAsReadAsync(Guid userId)
@@ -85,6 +98,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, 0);
+            }
+            catch { }
         }
 
         public async Task DeleteAsync(Guid userId, Guid notificationId)
@@ -92,6 +111,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var notification = await GetOwnedNotificationAsync(userId, notificationId);
             _unitOfWork.Notifications.Remove(notification);
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                var count = await GetUnreadCountAsync(userId);
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+            }
+            catch { }
         }
 
         public async Task<int> DeleteBatchAsync(Guid userId, List<Guid> notificationIds)
@@ -112,6 +138,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                var count = await GetUnreadCountAsync(userId);
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+            }
+            catch { }
+
             return notificationList.Count;
         }
 
@@ -133,6 +167,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                var count = await GetUnreadCountAsync(userId);
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+            }
+            catch { }
+
             return notificationList.Count;
         }
 
@@ -221,7 +263,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             notification.DismissedAt = DateTimeOffset.UtcNow;
             _unitOfWork.Notifications.Update(notification);
             await _unitOfWork.CompleteAsync();
-            return MapNotification(notification);
+            var response = MapNotification(notification);
+
+            try
+            {
+                var count = await GetUnreadCountAsync(userId);
+                await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+            }
+            catch { }
+
+            return response;
         }
 
         public async Task<object> GetAnalyticsAsync(Guid userId)
@@ -570,7 +621,60 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.Notifications.AddAsync(notification);
             await _unitOfWork.CompleteAsync();
-            return MapNotification(notification);
+            var response = MapNotification(notification);
+
+            if (scheduledAt <= DateTimeOffset.UtcNow)
+            {
+                var settings = await EnsureSettingsAsync(userId);
+                
+                if (settings.InAppEnabled)
+                {
+                    try
+                    {
+                        await _notificationHubService.SendNotificationToUserAsync(userId, response);
+                    }
+                    catch
+                    {
+                        // Ignore
+                    }
+                }
+
+                if (settings.PushEnabled)
+                {
+                    try
+                    {
+                        var data = $"{notification.Type}|{notification.Id}";
+                        await _fcmService.SendToUserAsync(userId, title, body, data);
+                        notification.SentAt = DateTimeOffset.UtcNow;
+                        _unitOfWork.Notifications.Update(notification);
+                        await _unitOfWork.CompleteAsync();
+                        response.SentAt = notification.SentAt;
+                    }
+                    catch
+                    {
+                        // Ignore
+                    }
+                }
+                else
+                {
+                    notification.SentAt = DateTimeOffset.UtcNow;
+                    _unitOfWork.Notifications.Update(notification);
+                    await _unitOfWork.CompleteAsync();
+                    response.SentAt = notification.SentAt;
+                }
+
+                try
+                {
+                    var count = await GetUnreadCountAsync(userId);
+                    await _notificationHubService.SendUnreadCountToUserAsync(userId, count);
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return response;
         }
 
         private async Task<Notification> GetOwnedNotificationAsync(Guid userId, Guid notificationId)
