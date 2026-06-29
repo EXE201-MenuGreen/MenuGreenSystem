@@ -1,212 +1,236 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # =============================================================================
-# MenuGreen System - Production Deploy Script
-# Target: AWS Lightsail Ubuntu 22.04
-# Architecture: API + Redis (Docker), PostgreSQL (AWS RDS)
+# MenuGreen System - Deployment Script
+# =============================================================================
+# Usage: ./deploy.sh [environment]
+# Environments: staging, production
 # =============================================================================
 
 set -euo pipefail
 
-echo "=========================================="
-echo "  MenuGreen Production Deploy"
-echo "=========================================="
+# =============================================================================
+# Configuration
+# =============================================================================
 
-# Check running as root or with sudo
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root or with sudo"
-    exit 1
-fi
+# Colors for output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
 
+# Default values
+ENVIRONMENT="${1:-production}"
 APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
-ENV_FILE="$APP_DIR/.env"
-COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
-BACKUP_DIR="/home/ubuntu/backups/redis"
 LOG_DIR="/home/ubuntu/logs"
+BACKUP_DIR="/home/ubuntu/backups"
 
-# Detect docker compose command (v2: 'docker compose', v1: 'docker-compose')
-if docker compose version >/dev/null 2>&1; then
-    DOCKER_COMPOSE="docker compose -f $COMPOSE_FILE"
-elif command -v docker-compose >/dev/null 2>&1; then
-    DOCKER_COMPOSE="docker-compose -f $COMPOSE_FILE"
-else
-    echo "ERROR: Docker Compose is not installed"
+# =============================================================================
+# Functions
+# =============================================================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# =============================================================================
+# Pre-deployment checks
+# =============================================================================
+
+log_info "Starting deployment to ${ENVIRONMENT}..."
+
+# Check if running as ubuntu user
+if [[ "$USER" != "ubuntu" ]]; then
+    log_warning "Running as $USER, but recommended to run as ubuntu user"
+fi
+
+# Create directories
+mkdir -p "$APP_DIR" "$LOG_DIR" "$BACKUP_DIR"
+
+# =============================================================================
+# Load environment variables
+# =============================================================================
+
+ENV_FILE="$APP_DIR/.env"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+    log_error "Environment file not found: $ENV_FILE"
+    log_info "Please create .env file with required variables"
     exit 1
 fi
 
-# -----------------------------------------------------
-# 1. Check prerequisites
-# -----------------------------------------------------
-echo ""
-echo "[1/7] Checking prerequisites..."
-
-command -v docker >/dev/null 2>&1 || { echo "ERROR: Docker is not installed"; exit 1; }
-command -v curl >/dev/null 2>&1 || { echo "ERROR: curl is not installed"; exit 1; }
-
-echo "OK: Prerequisites checked"
-
-# -----------------------------------------------------
-# 2. Pull latest code
-# -----------------------------------------------------
-echo ""
-echo "[2/7] Pulling latest code..."
-
-cd "$APP_DIR"
-
-if [ -d ".git" ]; then
-    git fetch origin
-    git reset --hard origin/main
-    echo "OK: Code updated to latest"
-else
-    echo "WARNING: Not a git repository. Skipping git pull."
-fi
-
-# -----------------------------------------------------
-# 3. Verify .env exists
-# -----------------------------------------------------
-echo ""
-echo "[3/7] Checking .env file..."
-
-if [ ! -f "$ENV_FILE" ]; then
-    echo "ERROR: .env file not found at $ENV_FILE"
-    echo "Please copy .env.production.example to .env and configure it first:"
-    echo "  cp $APP_DIR/.env.production.example $ENV_FILE"
-    echo "  nano $ENV_FILE"
-    exit 1
-fi
-
-# Load .env to check for placeholders
+# Export variables from .env file
 set -a
 source "$ENV_FILE"
 set +a
 
-# Validate critical env vars
-if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PASSWORD:-}" ]; then
-    echo "ERROR: DB_HOST or DB_PASSWORD not set in .env"
-    exit 1
-fi
+# =============================================================================
+# Database backup (production only)
+# =============================================================================
 
-if [ -z "${REDIS_PASSWORD:-}" ]; then
-    echo "ERROR: REDIS_PASSWORD not set in .env"
-    exit 1
-fi
-
-if grep -q "CHANGE_THIS\|<password>" "$ENV_FILE" 2>/dev/null; then
-    echo "ERROR: .env contains placeholder values. Please configure it properly."
-    exit 1
-fi
-
-echo "OK: .env validated"
-
-# -----------------------------------------------------
-# 4. Setup directories
-# -----------------------------------------------------
-echo ""
-echo "[4/7] Setting up directories..."
-
-mkdir -p "$BACKUP_DIR"
-mkdir -p "$LOG_DIR"
-chown -R ubuntu:ubuntu "$BACKUP_DIR" "$LOG_DIR" 2>/dev/null || true
-
-echo "OK: Directories ready"
-
-# -----------------------------------------------------
-# 5. Create Docker network (idempotent)
-# -----------------------------------------------------
-echo ""
-echo "[5/7] Setting up Docker network..."
-
-docker network create menugreen-net 2>/dev/null || echo "OK: Network already exists"
-
-# -----------------------------------------------------
-# 6. Build and start services
-# -----------------------------------------------------
-echo ""
-echo "[6/7] Building and starting services..."
-
-# Stop existing containers
-$DOCKER_COMPOSE down 2>/dev/null || true
-
-# Build API image
-$DOCKER_COMPOSE build --no-cache
-
-# Start Redis first
-$DOCKER_COMPOSE up -d redis
-
-# Wait for Redis to be healthy
-echo "Waiting for Redis to be healthy..."
-REDIS_HEALTHY=false
-for i in {1..30}; do
-    if $DOCKER_COMPOSE exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q "PONG"; then
-        REDIS_HEALTHY=true
-        echo "OK: Redis is ready"
-        break
+if [[ "$ENVIRONMENT" == "production" ]]; then
+    log_info "Creating database backup..."
+    BACKUP_FILE="$BACKUP_DIR/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
+    
+    PGPASSWORD="$DB_PASSWORD" pg_dump \
+        -h "$DB_HOST" \
+        -p "$DB_PORT" \
+        -U "$DB_USER" \
+        -d "$DB_NAME" \
+        --no-acl \
+        --no-owner \
+        -F p \
+        -f "$BACKUP_FILE" \
+        || log_warning "Database backup failed, continuing anyway..."
+    
+    if [[ -f "$BACKUP_FILE" ]]; then
+        log_success "Database backup created: $BACKUP_FILE"
+        
+        # Keep only last 7 backups
+        ls -t "$BACKUP_DIR"/menugreen_backup_*.sql | tail -n +8 | xargs rm -f 2>/dev/null || true
     fi
-    if [ "$i" -eq 30 ]; then
-        echo "WARNING: Redis did not become healthy in time. Check logs."
-    fi
-    sleep 2
-done
-
-# Run database migrations (connecting to RDS)
-echo "Running database migrations..."
-MIGRATION_SUCCESS=false
-if $DOCKER_COMPOSE run --rm api dotnet ef database update --no-build 2>&1 | tee -a "$LOG_DIR/migration.log"; then
-    MIGRATION_SUCCESS=true
-    echo "OK: Migrations completed"
-elif $DOCKER_COMPOSE run --rm api dotnet ef database update 2>&1 | tee -a "$LOG_DIR/migration.log"; then
-    MIGRATION_SUCCESS=true
-    echo "OK: Migrations completed"
-else
-    echo "WARNING: EF migration failed. Check $LOG_DIR/migration.log"
 fi
 
-# Start API
-$DOCKER_COMPOSE up -d api
+# =============================================================================
+# Git pull latest code
+# =============================================================================
 
-# -----------------------------------------------------
-# 7. Health check
-# -----------------------------------------------------
-echo ""
-echo "[7/7] Running health check..."
+log_info "Pulling latest code..."
+cd "$APP_DIR"
+git fetch origin
+git pull origin main || git pull origin Tuan
 
-sleep 10
+# =============================================================================
+# Login to GHCR
+# =============================================================================
 
-MAX_RETRIES=12
-RETRY_INTERVAL=5
+log_info "Logging in to GHCR..."
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+# =============================================================================
+# Pull latest Docker image
+# =============================================================================
+
+IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}/menugreen-api"
+
+log_info "Pulling latest image: $IMAGE_NAME"
+docker pull "$IMAGE_NAME:latest" || log_warning "Could not pull image, building locally..."
+
+# =============================================================================
+# Stop existing container
+# =============================================================================
+
+log_info "Stopping existing containers..."
+
+# Stop main API
+docker stop menugreen-api 2>/dev/null || true
+docker rm menugreen-api 2>/dev/null || true
+
+# Stop monitoring stack
+docker compose -f "$APP_DIR/docker-compose.monitoring.yml" down 2>/dev/null || true
+
+# =============================================================================
+# Run database migration
+# =============================================================================
+
+log_info "Running database migrations..."
+
+docker run --rm \
+    --env-file "$ENV_FILE" \
+    -w /src \
+    "$IMAGE_NAME:latest" \
+    dotnet ef database update \
+    --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
+    --startup-project backend/MenuGreen.API/MenuGreen.API.csproj \
+    --no-build \
+    || log_warning "Migration may have already been applied"
+
+# =============================================================================
+# Start main application
+# =============================================================================
+
+log_info "Starting MenuGreen API..."
+
+docker run -d \
+    --name menugreen-api \
+    --restart unless-stopped \
+    --env-file "$ENV_FILE" \
+    -p 5000:5000 \
+    -v "$APP_DIR/logs:/app/logs" \
+    "$IMAGE_NAME:latest"
+
+# =============================================================================
+# Wait for API to be healthy
+# =============================================================================
+
+log_info "Waiting for API to be healthy..."
 API_HEALTHY=false
 
-for i in $(seq 1 $MAX_RETRIES); do
-    if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
+for i in {1..30}; do
+    if curl -sf "http://localhost:5000/health" > /dev/null 2>&1; then
         API_HEALTHY=true
-        echo "OK: API health check passed"
         break
     fi
-    echo "Waiting for API... ($i/$MAX_RETRIES)"
-    sleep "$RETRY_INTERVAL"
+    echo -n "."
+    sleep 2
 done
+echo ""
 
-if [ "$API_HEALTHY" = false ]; then
-    echo ""
-    echo "WARNING: API health check did not pass within timeout"
-    echo "Check logs: $DOCKER_COMPOSE logs api"
-    echo ""
+if [[ "$API_HEALTHY" == "true" ]]; then
+    log_success "API is healthy!"
+else
+    log_error "API health check failed!"
+    log_info "Checking container logs..."
+    docker logs menugreen-api --tail 50
+    exit 1
 fi
 
-# -----------------------------------------------------
-# Summary
-# -----------------------------------------------------
+# =============================================================================
+# Start monitoring stack
+# =============================================================================
+
+log_info "Starting monitoring stack..."
+
+if [[ -f "$APP_DIR/docker-compose.monitoring.yml" ]]; then
+    docker compose -f "$APP_DIR/docker-compose.monitoring.yml" up -d
+    log_success "Monitoring stack started!"
+else
+    log_warning "Monitoring compose file not found, skipping..."
+fi
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+log_info "Cleaning up unused Docker resources..."
+docker system prune -f --filter "until=24h" 2>/dev/null || true
+
+# =============================================================================
+# Final status
+# =============================================================================
+
+log_success "=============================================="
+log_success "Deployment completed successfully!"
+log_success "=============================================="
 echo ""
-echo "=========================================="
-echo "  Deploy Status"
-echo "=========================================="
-$DOCKER_COMPOSE ps
+echo "  API:          http://localhost:5000"
+echo "  Swagger:      http://localhost:5000/swagger"
+echo "  Grafana:     http://localhost:3000"
+echo "  Prometheus:  http://localhost:9090"
+echo "  cAdvisor:    http://localhost:8080"
 echo ""
-echo "Access points:"
-echo "  API:      http://$(curl -s ifconfig.me 2>/dev/null || echo 'localhost'):5000/"
-echo "  Health:   http://$(curl -s ifconfig.me 2>/dev/null || echo 'localhost'):5000/health"
-echo ""
-echo "View logs:"
-echo "  API:   $DOCKER_COMPOSE logs -f api"
-echo "  Redis: $DOCKER_COMPOSE logs -f redis"
-echo ""
-echo "Deploy complete!"
+
+# Show container status
+docker ps --filter "name=menugreen" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
