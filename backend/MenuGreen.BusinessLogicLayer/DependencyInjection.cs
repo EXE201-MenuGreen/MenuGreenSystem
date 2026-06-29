@@ -1,5 +1,6 @@
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.BusinessLogicLayer.Services;
+using MenuGreen.BusinessLogicLayer.BackgroundJobs;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MenuGreen.BusinessLogicLayer
@@ -42,6 +43,11 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IFcmService, FcmService>();
             services.AddScoped<INotificationDispatcherService, NotificationDispatcherService>();
             services.AddHostedService<NotificationDispatchBackgroundService>();
+            services.AddHostedService<SubscriptionExpirationBackgroundService>();
+            services.AddHostedService<StreakResetBackgroundService>();
+            services.AddHostedService<GoalDriftDetectionBackgroundService>();
+            services.AddHostedService<SepayReconciliationBackgroundService>();
+            services.AddHostedService<DailyStarterBackgroundService>();
             services.AddScoped<IReminderService, ReminderService>();
             services.AddScoped<IGoalDriftService, GoalDriftService>();
             services.AddScoped<IDailyStarterService, DailyStarterService>();
