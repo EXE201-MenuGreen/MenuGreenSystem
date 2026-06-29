@@ -492,6 +492,9 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
+# Monitoring sensitive files
+monitoring/nginx/.htpasswd
+
 # User configuration files
 backend/MenuGreen.API/appsettings.json
 backend/MenuGreen.API/appsettings.Development.json
