@@ -298,81 +298,119 @@ cd MenuGreenSystem
 docker network create menugreen-net
 ```
 
-### Bước 6.4: Configure Credentials
+### Bước 6.4: Configure Environment Variables
 
 ```bash
-# Tạo file .env
-cat > .env << 'EOF'
-# Database
-POSTGRES_PASSWORD=your_secure_password_here
+# Copy template .env.example
+cp .env.example .env
 
-# JWT (generate random)
-JWT_SECRET_KEY=your_very_long_random_secret_key_here_at_least_32_chars
+# Edit .env với giá trị của bạn
+nano .env
 
-# Firebase (optional)
-FIREBASE_CREDENTIALS_PATH=path/to/firebase.json
-EOF
-
-# ⚠️ Bảo mật: Đổi password trong docker-compose.yml
-# hoặc dùng environment variables thay vì hardcode
-```
-
-### Bước 6.5: Generate Monitoring Password
-
-```bash
-# Vào monitoring directory
+# Hoặc generate htpasswd password cho monitoring
 cd monitoring/scripts
-
-# Tạo password mới cho monitoring
 chmod +x generate-password.sh
 ./generate-password.sh admin
 # Nhập password mới khi được yêu cầu
 
-# Backup password đã tạo
+# Copy output vào monitoring/nginx/.htpasswd
 cd ../nginx
-cat .htpasswd
-# Copy dòng này để lưu lại
-```
+nano .htpasswd
+# Paste nội dung đã generate
 
-### Bước 6.6: Build và Start
-
-```bash
 # Quay lại root directory
 cd ~/apps/MenuGreenSystem
-
-# Build và start tất cả services
-docker-compose up -d --build
-
-# Xem progress
-docker-compose logs -f
-# Nhấn Ctrl+C để thoát log
 ```
 
-### Bước 6.7: Verify Services
+**Lưu ý quan trọng:**
+- File `.env` KHÔNG được commit lên Git (đã có trong `.gitignore`)
+- Chỉ cần điền các biến trong `.env`, `docker-compose.yml` đã dùng `${VAR}` rồi
+- Grafana password được lấy từ `GF_SECURITY_ADMIN_PASSWORD` trong `.env`
+- Nginx basic auth password được lấy từ `NGINX_BASIC_AUTH_PASSWORD` trong `.env`
+
+### Bước 6.5: Sử dụng Docker Compose Production (Khuyến nghị)
+
+Dự án đã cung cấp file `docker-compose.prod.yml` để deploy production:
+
+**Tại sao dùng `docker-compose.prod.yml`?**
+- Chỉ deploy services cần thiết (API + DB + Redis)
+- Port DB/Redis chỉ bind localhost (`127.0.0.1`) để tăng security
+- Không bao gồm monitoring stack trong deploy chính (monitoring sẽ setup sau)
+- Giảm attack surface và tài nguyên server
+
+```bash
+# Build image
+docker-compose -f docker-compose.prod.yml build --no-cache
+
+# Start services
+docker-compose -f docker-compose.prod.yml up -d
+
+# Xem logs
+docker-compose -f docker-compose.prod.yml logs -f
+```
+
+### Bước 6.6: Deploy bằng Script (Tự động hóa)
+
+```bash
+# Download deploy script (hoặc đã có sẵn trong repo)
+cd ~/apps/MenuGreenSystem/scripts
+
+# Chmod +x
+chmod +x deploy.sh
+
+# Chạy deploy (cần sudo)
+sudo ./deploy.sh
+```
+
+Script sẽ tự động:
+- Kiểm tra Docker + Docker Compose
+- Tạo Docker network nếu chưa có
+- Build images
+- Start DB/Redis, chờ DB sẵn sàng
+- Chạy EF migrations (nếu dotnet CLI có sẵn)
+- Start API
+- Chạy health check
+
+### Bước 6.7: Deploy thủ công (nếu cần)
+
+```bash
+cd ~/apps/MenuGreenSystem
+
+# Build image
+docker-compose -f docker-compose.prod.yml build
+
+# Start services theo thứ tự
+docker-compose -f docker-compose.prod.yml up -d db redis
+
+# Chờ DB ready (kiểm tra)
+docker-compose -f docker-compose.prod.yml exec db pg_isready -U postgres
+
+# Chạy EF migrations (nếu cần)
+cd backend/MenuGreen.API
+dotnet ef database update --no-build
+cd ~/apps/MenuGreenSystem
+
+# Start API
+docker-compose -f docker-compose.prod.yml up -d api
+```
+
+### Bước 6.8: Verify Services
 
 ```bash
 # Kiểm tra container status
-docker-compose ps
+docker-compose -f docker-compose.prod.yml ps
 
 # Output mong đợi:
 # NAME                IMAGE               COMMAND              SERVICE
-# menugreen_api       menugreen_api       "dotnet ..."        api
-# menugreen_cadvisor  gcr.io/cadvisor     "/usr/bin/cadvisor"  cadvisor
 # menugreen_db        postgres:15-alpine  "docker-entrypoint..." db
-# menugreen_grafana   grafana/grafana     "/run.sh"           grafana
-# menugreen_nginx     nginx:alpine        "/docker-entrypoint..." nginx
-# menugreen_prometheus prom/prometheus     "/bin/prometheus ..." prometheus
+# menugreen_api       menugreen_api       "dotnet ..."        api
 # menugreen_redis     redis:7-alpine      "redis-server ..."   redis
-```
 
-### Bước 6.8: Test API
+# Test API
+curl http://localhost:5000/health
 
-```bash
-# Test health endpoint
-curl http://localhost/health
-
-# Output mong đợi:
-# {"status":"Healthy","checks":[...]} hoặc HTML response
+# Test qua Nginx (nếu đã setup domain)
+curl http://your-domain.com/health
 ```
 
 ---
@@ -553,11 +591,7 @@ crontab -e
 │  [ ] Test HTTPS                                                        │
 │                                                                         │
 │  Monitoring:                                                            │
-│  [ ] Access Grafana (admin/changeme123)                               │
-│  [ ] Access Prometheus                                                 │
-│  [ ] Setup UptimeRobot                                                 │
-│  [ ] Setup alert email                                                 │
-│  [ ] Test alert script                                                 │
+│  [ ] Setup monitoring sau khi deploy production thành công              │
 │                                                                         │
 │  Security:                                                              │
 │  [ ] Đổi all default passwords                                         │
@@ -648,4 +682,4 @@ nslookup your-domain.com
 
 ---
 
-**Tiếp theo**: [Monitoring Setup Guide](./monitoring/README.md)
+**Tiếp theo**: [Sau khi deploy xong, setup Monitoring](./monitoring/README.md)
