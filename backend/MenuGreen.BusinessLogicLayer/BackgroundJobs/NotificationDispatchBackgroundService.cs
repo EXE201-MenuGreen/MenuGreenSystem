@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace MenuGreen.BusinessLogicLayer.Services
+namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
 {
     public class NotificationDispatchBackgroundService : BackgroundService
     {
