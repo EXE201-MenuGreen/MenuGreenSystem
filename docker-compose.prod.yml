@@ -8,10 +8,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
     networks:
       - menugreen-net
     restart: unless-stopped
@@ -24,8 +24,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: menugreen_redis
-    ports:
-      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -33,7 +31,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,7 +45,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_HTTP_PORTS=${ASPNETCORE_HTTP_PORTS}
       - ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${DB_SSL_MODE};Trust Server Certificate=${DB_TRUST_SERVER_CERTIFICATE}
-      - ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT}
+      - ConnectionStrings__Redis=redis:6379,password=${REDIS_PASSWORD}
       - CvService__BaseUrl=${CV_SERVICE_BASE_URL}
       - CvService__ApiSecretKey=${CV_SERVICE_API_SECRET_KEY}
       - ASPNETCORE_METRICS=${ASPNETCORE_METRICS}

@@ -18,6 +18,17 @@ fi
 
 APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
 ENV_FILE="$APP_DIR/.env"
+COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
+
+# Detect docker compose command (v2: 'docker compose', v1: 'docker-compose')
+if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose -f $COMPOSE_FILE"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose -f $COMPOSE_FILE"
+else
+    echo "ERROR: Docker Compose is not installed"
+    exit 1
+fi
 
 # -----------------------------------------------------
 # 1. Check prerequisites
@@ -26,18 +37,33 @@ echo ""
 echo "[1/6] Checking prerequisites..."
 
 command -v docker >/dev/null 2>&1 || { echo "ERROR: Docker is not installed"; exit 1; }
-command -v docker-compose >/dev/null 2>&1 || { echo "ERROR: Docker Compose is not installed"; exit 1; }
 
 # -----------------------------------------------------
-# 2. Verify .env exists
+# 2. Pull latest code
 # -----------------------------------------------------
 echo ""
-echo "[2/6] Checking .env file..."
+echo "[2/6] Pulling latest code..."
+
+cd "$APP_DIR"
+
+if [ -d ".git" ]; then
+    git fetch origin
+    git reset --hard origin/main
+    echo "OK: Code updated to latest"
+else
+    echo "WARNING: Not a git repository. Skipping git pull."
+fi
+
+# -----------------------------------------------------
+# 3. Verify .env exists
+# -----------------------------------------------------
+echo ""
+echo "[3/6] Checking .env file..."
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: .env file not found at $ENV_FILE"
-    echo "Please copy .env.example to .env and configure it first:"
-    echo "  cp $APP_DIR/.env.example $ENV_FILE"
+    echo "Please copy .env.production.example to .env and configure it first:"
+    echo "  cp $APP_DIR/.env.production.example $ENV_FILE"
     echo "  nano $ENV_FILE"
     exit 1
 fi
@@ -45,36 +71,28 @@ fi
 echo "OK: .env found"
 
 # -----------------------------------------------------
-# 3. Create Docker network (idempotent)
+# 4. Create Docker network (idempotent)
 # -----------------------------------------------------
 echo ""
-echo "[3/6] Setting up Docker network..."
+echo "[4/6] Setting up Docker network..."
 
 docker network create menugreen-net 2>/dev/null || echo "OK: Network already exists"
 
 # -----------------------------------------------------
-# 4. Pull and build images
+# 5. Build and start services
 # -----------------------------------------------------
 echo ""
-echo "[4/6] Building Docker images..."
+echo "[5/6] Building and starting services..."
 
-cd "$APP_DIR"
-
-docker-compose build --no-cache
-
-# -----------------------------------------------------
-# 5. Start services (with database migration)
-# -----------------------------------------------------
-echo ""
-echo "[5/6] Starting services..."
+$DOCKER_COMPOSE build --no-cache
 
 # Start DB and Redis first
-docker-compose up -d db redis
+$DOCKER_COMPOSE up -d db redis
 
 # Wait for DB to be ready
 echo "Waiting for PostgreSQL to be ready..."
 for i in {1..30}; do
-    if docker-compose exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; then
+    if $DOCKER_COMPOSE exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; then
         echo "OK: PostgreSQL is ready"
         break
     fi
@@ -85,21 +103,14 @@ for i in {1..30}; do
     sleep 2
 done
 
-# Run database migrations if dotnet-ef is available
+# Run database migrations
 echo "Running database migrations..."
-if command -v dotnet >/dev/null 2>&1; then
-    cd "$APP_DIR/backend/MenuGreen.API"
-    dotnet ef database update --no-build 2>/dev/null || \
-    dotnet ef database update 2>/dev/null || \
-    echo "WARNING: EF migration failed or not configured. Manual migration may be needed."
-    cd "$APP_DIR"
-else
-    echo "WARNING: dotnet CLI not found. Skipping EF migration."
-    echo "Please run migrations manually before deploying, or install dotnet SDK on server."
-fi
+$DOCKER_COMPOSE exec -T api dotnet ef database update --no-build || \
+$DOCKER_COMPOSE exec -T api dotnet ef database update || \
+echo "WARNING: EF migration failed. You may need to run migrations manually."
 
-# Start API and monitoring
-docker-compose up -d
+# Start API
+$DOCKER_COMPOSE up -d api
 
 # -----------------------------------------------------
 # 6. Health check
@@ -114,7 +125,7 @@ RETRY_INTERVAL=5
 API_HEALTHY=false
 
 for i in $(seq 1 $MAX_RETRIES); do
-    if curl -sf http://localhost/health >/dev/null 2>&1; then
+    if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
         API_HEALTHY=true
         echo "OK: API health check passed"
         break
@@ -125,7 +136,7 @@ done
 
 if [ "$API_HEALTHY" = false ]; then
     echo "WARNING: API health check did not pass within timeout"
-    echo "Check logs: docker-compose logs api"
+    echo "Check logs: $DOCKER_COMPOSE logs api"
 fi
 
 # -----------------------------------------------------
@@ -135,11 +146,11 @@ echo ""
 echo "=========================================="
 echo "  Deploy Status"
 echo "=========================================="
-docker-compose ps
+$DOCKER_COMPOSE ps
 echo ""
 echo "Access points:"
-echo "  API:      http://$(curl -s ifconfig.me)/"
-echo "  Health:   http://$(curl -s ifconfig.me)/health"
+echo "  API:      http://$(curl -s ifconfig.me):5000/"
+echo "  Health:   http://$(curl -s ifconfig.me):5000/health"
 echo ""
-echo "Logs: docker-compose logs -f"
-echo "Stop: docker-compose down"
+echo "Logs: $DOCKER_COMPOSE logs -f"
+echo "Stop: $DOCKER_COMPOSE down"
