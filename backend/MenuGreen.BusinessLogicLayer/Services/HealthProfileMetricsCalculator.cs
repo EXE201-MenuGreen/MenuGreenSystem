@@ -18,8 +18,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var multiplier = GetActivityMultiplier(healthProfile.ActivityLevel);
 
             healthProfile.Bmi = CalculateBmi(healthProfile.WeightKg.Value, healthProfile.HeightCm.Value);
-            healthProfile.BmrKcal = (int)Math.Round(bmr);
-            healthProfile.TdeeKcal = (int)Math.Round(bmr * multiplier);
+            healthProfile.BmrKcal = (int)Math.Round(bmr, MidpointRounding.AwayFromZero);
+            var calculatedTdee = (int)Math.Round(bmr * multiplier, MidpointRounding.AwayFromZero);
+            healthProfile.TdeeKcal = Math.Max(calculatedTdee, 1200);
             healthProfile.TargetCalories = targetCaloriesOverride
                 ?? CalculateTargetCalories(healthProfile.TdeeKcal.Value, healthProfile.Goal);
 
@@ -82,13 +83,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var goal = healthProfile.Goal?.Trim().ToLower();
             var proteinRatio = goal is "build muscle" or "buildmuscle" ? 0.35 : 0.30;
-            var fatRatio = goal is "build muscle" or "buildmuscle" ? 0.25 : 0.30;
-            const double carbsRatio = 0.40;
+            var fatRatio = goal is "build muscle" or "buildmuscle" ? 0.20 : 0.30;
+            var carbsRatio = goal is "build muscle" or "buildmuscle" ? 0.45 : 0.40;
 
             var targetCalories = (double)(healthProfile.TargetCalories ?? 0);
-            healthProfile.TargetProteinG = (int)Math.Round((targetCalories * proteinRatio) / 4);
-            healthProfile.TargetCarbsG = (int)Math.Round((targetCalories * carbsRatio) / 4);
-            healthProfile.TargetFatG = (int)Math.Round((targetCalories * fatRatio) / 9);
+            var proteinG = (targetCalories * proteinRatio) / 4;
+
+            if (healthProfile.WeightKg.HasValue && healthProfile.WeightKg.Value > 0)
+            {
+                var weight = (double)healthProfile.WeightKg.Value;
+                var minProtein = weight * 0.8;
+                var maxProtein = weight * 2.2;
+                if (proteinG < minProtein)
+                {
+                    proteinG = minProtein;
+                }
+                else if (proteinG > maxProtein)
+                {
+                    proteinG = maxProtein;
+                }
+            }
+
+            healthProfile.TargetProteinG = (int)Math.Round(proteinG, MidpointRounding.AwayFromZero);
+            healthProfile.TargetCarbsG = (int)Math.Round((targetCalories * carbsRatio) / 4, MidpointRounding.AwayFromZero);
+            healthProfile.TargetFatG = (int)Math.Round((targetCalories * fatRatio) / 9, MidpointRounding.AwayFromZero);
         }
     }
 }
