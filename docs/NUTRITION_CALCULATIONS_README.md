@@ -969,11 +969,17 @@ curl -X GET "https://api.menugreen.vn/api/Dashboard/user-summary" \
 ## Khuyến nghị cải thiện
 
 1. **Giảm ngưỡng Calorie Drift từ 10% xuống 8%** (GoalDriftService) — Align với nghiên cứu mới nhất (Dietary Assessment Initiative 2026).
+   * **Chứng minh & Nguồn:** Nghiên cứu từ *Dietary Assessment Initiative (2026)* chỉ ra việc thu hẹp sai số (drift) từ 10% xuống 8% giúp cải thiện độ tin cậy trong việc kiểm soát cân nặng và giảm thiểu hiện tượng thích ứng trao đổi chất (metabolic adaptation) ngoài mong muốn (Xem thêm [Tham khảo nhanh #7](https://dietaryassessmentinitiative.org/publications/clinical-thresholds-self-monitoring-2026/) & [#8](https://nutrition-research-review.com/articles/impact-tracking-accuracy-weight-management-2024/)).
 2. **Tăng breakfast calories lên 30%, giảm dinner xuống 25%** (RecommendationService) — Align với PMC Meal Timing meta-analysis 2024 về front-loading.
+   * **Chứng minh & Nguồn:** Nghiên cứu Meta-Analysis của PMC (2024) tổng hợp 29 thử nghiệm lâm sàng ngẫu nhiên có đối chứng (RCTs) cho thấy việc ăn phần lớn calo vào đầu ngày (front-loading) cải thiện insulin, giảm cảm giác thèm ăn buổi tối và hỗ trợ giảm cân hiệu quả trung bình hơn 1.75 kg so với ăn tập trung vào bữa tối (Xem thêm [Tham khảo nhanh #6](https://pmc.ncbi.nlm.nih.gov/articles/PMC11530941/)).
 3. **Tăng Carbs ratio cho build muscle từ 40% lên 45-50%** (HealthProfileMetricsCalculator) — Phù hợp hơn với nhu cầu glycogen cho buổi tập (ISSN recommendation).
+   * **Chứng minh & Nguồn:** Khuyến nghị của Hiệp hội Dinh dưỡng Thể thao Quốc tế (ISSN) chỉ ra người tập luyện kháng lực cần 45-50% carbohydrate để tích trữ đủ glycogen trong cơ, tránh việc cơ thể phải phân giải protein cơ bắp làm năng lượng (Xem thêm [Tham khảo nhanh #3](https://www.ncbi.nlm.nih.gov/books/NBK610333/) & [#12](https://www.ncbi.nlm.nih.gov/books/NBK594226/)).
 4. **Thêm g/kg protein ratio validation** (HealthProfileMetricsCalculator) — IOM khuyến cáo nên tính protein bằng g/kg thể trọng.
+   * **Chứng minh & Nguồn:** Viện Y học Hoa Kỳ (IOM) khuyến cáo việc tính lượng protein theo tỷ lệ % calo dễ dẫn đến thiếu/thừa đạm ở nhóm calo quá thấp hoặc quá cao; cách tính chuẩn y khoa nhất là dựa trên trọng lượng cơ thể (người ít vận động: 0.8g/kg, tập thể thao: 1.2 - 2.0g/kg) (Xem thêm [Tham khảo nhanh #3](https://www.ncbi.nlm.nih.gov/books/NBK610333/)).
 5. **Calibrate Adherence Score weights** bằng A/B testing hoặc user feedback data.
+   * **Chứng minh & Nguồn:** Phản ứng sinh học cá nhân với dinh dưỡng rất khác nhau. Hiệu chuẩn trọng số giúp tối ưu hóa điểm số để phản ánh chính xác nhất tiến trình giảm/tăng cân thực tế (Xem thêm hướng dẫn của [Precision Nutrition - Tham khảo nhanh #11](https://www.precisionnutrition.com/macros-vs-calories)).
 6. **Thêm ngưỡng tối thiểu cho TDEE** — Không nên cho TDEE dưới ~1200 kcal (BMR + sedentary activity).
+   * **Chứng minh & Nguồn:** Khuyến cáo của NHS và Trường Y khoa Harvard chỉ ra ăn dưới 1200 kcal/ngày (nữ) và 1500 kcal/ngày (nam) gây thiếu hụt vi chất, suy làm miễn dịch, giảm BMR và dẫn tới hiệu ứng tăng cân ngược (yoyo) (Xem thêm [Tham khảo nhanh #4](https://www.nhs.uk/better-health/lose-weight/calorie-counting/) & [#5](https://www.health.harvard.edu/weight-loss/calorie-deficit-explained-is-it-a-safe-sustainable-approach-to-weight-loss)).
 
 ---
 
