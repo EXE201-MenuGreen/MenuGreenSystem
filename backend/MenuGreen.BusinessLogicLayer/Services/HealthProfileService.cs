@@ -29,6 +29,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var userProfile = await GetUserProfileAsync(userId);
 
+            if (!userProfile.DateOfBirth.HasValue)
+            {
+                throw new ArgumentException("Please enter your date of birth in your profile first to calculate targets.");
+            }
+
             healthProfile.HeightCm = request.HeightCm;
             healthProfile.WeightKg = request.WeightKg;
             healthProfile.BodyFatPercent = request.BodyFatPercent;
@@ -59,6 +64,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var userProfile = await GetUserProfileAsync(userId);
 
+            if (!userProfile.DateOfBirth.HasValue)
+            {
+                throw new ArgumentException("Please enter your date of birth in your profile first to calculate targets.");
+            }
+
             HealthProfileMetricsCalculator.Apply(healthProfile, userProfile.Gender, userProfile.DateOfBirth);
             healthProfile.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.HealthProfiles.Update(healthProfile);
@@ -71,6 +81,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var userProfile = await GetUserProfileAsync(userId);
+
+            if (!userProfile.DateOfBirth.HasValue)
+            {
+                throw new ArgumentException("Please enter your date of birth in your profile first to calculate targets.");
+            }
 
             healthProfile.Goal = request.Goal;
             HealthProfileMetricsCalculator.Apply(healthProfile, userProfile.Gender, userProfile.DateOfBirth);
