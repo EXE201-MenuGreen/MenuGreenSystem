@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-# =====================================================
+# =============================================================================
 # MenuGreen System - Production Deploy Script
 # Target: AWS Lightsail Ubuntu 22.04
-# =====================================================
+# Architecture: API + Redis (Docker), PostgreSQL (AWS RDS)
+# =============================================================================
+
+set -euo pipefail
 
 echo "=========================================="
 echo "  MenuGreen Production Deploy"
@@ -19,6 +20,8 @@ fi
 APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
 ENV_FILE="$APP_DIR/.env"
 COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
+BACKUP_DIR="/home/ubuntu/backups/redis"
+LOG_DIR="/home/ubuntu/logs"
 
 # Detect docker compose command (v2: 'docker compose', v1: 'docker-compose')
 if docker compose version >/dev/null 2>&1; then
@@ -34,15 +37,18 @@ fi
 # 1. Check prerequisites
 # -----------------------------------------------------
 echo ""
-echo "[1/6] Checking prerequisites..."
+echo "[1/7] Checking prerequisites..."
 
 command -v docker >/dev/null 2>&1 || { echo "ERROR: Docker is not installed"; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "ERROR: curl is not installed"; exit 1; }
+
+echo "OK: Prerequisites checked"
 
 # -----------------------------------------------------
 # 2. Pull latest code
 # -----------------------------------------------------
 echo ""
-echo "[2/6] Pulling latest code..."
+echo "[2/7] Pulling latest code..."
 
 cd "$APP_DIR"
 
@@ -58,7 +64,7 @@ fi
 # 3. Verify .env exists
 # -----------------------------------------------------
 echo ""
-echo "[3/6] Checking .env file..."
+echo "[3/7] Checking .env file..."
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: .env file not found at $ENV_FILE"
@@ -68,55 +74,100 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-echo "OK: .env found"
+# Load .env to check for placeholders
+set -a
+source "$ENV_FILE"
+set +a
+
+# Validate critical env vars
+if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PASSWORD:-}" ]; then
+    echo "ERROR: DB_HOST or DB_PASSWORD not set in .env"
+    exit 1
+fi
+
+if [ -z "${REDIS_PASSWORD:-}" ]; then
+    echo "ERROR: REDIS_PASSWORD not set in .env"
+    exit 1
+fi
+
+if grep -q "CHANGE_THIS\|<password>" "$ENV_FILE" 2>/dev/null; then
+    echo "ERROR: .env contains placeholder values. Please configure it properly."
+    exit 1
+fi
+
+echo "OK: .env validated"
 
 # -----------------------------------------------------
-# 4. Create Docker network (idempotent)
+# 4. Setup directories
 # -----------------------------------------------------
 echo ""
-echo "[4/6] Setting up Docker network..."
+echo "[4/7] Setting up directories..."
+
+mkdir -p "$BACKUP_DIR"
+mkdir -p "$LOG_DIR"
+chown -R ubuntu:ubuntu "$BACKUP_DIR" "$LOG_DIR" 2>/dev/null || true
+
+echo "OK: Directories ready"
+
+# -----------------------------------------------------
+# 5. Create Docker network (idempotent)
+# -----------------------------------------------------
+echo ""
+echo "[5/7] Setting up Docker network..."
 
 docker network create menugreen-net 2>/dev/null || echo "OK: Network already exists"
 
 # -----------------------------------------------------
-# 5. Build and start services
+# 6. Build and start services
 # -----------------------------------------------------
 echo ""
-echo "[5/6] Building and starting services..."
+echo "[6/7] Building and starting services..."
 
+# Stop existing containers
+$DOCKER_COMPOSE down 2>/dev/null || true
+
+# Build API image
 $DOCKER_COMPOSE build --no-cache
 
-# Start DB and Redis first
-$DOCKER_COMPOSE up -d db redis
+# Start Redis first
+$DOCKER_COMPOSE up -d redis
 
-# Wait for DB to be ready
-echo "Waiting for PostgreSQL to be ready..."
+# Wait for Redis to be healthy
+echo "Waiting for Redis to be healthy..."
+REDIS_HEALTHY=false
 for i in {1..30}; do
-    if $DOCKER_COMPOSE exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; then
-        echo "OK: PostgreSQL is ready"
+    if $DOCKER_COMPOSE exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q "PONG"; then
+        REDIS_HEALTHY=true
+        echo "OK: Redis is ready"
         break
     fi
     if [ "$i" -eq 30 ]; then
-        echo "ERROR: PostgreSQL did not become ready in time"
-        exit 1
+        echo "WARNING: Redis did not become healthy in time. Check logs."
     fi
     sleep 2
 done
 
-# Run database migrations
+# Run database migrations (connecting to RDS)
 echo "Running database migrations..."
-$DOCKER_COMPOSE exec -T api dotnet ef database update --no-build || \
-$DOCKER_COMPOSE exec -T api dotnet ef database update || \
-echo "WARNING: EF migration failed. You may need to run migrations manually."
+MIGRATION_SUCCESS=false
+if $DOCKER_COMPOSE run --rm api dotnet ef database update --no-build 2>&1 | tee -a "$LOG_DIR/migration.log"; then
+    MIGRATION_SUCCESS=true
+    echo "OK: Migrations completed"
+elif $DOCKER_COMPOSE run --rm api dotnet ef database update 2>&1 | tee -a "$LOG_DIR/migration.log"; then
+    MIGRATION_SUCCESS=true
+    echo "OK: Migrations completed"
+else
+    echo "WARNING: EF migration failed. Check $LOG_DIR/migration.log"
+fi
 
 # Start API
 $DOCKER_COMPOSE up -d api
 
 # -----------------------------------------------------
-# 6. Health check
+# 7. Health check
 # -----------------------------------------------------
 echo ""
-echo "[6/6] Running health check..."
+echo "[7/7] Running health check..."
 
 sleep 10
 
@@ -135,8 +186,10 @@ for i in $(seq 1 $MAX_RETRIES); do
 done
 
 if [ "$API_HEALTHY" = false ]; then
+    echo ""
     echo "WARNING: API health check did not pass within timeout"
     echo "Check logs: $DOCKER_COMPOSE logs api"
+    echo ""
 fi
 
 # -----------------------------------------------------
@@ -149,8 +202,11 @@ echo "=========================================="
 $DOCKER_COMPOSE ps
 echo ""
 echo "Access points:"
-echo "  API:      http://$(curl -s ifconfig.me):5000/"
-echo "  Health:   http://$(curl -s ifconfig.me):5000/health"
+echo "  API:      http://$(curl -s ifconfig.me 2>/dev/null || echo 'localhost'):5000/"
+echo "  Health:   http://$(curl -s ifconfig.me 2>/dev/null || echo 'localhost'):5000/health"
 echo ""
-echo "Logs: $DOCKER_COMPOSE logs -f"
-echo "Stop: $DOCKER_COMPOSE down"
+echo "View logs:"
+echo "  API:   $DOCKER_COMPOSE logs -f api"
+echo "  Redis: $DOCKER_COMPOSE logs -f redis"
+echo ""
+echo "Deploy complete!"
