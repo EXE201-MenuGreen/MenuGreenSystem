@@ -14,12 +14,18 @@ rule_files:
   - /etc/prometheus/alerts.yml
 
 scrape_configs:
+  # =====================================================
   # Prometheus self-monitoring
+  # =====================================================
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # ASP.NET Core API metrics
+  # =====================================================
+  # ASP.NET Core API Metrics
+  # Cần enable ASPNETCORE_METRICS=true trong .env
+  # Endpoint: http://api:5000/metrics
+  # =====================================================
   - job_name: 'menugreen-api'
     metrics_path: '/metrics'
     scrape_interval: 10s
@@ -29,29 +35,50 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: 'menugreen-api'
+    # Retry config
+    scrape_configs:
+      - relabel_configs:
+          - action: labeldrop
+            regex: __meta_docker_container_label_.*
 
-  # Node Exporter (server metrics)
+  # =====================================================
+  # Node Exporter - Server Hardware Metrics
+  # Port: 9100
+  # Metrics: CPU, Memory, Disk, Network
+  # =====================================================
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
-
-  # cAdvisor (Docker container metrics)
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
-
-  # Redis
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
     relabel_configs:
       - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
         target_label: instance
-        replacement: 'redis'
+        replacement: 'lightsail-server'
 
-  # PostgreSQL (nếu có prometheus exporter)
-  - job_name: 'postgres'
+  # =====================================================
+  # cAdvisor - Docker Container Metrics
+  # Port: 8080
+  # Metrics: Container CPU, Memory, Network, Disk I/O
+  # =====================================================
+  - job_name: 'cadvisor'
+    scrape_interval: 30s
     static_configs:
-      - targets: ['db:5432']
+      - targets: ['cadvisor:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'docker-host'
+
+  # =====================================================
+  # Redis Metrics - Via cAdvisor
+  # Redis không có Prometheus endpoint, chỉ monitor qua:
+  # 1. Container metrics từ cAdvisor
+  # 2. Health check script
+  # 3. Redis INFO command (trong health check)
+  # =====================================================
+
+  # =====================================================
+  # PostgreSQL Metrics - Via cAdvisor
+  # PostgreSQL không có Prometheus endpoint mặc định,
+  # cần cài đặt postgres_exporter nếu muốn query-level metrics
+  # Hiện tại: monitor qua container metrics + health check
+  # =====================================================

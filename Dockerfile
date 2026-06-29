@@ -5,9 +5,13 @@ WORKDIR /app
 EXPOSE 10000
 EXPOSE 5000
 
-# Sử dụng base image .NET 9.0 SDK (dùng cho build)
+# Sử dụng base image .NET 9.0 SDK (dùng cho build + migrations)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
+
+# Install dotnet-ef globally (for migrations)
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="$PATH:/root/.dotnet/tools"
 
 # Copy file .csproj và restore các packages
 COPY ["backend/MenuGreen.API/MenuGreen.API.csproj", "backend/MenuGreen.API/"]

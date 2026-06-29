@@ -1,0 +1,259 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/menugreen-api
+  DOTNET_VERSION: '9.0'
+
+jobs:
+  # ===========================================================================
+  # Job 1: Build & Test
+  # ===========================================================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test123
+          POSTGRES_DB: menugreen_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        env:
+          ConnectionStrings__DefaultConnection: >-
+            Host=localhost;Port=5432;Database=menugreen_test;
+            Username=test;Password=test123;SSL Mode=Prefer
+        run: dotnet test --no-build -c Release --verbosity normal
+
+  # ===========================================================================
+  # Job 2: Generate Migration SQL Script (for review)
+  # ===========================================================================
+  generate-migration-script:
+    name: Generate Migration Script
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+
+    outputs:
+      has_changes: ${{ steps.generate.outputs.has_changes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Generate SQL Script
+        id: generate
+        run: |
+          mkdir -p migration-scripts
+          dotnet ef migrations script \
+            --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
+            --startup-project backend/MenuGreen.API/MenuGreen.API.csproj \
+            --output "migration-scripts/migration_$(date +%Y%m%d_%H%M%S).sql" \
+            --idempotent \
+            --no-build
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ -f migration-scripts/*.sql ] && [ -s migration-scripts/*.sql ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Migration script generated with changes"
+            cat migration-scripts/*.sql | head -50
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No migration changes detected"
+          fi
+
+      - name: Upload Migration Script
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: migration-scripts/
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 3: Build Docker Image
+  # ===========================================================================
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===========================================================================
+  # Job 4: Deploy to AWS Lightsail (only on main branch)
+  # ===========================================================================
+  deploy:
+    name: Deploy to AWS Lightsail
+    runs-on: ubuntu-latest
+    needs: [build-and-test, generate-migration-script]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Migration Script
+        if: needs.generate-migration-script.outputs.has_changes == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-script
+          path: migration-scripts/
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
+      - name: Deploy via SSH
+        env:
+          MIGRATION_SCRIPT: ${{ needs.generate-migration-script.outputs.has_changes }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SSL_MODE: Require
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        run: |
+          echo "=== Starting deployment to AWS Lightsail ==="
+
+          # Show migration status
+          if [ "$MIGRATION_SCRIPT" == "true" ]; then
+            echo "Migration changes detected - will apply during deployment"
+          else
+            echo "No migration changes detected"
+          fi
+
+          # SSH and run deploy script
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.LIGHTSAIL_HOST }} << 'ENDSSH'
+            set -euo pipefail
+
+            APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
+            LOG_DIR="/home/ubuntu/logs"
+            
+            # Ensure docker network exists
+            echo "=== Creating Docker network ==="
+            docker network create menugreen-net 2>/dev/null || echo "Network already exists"
+
+            echo "=== Pulling latest code ==="
+            cd "$APP_DIR"
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "=== Building application ==="
+            cd "$APP_DIR/backend/MenuGreen.API"
+            dotnet restore
+            dotnet build -c Release
+
+            echo "=== Running migrations ==="
+            dotnet ef database update || echo "Migration completed or no changes"
+
+            echo "=== Rebuilding Docker images ==="
+            cd "$APP_DIR"
+            docker compose -f docker-compose.prod.yml build --no-cache
+
+            echo "=== Stopping old containers ==="
+            docker compose -f docker-compose.prod.yml down || true
+
+            echo "=== Starting services ==="
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "=== Checking health ==="
+            sleep 20
+            for i in {1..12}; do
+              if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
+                echo "✓ API is healthy"
+                exit 0
+              fi
+              echo "Waiting for API... ($i/12)"
+              sleep 5
+            done
+
+            echo "✗ API health check failed"
+            docker compose -f docker-compose.prod.yml logs api
+            exit 1
+          ENDSSH
+
+          echo "=== Deployment completed ==="

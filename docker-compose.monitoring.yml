@@ -1,0 +1,125 @@
+# =====================================================
+# MenuGreen System - Monitoring Stack
+# =====================================================
+# Chạy riêng: docker compose -f docker-compose.monitoring.yml up -d
+# =====================================================
+
+version: "3.8"
+
+services:
+  # =====================================================
+  # Prometheus - Metrics Collection
+  # =====================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: menugreen_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    networks:
+      - menugreen-mon
+
+  # =====================================================
+  # Grafana - Dashboard & Visualization
+  # =====================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: menugreen_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - menugreen-mon
+    depends_on:
+      - prometheus
+
+  # =====================================================
+  # Node Exporter - Server Hardware Metrics
+  # =====================================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: menugreen_node_exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.cpu.info=false'
+      - '--collector.meminfo.info=false'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - menugreen-mon
+
+  # =====================================================
+  # cAdvisor - Container Metrics
+  # =====================================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: menugreen_cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - menugreen-mon
+
+  # =====================================================
+  # Nginx - Reverse Proxy cho Monitoring (Basic Auth)
+  # =====================================================
+  nginx:
+    image: nginx:alpine
+    container_name: menugreen_nginx_mon
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+      - "8443:443"
+    volumes:
+      - ./monitoring/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./monitoring/nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+    networks:
+      - menugreen-mon
+    depends_on:
+      - prometheus
+      - grafana
+
+networks:
+  menugreen-mon:
+    name: menugreen-mon
+    driver: bridge
+    external: true
+
+volumes:
+  prometheus_data:
+    name: menugreen_prometheus_data
+  grafana_data:
+    name: menugreen_grafana_data
