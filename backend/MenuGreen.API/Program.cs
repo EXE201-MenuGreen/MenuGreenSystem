@@ -78,13 +78,30 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Configure CORS
+var allowedOrigins = (builder.Configuration["AllowedOrigins"] 
+    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    ?? "*")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+var isDevelopment = builder.Environment.IsDevelopment();
+var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy(corsPolicyName, policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (isDevelopment || allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
@@ -230,7 +247,7 @@ app.UseHttpMetrics(); // Auto-instrument HTTP requests
 
 
 // Enable CORS
-app.UseCors("AllowAll");
+app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
 
 if (!app.Environment.IsDevelopment())
 {
