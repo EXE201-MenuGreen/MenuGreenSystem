@@ -5,9 +5,9 @@ services:
     image: postgres:15-alpine
     container_name: menugreen_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: MenuGreenDb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -44,14 +44,14 @@ services:
       dockerfile: Dockerfile
     container_name: menugreen_api
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_HTTP_PORTS=5000
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345
-      - ConnectionStrings__Redis=redis:6379
-      - CvService__BaseUrl=http://cv-service:8000
-      - CvService__ApiSecretKey=
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_HTTP_PORTS=${ASPNETCORE_HTTP_PORTS}
+      - ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${DB_SSL_MODE};Trust Server Certificate=${DB_TRUST_SERVER_CERTIFICATE}
+      - ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT}
+      - CvService__BaseUrl=${CV_SERVICE_BASE_URL}
+      - CvService__ApiSecretKey=${CV_SERVICE_API_SECRET_KEY}
       # Prometheus metrics
-      - ASPNETCORE_METRICS=true
+      - ASPNETCORE_METRICS=${ASPNETCORE_METRICS}
     ports:
       - "5000:5000"
     depends_on:
@@ -99,10 +99,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=changeme123
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-clock-panel
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP}
+      - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS}
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
