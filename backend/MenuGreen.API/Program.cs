@@ -12,6 +12,8 @@ using MenuGreen.DataAccessLayer.Context;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Prometheus;
 
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
 var renderPort = Environment.GetEnvironmentVariable("PORT");
@@ -198,6 +200,21 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
+    .AddNpgSql(
+        builder.Configuration["ConnectionStrings:DefaultConnection"] 
+        ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345",
+        name: "postgresql",
+        tags: new[] { "db", "ready" })
+    .AddRedis(
+        builder.Configuration["ConnectionStrings:Redis"] 
+        ?? Environment.GetEnvironmentVariable("REDIS_URL") 
+        ?? "localhost:6379",
+        name: "redis",
+        tags: new[] { "cache", "ready" });
+
 var app = builder.Build();
 
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
@@ -206,6 +223,10 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Prometheus metrics endpoint
+app.UseMetricServer(); // /metrics endpoint
+app.UseHttpMetrics(); // Auto-instrument HTTP requests
 
 
 // Enable CORS
@@ -224,6 +245,44 @@ app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Health check endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        };
+        await context.Response.WriteAsJsonAsync(result);
+    }
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+    }
+});
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false
+});
 
 app.Run();
 
