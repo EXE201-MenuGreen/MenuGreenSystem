@@ -124,23 +124,21 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: GHCR_IMAGE
-          env:
-            GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            GHCR_IMAGE: ghcr.io/${{ env.IMAGE_NAME }}
-            DB_HOST: ${{ secrets.DB_HOST }}
-            DB_PORT: ${{ secrets.DB_PORT }}
-            DB_NAME: ${{ secrets.DB_NAME }}
-            DB_USER: ${{ secrets.DB_USER }}
-            DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-            REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-            GF_ADMIN_PASSWORD: ${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+          envs: GHCR_IMAGE,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,GF_ADMIN_PASSWORD
           script: |
             set -e
+            GHCR_TOKEN=$GHCR_TOKEN
+            DB_HOST=$DB_HOST
+            DB_PORT=$DB_PORT
+            DB_NAME=$DB_NAME
+            DB_USER=$DB_USER
+            DB_PASSWORD=$DB_PASSWORD
+            REDIS_PASSWORD=$REDIS_PASSWORD
+            GF_ADMIN_PASSWORD=$GF_ADMIN_PASSWORD
 
             # Configuration
             APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
-            REGISTRY="$GHCR_IMAGE"
+            REGISTRY="ghcr.io/exe201-menugreen/menugreen-api"
 
             # Create app directory
             mkdir -p $APP_DIR
