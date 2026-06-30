@@ -149,6 +149,10 @@ jobs:
             docker rm menugreen-api || true
             docker network prune -f || true
 
+            # Kill any process using port 5000
+            fuser -k 5000/tcp 2>/dev/null || true
+            sleep 2
+
             # Create .env file
             cat > $APP_DIR/.env << 'EOF'
             ASPNETCORE_ENVIRONMENT=Production
