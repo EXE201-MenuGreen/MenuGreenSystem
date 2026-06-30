@@ -144,8 +144,9 @@ jobs:
             # Pull latest image
             docker pull $REGISTRY:latest || true
 
-            # Force remove container
-            docker rm -f menugreen-api 2>/dev/null || true
+            # Force remove container (including docker-compose one)
+            docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+            docker rm -f menugreen-api menugreen_api 2>/dev/null || true
             docker network prune -f || true
 
             # Kill docker-proxy processes holding port 5000
