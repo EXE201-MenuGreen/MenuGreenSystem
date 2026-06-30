@@ -144,13 +144,12 @@ jobs:
             # Pull latest image
             docker pull $REGISTRY:latest || true
 
-            # Stop, remove container and clean network
-            docker stop menugreen-api || true
-            docker rm menugreen-api || true
+            # Force remove container
+            docker rm -f menugreen-api 2>/dev/null || true
             docker network prune -f || true
 
-            # Kill any process using port 5000
-            lsof -ti:5000 | xargs -r kill -9 2>/dev/null || true
+            # Kill docker-proxy processes holding port 5000
+            pkill -9 -f "docker-proxy.*5000" 2>/dev/null || true
             sleep 2
 
             # Create .env file
