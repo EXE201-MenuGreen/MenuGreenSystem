@@ -262,6 +262,7 @@ jobs:
 
             # Deploy using docker-compose (starts Redis + API together)
             docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+            docker rm -f menugreen_api >/dev/null 2>&1 || true
             docker compose -f docker-compose.prod.yml up -d --build
 
             # Wait for containers to be healthy
