@@ -128,37 +128,37 @@ jobs:
       - name: Download secrets and build .env
         run: |
           # Download raw secrets from Doppler (key=value format)
-          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --format env > /tmp/doppler_raw.env
+          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --format env > "$GITHUB_WORKSPACE/doppler_raw.env"
 
           # Source Doppler secrets into current shell
           set -a
-          source /tmp/doppler_raw.env
+          source "$GITHUB_WORKSPACE/doppler_raw.env"
           set +a
 
           # Build .env file with proper .NET configuration format
           # Connection strings - prefer direct format from Doppler, fallback to building from parts
           if [ -n "$CONNECTIONSTRINGS__DEFAULTCONNECTION" ]; then
-            echo "ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}" >> /tmp/doppler.env
+            echo "ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}" >> "$GITHUB_WORKSPACE/.env"
           elif [ -n "$DB_HOST" ]; then
-            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true" >> /tmp/doppler.env
+            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true" >> "$GITHUB_WORKSPACE/.env"
           else
             echo "ERROR: No DB connection string found in Doppler" >&2
             exit 1
           fi
 
           if [ -n "$REDIS__CONNECTIONSTRING" ]; then
-            echo "ConnectionStrings__Redis=${REDIS__CONNECTIONSTRING}" >> /tmp/doppler.env
+            echo "ConnectionStrings__Redis=${REDIS__CONNECTIONSTRING}" >> "$GITHUB_WORKSPACE/.env"
           elif [ -n "$REDIS_URL" ]; then
-            echo "ConnectionStrings__Redis=${REDIS_URL}" >> /tmp/doppler.env
+            echo "ConnectionStrings__Redis=${REDIS_URL}" >> "$GITHUB_WORKSPACE/.env"
           elif [ -n "$REDIS_HOST" ]; then
-            echo "ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT:-6379},password=${REDIS_PASSWORD:-}" >> /tmp/doppler.env
+            echo "ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT:-6379},password=${REDIS_PASSWORD:-}" >> "$GITHUB_WORKSPACE/.env"
           else
             echo "ERROR: No Redis connection string found in Doppler" >&2
             exit 1
           fi
 
           # Add remaining secrets (skip DB_* and REDIS_* since we already handled connection strings)
-          grep -v '^DB_\|^REDIS_\|^DB=' /tmp/doppler_raw.env | while IFS= read -r line; do
+          grep -v '^DB_\|^REDIS_\|^DB=' "$GITHUB_WORKSPACE/doppler_raw.env" | while IFS= read -r line; do
             if [ -n "$line" ]; then
               key=$(echo "$line" | cut -d= -f1)
               value=$(echo "$line" | cut -d= -f2-)
@@ -168,25 +168,25 @@ jobs:
               key=$(echo "$key" | sed 's/__+/__/g')
               echo "${key}=${value}"
             fi
-          done >> /tmp/doppler.env
+          done >> "$GITHUB_WORKSPACE/.env"
 
           # JWT aliases - Doppler might store as JWT_SECRET but .NET expects JwtSettings__SecretKey
-          if grep -q '^JWT_SECRET=' /tmp/doppler_raw.env; then
-            JWT_SECRET_VAL=$(grep '^JWT_SECRET=' /tmp/doppler_raw.env | cut -d= -f2-)
-            if ! grep -q '^JwtSettings__SecretKey=' /tmp/doppler.env; then
-              echo "JwtSettings__SecretKey=${JWT_SECRET_VAL}" >> /tmp/doppler.env
+          if grep -q '^JWT_SECRET=' "$GITHUB_WORKSPACE/doppler_raw.env"; then
+            JWT_SECRET_VAL=$(grep '^JWT_SECRET=' "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__SecretKey=' "$GITHUB_WORKSPACE/.env"; then
+              echo "JwtSettings__SecretKey=${JWT_SECRET_VAL}" >> "$GITHUB_WORKSPACE/.env"
             fi
           fi
-          if grep -q '^JWT_ISSUER=' /tmp/doppler_raw.env; then
-            JWT_ISSUER_VAL=$(grep '^JWT_ISSUER=' /tmp/doppler_raw.env | cut -d= -f2-)
-            if ! grep -q '^JwtSettings__Issuer=' /tmp/doppler.env; then
-              echo "JwtSettings__Issuer=${JWT_ISSUER_VAL}" >> /tmp/doppler.env
+          if grep -q '^JWT_ISSUER=' "$GITHUB_WORKSPACE/doppler_raw.env"; then
+            JWT_ISSUER_VAL=$(grep '^JWT_ISSUER=' "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__Issuer=' "$GITHUB_WORKSPACE/.env"; then
+              echo "JwtSettings__Issuer=${JWT_ISSUER_VAL}" >> "$GITHUB_WORKSPACE/.env"
             fi
           fi
-          if grep -q '^JWT_AUDIENCE=' /tmp/doppler_raw.env; then
-            JWT_AUDIENCE_VAL=$(grep '^JWT_AUDIENCE=' /tmp/doppler_raw.env | cut -d= -f2-)
-            if ! grep -q '^JwtSettings__Audience=' /tmp/doppler.env; then
-              echo "JwtSettings__Audience=${JWT_AUDIENCE_VAL}" >> /tmp/doppler.env
+          if grep -q '^JWT_AUDIENCE=' "$GITHUB_WORKSPACE/doppler_raw.env"; then
+            JWT_AUDIENCE_VAL=$(grep '^JWT_AUDIENCE=' "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__Audience=' "$GITHUB_WORKSPACE/.env"; then
+              echo "JwtSettings__Audience=${JWT_AUDIENCE_VAL}" >> "$GITHUB_WORKSPACE/.env"
             fi
           fi
 
@@ -198,16 +198,19 @@ jobs:
           fi
           if [ -z "$DB_CONN_VAL" ] || ! echo "$DB_CONN_VAL" | grep -qiE '(Host=|Server=|postgresql://|Database=)'; then
             echo "ERROR: DB connection string is empty or format not recognized"
-            cat /tmp/doppler.env
+            cat "$GITHUB_WORKSPACE/.env"
             exit 1
           fi
-          if ! grep -q "JwtSettings__SecretKey=" /tmp/doppler.env || grep -q "JwtSettings__SecretKey=$" /tmp/doppler.env; then
+          if ! grep -q "JwtSettings__SecretKey=" "$GITHUB_WORKSPACE/.env" || grep -q "JwtSettings__SecretKey=$" "$GITHUB_WORKSPACE/.env"; then
             echo "ERROR: JWT SecretKey is empty or missing"
-            cat /tmp/doppler.env
+            cat "$GITHUB_WORKSPACE/.env"
             exit 1
           fi
           echo "Secrets verified successfully!"
-          cat /tmp/doppler.env
+          cat "$GITHUB_WORKSPACE/.env"
+
+          # Cleanup raw secrets (keep only .env for deployment)
+          rm -f "$GITHUB_WORKSPACE/doppler_raw.env"
 
       - name: Upload .env to server
         uses: appleboy/scp-action@v0.1.7
@@ -215,7 +218,7 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: "/tmp/doppler.env"
+          source: "${{ github.workspace }}/.env"
           target: "/home/ubuntu/apps/MenuGreenSystem"
           strip_components: 0
           overwrite: true
