@@ -121,7 +121,9 @@ jobs:
       - name: Install Doppler CLI
         run: |
           set -euxo pipefail
-          curl -fsSL https://cli.doppler.com/install.sh | bash
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://cli.doppler.com/install.sh | bash -s -- --no-sudo --prefix "$HOME/.local"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify Doppler CLI
         run: |
