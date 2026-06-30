@@ -118,19 +118,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Doppler CLI
-        uses: dopplerhq/cli-action@v3
-        with:
-          token: ${{ secrets.DOPPLER_TOKEN }}
-          project: menugreen
-          config: prd
+      - name: Install Doppler CLI
+        run: |
+          set -e
+          curl -sLf https://cli.doppler.com/install.sh | sh
 
       - name: Download secrets and build .env
         run: |
           set -e
 
           echo "Downloading secrets from Doppler..."
-          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --format env > "$GITHUB_WORKSPACE/doppler_raw.env"
+          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > "$GITHUB_WORKSPACE/doppler_raw.env"
 
           if [ ! -s "$GITHUB_WORKSPACE/doppler_raw.env" ]; then
             echo "ERROR: doppler_raw.env is empty or missing" >&2
