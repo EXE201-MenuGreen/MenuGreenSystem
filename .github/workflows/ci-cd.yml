@@ -122,75 +122,139 @@ jobs:
           project: menugreen
           config: prd
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Download secrets and build .env
+        run: |
+          # Download raw secrets from Doppler (key=value format)
+          doppler secrets download --no-file --format env > /tmp/doppler_raw.env
+
+          # Source Doppler secrets into current shell
+          set -a
+          source /tmp/doppler_raw.env
+          set +a
+
+          # Build .env file with proper .NET configuration format
+          # Connection strings - prefer direct format from Doppler, fallback to building from parts
+          if [ -n "$CONNECTIONSTRINGS__DEFAULTCONNECTION" ]; then
+            echo "ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}" >> /tmp/doppler.env
+          elif [ -n "$DB_HOST" ]; then
+            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true" >> /tmp/doppler.env
+          else
+            echo "ERROR: No DB connection string found in Doppler" >&2
+            exit 1
+          fi
+
+          if [ -n "$REDIS__CONNECTIONSTRING" ]; then
+            echo "ConnectionStrings__Redis=${REDIS__CONNECTIONSTRING}" >> /tmp/doppler.env
+          elif [ -n "$REDIS_URL" ]; then
+            echo "ConnectionStrings__Redis=${REDIS_URL}" >> /tmp/doppler.env
+          elif [ -n "$REDIS_HOST" ]; then
+            echo "ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT:-6379},password=${REDIS_PASSWORD:-}" >> /tmp/doppler.env
+          else
+            echo "ERROR: No Redis connection string found in Doppler" >&2
+            exit 1
+          fi
+
+          # Add remaining secrets (skip DB_* and REDIS_* since we already handled connection strings)
+          grep -v '^DB_\|^REDIS_\|^DB=' /tmp/doppler_raw.env | while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              key=$(echo "$line" | cut -d= -f1)
+              value=$(echo "$line" | cut -d= -f2-)
+              # Convert colon-separated keys to double underscore for .NET
+              key=$(echo "$key" | tr ':' '__')
+              # Handle nested keys with double underscores
+              key=$(echo "$key" | sed 's/__+/__/g')
+              echo "${key}=${value}"
+            fi
+          done >> /tmp/doppler.env
+
+          # JWT aliases - Doppler might store as JWT_SECRET but .NET expects JwtSettings__SecretKey
+          if grep -q '^JWT_SECRET=' /tmp/doppler_raw.env; then
+            JWT_SECRET_VAL=$(grep '^JWT_SECRET=' /tmp/doppler_raw.env | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__SecretKey=' /tmp/doppler.env; then
+              echo "JwtSettings__SecretKey=${JWT_SECRET_VAL}" >> /tmp/doppler.env
+            fi
+          fi
+          if grep -q '^JWT_ISSUER=' /tmp/doppler_raw.env; then
+            JWT_ISSUER_VAL=$(grep '^JWT_ISSUER=' /tmp/doppler_raw.env | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__Issuer=' /tmp/doppler.env; then
+              echo "JwtSettings__Issuer=${JWT_ISSUER_VAL}" >> /tmp/doppler.env
+            fi
+          fi
+          if grep -q '^JWT_AUDIENCE=' /tmp/doppler_raw.env; then
+            JWT_AUDIENCE_VAL=$(grep '^JWT_AUDIENCE=' /tmp/doppler_raw.env | cut -d= -f2-)
+            if ! grep -q '^JwtSettings__Audience=' /tmp/doppler.env; then
+              echo "JwtSettings__Audience=${JWT_AUDIENCE_VAL}" >> /tmp/doppler.env
+            fi
+          fi
+
+          # Verify critical secrets exist
+          echo "=== Verifying critical secrets ==="
+          if ! grep -q "ConnectionStrings__DefaultConnection=Host=" /tmp/doppler.env || grep -q "ConnectionStrings__DefaultConnection=Host=;" /tmp/doppler.env; then
+            echo "ERROR: DB connection string is empty or missing host"
+            cat /tmp/doppler.env
+            exit 1
+          fi
+          if ! grep -q "JwtSettings__SecretKey=" /tmp/doppler.env || grep -q "JwtSettings__SecretKey=$" /tmp/doppler.env; then
+            echo "ERROR: JWT SecretKey is empty or missing"
+            cat /tmp/doppler.env
+            exit 1
+          fi
+          echo "Secrets verified successfully!"
+          cat /tmp/doppler.env
+
+      - name: Upload .env to server
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_MODE,REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE
+          source: "/tmp/doppler.env"
+          target: "/home/ubuntu/apps/MenuGreenSystem"
+          strip_components: 0
+          overwrite: true
+
+      - name: Rename .env on server and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
             set -e
-            DB_HOST=$DB_HOST
-            DB_PORT=$DB_PORT
-            DB_NAME=$DB_NAME
-            DB_USER=$DB_USER
-            DB_PASSWORD=$DB_PASSWORD
-            DB_SSL_MODE=$DB_SSL_MODE
-            REDIS_HOST=$REDIS_HOST
-            REDIS_PORT=$REDIS_PORT
-            REDIS_PASSWORD=$REDIS_PASSWORD
-            JWT_SECRET=$JWT_SECRET
-            JWT_ISSUER=$JWT_ISSUER
-            JWT_AUDIENCE=$JWT_AUDIENCE
-
-            # Configuration
             APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
             REGISTRY="ghcr.io/exe201-menugreen/menugreen-api"
 
-            # Create app directory
             mkdir -p $APP_DIR
+            cd $APP_DIR
 
-            # Login to GHCR using GITHUB_TOKEN (provided by GitHub Actions)
+            # Rename uploaded .env file
+            mv /tmp/doppler.env .env
+
+            # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Pull latest image
             docker pull $REGISTRY:latest || true
 
-            # Force remove container (including docker-compose one)
+            # Copy docker-compose.prod.yml to server
+            # (It should already be in the repo, but ensure it's there)
+            if [ ! -f docker-compose.prod.yml ]; then
+              echo "ERROR: docker-compose.prod.yml not found on server"
+              exit 1
+            fi
+
+            # Deploy using docker-compose (starts Redis + API together)
             docker compose -f docker-compose.prod.yml down 2>/dev/null || true
-            docker rm -f menugreen-api menugreen_api 2>/dev/null || true
-            docker network prune -f || true
+            docker compose -f docker-compose.prod.yml up -d --build
 
-            # Kill docker-proxy processes holding port 5000
-            for pid in $(ss -tlnp 2>/dev/null | grep ':5000' | grep -oP 'pid=\K[0-9]+'); do
-              kill -9 $pid 2>/dev/null || true
-            done
-            sleep 2
+            # Wait for containers to be healthy
+            echo "Waiting for containers to start..."
+            sleep 10
 
-            # Create .env file
-            cat > $APP_DIR/.env << EOF
-            ASPNETCORE_ENVIRONMENT=Production
-            ASPNETCORE_URLS=http://+:5000
-            ConnectionStrings__DefaultConnection=Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;SSL Mode=$DB_SSL_MODE;Trust Server Certificate=true
-            ConnectionStrings__Redis=$REDIS_HOST:$REDIS_PORT,password=$REDIS_PASSWORD
-            JwtSettings__SecretKey=$JWT_SECRET
-            JwtSettings__Issuer=$JWT_ISSUER
-            JwtSettings__Audience=$JWT_AUDIENCE
-            API_URL=http://localhost:5000
-            EOF
+            # Verify containers are running
+            docker compose -f docker-compose.prod.yml ps
 
-            # Run new container
-            docker run -d \
-              --name menugreen-api \
-              --restart unless-stopped \
-              --env-file $APP_DIR/.env \
-              -p 5000:5000 \
-              $REGISTRY:latest
-
-            # Cleanup
             docker system prune -f
-
             echo "Deployment completed successfully!"
 
       - name: Wait for API to be healthy
@@ -214,7 +278,7 @@ jobs:
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
             cd /home/ubuntu/apps/MenuGreenSystem
-            docker exec menugreen-api dotnet ef database update --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj --startup-project backend/MenuGreen.API/MenuGreen.API.csproj || echo "Migration may have already been applied"
+            docker compose -f docker-compose.prod.yml exec api dotnet ef database update --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj --startup-project backend/MenuGreen.API/MenuGreen.API.csproj || echo "Migration may have already been applied"
 
       - name: Verify deployment
         run: |
@@ -223,4 +287,3 @@ jobs:
           echo "Checking Swagger..."
           curl -sf http://${{ secrets.LIGHTSAIL_HOST }}:5000/swagger/index.html || echo "Swagger may not be available"
           echo "Deployment verification complete!"
-
