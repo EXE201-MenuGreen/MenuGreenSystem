@@ -261,9 +261,12 @@ jobs:
             fi
 
             # Deploy using docker-compose (starts Redis + API together)
-            docker compose -f docker-compose.prod.yml down 2>/dev/null || true
-            docker rm -f menugreen_api >/dev/null 2>&1 || true
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+
+            # Ensure port 5000 is free before recreating API container
+            docker ps --filter "publish=5000" --format "{{.Names}}" | xargs -r docker rm -f || true
+
+            docker compose -f docker-compose.prod.yml up -d --force-recreate --build
 
             # Wait for containers to be healthy
             echo "Waiting for containers to start..."
