@@ -244,7 +244,9 @@ jobs:
             # Ensure server has the latest compose/config from repo
             if [ -d .git ]; then
               git config --global --add safe.directory $APP_DIR || true
-              git pull || true
+              git fetch origin || true
+              git checkout Tuan || true
+              git reset --hard origin/Tuan || true
             fi
 
             # Login to GHCR
