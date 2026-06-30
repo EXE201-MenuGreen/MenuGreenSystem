@@ -144,9 +144,10 @@ jobs:
             # Pull latest image
             docker pull $REGISTRY:latest || true
 
-            # Stop and remove old container
+            # Stop, remove container and clean network
             docker stop menugreen-api || true
             docker rm menugreen-api || true
+            docker network prune -f || true
 
             # Create .env file
             cat > $APP_DIR/.env << 'EOF'
