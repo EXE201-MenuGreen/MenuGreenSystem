@@ -241,6 +241,12 @@ jobs:
 
             # .env was already uploaded by scp-action to $APP_DIR/.env
 
+            # Ensure server has the latest compose/config from repo
+            if [ -d .git ]; then
+              git config --global --add safe.directory $APP_DIR || true
+              git pull || true
+            fi
+
             # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull $REGISTRY:latest || true
