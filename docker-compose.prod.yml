@@ -34,33 +34,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: menugreen_api
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:5000
-      - ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}
-      - ConnectionStrings__Redis=${CONNECTIONSTRINGS__REDIS}
-      - JwtSettings__Audience=${JWTSETTINGS__AUDIENCE}
-      - JwtSettings__ExpiryMinutes=${JWTSETTINGS__EXPIRYMINUTES}
-      - JwtSettings__Issuer=${JWTSETTINGS__ISSUER}
-      - JwtSettings__SecretKey=${JWTSETTINGS__SECRETKEY}
-      - AllowedOrigins=${ALLOWEDORIGINS}
-      - Resend__ApiKey=${RESEND__APIKEY}
-      - Resend__FromEmail=${RESEND__FROMEMAIL}
-      - Resend__FromName=${RESEND__FROMNAME}
-      - Firebase__CredentialPath=${FIREBASE__CREDENTIALPATH}
-      - CvService__BaseUrl=${CVSERVICE__BASEURL}
-      - CvService__ApiSecretKey=${CVSERVICE__APISECRETKEY}
-      - ASPNETCORE_METRICS=${ASPNETCORE__METRICS}
-      - SePay__WebhookAuthMode=${SEPAY__WEBHOOKAUTHMODE}
-      - SePay__WebhookSecret=${SEPAY__WEBHOOKSECRET}
-      - SePay__WebhookTimestampToleranceSeconds=${SEPAY__WEBHOOKTIMESTAMPTOLERANCESECONDS}
-      - SePay__PaymentCodePrefix=${SEPAY__PAYMENTCODEPREFIX}
-      - SePay__PaymentCodeSuffixMinLength=${SEPAY__PAYMENTCODESUFFIXMINLENGTH}
-      - SePay__PaymentCodeSuffixMaxLength=${SEPAY__PAYMENTCODESUFFIXMAXLENGTH}
-      - SePay__PaymentCodeSuffixLength=${SEPAY__PAYMENTCODESUFFIXLENGTH}
-      - SePay__OrderExpiryMinutes=${SEPAY__ORDEREXPIRYMINUTES}
-      - SePay__QrImageBaseUrl=${SEPAY__QRIMAGEBASEURL}
-      - NutritionAssistant__WorkerUrl=${NUTRITIONASSISTANT__WORKERURL}
     ports:
       - "5000:5000"
     depends_on:
