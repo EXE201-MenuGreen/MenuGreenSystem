@@ -283,7 +283,12 @@ jobs:
 
             # Wait for containers to be healthy
             echo "Waiting for containers to start..."
-            sleep 10
+            sleep 15
+
+            # Run database migration before checking API health
+            echo "Running database migration..."
+            cd /home/ubuntu/apps/MenuGreenSystem
+            docker compose -f docker-compose.prod.yml exec api dotnet ef database update --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj --startup-project backend/MenuGreen.API/MenuGreen.API.csproj || echo "Migration may have already been applied"
 
             # Verify containers are running
             docker compose -f docker-compose.prod.yml ps
@@ -294,7 +299,7 @@ jobs:
       - name: Wait for API to be healthy
         run: |
           echo "Waiting for API ready check..."
-          for i in {1..60}; do
+          for i in {1..90}; do
             STATUS=$(curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:5000/health/ready" -w "\n%{http_code}" || true)
             BODY=$(echo "$STATUS" | head -n1 || true)
             CODE=$(echo "$STATUS" | tail -n1 || true)
@@ -302,7 +307,7 @@ jobs:
               echo "API is healthy!"
               exit 0
             fi
-            echo "Waiting for API... ($i/60) status=${CODE:-no_response} body=${BODY}"
+            echo "Waiting for API... ($i/90) status=${CODE:-no_response} body=${BODY}"
             sleep 5
           done
           echo "API health check failed!"
@@ -311,16 +316,6 @@ jobs:
           echo "===== docker compose ps ====="
           ssh -o StrictHostKeyChecking=no -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" "docker compose -f /home/ubuntu/apps/MenuGreenSystem/docker-compose.prod.yml ps || true"
           exit 1
-
-      - name: Run Database Migration
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          script: |
-            cd /home/ubuntu/apps/MenuGreenSystem
-            docker compose -f docker-compose.prod.yml exec api dotnet ef database update --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj --startup-project backend/MenuGreen.API/MenuGreen.API.csproj || echo "Migration may have already been applied"
 
       - name: Verify deployment
         run: |
