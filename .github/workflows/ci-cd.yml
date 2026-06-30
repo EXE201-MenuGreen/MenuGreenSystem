@@ -115,13 +115,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Doppler CLI
+        uses: dopplerhq/cli-action@v3
+        with:
+          token: ${{ secrets.DOPPLER_TOKEN }}
+          project: menugreen
+          config: prd
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,JWT_SECRET
+          envs: DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_MODE,REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE
           script: |
             set -e
             DB_HOST=$DB_HOST
@@ -129,7 +136,13 @@ jobs:
             DB_NAME=$DB_NAME
             DB_USER=$DB_USER
             DB_PASSWORD=$DB_PASSWORD
+            DB_SSL_MODE=$DB_SSL_MODE
+            REDIS_HOST=$REDIS_HOST
+            REDIS_PORT=$REDIS_PORT
             REDIS_PASSWORD=$REDIS_PASSWORD
+            JWT_SECRET=$JWT_SECRET
+            JWT_ISSUER=$JWT_ISSUER
+            JWT_AUDIENCE=$JWT_AUDIENCE
 
             # Configuration
             APP_DIR="/home/ubuntu/apps/MenuGreenSystem"
@@ -159,13 +172,11 @@ jobs:
             cat > $APP_DIR/.env << EOF
             ASPNETCORE_ENVIRONMENT=Production
             ASPNETCORE_URLS=http://+:5000
-            ConnectionStrings__DefaultConnection=Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;SSL Mode=Require
-            Redis__Host=localhost
-            Redis__Port=6379
-            Redis__Password=$REDIS_PASSWORD
-            JWT__Secret=$JWT_SECRET
-            JWT__Issuer=MenuGreenAPI
-            JWT__Audience=MenuGreenApp
+            ConnectionStrings__DefaultConnection=Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;SSL Mode=$DB_SSL_MODE;Trust Server Certificate=true
+            ConnectionStrings__Redis=$REDIS_HOST:$REDIS_PORT,password=$REDIS_PASSWORD
+            JwtSettings__SecretKey=$JWT_SECRET
+            JwtSettings__Issuer=$JWT_ISSUER
+            JwtSettings__Audience=$JWT_AUDIENCE
             API_URL=http://localhost:5000
             EOF
 
