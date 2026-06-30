@@ -150,7 +150,7 @@ jobs:
             docker network prune -f || true
 
             # Kill any process using port 5000
-            fuser -k 5000/tcp 2>/dev/null || true
+            lsof -ti:5000 | xargs -r kill -9 2>/dev/null || true
             sleep 2
 
             # Create .env file
