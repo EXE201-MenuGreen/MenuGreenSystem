@@ -149,7 +149,9 @@ jobs:
             docker network prune -f || true
 
             # Kill docker-proxy processes holding port 5000
-            pkill -9 -f "docker-proxy.*5000" 2>/dev/null || true
+            for pid in $(ss -tlnp 2>/dev/null | grep ':5000' | grep -oP 'pid=\K[0-9]+'); do
+              kill -9 $pid 2>/dev/null || true
+            done
             sleep 2
 
             # Create .env file
