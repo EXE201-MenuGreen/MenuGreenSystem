@@ -111,6 +111,9 @@ jobs:
     needs: build-docker
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Tuan'
 
+    env:
+      DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,7 +128,7 @@ jobs:
       - name: Download secrets and build .env
         run: |
           # Download raw secrets from Doppler (key=value format)
-          doppler secrets download --no-file --format env > /tmp/doppler_raw.env
+          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --format env > /tmp/doppler_raw.env
 
           # Source Doppler secrets into current shell
           set -a
