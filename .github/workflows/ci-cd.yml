@@ -156,14 +156,14 @@ jobs:
             sleep 2
 
             # Create .env file
-            cat > $APP_DIR/.env << 'EOF'
+            cat > $APP_DIR/.env << EOF
             ASPNETCORE_ENVIRONMENT=Production
             ASPNETCORE_URLS=http://+:5000
             ConnectionStrings__DefaultConnection=Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;SSL Mode=Require
             Redis__Host=localhost
             Redis__Port=6379
             Redis__Password=$REDIS_PASSWORD
-            JWT__Secret=${{ secrets.JWT_SECRET }}
+            JWT__Secret=$JWT_SECRET
             JWT__Issuer=MenuGreenAPI
             JWT__Audience=MenuGreenApp
             API_URL=http://localhost:5000
