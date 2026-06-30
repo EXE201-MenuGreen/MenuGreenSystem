@@ -120,12 +120,17 @@ jobs:
 
       - name: Install Doppler CLI
         run: |
-          set -e
-          curl -sLf https://cli.doppler.com/install.sh | sh
+          set -euxo pipefail
+          curl -fsSL https://cli.doppler.com/install.sh | bash
+
+      - name: Verify Doppler CLI
+        run: |
+          set -euxo pipefail
+          doppler --version
 
       - name: Download secrets and build .env
         run: |
-          set -e
+          set -euxo pipefail
 
           echo "Downloading secrets from Doppler..."
           doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > "$GITHUB_WORKSPACE/doppler_raw.env"
