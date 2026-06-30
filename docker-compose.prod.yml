@@ -34,10 +34,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_HTTP_PORTS=${ASPNETCORE_HTTP_PORTS}
-      - ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${DB_SSL_MODE};Trust Server Certificate=${DB_TRUST_SERVER_CERTIFICATE}
-      - ConnectionStrings__Redis=redis:6379,password=${REDIS_PASSWORD}
-      - CvService__BaseUrl=${CV_SERVICE_BASE_URL}
-      - CvService__ApiSecretKey=${CV_SERVICE_API_SECRET_KEY}
+      - ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}
+      - ConnectionStrings__Redis=${CONNECTIONSTRINGS__REDIS}
+      - CvService__BaseUrl=${CVSERVICE__BASEURL}
+      - CvService__ApiSecretKey=${CVSERVICE__APISECRETKEY}
       - ASPNETCORE_METRICS=${ASPNETCORE_METRICS}
     ports:
       - "5000:5000"
