@@ -146,13 +146,11 @@ jobs:
           set +a
 
           # Build .env file with proper .NET configuration format
-          # Connection strings - prefer direct format from Doppler, fallback to building from parts
-          if [ -n "$CONNECTIONSTRINGS__DEFAULTCONNECTION" ]; then
-            echo "ConnectionStrings__DefaultConnection=${CONNECTIONSTRINGS__DEFAULTCONNECTION}" >> "$GITHUB_WORKSPACE/.env"
-          elif [ -n "$DB_HOST" ]; then
+          # Connection strings are built from separate DB_* variables
+          if [ -n "$DB_HOST" ]; then
             echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true" >> "$GITHUB_WORKSPACE/.env"
           else
-            echo "ERROR: No DB connection string found in Doppler" >&2
+            echo "ERROR: No DB connection info found in Doppler" >&2
             exit 1
           fi
 
@@ -202,16 +200,12 @@ jobs:
 
           # Verify critical secrets exist
           echo "=== Verifying critical secrets ==="
-          DB_CONN_VAL="${CONNECTIONSTRINGS__DEFAULTCONNECTION:-}"
-          if [ -z "$DB_CONN_VAL" ] && [ -n "$DB_HOST" ]; then
-            DB_CONN_VAL="Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true"
-          fi
-          if [ -z "$DB_CONN_VAL" ] || ! echo "$DB_CONN_VAL" | grep -qiE '(Host=|Server=|postgresql://|Database=)'; then
-            echo "ERROR: DB connection string is empty or format not recognized"
+          if [ ! -s "$GITHUB_WORKSPACE/.env" ] || ! grep -q "^ConnectionStrings__DefaultConnection=" "$GITHUB_WORKSPACE/.env"; then
+            echo "ERROR: DB connection info is empty or missing"
             cat "$GITHUB_WORKSPACE/.env"
             exit 1
           fi
-          if ! grep -q "JwtSettings__SecretKey=" "$GITHUB_WORKSPACE/.env" || grep -q "JwtSettings__SecretKey=$" "$GITHUB_WORKSPACE/.env"; then
+          if ! grep -q "^JwtSettings__SecretKey=" "$GITHUB_WORKSPACE/.env" || grep -q "^JwtSettings__SecretKey=$" "$GITHUB_WORKSPACE/.env"; then
             echo "ERROR: JWT SecretKey is empty or missing"
             cat "$GITHUB_WORKSPACE/.env"
             exit 1
