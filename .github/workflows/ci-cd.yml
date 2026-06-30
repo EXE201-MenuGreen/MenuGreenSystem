@@ -192,8 +192,12 @@ jobs:
 
           # Verify critical secrets exist
           echo "=== Verifying critical secrets ==="
-          if ! grep -q "ConnectionStrings__DefaultConnection=Host=" /tmp/doppler.env || grep -q "ConnectionStrings__DefaultConnection=Host=;" /tmp/doppler.env; then
-            echo "ERROR: DB connection string is empty or missing host"
+          DB_CONN_VAL="${CONNECTIONSTRINGS__DEFAULTCONNECTION:-}"
+          if [ -z "$DB_CONN_VAL" ] && [ -n "$DB_HOST" ]; then
+            DB_CONN_VAL="Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-};Username=${DB_USER:-};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true"
+          fi
+          if [ -z "$DB_CONN_VAL" ] || ! echo "$DB_CONN_VAL" | grep -qiE '(Host=|Server=|postgresql://|Database=)'; then
+            echo "ERROR: DB connection string is empty or format not recognized"
             cat /tmp/doppler.env
             exit 1
           fi
