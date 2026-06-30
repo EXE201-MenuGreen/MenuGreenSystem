@@ -276,6 +276,9 @@ jobs:
             # Deploy using docker-compose (starts Redis + API together)
             docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
 
+            # Clean up any leftover containers by fixed names
+            docker rm -f menugreen_redis menugreen_api 2>/dev/null || true
+
             # Ensure port 5000 is free before recreating API container
             docker ps --filter "publish=5000" --format "{{.Names}}" | xargs -r docker rm -f || true
 
