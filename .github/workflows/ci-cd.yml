@@ -124,6 +124,22 @@ jobs:
           printf '%s\n' "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.key
           chmod 600 ~/.ssh/lightsail.key
 
+      - name: Verify SSH key and connection
+        run: |
+          set -euxo pipefail
+          echo '=== .ssh directory ==='
+          ls -la ~/.ssh || true
+          echo '=== SSH key file ==='
+          ls -la ~/.ssh/lightsail.key || true
+          if [ ! -s ~/.ssh/lightsail.key ]; then
+            echo 'ERROR: LIGHTSAIL_SSH_KEY is missing or empty.' >&2
+            exit 1
+          fi
+          echo '=== SSH connection test ==='
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            'echo SSH_OK'
+
       - name: Install Doppler CLI
         run: |
           set -euxo pipefail
@@ -260,37 +276,46 @@ jobs:
             "mkdir -p /home/ubuntu/apps/MenuGreenSystem"
 
       - name: Upload .env to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key_path: ~/.ssh/lightsail.key
-          source: "${{ github.workspace }}/.env"
-          target: "/home/ubuntu/apps/MenuGreenSystem/.env"
-          strip_components: 0
-          overwrite: true
+        run: |
+          set -euxo pipefail
+          scp -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
+            "${{ github.workspace }}/.env" \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/apps/MenuGreenSystem/.env"
 
       - name: Build migration bundle
         run: |
+          set -euxo pipefail
+          export HOME="${HOME:-/root}"
           dotnet tool install --global dotnet-ef --version 9.0.0
-          export PATH="$PATH:~/.dotnet/tools"
+          export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet ef migrations bundle \
             --self-contained -r linux-x64 \
             --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
             --startup-project backend/MenuGreen.API/MenuGreen.API.csproj \
             -o ./efbundle
 
+          if [ ! -s ./efbundle ]; then
+            echo 'ERROR: efbundle was not created' >&2
+            exit 1
+          fi
+          echo "Migration bundle created: $(ls -lh ./efbundle)"
+
       - name: Upload and run migration bundle
         run: |
+          set -euxo pipefail
+          echo '=== Uploading efbundle ==='
           scp -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
-            ./efbundle ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/apps/MenuGreenSystem/efbundle
+            ./efbundle "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/apps/MenuGreenSystem/efbundle"
 
+          echo '=== Running migration ==='
           ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              chmod +x ./efbundle && \
              CONNECTION_STRING=\$(grep '^ConnectionStrings__DefaultConnection=' .env | cut -d'=' -f2-) && \
-             ./efbundle --connection \"\$CONNECTION_STRING\""
+             echo 'Running efbundle with connection...' && \
+             ./efbundle --connection \"\$CONNECTION_STRING\" && \
+             echo 'Migration completed successfully'"
 
       - name: Cleanup migration bundle
         run: |
@@ -320,17 +345,28 @@ jobs:
 
       - name: Wait for API to be alive
         run: |
-          echo "Waiting for API..."
-          for i in {1..90}; do
+          set -euxo pipefail
+          echo "Waiting for API at http://${{ secrets.LIGHTSAIL_HOST }}:5000/health/live..."
+          API_READY=false
+          for i in $(seq 1 90); do
             STATUS=$(curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:5000/health/live" -w "\n%{http_code}" || true)
             CODE=$(echo "$STATUS" | tail -n1 || true)
             if [ "$CODE" = "200" ]; then
-              echo "API is alive!"
+              echo "API is alive after ${i} attempts!"
+              API_READY=true
               break
             fi
             echo "Waiting... ($i/90) status=${CODE:-no_response}"
             sleep 5
           done
+          if [ "$API_READY" != "true" ]; then
+            echo "ERROR: API did not become alive within timeout." >&2
+            echo "Checking container logs on server..." >&2
+            ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
+              "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+              "cd /home/ubuntu/apps/MenuGreenSystem && docker compose -f docker-compose.prod.yml logs --tail=50 api || true"
+            exit 1
+          fi
 
       - name: Check API readiness
         run: |
