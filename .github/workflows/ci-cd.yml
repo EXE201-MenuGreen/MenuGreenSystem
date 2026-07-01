@@ -224,7 +224,7 @@ jobs:
 
           # Remaining secrets with exact .NET nested-key mapping
           # Use Python to properly parse multi-line values (like SSH keys)
-          python3 << 'PYTHON_SCRIPT'
+          python3 <<-'PYTHON_SCRIPT'
 import re
 import sys
 
@@ -237,42 +237,26 @@ excluded_prefixes = (
 output = []
 with open("$GITHUB_WORKSPACE/doppler_raw.env", "r") as f:
     for line in f:
-        # Skip empty lines and lines starting with comment
         stripped = line.rstrip()
         if not stripped or stripped.startswith("#"):
             continue
-        
-        # Skip continuation lines (SSH key, indented lines)
         if stripped.startswith(" ") or stripped.startswith("\t"):
             continue
-        
-        # Check if line has valid KEY=value format (unquoted or quoted value)
         match = re.match(r'^([A-Za-z_][A-Za-z0-9_:]*)=(.*)$', stripped)
         if not match:
             continue
-        
         key = match.group(1)
         raw_value = match.group(2)
-        
-        # Skip excluded prefixes
         if any(key.startswith(p) for p in excluded_prefixes):
             continue
-        
-        # Unquote the value
         if raw_value.startswith('"') and raw_value.endswith('"'):
             value = raw_value[1:-1]
         else:
             value = raw_value
-        
-        # Escape double quotes for shell
         value = value.replace('"', '\\"')
-        
-        # Transform key colons to double underscores for .NET nested config
         key = key.replace(":", "__")
-        
         output.append(f"{key}={value}")
 
-# Write to .env file
 with open("$GITHUB_WORKSPACE/.env", "a") as f:
     f.write("\n".join(output) + "\n")
 
