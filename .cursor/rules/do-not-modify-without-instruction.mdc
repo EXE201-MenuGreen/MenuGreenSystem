@@ -1,0 +1,23 @@
+---
+description: Không sửa file nếu người dùng chưa yêu cầu rõ ràng
+alwaysApply: true
+---
+
+# Không sửa file khi chưa có lệnh
+
+Chỉ đọc, phân tích, đề xuất hoặc giải thích trừ khi người dùng **yêu cầu rõ ràng** sửa/tạo file.
+
+## Quy tắc
+
+- **Không** dùng các công cụ ghi file nếu chưa có lệnh chỉnh sửa/tạo rõ ràng.
+- Có thể dùng các công cụ đọc/tìm kiếm để khảo sát codebase.
+- Nếu cần sửa nhiều nơi, hãy đề xuất danh sách thay đổi và **đợi xác nhận** trước khi ghi file.
+
+## Ví dụ
+
+Người dùng: "review giúp mình file này"
+→ ✅ Đọc file, tìm vấn đề, báo cáo kết quả.
+→ ❌ Không sửa file nếu người dùng không nói "sửa", "update", "refactor",...
+
+Người dùng: "sửa bug X ở file Y"
+→ ✅ Có thể sửa file Y theo phạm vi bug được yêu cầu.
