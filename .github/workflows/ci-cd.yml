@@ -155,10 +155,10 @@ jobs:
             doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_raw.env
 
             echo "=== Build .env file ==="
-            cat > /home/ubuntu/apps/MenuGreenSystem/.env << 'ENVEOF'
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://+:5000
-ENVEOF
+            {
+              echo "ASPNETCORE_ENVIRONMENT=Production"
+              echo "ASPNETCORE_URLS=http://+:5000"
+            } > /home/ubuntu/apps/MenuGreenSystem/.env
 
             # Parse and add secrets
             while IFS='=' read -r key raw_value; do
