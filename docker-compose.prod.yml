@@ -30,10 +30,9 @@ services:
           cpus: '0.5'
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: docker.io/anhtuan21112004/menugreensystem:latest
     container_name: menugreen_api
+    pull_policy: always
     env_file:
       - .env
     environment:
