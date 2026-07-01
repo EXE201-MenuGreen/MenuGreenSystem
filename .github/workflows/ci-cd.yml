@@ -128,6 +128,7 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           port: 22
+          envs: DOPPLER_TOKEN
           debug: true
           script: |
             set -e
