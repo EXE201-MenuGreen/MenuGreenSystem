@@ -14,5 +14,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int EstimatedPriceVnd { get; set; }
         public int CookingTimeMin { get; set; }
         public decimal Score { get; set; }
+        public string? Instructions { get; set; }
     }
 }

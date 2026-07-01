@@ -41,13 +41,12 @@ BudgetRequest
 - `✅ DELETE /api/Recommendation/history/{id}` — xoá lịch sử không cần thiết.
 
 #### C. Feedback loop (✅ Đã có API)
-- `✅ POST /api/Recommendation/history/{id}/feedback` — user chấm chất lượng đề xuất.
+- `✅ POST /api/Recommendation/feedback` — user chấm chất lượng đề xuất.
 - `✅ PUT /api/Recommendation/feedback/{id}` — cập nhật feedback nếu user đổi ý.
 - `✅ GET /api/Recommendation/feedback/summary` — tổng hợp tỷ lệ thích/không thích.
 
 #### D. Giải thích recommendation (✅ Đã có API)
-- `✅ GET /api/Recommendation/history/{id}/explain` — giải thích vì sao món/thực đơn được đề xuất.
-- `✅ GET /api/Recommendation/{id}/why-this-item` — giải thích chi tiết từng item.
+- `✅ GET /api/Recommendation/explain/{id}` — giải thích vì sao món/thực đơn được đề xuất.
 
 #### E. Tối ưu cá nhân hóa (⚠️ Đã có route, còn có thể nâng cấp logic)
 - `⚠️ POST /api/Recommendation/retrain` — tái tính rule/model từ feedback (job nội bộ/admin).

@@ -33,7 +33,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(Guid? userId, RecommendationRequest request)
         {
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
+            IEnumerable<Recipe> recipes = await _db.Recipes.Include(r => r.Food).Where(x => x.IsActive != false && x.TotalTimeMin.HasValue).ToListAsync();
             var target = request.TargetCalories ?? 0;
 
             if (request.ExcludeUserAllergies && userId.HasValue)
@@ -53,7 +53,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(Guid? userId, RecommendationRequest request)
         {
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue && x.TotalTimeMin.HasValue);
+            IEnumerable<Recipe> recipes = await _db.Recipes.Include(r => r.Food).Where(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue && x.TotalTimeMin.HasValue).ToListAsync();
 
             if (request.ExcludeUserAllergies && userId.HasValue)
             {
@@ -76,7 +76,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var targetCalories = request.TargetCalories ?? 0;
 
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue && x.EstimatedPriceVnd.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue && x.EstimatedPriceVnd.HasValue);
+            IEnumerable<Recipe> recipes = await _db.Recipes.Include(r => r.Food).Where(x => x.IsActive != false && x.TotalTimeMin.HasValue && x.EstimatedPriceVnd.HasValue).ToListAsync();
 
             if (request.ExcludeUserAllergies && userId.HasValue)
             {
@@ -162,17 +162,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        public Task<SmartScheduleResponse> BuildSmartScheduleAsync(SmartScheduleRequest request)
-        {
-            var reminderTime = request.ExpectedMealTime.AddMinutes(-(request.CookingTimeMinutes + request.BufferMinutes));
-            return Task.FromResult(new SmartScheduleResponse
-            {
-                ExpectedMealTime = request.ExpectedMealTime,
-                ReminderTime = reminderTime,
-                CookingTimeMinutes = request.CookingTimeMinutes,
-                BufferMinutes = request.BufferMinutes
-            });
-        }
+
 
         public async Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId)
         {
@@ -324,7 +314,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var limit = request.LimitMinutes ?? int.MaxValue;
 
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
+            IEnumerable<Recipe> recipes = await _db.Recipes.Include(r => r.Food).Where(x => x.IsActive != false && x.TotalTimeMin.HasValue).ToListAsync();
             if (request.ExcludeUserAllergies)
             {
                 foods = await FilterFoodsByAllergyAsync(foods, userId);
@@ -413,7 +403,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FatG = recipe.Food?.FatG ?? 0,
                 EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
                 CookingTimeMin = recipe.TotalTimeMin ?? 0,
-                Score = Math.Abs(calories - targetCalories)
+                Score = Math.Abs(calories - targetCalories),
+                Instructions = recipe.Instructions
             };
         }
 
@@ -450,7 +441,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FatG = recipe.Food?.FatG ?? 0,
                 EstimatedPriceVnd = price,
                 CookingTimeMin = time,
-                Score = (budget - price) + (limitMinutes - time)
+                Score = (budget - price) + (limitMinutes - time),
+                Instructions = recipe.Instructions
             };
         }
 
@@ -486,7 +478,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FatG = recipe.Food?.FatG ?? 0,
                 EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
                 CookingTimeMin = recipe.TotalTimeMin ?? 0,
-                Score = Math.Abs(calories - targetCalories) + Math.Max(0, (recipe.EstimatedPriceVnd ?? 0) - lunchBudget) + Math.Max(0, (recipe.TotalTimeMin ?? 0) - 20)
+                Score = Math.Abs(calories - targetCalories) + Math.Max(0, (recipe.EstimatedPriceVnd ?? 0) - lunchBudget) + Math.Max(0, (recipe.TotalTimeMin ?? 0) - 20),
+                Instructions = recipe.Instructions
             };
         }
 

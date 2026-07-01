@@ -12,7 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(Guid? userId, RecommendationRequest request);
         Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(Guid? userId, RecommendationRequest request);
         Task<MealPlanResponse> BuildDailyMenuAsync(Guid? userId, RecommendationRequest request);
-        Task<SmartScheduleResponse> BuildSmartScheduleAsync(SmartScheduleRequest request);
+
         Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId);
         Task<RecommendationDetailResponse> GetByIdAsync(Guid userId, Guid recommendationId);
         Task DeleteHistoryAsync(Guid userId, Guid recommendationId);

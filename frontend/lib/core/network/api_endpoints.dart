@@ -70,7 +70,8 @@ class ApiEndpoints {
   static String get recommendationGenerateBudgetAware => '$baseUrl/Recommendation/generate/budget-aware';
   static String recommendationUpdateFeedback(String id) => '$baseUrl/Recommendation/feedback/$id';
   static String get recommendationFeedbackSummary => '$baseUrl/Recommendation/feedback/summary';
-  static String get recommendationSmartSchedule => '$baseUrl/Recommendation/smart-schedule';
+  static String get recommendationSmartSchedule =>
+      '$baseUrl/Recommendation/generate/smart-schedule';
 
   static String get userMealPlans => '$baseUrl/user-meal-plans';
   static String get userMealPlanAdherence => '$baseUrl/user-meal-plans/adherence';

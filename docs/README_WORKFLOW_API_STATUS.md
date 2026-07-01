@@ -170,7 +170,7 @@ GET    /api/Recommendation/calories
 GET    /api/Recommendation/eco
 GET    /api/Recommendation/lunch
 GET    /api/Recommendation/daily-menu
-POST   /api/Recommendation/smart-schedule
+POST   /api/Recommendation/generate/smart-schedule
 GET    /api/Recommendation/history
 GET    /api/Recommendation/{id}
 POST   /api/Recommendation/preview

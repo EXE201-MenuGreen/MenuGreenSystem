@@ -302,20 +302,24 @@ class RecommendationRepository {
   // SMART SCHEDULE METHOD
   // =========================================================================
 
-  Future<SmartScheduleResponse?> buildSmartSchedule({
-    required List<String> mealTypes,
-    required List<String> mealTimes,
+  Future<dynamic> buildSmartSchedule({
+    required DateTime expectedMealTime,
+    required int cookingTimeMinutes,
+    int limit = 5,
+    int bufferMinutes = 5,
   }) async {
     try {
       final response = await _api.postJson(
         ApiEndpoints.recommendationSmartSchedule,
         {
-          'mealTypes': mealTypes,
-          'mealTimes': mealTimes,
+          'expectedMealTime': expectedMealTime.toIso8601String(),
+          'cookingTimeMinutes': cookingTimeMinutes,
+          'limit': limit,
+          'bufferMinutes': bufferMinutes,
         },
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return SmartScheduleResponse.fromJson(jsonDecode(response.body));
+      return jsonDecode(response.body);
     } catch (_) {
       return null;
     }
