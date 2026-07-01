@@ -139,6 +139,10 @@ jobs:
             echo "=== Pull latest code ==="
             git pull origin main
 
+            echo "=== Install required tools ==="
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq
+
             echo "=== Install Doppler CLI ==="
             if ! command -v doppler &> /dev/null; then
               mkdir -p ~/.local/bin
