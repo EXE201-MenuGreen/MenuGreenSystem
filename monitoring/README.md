@@ -48,7 +48,7 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 | Service | URL | Default Credentials |
 |---------|-----|---------------------|
-| Grafana | http://localhost:3000 | admin / admin123 |
+| Grafana | http://localhost:3000 | Set via `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD` |
 | Prometheus | http://localhost:9090 | - |
 | cAdvisor | http://localhost:8080 | - |
 | Node Exporter | http://localhost:9100 | - |
@@ -255,9 +255,9 @@ docker volume prune
 
 ```bash
 # Export all dashboards
-curl -s -u admin:admin123 http://localhost:3000/api/search | jq -r '.[].uri' | while read uri; do
+curl -s -u "${GF_SECURITY_ADMIN_USER}:${GF_SECURITY_ADMIN_PASSWORD}" http://localhost:3000/api/search | jq -r '.[].uri' | while read uri; do
   name=$(basename $uri)
-  curl -s -u admin:admin123 "http://localhost:3000/api/dashboards/$uri" | \
+  curl -s -u "${GF_SECURITY_ADMIN_USER}:${GF_SECURITY_ADMIN_PASSWORD}" "http://localhost:3000/api/dashboards/$uri" | \
     jq '.dashboard' > "dashboards/$name.json"
 done
 ```
@@ -278,10 +278,10 @@ sudo ufw allow 9093/tcp  # Alertmanager
 ### Grafana Authentication
 
 ```bash
-# Change default password
+# Change default password using Grafana API
 curl -X PUT -H "Content-Type: application/json" \
-  -d '{"password": "your-new-password"}' \
-  http://admin:admin123@localhost:3000/api/user/password
+  -d '{"password": "<EXAMPLE_NEW_PASSWORD>"}' \
+  http://"${GF_SECURITY_ADMIN_USER}:${GF_SECURITY_ADMIN_PASSWORD}"@localhost:3000/api/user/password
 ```
 
 ### Nginx Auth (Optional)

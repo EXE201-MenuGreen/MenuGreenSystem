@@ -16,13 +16,13 @@ Hướng dẫn chi tiết cách setup GitHub Secrets cho MenuGreen CI/CD pipelin
 
 GitHub Secrets được sử dụng để lưu trữ thông tin nhạy cảm trong CI/CD pipeline:
 - SSH keys
-- Database credentials
-- API keys
+- Doppler token
 - Passwords
 
 **Lưu ý bảo mật:**
 - Secrets được mã hóa và không hiển thị sau khi lưu
 - Không commit credentials vào code
+- Không commit giá trị thật của secrets vào documentation
 - Rotate secrets định kỳ
 
 ---
@@ -52,7 +52,19 @@ Sau khi thêm, secret sẽ hiển thị dạng `***` (masked)
 
 ### Bắt buộc
 
-#### 1. `LIGHTSAIL_HOST`
+#### 1. `DOPPLER_TOKEN`
+
+**Mô tả**: Service token để CI đọc secrets từ Doppler `project: menugreen`, `config: prd`
+
+**Lưu ý**:
+- Chỉ cấp quyền đọc config `prd` trong Doppler
+- Xoay token định kỳ
+
+---
+
+### Tùy chọn (Optional)
+
+#### 2. `LIGHTSAIL_HOST`
 
 **Mô tả**: Địa chỉ IP hoặc DNS của Lightsail server
 
@@ -60,23 +72,16 @@ Sau khi thêm, secret sẽ hiển thị dạng `***` (masked)
 ```bash
 # Từ AWS Console
 # Services → Lightsail → Instances → <instance-name> → Networking
-
-# Hoặc dùng AWS CLI
-aws lightsail get-instances --output json | jq -r '.instances[].publicIpAddress'
 ```
 
 **Ví dụ**:
 ```
-54.123.456.78
-```
-hoặc
-```
-ec2-54-123-456-78.compute-1.amazonaws.com
+<LIGHTSAIL_IP>
 ```
 
 ---
 
-#### 2. `LIGHTSAIL_USER`
+#### 3. `LIGHTSAIL_USER`
 
 **Mô tả**: SSH username để login vào server
 
@@ -88,217 +93,14 @@ ubuntu
 
 ---
 
-#### 3. `LIGHTSAIL_SSH_KEY`
+#### 4. `LIGHTSAIL_SSH_KEY`
 
 **Mô tả**: Private key SSH để authenticate với Lightsail
 
-**Cách lấy**:
-
-1. **Tạo SSH key pair** (nếu chưa có):
-```bash
-# Generate new SSH key
-ssh-keygen -t rsa -b 4096 -C "menugreen-deploy" -f ~/.ssh/menugreen_deploy
-
-# View private key
-cat ~/.ssh/menugreen_deploy
-```
-
-2. **Thêm public key vào Lightsail**:
-   - AWS Console → Lightsail → Instance → **Connect** → **Reset SSH key**
-   - Paste nội dung public key
-
-3. **Copy private key**:
-```bash
-cat ~/.ssh/menugreen_deploy
-```
-Copy toàn bộ output bao gồm `-----BEGIN RSA PRIVATE KEY-----` và `-----END RSA PRIVATE KEY-----`
-
 **Lưu ý**:
+- Dùng key dạng `BEGIN OPENSSH PRIVATE KEY` hoặc `BEGIN RSA PRIVATE KEY`
 - Giữ private key an toàn
 - Không share hoặc commit vào git
-- Đảm bảo permissions: `chmod 600 ~/.ssh/menugreen_deploy`
-
----
-
-#### 4. `DB_HOST`
-
-**Mô tả**: Hostname của PostgreSQL database
-
-**Cách lấy**:
-```bash
-# Từ AWS RDS Console
-# Services → RDS → Databases → <database> → Connectivity
-
-# Hoặc connection string
-psql "postgresql://user:pass@host:5432/dbname" -c "SELECT current_setting('server_version_num');"
-```
-
-**Ví dụ**:
-```
-menugreen-db.xxxxx.us-east-1.rds.amazonaws.com
-```
-
----
-
-#### 5. `DB_PORT`
-
-**Mô tả**: Port của PostgreSQL
-
-**Giá trị mặc định**:
-```
-5432
-```
-
----
-
-#### 6. `DB_NAME`
-
-**Mô tả**: Tên database
-
-**Ví dụ**:
-```
-menugreen
-```
-
----
-
-#### 7. `DB_USER`
-
-**Mô tả**: Database username
-
-**Ví dụ**:
-```
-menugreen_admin
-```
-
----
-
-#### 8. `DB_PASSWORD`
-
-**Mô tả**: Database password
-
-**Lưu ý**:
-- Nên dùng strong password
-- Rotate định kỳ
-- Không dùng password có trong dictionary
-
----
-
-#### 9. `JWT_SECRET`
-
-**Mô tả**: Secret key để sign JWT tokens
-
-**Cách tạo**:
-```bash
-# Generate random secret
-openssl rand -base64 32
-
-# Hoặc Python
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Hoặc Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
-
-**Yêu cầu**:
-- Độ dài tối thiểu: 32 characters
-- Nên dùng random string
-
----
-
-### Tùy chọn (Optional)
-
-#### 10. `REDIS_PASSWORD`
-
-**Mô tả**: Password cho Redis cache
-
-**Cách tạo**:
-```bash
-openssl rand -base64 24
-```
-
----
-
-#### 11. `GF_SECURITY_ADMIN_PASSWORD`
-
-**Mô tả**: Admin password cho Grafana
-
-**Giá trị mặc định**:
-```
-admin123
-```
-
-**Lưu ý**: Nên đổi password này trong production!
-
----
-
-#### 12. `SLACK_WEBHOOK_URL`
-
-**Mô tả**: Slack webhook để nhận alerts
-
-**Cách lấy**:
-1. Slack App → **Incoming Webhooks**
-2. Create New Webhook
-3. Chọn channel để nhận alerts
-4. Copy webhook URL
-
-**Ví dụ**:
-```
-https://your-slack-webhook.example.com/services/<TEAM_ID>/<WEBHOOK_ID>/<TOKEN>
-```
-
-**Lưu ý**: Thay thế bằng webhook URL thực của bạn khi setup.
-
----
-
-#### 13. `ALERT_EMAIL`
-
-**Mô tả**: Email để nhận alert notifications
-
-**Ví dụ**:
-```
-devops@menugreen.com
-```
-
----
-
-#### 14. `SMTP_PASSWORD`
-
-**Mô tả**: Password cho SMTP server (Alertmanager)
-
-**Ví dụ** (Gmail SMTP):
-```
-your-app-specific-password
-```
-
----
-
-## Cách lấy giá trị
-
-### AWS Lightsail
-
-```bash
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-
-# Configure
-aws configure
-
-# Get instance IP
-aws lightsail get-instances --output json | jq -r '.instances[] | "\(.name): \(.publicIpAddress)"'
-```
-
-### Database Connection String
-
-```bash
-# Format
-Host=<DB_HOST>;Port=<DB_PORT>;Database=<DB_NAME>;Username=<DB_USER>;Password=<DB_PASSWORD>;SSL Mode=Require
-
-# Example
-Host=menugreen-db.xxxxx.us-east-1.rds.amazonaws.com;Port=5432;Database=menugreen;Username=admin;Password=secret;SSL Mode=Require
-```
 
 ---
 
@@ -309,18 +111,12 @@ Host=menugreen-db.xxxxx.us-east-1.rds.amazonaws.com;Port=5432;Database=menugreen
 ```yaml
 - name: Debug Secrets
   run: |
-    echo "DB Host: ${{ secrets.DB_HOST }}"
-    echo "DB Port: ${{ secrets.DB_PORT }}"
-    echo "DB Name: ${{ secrets.DB_NAME }}"
-    # Không echo DB_PASSWORD!
+    echo "Doppler token is set: ${{ secrets.DOPPLER_TOKEN != '' }}"
 ```
 
 ### Test SSH Connection
 
 ```bash
-# Test locally
-ssh -i ~/.ssh/menugreen_deploy ubuntu@<LIGHTSAIL_HOST>
-
 # Test from GitHub Actions
 - name: Test SSH Connection
   uses: appleboy/ssh-action@v1.0.3
@@ -334,20 +130,6 @@ ssh -i ~/.ssh/menugreen_deploy ubuntu@<LIGHTSAIL_HOST>
       uptime
 ```
 
-### Test Database Connection
-
-```bash
-# Test from GitHub Actions
-- name: Test DB Connection
-  run: |
-    PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
-      -h ${{ secrets.DB_HOST }} \
-      -p ${{ secrets.DB_PORT }} \
-      -U ${{ secrets.DB_USER }} \
-      -d ${{ secrets.DB_NAME }} \
-      -c "SELECT version();"
-```
-
 ---
 
 ## Best Practices
@@ -356,17 +138,9 @@ ssh -i ~/.ssh/menugreen_deploy ubuntu@<LIGHTSAIL_HOST>
 
 ```bash
 # Schedule: Monthly
-# 1. Generate new secret
-openssl rand -base64 32
-
+# 1. Generate new secret in Doppler / provider
 # 2. Update GitHub Secret
 # Settings → Secrets and variables → Actions → <secret> → Update
-
-# 3. Update server .env file
-ssh ubuntu@<HOST> "echo 'JWT_SECRET=new_value' >> /home/ubuntu/apps/MenuGreenSystem/.env"
-
-# 4. Restart services
-ssh ubuntu@<HOST> "docker restart menugreen-api"
 ```
 
 ### 2. Audit Secret Usage
@@ -375,25 +149,11 @@ ssh ubuntu@<HOST> "docker restart menugreen-api"
 2. Filter: `secrets`
 3. Check ai đã access secrets
 
-### 3. Use Environment-specific Secrets
-
-```yaml
-# For staging environment
-environment:
-  name: staging
-  url: https://staging.menugreen.com
-
-# For production
-environment:
-  name: production
-  url: https://api.menugreen.com
-```
-
-### 4. Never Log Secrets
+### 3. Never Log Secrets
 
 ```yaml
 # SAI ❌
-- run: echo "Password: ${{ secrets.DB_PASSWORD }}"
+- run: echo "Password: ${{ secrets.SECRET_NAME }}"
 
 # ĐÚNG ✅
 - run: echo "Database configured successfully"
@@ -420,22 +180,12 @@ Permission denied (publickey)
 **Fix**:
 ```bash
 # Verify key format
-cat ~/.ssh/menugreen_deploy | head -1
-# Should be: -----BEGIN RSA PRIVATE KEY-----
+head -1 ~/.ssh/menugreen_deploy
+# Should start with: -----BEGIN ...
 
 # Fix permissions
 chmod 600 ~/.ssh/menugreen_deploy
 ```
-
-### Database connection timeout
-
-```
-Connection timeout
-```
-
-**Fix**:
-1. Kiểm tra DB security group allow inbound from GitHub IPs
-2. Hoặc whitelist GitHub Actions IPs
 
 ---
 
@@ -443,11 +193,8 @@ Connection timeout
 
 - [ ] Tất cả required secrets đã được thêm
 - [ ] SSH key có permissions đúng (600)
-- [ ] Database password mạnh (min 16 chars)
-- [ ] JWT secret đủ dài (min 32 chars)
-- [ ] Không có secrets trong code
 - [ ] Secrets đã được test trong CI/CD
-- [ ] Backup plan cho secrets đã được tạo
+- [ ] Không có secrets trong code hoặc docs
 
 ---
 
