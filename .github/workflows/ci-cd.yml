@@ -226,21 +226,12 @@ jobs:
           # Use Python to properly parse multi-line values (like SSH keys)
           python3 <<-'PYTHON_SCRIPT'
 import re
-import sys
-
-excluded_prefixes = (
-    'DB_', 'REDIS_', 'DB=', 'CONNECTIONSTRINGS__DEFAULTCONNECTION',
-    'DATABASE_URL=', 'LIGHTSAIL_SSH_KEY=', 'REDIS_HOST=', 'REDIS_PORT=',
-    'REDIS_PASSWORD='
-)
-
+excluded_prefixes = ('DB_', 'REDIS_', 'DB=', 'CONNECTIONSTRINGS__DEFAULTCONNECTION', 'DATABASE_URL=', 'LIGHTSAIL_SSH_KEY=', 'REDIS_HOST=', 'REDIS_PORT=', 'REDIS_PASSWORD=')
 output = []
 with open("$GITHUB_WORKSPACE/doppler_raw.env", "r") as f:
     for line in f:
         stripped = line.rstrip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith(" ") or stripped.startswith("\t"):
+        if not stripped or stripped.startswith("#") or stripped.startswith(" ") or stripped.startswith("\t"):
             continue
         match = re.match(r'^([A-Za-z_][A-Za-z0-9_:]*)=(.*)$', stripped)
         if not match:
@@ -249,17 +240,12 @@ with open("$GITHUB_WORKSPACE/doppler_raw.env", "r") as f:
         raw_value = match.group(2)
         if any(key.startswith(p) for p in excluded_prefixes):
             continue
-        if raw_value.startswith('"') and raw_value.endswith('"'):
-            value = raw_value[1:-1]
-        else:
-            value = raw_value
+        value = raw_value[1:-1] if raw_value.startswith('"') and raw_value.endswith('"') else raw_value
         value = value.replace('"', '\\"')
         key = key.replace(":", "__")
         output.append(f"{key}={value}")
-
 with open("$GITHUB_WORKSPACE/.env", "a") as f:
     f.write("\n".join(output) + "\n")
-
 print(f"Processed {len(output)} secrets")
 PYTHON_SCRIPT
 
