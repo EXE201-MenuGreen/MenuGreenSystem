@@ -71,7 +71,7 @@ Neu khong co se throw exception khi khoi dong.
 
 ### 2.4 Seed data
 
-- Huong dan ghi chu trong Program.cs: chay `backend/database/seeddata.sql` sau khi migrations.
+- Huong dan ghi chu trong Program.cs: chay `backend/seeddata.sql` sau khi migrations.
 
 ---
 

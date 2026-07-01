@@ -6,7 +6,7 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'menugreen-production'
+    cluster: 'menugreen-lightsail'
     environment: 'production'
 
 # =============================================================================
@@ -53,6 +53,19 @@ scrape_configs:
         replacement: 'api-production-01'
 
   # ---------------------------------------------------------------------------
+  # ASP.NET Core API metrics
+  # ---------------------------------------------------------------------------
+  - job_name: 'menugreen-api'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['api:5000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'menugreen-api'
+
+  # ---------------------------------------------------------------------------
   # Node Exporter - Host System Metrics
   # ---------------------------------------------------------------------------
   - job_name: 'node-exporter'
@@ -71,28 +84,21 @@ scrape_configs:
     scrape_interval: 30s
 
   # ---------------------------------------------------------------------------
-  # Redis Exporter
+  # Redis
   # ---------------------------------------------------------------------------
-  - job_name: 'redis-exporter'
+  - job_name: 'redis'
     static_configs:
-      - targets: ['redis-exporter:9121']
-    metrics_path: /metrics
-    scrape_interval: 30s
+      - targets: ['redis:6379']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+        replacement: 'redis'
 
   # ---------------------------------------------------------------------------
-  # Alertmanager
+  # PostgreSQL
   # ---------------------------------------------------------------------------
-  - job_name: 'alertmanager'
+  - job_name: 'postgres'
     static_configs:
-      - targets: ['alertmanager:9093']
-    metrics_path: /metrics
-    scrape_interval: 30s
-
-  # ---------------------------------------------------------------------------
-  # Grafana (optional monitoring)
-  # ---------------------------------------------------------------------------
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-    metrics_path: /metrics
-    scrape_interval: 60s
+      - targets: ['db:5432']
