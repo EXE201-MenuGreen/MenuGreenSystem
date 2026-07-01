@@ -164,6 +164,8 @@ jobs:
             # Parse and add secrets
             while IFS='=' read -r key raw_value; do
               [[ -z "$key" || "$key" =~ ^# ]] && continue
+              # Skip keys with invalid characters for .env
+              [[ "$key" =~ [/[:space:]] ]] && continue
               [[ "$key" =~ ^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__|DATABASE_URL=|LIGHTSAIL_SSH_KEY=|REDIS_HOST=|REDIS_PORT=|REDIS_PASSWORD=) ]] && continue
 
               # Remove quotes from value
