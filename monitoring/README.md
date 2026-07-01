@@ -23,19 +23,6 @@ The monitoring stack provides comprehensive observability for the MenuGreen API 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Components
-
-| Component | Image | Purpose |
-|-----------|-------|---------|
-| Prometheus | prom/prometheus:v2.48.0 | Metrics collection & storage |
-| Grafana | grafana/grafana:10.2.2 | Visualization & dashboards |
-| Node Exporter | prom/node-exporter:v1.6.1 | Host metrics |
-| cAdvisor | gcr.io/cadvisor/cadvisor:v0.47.2 | Container metrics |
-| Alertmanager | prom/alertmanager:v0.26.0 | Alert routing |
-| Redis Exporter | oliver006/redis_exporter:v1.55.0 | Redis metrics |
-| Nginx | nginx:1.25.3-alpine | Reverse proxy |
-| Redis | redis:7.2-alpine | Caching |
-
 ## Architecture
 
 ```
@@ -77,6 +64,19 @@ The monitoring stack provides comprehensive observability for the MenuGreen API 
                     │   cAdvisor 8080   │
                     └───────────────────┘
 ```
+
+## Components
+
+| Component | Image | Purpose |
+|-----------|-------|---------|
+| Prometheus | prom/prometheus:v2.48.0 | Metrics collection & storage |
+| Grafana | grafana/grafana:10.2.2 | Visualization & dashboards |
+| Node Exporter | prom/node-exporter:v1.6.1 | Host metrics |
+| cAdvisor | gcr.io/cadvisor/cadvisor:v0.47.2 | Container metrics |
+| Alertmanager | prom/alertmanager:v0.26.0 | Alert routing |
+| Redis Exporter | oliver006/redis_exporter:v1.55.0 | Redis metrics |
+| Nginx | nginx:1.25.3-alpine | Reverse proxy |
+| Redis | redis:7.2-alpine | Caching |
 
 ## Quick Start
 

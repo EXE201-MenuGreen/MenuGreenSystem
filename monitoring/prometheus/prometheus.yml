@@ -41,6 +41,19 @@ scrape_configs:
   # MenuGreen API - .NET Application Metrics
   # ---------------------------------------------------------------------------
   - job_name: 'menugreen-api'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['api:5000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'menugreen-api'
+
+  # ---------------------------------------------------------------------------
+  # MenuGreen API production target
+  # ---------------------------------------------------------------------------
+  - job_name: 'menugreen-api-production'
     static_configs:
       - targets: ['host.docker.internal:5000']
     metrics_path: /metrics
@@ -51,19 +64,6 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: 'api-production-01'
-
-  # ---------------------------------------------------------------------------
-  # ASP.NET Core API metrics
-  # ---------------------------------------------------------------------------
-  - job_name: 'menugreen-api'
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-    static_configs:
-      - targets: ['api:5000']
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'menugreen-api'
 
   # ---------------------------------------------------------------------------
   # Node Exporter - Host System Metrics
@@ -94,7 +94,16 @@ scrape_configs:
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
-        replacement: 'redis'
+      replacement: 'redis'
+
+  # ---------------------------------------------------------------------------
+  # Redis Exporter
+  # ---------------------------------------------------------------------------
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    metrics_path: /metrics
+    scrape_interval: 30s
 
   # ---------------------------------------------------------------------------
   # PostgreSQL
@@ -102,3 +111,21 @@ scrape_configs:
   - job_name: 'postgres'
     static_configs:
       - targets: ['db:5432']
+
+  # ---------------------------------------------------------------------------
+  # Alertmanager
+  # ---------------------------------------------------------------------------
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------------------
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scrape_interval: 60s
