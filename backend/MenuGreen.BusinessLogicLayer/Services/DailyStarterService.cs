@@ -22,6 +22,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IHealthProfileService _healthProfileService;
         private readonly IUserAiProfileService _userAiProfileService;
         private readonly IRecommendationService _recommendationService;
+        private readonly INutritionAssistantService _nutritionAssistantService;
 
         public DailyStarterService(
             IUnitOfWork unitOfWork,
@@ -31,7 +32,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IMealPlanService mealPlanService,
             IHealthProfileService healthProfileService,
             IUserAiProfileService userAiProfileService,
-            IRecommendationService recommendationService)
+            IRecommendationService recommendationService,
+            INutritionAssistantService nutritionAssistantService)
         {
             _unitOfWork = unitOfWork;
             _db = db;
@@ -41,6 +43,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _healthProfileService = healthProfileService;
             _userAiProfileService = userAiProfileService;
             _recommendationService = recommendationService;
+            _nutritionAssistantService = nutritionAssistantService;
         }
 
         public async Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId)
@@ -276,7 +279,56 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 request.TargetCalories = health?.TargetCalories ?? 2000;
             }
 
-            return await _recommendationService.RecommendByCaloriesAsync(userId, request);
+            var resultElement = await _nutritionAssistantService.GenerateWorkerRecommendationAsync(
+                userId.ToString(),
+                "generate",
+                new AiWorkerRecommendationRequest
+                {
+                    MealSlot = "any",
+                    TargetCalories = request.TargetCalories,
+                    Limit = request.Top
+                });
+
+            var itemsList = new List<RecommendationItemResponse>();
+            if (resultElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                resultElement.TryGetProperty("items", out var itemsProperty) && 
+                itemsProperty.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in itemsProperty.EnumerateArray())
+                {
+                    var idStr = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                    var name = item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : string.Empty;
+                    var isFood = item.TryGetProperty("is_food", out var isFoodProp) && isFoodProp.GetBoolean();
+                    var calories = item.TryGetProperty("calories_kcal", out var calProp) && calProp.TryGetDecimal(out var cVal) ? cVal : 0;
+                    var protein = item.TryGetProperty("protein_g", out var protProp) && protProp.TryGetDecimal(out var pVal) ? pVal : 0;
+                    var carbs = item.TryGetProperty("carbs_g", out var carbProp) && carbProp.TryGetDecimal(out var cbVal) ? cbVal : 0;
+                    var fat = item.TryGetProperty("fat_g", out var fatProp) && fatProp.TryGetDecimal(out var fVal) ? fVal : 0;
+                    var price = item.TryGetProperty("estimated_price_vnd", out var prProp) && prProp.TryGetInt32(out var priceVal) ? priceVal : 0;
+                    var time = item.TryGetProperty("cooking_time_min", out var timeProp) && timeProp.TryGetInt32(out var timeVal) ? timeVal : 0;
+                    var score = item.TryGetProperty("score", out var scoreProp) && scoreProp.TryGetDecimal(out var sVal) ? sVal : 0;
+                    var instructions = item.TryGetProperty("instructions", out var instProp) ? instProp.GetString() : null;
+
+                    if (Guid.TryParse(idStr, out var id))
+                    {
+                        itemsList.Add(new RecommendationItemResponse
+                        {
+                            Id = id,
+                            Name = name ?? string.Empty,
+                            Type = isFood ? "Food" : "Recipe",
+                            CaloriesKcal = calories,
+                            ProteinG = protein,
+                            CarbsG = carbs,
+                            FatG = fat,
+                            EstimatedPriceVnd = price,
+                            CookingTimeMin = time,
+                            Score = score,
+                            Instructions = instructions
+                        });
+                    }
+                }
+            }
+
+            return itemsList;
         }
 
         public async Task<UserAiProfileResponse> SavePreferenceAsync(Guid userId, UpdateUserAiProfileRequest request)

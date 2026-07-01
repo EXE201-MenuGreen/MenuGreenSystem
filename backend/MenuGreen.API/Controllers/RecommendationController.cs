@@ -31,45 +31,7 @@ namespace MenuGreen.API.Controllers
             return Guid.TryParse(userIdString, out userId);
         }
 
-        /// <summary>
-        /// Recommend meals/recipes based on user calorie targets.
-        /// </summary>
-        [HttpGet("calories")]
-        public async Task<IActionResult> Calories([FromQuery] RecommendationRequest request)
-        {
-            TryGetUserId(out var userId);
-            return Ok(await _service.RecommendByCaloriesAsync(userId, request));
-        }
 
-        /// <summary>
-        /// Recommend optimal meals/recipes based on budget and cooking time.
-        /// </summary>
-        [HttpGet("eco")]
-        public async Task<IActionResult> Eco([FromQuery] RecommendationRequest request)
-        {
-            TryGetUserId(out var userId);
-            return Ok(await _service.RecommendByEcoAsync(userId, request));
-        }
-
-        /// <summary>
-        /// Recommend quick lunch that fits calorie target and budget.
-        /// </summary>
-        [HttpGet("lunch")]
-        public async Task<IActionResult> Lunch([FromQuery] RecommendationRequest request)
-        {
-            TryGetUserId(out var userId);
-            return Ok(await _service.RecommendLunchAsync(userId, request));
-        }
-
-        /// <summary>
-        /// Generate full-day menu from user target calories.
-        /// </summary>
-        [HttpGet("daily-menu")]
-        public async Task<IActionResult> DailyMenu([FromQuery] RecommendationRequest request)
-        {
-            TryGetUserId(out var userId);
-            return Ok(await _service.BuildDailyMenuAsync(userId, request));
-        }
 
 
 
@@ -118,7 +80,24 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> Preview([FromBody] RecommendationPreviewRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.PreviewAsync(userId, request));
+
+            var mode = (request.Type?.ToLowerInvariant()) switch
+            {
+                "eco" => "budget-aware",
+                "lunch" => "generate",
+                _ => "generate"
+            };
+
+            return Ok(await _nutritionAssistantService.GenerateWorkerRecommendationAsync(
+                userId.ToString(),
+                mode,
+                new AiWorkerRecommendationRequest
+                {
+                    MealSlot = NormalizeMealSlot(request.MealType),
+                    TargetCalories = request.TargetCalories,
+                    BudgetVnd = request.BudgetVnd,
+                    Limit = 5
+                }));
         }
 
         /// <summary>

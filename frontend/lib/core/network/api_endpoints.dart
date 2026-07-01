@@ -51,11 +51,6 @@ class ApiEndpoints {
   static String get ingredientSearch => '$baseUrl/Ingredient/search';
   static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
   static String ingredientRecipes(String id) => '$baseUrl/Ingredient/$id/recipes';
-  static String get recommendationCalories => '$baseUrl/Recommendation/calories';
-  static String get recommendationLunch => '$baseUrl/Recommendation/lunch';
-  static String get recommendationEco => '$baseUrl/Recommendation/eco';
-  static String get recommendationDailyMenu => '$baseUrl/Recommendation/daily-menu';
-
   // Recommendation endpoints (Extended)
   static String get recommendationHistory => '$baseUrl/Recommendation/history';
   static String recommendationById(String id) => '$baseUrl/Recommendation/$id';
@@ -68,6 +63,7 @@ class ApiEndpoints {
   static String get recommendationGenerateSafe => '$baseUrl/Recommendation/generate/safe';
   static String get recommendationGenerateWeeklyPlan => '$baseUrl/Recommendation/generate/weekly-plan';
   static String get recommendationGenerateBudgetAware => '$baseUrl/Recommendation/generate/budget-aware';
+  static String get recommendationGenerateDailyMenu => '$baseUrl/Recommendation/generate/daily-menu';
   static String recommendationUpdateFeedback(String id) => '$baseUrl/Recommendation/feedback/$id';
   static String get recommendationFeedbackSummary => '$baseUrl/Recommendation/feedback/summary';
   static String get recommendationSmartSchedule =>

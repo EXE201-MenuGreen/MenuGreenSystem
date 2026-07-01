@@ -166,10 +166,6 @@ CreateMealPlanScreen
 ### API đã có
 
 ```
-GET    /api/Recommendation/calories
-GET    /api/Recommendation/eco
-GET    /api/Recommendation/lunch
-GET    /api/Recommendation/daily-menu
 POST   /api/Recommendation/generate/smart-schedule
 GET    /api/Recommendation/history
 GET    /api/Recommendation/{id}
@@ -182,6 +178,7 @@ POST   /api/Recommendation/generate
 POST   /api/Recommendation/generate/safe
 POST   /api/Recommendation/generate/weekly-plan
 POST   /api/Recommendation/generate/budget-aware
+POST   /api/Recommendation/generate/daily-menu
 PUT    /api/Recommendation/feedback/{id}
 GET    /api/Recommendation/feedback/summary
 ```
