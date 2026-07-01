@@ -57,9 +57,7 @@ services:
         limits:
           memory: 800M
           cpus: '1.0'
-    volumes:
-      # Uncomment nếu dùng Firebase
-      # - /etc/secrets/firebase-adminsdk.json:/etc/secrets/firebase-adminsdk.json:ro
+    volumes: []
 
 volumes:
   redis_data:
