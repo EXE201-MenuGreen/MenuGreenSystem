@@ -1,0 +1,334 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/menugreen-api
+  DOTNET_VERSION: '9.0'
+
+jobs:
+  # ===========================================================================
+  # Job 1: Build & Test
+  # ===========================================================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: <CI_DB_PASSWORD>
+          POSTGRES_DB: menugreen_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore backend/MenuGreen.sln
+
+      - name: Build
+        run: dotnet build backend/MenuGreen.sln --no-restore -c Release
+
+      - name: Test
+        env:
+          ConnectionStrings__DefaultConnection: >-
+            Host=localhost;Port=5432;Database=menugreen_test;
+            Username=<CI_DB_USER>;Password=<CI_DB_PASSWORD>;SSL Mode=Prefer
+        run: dotnet test backend/MenuGreen.sln --no-build -c Release --verbosity normal
+
+  # ===========================================================================
+  # Job 2: Build Docker Image
+  # ===========================================================================
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+  # ===========================================================================
+  # Job 3: Deploy to Lightsail
+  # ===========================================================================
+  deploy:
+    name: Deploy to Lightsail
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: github.ref == 'refs/heads/main'
+
+    env:
+      DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Doppler CLI
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.local/bin"
+          DOPPLER_VERSION="$(curl -fsSL https://api.github.com/repos/DopplerHQ/cli/releases/latest | jq -r .tag_name)"
+          curl -fsSL "https://github.com/DopplerHQ/cli/releases/download/${DOPPLER_VERSION}/doppler_${DOPPLER_VERSION#v}_linux_amd64.tar.gz" -o /tmp/doppler.tar.gz
+          tar -xzf /tmp/doppler.tar.gz -C "$HOME/.local/bin" doppler
+          chmod +x "$HOME/.local/bin/doppler"
+          rm -f /tmp/doppler.tar.gz
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Doppler CLI
+        run: |
+          set -euxo pipefail
+          doppler --version
+
+      - name: Download secrets and build .env
+        run: |
+          set -euxo pipefail
+
+          echo "Downloading secrets from Doppler..."
+          doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > "$GITHUB_WORKSPACE/doppler_raw.env"
+
+          if [ ! -s "$GITHUB_WORKSPACE/doppler_raw.env" ]; then
+            echo "ERROR: doppler_raw.env is empty or missing" >&2
+            exit 1
+          fi
+
+          echo "Doppler secrets downloaded:"
+          wc -l "$GITHUB_WORKSPACE/doppler_raw.env"
+
+          # Source Doppler secrets into current shell
+          set -a
+          source "$GITHUB_WORKSPACE/doppler_raw.env"
+          set +a
+
+          # Build .env using keys that match the current backend code exactly.
+          printf '%s\n' \
+            'ASPNETCORE_ENVIRONMENT=Production' \
+            'ASPNETCORE_URLS=http://+:5000' \
+            'ASPNETCORE_HTTP_PORTS=5000' \
+            > "$GITHUB_WORKSPACE/.env"
+
+          # Database
+          if [ -z "${DB_HOST:-}" ]; then
+            echo "ERROR: DB_HOST is missing from Doppler prd" >&2
+            exit 1
+          fi
+          {
+            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-MenuGreenDb};Username=${DB_USER:-postgres};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true"
+          } >> "$GITHUB_WORKSPACE/.env"
+
+          # Redis
+          # Backend preference: Redis:ConnectionString -> REDIS_URL
+          if [ -n "${REDIS__CONNECTIONSTRING:-}" ]; then
+            echo "Redis__ConnectionString=${REDIS__CONNECTIONSTRING}" >> "$GITHUB_WORKSPACE/.env"
+            echo "ConnectionStrings__Redis=${REDIS__CONNECTIONSTRING}" >> "$GITHUB_WORKSPACE/.env"
+          elif [ -n "${REDIS_URL:-}" ]; then
+            echo "Redis__ConnectionString=${REDIS_URL}" >> "$GITHUB_WORKSPACE/.env"
+            echo "ConnectionStrings__Redis=${REDIS_URL}" >> "$GITHUB_WORKSPACE/.env"
+          elif [ -n "${REDIS_HOST:-}" ]; then
+            echo "REDIS_HOST=${REDIS_HOST}" >> "$GITHUB_WORKSPACE/.env"
+            echo "REDIS_PORT=${REDIS_PORT:-6379}" >> "$GITHUB_WORKSPACE/.env"
+            if [ -n "${REDIS_PASSWORD:-}" ]; then
+              echo "REDIS_PASSWORD=${REDIS_PASSWORD}" >> "$GITHUB_WORKSPACE/.env"
+              echo "Redis__ConnectionString=${REDIS_HOST}:${REDIS_PORT:-6379},password=${REDIS_PASSWORD}" >> "$GITHUB_WORKSPACE/.env"
+              echo "ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT:-6379},password=${REDIS_PASSWORD}" >> "$GITHUB_WORKSPACE/.env"
+            else
+              echo "Redis__ConnectionString=${REDIS_HOST}:${REDIS_PORT:-6379}" >> "$GITHUB_WORKSPACE/.env"
+              echo "ConnectionStrings__Redis=${REDIS_HOST}:${REDIS_PORT:-6379}" >> "$GITHUB_WORKSPACE/.env"
+            fi
+          else
+            echo "ERROR: No Redis config found in Doppler prd" >&2
+            exit 1
+          fi
+
+          # Remaining secrets with exact .NET nested-key mapping
+          grep -vE '^(DB_|REDIS_|DB=)' "$GITHUB_WORKSPACE/doppler_raw.env" | while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              key=$(echo "$line" | cut -d= -f1)
+              value=$(echo "$line" | cut -d= -f2-)
+              key=$(echo "$key" | tr ':' '__')
+              key=$(echo "$key" | sed 's/__\+/__/g')
+              printf '%s=%s\n' "$key" "$value"
+            fi
+          done >> "$GITHUB_WORKSPACE/.env"
+
+          # JWT canonical keys expected by backend
+          jwk() { grep -E "^$1=" "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2- || true; }
+          SECRET="$(jwk JWT_SECRET || true)"
+          ISSUER="$(jwk JWT_ISSUER || true)"
+          AUDIENCE="$(jwk JWT_AUDIENCE || true)"
+
+          if [ -n "$SECRET" ]; then
+            echo "JwtSettings__SecretKey=${SECRET}" >> "$GITHUB_WORKSPACE/.env"
+          fi
+          if [ -n "$ISSUER" ]; then
+            echo "JwtSettings__Issuer=${ISSUER}" >> "$GITHUB_WORKSPACE/.env"
+          fi
+          if [ -n "$AUDIENCE" ]; then
+            echo "JwtSettings__Audience=${AUDIENCE}" >> "$GITHUB_WORKSPACE/.env"
+          fi
+
+          # Verify critical secrets exist
+          echo "=== Generated .env ==="
+          cat "$GITHUB_WORKSPACE/.env"
+
+          echo "=== Verifying critical secrets ==="
+          if [ ! -s "$GITHUB_WORKSPACE/.env" ] || ! grep -q "^ConnectionStrings__DefaultConnection=" "$GITHUB_WORKSPACE/.env"; then
+            echo "ERROR: DB connection info is empty or missing"
+            cat "$GITHUB_WORKSPACE/.env"
+            exit 1
+          fi
+          if [ -z "$SECRET" ]; then
+            echo "ERROR: JWT SecretKey is missing from Doppler prd"
+            cat "$GITHUB_WORKSPACE/.env"
+            exit 1
+          fi
+          if [ -z "$(grep -E '^(Redis__ConnectionString|REDIS_URL|REDIS_HOST)=' "$GITHUB_WORKSPACE/.env" || true)" ]; then
+            echo "ERROR: Redis config is missing"
+            cat "$GITHUB_WORKSPACE/.env"
+            exit 1
+          fi
+          echo "Secrets verified successfully!"
+
+          # Cleanup raw secrets (keep only .env for deployment)
+          rm -f "$GITHUB_WORKSPACE/doppler_raw.env"
+
+      - name: Upload .env to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "${{ github.workspace }}/.env"
+          target: "/home/ubuntu/apps/MenuGreenSystem/.env"
+          strip_components: 0
+          overwrite: true
+
+      - name: Build migration bundle
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.0.0
+          export PATH="$PATH:~/.dotnet/tools"
+          dotnet ef migrations bundle \
+            --self-contained -r linux-x64 \
+            --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
+            --startup-project backend/MenuGreen.API/MenuGreen.API.csproj \
+            -o ./efbundle
+
+      - name: Upload and run migration bundle
+        run: |
+          scp -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            ./efbundle ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/apps/MenuGreenSystem/efbundle
+
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "cd /home/ubuntu/apps/MenuGreenSystem && \
+             chmod +x ./efbundle && \
+             CONNECTION_STRING=\$(grep '^ConnectionStrings__DefaultConnection=' .env | cut -d'=' -f2-) && \
+             ./efbundle --connection \"\$CONNECTION_STRING\""
+
+      - name: Cleanup migration bundle
+        run: |
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "rm -f /home/ubuntu/apps/MenuGreenSystem/efbundle"
+
+      - name: Deploy application
+        run: |
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "cd /home/ubuntu/apps/MenuGreenSystem && \
+             docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true && \
+             docker compose -f docker-compose.prod.yml up -d --force-recreate && \
+             sleep 30"
+
+      - name: Verify containers
+        run: |
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "cd /home/ubuntu/apps/MenuGreenSystem && \
+             docker compose -f docker-compose.prod.yml ps && \
+             echo '=== API Image ===' && \
+             docker inspect --format='{{.Config.Image}}' menugreen_api && \
+             echo '=== Redis Image ===' && \
+             docker inspect --format='{{.Config.Image}}' menugreen_redis"
+
+      - name: Wait for API to be alive
+        run: |
+          echo "Waiting for API..."
+          for i in {1..90}; do
+            STATUS=$(curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:5000/health/live" -w "\n%{http_code}" || true)
+            CODE=$(echo "$STATUS" | tail -n1 || true)
+            if [ "$CODE" = "200" ]; then
+              echo "API is alive!"
+              break
+            fi
+            echo "Waiting... ($i/90) status=${CODE:-no_response}"
+            sleep 5
+          done
+
+      - name: Check API readiness
+        run: |
+          echo "Checking API readiness (best-effort)..."
+          curl -fsSL "http://${{ secrets.LIGHTSAIL_HOST }}:5000/health/ready" \
+            || echo "Ready check failed - check DB/Redis connectivity"
+
+      - name: Verify deployment
+        run: |
+          echo "Checking API health..."
+          curl -sf http://${{ secrets.LIGHTSAIL_HOST }}:5000/health || echo "Health endpoint may not be configured"
+          echo "Checking Swagger..."
+          curl -sf http://${{ secrets.LIGHTSAIL_HOST }}:5000/swagger/index.html || echo "Swagger may not be available"
+          echo "Deployment verification complete!"

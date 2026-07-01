@@ -383,7 +383,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private string GenerateJwtToken(User user, string roleName)
         {
-            var secretKey = _configuration["JwtSettings:SecretKey"] ?? "super_secret_key_menu_green_1234567890_super_long";
+            var secretKey = _configuration["JwtSettings:SecretKey"] 
+                            ?? Environment.GetEnvironmentVariable("JwtSettings__SecretKey") 
+                            ?? throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
             var key = Encoding.ASCII.GetBytes(secretKey);
             var expiryMinutes = int.TryParse(_configuration["JwtSettings:ExpiryMinutes"], out var exp) ? exp : 120;
             var tokenHandler = new JwtSecurityTokenHandler();

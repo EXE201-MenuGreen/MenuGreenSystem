@@ -5,6 +5,9 @@ WORKDIR /app
 EXPOSE 10000
 EXPOSE 5000
 
+# Install curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # Sử dụng base image .NET 9.0 SDK (dùng cho build)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src

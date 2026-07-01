@@ -140,7 +140,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // 2. Configure JWT Authentication
-var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "super_secret_key_menu_green_1234567890_super_long";
+var secretKey = builder.Configuration["JwtSettings:SecretKey"];
+if (string.IsNullOrEmpty(secretKey))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
+}
 var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication(options =>
@@ -240,7 +244,8 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
     .AddNpgSql(
         builder.Configuration["ConnectionStrings:DefaultConnection"] 
-        ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345",
+        ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+        ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured."),
         name: "postgresql",
         tags: new[] { "db", "ready" })
     .AddRedis(
