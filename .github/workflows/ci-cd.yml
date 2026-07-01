@@ -155,11 +155,11 @@ jobs:
           set +a
 
           # Build .env using keys that match the current backend code exactly.
-          cat > "$GITHUB_WORKSPACE/.env" <<EOF
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://+:5000
-ASPNETCORE_HTTP_PORTS=5000
-EOF
+          printf '%s\n' \
+            'ASPNETCORE_ENVIRONMENT=Production' \
+            'ASPNETCORE_URLS=http://+:5000' \
+            'ASPNETCORE_HTTP_PORTS=5000' \
+            > "$GITHUB_WORKSPACE/.env"
 
           # Database
           if [ -z "${DB_HOST:-}" ]; then
