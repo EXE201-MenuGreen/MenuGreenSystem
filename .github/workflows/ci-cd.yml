@@ -187,13 +187,14 @@ jobs:
               echo "ConnectionStrings__DefaultConnection=$DB_CONN" >> /home/ubuntu/apps/MenuGreenSystem/.env
             fi
 
-            # Override Redis connection for Docker network (replace host with 'redis')
-            REDIS_CONN="$(grep '^REDIS__CONNECTIONSTRING=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-            if [ -n "$REDIS_CONN" ]; then
-              # Replace host in connection string (localhost/127.0.0.1 -> redis)
-              REDIS_CONN_OVERRIDDEN="$(echo "$REDIS_CONN" | sed -E 's|(redis://[^@]+@)[^:]+(:.*)|\1redis\2|')"
-              echo "Redis__ConnectionString=$REDIS_CONN_OVERRIDDEN" >> /home/ubuntu/apps/MenuGreenSystem/.env
-              echo "REDIS_URL=$REDIS_CONN_OVERRIDDEN" >> /home/ubuntu/apps/MenuGreenSystem/.env
+            # Build Redis connection string with password for Docker network
+            REDIS_PASSWORD="$(grep '^REDIS_PASSWORD=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            if [ -n "$REDIS_PASSWORD" ]; then
+              echo "Redis__ConnectionString=redis://:${REDIS_PASSWORD}@redis:6379" >> /home/ubuntu/apps/MenuGreenSystem/.env
+              echo "REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379" >> /home/ubuntu/apps/MenuGreenSystem/.env
+            else
+              echo "Redis__ConnectionString=redis://redis:6379" >> /home/ubuntu/apps/MenuGreenSystem/.env
+              echo "REDIS_URL=redis://redis:6379" >> /home/ubuntu/apps/MenuGreenSystem/.env
             fi
 
             # Add JWT settings
