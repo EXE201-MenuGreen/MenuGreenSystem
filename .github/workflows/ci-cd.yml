@@ -199,6 +199,7 @@ jobs:
             if [ -n "$line" ]; then
               key=$(echo "$line" | cut -d= -f1)
               value=$(echo "$line" | cut -d= -f2-)
+              value=$(echo "$value" | sed -E 's/^"(.*)"$/\1/')
               key=$(echo "$key" | tr ':' '__')
               key=$(echo "$key" | sed 's/__\+/__/g')
               printf '%s=%s\n' "$key" "$value"
@@ -245,6 +246,12 @@ jobs:
 
           # Cleanup raw secrets (keep only .env for deployment)
           rm -f "$GITHUB_WORKSPACE/doppler_raw.env"
+
+      - name: Ensure app directory exists
+        run: |
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "mkdir -p /home/ubuntu/apps/MenuGreenSystem"
 
       - name: Upload .env to server
         uses: appleboy/scp-action@v0.1.7
