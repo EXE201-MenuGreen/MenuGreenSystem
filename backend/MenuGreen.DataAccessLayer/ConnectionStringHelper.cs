@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace MenuGreen.DataAccessLayer
 {
-    internal static class ConnectionStringHelper
+    public static class ConnectionStringHelper
     {
         public static string ResolvePostgresConnectionString(IConfiguration configuration)
         {
