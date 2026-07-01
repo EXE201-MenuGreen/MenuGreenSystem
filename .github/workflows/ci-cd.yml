@@ -223,8 +223,8 @@ jobs:
           fi
 
           # Remaining secrets with exact .NET nested-key mapping
-          # Exclude LIGHTSAIL_SSH_KEY (multi-line SSH key, not env var)
-          grep -vE '^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__DEFAULTCONNECTION|DATABASE_URL=)' "$GITHUB_WORKSPACE/doppler_raw.env" | grep -v '^LIGHTSAIL_SSH_KEY' | while IFS= read -r line; do
+          # Exclude multi-line values like LIGHTSAIL_SSH_KEY (SSH key spans multiple lines)
+          grep -vE '^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__DEFAULTCONNECTION|DATABASE_URL=|LIGHTSAIL_SSH_KEY=)' "$GITHUB_WORKSPACE/doppler_raw.env" | grep '=' | while IFS= read -r line; do
             if [ -n "$line" ]; then
               key=$(echo "$line" | cut -d= -f1)
               value=$(echo "$line" | cut -d= -f2-)
