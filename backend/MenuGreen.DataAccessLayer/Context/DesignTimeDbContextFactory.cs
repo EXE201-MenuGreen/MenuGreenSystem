@@ -25,7 +25,13 @@ namespace MenuGreen.DataAccessLayer.Context
                 .Build();
 
             var connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345";
+                ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=<REPLACE_IN_DOPPLER_OR_LOCAL_ENV>";
+
+            if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Contains("<REPLACE_IN_DOPPLER_OR_LOCAL_ENV>"))
+            {
+                throw new InvalidOperationException("DefaultConnection is not configured.");
+            }
 
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
             optionsBuilder.UseNpgsql(connectionString);
