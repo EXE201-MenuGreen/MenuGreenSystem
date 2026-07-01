@@ -65,8 +65,20 @@ MenuGreenSystem/
 │   ├── MenuGreen.API/                 # Entrypoint API, Controllers, Program.cs
 │   ├── MenuGreen.BusinessLogicLayer/  # Services, DTOs, Interfaces
 │   ├── MenuGreen.DataAccessLayer/     # DbContext, Entities, Repositories, Configurations
-│   ├── MenuGreen_AI_SeedData/         # SQL seed data
-│   └── README_BACKEND_OVERVIEW.md     # Tổng quan backend chi tiết
+│   ├── database/                      # SQL seed data
+│   ├── MenuGreen.sln
+│   └── run_seed_data.ps1
+├── docs/
+│   ├── 01-deployment/                 # Tài liệu triển khai
+│   ├── 02-ops/                        # Vận hành & CI/CD
+│   ├── 03-backend/                    # Tài liệu backend
+│   ├── lightsail-setup.md
+│   ├── NUTRITION_CALCULATIONS_README.md
+│   ├── README_AI_FEATURES_API.md
+│   ├── README_BACKEND_OVERVIEW.md     # Tổng quan backend chi tiết
+│   ├── README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md
+│   ├── README_USER_WORKFLOW.md
+│   └── README_WORKFLOW_API_STATUS.md
 ├── frontend/
 │   ├── lib/
 │   │   ├── core/                      # Network, theme, utils, i18n
@@ -74,7 +86,17 @@ MenuGreenSystem/
 │   │   └── main.dart / app.dart
 │   ├── android/, ios/, windows/, macos/, linux/
 │   └── README.md                      # Hướng dẫn chạy Flutter
-└── README.md                           # Tài liệu dự án này
+├── frontend-web/                      # Next.js web app
+├── monitoring/                        # Prometheus, Grafana, Alertmanager
+├── scripts/                           # Scripts triển khai, ops, utilities
+├── firebase/                          # Firebase rules
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── docker-compose.monitoring.yml
+├── Dockerfile
+├── .env.example
+├── .env.production.example
+└── README.md                          # Tài liệu dự án này
 ```
 
 ---
@@ -179,10 +201,10 @@ Production API hiện tại: `https://menugreensystem.onrender.com/api`
 
 | File | Nội dung |
 |------|----------|
-| `backend/README_BACKEND_OVERVIEW.md` | Kiến trúc backend, entities, security, sample API |
-| `README_USER_WORKFLOW.md` | Chi tiết hành trình người dùng end-to-end |
-| `README_WORKFLOW_API_STATUS.md` | Trạng thái từng workflow: API + UI đã làm / còn thiếu |
-| `README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md` | Ý tưởng hệ thống và roadmap tính năng |
+| `docs/README_BACKEND_OVERVIEW.md` | Kiến trúc backend, entities, security, sample API |
+| `docs/README_USER_WORKFLOW.md` | Chi tiết hành trình người dùng end-to-end |
+| `docs/README_WORKFLOW_API_STATUS.md` | Trạng thái từng workflow: API + UI đã làm / còn thiếu |
+| `docs/README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md` | Ý tưởng hệ thống và roadmap tính năng |
 | `frontend/README.md` | Hướng dẫn build/run Flutter |
 
 ---
