@@ -118,6 +118,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.key
+          chmod 600 ~/.ssh/lightsail.key
+
       - name: Install Doppler CLI
         run: |
           set -euxo pipefail
@@ -208,9 +214,9 @@ jobs:
 
           # JWT canonical keys expected by backend
           jwk() { grep -E "^$1=" "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2- || true; }
-          SECRET="$(jwk JWT_SECRET || true)"
-          ISSUER="$(jwk JWT_ISSUER || true)"
-          AUDIENCE="$(jwk JWT_AUDIENCE || true)"
+          SECRET="$(jwk JWT_SECRET | sed -E 's/^"(.*)"$/\1/' || true)"
+          ISSUER="$(jwk JWT_ISSUER | sed -E 's/^"(.*)"$/\1/' || true)"
+          AUDIENCE="$(jwk JWT_AUDIENCE | sed -E 's/^"(.*)"$/\1/' || true)"
 
           if [ -n "$SECRET" ]; then
             echo "JwtSettings__SecretKey=${SECRET}" >> "$GITHUB_WORKSPACE/.env"
@@ -249,7 +255,7 @@ jobs:
 
       - name: Ensure app directory exists
         run: |
-          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "mkdir -p /home/ubuntu/apps/MenuGreenSystem"
 
@@ -258,7 +264,7 @@ jobs:
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          key_path: ~/.ssh/lightsail.key
           source: "${{ github.workspace }}/.env"
           target: "/home/ubuntu/apps/MenuGreenSystem/.env"
           strip_components: 0
@@ -276,10 +282,10 @@ jobs:
 
       - name: Upload and run migration bundle
         run: |
-          scp -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             ./efbundle ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/apps/MenuGreenSystem/efbundle
 
-          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              chmod +x ./efbundle && \
@@ -288,13 +294,13 @@ jobs:
 
       - name: Cleanup migration bundle
         run: |
-          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "rm -f /home/ubuntu/apps/MenuGreenSystem/efbundle"
 
       - name: Deploy application
         run: |
-          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true && \
@@ -303,7 +309,7 @@ jobs:
 
       - name: Verify containers
         run: |
-          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/lightsail.key -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              docker compose -f docker-compose.prod.yml ps && \
