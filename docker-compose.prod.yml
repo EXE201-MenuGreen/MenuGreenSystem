@@ -53,6 +53,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+          cpus: '1.0'
+    volumes:
+      # Uncomment nếu dùng Firebase
+      # - /etc/secrets/firebase-adminsdk.json:/etc/secrets/firebase-adminsdk.json:ro
 
 volumes:
   redis_data:
