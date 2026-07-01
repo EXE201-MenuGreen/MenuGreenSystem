@@ -244,7 +244,8 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
     .AddNpgSql(
         builder.Configuration["ConnectionStrings:DefaultConnection"] 
-        ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345",
+        ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+        ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured."),
         name: "postgresql",
         tags: new[] { "db", "ready" })
     .AddRedis(
