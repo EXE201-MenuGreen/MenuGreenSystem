@@ -272,10 +272,7 @@ app.UseHttpMetrics(); // Auto-instrument HTTP requests
 // Enable CORS
 app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// HTTPS redirection handled by reverse proxy (nginx in docker-compose)
 
 if (!app.Environment.IsDevelopment())
 {

@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: exe201-menugreen/menugreen-api
-  DOTNET_VERSION: '9.0'
+  DOTNET_VERSION: "9.0"
 
 jobs:
   # ===========================================================================
@@ -178,25 +178,31 @@ jobs:
 
           # Build .env using keys that match the current backend code exactly.
           printf '%s\n' \
-            'ASPNETCORE_ENVIRONMENT=Production' \
-            'ASPNETCORE_URLS=http://+:5000' \
-            'ASPNETCORE_HTTP_PORTS=5000' \
+            "ASPNETCORE_ENVIRONMENT=${ASPNETCORE__ENVIRONMENT:-Production}" \
+            "ASPNETCORE_URLS=http://+:${ASPNETCORE__HTTP__PORTS:-5000}" \
+            "ASPNETCORE_HTTP_PORTS=${ASPNETCORE__HTTP__PORTS:-5000}" \
             > "$GITHUB_WORKSPACE/.env"
 
-          # Database
-          if [ -z "${DB_HOST:-}" ]; then
-            echo "ERROR: DB_HOST is missing from Doppler prd" >&2
+          # Database: prefer Doppler CONNECTIONSTRINGS__DEFAULTCONNECTION; fallback to legacy DATABASE_URL or DB_* if needed.
+          RAW_DB="$(jwk CONNECTIONSTRINGS__DEFAULTCONNECTION | sed -E 's/^"(.*)"$/\1/' || true)"
+          if [ -z "${RAW_DB:-}" ]; then
+            RAW_DB="$(jwk DATABASE_URL | sed -E 's/^"(.*)"$/\1/' || true)"
+          fi
+          if [ -n "${RAW_DB:-}" ]; then
+            echo "ConnectionStrings__DefaultConnection=${RAW_DB}" >> "$GITHUB_WORKSPACE/.env"
+          elif [ -n "${DB_HOST:-}" ]; then
+            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-MenuGreenDb};Username=${DB_USER:-postgres};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true" >> "$GITHUB_WORKSPACE/.env"
+          else
+            echo "ERROR: Doppler is missing CONNECTIONSTRINGS__DEFAULTCONNECTION, DATABASE_URL, and DB_HOST" >&2
             exit 1
           fi
-          {
-            echo "ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME:-MenuGreenDb};Username=${DB_USER:-postgres};Password=${DB_PASSWORD:-};SSL Mode=${DB_SSL_MODE:-Require};Trust Server Certificate=true"
-          } >> "$GITHUB_WORKSPACE/.env"
 
           # Redis
-          # Backend preference: Redis:ConnectionString -> REDIS_URL
-          if [ -n "${REDIS__CONNECTIONSTRING:-}" ]; then
-            echo "Redis__ConnectionString=${REDIS__CONNECTIONSTRING}" >> "$GITHUB_WORKSPACE/.env"
-            echo "ConnectionStrings__Redis=${REDIS__CONNECTIONSTRING}" >> "$GITHUB_WORKSPACE/.env"
+          # Backend preference: Redis:ConnectionString -> REDIS_URL -> REDIS_HOST
+          RAW_REDIS="$(jwk REDIS__CONNECTIONSTRING | sed -E 's/^"(.*)"$/\1/' || true)"
+          if [ -n "${RAW_REDIS:-}" ]; then
+            echo "Redis__ConnectionString=${RAW_REDIS}" >> "$GITHUB_WORKSPACE/.env"
+            echo "ConnectionStrings__Redis=${RAW_REDIS}" >> "$GITHUB_WORKSPACE/.env"
           elif [ -n "${REDIS_URL:-}" ]; then
             echo "Redis__ConnectionString=${REDIS_URL}" >> "$GITHUB_WORKSPACE/.env"
             echo "ConnectionStrings__Redis=${REDIS_URL}" >> "$GITHUB_WORKSPACE/.env"
@@ -217,7 +223,7 @@ jobs:
           fi
 
           # Remaining secrets with exact .NET nested-key mapping
-          grep -vE '^(DB_|REDIS_|DB=)' "$GITHUB_WORKSPACE/doppler_raw.env" | while IFS= read -r line; do
+          grep -vE '^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__DEFAULTCONNECTION|DATABASE_URL=)' "$GITHUB_WORKSPACE/doppler_raw.env" | while IFS= read -r line; do
             if [ -n "$line" ]; then
               key=$(echo "$line" | cut -d= -f1)
               value=$(echo "$line" | cut -d= -f2-)
@@ -229,7 +235,6 @@ jobs:
           done >> "$GITHUB_WORKSPACE/.env"
 
           # JWT canonical keys expected by backend
-          jwk() { grep -E "^$1=" "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2- || true; }
           SECRET="$(jwk JWT_SECRET | sed -E 's/^"(.*)"$/\1/' || true)"
           ISSUER="$(jwk JWT_ISSUER | sed -E 's/^"(.*)"$/\1/' || true)"
           AUDIENCE="$(jwk JWT_AUDIENCE | sed -E 's/^"(.*)"$/\1/' || true)"
