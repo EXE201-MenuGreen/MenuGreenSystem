@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: exe201-menugreen/menugreen-api
+  IMAGE_NAME: ${{ github.repository_owner }}/menugreen-api
   DOTNET_VERSION: '9.0'
 
 jobs:
@@ -253,7 +253,7 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           source: "${{ github.workspace }}/.env"
-          target: "/home/ubuntu/apps/MenuGreenSystem"
+          target: "/home/ubuntu/apps/MenuGreenSystem/.env"
           strip_components: 0
           overwrite: true
 
@@ -277,8 +277,13 @@ jobs:
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              chmod +x ./efbundle && \
              CONNECTION_STRING=\$(grep '^ConnectionStrings__DefaultConnection=' .env | cut -d'=' -f2-) && \
-             ./efbundle --connection \"\$CONNECTION_STRING\" || echo 'Migration may have already been applied' && \
-             rm -f ./efbundle"
+             ./efbundle --connection \"\$CONNECTION_STRING\""
+
+      - name: Cleanup migration bundle
+        run: |
+          ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "rm -f /home/ubuntu/apps/MenuGreenSystem/efbundle"
 
       - name: Deploy application
         run: |
@@ -287,13 +292,18 @@ jobs:
             "cd /home/ubuntu/apps/MenuGreenSystem && \
              docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true && \
              docker compose -f docker-compose.prod.yml up -d --force-recreate && \
-             sleep 15"
+             sleep 30"
 
       - name: Verify containers
         run: |
           ssh -i "${{ secrets.LIGHTSAIL_SSH_KEY }}" -o StrictHostKeyChecking=no \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
-            "docker compose -f /home/ubuntu/apps/MenuGreenSystem/docker-compose.prod.yml ps"
+            "cd /home/ubuntu/apps/MenuGreenSystem && \
+             docker compose -f docker-compose.prod.yml ps && \
+             echo '=== API Image ===' && \
+             docker inspect --format='{{.Config.Image}}' menugreen_api && \
+             echo '=== Redis Image ===' && \
+             docker inspect --format='{{.Config.Image}}' menugreen_redis"
 
       - name: Wait for API to be alive
         run: |
