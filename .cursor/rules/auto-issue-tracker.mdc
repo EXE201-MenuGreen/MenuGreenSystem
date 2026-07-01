@@ -1,0 +1,95 @@
+---
+description: Auto-record issues to docs/issues.md
+alwaysApply: true
+---
+
+# Auto-Record Issues Rule
+
+## Critical: Always Record Issues
+
+**Mỗi khi gặp issue/bug/error/lỗi, phải IMMEDIATELY ghi lại vào `docs/issues.md`.**
+
+### Khi nào cần record?
+
+- Bug/bug mới được phát hiện
+- Error trong CI/CD, deployment, runtime
+- Lỗi configuration, syntax, network
+- Security issue
+- Performance problem
+- Bất kỳ vấn đề nào cần debug/sửa
+
+### Format record
+
+Mỗi issue record phải có:
+
+```
+## [PENDING] Tên issue ngắn gọn
+
+**Date:** YYYY-MM-DD
+**Status:** Pending
+**Severity:** Low/Medium/High
+
+### Description
+Mô tả ngắn gọn vấn đề gặp phải.
+
+### Root Cause
+Nguyên nhân gốc (nếu đã xác định được).
+
+### Environment
+- Server/Environment cụ thể
+- Version của tools liên quan
+
+### Logs
+```
+Copy relevant error logs here
+```
+
+### Attempts
+- [ ] Các bước đã thử
+- [ ] Kết quả
+```
+
+### Quy trình record
+
+1. **Ngay khi phát hiện issue** → Ghi vào `docs/issues.md`
+2. **Mỗi lần thử fix mới** → Update attempts
+3. **Khi resolved** → Đổi status thành `Resolved` và ghi rõ fix đã áp dụng
+
+### Nơi lưu file
+
+- File issues: `docs/issues.md`
+- File này nằm trong git repo để team có thể track
+
+### Ví dụ
+
+```markdown
+## [PENDING] Redis timeout on production
+
+**Date:** 2026-07-01
+**Status:** Pending
+**Severity:** High
+
+### Description
+Container không kết nối được Redis sau khi deploy.
+
+### Root Cause
+Đang điều tra
+
+### Logs
+```
+RedisConnectionException: Timeout
+```
+
+### Attempts
+- [ ] Check .env variables
+- [ ] Restart containers
+```
+
+## Important Notes
+
+- **Không cần hỏi** - cứ record ngay khi phát hiện
+- **Update thường xuyên** - mỗi lần có thông tin mới
+- **Severity guidelines:**
+  - **High**: Production down, security, data loss risk
+  - **Medium**: Feature broken, workaround exists
+  - **Low**: Cosmetic, minor inconvenience
