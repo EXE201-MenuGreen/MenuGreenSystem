@@ -223,19 +223,61 @@ jobs:
           fi
 
           # Remaining secrets with exact .NET nested-key mapping
-          # Exclude multi-line values like LIGHTSAIL_SSH_KEY (SSH key spans multiple lines)
-          # Also exclude SSH key continuation lines (start with -----)
-          grep -vE '^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__DEFAULTCONNECTION|DATABASE_URL=|LIGHTSAIL_SSH_KEY=)' "$GITHUB_WORKSPACE/doppler_raw.env" | grep -v '^[ \t-]' | awk -F= 'NF>=2 && $1 !~ /[ \t]/ { print }' | while IFS= read -r line; do
-            if [ -n "$line" ]; then
-              key=$(echo "$line" | cut -d= -f1)
-              value=$(echo "$line" | cut -d= -f2-)
-              value=$(echo "$value" | sed -E 's/^"(.*)"$/\1/')
-              value=$(echo "$value" | sed 's/"/\\"/g')
-              key=$(echo "$key" | tr ':' '__')
-              key=$(echo "$key" | sed 's/__\+/__/g')
-              printf '%s=%s\n' "$key" "$value"
-            fi
-          done >> "$GITHUB_WORKSPACE/.env"
+          # Use Python to properly parse multi-line values (like SSH keys)
+          python3 << 'PYTHON_SCRIPT'
+import re
+import sys
+
+excluded_prefixes = (
+    'DB_', 'REDIS_', 'DB=', 'CONNECTIONSTRINGS__DEFAULTCONNECTION',
+    'DATABASE_URL=', 'LIGHTSAIL_SSH_KEY=', 'REDIS_HOST=', 'REDIS_PORT=',
+    'REDIS_PASSWORD='
+)
+
+output = []
+with open("$GITHUB_WORKSPACE/doppler_raw.env", "r") as f:
+    for line in f:
+        # Skip empty lines and lines starting with comment
+        stripped = line.rstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        
+        # Skip continuation lines (SSH key, indented lines)
+        if stripped.startswith(" ") or stripped.startswith("\t"):
+            continue
+        
+        # Check if line has valid KEY=value format (unquoted or quoted value)
+        match = re.match(r'^([A-Za-z_][A-Za-z0-9_:]*)=(.*)$', stripped)
+        if not match:
+            continue
+        
+        key = match.group(1)
+        raw_value = match.group(2)
+        
+        # Skip excluded prefixes
+        if any(key.startswith(p) for p in excluded_prefixes):
+            continue
+        
+        # Unquote the value
+        if raw_value.startswith('"') and raw_value.endswith('"'):
+            value = raw_value[1:-1]
+        else:
+            value = raw_value
+        
+        # Escape double quotes for shell
+        value = value.replace('"', '\\"')
+        
+        # Transform key colons to double underscores for .NET nested config
+        key = key.replace(":", "__")
+        
+        output.append(f"{key}={value}")
+
+# Write to .env file
+with open("$GITHUB_WORKSPACE/.env", "a") as f:
+    f.write("\n".join(output) + "\n")
+
+print(f"Processed {len(output)} secrets")
+PYTHON_SCRIPT
 
           # JWT canonical keys expected by backend
           SECRET="$(grep '^JWT_SECRET=' "$GITHUB_WORKSPACE/doppler_raw.env" | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/' | sed 's/"/\\"/g' || true)"
