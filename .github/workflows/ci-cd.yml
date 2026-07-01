@@ -291,12 +291,19 @@ jobs:
         run: |
           set -euxo pipefail
           export HOME="${HOME:-/root}"
+
+          # Source Doppler secrets to get DB connection
+          set -a
+          source "$GITHUB_WORKSPACE/.env"
+          set +a
+
           dotnet tool install --global dotnet-ef --version 9.0.0
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet ef migrations bundle \
             --self-contained -r linux-x64 \
             --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
             --startup-project backend/MenuGreen.API/MenuGreen.API.csproj \
+            --connection "$ConnectionStrings__DefaultConnection" \
             -o ./efbundle
 
           if [ ! -s ./efbundle ]; then
