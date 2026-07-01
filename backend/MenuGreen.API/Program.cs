@@ -240,20 +240,23 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Health Checks
+var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+var redisConnection = Environment.GetEnvironmentVariable("REDIS_URL");
+
+if (string.IsNullOrEmpty(pgConnection))
+{
+    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
+}
+
+if (string.IsNullOrEmpty(redisConnection))
+{
+    redisConnection = "localhost:6379";
+}
+
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
-    .AddNpgSql(
-        builder.Configuration["ConnectionStrings:DefaultConnection"] 
-        ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
-        ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured."),
-        name: "postgresql",
-        tags: new[] { "db", "ready" })
-    .AddRedis(
-        builder.Configuration["ConnectionStrings:Redis"] 
-        ?? Environment.GetEnvironmentVariable("REDIS_URL") 
-        ?? "localhost:6379",
-        name: "redis",
-        tags: new[] { "cache", "ready" });
+    .AddNpgSql(pgConnection, name: "postgresql", tags: new[] { "db", "ready" })
+    .AddRedis(redisConnection, name: "redis", tags: new[] { "cache", "ready" });
 
 var app = builder.Build();
 

@@ -7,7 +7,10 @@ namespace MenuGreen.DataAccessLayer
     {
         public static string ResolvePostgresConnectionString(IConfiguration configuration)
         {
-            var configured = configuration.GetConnectionString("DefaultConnection");
+            var configured = configuration.GetConnectionString("DefaultConnection")
+                ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+
             if (IsNpgsqlKeyValueConnectionString(configured))
             {
                 return configured!;
