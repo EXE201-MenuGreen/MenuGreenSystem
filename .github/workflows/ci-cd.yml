@@ -201,6 +201,12 @@ jobs:
             JWT_SECRET="$(grep '^JWT_SECRET=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
             if [ -n "$JWT_SECRET" ]; then
               echo "JwtSettings__SecretKey=$JWT_SECRET" >> /home/ubuntu/apps/MenuGreenSystem/.env
+            else
+              # Fallback to JwtSettings__SecretKey from Doppler (direct key)
+              JWT_FALLBACK="$(grep '^JwtSettings__SecretKey=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              if [ -n "$JWT_FALLBACK" ]; then
+                echo "JwtSettings__SecretKey=$JWT_FALLBACK" >> /home/ubuntu/apps/MenuGreenSystem/.env
+              fi
             fi
 
             JWT_ISSUER="$(grep '^JWT_ISSUER=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
