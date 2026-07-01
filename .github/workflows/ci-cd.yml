@@ -138,7 +138,8 @@ jobs:
             cd /home/ubuntu/apps/MenuGreenSystem
 
             echo "=== Pull latest docker-compose files ==="
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
 
             echo "=== Create network if not exists ==="
             docker network create menugreen-net 2>/dev/null || true
