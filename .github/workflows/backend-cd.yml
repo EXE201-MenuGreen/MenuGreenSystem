@@ -186,16 +186,11 @@ jobs:
               sleep 2
             done
 
-            # Run migration using production image (already has dotnet-ef installed)
+            # Run migration inside running container (has all env vars)
             echo "=== Run EF Core Database Migration ==="
             echo "Using database connection from: $(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2- | sed -E 's/:[^@]*@/:***@/g')"
             
-            MIGRATION_OUTPUT=$(sudo docker run --rm \
-              --network menugreen-net \
-              -e ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)" \
-              -e ASPNETCORE_ENVIRONMENT=Production \
-              menugreen_api \
-              dotnet ef database update --no-build --verbose 2>&1 || true)
+            MIGRATION_OUTPUT=$(sudo docker exec menugreen_api dotnet ef database update --no-build --verbose 2>&1 || true)
             echo "$MIGRATION_OUTPUT"
             
             # Verify migration result
