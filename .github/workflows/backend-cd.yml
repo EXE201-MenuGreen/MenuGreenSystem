@@ -26,10 +26,10 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    # Chỉ chạy nếu CI thành công hoặc manual trigger
+    # Chỉ skip nếu CI fail hoặc cancelled; vẫn chạy nếu CI skip
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow.conclusion == 'success')
+      (github.event_name == 'workflow_run' && github.event.workflow.conclusion != 'failure' && github.event.workflow.conclusion != 'cancelled')
 
     steps:
       - name: Checkout
