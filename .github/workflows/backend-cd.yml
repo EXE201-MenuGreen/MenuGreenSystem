@@ -21,19 +21,28 @@ on:
 env:
   APP_DIR: /home/ubuntu/apps/menugreen
   DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/menugreensystem
 
 jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    # Chỉ skip nếu CI fail hoặc cancelled; vẫn chạy nếu CI skip
+    # Skip nếu CI fail, cancelled, hoặc commit message chứa #skipdeploy
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow.conclusion != 'failure' && github.event.workflow.conclusion != 'cancelled')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow.conclusion != 'failure' &&
+       github.event.workflow.conclusion != 'cancelled' &&
+       !contains(github.event.workflow_run.head_commit.message, '#skipdeploy'))
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check disk space - Before
+        run: |
+          echo "=== Initial disk space ==="
+          df -h
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.1.0
@@ -42,16 +51,20 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           port: 22
-          envs: DOPPLER_TOKEN,APP_DIR
+          envs: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME
           debug: true
           script: |
             set -e
 
-            mkdir -p "$APP_DIR"
+            IMAGE=$IMAGE_NAME
+            SHA=${{ github.sha }}
 
-            # =================================================================
-            # Server KHÔNG cần git - CI/CD upload files trực tiếp
-            # =================================================================
+            echo "=== Cleanup disk space - Before ==="
+            sudo docker system prune -af --volumes || true
+            echo "=== Disk space after cleanup ==="
+            df -h
+
+            mkdir -p "$APP_DIR"
 
             # Docker compose config (base64 encoded to avoid YAML heredoc issues)
             COMPOSE_B64='c2VydmljZXM6CiAgcmVkaXM6CiAgICBpbWFnZTogcmVkaXM6Ny1hbHBpbmUKICAgIGNvbnRhaW5lcl9uYW1lOiBtZW51Z3JlZW5fcmVkaXMKICAgIGVudmlyb25tZW50OgogICAgICAtIFJFRElTX1BBU1NXT1JEPSR7UkVESVNfUEFTU1dPUkR9CiAgICB2b2x1bWVzOgogICAgICAtIHJlZGlzX2RhdGE6L2RhdGEKICAgIG5ldHdvcmtzOgogICAgICAtIG1lbnVncmVlbi1uZXQKICAgIHJlc3RhcnQ6IHVubGVzcy1zdG9wcGVkCiAgICBjb21tYW5kOiA+CiAgICAgIHNoIC1jICdpZiBbIC1uICIkUkVESVNfUEFTU1dPUkQiIF07IHRoZW4KICAgICAgICByZWRpcy1zZXJ2ZXIgLS1hcHBlbmQtb25seSB5ZXMgLS1yZXF1aXJlcGFzcyAiJFJFRElTX1BBU1NXT1JEIiAtLW1heG1lbW9yeSAyMDBtYiAtLW1heG1lbW9yeS1wb2xpY3kgYWxsa2V5cy1scnU7CiAgICAgIGVsc2UKICAgICAgICByZWRpcy1zZXJ2ZXIgLS1hcHBlbmQtb25seSB5ZXMgLS1tYXhtZW1vcnkgMjAwbWIgLS1tYXhtZW1vcnktcG9saWN5IGFsbGtleXMtbHJ1OwogICAgICBmaScKICAgIGhlYWx0aGNoZWNrOgogICAgICB0ZXN0OiA+CiAgICAgICAgc2ggLWMgJ2lmIFsgLW4gIiRSRURJU19QQVNTV09SRCIgXTsgdGhlbgogICAgICAgICAgcmVkaXMtY2xpIC1hICIkUkVESVNfUEFTU1dPUkQiIHBpbmc7CiAgICAgICAgZWxzZQogICAgICAgICAgcmVkaXMtY2xpIHBpbmc7CiAgICAgICAgZmknCiAgICAgIGludGVydmFsOiAzMHMKICAgICAgdGltZW91dDogMTBzCiAgICAgIHJldHJpZXM6IDMKCiAgYXBpOgogICAgaW1hZ2U6IGRvY2tlci5pby9hbmh0dWFuMjExMTIwMDQvbWVudWdyZWVuc3lzdGVtOm1haW4KICAgIGNvbnRhaW5lcl9uYW1lOiBtZW51Z3JlZW5fYXBpCiAgICBwdWxsX3BvbGljeTogYWx3YXlzCiAgICBlbnZfZmlsZToKICAgICAgLSAuZW52CiAgICBlbnZpcm9ubWVudDoKICAgICAgLSBBU1BORVRDT1JFX0VOVklST05NRU5UPSR7QVNQTkVUQ09SRV9FTlZJUk9OTUVOVH0KICAgICAgLSBBU1BORVRDT1JFX1VSTFM9aHR0cDovLys6NTAwMAogICAgcG9ydHM6CiAgICAgIC0gIjUwMDA6NTAwMCIKICAgIGRlcGVuZHNfb246CiAgICAgIHJlZGlzOgogICAgICAgIGNvbmRpdGlvbjogc2VydmljZV9oZWFsdGh5CiAgICBuZXR3b3JrczoKICAgICAgLSBtZW51Z3JlZW4tbmV0CiAgICByZXN0YXJ0OiB1bmxlc3Mtc3RvcHBlZAogICAgaGVhbHRoY2hlY2s6CiAgICAgIHRlc3Q6IFsiQ01EIiwgImN1cmwiLCAiLWYiLCAiaHR0cDovL2xvY2FsaG9zdDo1MDAwL2hlYWx0aC9saXZlIl0KICAgICAgaW50ZXJ2YWw6IDMwcwogICAgICB0aW1lb3V0OiAxMHMKICAgICAgcmV0cmllczogMwogICAgICBzdGFydF9wZXJpb2Q6IDQwcwoKdm9sdW1lczoKICByZWRpc19kYXRhOgoKbmV0d29ya3M6CiAgbWVudWdyZWVuLW5ldDoKICAgIGV4dGVybmFsOiB0cnVlCg=='
@@ -151,11 +164,20 @@ jobs:
               echo "WARNING: DB credentials not found in .env, skipping backup"
             fi
 
-            echo "=== Stop existing containers ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
+            # =================================================================
+            # Tag previous image for rollback BEFORE pulling new one
+            # =================================================================
+            echo "=== Tag previous image for rollback ==="
+            sudo docker pull $IMAGE:main || true
+            sudo docker tag $IMAGE:main $IMAGE:previous || true
+            sudo docker push $IMAGE:previous || true
 
             echo "=== Pull latest image ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" pull
+            sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
+
+            echo "=== Stop and remove old containers ==="
+            sudo docker stop menugreen-api menugreen-redis 2>/dev/null || true
+            sudo docker rm menugreen-api menugreen-redis 2>/dev/null || true
 
             echo "=== Start Redis first ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d redis
@@ -191,41 +213,60 @@ jobs:
             echo "=== Start all containers ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
 
-            echo "=== Wait for API startup ==="
+            echo "=== Waiting for health check (max 30 attempts) ==="
+            HEALTH_PASSED=false
             for i in $(seq 1 30); do
               if curl -sf "http://localhost:5000/health/ready" > /dev/null 2>&1; then
-                echo "API is ready!"
+                echo "Health check passed!"
+                HEALTH_PASSED=true
                 break
               fi
-              echo "Waiting for API... ($i/30)"
+              echo "Waiting for health check... ($i/30)"
               sleep 2
             done
+
+            # =================================================================
+            # ROLLBACK MECHANISM - If health check fails
+            # =================================================================
+            if [ "$HEALTH_PASSED" = false ]; then
+              echo ">>> Health check failed after 30 attempts, initiating rollback..."
+
+              echo ">>> Logging failed container..."
+              docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50
+
+              echo ">>> Stopping current containers..."
+              docker compose -f "$APP_DIR/docker-compose.prod.yml" down || true
+
+              echo ">>> Pulling previous image..."
+              sudo docker pull $IMAGE:previous || { echo ">>> Failed to pull previous image"; exit 1; }
+
+              echo ">>> Re-fetching Doppler secrets for rollback..."
+              doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
+              jq -r 'to_entries | .[] | "\(.key)=\(.value)"' /tmp/doppler_rollback.env > "$APP_DIR/.env" || true
+              rm -f /tmp/doppler_rollback.env
+
+              echo ">>> Starting previous container..."
+              sudo docker run -d --name menugreen-api -p 5000:5000 --env-file "$APP_DIR/.env" $IMAGE:previous || {
+                echo ">>> Failed to start previous container"
+                exit 1
+              }
+
+              echo ">>> Rollback complete!"
+              exit 1
+            fi
 
             echo "=== Verify containers ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" ps
 
-            echo "=== Health check (full) ==="
-            for i in $(seq 1 10); do
-              if curl -sf "http://localhost:5000/health/ready" > /dev/null 2>&1; then
-                echo "Health check passed!"
-                exit 0
-              fi
-              echo "Waiting for health check... ($i/10)"
-              sleep 3
-            done
+            # =================================================================
+            # PRUNE UNUSED IMAGES - Keep only current, previous, and SHA tags
+            # =================================================================
+            echo "=== Pruning unused Docker images ==="
+            sudo docker images "$IMAGE" --format "{{.Repository}}:{{.Tag}}" \
+              | grep -v -E "(:main|:previous|:$SHA)" \
+              | xargs -r sudo docker rmi -f || true
 
-            echo "=== Health check (basic) ==="
-            for i in $(seq 1 5); do
-              if curl -sf "http://localhost:5000/health/live" > /dev/null 2>&1; then
-                echo "Basic health check passed!"
-                exit 0
-              fi
-              echo "Waiting for basic health... ($i/5)"
-              sleep 3
-            done
+            echo "=== Final disk space check ==="
+            df -h
 
-            echo "=== Container logs ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50
-
-            echo "WARNING: Deployment finished but health check did not pass completely"
-            exit 1
+            echo "=== Deployment complete successfully! ==="
