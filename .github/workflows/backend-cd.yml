@@ -201,22 +201,10 @@ jobs:
               sleep 2
             done
 
-            # Run migration inside running container (has all env vars)
-            echo "=== Run EF Core Database Migration ==="
-            echo "Using database connection from: $(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2- | sed -E 's/:[^@]*@/:***@/g')"
-            
-            MIGRATION_OUTPUT=$(sudo docker exec -e DOTNET_ROOT=/opt/dotnet -e PATH=/opt/dotnet:/root/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin menugreen_api dotnet ef database update --no-build --project /app/MenuGreen.API.csproj --verbose 2>&1 || true)
-            echo "$MIGRATION_OUTPUT"
-            
-            # Verify migration result
-            if echo "$MIGRATION_OUTPUT" | grep -qi "no pending migrations"; then
-              echo "Database is up to date."
-            elif echo "$MIGRATION_OUTPUT" | grep -qi "done\|succeeded\|applied"; then
-              echo "Migration applied successfully!"
-            elif echo "$MIGRATION_OUTPUT" | grep -qi "error\|fail"; then
-              echo "ERROR: Migration may have failed! Check output above."
-              exit 1
-            fi
+            # Wait for app to start and auto-migrate (migration is now handled by the app on startup)
+            echo "=== Waiting for app startup and auto-migration (max 45 seconds) ==="
+            sleep 15
+            echo "App should have auto-migrated on startup."
             
             # Verify tables exist
             echo "Checking database tables..."
