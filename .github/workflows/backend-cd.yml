@@ -1,0 +1,296 @@
+name: Backend CD - Deploy
+
+on:
+  # Trigger khi CI hoàn thành
+  workflow_run:
+    workflows: ["Backend CI - Build & Push"]
+    types: [completed]
+    branches: [main]
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  APP_DIR: /home/ubuntu/apps/menugreen
+  DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    # Chỉ chạy nếu CI thành công hoặc manual trigger
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow.conclusion == 'success')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: 22
+          envs: DOPPLER_TOKEN,APP_DIR
+          debug: true
+          script: |
+            set -e
+
+            mkdir -p "$APP_DIR"
+
+            # =================================================================
+            # Server KHÔNG cần git - CI/CD upload files trực tiếp
+            # =================================================================
+
+            echo "=== Upload docker-compose.prod.yml ==="
+            cat > "$APP_DIR/docker-compose.prod.yml" << 'COMPOSE_EOF'
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: menugreen_redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - menugreen-net
+    restart: unless-stopped
+    command: >
+      sh -c 'if [ -n "$REDIS_PASSWORD" ]; then
+        redis-server --appendonly yes --requirepass "$REDIS_PASSWORD" --maxmemory 200mb --maxmemory-policy allkeys-lru;
+      else
+        redis-server --appendonly yes --maxmemory 200mb --maxmemory-policy allkeys-lru;
+      fi'
+    healthcheck:
+      test: >
+        sh -c 'if [ -n "$REDIS_PASSWORD" ]; then
+          redis-cli -a "$REDIS_PASSWORD" ping;
+        else
+          redis-cli ping;
+        fi'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  api:
+    image: docker.io/anhtuan21112004/menugreensystem:latest
+    container_name: menugreen_api
+    pull_policy: always
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - menugreen-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+          cpus: '1.0'
+    volumes: []
+
+volumes:
+  redis_data:
+
+networks:
+  menugreen-net:
+    external: true
+COMPOSE_EOF
+
+            echo "=== docker-compose.prod.yml uploaded ==="
+
+            # Create Docker network if not exists
+            docker network create menugreen-net 2>/dev/null || true
+
+            echo "=== Install Doppler CLI ==="
+            if ! command -v doppler &> /dev/null; then
+              mkdir -p ~/.local/bin
+              DOPPLER_VERSION="$(curl -fsSL https://api.github.com/repos/DopplerHQ/cli/releases/latest | jq -r .tag_name)"
+              curl -fsSL "https://github.com/DopplerHQ/cli/releases/download/${DOPPLER_VERSION}/doppler_${DOPPLER_VERSION#v}_linux_amd64.tar.gz" -o /tmp/doppler.tar.gz
+              tar -xzf /tmp/doppler.tar.gz -C ~/.local/bin doppler
+              chmod +x ~/.local/bin/doppler
+              rm -f /tmp/doppler.tar.gz
+              export PATH="$HOME/.local/bin:$PATH"
+            else
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+
+            echo "=== Download secrets from Doppler ==="
+            doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_raw.env
+
+            echo "=== Build .env file ==="
+            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
+
+            # Parse and add secrets
+            while IFS='=' read -r key raw_value; do
+              [[ -z "$key" || "$key" =~ ^# ]] && continue
+              [[ "$key" =~ [/[:space:]+] ]] && continue
+              [[ "$key" =~ ^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__|DATABASE_URL=|LIGHTSAIL_SSH_KEY=|REDIS_HOST=|REDIS_PORT=|REDIS_PASSWORD=) ]] && continue
+              value="${raw_value%\"}"
+              value="${value#\"}"
+              value="${value%\'}"
+              value="${value#\'}"
+              net_key="${key//:/__}"
+              echo "${net_key}=${value}" >> "$APP_DIR/.env"
+            done < /tmp/doppler_raw.env
+
+            # Add DB connection
+            DB_CONN="$(grep '^CONNECTIONSTRINGS__DEFAULTCONNECTION=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            if [ -n "$DB_CONN" ]; then
+              echo "ConnectionStrings__DefaultConnection=$DB_CONN" >> "$APP_DIR/.env"
+            fi
+
+            # Build Redis connection string
+            REDIS_PASSWORD_VAL="$(grep '^REDIS_PASSWORD=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            if [ -n "$REDIS_PASSWORD_VAL" ]; then
+              echo "Redis__ConnectionString=redis://:${REDIS_PASSWORD_VAL}@redis:6379" >> "$APP_DIR/.env"
+              echo "REDIS_URL=redis://:${REDIS_PASSWORD_VAL}@redis:6379" >> "$APP_DIR/.env"
+            else
+              echo "Redis__ConnectionString=redis://redis:6379" >> "$APP_DIR/.env"
+              echo "REDIS_URL=redis://redis:6379" >> "$APP_DIR/.env"
+            fi
+
+            # Add JWT settings
+            JWT_SECRET="$(grep '^JWT_SECRET=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            if [ -n "$JWT_SECRET" ]; then
+              echo "JwtSettings__SecretKey=$JWT_SECRET" >> "$APP_DIR/.env"
+            else
+              JWT_FALLBACK="$(grep '^JwtSettings__SecretKey=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              if [ -n "$JWT_FALLBACK" ]; then
+                echo "JwtSettings__SecretKey=$JWT_FALLBACK" >> "$APP_DIR/.env"
+              fi
+            fi
+
+            JWT_ISSUER="$(grep '^JWT_ISSUER=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            [ -n "$JWT_ISSUER" ] && echo "JwtSettings__Issuer=$JWT_ISSUER" >> "$APP_DIR/.env"
+
+            JWT_AUDIENCE="$(grep '^JWT_AUDIENCE=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            [ -n "$JWT_AUDIENCE" ] && echo "JwtSettings__Audience=$JWT_AUDIENCE" >> "$APP_DIR/.env"
+
+            rm -f /tmp/doppler_raw.env
+
+            echo "=== .env file created ==="
+
+            # Extract DB connection for backup
+            DB_HOST=$(grep '^DB_HOST=' "$APP_DIR/.env" | cut -d= -f2-)
+            DB_PORT=$(grep '^DB_PORT=' "$APP_DIR/.env" | cut -d= -f2-)
+            DB_USER=$(grep '^DB_USER=' "$APP_DIR/.env" | cut -d= -f2-)
+            DB_PASSWORD=$(grep '^DB_PASSWORD=' "$APP_DIR/.env" | cut -d= -f2-)
+            DB_NAME=$(grep '^DB_NAME=' "$APP_DIR/.env" | cut -d= -f2-)
+
+            # Backup database before deployment
+            if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
+              BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
+              PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE" 2>/dev/null || {
+                echo "WARNING: Backup failed, continuing anyway..."
+              }
+              echo "Backup saved to: $BACKUP_FILE"
+              ls -t /tmp/menugreen_backup_*.sql 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
+            else
+              echo "WARNING: DB credentials not found in .env, skipping backup"
+            fi
+
+            echo "=== Stop existing containers ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
+
+            echo "=== Pull latest image ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" pull
+
+            echo "=== Start Redis first ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d redis
+
+            echo "=== Wait for Redis ==="
+            for i in $(seq 1 15); do
+              if docker compose -f "$APP_DIR/docker-compose.prod.yml" exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
+                echo "Redis is ready!"
+                break
+              fi
+              echo "Waiting for Redis... ($i/15)"
+              sleep 2
+            done
+
+            echo "=== Run EF Core Database Migration ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" run --rm \
+              -e ASPNETCORE_ENVIRONMENT=Production \
+              -e ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)" \
+              --entrypoint "sh" \
+              api -c "cd /app && dotnet MenuGreen.API.dll ef database update --no-build" 2>&1 || {
+              echo "WARNING: Migration command finished with issues, checking database state..."
+              docker compose -f "$APP_DIR/docker-compose.prod.yml" run --rm \
+                -e ASPNETCORE_ENVIRONMENT=Production \
+                --entrypoint "sh" \
+                api -c "cd /app && dotnet MenuGreen.API.dll ef database update --no-build 2>&1" | grep -q "no pending migrations" && {
+                echo "Database is up to date, continuing..."
+              }
+            }
+
+            echo "=== Start all containers ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
+
+            echo "=== Wait for API startup ==="
+            for i in $(seq 1 30); do
+              if curl -sf "http://localhost:5000/health/ready" > /dev/null 2>&1; then
+                echo "API is ready!"
+                break
+              fi
+              echo "Waiting for API... ($i/30)"
+              sleep 2
+            done
+
+            echo "=== Verify containers ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" ps
+
+            echo "=== Health check (full) ==="
+            for i in $(seq 1 10); do
+              if curl -sf "http://localhost:5000/health/ready" > /dev/null 2>&1; then
+                echo "Health check passed!"
+                exit 0
+              fi
+              echo "Waiting for health check... ($i/10)"
+              sleep 3
+            done
+
+            echo "=== Health check (basic) ==="
+            for i in $(seq 1 5); do
+              if curl -sf "http://localhost:5000/health/live" > /dev/null 2>&1; then
+                echo "Basic health check passed!"
+                exit 0
+              fi
+              echo "Waiting for basic health... ($i/5)"
+              sleep 3
+            done
+
+            echo "=== Container logs ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50
+
+            echo "WARNING: Deployment finished but health check did not pass completely"
+            exit 1
