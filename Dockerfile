@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+# Cài đặt EF Core tools (cần cho migration lúc deploy)
+RUN dotnet tool install --global dotnet-ef || true
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 # Copy file .csproj và restore các packages
 COPY ["backend/MenuGreen.API/MenuGreen.API.csproj", "backend/MenuGreen.API/"]
 COPY ["backend/MenuGreen.BusinessLogicLayer/MenuGreen.BusinessLogicLayer.csproj", "backend/MenuGreen.BusinessLogicLayer/"]
@@ -27,10 +31,15 @@ RUN dotnet build "MenuGreen.API.csproj" -c Release -o /app/build
 
 # Publish ứng dụng (tối ưu hóa)
 FROM build AS publish
-RUN dotnet publish "MenuGreen.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "MenuGreen.API.csproj" -c Release -o /app/publish
 
 # Cấu hình container cuối cùng (Chỉ chứa code đã publish để giảm dung lượng)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Copy EF tools từ build stage (bao gồm dotnet-ef)
+COPY --from=build /root/.dotnet/tools /root/.dotnet/tools
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 ENTRYPOINT ["dotnet", "MenuGreen.API.dll"]
