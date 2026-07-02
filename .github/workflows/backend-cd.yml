@@ -186,32 +186,46 @@ jobs:
             echo "=== Run EF Core Database Migration ==="
             echo "Using database connection from: $(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2- | sed -E 's/:[^@]*@/:***@/g')"
             
-            # Run migration with detailed logging
-            MIGRATION_OUTPUT=$(docker compose -f "$APP_DIR/docker-compose.prod.yml" exec -T api sh -c "cd /app && dotnet tool run dotnet-ef database update --no-build 2>&1" || true)
+            # Pull SDK image from Docker Hub for migration
+            echo "Pulling .NET SDK image for migration..."
+            sudo docker pull mcr.microsoft.com/dotnet/sdk:9.0 || { echo "Failed to pull SDK image"; exit 1; }
+            
+            # Run migration in ephemeral SDK container
+            MIGRATION_OUTPUT=$(sudo docker run --rm \
+              -e ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)" \
+              -e ASPNETCORE_ENVIRONMENT=Production \
+              -v "$APP_DIR":/app \
+              -w /app \
+              mcr.microsoft.com/dotnet/sdk:9.0 \
+              sh -c "dotnet tool run dotnet-ef database update --no-build --verbose 2>&1" || true)
             echo "$MIGRATION_OUTPUT"
             
-            # Check if migration succeeded
-            if echo "$MIGRATION_OUTPUT" | grep -q "no pending migrations"; then
-              echo "Database is up to date, continuing..."
+            # Verify migration result
+            if echo "$MIGRATION_OUTPUT" | grep -qi "no pending migrations"; then
+              echo "Database is up to date."
             elif echo "$MIGRATION_OUTPUT" | grep -qi "done\|succeeded\|applied"; then
-              echo "Migration completed successfully!"
+              echo "Migration applied successfully!"
             else
               echo "ERROR: Migration may have failed! Check output above."
-              echo "Attempting to verify database tables..."
+              exit 1
+            fi
+            
+            # Verify tables exist
+            echo "Checking database tables..."
+            DB_CONN=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
+            if [ -n "$DB_CONN" ]; then
+              PGPASSWORD=$(echo "$DB_CONN" | grep -oP 'Password=\K[^;]+' || true)
+              DB_HOST=$(echo "$DB_CONN" | grep -oP 'Host=\K[^;]+' || true)
+              DB_USER=$(echo "$DB_CONN" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN" | grep -oP 'User Id=\K[^;]+' || true)
+              DB_NAME=$(echo "$DB_CONN" | grep -oP 'Database=\K[^;]+' || true)
               
-              # Try to connect to database and list tables
-              DB_CONN=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
-              if [ -n "$DB_CONN" ]; then
-                PGPASSWORD=$(echo "$DB_CONN" | grep -oP 'Password=\K[^;]+' || true)
-                DB_HOST=$(echo "$DB_CONN" | grep -oP 'Host=\K[^;]+' || true)
-                DB_USER=$(echo "$DB_CONN" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN" | grep -oP 'User Id=\K[^;]+' || true)
-                DB_NAME=$(echo "$DB_CONN" | grep -oP 'Database=\K[^;]+' || true)
+              if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
+                TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null || echo "0")
+                echo "Found $TABLE_COUNT tables in database '$DB_NAME'"
                 
-                if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
-                  echo "Checking tables in database: $DB_NAME@$DB_HOST"
-                  PGPASSWORD="$PGPASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "\dt" 2>&1 || {
-                    echo "WARNING: Could not connect to database to verify tables"
-                  }
+                if [ "$TABLE_COUNT" -eq "0" ]; then
+                  echo "FATAL: No tables found after migration!"
+                  exit 1
                 fi
               fi
             fi
