@@ -185,6 +185,9 @@ jobs:
               }
             }
 
+            echo "=== Stop old containers ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" down || true
+
             echo "=== Start all containers ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
 
