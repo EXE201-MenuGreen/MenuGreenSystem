@@ -173,6 +173,17 @@ jobs:
             docker stop menugreen_api 2>/dev/null || true
             docker rm menugreen_api 2>/dev/null || true
 
+            echo "=== Remove old local image to force fresh pull ==="
+            docker rmi menugreen_api 2>/dev/null || true
+            docker rmi $IMAGE:main 2>/dev/null || true
+            docker rmi $IMAGE:latest 2>/dev/null || true
+
+            echo "=== Pull latest image ==="
+            sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
+            
+            echo "=== Tag image for local use ==="
+            sudo docker tag $IMAGE:main menugreen_api
+
             echo "=== Start API container ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
 
