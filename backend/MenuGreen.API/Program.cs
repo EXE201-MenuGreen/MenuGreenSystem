@@ -265,6 +265,23 @@ if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
 
 var app = builder.Build();
 
+// Auto-apply EF Core migrations on startup (only in non-Development environments)
+if (!app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.MenuGreenDbContext>();
+    try
+    {
+        app.Logger.LogInformation("Applying database migrations...");
+        db.Database.Migrate();
+        app.Logger.LogInformation("Database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to apply database migrations. Starting application anyway...");
+    }
+}
+
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
 // Configure the HTTP request pipeline.
