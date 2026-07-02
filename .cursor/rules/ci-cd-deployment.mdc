@@ -25,12 +25,12 @@ GitHub Actions CI/CD
 
 ## Server Requirements
 
-| Component | Purpose |
-|-----------|---------|
-| Docker | Container runtime |
-| Docker Compose v2 | Orchestration |
-| Curl | Health check |
-| Doppler CLI | Secrets management |
+| Component         | Purpose            |
+| ----------------- | ------------------ |
+| Docker            | Container runtime  |
+| Docker Compose v2 | Orchestration      |
+| Curl              | Health check       |
+| Doppler CLI       | Secrets management |
 
 **KHÔNG cần:** git, .NET SDK, source code
 
