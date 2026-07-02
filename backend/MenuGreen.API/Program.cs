@@ -269,7 +269,7 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.MenuGreenDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
     try
     {
         app.Logger.LogInformation("Applying database migrations...");
