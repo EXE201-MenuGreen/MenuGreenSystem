@@ -190,7 +190,7 @@ jobs:
             echo "=== Run EF Core Database Migration ==="
             echo "Using database connection from: $(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2- | sed -E 's/:[^@]*@/:***@/g')"
             
-            MIGRATION_OUTPUT=$(sudo docker exec menugreen_api dotnet ef database update --no-build --verbose 2>&1 || true)
+            MIGRATION_OUTPUT=$(sudo docker exec -e DOTNET_ROOT=/opt/dotnet -e PATH=/opt/dotnet:/root/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin menugreen_api dotnet ef database update --no-build --project /app/MenuGreen.API.csproj --verbose 2>&1 || true)
             echo "$MIGRATION_OUTPUT"
             
             # Verify migration result
