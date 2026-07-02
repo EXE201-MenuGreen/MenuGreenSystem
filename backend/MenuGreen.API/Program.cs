@@ -251,8 +251,7 @@ if (string.IsNullOrEmpty(pgConnection))
 // Convert URI format to Npgsql keyword format if needed
 var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(builder.Configuration);
 
-var healthCheckRedisConnection = Environment.GetEnvironmentVariable("REDIS_URL")
-    ?? "localhost:6379";
+var healthCheckRedisConnection = Environment.GetEnvironmentVariable("REDIS_URL");
 
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
