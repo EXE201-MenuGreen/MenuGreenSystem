@@ -5,8 +5,13 @@ WORKDIR /app
 EXPOSE 10000
 EXPOSE 5000
 
-# Install curl for healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Install curl for healthchecks and dotnet SDK + ef tools for migrations
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip && rm -rf /var/lib/apt/lists/* \
+    && curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 9.0 --install-dir /opt/dotnet \
+    && /opt/dotnet/dotnet tool install --global dotnet-ef || true
+
+ENV DOTNET_ROOT=/opt/dotnet
+ENV PATH="${PATH}:/root/.dotnet/tools"
 
 # Sử dụng base image .NET 9.0 SDK (dùng cho build)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
