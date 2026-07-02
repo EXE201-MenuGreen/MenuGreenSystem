@@ -1,0 +1,71 @@
+# CI/CD Deployment - Server Chỉ Cần Docker
+
+## Nguyên tắc vàng
+
+**Server production KHÔNG cần clone repo.** Chỉ cần Docker và Docker Compose.
+
+## Deployment Flow
+
+```
+Developer Push Code
+       │
+       ▼
+GitHub Actions CI/CD
+       │
+       ├── Build Docker Image
+       │
+       ├── Push to Docker Hub
+       │
+       └── SSH to Server
+              │
+              ├── Download .env from Doppler
+              ├── docker compose pull
+              └── docker compose up -d
+```
+
+## Server Requirements
+
+| Component | Purpose |
+|-----------|---------|
+| Docker | Container runtime |
+| Docker Compose v2 | Orchestration |
+| Curl | Health check |
+| Doppler CLI | Secrets management |
+
+**KHÔNG cần:** git, .NET SDK, source code
+
+## CI/CD Responsibilities
+
+1. Build & push Docker image
+2. SSH vào server
+3. Tải secrets từ Doppler (`.env`)
+4. Pull Docker image mới
+5. Restart containers
+6. Health check
+
+## Server Setup Script
+
+Xem `scripts/setup-server.sh` - chỉ cài Docker, không cài git.
+
+## Files trên Server
+
+Server production CHỉ cần 2 files:
+
+```
+/home/ubuntu/apps/
+├── docker-compose.prod.yml  # Mounted từ CI/CD hoặc tạo sẵn
+└── .env                     # Tự động tạo bởi CI/CD qua Doppler
+```
+
+## Khi nào cần SSH vào Server?
+
+- Setup ban đầu (tạo docker-compose.yml)
+- Debug lỗi deployment
+- Manual rollback
+- Xem logs container
+
+## Không bao giờ
+
+- ❌ Không `git pull` trên server
+- ❌ Không build code trên server
+- ❌ Không cài development tools trên production
