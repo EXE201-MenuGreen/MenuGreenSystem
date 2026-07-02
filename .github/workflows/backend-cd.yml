@@ -179,6 +179,9 @@ jobs:
             sudo docker stop menugreen-api menugreen-redis 2>/dev/null || true
             sudo docker rm menugreen-api menugreen-redis 2>/dev/null || true
 
+            echo "=== Stop and remove all existing containers ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
+
             echo "=== Start Redis first ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d redis
 
