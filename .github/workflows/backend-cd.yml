@@ -173,6 +173,24 @@ jobs:
             echo "=== Start API container ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
 
+            echo "=== Waiting for container to be ready ==="
+            for i in $(seq 1 15); do
+              if docker ps --filter "name=menugreen_api" --filter "status=running" | grep -q menugreen_api; then
+                echo "Container is running!"
+                break
+              fi
+              echo "Waiting for container... ($i/15)"
+              sleep 2
+            done
+
+            echo "=== Run EF Core Database Migration ==="
+            docker compose -f "$APP_DIR/docker-compose.prod.yml" exec -T api sh -c "cd /app && dotnet tool run dotnet-ef database update --no-build" 2>&1 || {
+              echo "WARNING: Migration command finished with issues, checking database state..."
+              docker compose -f "$APP_DIR/docker-compose.prod.yml" exec -T api sh -c "cd /app && dotnet tool run dotnet-ef database update --no-build 2>&1" | grep -q "no pending migrations" && {
+                echo "Database is up to date, continuing..."
+              }
+            }
+
             echo "=== Waiting for health check (max 30 attempts) ==="
             HEALTH_PASSED=false
             for i in $(seq 1 30); do

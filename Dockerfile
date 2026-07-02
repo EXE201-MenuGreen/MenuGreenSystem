@@ -41,5 +41,6 @@ COPY --from=publish /app/publish .
 # Copy EF tools từ build stage (bao gồm dotnet-ef)
 COPY --from=build /root/.dotnet/tools /root/.dotnet/tools
 ENV PATH="${PATH}:/root/.dotnet/tools"
+ENV DOTNET_ROOT="/root/.dotnet"
 
 ENTRYPOINT ["dotnet", "MenuGreen.API.dll"]
