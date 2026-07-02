@@ -256,8 +256,13 @@ var healthCheckRedisConnection = Environment.GetEnvironmentVariable("REDIS_URL")
 
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
-    .AddNpgSql(pgConnectionResolved, name: "postgresql", tags: new[] { "db", "ready" })
-    .AddRedis(healthCheckRedisConnection, name: "redis", tags: new[] { "cache", "ready" });
+    .AddNpgSql(pgConnectionResolved, name: "postgresql", tags: new[] { "db", "ready" });
+
+if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
+{
+    builder.Services.AddHealthChecks()
+        .AddRedis(healthCheckRedisConnection, name: "redis", tags: new[] { "cache", "ready" });
+}
 
 var app = builder.Build();
 
