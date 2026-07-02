@@ -164,6 +164,9 @@ jobs:
 
             echo "=== Pull latest image ==="
             sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
+            
+            echo "=== Tag image for local use ==="
+            sudo docker tag $IMAGE:main menugreen_api
 
             echo "=== Stop and remove all existing containers ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
