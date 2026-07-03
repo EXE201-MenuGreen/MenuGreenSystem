@@ -81,7 +81,7 @@ UserAiProfile
 - `✅ GET /api/AiAssistant/conversations` — danh sách hội thoại của user.
 - `✅ GET /api/AiAssistant/conversations/{id}` — xem chi tiết hội thoại.
 - `✅ DELETE /api/AiAssistant/conversations/{id}` — xoá hội thoại.
-- `✅ PATCH /api/AiAssistant/conversations/{id}/title` — đổi tiêu đề hội thoại.
+- `✅ PATCH /api/AiAssistant/conversations/{id}/title` — đổi tiêu đề hội thoại (hỗ trợ song song `POST /api/AiAssistant/conversations/{id}/title` để tương thích ngược với Mobile Flutter client).
 
 #### B. Message workflow (✅ Đã có API)
 - `✅ POST /api/AiAssistant/conversations/{id}/messages` — gửi message user và nhận response AI.
@@ -91,7 +91,7 @@ UserAiProfile
 
 #### C. Context & profile (✅ Đã có API)
 - `✅ GET /api/AiAssistant/context` — lấy context AI hiện tại từ profile/tracking/recommendation.
-- `✅ PUT /api/AiAssistant/context` — cập nhật ngữ cảnh ưu tiên cho AI assistant.
+- `✅ PUT /api/AiAssistant/context` — cập nhật ngữ cảnh ưu tiên cho AI assistant (song hành cùng PUT /profile).
 - `✅ GET /api/AiAssistant/profile` — đọc `UserAiProfile` để AI dùng cá nhân hóa.
 - `✅ PUT /api/AiAssistant/profile` — cập nhật hồ sơ AI của user.
 

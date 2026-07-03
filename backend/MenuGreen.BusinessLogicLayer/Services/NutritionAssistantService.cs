@@ -651,6 +651,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 thread_id = conversation.Id.ToString(),
                 request_id = Guid.NewGuid().ToString(),
                 conversation_history = conversationHistory,
+                skip_save = true,
             };
 
             try

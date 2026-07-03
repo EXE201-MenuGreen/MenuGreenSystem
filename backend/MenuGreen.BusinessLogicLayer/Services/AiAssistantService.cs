@@ -325,6 +325,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<AiAssistantContextResponse> GetContextAsync(Guid userId)
         {
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
             var profile = await _db.Profiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
             var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
             var allergies = await _db.Allergies.AsNoTracking()
@@ -336,16 +337,71 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .OrderByDescending(x => x.SnapshotDate)
                 .FirstOrDefaultAsync();
 
+            var aiProfile = await _db.UserAiProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var hasAllergies = allergies.Count > 0;
+            var allergyCount = allergies.Count;
+            var hasSnapshot = recentNutrition != null;
+            var allergiesAcknowledged = UserAiProfilePreferencesHelper.TryGetAllergiesAcknowledged(aiProfile?.Preferences);
+
+            var completedSteps = new List<string>();
+            if (profile != null && !string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender))
+            {
+                completedSteps.Add("Profile");
+            }
+            if (healthProfile != null && healthProfile.HeightCm.HasValue && healthProfile.WeightKg.HasValue && !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel))
+            {
+                completedSteps.Add("HealthProfile");
+            }
+            if (hasAllergies || allergiesAcknowledged)
+            {
+                completedSteps.Add("Allergies");
+            }
+            if (healthProfile != null && !string.IsNullOrWhiteSpace(healthProfile.Goal) && healthProfile.TargetCalories.HasValue)
+            {
+                completedSteps.Add("Goal");
+            }
+            if (aiProfile != null && UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(aiProfile.Preferences, aiProfile.EatingPattern, aiProfile.DislikedFoods))
+            {
+                completedSteps.Add("UserAiProfile");
+            }
+            if (hasSnapshot)
+            {
+                completedSteps.Add("NutritionSnapshot");
+            }
+
             ProfileSummaryResponse? profSummary = null;
             if (profile != null)
             {
                 profSummary = new ProfileSummaryResponse
                 {
                     UserId = profile.UserId,
+                    Email = user?.Email ?? string.Empty,
                     FullName = profile.FullName,
                     AvatarUrl = profile.AvatarUrl,
                     Gender = profile.Gender,
-                    PreferredCuisine = profile.PreferredCuisine
+                    DateOfBirth = profile.DateOfBirth,
+                    PreferredCuisine = profile.PreferredCuisine,
+                    HeightCm = healthProfile?.HeightCm,
+                    WeightKg = healthProfile?.WeightKg,
+                    BodyFatPercent = healthProfile?.BodyFatPercent,
+                    ActivityLevel = healthProfile?.ActivityLevel ?? string.Empty,
+                    Goal = healthProfile?.Goal,
+                    Bmi = healthProfile?.Bmi,
+                    BmrKcal = healthProfile?.BmrKcal,
+                    TdeeKcal = healthProfile?.TdeeKcal,
+                    TargetCalories = healthProfile?.TargetCalories,
+                    TargetProteinG = healthProfile?.TargetProteinG,
+                    TargetCarbsG = healthProfile?.TargetCarbsG,
+                    TargetFatG = healthProfile?.TargetFatG,
+                    AllergyCount = allergyCount,
+                    HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender),
+                    HasHealthProfile = healthProfile?.HeightCm.HasValue == true && healthProfile?.WeightKg.HasValue == true && !string.IsNullOrWhiteSpace(healthProfile?.ActivityLevel),
+                    HasAllergies = hasAllergies || allergiesAcknowledged,
+                    HasAiProfile = UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(
+                        aiProfile?.Preferences,
+                        aiProfile?.EatingPattern,
+                        aiProfile?.DislikedFoods),
+                    OnboardingStepsCompleted = completedSteps
                 };
             }
 
@@ -360,7 +416,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     BodyFatPercent = healthProfile.BodyFatPercent,
                     ActivityLevel = healthProfile.ActivityLevel,
                     Goal = healthProfile.Goal,
-                    Bmi = healthProfile.Bmi
+                    Bmi = healthProfile.Bmi,
+                    BmrKcal = healthProfile.BmrKcal,
+                    TdeeKcal = healthProfile.TdeeKcal,
+                    TargetCalories = healthProfile.TargetCalories,
+                    TargetProteinG = healthProfile.TargetProteinG,
+                    TargetCarbsG = healthProfile.TargetCarbsG,
+                    TargetFatG = healthProfile.TargetFatG
                 };
             }
 
@@ -405,9 +467,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new UserAiProfileResponse
             {
                 UserId = profile.UserId,
-                Preferences = profile.Preferences,
-                DislikedFoods = profile.DislikedFoods,
-                EatingPattern = profile.EatingPattern,
+                Preferences = UnwrapJsonString(profile.Preferences),
+                DislikedFoods = UnwrapJsonString(profile.DislikedFoods),
+                EatingPattern = UnwrapJsonString(profile.EatingPattern),
                 AllergiesAcknowledged = true,
                 UpdatedAt = profile.UpdatedAt
             };
@@ -426,9 +488,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _db.UserAiProfiles.Add(profile);
             }
 
-            if (request.Preferences != null) profile.Preferences = request.Preferences;
-            if (request.DislikedFoods != null) profile.DislikedFoods = request.DislikedFoods;
-            if (request.EatingPattern != null) profile.EatingPattern = request.EatingPattern;
+            if (request.Preferences != null) profile.Preferences = NormalizeJsonColumnValue(request.Preferences);
+            if (request.DislikedFoods != null) profile.DislikedFoods = NormalizeJsonColumnValue(request.DislikedFoods);
+            if (request.EatingPattern != null) profile.EatingPattern = NormalizeJsonColumnValue(request.EatingPattern);
             
             profile.UpdatedAt = DateTime.UtcNow;
             _db.UserAiProfiles.Update(profile);
@@ -437,12 +499,54 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new UserAiProfileResponse
             {
                 UserId = profile.UserId,
-                Preferences = profile.Preferences,
-                DislikedFoods = profile.DislikedFoods,
-                EatingPattern = profile.EatingPattern,
+                Preferences = UnwrapJsonString(profile.Preferences),
+                DislikedFoods = UnwrapJsonString(profile.DislikedFoods),
+                EatingPattern = UnwrapJsonString(profile.EatingPattern),
                 AllergiesAcknowledged = true,
                 UpdatedAt = profile.UpdatedAt
             };
+        }
+
+        private static string? NormalizeJsonColumnValue(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var trimmed = value.Trim();
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                return trimmed;
+            }
+            catch (JsonException)
+            {
+                return JsonSerializer.Serialize(trimmed);
+            }
+        }
+
+        private static string? UnwrapJsonString(string? stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored))
+            {
+                return null;
+            }
+
+            var trimmed = stored.Trim();
+            if (!trimmed.StartsWith("\"", StringComparison.Ordinal) || !trimmed.EndsWith("\"", StringComparison.Ordinal))
+            {
+                return trimmed;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<string>(trimmed);
+            }
+            catch (JsonException)
+            {
+                return trimmed;
+            }
         }
 
         // ==========================================
@@ -451,14 +555,36 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId)
         {
+            try
+            {
+                var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+                client.Timeout = TimeSpan.FromSeconds(15);
+
+                var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/suggestions?user_id={userId}";
+                var response = await client.GetAsync(url);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
+                    if (suggestions != null && suggestions.Count > 0)
+                    {
+                        return suggestions;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Fallback silently to rule-based list
+            }
+
             // Simple rule-based suggestions as a fallback/mock
-            return await Task.FromResult(new List<string>
+            return new List<string>
             {
                 "Cách tối ưu hóa calo cho bữa trưa của tôi là gì?",
                 "Tôi bị dị ứng hải sản thì nên ăn món gì thay thế cơm gà?",
                 "Tải thực đơn ăn kiêng giảm cân 1500 calo mỗi ngày?",
                 "Làm sao để hạn chế cơn thèm ăn vào buổi tối?"
-            });
+            };
         }
 
         public async Task<object> GenerateMealPlanFromAiAsync(Guid userId, string prompt)
@@ -634,7 +760,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     user_id = userId.ToString(),
                     thread_id = conversationId.ToString(),
                     request_id = Guid.NewGuid().ToString(),
-                    conversation_history = conversationHistory
+                    conversation_history = conversationHistory,
+                    skip_save = true
                 };
 
                 using var response = await client.PostAsJsonAsync(BuildWorkerChatUrl(), payload, JsonOptions);

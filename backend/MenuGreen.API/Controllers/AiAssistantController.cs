@@ -81,26 +81,8 @@ namespace MenuGreen.API.Controllers
         /// <summary>
         /// Update/rename chat conversation title.
         /// </summary>
-        [Obsolete]
         [HttpPatch("conversations/{id:guid}/title")]
-        public async Task<IActionResult> UpdateConversationTitleOld(Guid id, [FromBody] string newTitle)
-        {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
-            try
-            {
-                return Ok(await _service.UpdateConversationTitleAsync(userId, id, newTitle));
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Update/rename chat conversation title (JSON payload support).
-        /// </summary>
-        [HttpPatch("conversations/{id:guid}/title-json")]
-        [HttpPost("conversations/{id:guid}/title")] // Support both for easier UI calls
+        [HttpPost("conversations/{id:guid}/title")]
         public async Task<IActionResult> UpdateConversationTitle(Guid id, [FromBody] TitleUpdateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -207,7 +189,6 @@ namespace MenuGreen.API.Controllers
             return Ok(await _service.UpdateProfileAsync(userId, request));
         }
 
-        /// <summary>
         /// Get user AI profile information (Preferences, DislikedFoods, EatingPattern).
         /// </summary>
         [HttpGet("profile")]
