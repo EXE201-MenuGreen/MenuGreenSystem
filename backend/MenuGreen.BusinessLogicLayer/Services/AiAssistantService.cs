@@ -189,6 +189,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 request.Message,
                 conversationId,
                 conversationHistory,
+                context,
                 request.Language,
                 request.Stream);
 
@@ -280,7 +281,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Call AI worker again
             var context = await BuildUserContextAsync(userId);
             var conversationHistory = await BuildConversationHistoryAsync(conversationId, context, targetMsg.CreatedAt);
-            var workerResponse = await CallWorkerAsync(userId, promptText, conversationId, conversationHistory);
+            var workerResponse = await CallWorkerAsync(userId, promptText, conversationId, conversationHistory, context);
 
             // Update content and timestamp of the assistant message
             targetMsg.Content = workerResponse.Response;
@@ -701,7 +702,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Select(x => x.Name)
                 .ToListAsync();
             var recentNutrition = await _db.NutritionSnapshots.AsNoTracking()
-                .Where(x => x.UserId == userId)
+                .Where(x => x.UserId == userId && x.SnapshotDate == DateOnly.FromDateTime(DateTime.UtcNow))
                 .OrderByDescending(x => x.SnapshotDate)
                 .FirstOrDefaultAsync();
 
@@ -746,6 +747,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             string message,
             Guid conversationId,
             IReadOnlyList<WorkerConversationMessage> conversationHistory,
+            object context,
             string language = "vi",
             bool stream = false)
         {
@@ -761,6 +763,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     thread_id = conversationId.ToString(),
                     request_id = Guid.NewGuid().ToString(),
                     conversation_history = conversationHistory,
+                    context,
                     skip_save = true
                 };
 
