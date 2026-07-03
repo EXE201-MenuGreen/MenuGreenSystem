@@ -24,10 +24,11 @@ RUN dotnet build "MenuGreen.API.csproj" -c Release -o /app/build
 
 # Publish ứng dụng (tối ưu hóa)
 FROM build AS publish
-RUN dotnet publish "MenuGreen.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "MenuGreen.API.csproj" -c Release -o /app/publish
 
 # Cấu hình container cuối cùng (Chỉ chứa code đã publish để giảm dung lượng)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
 ENTRYPOINT ["dotnet", "MenuGreen.API.dll"]

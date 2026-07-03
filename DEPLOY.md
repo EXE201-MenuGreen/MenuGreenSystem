@@ -2,298 +2,267 @@
 
 ## Mục tiêu
 
-- Deploy backend .NET API lên server Ubuntu sử dụng Docker + Docker Compose.
-- PostgreSQL **không chạy trong Docker** mà dùng AWS RDS.
-- Redis chạy trong Docker container (Docker Redis với backup định kỳ).
-- Mọi hướng dẫn deploy phải khớp với kiến trúc này.
+- Deploy backend .NET API lên AWS Lightsail Ubuntu sử dụng **GitHub Actions CI/CD**.
+- PostgreSQL dùng **AWS RDS** (không chạy trong Docker).
+- Redis chạy trong **Docker container** trên server.
+- **Tự động hóa hoàn toàn**: push code → CI/CD tự deploy.
+
+---
 
 ## Kiến trúc Production
 
 ```
+GitHub Repository
+       │
+       ▼
+┌──────────────────────────────┐
+│   GitHub Actions CI/CD       │
+│   (GitHub Secrets)           │
+└──────────────────────────────┘
+       │
+       │ SSH + Docker
+       ▼
 AWS Lightsail (Ubuntu 22.04)
-├── Docker Compose
-│   ├── api      → ASP.NET Core API (port 5000)
-│   └── redis    → Redis 7 Alpine (container, 256MB RAM)
+├── Docker
+│   ├── menugreen-api (port 5000)
+│   └── menugreen-redis (port 6379)
 └── AWS RDS
-    └── PostgreSQL 15 (menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com:5432)
+    └── PostgreSQL 15 (port 5432)
 ```
-
-## Services
-
-| Service | Location | Port | Ghi chú |
-|---------|----------|------|---------|
-| API | Docker container | 5000 | Kết nối RDS + Redis |
-| Redis | Docker container | 6379 | Container `menugreen_redis`, giới hạn 256MB RAM |
-| PostgreSQL | AWS RDS | 5432 | Endpoint: `menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com` |
 
 ---
 
-## PHASE 1: Chuẩn bị trước khi deploy
+## Services
+
+| Service | Location | Port | Notes |
+|---------|----------|------|-------|
+| API | Docker container | 5000 | Kết nối RDS + Redis |
+| Redis | Docker container | 6379 | Giới hạn 256MB RAM |
+| PostgreSQL | AWS RDS | 5432 | menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com |
+
+---
+
+## CI/CD Pipeline
+
+### Jobs Flow
+
+```
+┌─────────────────┐
+│  build-and-test │  (Unit Tests)
+└────────┬────────┘
+         │ pass
+         ▼
+┌─────────────────┐
+│  build-docker    │  (Build & Push to GHCR)
+└────────┬────────┘
+         │ pass
+         ▼
+┌─────────────────┐
+│  deploy          │  (SSH → Pull → Deploy)
+│                  │  1. Create .env
+│                  │  2. Pull Docker image
+│                  │  3. Stop old container
+│                  │  4. Start new container
+│                  │  5. Health check
+│                  │  6. Run EF Migration
+└─────────────────┘
+```
+
+### Trigger Conditions
+
+- Push lên nhánh `main` hoặc `Tuan`
+- Pull Request vào nhánh `main`
+
+---
+
+## PHASE 1: Chuẩn bị (GitHub Secrets)
+
+### Danh sách Secrets cần thêm
+
+Vào **GitHub** → Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret Name | Giá trị | Ghi chú |
+|-------------|---------|---------|
+| `LIGHTSAIL_HOST` | `18.143.149.94` | IP server |
+| `LIGHTSAIL_USER` | `ubuntu` | SSH username |
+| `LIGHTSAIL_SSH_KEY` | (paste file .pem) | Toàn bộ nội dung |
+| `DB_HOST` | (RDS endpoint) | Ví dụ: menugreen-db.xxx.rds.amazonaws.com |
+| `DB_PORT` | `5432` | |
+| `DB_NAME` | `MenuGreenDb` | |
+| `DB_USER` | `postgres` | |
+| `DB_PASSWORD` | (password RDS) | |
+| `REDIS_PASSWORD` | (password Redis) | |
+| `JWT_SECRET` | (random key) | Tạo: `openssl rand -base64 48` |
+
+### Cách tạo JWT_SECRET
+
+```bash
+# Trên terminal
+openssl rand -base64 48
+```
+
+Copy kết quả và paste vào GitHub Secret `JWT_SECRET`.
+
+---
+
+## PHASE 2: Chuẩn bị Server
 
 ### Checklist
 
-- [ ] Server Ubuntu đã có Docker + Docker Compose cài đặt
-- [ ] RDS PostgreSQL đã tạo và đang chạy
-- [ ] Đã có endpoint, port, username, password của RDS
+- [ ] Server Ubuntu đã cài Docker + Docker Compose
 - [ ] Security group RDS đã mở port 5432 cho IP server
-- [ ] Database `MenuGreenDb` đã được tạo trên RDS
-- [ ] Redis password đã được chuẩn bị
-- [ ] JWT_SECRET_KEY đã được tạo (dùng `openssl rand -base64 48`)
-- [ ] Thư mục backup đã tạo: `/home/ubuntu/backups/redis`
-- [ ] Code đã push lên git (nhánh `main`)
+- [ ] Database `MenuGreenDb` đã tạo trên RDS
+- [ ] File `.pem` SSH key đã tải về (để add vào GitHub Secret)
 
-### Thao tác
+### Kiểm tra Docker trên server
 
-#### 1. Tạo database trên RDS (nếu chưa có)
+```bash
+ssh -i your-key.pem ubuntu@18.143.149.94
+
+# Kiểm tra Docker
+docker --version
+docker compose version
+
+# Kiểm tra Redis container (nếu chưa có, sẽ được tạo tự động)
+docker ps -a | grep redis || echo "Redis chưa có, sẽ được tạo"
+```
+
+### Tạo database trên RDS (nếu chưa có)
 
 ```bash
 psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com \
-     -p 5432 \
-     -U postgres \
-     -d postgres
-```
+     -p 5432 -U postgres -d postgres
 
-```sql
+# Nhập password khi được hỏi
+
 CREATE DATABASE "MenuGreenDb";
 \q
 ```
 
-#### 2. Tạo thư mục backup Redis
+---
+
+## PHASE 3: Deploy tự động
+
+### Cách deploy
+
+**Chỉ cần push code lên nhánh `main` hoặc `Tuan`:**
 
 ```bash
-sudo mkdir -p /home/ubuntu/backups/redis
-sudo mkdir -p /home/ubuntu/logs
-sudo chown -R ubuntu:ubuntu /home/ubuntu/backups
-sudo chown -R ubuntu:ubuntu /home/ubuntu/logs
+# Trên local
+git add .
+git commit -m "feat: mô tả thay đổi"
+git push origin main
+# hoặc
+git push origin Tuan
 ```
 
-#### 3. Tạo file `.env` trên server
+GitHub Actions sẽ tự động:
+1. Chạy unit tests
+2. Build Docker image
+3. Push lên GHCR
+4. SSH vào server
+5. Pull image mới
+6. Deploy container mới
+7. Chạy EF Migration
+8. Health check
 
-```bash
-cd /home/ubuntu/apps/MenuGreenSystem
-cp .env.production.example .env
-nano .env
-```
+### Theo dõi tiến trình
 
-Điền các giá trị:
-
-```env
-# RDS PostgreSQL
-DB_HOST=menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com
-DB_PORT=5432
-DB_NAME=MenuGreenDb
-DB_USER=postgres
-DB_PASSWORD=<password RDS>
-DB_SSL_MODE=Require
-DB_TRUST_SERVER_CERTIFICATE=true
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=<password Redis (không dùng $, !, # trong password)>
-
-# API
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_HTTP_PORTS=5000
-JWT_SECRET_KEY=<random key dài ≥ 32 chars>
-ALLOWED_ORIGINS=<domain hoặc * để test>
-```
-
-#### 4. Kiểm tra `.env` đã đúng
-
-```bash
-# Không được có placeholder "CHANGE_THIS" còn sót lại
-grep "CHANGE_THIS" .env || echo "OK: Không còn placeholder"
-
-# Kiểm tra password Redis không có ký tự đặc biệt
-grep "REDIS_PASSWORD" .env
-```
+Vào **GitHub** → Repository → **Actions** tab → Click vào workflow đang chạy.
 
 ---
 
-## PHASE 2: Deploy lên server
+## PHASE 4: Kiểm tra sau deploy
 
 ### Checklist
 
-- [ ] Đã SSH vào server
-- [ ] Đã cd vào thư mục project
-- [ ] File `.env` đã tồn tại và hợp lệ
-- [ ] Có quyền sudo
+- [ ] Workflow status: ✅ green
+- [ ] API health check: `curl http://18.143.149.94:5000/health`
+- [ ] Swagger UI: `http://18.143.149.94:5000/swagger/index.html`
 
-### Thao tác
-
-```bash
-cd /home/ubuntu/apps/MenuGreenSystem
-sudo ./scripts/deploy.sh
-```
-
-Script sẽ tự động:
-1. Pull code mới từ git
-2. Kiểm tra `.env`
-3. Build Docker image
-4. Start Redis (với resource limits)
-5. Run EF migration vào RDS
-6. Start API
-7. Health check
-
-### Thời gian dự kiến: 5-10 phút
-
----
-
-## PHASE 3: Kiểm tra sau deploy
-
-### Checklist
-
-- [ ] Containers đang chạy đúng
-- [ ] API health check passed
-- [ ] Redis container healthy
-- [ ] Không có lỗi trong logs
-
-### Thao tác
+### Thao tác kiểm tra
 
 ```bash
-# 1. Kiểm tra tất cả containers
-docker compose -f docker-compose.prod.yml ps
+# SSH vào server
+ssh -i your-key.pem ubuntu@18.143.149.94
 
-# 2. Health check API
-curl -f http://localhost:5000/health
+# Kiểm tra container đang chạy
+docker ps
 
-# 3. Kiểm tra Redis
-docker compose -f docker-compose.prod.yml ps redis
+# Kiểm tra logs API
+docker logs menugreen-api --tail 50
 
-# 4. Xem logs nếu cần
-docker compose -f docker-compose.prod.yml logs -f api
-docker compose -f docker-compose.prod.yml logs -f redis
-```
-
-### Nếu API không healthy
-
-| Triệu chứng | Nguyên nhân có thể | Cách fix |
-|-------------|-------------------|----------|
-| Connection timeout RDS | Security group chưa mở port 5432 | Mở port 5432 cho IP server trong AWS Console |
-| Connection refused RDS | `DB_HOST` sai hoặc RDS chưa chạy | Kiểm tra endpoint, status RDS |
-| 401/403 từ API | `JWT_SECRET_KEY` thiếu hoặc sai | Kiểm tra `.env` có `JWT_SECRET_KEY` không |
-| Redis connection error | `REDIS_PASSWORD` sai | Kiểm tra password trong `.env` khớp với container |
-
-### Nếu Redis gặp vấn đề
-
-| Triệu chứng | Nguyên nhân có thể | Cách fix |
-|-------------|-------------------|----------|
-| Redis container thoát liên tục | Password có ký tự đặc biệt không escape | Dùng password đơn giản, tránh `$`, `!`, `#` |
-| OOM (Out of Memory) | Redis vượt giới hạn 256MB | Kiểm tra `docker stats`, tăng limit nếu cần |
-| API không connect Redis | Password sai hoặc container chưa start | Xem logs: `docker compose logs redis` |
-
-### Kiểm tra Redis thủ công
-
-```bash
-# Test kết nối Redis từ bên trong container api
-docker compose -f docker-compose.prod.yml exec api sh -c \
-  "apk add --no-cache redis-tools 2>/dev/null; redis-cli -h redis -a \$REDIS_PASSWORD ping"
-```
-
----
-
-## PHASE 4: Xác nhận production hoạt động
-
-### Checklist
-
-- [ ] API trả về HTTP 200 tại `/health`
-- [ ] API trả về HTTP 200/401 tại endpoint test (ví dụ `/api/auth/register`)
-- [ ] Redis ping trả về PONG
-- [ ] HTTPS đã cấu hình (nếu có domain)
-- [ ] Cron job backup Redis đã được thiết lập
-
-### Thao tác
-
-```bash
-# Test từ server
+# Kiểm tra health endpoint
 curl http://localhost:5000/health
-curl http://localhost:5000/api/health
 
-# Test từ bên ngoài (nếu đã mở firewall)
-curl http://<server-ip>:5000/health
-
-# Kiểm tra cron job backup
-crontab -l | grep redis
+# Kiểm tra Redis
+docker exec menugreen-redis redis-cli -a $REDIS_PASSWORD ping
 ```
 
 ---
 
-## PHASE 5: Bảo trì định kỳ
+## Xử lý lỗi thường gặp
 
-### Hàng ngày
-- Xem logs: `docker compose -f docker-compose.prod.yml logs -f api`
+### Lỗi Secrets
 
-### Hàng tuần
-- Kiểm tra disk space: `df -h`
-- Kiểm tra Docker: `docker system df`
-- Kiểm tra Redis memory: `docker exec menugreen_redis redis-cli -a $REDIS_PASSWORD INFO memory`
-- Kiểm tra backup Redis: `ls -la /home/ubuntu/backups/redis/`
+| Triệu chứng | Nguyên nhân | Cách fix |
+|-------------|-------------|----------|
+| SSH connection failed | `LIGHTSAIL_SSH_KEY` sai | Kiểm tra lại file .pem, đảm bảo copy đúng |
+| Cannot connect to RDS | Security group chưa mở | Mở port 5432 cho IP server trong AWS Console |
+| Redis connection failed | Password sai | Kiểm tra `REDIS_PASSWORD` secret |
 
-### Mỗi khi deploy
-- Backup RDS trước khi chạy migration lớn
-- Giữ lại 3-5 commit gần nhất để rollback
+### Lỗi Deployment
 
-### Redis Backup (tự động qua cron)
+| Triệu chứng | Cách fix |
+|-------------|----------|
+| Workflow failed at deploy | Xem logs trong Actions tab |
+| Container không start | `docker logs menugreen-api` |
+| Migration lỗi | SSH vào server, chạy lại: `docker exec menugreen-api dotnet ef database update` |
 
-Backup script `scripts/backup-redis.sh` sẽ:
-1. Trigger Redis `BGSAVE`
-2. Copy file `dump.rdb` sang thư mục backup
-3. Xóa backup cũ hơn 7 ngày
+### Re-run deployment
 
-Kiểm tra backup:
-```bash
-ls -la /home/ubuntu/backups/redis/
-```
+Vào **Actions** → Click workflow failed → **Re-run all jobs**
 
 ---
 
 ## QUICK REFERENCE
 
-### Deploy lại (code thay đổi)
+### Sau khi thêm secrets
+
+Push code để trigger CI/CD:
+
 ```bash
-cd /home/ubuntu/apps/MenuGreenSystem
-sudo ./scripts/deploy.sh
+git add .
+git commit -m "ci: trigger deployment"
+git push origin main
 ```
 
-### Rollback (deploy lỗi)
-```bash
-cd /home/ubuntu/apps/MenuGreenSystem
-git log --oneline -5
-git reset --hard <commit-hash>
-sudo ./scripts/deploy.sh
-```
+### Kiểm tra trạng thái
 
-### Xem logs real-time
-```bash
-docker compose -f docker-compose.prod.yml logs -f api
-docker compose -f docker-compose.prod.yml logs -f redis
-```
+| Mục đích | Cách kiểm tra |
+|----------|---------------|
+| Xem workflow | GitHub → Actions tab |
+| Logs CI/CD | GitHub → Actions → Click job → Xem logs |
+| Logs API server | `docker logs menugreen-api -f` |
+| Health API | `curl http://18.143.149.94:5000/health` |
 
-### Restart services
+### Restart container (nếu cần)
+
 ```bash
-docker compose -f docker-compose.prod.yml restart api
-docker compose -f docker-compose.prod.yml restart redis
+ssh -i your-key.pem ubuntu@18.143.149.94
+
+# Restart API
+docker restart menugreen-api
+
+# Restart Redis
+docker restart menugreen-redis
 ```
 
 ### Stop tất cả
-```bash
-docker compose -f docker-compose.prod.yml down
-```
 
-### Manual Redis backup
 ```bash
-sudo /home/ubuntu/apps/MenuGreenSystem/scripts/backup-redis.sh
-```
-
-### Check Redis status
-```bash
-docker exec menugreen_redis redis-cli -a $REDIS_PASSWORD INFO
-```
-
-### Check Redis memory usage
-```bash
-docker exec menugreen_redis redis-cli -a $REDIS_PASSWORD INFO memory
+docker stop menugreen-api menugreen-redis
+docker rm menugreen-api menugreen-redis
 ```
 
 ---
@@ -302,65 +271,33 @@ docker exec menugreen_redis redis-cli -a $REDIS_PASSWORD INFO memory
 
 ### Resource Limits
 
-Redis được giới hạn trong `docker-compose.prod.yml`:
+- Memory: 256MB
+- Policy: allkeys-lru (xóa key cũ khi full)
+- Persistence: AOF enabled
 
-```yaml
-redis:
-  image: redis:7-alpine
-  container_name: menugreen_redis
-  volumes:
-    - redis_data:/data
-  networks:
-    - menugreen-net
-  restart: unless-stopped
-  command: >
-    redis-server
-    --appendonly yes
-    --requirepass ${REDIS_PASSWORD}
-    --maxmemory 200mb
-    --maxmemory-policy allkeys-lru
-  healthcheck:
-    test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-  deploy:
-    resources:
-      limits:
-        memory: 256M
-        cpus: '0.5'
+### Backup (nếu cần)
+
+```bash
+# Manual backup
+docker exec menugreen-redis redis-cli -a $REDIS_PASSWORD BGSAVE
+docker cp menugreen-redis:/data/dump.rdb ./backup-$(date +%Y%m%d).rdb
 ```
-
-### Backup Strategy
-
-| Thông số | Giá trị |
-|----------|---------|
-| Tần suất | Hàng ngày lúc 2:00 AM |
-| Thời gian giữ | 7 ngày |
-| Backup path | `/home/ubuntu/backups/redis/` |
-| Log path | `/home/ubuntu/logs/redis-backup.log` |
-
-### Khi nào nên nâng cấp lên Lightsail Managed Redis?
-
-| Signal | Ngưỡng |
-|--------|--------|
-| Traffic | > 1000 requests/giờ |
-| Redis memory | Thường xuyên > 150MB |
-| Redis là SPOF | Ứng dụng không hoạt động nếu Redis chết |
-| Budget | Có thể chi trả ~$15-30/tháng |
-
-**Cách migrate lên Managed Redis:**
-1. Tạo Lightsail Managed Database Redis
-2. Đổi `.env`: `REDIS_HOST=<endpoint>`, `REDIS_PORT=<port>`
-3. Redeploy: `sudo ./scripts/deploy.sh`
 
 ---
 
 ## Lưu ý quan trọng
 
-- **Không** chạy PostgreSQL container trên production (đã có RDS).
-- `.env` **không được commit** vào git.
-- EF migration chạy trong container `api` kết nối trực tiếp RDS.
-- Redis dùng Docker với resource limits và backup định kỳ (đủ cho production vừa và lớn).
-- Password Redis nên dùng ký tự đơn giản, tránh `$`, `!`, `#`.
-- File này đã bao gồm đầy đủ các bước từ chuẩn bị → deploy → kiểm tra → bảo trì.
+- **Không commit** `.env` hoặc secrets vào git.
+- PostgreSQL **không chạy trong Docker** (dùng RDS).
+- CI/CD tự động deploy khi push lên `main` hoặc `Tuan`.
+- SSH key (.pem) cần được paste **toàn bộ** vào GitHub Secret.
+- Health endpoint có thể cần cấu hình thêm trong API.
+
+---
+
+## Liên hệ hỗ trợ
+
+Nếu gặp lỗi không xử lý được:
+1. Xem logs trong GitHub Actions
+2. SSH vào server kiểm tra logs
+3. Kiểm tra GitHub Secrets đã đúng chưa

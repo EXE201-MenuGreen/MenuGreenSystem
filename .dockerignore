@@ -22,13 +22,16 @@
 *.TestResults*
 *.trx
 
-# Documentation
+# Documentation - giữ license files
 *.md
 docs/
+!docs/THIRD-PARTY-LICENSES
+!LICENSE
 
-# Docker files (tránh recursion)
+# Docker files (tránh recursion trong build context)
+# Chỉ ignore Dockerfile trong các thư mục con, KHÔNG ignore ở root
 **/Dockerfile*
-**/.dockerignore
+!.dockerignore
 
 # Secrets & Config local
 **/.env
@@ -46,14 +49,13 @@ logs/
 Thumbs.db
 Desktop.ini
 
-# Frontend (nếu có trong root)
-frontend/node_modules/
-frontend/.dart_tool/
-frontend/.pub-cache/
-frontend/build/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
-frontend/pubspec.lock
+# Frontend (không cần cho backend container)
+frontend/
+!.github/
+
+# CI/CD - không cần trong production image
+.github/workflows/
+scripts/
 
 # Temporary files
 *.tmp
@@ -61,8 +63,9 @@ frontend/pubspec.lock
 *.swp
 *.bak
 
-# Certificates & keys
+# Certificates & keys (trừ các file có thể cần cho prod)
 *.pfx
 *.pem
 *.key
 *.crt
+!**/certs/

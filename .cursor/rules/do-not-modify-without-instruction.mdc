@@ -1,0 +1,37 @@
+---
+description: Không sửa file nếu người dùng chưa yêu cầu rõ ràng
+alwaysApply: true
+---
+
+# Không sửa file khi chưa có lệnh
+
+Chỉ đọc, phân tích, đề xuất hoặc giải thích trừ khi người dùng **yêu cầu rõ ràng** sửa/tạo file.
+
+## Quy tắc
+
+- **Không** dùng các công cụ ghi file nếu chưa có lệnh chỉnh sửa/tạo rõ ràng.
+- Có thể dùng các công cụ đọc/tìm kiếm để khảo sát codebase.
+- Nếu cần sửa nhiều nơi, hãy đề xuất danh sách thay đổi và **đợi xác nhận** trước khi ghi file.
+
+## Git - Không tự ý commit và push
+
+- **Không** commit khi chưa có lệnh rõ ràng từ người dùng.
+- **Không** push khi chưa có lệnh rõ ràng từ người dùng.
+- Chỉ commit/push khi người dùng **yêu cầu cụ thể** (ví dụ: "commit thay đổi này", "push lên branch").
+- Nếu người dùng yêu cầu commit, phải liệt kê các thay đổi và **đợi xác nhận** trước khi thực hiện.
+
+## Ví dụ
+
+Người dùng: "review giúp mình file này"
+→ ✅ Đọc file, tìm vấn đề, báo cáo kết quả.
+→ ❌ Không sửa file nếu người dùng không nói "sửa", "update", "refactor",...
+
+Người dùng: "sửa bug X ở file Y"
+→ ✅ Có thể sửa file Y theo phạm vi bug được yêu cầu.
+
+Người dùng: "code của mình bị lỗi"
+→ ✅ Đọc code, phân tích lỗi, đề xuất cách sửa.
+→ ❌ Không tự ý sửa và commit nếu chưa được yêu cầu.
+
+Người dùng: "commit thay đổi này đi"
+→ ✅ Thực hiện commit theo yêu cầu.

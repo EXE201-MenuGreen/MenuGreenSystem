@@ -5,6 +5,12 @@
 
 # dotenv files
 .env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.lightsail
 
 # Local database backups
 backend/db_backups/

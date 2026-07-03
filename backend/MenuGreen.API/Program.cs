@@ -140,7 +140,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // 2. Configure JWT Authentication
-var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "super_secret_key_menu_green_1234567890_super_long";
+var secretKey = builder.Configuration["JwtSettings:SecretKey"];
+if (string.IsNullOrEmpty(secretKey))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
+}
 var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication(options =>
@@ -236,21 +240,47 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Health Checks
+var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (string.IsNullOrEmpty(pgConnection))
+{
+    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
+}
+
+// Convert URI format to Npgsql keyword format if needed
+var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(builder.Configuration);
+
+var healthCheckRedisConnection = Environment.GetEnvironmentVariable("REDIS_URL");
+
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
-    .AddNpgSql(
-        builder.Configuration["ConnectionStrings:DefaultConnection"] 
-        ?? "Host=localhost;Port=5432;Database=MenuGreenDb;Username=postgres;Password=12345",
-        name: "postgresql",
-        tags: new[] { "db", "ready" })
-    .AddRedis(
-        builder.Configuration["ConnectionStrings:Redis"] 
-        ?? Environment.GetEnvironmentVariable("REDIS_URL") 
-        ?? "localhost:6379",
-        name: "redis",
-        tags: new[] { "cache", "ready" });
+    .AddNpgSql(pgConnectionResolved, name: "postgresql", tags: new[] { "db", "ready" });
+
+if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
+{
+    builder.Services.AddHealthChecks()
+        .AddRedis(healthCheckRedisConnection, name: "redis", tags: new[] { "cache", "ready" });
+}
 
 var app = builder.Build();
+
+// Auto-apply EF Core migrations on startup (only in non-Development environments)
+if (!app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
+    try
+    {
+        app.Logger.LogInformation("Applying database migrations...");
+        db.Database.Migrate();
+        app.Logger.LogInformation("Database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to apply database migrations. Starting application anyway...");
+    }
+}
 
 // Seed data: run backend/seeddata.sql in pgAdmin after migrations.
 
@@ -267,10 +297,7 @@ app.UseHttpMetrics(); // Auto-instrument HTTP requests
 // Enable CORS
 app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// HTTPS redirection handled by reverse proxy (nginx in docker-compose)
 
 if (!app.Environment.IsDevelopment())
 {

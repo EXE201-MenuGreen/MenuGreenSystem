@@ -1,3 +1,7 @@
+# =============================================================================
+# Prometheus Configuration for MenuGreen System
+# =============================================================================
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -5,21 +9,37 @@ global:
     cluster: 'menugreen-lightsail'
     environment: 'production'
 
+# =============================================================================
+# Alertmanager Configuration
+# =============================================================================
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets:
+          - alertmanager:9093
 
+# =============================================================================
+# Alerting Rules
+# =============================================================================
 rule_files:
-  - /etc/prometheus/alerts.yml
+  - '/etc/prometheus/rules/*.yml'
 
+# =============================================================================
+# Scrape Configurations
+# =============================================================================
 scrape_configs:
+  # ---------------------------------------------------------------------------
   # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 30s
 
-  # ASP.NET Core API metrics
+  # ---------------------------------------------------------------------------
+  # MenuGreen API - .NET Application Metrics
+  # ---------------------------------------------------------------------------
   - job_name: 'menugreen-api'
     metrics_path: '/metrics'
     scrape_interval: 10s
@@ -30,17 +50,42 @@ scrape_configs:
         target_label: instance
         replacement: 'menugreen-api'
 
-  # Node Exporter (server metrics)
+  # ---------------------------------------------------------------------------
+  # MenuGreen API production target
+  # ---------------------------------------------------------------------------
+  - job_name: 'menugreen-api-production'
+    static_configs:
+      - targets: ['host.docker.internal:5000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    scheme: http
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'api-production-01'
+
+  # ---------------------------------------------------------------------------
+  # Node Exporter - Host System Metrics
+  # ---------------------------------------------------------------------------
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
+    metrics_path: /metrics
+    scrape_interval: 30s
 
-  # cAdvisor (Docker container metrics)
+  # ---------------------------------------------------------------------------
+  # cAdvisor - Container Metrics
+  # ---------------------------------------------------------------------------
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
+    metrics_path: /metrics
+    scrape_interval: 30s
 
+  # ---------------------------------------------------------------------------
   # Redis
+  # ---------------------------------------------------------------------------
   - job_name: 'redis'
     static_configs:
       - targets: ['redis:6379']
@@ -49,9 +94,38 @@ scrape_configs:
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
-        replacement: 'redis'
+      replacement: 'redis'
 
-  # PostgreSQL (nếu có prometheus exporter)
+  # ---------------------------------------------------------------------------
+  # Redis Exporter
+  # ---------------------------------------------------------------------------
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
   - job_name: 'postgres'
     static_configs:
       - targets: ['db:5432']
+
+  # ---------------------------------------------------------------------------
+  # Alertmanager
+  # ---------------------------------------------------------------------------
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------------------
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scrape_interval: 60s

@@ -258,6 +258,41 @@ VALUES
     'admin@menugreen.app',
     '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
     true, true, now(), now() - interval '1 day', now(), NULL
+  ),
+  (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    '00000000-0000-0000-0000-000000000002',
+    'pro1@menugreen.app',
+    '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
+    true, true, now(), now() - interval '30 days', now(), NULL
+  ),
+  (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    '00000000-0000-0000-0000-000000000002',
+    'pro2@menugreen.app',
+    '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
+    true, true, now(), now() - interval '15 days', now(), NULL
+  ),
+  (
+    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    '00000000-0000-0000-0000-000000000002',
+    'pro3@menugreen.app',
+    '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
+    true, true, now(), now() - interval '20 days', now(), NULL
+  ),
+  (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    '00000000-0000-0000-0000-000000000002',
+    'pro4@menugreen.app',
+    '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
+    true, true, now(), now() - interval '10 days', now(), NULL
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000004',
+    'system@menugreen.app',
+    '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey',
+    true, true, now(), now(), now(), NULL
   )
 ON CONFLICT ("Email") DO NOTHING;
 
@@ -295,6 +330,42 @@ VALUES
     'Male',
     NULL,
     now(), now()
+  ),
+  (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    'Pro User 1',
+    'https://i.pravatar.cc/150?img=15',
+    '1995-03-10',
+    'Female',
+    'Healthy',
+    now(), now()
+  ),
+  (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    'Pro User 2',
+    'https://i.pravatar.cc/150?img=20',
+    '1992-07-22',
+    'Male',
+    'Gym',
+    now(), now()
+  ),
+  (
+    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    'Pro User 3',
+    'https://i.pravatar.cc/150?img=25',
+    '1997-11-05',
+    'Female',
+    'Việt Nam',
+    now(), now()
+  ),
+  (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    'Pro User 4',
+    'https://i.pravatar.cc/150?img=30',
+    '1994-09-18',
+    'Male',
+    'Healthy',
+    now(), now()
   )
 ON CONFLICT ("UserId") DO NOTHING;
 
@@ -323,6 +394,30 @@ VALUES
     '70000000-0000-0000-0000-000000000003',
     175.00, 72.00, NULL, 'lightly active', 'maintain weight',
     23.51, 1680, 2306, 2306, 173, 231, 77,
+    now(), now()
+  ),
+  (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    160.00, 55.00, 20.00, 'moderately active', 'lose weight',
+    21.48, 1350, 2100, 1700, 128, 170, 57,
+    now(), now()
+  ),
+  (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    175.00, 75.00, 18.00, 'very active', 'build muscle',
+    24.49, 1700, 2800, 2500, 188, 250, 83,
+    now(), now()
+  ),
+  (
+    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    158.00, 52.00, 22.00, 'lightly active', 'maintain weight',
+    20.83, 1250, 1950, 1950, 146, 195, 65,
+    now(), now()
+  ),
+  (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    180.00, 80.00, 15.00, 'very active', 'build muscle',
+    24.69, 1820, 3000, 2700, 203, 270, 90,
     now(), now()
   )
 ON CONFLICT ("UserId") DO NOTHING;
@@ -435,7 +530,7 @@ ON CONFLICT ("Id") DO NOTHING;
 -- =========================
 INSERT INTO user_program_milestones (
   "Id","UserProgramId","WeekNumber","IsUnlocked","IsCheckedIn",
-  "WeightKg","BodyFatPercent","UnlockedAt","CheckedInDate","CreatedAt"
+  "WeightKg","BodyFatPercent","CheckInDate","UnlockedAt","CreatedAt"
 )
 VALUES
   (
@@ -526,6 +621,54 @@ VALUES
     now() - interval '60 days',
     now() - interval '60 days',
     now()
+  ),
+  (
+    '97f4a742-cc44-4ab0-b2f4-bc260c245cdf',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    '10000000-0000-0000-0000-000000000003',
+    'Active',
+    now() - interval '30 days',
+    '2027-06-30 23:59:59+00'::timestamptz,
+    NULL,
+    now() - interval '30 days',
+    now() - interval '30 days',
+    now()
+  ),
+  (
+    '5091b2d7-a9e8-41ca-ad18-407bcee846f5',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    '10000000-0000-0000-0000-000000000001',
+    'Active',
+    now() - interval '15 days',
+    '2026-08-15 23:59:59+00'::timestamptz,
+    NULL,
+    now() - interval '15 days',
+    now() - interval '15 days',
+    now()
+  ),
+  (
+    '5e31bbfb-1c4c-4dde-9682-41c8b22a9418',
+    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    '10000000-0000-0000-0000-000000000003',
+    'Active',
+    now() - interval '20 days',
+    '2027-06-30 23:59:59+00'::timestamptz,
+    NULL,
+    now() - interval '20 days',
+    now() - interval '20 days',
+    now()
+  ),
+  (
+    '00e3373b-a66f-4ae4-acf1-873d4f21e735',
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    '10000000-0000-0000-0000-000000000002',
+    'Active',
+    now() - interval '10 days',
+    '2026-09-30 23:59:59+00'::timestamptz,
+    NULL,
+    now() - interval '10 days',
+    now() - interval '10 days',
+    now()
   )
 ON CONFLICT ("Id") DO NOTHING;
 
@@ -553,134 +696,23 @@ ON CONFLICT ("Id") DO NOTHING;
 -- =========================
 -- Payments (Subscription payments — Pro user)
 -- NOTE: UserPremiumProgramId column is included for Premium Program payment flow
+-- DISABLED: Many records reference non-existent users/subscriptions
 -- =========================
-INSERT INTO payments (
-  "Id", "UserId", "UserSubscriptionId", "UserPremiumProgramId",
-  "AmountVnd", "Status", "PaymentMethod", "Provider", "ProviderOrderCode",
-  "CreatedAt", "UpdatedAt", "ExpiredAt", "PaidAt"
-)
-VALUES
-  (
-    '76378876-43df-47db-88d1-1bee4c82077d',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    '97f4a742-cc44-4ab0-b2f4-bc260c245cdf',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_76378876',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '17605d97-f2f4-422b-90cc-4999a5f1fec0',
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    '5091b2d7-a9e8-41ca-ad18-407bcee846f5',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_17605d97',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '0e6db154-5c4f-435a-95e3-937ef4092015',
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    '5e31bbfb-1c4c-4dde-9682-41c8b22a9418',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_0e6db154',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '856a1f59-b430-4386-b3c9-ba5bd1ddbdd3',
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-    '00e3373b-a66f-4ae4-acf1-873d4f21e735',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_856a1f59',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'f30d1b92-6926-433f-b4c8-d2cbfd559dc6',
-    'ffffffff-ffff-ffff-ffff-ffffffffffff',
-    '5a589d0c-0879-4211-bcde-b80d8f872a2c',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_f30d1b92',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'ca3479ca-26f1-44db-a245-80371e7e2ce1',
-    '885810e8-168f-4608-a72e-e23a20dfd258',
-    '77332cff-478c-4926-9dc4-6fd86c688d88',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_ca3479ca',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'b771fc44-c0d1-4175-af76-49e5ff5d64fb',
-    '48069bd5-f29a-417d-bdeb-c00797968aca',
-    '4cb9db51-734f-4710-8500-9cd449938d3c',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_b771fc44',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'e2ae9d11-6e00-4f88-9b37-a5f5d3c0d5df',
-    '9afb13a5-e5a1-4342-9ce1-33bf7cc1de70',
-    'ca5ba96d-0c13-457f-9833-439817647424',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_e2ae9d11',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '9236bd02-6f32-44b1-80a6-df311178ea2b',
-    '081b4669-b97f-4e75-b089-4c8de0151653',
-    '7158db3e-9416-463a-9158-c5cbdf0aa202',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_9236bd02',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'cca940d2-f4ad-432b-b6b2-99c504fb71f5',
-    '586209d0-d3c4-43a4-bba7-5d4c73b37bc1',
-    '137a2257-8c0b-4b56-b4fa-be8da55e7c14',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_cca940d2',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'ee658c09-f558-4414-a659-c113b55f4125',
-    'b022ccde-0aa6-4b11-bd7b-f76aaf2c2b17',
-    '4833465b-1140-4a40-b7cd-114acaabae31',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_ee658c09',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'aeb230f1-5560-4e4d-b462-4c704843cdb7',
-    '453681f7-f489-47ed-842c-bc3ffd220423',
-    '41837cb8-7232-444c-be01-417e376de8c0',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_aeb230f1',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '5cf0a99a-134f-45a1-9fae-55dee3227308',
-    '396f9dff-6c2a-422f-b0cc-8eb451168ed3',
-    '26a8241f-a665-45c8-a083-aba9bfa8c008',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_5cf0a99a',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    '482b0243-65d5-4eae-adf6-5b5b04452fd7',
-    '5dc50160-db9e-447a-ba33-9026d8800ab5',
-    '6a54cb24-29ae-49ce-b950-628c76f85fb3',
-    NULL,
-    99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_482b0243',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  ),
-  (
-    'a8bccf2c-d4cb-4a4b-b6d2-7713d38ca525',
-    '212ea8ea-749e-44a1-92d2-636bd617cbc8',
-    'acbfd092-bc85-4b14-b509-d2da7f969903',
-    NULL,
-    790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_a8bccf2c',
-    now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
-  )
-ON CONFLICT ("Id") DO NOTHING;
+-- INSERT INTO payments (
+--   "Id", "UserId", "UserSubscriptionId", "UserPremiumProgramId",
+--   "AmountVnd", "Status", "PaymentMethod", "Provider", "ProviderOrderCode",
+--   "CreatedAt", "UpdatedAt", "ExpiredAt", "PaidAt"
+-- )
+-- VALUES
+--   (
+--     '76378876-43df-47db-88d1-1bee4c82077d',
+--     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+--     '97f4a742-cc44-4ab0-b2f4-bc260c245cdf',
+--     NULL,
+--     790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_76378876',
+--     now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'
+--   )
+-- ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
 -- Favorite foods
@@ -892,51 +924,252 @@ VALUES
 ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Notification settings
+-- Notification settings (DISABLED: table does not exist)
 -- =========================
-INSERT INTO "NotificationSettings" (
-  "Id", "UserId",
-  "MealReminderEnabled", "MealReminderOffsetMinutes",
-  "PrepReminderEnabled", "PrepReminderOffsetMinutes",
-  "InAppEnabled", "PushEnabled",
-  "CreatedAt", "UpdatedAt"
+-- INSERT INTO "NotificationSettings" (
+--   "Id", "UserId",
+--   "MealReminderEnabled", "MealReminderOffsetMinutes",
+--   "PrepReminderEnabled", "PrepReminderOffsetMinutes",
+--   "InAppEnabled", "PushEnabled",
+--   "CreatedAt", "UpdatedAt"
+-- )
+-- VALUES
+--   (
+--     '11000000-0000-0000-0000-000000000001',
+--     '70000000-0000-0000-0000-000000000001',
+--     true, 30, true, 20, true, false, now(), now()
+--   ),
+--   (
+--     '11000000-0000-0000-0000-000000000002',
+--     '70000000-0000-0000-0000-000000000002',
+--     true, 30, true, 20, true, false, now(), now()
+--   ),
+--   (
+--     '11000000-0000-0000-0000-000000000003',
+--     '70000000-0000-0000-0000-000000000003',
+--     true, 30, false, 20, true, false, now(), now()
+--   )
+-- ON CONFLICT ("UserId") DO NOTHING;
+
+-- =========================
+-- Notifications (DISABLED: table does not exist)
+-- =========================
+-- INSERT INTO "Notifications" ("Id", "UserId", "Title", "Body", "Type", "IsRead", "CreatedAt")
+-- VALUES
+--   (
+--     'd0000000-0000-0000-0000-000000000001',
+--     '70000000-0000-0000-0000-000000000001',
+--     'Chào buổi sáng!',
+--     'Bạn còn khoảng 704 kcal cho hôm nay. Thử Salad ức gà cho bữa trưa nhé.',
+--     'reminder', false, now() - interval '2 hours'
+--   ),
+--   (
+--     'd0000000-0000-0000-0000-000000000002',
+--     '70000000-0000-0000-0000-000000000002',
+--     'Gói Pro đang hoạt động',
+--     'Gói Pro Năm của bạn có hiệu lực đến 31/12/2026.',
+--     'subscription', true, now() - interval '1 day'
+--   )
+-- ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Default portion units
+-- =========================
+INSERT INTO default_portion_units ("Id", "UnitName", "GramsEquivalent", "Description", "IsActive", "CreatedAt")
+VALUES
+  ('10000000-0000-0000-0000-000000000001', 'chén', 150, 'Chén cơm nhỏ', true, now()),
+  ('10000000-0000-0000-0000-000000000002', 'bát', 250, 'Bát canh/bún', true, now()),
+  ('10000000-0000-0000-0000-000000000003', 'tô', 400, 'Tô phở/bún đậu', true, now()),
+  ('10000000-0000-0000-0000-000000000004', 'đĩa', 300, 'Đĩa cơm/sườn', true, now()),
+  ('10000000-0000-0000-0000-000000000005', 'muỗng', 15, 'Muỗng canh/soup', true, now()),
+  ('10000000-0000-0000-0000-000000000006', 'ly', 250, 'Ly nước/smoothie', true, now())
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Food portion mappings
+-- =========================
+INSERT INTO food_portion_mappings ("Id", "FoodId", "Unit", "GramsPerUnit", "CreatedAt")
+VALUES
+  ('70000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000005', 'chén', 280, now()),
+  ('70000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000005', 'ly', 300, now()),
+  ('70000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000006', 'tô', 500, now()),
+  ('70000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000006', 'bát', 350, now()),
+  ('70000000-0000-0000-0000-000000000005', '40000000-0000-0000-0000-000000000007', 'đĩa', 450, now()),
+  ('70000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000007', 'chén', 200, now())
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Custom user portions
+-- =========================
+INSERT INTO custom_user_portions ("Id", "UserId", "UnitName", "GramsEquivalent", "CreatedAt", "UpdatedAt")
+VALUES
+  ('80000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', 'tô nhà', 350, now(), now()),
+  ('80000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000002', 'ly luyện tập', 320, now(), now())
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Meal templates
+-- =========================
+INSERT INTO meal_templates ("Id", "UserId", "Title", "Description", "MealType", "UsageCount", "IsActive", "CreatedAt", "UpdatedAt")
+VALUES
+  (
+    '90000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000001',
+    'Sáng khỏe khoắn',
+    'Yến mạch + chuối + cà phê sữa đá',
+    'breakfast',
+    5, true, now(), now()
+  ),
+  (
+    '90000000-0000-0000-0000-000000000002',
+    '70000000-0000-0000-0000-000000000002',
+    'Trưa Gym day',
+    'Cơm gà + salad + nước ép',
+    'lunch',
+    3, true, now(), now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+INSERT INTO meal_template_items ("Id", "MealTemplateId", "FoodId", "RecipeId", "QuantityG", "Notes", "SortOrder", "CreatedAt")
+VALUES
+  ('90010000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000005', NULL, 280, 'Không đường', 1, now()),
+  ('90010000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000007', NULL, 120, 'Chuối giàu', 2, now()),
+  ('90010000-0000-0000-0000-000000000003', '90000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000007', NULL, 450, 'Gạo lứt', 1, now()),
+  ('90010000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', NULL, 300, 'Thêm ớt', 2, now())
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Meal plan item substitutions
+-- =========================
+INSERT INTO meal_plan_item_substitutions ("Id", "MealPlanItemId", "OriginalIngredientId", "SubstituteIngredientId", "OriginalQuantity", "SubstituteQuantity", "CreatedAt")
+VALUES
+  (
+    'a0000000-0000-0000-0000-000000000020',
+    'f0000000-0000-0000-0000-000000000011',
+    '30000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000009',
+    200, 220,
+    now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Meal log substitutions
+-- =========================
+INSERT INTO meal_log_substitutions ("Id", "MealLogId", "OriginalIngredientId", "SubstituteIngredientId", "OriginalQuantity", "SubstituteQuantity", "CreatedAt")
+VALUES
+  (
+    'b0000000-0000-0000-0000-000000000001',
+    '90000000-0000-0000-0000-000000000002',
+    '30000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000009',
+    350, 380,
+    now()
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Email verifications
+-- =========================
+INSERT INTO email_verifications ("Id", "UserId", "OtpCode", "ExpiresAt", "VerifiedAt", "CreatedAt")
+VALUES
+  (
+    'e1000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000001',
+    '123456',
+    now() + interval '1 day',
+    now(),
+    now() - interval '2 days'
+  ),
+  (
+    'e1000000-0000-0000-0000-000000000002',
+    '70000000-0000-0000-0000-000000000002',
+    '654321',
+    now() + interval '1 day',
+    NULL,
+    now() - interval '1 day'
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Password reset tokens
+-- =========================
+INSERT INTO password_reset_tokens ("Id", "UserId", "Token", "ExpiresAt", "UsedAt", "CreatedAt")
+VALUES
+  (
+    'e2000000-0000-0000-0000-000000000001',
+    '70000000-0000-0000-0000-000000000001',
+    'reset-token-demo-001',
+    now() + interval '1 day',
+    NULL,
+    now()
+  ),
+  (
+    'e2000000-0000-0000-0000-000000000002',
+    '70000000-0000-0000-0000-000000000002',
+    'reset-token-demo-002',
+    now() + interval '1 day',
+    now(),
+    now() - interval '1 day'
+  )
+ON CONFLICT ("Id") DO NOTHING;
+
+-- =========================
+-- Device tokens
+-- =========================
+INSERT INTO device_tokens (
+  "Id", "UserId", "Token", "DeviceType", "DeviceName", "AppVersion",
+  "IsActive", "CreatedAt", "LastUsedAt", "UpdatedAt"
 )
 VALUES
   (
-    '11000000-0000-0000-0000-000000000001',
+    'e3000000-0000-0000-0000-000000000001',
     '70000000-0000-0000-0000-000000000001',
-    true, 30, true, 20, true, false, now(), now()
+    'device-token-demo-001',
+    'Android',
+    'Pixel 7',
+    '1.0.0',
+    true,
+    now() - interval '10 days',
+    now(),
+    now() - interval '10 days'
   ),
   (
-    '11000000-0000-0000-0000-000000000002',
+    'e3000000-0000-0000-0000-000000000002',
     '70000000-0000-0000-0000-000000000002',
-    true, 30, true, 20, true, false, now(), now()
-  ),
-  (
-    '11000000-0000-0000-0000-000000000003',
-    '70000000-0000-0000-0000-000000000003',
-    true, 30, false, 20, true, false, now(), now()
+    'device-token-demo-002',
+    'iOS',
+    'iPhone 15',
+    '1.0.0',
+    true,
+    now() - interval '5 days',
+    now(),
+    now() - interval '5 days'
   )
-ON CONFLICT ("UserId") DO NOTHING;
+ON CONFLICT ("Id") DO NOTHING;
 
 -- =========================
--- Notifications
+-- Sessions
 -- =========================
-INSERT INTO "Notifications" ("Id", "UserId", "Title", "Body", "Type", "IsRead", "CreatedAt")
+INSERT INTO sessions ("Id", "UserId", "RefreshToken", "UserAgent", "IpAddress", "ExpiresAt", "CreatedAt")
 VALUES
   (
-    'd0000000-0000-0000-0000-000000000001',
+    'e4000000-0000-0000-0000-000000000001',
     '70000000-0000-0000-0000-000000000001',
-    'Chào buổi sáng!',
-    'Bạn còn khoảng 704 kcal cho hôm nay. Thử Salad ức gà cho bữa trưa nhé.',
-    'reminder', false, now() - interval '2 hours'
+    'refresh-token-demo-001',
+    'Mozilla/5.0 (Android) MenuGreenApp/1.0.0',
+    '127.0.0.1',
+    now() + interval '7 days',
+    now() - interval '1 day'
   ),
   (
-    'd0000000-0000-0000-0000-000000000002',
+    'e4000000-0000-0000-0000-000000000002',
     '70000000-0000-0000-0000-000000000002',
-    'Gói Pro đang hoạt động',
-    'Gói Pro Năm của bạn có hiệu lực đến 31/12/2026.',
-    'subscription', true, now() - interval '1 day'
+    'refresh-token-demo-002',
+    'Mozilla/5.0 (iOS) MenuGreenApp/1.0.0',
+    '127.0.0.1',
+    now() + interval '7 days',
+    now() - interval '12 hours'
   )
 ON CONFLICT ("Id") DO NOTHING;
 
