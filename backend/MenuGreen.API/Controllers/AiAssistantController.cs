@@ -248,12 +248,8 @@ namespace MenuGreen.API.Controllers
         [HttpPost("actions/budget-optimize")]
         public async Task<IActionResult> BudgetOptimize()
         {
-            return Ok(new
-            {
-                Message = "Budget optimization complete.",
-                SuggestedSavingsVnd = 50000,
-                Tip = "Replace fresh chicken breast with eggs or tofu in 2 snacks to save costs while maintaining required protein."
-            });
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.OptimizeBudgetAsync(userId));
         }
 
         // ==========================================

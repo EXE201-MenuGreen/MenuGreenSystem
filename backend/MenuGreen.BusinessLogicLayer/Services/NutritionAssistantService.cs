@@ -24,6 +24,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly ApplicationDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly IMealPlanService _mealPlanService;
+        private readonly INutritionTrackingService _nutritionTrackingService;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -32,11 +34,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public NutritionAssistantService(
             ApplicationDbContext db,
             IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IMealPlanService mealPlanService,
+            INutritionTrackingService nutritionTrackingService)
         {
             _db = db;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _mealPlanService = mealPlanService;
+            _nutritionTrackingService = nutritionTrackingService;
         }
 
         public async Task<NutritionAssistantChatResponse> SendMessageAsync(string userId, NutritionAssistantChatRequest request)
@@ -429,23 +435,262 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return result;
         }
 
-        public Task<JsonElement> ExecuteWorkerActionAsync(string userId, AiWorkerActionExecuteRequest request)
+        public async Task<JsonElement> ExecuteWorkerActionAsync(string userId, AiWorkerActionExecuteRequest request)
         {
-            object payloadValue = request.Payload.HasValue
-                ? request.Payload.Value
-                : new Dictionary<string, object>();
-            var payload = new
+            if (!Guid.TryParse(userId, out var userGuid))
             {
-                user_id = userId,
-                type = request.Type,
-                payload = payloadValue,
-                confirmed = request.Confirmed,
-            };
+                throw new InvalidOperationException("User id is invalid.");
+            }
 
-            return PostWorkerJsonElementAsync(
-                "/api/ai/actions/execute",
-                payload,
-                TimeSpan.FromSeconds(60));
+            var action = request.Type.Trim().ToLowerInvariant();
+            var requiresConfirmation = action is "generate_meal_plan" or "replace_food" or "budget_optimize" or "schedule_meal" or "log_meal";
+            if (requiresConfirmation && !request.Confirmed)
+            {
+                return BuildActionResult(
+                    "needs_confirmation",
+                    action,
+                    new { message = "User confirmation is required before executing this action." });
+            }
+
+            try
+            {
+                object result = action switch
+                {
+                    "generate_meal_plan" => await ExecuteGenerateMealPlanActionAsync(userId, request.Payload),
+                    "replace_food" => await ExecuteReplaceFoodActionAsync(userId, request.Payload),
+                    "budget_optimize" => await ExecuteBudgetOptimizeActionAsync(userId, request.Payload),
+                    "schedule_meal" => await ExecuteScheduleMealActionAsync(userGuid, request.Payload),
+                    "log_meal" => await ExecuteLogMealActionAsync(userGuid, request.Payload),
+                    "show_recipe" => await ExecuteShowRecipeActionAsync(request.Payload),
+                    "ask_followup" => new
+                    {
+                        message = GetPayloadString(request.Payload, "question", "message")
+                            ?? "Please provide your meal, budget, cooking time, or nutrition goal.",
+                    },
+                    _ => throw new InvalidOperationException("Unsupported AI action type."),
+                };
+
+                if (action is not "show_recipe" and not "ask_followup")
+                {
+                    _db.ActivityLogs.Add(new ActivityLog
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = userGuid,
+                        Action = "AiActionExecuted",
+                        EntityType = action,
+                        Metadata = JsonSerializer.Serialize(new { request.Payload, request.Confirmed }, JsonOptions),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    });
+                    await _db.SaveChangesAsync();
+                }
+
+                return BuildActionResult("completed", action, result);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or FormatException)
+            {
+                return BuildActionResult("validation_error", action, new { message = exception.Message });
+            }
+        }
+
+        private async Task<object> ExecuteGenerateMealPlanActionAsync(string userId, JsonElement? payload)
+        {
+            var healthTarget = await _db.HealthProfiles.AsNoTracking()
+                .Where(x => x.UserId == Guid.Parse(userId))
+                .Select(x => x.TargetCalories)
+                .FirstOrDefaultAsync();
+            return await GenerateMealPlan7dAsync(
+                userId,
+                new NutritionAssistantMealPlan7dRequest
+                {
+                    BudgetVndPerDay = GetPayloadInt(payload, "budget_vnd_per_day", "budget_vnd") ?? 100000,
+                    MaxCookTimeMin = GetPayloadInt(payload, "max_cook_time_min") ?? 60,
+                    TargetCaloriesPerDay = GetPayloadInt(payload, "target_calories_per_day", "target_calories") ?? healthTarget ?? 2000,
+                });
+        }
+
+        private async Task<object> ExecuteReplaceFoodActionAsync(string userId, JsonElement? payload)
+        {
+            var originalId = GetPayloadGuid(payload, "food_id", "original_food_id");
+            var excluded = originalId.HasValue ? new[] { originalId.Value.ToString() } : Array.Empty<string>();
+            return await GenerateWorkerRecommendationAsync(
+                userId,
+                "safe",
+                new AiWorkerRecommendationRequest
+                {
+                    TargetCalories = GetPayloadInt(payload, "target_calories"),
+                    MealSlot = GetPayloadString(payload, "meal_slot"),
+                    BudgetVnd = GetPayloadInt(payload, "budget_vnd"),
+                    ExcludeFoodIds = excluded,
+                    Limit = Math.Clamp(GetPayloadInt(payload, "limit") ?? 5, 1, 50),
+                });
+        }
+
+        private async Task<object> ExecuteBudgetOptimizeActionAsync(string userId, JsonElement? payload)
+        {
+            var budget = GetPayloadInt(payload, "budget_vnd", "budget_per_meal_vnd")
+                ?? throw new InvalidOperationException("budget_vnd is required for budget optimization.");
+            return await GenerateWorkerRecommendationAsync(
+                userId,
+                "budget-aware",
+                new AiWorkerRecommendationRequest
+                {
+                    BudgetVnd = budget,
+                    TargetCalories = GetPayloadInt(payload, "target_calories"),
+                    MealSlot = GetPayloadString(payload, "meal_slot"),
+                    MaxCookTimeMin = GetPayloadInt(payload, "max_cook_time_min"),
+                    Limit = Math.Clamp(GetPayloadInt(payload, "limit") ?? 5, 1, 50),
+                });
+        }
+
+        private async Task<object> ExecuteScheduleMealActionAsync(Guid userId, JsonElement? payload)
+        {
+            var foodId = GetPayloadGuid(payload, "food_id");
+            var recipeId = GetPayloadGuid(payload, "recipe_id");
+            if (!foodId.HasValue && !recipeId.HasValue)
+            {
+                throw new InvalidOperationException("food_id or recipe_id is required to schedule a meal.");
+            }
+
+            var plannedDateText = GetPayloadString(payload, "planned_date", "date");
+            var plannedDate = string.IsNullOrWhiteSpace(plannedDateText)
+                ? DateOnly.FromDateTime(DateTime.UtcNow)
+                : DateOnly.Parse(plannedDateText);
+            var timeText = GetPayloadString(payload, "scheduled_time", "time");
+            var scheduledTime = string.IsNullOrWhiteSpace(timeText) ? (TimeOnly?)null : TimeOnly.Parse(timeText);
+            var item = new MealPlanItemUpsertRequest
+            {
+                MealType = GetPayloadString(payload, "meal_type", "meal_slot") ?? "meal",
+                FoodId = foodId,
+                RecipeId = recipeId,
+                PlannedDate = plannedDate,
+                ScheduledTime = scheduledTime,
+                TargetCalories = GetPayloadInt(payload, "target_calories"),
+            };
+            var existingPlan = await _mealPlanService.GetByDateAsync(userId, plannedDate);
+            if (existingPlan != null)
+            {
+                return await _mealPlanService.AddItemAsync(existingPlan.Id, item, userId);
+            }
+
+            return await _mealPlanService.CreateOrUpdateDailyAsync(userId, new UserMealPlanUpsertRequest
+            {
+                PlannedDate = plannedDate,
+                Title = "AI scheduled meal",
+                TargetCalories = GetPayloadInt(payload, "daily_target_calories"),
+                Items = new List<MealPlanItemUpsertRequest> { item },
+            });
+        }
+
+        private async Task<object> ExecuteLogMealActionAsync(Guid userId, JsonElement? payload)
+        {
+            var quantityG = GetPayloadDecimal(payload, "quantity_g");
+            var quantity = GetPayloadDecimal(payload, "quantity");
+            if (!quantityG.HasValue && !quantity.HasValue)
+            {
+                throw new InvalidOperationException("quantity_g or quantity is required to log a meal.");
+            }
+
+            var loggedAtText = GetPayloadString(payload, "logged_at");
+            return await _nutritionTrackingService.CreateMealLogAsync(
+                userId,
+                new MealLogUpsertRequest
+                {
+                    FoodId = GetPayloadGuid(payload, "food_id"),
+                    RecipeId = GetPayloadGuid(payload, "recipe_id"),
+                    MealType = GetPayloadString(payload, "meal_type", "meal_slot") ?? "meal",
+                    QuantityG = quantityG,
+                    Quantity = quantity,
+                    Unit = GetPayloadString(payload, "unit"),
+                    Notes = GetPayloadString(payload, "notes"),
+                    LoggedAt = string.IsNullOrWhiteSpace(loggedAtText) ? DateTime.UtcNow : DateTime.Parse(loggedAtText),
+                    CaloriesKcal = GetPayloadDecimal(payload, "calories_kcal"),
+                    ProteinG = GetPayloadDecimal(payload, "protein_g"),
+                    CarbsG = GetPayloadDecimal(payload, "carbs_g"),
+                    FatG = GetPayloadDecimal(payload, "fat_g"),
+                });
+        }
+
+        private async Task<object> ExecuteShowRecipeActionAsync(JsonElement? payload)
+        {
+            var recipeId = GetPayloadGuid(payload, "recipe_id");
+            var query = GetPayloadString(payload, "query", "name")?.Trim();
+            var recipes = _db.Recipes.AsNoTracking().Include(x => x.Food).Where(x => x.IsActive != false);
+            var recipe = recipeId.HasValue
+                ? await recipes.FirstOrDefaultAsync(x => x.Id == recipeId.Value)
+                : string.IsNullOrWhiteSpace(query)
+                    ? null
+                    : await recipes.FirstOrDefaultAsync(x => x.Title.ToLower().Contains(query.ToLower()));
+            if (recipe == null)
+            {
+                throw new InvalidOperationException("Recipe not found.");
+            }
+
+            return new
+            {
+                recipe.Id,
+                recipe.Title,
+                recipe.Description,
+                recipe.MealType,
+                recipe.PrepTimeMin,
+                recipe.CookTimeMin,
+                recipe.TotalTimeMin,
+                recipe.Servings,
+                recipe.Instructions,
+                caloriesKcal = recipe.Food?.CaloriesKcal,
+                proteinG = recipe.Food?.ProteinG,
+                carbsG = recipe.Food?.CarbsG,
+                fatG = recipe.Food?.FatG,
+            };
+        }
+
+        private static JsonElement BuildActionResult(string status, string action, object result)
+        {
+            return JsonSerializer.SerializeToElement(new { status, action, result }, JsonOptions);
+        }
+
+        private static JsonElement? GetPayloadProperty(JsonElement? payload, params string[] names)
+        {
+            if (!payload.HasValue || payload.Value.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (var property in payload.Value.EnumerateObject())
+            {
+                if (names.Any(name => property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return property.Value;
+                }
+            }
+            return null;
+        }
+
+        private static string? GetPayloadString(JsonElement? payload, params string[] names)
+        {
+            var value = GetPayloadProperty(payload, names);
+            return value.HasValue && value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        }
+
+        private static int? GetPayloadInt(JsonElement? payload, params string[] names)
+        {
+            var value = GetPayloadProperty(payload, names);
+            if (!value.HasValue) return null;
+            if (value.Value.TryGetInt32(out var number)) return number;
+            return value.Value.ValueKind == JsonValueKind.String && int.TryParse(value.Value.GetString(), out number) ? number : null;
+        }
+
+        private static decimal? GetPayloadDecimal(JsonElement? payload, params string[] names)
+        {
+            var value = GetPayloadProperty(payload, names);
+            if (!value.HasValue) return null;
+            if (value.Value.TryGetDecimal(out var number)) return number;
+            return value.Value.ValueKind == JsonValueKind.String && decimal.TryParse(value.Value.GetString(), out number) ? number : null;
+        }
+
+        private static Guid? GetPayloadGuid(JsonElement? payload, params string[] names)
+        {
+            var text = GetPayloadString(payload, names);
+            return Guid.TryParse(text, out var value) ? value : null;
         }
 
         public Task<AiWorkerCrawlerNormalizeResponse> NormalizeCrawlerDataAsync(AiWorkerCrawlerNormalizeRequest request)

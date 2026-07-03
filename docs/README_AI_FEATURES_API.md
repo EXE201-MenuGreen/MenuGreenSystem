@@ -48,8 +48,8 @@ BudgetRequest
 #### D. Giải thích recommendation (✅ Đã có API)
 - `✅ GET /api/Recommendation/explain/{id}` — giải thích vì sao món/thực đơn được đề xuất.
 
-#### E. Tối ưu cá nhân hóa (⚠️ Đã có route, còn có thể nâng cấp logic)
-- `⚠️ POST /api/Recommendation/retrain` — tái tính rule/model từ feedback (job nội bộ/admin).
+#### E. Tối ưu cá nhân hóa (✅ Đã hoàn thiện rule recalibration)
+- `✅ POST /api/Recommendation/retrain` — dry-run/apply rule weights từ feedback đúng user, lưu tín hiệu preferred/avoided item vào `UserAiProfile` và ghi audit.
 - `✅ GET /api/Recommendation/scores` — điểm phù hợp theo từng tiêu chí: calories, macro, dị ứng, ngân sách.
 
 ### Business Rules
@@ -95,16 +95,16 @@ UserAiProfile
 - `✅ GET /api/AiAssistant/profile` — đọc `UserAiProfile` để AI dùng cá nhân hóa.
 - `✅ PUT /api/AiAssistant/profile` — cập nhật hồ sơ AI của user.
 
-#### D. Action suggestions (⚠️ Đã có route, còn basic ở một số action)
+#### D. Action suggestions (✅ Đã có execution thật)
 - `✅ GET /api/AiAssistant/suggestions` — đề xuất hành động tiếp theo từ hội thoại.
-- `⚠️ POST /api/AiAssistant/actions/meal-plan` — tạo meal plan từ gợi ý AI.
-- `⚠️ POST /api/AiAssistant/actions/replace-food` — đề xuất món thay thế.
-- `⚠️ POST /api/AiAssistant/actions/budget-optimize` — tối ưu thực đơn theo ngân sách.
+- `✅ POST /api/AiAssistant/actions/meal-plan` — tạo meal plan 7 ngày qua worker theo target, budget và thời gian nấu thật của user.
+- `✅ POST /api/AiAssistant/actions/replace-food` — lấy món gốc từ DB và gọi safe recommendation, loại món gốc cùng dị ứng.
+- `✅ POST /api/AiAssistant/actions/budget-optimize` — dùng budget/profile thật và trả recommendation đã lưu history.
 
-#### E. History/analytics (⚠️ Đã có API, analytics còn ở mức cơ bản)
-- `⚠️ GET /api/AiAssistant/insights` — thống kê chủ đề hỏi thường gặp.
-- `⚠️ GET /api/AiAssistant/conversations/{id}/summary` — tóm tắt hội thoại.
-- `⚠️ GET /api/AiAssistant/usage` — số lần dùng assistant theo ngày/tuần/tháng.
+#### E. History/analytics (✅ Đọc dữ liệu hội thoại thật)
+- `✅ GET /api/AiAssistant/insights` — thống kê chủ đề và tỷ lệ quan tâm từ user messages thật.
+- `✅ GET /api/AiAssistant/conversations/{id}/summary` — tóm tắt extractive theo nội dung, chủ đề và câu hỏi chính của hội thoại thuộc user.
+- `✅ GET /api/AiAssistant/usage` — tổng hợp usage theo ngày, tuần, tháng, active days và last-used thật.
 
 ### Business Rules
 - AI assistant có thể gọi recommendation, meal plan, nutrition tracking như các công cụ phụ trợ (Function Calling / Tool Use).
@@ -174,7 +174,7 @@ UserAiProfile
 - `✅ POST /api/AiCoach/sessions/{sessionId}/messages` — Gửi tin nhắn user và nhận phản hồi AI.
 - `✅ GET /api/AiCoach/sessions/{sessionId}/history` — Lấy lịch sử hội thoại.
 - `✅ DELETE /api/AiCoach/sessions/{sessionId}` — Xóa lịch sử phiên chat.
-- `⚠️ POST /api/AiCoach/execute-action` — Chạy hành động do AI đề xuất sau khi user phê duyệt (Function Calling / Tool Use).
+- `✅ POST /api/AiCoach/execute-action` — thực thi action sau confirmation: meal plan, replace food, budget optimize, schedule meal, log meal, show recipe và follow-up; action ghi dữ liệu có audit.
 
 #### C. API Ghi nhận phản hồi để Train Model
 - `✅ POST /api/AiCoach/messages/{messageId}/feedback` — Ghi nhận phản hồi của user về câu trả lời AI (Like/Dislike, lý do hữu ích/không hữu ích, sai sót thông tin).
@@ -263,7 +263,7 @@ UserAiProfile
 
 ## 7. Current Status Summary
 
-Estimated API surface completion: **90-92%**
+Estimated API surface completion: **97-98%**
 
 | Feature | Status |
 |---------|--------|
@@ -272,9 +272,9 @@ Estimated API surface completion: **90-92%**
 | Recommendation Smart-schedule | ✅ Đã có API |
 | AI Nutrition Assistant (Chat) | ✅ Đã có API |
 | AI Context APIs | ✅ Đã có API |
-| AI Function Calling | ⚠️ Đã có route, execution depth chưa full |
+| AI Function Calling | ✅ Confirmation-gated execution + audit |
 | AI Feedback Loop for Training | ✅ Đã có API cơ bản |
-| AI Insights/Analytics | ⚠️ Đã có route, analytics còn cơ bản |
+| AI Insights/Analytics | ✅ Thống kê từ conversation/message thật |
 
 ---
 

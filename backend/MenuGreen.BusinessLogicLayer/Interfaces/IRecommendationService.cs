@@ -16,7 +16,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task SubmitFeedbackAsync(Guid userId, RecommendationFeedbackRequest request);
         Task<RecommendationExplainResponse> ExplainAsync(Guid userId, Guid recommendationId);
         Task<RecommendationScoreResponse> GetScoresAsync(Guid userId, RecommendationScoreRequest request);
-        Task<object> RetrainAsync(Guid userId, RecommendationRetrainRequest request);
+        Task<RecommendationRetrainResponse> RetrainAsync(Guid userId, RecommendationRetrainRequest request);
 
         Task UpdateFeedbackAsync(Guid userId, Guid recommendationId, UpdateFeedbackRequest request);
         Task<FeedbackSummaryResponse> GetFeedbackSummaryAsync(Guid userId);
