@@ -559,37 +559,85 @@ namespace MenuGreen.BusinessLogicLayer.Services
         // D. Action Suggestions
         // ==========================================
 
-        public async Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId)
+        public async Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId, Guid? conversationId = null)
         {
             try
             {
+                if (!conversationId.HasValue)
+                {
+                    var latestConv = await _db.AiConversations
+                        .Where(x => x.UserId == userId)
+                        .OrderByDescending(x => x.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (latestConv != null)
+                    {
+                        conversationId = latestConv.Id;
+                    }
+                }
+
+                List<AiMessage> messages = new List<AiMessage>();
+                if (conversationId.HasValue)
+                {
+                    messages = await _db.AiMessages
+                        .Where(x => x.ConversationId == conversationId.Value)
+                        .OrderBy(x => x.CreatedAt)
+                        .ToListAsync();
+                }
+
                 var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
                 client.Timeout = TimeSpan.FromSeconds(15);
 
-                var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/suggestions?user_id={userId}";
-                var response = await client.GetAsync(url);
-
-                if (response.IsSuccessStatusCode)
+                if (messages.Count == 0)
                 {
-                    var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
-                    if (suggestions != null && suggestions.Count > 0)
+                    var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/suggestions?user_id={userId}";
+                    var response = await client.GetAsync(url);
+
+                    if (response.IsSuccessStatusCode)
                     {
-                        return suggestions;
+                        var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
+                        if (suggestions != null && suggestions.Count > 0)
+                        {
+                            return suggestions;
+                        }
+                    }
+                }
+                else
+                {
+                    var requestBody = new
+                    {
+                        user_id = userId.ToString(),
+                        conversation_history = messages.Select(m => new
+                        {
+                            role = m.Role.ToLower(),
+                            content = m.Content
+                        }).ToList()
+                    };
+
+                    var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/conversation/suggestions";
+                    var response = await client.PostAsJsonAsync(url, requestBody);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
+                        if (suggestions != null && suggestions.Count > 0)
+                        {
+                            return suggestions;
+                        }
                     }
                 }
             }
             catch (Exception)
             {
-                // Fallback silently to rule-based list
+                // Fallback silently to default list
             }
 
-            // Simple rule-based suggestions as a fallback/mock
             return new List<string>
             {
-                "Cách tối ưu hóa calo cho bữa trưa của tôi là gì?",
-                "Tôi bị dị ứng hải sản thì nên ăn món gì thay thế cơm gà?",
-                "Tải thực đơn ăn kiêng giảm cân 1500 calo mỗi ngày?",
-                "Làm sao để hạn chế cơn thèm ăn vào buổi tối?"
+                "Lên kế hoạch ăn uống 7 ngày cho tôi",
+                "Thay thế món ăn có trong thực đơn",
+                "Tối ưu hóa ngân sách chi tiêu hôm nay",
+                "Tôi muốn xem chi tiết công thức nấu ăn"
             };
         }
 

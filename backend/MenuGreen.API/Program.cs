@@ -240,13 +240,13 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Health Checks
-var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+// var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+//     ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
-if (string.IsNullOrEmpty(pgConnection))
-{
-    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
-}
+// if (string.IsNullOrEmpty(pgConnection))
+// {
+//     throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
+// }
 
 // Convert URI format to Npgsql keyword format if needed
 var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(builder.Configuration);

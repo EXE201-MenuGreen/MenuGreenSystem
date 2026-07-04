@@ -27,7 +27,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<UserAiProfileResponse> UpdateProfileAsync(Guid userId, UpdateAiProfileRequest request);
 
         // D. Action suggestions
-        Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId);
+        Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId, Guid? conversationId = null);
         Task<AiMealPlanActionResponse> GenerateMealPlanFromAiAsync(Guid userId, string prompt);
         Task<AiFoodReplacementActionResponse> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason);
         Task<AiBudgetOptimizationResponse> OptimizeBudgetAsync(Guid userId);

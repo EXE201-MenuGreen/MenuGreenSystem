@@ -105,43 +105,6 @@ namespace MenuGreen.API.Controllers
             return Ok(new { Message = "AI Coach session deleted successfully." });
         }
 
-        [HttpPost("messages")]
-        public async Task<IActionResult> SendMessage([FromBody] NutritionAssistantChatRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var userId = GetUserId();
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return Unauthorized();
-            }
-
-            return Ok(await _nutritionAssistantService.SendMessageAsync(userId, request));
-        }
-
-        [HttpPost("messages/stream")]
-        public async Task<IActionResult> StreamMessage([FromBody] NutritionAssistantChatRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var userId = GetUserId();
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return Unauthorized();
-            }
-
-            Response.ContentType = "text/event-stream";
-            Response.Headers["Cache-Control"] = "no-cache";
-            await _nutritionAssistantService.StreamMessageAsync(userId, request, Response.Body, HttpContext.RequestAborted);
-            return new EmptyResult();
-        }
-
         [HttpPost("execute-action")]
         public async Task<IActionResult> ExecuteAction([FromBody] AiWorkerActionExecuteRequest request)
         {

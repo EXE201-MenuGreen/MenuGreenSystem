@@ -278,4 +278,143 @@ Estimated API surface completion: **97-98%**
 
 ---
 
+## 8. Hướng dẫn Test & Ví dụ JSON Body cho các API Đầu vào
+
+Để thuận tiện cho việc test bằng Postman, Swagger hoặc tích hợp Frontend, dưới đây là các cấu trúc JSON Body mẫu cho tất cả các API đầu vào của cả **AI Nutrition Assistant** và **Contextual AI Coach**:
+
+---
+
+### PHẦN I. API CỦA AI NUTRITION ASSISTANT (Trợ lý Dinh dưỡng Chung)
+
+#### 1. Tạo phiên chat mới (`POST /api/AiAssistant/conversations`)
+```json
+{
+  "firstMessage": "Tôi muốn bắt đầu hành trình ăn uống lành mạnh"
+}
+```
+
+#### 2. Cập nhật tiêu đề cuộc trò chuyện (`PATCH` / `POST /api/AiAssistant/conversations/{id}/title`)
+```json
+{
+  "title": "Kế hoạch ăn uống giảm mỡ bụng"
+}
+```
+
+#### 3. Gửi tin nhắn và nhận phản hồi AI (`POST /api/AiAssistant/conversations/{id}/messages`)
+```json
+{
+  "message": "Tôi bị dị ứng lạc (đậu phộng), hãy gợi ý cho tôi một bữa tối lành mạnh không chứa lạc.",
+  "language": "vi",
+  "stream": false
+}
+```
+
+#### 4. Gửi phản hồi feedback cho tin nhắn trợ lý (`PATCH` / `POST /api/AiAssistant/conversations/{id}/messages/{msgId}/feedback`)
+```json
+{
+  "isPositive": true,
+  "reason": "Helpful",
+  "comment": "Các gợi ý thay thế ức gà rất chi tiết và dễ mua!"
+}
+```
+
+#### 5. Cập nhật hồ sơ AI và ngữ cảnh ưu tiên (`PUT /api/AiAssistant/context` hoặc `PUT /api/AiAssistant/profile`)
+```json
+{
+  "preferences": "nhẹ bụng, ít dầu mỡ, nhiều đạm",
+  "dislikedFoods": "hành tây, ngò rí",
+  "eatingPattern": "Keto"
+}
+```
+
+#### 6. AI gợi ý tạo thực đơn bằng Prompt (`POST /api/AiAssistant/actions/meal-plan`)
+```json
+{
+  "prompt": "Lên thực đơn 1700 calo nhiều protein cho hôm nay"
+}
+```
+
+#### 7. Gợi ý đổi món thay thế an toàn (`POST /api/AiAssistant/actions/replace-food`)
+```json
+{
+  "foodId": "fd000008-0000-0000-0000-000000000008",
+  "reason": "Dị ứng trứng gà"
+}
+```
+
+---
+
+### PHẦN II. API CỦA CONTEXTUAL AI COACH (Huấn luyện viên Cá nhân)
+
+#### 1. Khởi tạo phiên trò chuyện (`POST /api/AiCoach/sessions`)
+```json
+{
+  "firstMessage": "Chào AI Coach, hãy giúp tôi lên thực đơn hôm nay"
+}
+```
+
+#### 2. Gửi tin nhắn trong cuộc trò chuyện (`POST /api/AiCoach/sessions/{sessionId}/messages`)
+```json
+{
+  "message": "Tôi bị dị ứng lạc (đậu phộng), hãy gợi ý cho tôi một bữa tối lành mạnh không chứa lạc.",
+  "language": "vi",
+  "stream": false
+}
+```
+
+#### 3. Gửi phản hồi feedback cho tin nhắn của Coach (`POST /api/AiCoach/messages/{messageId}/feedback`)
+```json
+{
+  "isPositive": false,
+  "reason": "IncorrectInformation",
+  "comment": "Món ăn gợi ý có chứa nguyên liệu gây dị ứng của tôi"
+}
+```
+
+#### 4. Thực thi hành động AI (`POST /api/AiCoach/execute-action`)
+
+##### A. Hành động: Ghi nhật ký ăn uống (`log_meal`)
+```json
+{
+  "type": "log_meal",
+  "confirmed": true,
+  "payload": {
+    "recipe_id": "ec000004-0000-0000-0000-000000000004",
+    "meal_slot": "dinner",
+    "quantity_g": 250,
+    "unit": "g",
+    "notes": "Test ghi bữa tối qua Swagger"
+  }
+}
+```
+
+##### B. Hành động: Tạo thực đơn 7 ngày (`generate_meal_plan`)
+```json
+{
+  "type": "generate_meal_plan",
+  "confirmed": true,
+  "payload": {
+    "budget_vnd_per_day": 120000,
+    "max_cook_time_min": 45,
+    "target_calories_per_day": 2000
+  }
+}
+```
+
+##### C. Hành động: Lên lịch bữa ăn (`schedule_meal`)
+```json
+{
+  "type": "schedule_meal",
+  "confirmed": true,
+  "payload": {
+    "recipe_id": "ec000004-0000-0000-0000-000000000004",
+    "meal_slot": "breakfast",
+    "planned_date": "2026-07-05",
+    "scheduled_time": "07:30:00"
+  }
+}
+```
+
+---
+
 *Tài liệu này được tổng hợp từ `README_SYSTEM_WORKFLOWS_AND_FEATURE_IDEAS.md` và các yêu cầu hệ thống hiện có.*
