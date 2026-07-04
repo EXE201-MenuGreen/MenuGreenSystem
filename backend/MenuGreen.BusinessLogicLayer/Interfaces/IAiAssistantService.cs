@@ -27,13 +27,14 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<UserAiProfileResponse> UpdateProfileAsync(Guid userId, UpdateAiProfileRequest request);
 
         // D. Action suggestions
-        Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId);
-        Task<object> GenerateMealPlanFromAiAsync(Guid userId, string prompt);
-        Task<object> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason);
+        Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId, Guid? conversationId = null);
+        Task<AiMealPlanActionResponse> GenerateMealPlanFromAiAsync(Guid userId, string prompt);
+        Task<AiFoodReplacementActionResponse> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason);
+        Task<AiBudgetOptimizationResponse> OptimizeBudgetAsync(Guid userId);
 
         // E. History/analytics
-        Task<object> GetInsightsAsync(Guid userId);
+        Task<AiAssistantInsightsResponse> GetInsightsAsync(Guid userId);
         Task<string> SummarizeConversationAsync(Guid userId, Guid conversationId);
-        Task<object> GetUsageMetricsAsync(Guid userId);
+        Task<AiAssistantUsageResponse> GetUsageMetricsAsync(Guid userId);
     }
 }

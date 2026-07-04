@@ -28,7 +28,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (!isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-sm text-zinc-500">Đang tải...</p>
+        <p className="text-sm text-zinc-500">Dang tai...</p>
       </div>
     );
   }

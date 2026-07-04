@@ -907,8 +907,8 @@ Các score này là proprietary heuristics. Nên track hit rate (món được c
 | # | Method | Endpoint | Action |
 |---|--------|----------|--------|
 | 1 | `GET` | `/api/Recommendation/scores?mealType=breakfast&targetCalories=544` | Tính scores (CaloriesScore, MacroScore, AllergyScore, BudgetScore, OverallScore) |
-| 2 | `GET` | `/api/Recommendation/calories?targetCalories=544` | Gợi ý theo calories (score = \|calories - target\|) |
-| 3 | `GET` | `/api/Recommendation/eco?budget=100000&limitMinutes=30` | Gợi ý tiết kiệm (score = budget - price + limitMinutes) |
+| 2 | `POST` | `/api/Recommendation/generate` | (AI) Gợi ý món ăn thông minh theo Calories |
+| 3 | `POST` | `/api/Recommendation/generate/budget-aware` | (AI) Gợi ý tiết kiệm và tối ưu ngân sách |
 
 ```bash
 curl -X GET "https://api.menugreen.vn/api/Recommendation/scores?mealType=breakfast&targetCalories=544" \

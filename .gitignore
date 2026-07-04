@@ -12,6 +12,9 @@ backend/.env.local
 backend/.env.production
 backend/.env.lightsail
 
+# Local database backups
+backend/db_backups/
+
 # Firebase Admin SDK (Google login backend)
 **/firebase-adminsdk*.json
 backend/MenuGreen.API/firebase-adminsdk.json
@@ -73,6 +76,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+backend/_buildcheck/
+backend/_buildcheck_restore/
 
 # Tye
 .tye/

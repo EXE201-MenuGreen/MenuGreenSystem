@@ -23,19 +23,22 @@ namespace MenuGreen.API.Controllers
         private readonly INutritionTrackingService _nutritionTrackingService;
         private readonly IMealPlanService _mealPlanService;
         private readonly IHealthProfileService _healthProfileService;
+        private readonly IDailyStarterService _dailyStarterService;
 
         public GymGoalsController(
             IUserAiProfileService userAiProfileService,
             IRecommendationService recommendationService,
             INutritionTrackingService nutritionTrackingService,
             IMealPlanService mealPlanService,
-            IHealthProfileService healthProfileService)
+            IHealthProfileService healthProfileService,
+            IDailyStarterService dailyStarterService)
         {
             _userAiProfileService = userAiProfileService;
             _recommendationService = recommendationService;
             _nutritionTrackingService = nutritionTrackingService;
             _mealPlanService = mealPlanService;
             _healthProfileService = healthProfileService;
+            _dailyStarterService = dailyStarterService;
         }
 
         /// <summary>
@@ -161,7 +164,7 @@ namespace MenuGreen.API.Controllers
                 }
             }
 
-            return Ok(await _recommendationService.RecommendByCaloriesAsync(userId, new RecommendationRequest
+            return Ok(await _dailyStarterService.GetRecommendationsAsync(userId, new RecommendationRequest
             {
                 TargetCalories = targetCalories > 0 ? targetCalories : null,
                 Top = top

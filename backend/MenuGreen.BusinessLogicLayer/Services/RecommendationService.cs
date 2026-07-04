@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -30,149 +31,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _db = db;
         }
 
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByCaloriesAsync(Guid? userId, RecommendationRequest request)
-        {
-            var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
-            var target = request.TargetCalories ?? 0;
 
-            if (request.ExcludeUserAllergies && userId.HasValue)
-            {
-                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
-                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
-            }
 
-            var items = foods.Select(f => MapFood(f, target, "Food"))
-                .Concat(recipes.Where(r => r.FoodId.HasValue).Select(r => MapRecipe(r, target, "Recipe")))
-                .OrderBy(x => x.Score)
-                .Take(request.Top);
 
-            return items;
-        }
-
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendByEcoAsync(Guid? userId, RecommendationRequest request)
-        {
-            var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.EstimatedPriceVnd.HasValue && x.TotalTimeMin.HasValue);
-
-            if (request.ExcludeUserAllergies && userId.HasValue)
-            {
-                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
-                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
-            }
-
-            var items = foods.Select(f => MapEcoFood(f, request.BudgetVnd ?? int.MaxValue, request.LimitMinutes ?? int.MaxValue))
-                .Concat(recipes.Select(r => MapEcoRecipe(r, request.BudgetVnd ?? int.MaxValue, request.LimitMinutes ?? int.MaxValue)))
-                .Where(x => x.EstimatedPriceVnd <= (request.BudgetVnd ?? int.MaxValue) && x.CookingTimeMin <= (request.LimitMinutes ?? int.MaxValue))
-                .OrderByDescending(x => x.Score)
-                .Take(request.Top);
-
-            return items;
-        }
-
-        public async Task<IEnumerable<RecommendationItemResponse>> RecommendLunchAsync(Guid? userId, RecommendationRequest request)
-        {
-            var lunchBudget = request.BudgetVnd ?? int.MaxValue;
-            var targetCalories = request.TargetCalories ?? 0;
-
-            var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue && x.EstimatedPriceVnd.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue && x.EstimatedPriceVnd.HasValue);
-
-            if (request.ExcludeUserAllergies && userId.HasValue)
-            {
-                foods = await FilterFoodsByAllergyAsync(foods, userId.Value);
-                recipes = await FilterRecipesByAllergyAsync(recipes, userId.Value);
-            }
-
-            var items = foods.Select(f => MapLunchFood(f, targetCalories, lunchBudget))
-                .Concat(recipes.Select(r => MapLunchRecipe(r, targetCalories, lunchBudget)))
-                .Where(x => x.EstimatedPriceVnd <= lunchBudget && x.CookingTimeMin < 20)
-                .OrderBy(x => x.Score)
-                .Take(request.Top);
-
-            return items;
-        }
-
-        public async Task<MealPlanResponse> BuildDailyMenuAsync(Guid? userId, RecommendationRequest request)
-        {
-            var targetCalories = request.TargetCalories ?? 0;
-            var breakfastTarget = targetCalories * 0.30m;
-            var lunchTarget = targetCalories * 0.35m;
-            var dinnerTarget = targetCalories * 0.25m;
-            var snackTarget = targetCalories * 0.10m;
-
-            var slots = new[]
-            {
-                ("breakfast", breakfastTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)breakfastTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
-                ("lunch", lunchTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)lunchTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
-                ("dinner", dinnerTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)dinnerTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList()),
-                ("snack", snackTarget, (await RecommendByCaloriesAsync(userId, new RecommendationRequest { TargetCalories = (int)snackTarget, Top = 1, ExcludeUserAllergies = request.ExcludeUserAllergies })).ToList())
-            };
-
-            var items = new List<MealPlanItemResponse>();
-            decimal totalProtein = 0;
-            decimal totalCarbs = 0;
-            decimal totalFat = 0;
-
-            foreach (var slot in slots)
-            {
-                var firstRecommendation = slot.Item3.FirstOrDefault();
-                var mappedItem = MapDailyMenuItem(slot.Item1, firstRecommendation);
-                if (mappedItem != null)
-                {
-                    items.Add(mappedItem);
-                    if (firstRecommendation != null)
-                    {
-                        totalProtein += firstRecommendation.ProteinG;
-                        totalCarbs += firstRecommendation.CarbsG;
-                        totalFat += firstRecommendation.FatG;
-                    }
-                }
-            }
-
-            return new MealPlanResponse
-            {
-                TargetCalories = targetCalories,
-                TotalCalories = items.Sum(x => x.TargetCalories ?? 0),
-                TotalProteinG = (int)totalProtein,
-                TotalCarbsG = (int)totalCarbs,
-                TotalFatG = (int)totalFat,
-                Items = items
-            };
-        }
-
-        private static MealPlanItemResponse? MapDailyMenuItem(string mealType, RecommendationItemResponse? recommendation)
-        {
-            if (recommendation == null) return null;
-
-            var isFood = string.Equals(recommendation.Type, "Food", StringComparison.OrdinalIgnoreCase);
-            return new MealPlanItemResponse
-            {
-                Id = recommendation.Id,
-                MealPlanId = Guid.Empty,
-                MealType = mealType,
-                FoodId = isFood ? recommendation.Id : null,
-                RecipeId = isFood ? null : recommendation.Id,
-                PlannedDate = null,
-                TargetCalories = (int)Math.Round(recommendation.CaloriesKcal),
-                IsCompleted = false,
-                FoodName = isFood ? recommendation.Name : null,
-                RecipeName = isFood ? null : recommendation.Name,
-                SourceEntityType = recommendation.Type
-            };
-        }
-
-        public Task<SmartScheduleResponse> BuildSmartScheduleAsync(SmartScheduleRequest request)
-        {
-            var reminderTime = request.ExpectedMealTime.AddMinutes(-(request.CookingTimeMinutes + request.BufferMinutes));
-            return Task.FromResult(new SmartScheduleResponse
-            {
-                ExpectedMealTime = request.ExpectedMealTime,
-                ReminderTime = reminderTime,
-                CookingTimeMinutes = request.CookingTimeMinutes,
-                BufferMinutes = request.BufferMinutes
-            });
-        }
 
         public async Task<IReadOnlyList<RecommendationHistoryResponse>> GetHistoryAsync(Guid userId)
         {
@@ -206,25 +67,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        public async Task<IReadOnlyList<RecommendationItemResponse>> PreviewAsync(Guid userId, RecommendationPreviewRequest request)
+        public async Task DeleteHistoryAsync(Guid userId, Guid recommendationId)
         {
-            var recommendationRequest = new RecommendationRequest
-            {
-                TargetCalories = request.TargetCalories,
-                BudgetVnd = request.BudgetVnd,
-                LimitMinutes = request.LimitMinutes,
-                Top = 5
-            };
+            var item = (await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId && x.Id == recommendationId)).FirstOrDefault()
+                ?? throw new Exception("Recommendation not found.");
 
-            var result = (request.Type?.ToLowerInvariant()) switch
+            var feedbacks = await _unitOfWork.RecommendationFeedbacks.FindAsync(x => x.RecommendationId == recommendationId);
+            var feedbackList = feedbacks.ToList();
+            if (feedbackList.Count > 0)
             {
-                "eco" => await RecommendByEcoAsync(userId, recommendationRequest),
-                "lunch" => await RecommendLunchAsync(userId, recommendationRequest),
-                _ => await RecommendByCaloriesAsync(userId, recommendationRequest)
-            };
+                _unitOfWork.RecommendationFeedbacks.RemoveRange(feedbackList);
+            }
 
-            return result.ToList();
+            _unitOfWork.RecommendationHistories.Remove(item);
+            await _unitOfWork.CompleteAsync();
         }
+
+
 
         public async Task SubmitFeedbackAsync(Guid userId, RecommendationFeedbackRequest request)
         {
@@ -308,7 +167,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var limit = request.LimitMinutes ?? int.MaxValue;
 
             var foods = await _unitOfWork.Foods.FindAsync(x => x.IsActive != false && x.CaloriesKcal.HasValue);
-            var recipes = await _unitOfWork.Recipes.FindAsync(x => x.IsActive != false && x.TotalTimeMin.HasValue);
+            IEnumerable<Recipe> recipes = await _db.Recipes.Include(r => r.Food).Where(x => x.IsActive != false && x.TotalTimeMin.HasValue).ToListAsync();
             if (request.ExcludeUserAllergies)
             {
                 foods = await FilterFoodsByAllergyAsync(foods, userId);
@@ -352,126 +211,191 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
         }
 
-        public async Task<object> RetrainAsync(Guid userId, RecommendationRetrainRequest request)
+        public async Task<RecommendationRetrainResponse> RetrainAsync(Guid userId, RecommendationRetrainRequest request)
         {
-            var feedbacks = await _unitOfWork.RecommendationFeedbacks.FindAsync(x => true);
-            var histories = await _unitOfWork.RecommendationHistories.FindAsync(x => x.UserId == userId);
-            return new
+            var evaluatedAt = DateTimeOffset.UtcNow;
+            var cutoff = evaluatedAt.AddDays(-request.LookbackDays);
+            var histories = await _db.RecommendationHistories
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && (x.CreatedAt == null || x.CreatedAt >= cutoff))
+                .ToListAsync();
+            var historyIds = histories.Select(x => x.Id).ToList();
+            var feedbacks = historyIds.Count == 0
+                ? new List<RecommendationFeedback>()
+                : await _db.RecommendationFeedbacks
+                    .AsNoTracking()
+                    .Where(x => historyIds.Contains(x.RecommendationId))
+                    .ToListAsync();
+
+            var historyById = histories.ToDictionary(x => x.Id);
+            var grouped = feedbacks
+                .Where(x => x.Rating.HasValue && historyById.ContainsKey(x.RecommendationId))
+                .GroupBy(x => historyById[x.RecommendationId].Type?.Trim().ToLowerInvariant() ?? "general")
+                .ToDictionary(
+                    group => group.Key,
+                    group =>
+                    {
+                        var ratings = group.Select(x => x.Rating!.Value).ToList();
+                        var average = ratings.Average();
+                        return new RecommendationRuleTuningResponse
+                        {
+                            Samples = ratings.Count,
+                            AverageRating = Math.Round(average, 3),
+                            Weight = Math.Round(Math.Clamp(1d + ((average - 3d) / 4d), 0.5d, 1.5d), 3),
+                        };
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+
+            var ratedFeedbacks = feedbacks.Where(x => x.Rating.HasValue).ToList();
+            var itemSignals = new Dictionary<string, (string DisplayName, int Score)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var feedback in ratedFeedbacks.Where(x => x.Rating is >= 4 or <= 2))
+            {
+                var history = historyById[feedback.RecommendationId];
+                var delta = feedback.Rating >= 4 ? 1 : -1;
+                foreach (var name in ExtractRecommendationItemNames(history.Output))
+                {
+                    var key = name.Trim().ToLowerInvariant();
+                    if (key.Length == 0) continue;
+                    if (!itemSignals.TryGetValue(key, out var current))
+                    {
+                        current = (DisplayName: name.Trim(), Score: 0);
+                    }
+                    itemSignals[key] = (current.DisplayName, current.Score + delta);
+                }
+            }
+            var preferredItems = itemSignals.Values
+                .Where(x => x.Score > 0)
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => x.DisplayName)
+                .Take(20)
+                .Select(x => x.DisplayName)
+                .ToList();
+            var avoidedItems = itemSignals.Values
+                .Where(x => x.Score < 0)
+                .OrderBy(x => x.Score)
+                .ThenBy(x => x.DisplayName)
+                .Take(20)
+                .Select(x => x.DisplayName)
+                .ToList();
+            var enoughData = ratedFeedbacks.Count >= request.MinimumFeedbackCount;
+            var applied = false;
+            var status = request.DryRun ? "dry_run" : enoughData ? "applied" : "insufficient_data";
+
+            if (!request.DryRun && enoughData)
+            {
+                var profile = await _db.UserAiProfiles.FirstOrDefaultAsync(x => x.UserId == userId);
+                if (profile == null)
+                {
+                    profile = new UserAiProfile { UserId = userId };
+                    _db.UserAiProfiles.Add(profile);
+                }
+
+                JsonObject preferences;
+                try
+                {
+                    preferences = JsonNode.Parse(profile.Preferences ?? "{}") as JsonObject ?? new JsonObject();
+                }
+                catch (JsonException)
+                {
+                    preferences = new JsonObject
+                    {
+                        ["legacyPreferences"] = profile.Preferences,
+                    };
+                }
+
+                preferences["recommendationTuning"] = JsonSerializer.SerializeToNode(new
+                {
+                    version = 1,
+                    updatedAt = evaluatedAt,
+                    sampleCount = ratedFeedbacks.Count,
+                    lookbackDays = request.LookbackDays,
+                    ruleWeights = grouped,
+                    preferredItems,
+                    avoidedItems,
+                }, JsonOptions);
+                profile.Preferences = preferences.ToJsonString(JsonOptions);
+                profile.UpdatedAt = evaluatedAt.UtcDateTime;
+
+                _db.ActivityLogs.Add(new ActivityLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Action = "RecommendationRulesRecalibrated",
+                    EntityType = "UserAiProfile",
+                    EntityId = userId,
+                    Metadata = JsonSerializer.Serialize(new
+                    {
+                        sampleCount = ratedFeedbacks.Count,
+                        request.LookbackDays,
+                        ruleWeights = grouped,
+                        preferredItems,
+                        avoidedItems,
+                    }, JsonOptions),
+                    CreatedAt = evaluatedAt,
+                });
+                await _db.SaveChangesAsync();
+                applied = true;
+            }
+
+            return new RecommendationRetrainResponse
             {
                 DryRun = request.DryRun,
-                HistoriesCount = histories.Count(),
-                FeedbackCount = feedbacks.Count(),
-                Message = request.DryRun ? "Dry run completed. No model changes were applied." : "Retrain job scheduled."
+                Applied = applied,
+                Status = status,
+                HistoriesCount = histories.Count,
+                FeedbackCount = ratedFeedbacks.Count,
+                PositiveCount = ratedFeedbacks.Count(x => x.Rating >= 4),
+                NegativeCount = ratedFeedbacks.Count(x => x.Rating <= 2),
+                EvaluatedAt = evaluatedAt,
+                RuleWeights = grouped,
+                PreferredItems = preferredItems,
+                AvoidedItems = avoidedItems,
+                Message = request.DryRun
+                    ? "Rule recalibration preview completed; no profile data was changed."
+                    : applied
+                        ? "Personal recommendation rule weights were recalibrated and saved."
+                        : $"At least {request.MinimumFeedbackCount} rated feedback items are required before applying recalibration.",
             };
         }
 
-        private static RecommendationItemResponse MapFood(Food food, decimal targetCalories, string type)
+        private static IReadOnlyList<string> ExtractRecommendationItemNames(string? output)
         {
-            var calories = food.CaloriesKcal ?? 0;
-            return new RecommendationItemResponse
+            if (string.IsNullOrWhiteSpace(output)) return Array.Empty<string>();
+            try
             {
-                Id = food.Id,
-                Name = food.NameVi,
-                Type = type,
-                CaloriesKcal = calories,
-                ProteinG = food.ProteinG ?? 0,
-                CarbsG = food.CarbsG ?? 0,
-                FatG = food.FatG ?? 0,
-                EstimatedPriceVnd = food.EstimatedPriceVnd ?? 0,
-                CookingTimeMin = 0,
-                Score = Math.Abs(calories - targetCalories)
-            };
+                using var document = JsonDocument.Parse(output);
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                CollectRecommendationNames(document.RootElement, names);
+                return names.ToList();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<string>();
+            }
         }
 
-        private static RecommendationItemResponse MapRecipe(Recipe recipe, decimal targetCalories, string type)
+        private static void CollectRecommendationNames(JsonElement element, ISet<string> names)
         {
-            var calories = recipe.Food?.CaloriesKcal ?? 0;
-            return new RecommendationItemResponse
+            if (element.ValueKind == JsonValueKind.Array)
             {
-                Id = recipe.Id,
-                Name = recipe.Title,
-                Type = type,
-                CaloriesKcal = calories,
-                ProteinG = recipe.Food?.ProteinG ?? 0,
-                CarbsG = recipe.Food?.CarbsG ?? 0,
-                FatG = recipe.Food?.FatG ?? 0,
-                EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
-                CookingTimeMin = recipe.TotalTimeMin ?? 0,
-                Score = Math.Abs(calories - targetCalories)
-            };
-        }
+                foreach (var child in element.EnumerateArray()) CollectRecommendationNames(child, names);
+                return;
+            }
+            if (element.ValueKind != JsonValueKind.Object) return;
 
-        private static RecommendationItemResponse MapEcoFood(Food food, int budget, int limitMinutes)
-        {
-            var price = food.EstimatedPriceVnd ?? 0;
-            return new RecommendationItemResponse
+            foreach (var property in element.EnumerateObject())
             {
-                Id = food.Id,
-                Name = food.NameVi,
-                Type = "Food",
-                CaloriesKcal = food.CaloriesKcal ?? 0,
-                ProteinG = food.ProteinG ?? 0,
-                CarbsG = food.CarbsG ?? 0,
-                FatG = food.FatG ?? 0,
-                EstimatedPriceVnd = price,
-                CookingTimeMin = 0,
-                Score = (budget - price) + limitMinutes
-            };
-        }
-
-        private static RecommendationItemResponse MapEcoRecipe(Recipe recipe, int budget, int limitMinutes)
-        {
-            var price = recipe.EstimatedPriceVnd ?? 0;
-            var time = recipe.TotalTimeMin ?? 0;
-            return new RecommendationItemResponse
-            {
-                Id = recipe.Id,
-                Name = recipe.Title,
-                Type = "Recipe",
-                CaloriesKcal = recipe.Food?.CaloriesKcal ?? 0,
-                ProteinG = recipe.Food?.ProteinG ?? 0,
-                CarbsG = recipe.Food?.CarbsG ?? 0,
-                FatG = recipe.Food?.FatG ?? 0,
-                EstimatedPriceVnd = price,
-                CookingTimeMin = time,
-                Score = (budget - price) + (limitMinutes - time)
-            };
-        }
-
-        private static RecommendationItemResponse MapLunchFood(Food food, decimal targetCalories, int lunchBudget)
-        {
-            var calories = food.CaloriesKcal ?? 0;
-            return new RecommendationItemResponse
-            {
-                Id = food.Id,
-                Name = food.NameVi,
-                Type = "Food",
-                CaloriesKcal = calories,
-                ProteinG = food.ProteinG ?? 0,
-                CarbsG = food.CarbsG ?? 0,
-                FatG = food.FatG ?? 0,
-                EstimatedPriceVnd = food.EstimatedPriceVnd ?? 0,
-                CookingTimeMin = 0,
-                Score = Math.Abs(calories - targetCalories) + Math.Max(0, (food.EstimatedPriceVnd ?? 0) - lunchBudget)
-            };
-        }
-
-        private static RecommendationItemResponse MapLunchRecipe(Recipe recipe, decimal targetCalories, int lunchBudget)
-        {
-            var calories = recipe.Food?.CaloriesKcal ?? 0;
-            return new RecommendationItemResponse
-            {
-                Id = recipe.Id,
-                Name = recipe.Title,
-                Type = "Recipe",
-                CaloriesKcal = calories,
-                ProteinG = recipe.Food?.ProteinG ?? 0,
-                CarbsG = recipe.Food?.CarbsG ?? 0,
-                FatG = recipe.Food?.FatG ?? 0,
-                EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
-                CookingTimeMin = recipe.TotalTimeMin ?? 0,
-                Score = Math.Abs(calories - targetCalories) + Math.Max(0, (recipe.EstimatedPriceVnd ?? 0) - lunchBudget) + Math.Max(0, (recipe.TotalTimeMin ?? 0) - 20)
-            };
+                if (property.Value.ValueKind == JsonValueKind.String
+                    && property.Name is "name" or "title" or "food_name" or "recipe_name")
+                {
+                    var value = property.Value.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(value)) names.Add(value);
+                }
+                else if (property.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                {
+                    CollectRecommendationNames(property.Value, names);
+                }
+            }
         }
 
         private async Task<IEnumerable<Food>> FilterFoodsByAllergyAsync(IEnumerable<Food> foods, Guid userId)
@@ -517,181 +441,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return safe;
-        }
-
-        public async Task<RecommendationGenerateResponse> GenerateAsync(Guid userId, RecommendationGenerateRequest request)
-        {
-            var targetCalories = request.TargetCalories ?? 2000;
-            var req = new RecommendationRequest
-            {
-                TargetCalories = targetCalories,
-                ExcludeUserAllergies = request.ExcludeUserAllergies,
-                Top = request.MaxResults
-            };
-
-            var items = (await RecommendByCaloriesAsync(userId, req)).ToList();
-
-            var history = new RecommendationHistory
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Type = "Generate",
-                Input = JsonSerializer.Serialize(request, JsonOptions),
-                Output = JsonSerializer.Serialize(items, JsonOptions),
-                Confidence = 0.95m,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            await _unitOfWork.RecommendationHistories.AddAsync(history);
-            await _unitOfWork.CompleteAsync();
-
-            return new RecommendationGenerateResponse
-            {
-                Id = history.Id,
-                Items = items,
-                TotalCalories = items.Sum(x => x.CaloriesKcal),
-                CreatedAt = history.CreatedAt.Value
-            };
-        }
-
-        public async Task<WeeklyPlanGenerateResponse> GenerateWeeklyPlanAsync(Guid userId, WeeklyPlanGenerateRequest request)
-        {
-            var targetCaloriesPerDay = request.TargetCaloriesPerDay;
-            var breakfastTarget = targetCaloriesPerDay * 0.30m;
-            var lunchTarget = targetCaloriesPerDay * 0.35m;
-            var dinnerTarget = targetCaloriesPerDay * 0.25m;
-            var snackTarget = targetCaloriesPerDay * 0.10m;
-
-            var days = new List<WeeklyDayPlanDto>();
-            var startDate = request.StartDate;
-
-            for (int i = 0; i < 7; i++)
-            {
-                var currentDate = startDate.AddDays(i);
-                var meals = new List<WeeklyMealDto>();
-                decimal dayCalories = 0;
-
-                if (request.MealPreferences.Breakfast)
-                {
-                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
-                    {
-                        TargetCalories = (int)breakfastTarget,
-                        Top = 1,
-                        ExcludeUserAllergies = true
-                    })).ToList();
-                    var calories = items.Sum(x => x.CaloriesKcal);
-                    meals.Add(new WeeklyMealDto { Type = "breakfast", Items = items, TotalCalories = calories });
-                    dayCalories += calories;
-                }
-
-                if (request.MealPreferences.Lunch)
-                {
-                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
-                    {
-                        TargetCalories = (int)lunchTarget,
-                        Top = 1,
-                        ExcludeUserAllergies = true
-                    })).ToList();
-                    var calories = items.Sum(x => x.CaloriesKcal);
-                    meals.Add(new WeeklyMealDto { Type = "lunch", Items = items, TotalCalories = calories });
-                    dayCalories += calories;
-                }
-
-                if (request.MealPreferences.Dinner)
-                {
-                    var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
-                    {
-                        TargetCalories = (int)dinnerTarget,
-                        Top = 1,
-                        ExcludeUserAllergies = true
-                    })).ToList();
-                    var calories = items.Sum(x => x.CaloriesKcal);
-                    meals.Add(new WeeklyMealDto { Type = "dinner", Items = items, TotalCalories = calories });
-                    dayCalories += calories;
-                }
-
-                int snacksCount = request.MealPreferences.Snacks;
-                if (snacksCount > 0)
-                {
-                    var snackCalTarget = snackTarget / snacksCount;
-                    for (int s = 0; s < snacksCount; s++)
-                    {
-                        var items = (await RecommendByCaloriesAsync(userId, new RecommendationRequest
-                        {
-                            TargetCalories = (int)snackCalTarget,
-                            Top = 1,
-                            ExcludeUserAllergies = true
-                        })).ToList();
-                        var calories = items.Sum(x => x.CaloriesKcal);
-                        meals.Add(new WeeklyMealDto { Type = $"snack_{s + 1}", Items = items, TotalCalories = calories });
-                        dayCalories += calories;
-                    }
-                }
-
-                days.Add(new WeeklyDayPlanDto
-                {
-                    Date = currentDate,
-                    Meals = meals,
-                    TotalCalories = dayCalories
-                });
-            }
-
-            var history = new RecommendationHistory
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Type = "WeeklyPlan",
-                Input = JsonSerializer.Serialize(request, JsonOptions),
-                Output = JsonSerializer.Serialize(days, JsonOptions),
-                Confidence = 0.90m,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            await _unitOfWork.RecommendationHistories.AddAsync(history);
-            await _unitOfWork.CompleteAsync();
-
-            return new WeeklyPlanGenerateResponse
-            {
-                Id = history.Id,
-                WeekStartDate = startDate,
-                Days = days
-            };
-        }
-
-        public async Task<BudgetAwareGenerateResponse> GenerateBudgetAwareAsync(Guid userId, BudgetAwareGenerateRequest request)
-        {
-            var req = new RecommendationRequest
-            {
-                BudgetVnd = request.MaxBudgetPerMeal,
-                ExcludeUserAllergies = request.ExcludeUserAllergies,
-                Top = 5
-            };
-
-            var items = (await RecommendByEcoAsync(userId, req)).ToList();
-            var totalBudget = items.Sum(x => x.EstimatedPriceVnd);
-            var remaining = request.MaxBudgetPerMeal - totalBudget;
-
-            var history = new RecommendationHistory
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Type = "BudgetAware",
-                Input = JsonSerializer.Serialize(request, JsonOptions),
-                Output = JsonSerializer.Serialize(items, JsonOptions),
-                Confidence = 0.85m,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            await _unitOfWork.RecommendationHistories.AddAsync(history);
-            await _unitOfWork.CompleteAsync();
-
-            return new BudgetAwareGenerateResponse
-            {
-                Id = history.Id,
-                Items = items,
-                TotalBudget = totalBudget,
-                Remaining = remaining
-            };
         }
 
         public async Task UpdateFeedbackAsync(Guid userId, Guid recommendationId, UpdateFeedbackRequest request)
