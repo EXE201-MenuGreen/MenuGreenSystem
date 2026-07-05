@@ -80,20 +80,35 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
 });
 
-// Configure CORS
-var allowedOrigins = (builder.Configuration["AllowedOrigins"] 
-    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
-    ?? "*")
-    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
+// Configure CORS - Allow frontend domains
 var isDevelopment = builder.Environment.IsDevelopment();
 var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
+
+// Default allowed origins for production
+var defaultOrigins = new[]
+{
+    "https://www.menugreen.food",
+    "https://menugreen.food",
+    "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001"
+};
+
+// Get origins from config/env, or use defaults
+var configuredOrigins = (builder.Configuration["AllowedOrigins"]
+    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS"))
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+var allowedOrigins = isDevelopment
+    ? defaultOrigins.Concat(configuredOrigins).Distinct().ToArray()
+    : (configuredOrigins.Length > 0 ? configuredOrigins : defaultOrigins);
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicyName, policy =>
     {
-        if (isDevelopment || allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
+        if (isDevelopment || allowedOrigins.Length == 0 || allowedOrigins.Contains("*"))
         {
             policy.SetIsOriginAllowed(origin => true)
                   .AllowAnyMethod()
