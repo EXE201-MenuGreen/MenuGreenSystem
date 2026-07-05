@@ -1,8 +1,10 @@
 # README: WORKFLOW API STATUS
 
-**Cập nhật:** 2026-06-17
+**Cập nhật:** 2026-07-05
 
-Tài liệu này ghi nhận chi tiết trạng thái API và UI của từng workflow, so sánh **API cần có** (theo thiết kế) với **API đã có** (trong codebase) và liệt kê **API còn thiếu** cần triển khai thêm.
+**Backend Production:** `https://api.menugreen.food`
+
+> **Note:** Frontend production: `https://www.menugreen.food` (Vercel)
 
 ---
 
