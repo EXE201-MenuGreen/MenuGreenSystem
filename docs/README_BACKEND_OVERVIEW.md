@@ -31,7 +31,7 @@ Luong xu ly chinh:
 
 - Base route: /api/[controller].
 - Swagger bat mac dinh.
-- CORS policy: AllowAll.
+- CORS policy: Specific origins (production) và AllowAnyOrigin (development).
 - Health, profile, allergy, tracking, subscription, recommendation, notification, AI assistant, etc. duoc tach controller rieng.
 
 ### 1.4 Cache va external services
