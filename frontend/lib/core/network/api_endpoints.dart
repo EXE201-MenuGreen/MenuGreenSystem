@@ -1,7 +1,7 @@
 class ApiEndpoints {
-  /// Backend production (Render).
+  /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl =
-      'https://menugreensystem.onrender.com/api';
+      'https://api.menugreen.food/api';
 
   /// Ghi đè khi dev local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api`
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
