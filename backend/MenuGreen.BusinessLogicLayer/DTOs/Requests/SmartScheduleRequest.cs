@@ -12,5 +12,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int CookingTimeMinutes { get; set; }
 
         public int BufferMinutes { get; set; } = 5;
+
+        [Range(1, 100)]
+        public int Limit { get; set; } = 5;
     }
 }

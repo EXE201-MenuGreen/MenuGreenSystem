@@ -14,6 +14,7 @@ const navItems = [
   { href: "/dashboard/recipes", label: "Công thức" },
   { href: "/dashboard/subscription-plans", label: "Gói thành viên" },
   { href: "/dashboard/meal-plans", label: "Thực đơn mẫu" },
+  { href: "/dashboard/ai-assistant", label: "AI Assistant" },
 ];
 
 export function AdminSidebar() {

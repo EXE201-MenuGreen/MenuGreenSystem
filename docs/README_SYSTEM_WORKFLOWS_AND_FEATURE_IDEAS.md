@@ -266,13 +266,12 @@ Workflow dưới đây được suy luận từ các nhóm entity hiện có:
 - `DELETE /Recommendation/history/{id}` — xoá lịch sử không cần thiết.
 
 #### C. Feedback loop (Đã làm)
-- `POST /Recommendation/history/{id}/feedback` — user chấm chất lượng đề xuất.
+- `POST /Recommendation/feedback` — user chấm chất lượng đề xuất.
 - `PUT /Recommendation/feedback/{id}` — cập nhật feedback nếu user đổi ý.
 - `GET /Recommendation/feedback/summary` — tổng hợp tỷ lệ thích/không thích.
 
 #### D. Giải thích recommendation (Đã làm)
-- `GET /Recommendation/history/{id}/explain` — giải thích vì sao món/thực đơn được đề xuất.
-- `GET /Recommendation/{id}/why-this-item` — giải thích chi tiết từng item.
+- `GET /Recommendation/explain/{id}` — giải thích vì sao món/thực đơn được đề xuất.
 
 #### E. Tối ưu cá nhân hóa (Đã làm)
 - `POST /Recommendation/retrain` — tái tính rule/model từ feedback (job nội bộ/admin).

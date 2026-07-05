@@ -23,12 +23,15 @@ class RecommendationRepository {
     int top = 10,
     bool excludeUserAllergies = true,
   }) async {
-    final params = <String, String>{
-      'top': '$top',
-      'excludeUserAllergies': excludeUserAllergies.toString(),
-      if (targetCalories != null) 'targetCalories': '$targetCalories',
-    };
-    return _fetchList(ApiEndpoints.recommendationCalories + _query(params));
+    final response = await generateRecommendation(
+      RecommendationGenerateRequest(
+        mealType: 'any',
+        targetCalories: targetCalories ?? 2000,
+        maxResults: top,
+        excludeUserAllergies: excludeUserAllergies,
+      ),
+    );
+    return response?.items ?? [];
   }
 
   Future<List<RecommendationItem>> recommendLunch({
@@ -37,13 +40,15 @@ class RecommendationRepository {
     int top = 10,
     bool excludeUserAllergies = true,
   }) async {
-    final params = <String, String>{
-      'top': '$top',
-      'excludeUserAllergies': excludeUserAllergies.toString(),
-      if (targetCalories != null) 'targetCalories': '$targetCalories',
-      if (budgetVnd != null) 'budgetVnd': '$budgetVnd',
-    };
-    return _fetchList(ApiEndpoints.recommendationLunch + _query(params));
+    final response = await generateRecommendation(
+      RecommendationGenerateRequest(
+        mealType: 'lunch',
+        targetCalories: targetCalories ?? 700,
+        maxResults: top,
+        excludeUserAllergies: excludeUserAllergies,
+      ),
+    );
+    return response?.items ?? [];
   }
 
   Future<List<RecommendationItem>> recommendEco({
@@ -52,13 +57,15 @@ class RecommendationRepository {
     int top = 10,
     bool excludeUserAllergies = true,
   }) async {
-    final params = <String, String>{
-      'top': '$top',
-      'excludeUserAllergies': excludeUserAllergies.toString(),
-      if (budgetVnd != null) 'budgetVnd': '$budgetVnd',
-      if (limitMinutes != null) 'limitMinutes': '$limitMinutes',
-    };
-    return _fetchList(ApiEndpoints.recommendationEco + _query(params));
+    final response = await generateBudgetAware(
+      BudgetAwareRequest(
+        mealType: 'any',
+        maxBudgetVnd: budgetVnd ?? 50000,
+        maxResults: top,
+        excludeUserAllergies: excludeUserAllergies,
+      ),
+    );
+    return response?.items ?? [];
   }
 
   Future<DailyMenuPlan?> recommendDailyMenu({
@@ -66,15 +73,46 @@ class RecommendationRepository {
     bool excludeUserAllergies = true,
   }) async {
     try {
-      final params = <String, String>{
-        'excludeUserAllergies': excludeUserAllergies.toString(),
-        if (targetCalories != null) 'targetCalories': '$targetCalories',
-      };
-      final response = await _api.get(ApiEndpoints.recommendationDailyMenu + _query(params));
+      final response = await _api.postJson(
+        ApiEndpoints.recommendationGenerateDailyMenu,
+        {
+          'MealType': 'any',
+          'TargetCalories': targetCalories ?? 2000,
+          'MaxResults': 3,
+          'ExcludeUserAllergies': excludeUserAllergies,
+        },
+      );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return null;
-      return DailyMenuPlan.fromJson(decoded);
+      
+      final rawItems = decoded['items'] ?? decoded['Items'] ?? decoded['recommendations'] ?? decoded['Recommendations'];
+      if (rawItems is! List) return null;
+      
+      final items = rawItems.whereType<Map<String, dynamic>>().map((item) {
+        final id = (item['id'] ?? item['Id'] ?? '').toString();
+        final name = (item['name'] ?? item['Name'] ?? '').toString();
+        final isFood = item['isFood'] == true || item['IsFood'] == true;
+        final mealType = (item['mealType'] ?? item['MealType'] ?? 'Breakfast').toString();
+        final cals = item['calories_kcal'] ?? item['CaloriesKcal'] ?? 0;
+        
+        return DailyMenuPlanItem(
+          id: id,
+          name: name,
+          mealType: mealType,
+          foodId: isFood ? id : null,
+          recipeId: !isFood ? id : null,
+          sourceEntityType: isFood ? 'Food' : 'Recipe',
+          targetCalories: cals is num ? cals.round() : 0,
+        );
+      }).toList();
+      
+      int total = items.fold(0, (sum, item) => sum + item.targetCalories);
+      
+      return DailyMenuPlan(
+        targetCalories: targetCalories ?? 2000,
+        totalCalories: total,
+        items: items,
+      );
     } catch (_) {
       return null;
     }
@@ -302,41 +340,28 @@ class RecommendationRepository {
   // SMART SCHEDULE METHOD
   // =========================================================================
 
-  Future<SmartScheduleResponse?> buildSmartSchedule({
-    required List<String> mealTypes,
-    required List<String> mealTimes,
+  Future<dynamic> buildSmartSchedule({
+    required DateTime expectedMealTime,
+    required int cookingTimeMinutes,
+    int limit = 5,
+    int bufferMinutes = 5,
   }) async {
     try {
       final response = await _api.postJson(
         ApiEndpoints.recommendationSmartSchedule,
         {
-          'mealTypes': mealTypes,
-          'mealTimes': mealTimes,
+          'expectedMealTime': expectedMealTime.toIso8601String(),
+          'cookingTimeMinutes': cookingTimeMinutes,
+          'limit': limit,
+          'bufferMinutes': bufferMinutes,
         },
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return SmartScheduleResponse.fromJson(jsonDecode(response.body));
+      return jsonDecode(response.body);
     } catch (_) {
       return null;
     }
   }
 
-  // =========================================================================
-  // PRIVATE HELPERS
-  // =========================================================================
 
-  Future<List<RecommendationItem>> _fetchList(String url) async {
-    try {
-      final response = await _api.get(url);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List) return [];
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(RecommendationItem.fromJson)
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
 }

@@ -49,6 +49,16 @@ export const apiEndpoints = {
     status: (id: string) => `${API_BASE_URL}/MealPlan/${id}/status`,
     distribute: (id: string) => `${API_BASE_URL}/MealPlan/${id}/distribute`,
   },
+  aiAdmin: {
+    overview: `${API_BASE_URL}/AiAdmin/overview`,
+    health: `${API_BASE_URL}/AiAdmin/health`,
+  },
+  nutritionAssistant: {
+    chat: `${API_BASE_URL}/NutritionAssistant/chat`,
+    conversations: `${API_BASE_URL}/NutritionAssistant/conversations`,
+    conversationById: (id: string) =>
+      `${API_BASE_URL}/NutritionAssistant/conversations/${id}`,
+  },
   analytics: {
     base: `${API_BASE_URL}/Analytics`,
     dashboard: `${API_BASE_URL}/Analytics/dashboard`,

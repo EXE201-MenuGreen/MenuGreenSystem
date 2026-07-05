@@ -29,6 +29,31 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var queryTheme = new URLSearchParams(window.location.search).get("theme");
+                  var stored = window.localStorage.getItem("menugreen-theme");
+                  var theme = queryTheme === "light" || queryTheme === "dark"
+                    ? queryTheme
+                    : stored === "light" || stored === "dark"
+                    ? stored
+                    : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+                  if (queryTheme === "light" || queryTheme === "dark") {
+                    window.localStorage.setItem("menugreen-theme", queryTheme);
+                  }
+                  document.documentElement.classList.toggle("dark", theme === "dark");
+                  document.documentElement.dataset.theme = theme;
+                  document.documentElement.style.colorScheme = theme;
+                } catch (_) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject attributes on <body> before hydrate */}
       <body
         className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50"

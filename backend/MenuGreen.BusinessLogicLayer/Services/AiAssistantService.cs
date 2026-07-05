@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -17,19 +20,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class AiAssistantService : IAiAssistantService
     {
+        private const string DefaultWorkerChatUrl = "http://127.0.0.1:8000/worker/chat";
         private readonly ApplicationDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private readonly INutritionAssistantService _nutritionAssistantService;
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
 
         public AiAssistantService(
             ApplicationDbContext db,
             IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            INutritionAssistantService nutritionAssistantService)
         {
             _db = db;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _nutritionAssistantService = nutritionAssistantService;
         }
 
         // ==========================================
@@ -163,6 +173,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Conversation not found.");
             }
 
+            var context = await BuildUserContextAsync(userId);
+            var conversationHistory = await BuildConversationHistoryAsync(conversationId, context);
+
             // 1. Save User Message
             var userMessage = new AiMessage
             {
@@ -176,8 +189,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _db.SaveChangesAsync();
 
             // 2. Query AI Worker
-            var context = await BuildUserContextAsync(userId);
-            var workerResponse = await CallWorkerAsync(request.Message, conversationId, context, request.Language, request.Stream);
+            var workerResponse = await CallWorkerAsync(
+                userId,
+                request.Message,
+                conversationId,
+                conversationHistory,
+                context,
+                request.Language,
+                request.Stream);
 
             // 3. Save Assistant Message
             var assistantMessage = new AiMessage
@@ -266,7 +285,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // Call AI worker again
             var context = await BuildUserContextAsync(userId);
-            var workerResponse = await CallWorkerAsync(promptText, conversationId, context);
+            var conversationHistory = await BuildConversationHistoryAsync(conversationId, context, targetMsg.CreatedAt);
+            var workerResponse = await CallWorkerAsync(userId, promptText, conversationId, conversationHistory, context);
 
             // Update content and timestamp of the assistant message
             targetMsg.Content = workerResponse.Response;
@@ -302,10 +322,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Message not found.");
             }
 
-            // Appending feedback inside tokens or logs (Since we don't have separate feedback columns/tables for AiMessage)
-            // We can write it into the content metadata or log/console. Let's write it to console for debugging.
-            Console.WriteLine($"[FEEDBACK] MessageId: {messageId}, User: {userId}, IsPositive: {request.IsPositive}, Comment: {request.Comment}");
-            await Task.CompletedTask;
+            await CreateWorkerFeedbackAsync(userId, conversationId, msg, request);
         }
 
         // ==========================================
@@ -314,6 +331,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<AiAssistantContextResponse> GetContextAsync(Guid userId)
         {
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
             var profile = await _db.Profiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
             var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
             var allergies = await _db.Allergies.AsNoTracking()
@@ -325,16 +343,71 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .OrderByDescending(x => x.SnapshotDate)
                 .FirstOrDefaultAsync();
 
+            var aiProfile = await _db.UserAiProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var hasAllergies = allergies.Count > 0;
+            var allergyCount = allergies.Count;
+            var hasSnapshot = recentNutrition != null;
+            var allergiesAcknowledged = UserAiProfilePreferencesHelper.TryGetAllergiesAcknowledged(aiProfile?.Preferences);
+
+            var completedSteps = new List<string>();
+            if (profile != null && !string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender))
+            {
+                completedSteps.Add("Profile");
+            }
+            if (healthProfile != null && healthProfile.HeightCm.HasValue && healthProfile.WeightKg.HasValue && !string.IsNullOrWhiteSpace(healthProfile.ActivityLevel))
+            {
+                completedSteps.Add("HealthProfile");
+            }
+            if (hasAllergies || allergiesAcknowledged)
+            {
+                completedSteps.Add("Allergies");
+            }
+            if (healthProfile != null && !string.IsNullOrWhiteSpace(healthProfile.Goal) && healthProfile.TargetCalories.HasValue)
+            {
+                completedSteps.Add("Goal");
+            }
+            if (aiProfile != null && UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(aiProfile.Preferences, aiProfile.EatingPattern, aiProfile.DislikedFoods))
+            {
+                completedSteps.Add("UserAiProfile");
+            }
+            if (hasSnapshot)
+            {
+                completedSteps.Add("NutritionSnapshot");
+            }
+
             ProfileSummaryResponse? profSummary = null;
             if (profile != null)
             {
                 profSummary = new ProfileSummaryResponse
                 {
                     UserId = profile.UserId,
+                    Email = user?.Email ?? string.Empty,
                     FullName = profile.FullName,
                     AvatarUrl = profile.AvatarUrl,
                     Gender = profile.Gender,
-                    PreferredCuisine = profile.PreferredCuisine
+                    DateOfBirth = profile.DateOfBirth,
+                    PreferredCuisine = profile.PreferredCuisine,
+                    HeightCm = healthProfile?.HeightCm,
+                    WeightKg = healthProfile?.WeightKg,
+                    BodyFatPercent = healthProfile?.BodyFatPercent,
+                    ActivityLevel = healthProfile?.ActivityLevel ?? string.Empty,
+                    Goal = healthProfile?.Goal,
+                    Bmi = healthProfile?.Bmi,
+                    BmrKcal = healthProfile?.BmrKcal,
+                    TdeeKcal = healthProfile?.TdeeKcal,
+                    TargetCalories = healthProfile?.TargetCalories,
+                    TargetProteinG = healthProfile?.TargetProteinG,
+                    TargetCarbsG = healthProfile?.TargetCarbsG,
+                    TargetFatG = healthProfile?.TargetFatG,
+                    AllergyCount = allergyCount,
+                    HasProfile = !string.IsNullOrWhiteSpace(profile.FullName) && !string.IsNullOrWhiteSpace(profile.Gender),
+                    HasHealthProfile = healthProfile?.HeightCm.HasValue == true && healthProfile?.WeightKg.HasValue == true && !string.IsNullOrWhiteSpace(healthProfile?.ActivityLevel),
+                    HasAllergies = hasAllergies || allergiesAcknowledged,
+                    HasAiProfile = UserAiProfilePreferencesHelper.HasMeaningfulAiProfile(
+                        aiProfile?.Preferences,
+                        aiProfile?.EatingPattern,
+                        aiProfile?.DislikedFoods),
+                    OnboardingStepsCompleted = completedSteps
                 };
             }
 
@@ -349,7 +422,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     BodyFatPercent = healthProfile.BodyFatPercent,
                     ActivityLevel = healthProfile.ActivityLevel,
                     Goal = healthProfile.Goal,
-                    Bmi = healthProfile.Bmi
+                    Bmi = healthProfile.Bmi,
+                    BmrKcal = healthProfile.BmrKcal,
+                    TdeeKcal = healthProfile.TdeeKcal,
+                    TargetCalories = healthProfile.TargetCalories,
+                    TargetProteinG = healthProfile.TargetProteinG,
+                    TargetCarbsG = healthProfile.TargetCarbsG,
+                    TargetFatG = healthProfile.TargetFatG
                 };
             }
 
@@ -394,9 +473,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new UserAiProfileResponse
             {
                 UserId = profile.UserId,
-                Preferences = profile.Preferences,
-                DislikedFoods = profile.DislikedFoods,
-                EatingPattern = profile.EatingPattern,
+                Preferences = UnwrapJsonString(profile.Preferences),
+                DislikedFoods = UnwrapJsonString(profile.DislikedFoods),
+                EatingPattern = UnwrapJsonString(profile.EatingPattern),
                 AllergiesAcknowledged = true,
                 UpdatedAt = profile.UpdatedAt
             };
@@ -415,9 +494,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _db.UserAiProfiles.Add(profile);
             }
 
-            if (request.Preferences != null) profile.Preferences = request.Preferences;
-            if (request.DislikedFoods != null) profile.DislikedFoods = request.DislikedFoods;
-            if (request.EatingPattern != null) profile.EatingPattern = request.EatingPattern;
+            if (request.Preferences != null) profile.Preferences = NormalizeJsonColumnValue(request.Preferences);
+            if (request.DislikedFoods != null) profile.DislikedFoods = NormalizeJsonColumnValue(request.DislikedFoods);
+            if (request.EatingPattern != null) profile.EatingPattern = NormalizeJsonColumnValue(request.EatingPattern);
             
             profile.UpdatedAt = DateTime.UtcNow;
             _db.UserAiProfiles.Update(profile);
@@ -426,69 +505,269 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return new UserAiProfileResponse
             {
                 UserId = profile.UserId,
-                Preferences = profile.Preferences,
-                DislikedFoods = profile.DislikedFoods,
-                EatingPattern = profile.EatingPattern,
+                Preferences = UnwrapJsonString(profile.Preferences),
+                DislikedFoods = UnwrapJsonString(profile.DislikedFoods),
+                EatingPattern = UnwrapJsonString(profile.EatingPattern),
                 AllergiesAcknowledged = true,
                 UpdatedAt = profile.UpdatedAt
             };
+        }
+
+        private static string? NormalizeJsonColumnValue(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var trimmed = value.Trim();
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                return trimmed;
+            }
+            catch (JsonException)
+            {
+                return JsonSerializer.Serialize(trimmed);
+            }
+        }
+
+        private static string? UnwrapJsonString(string? stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored))
+            {
+                return null;
+            }
+
+            var trimmed = stored.Trim();
+            if (!trimmed.StartsWith("\"", StringComparison.Ordinal) || !trimmed.EndsWith("\"", StringComparison.Ordinal))
+            {
+                return trimmed;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<string>(trimmed);
+            }
+            catch (JsonException)
+            {
+                return trimmed;
+            }
         }
 
         // ==========================================
         // D. Action Suggestions
         // ==========================================
 
-        public async Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId)
+        public async Task<IEnumerable<string>> GetSuggestionsAsync(Guid userId, Guid? conversationId = null)
         {
-            // Simple rule-based suggestions as a fallback/mock
-            return await Task.FromResult(new List<string>
+            try
             {
-                "Cách tối ưu hóa calo cho bữa trưa của tôi là gì?",
-                "Tôi bị dị ứng hải sản thì nên ăn món gì thay thế cơm gà?",
-                "Tải thực đơn ăn kiêng giảm cân 1500 calo mỗi ngày?",
-                "Làm sao để hạn chế cơn thèm ăn vào buổi tối?"
-            });
-        }
-
-        public async Task<object> GenerateMealPlanFromAiAsync(Guid userId, string prompt)
-        {
-            // Returns a structured weekly mockup meal plan suggested by AI
-            return await Task.FromResult(new
-            {
-                Message = "Kế hoạch ăn uống được đề xuất từ AI:",
-                StartDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-                Meals = new[]
+                if (!conversationId.HasValue)
                 {
-                    new { Day = "Thứ 2", Breakfast = "Cháo yến mạch chuối", Lunch = "Salad ức gà áp chảo", Dinner = "Đậu hũ sốt cà chua" },
-                    new { Day = "Thứ 3", Breakfast = "Sinh tố chuối bơ hạt", Lunch = "Cơm gạo lứt thịt bò bông cải", Dinner = "Cá hồi áp chảo sốt chanh" }
+                    var latestConv = await _db.AiConversations
+                        .Where(x => x.UserId == userId)
+                        .OrderByDescending(x => x.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (latestConv != null)
+                    {
+                        conversationId = latestConv.Id;
+                    }
                 }
-            });
+
+                List<AiMessage> messages = new List<AiMessage>();
+                if (conversationId.HasValue)
+                {
+                    messages = await _db.AiMessages
+                        .Where(x => x.ConversationId == conversationId.Value)
+                        .OrderBy(x => x.CreatedAt)
+                        .ToListAsync();
+                }
+
+                var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+                client.Timeout = TimeSpan.FromSeconds(15);
+
+                if (messages.Count == 0)
+                {
+                    var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/suggestions?user_id={userId}";
+                    var response = await client.GetAsync(url);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
+                        if (suggestions != null && suggestions.Count > 0)
+                        {
+                            return suggestions;
+                        }
+                    }
+                }
+                else
+                {
+                    var requestBody = new
+                    {
+                        user_id = userId.ToString(),
+                        conversation_history = messages.Select(m => new
+                        {
+                            role = m.Role.ToLower(),
+                            content = m.Content
+                        }).ToList()
+                    };
+
+                    var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/conversation/suggestions";
+                    var response = await client.PostAsJsonAsync(url, requestBody);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var suggestions = await response.Content.ReadFromJsonAsync<List<string>>();
+                        if (suggestions != null && suggestions.Count > 0)
+                        {
+                            return suggestions;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Fallback silently to default list
+            }
+
+            return new List<string>
+            {
+                "Lên kế hoạch ăn uống 7 ngày cho tôi",
+                "Thay thế món ăn có trong thực đơn",
+                "Tối ưu hóa ngân sách chi tiêu hôm nay",
+                "Tôi muốn xem chi tiết công thức nấu ăn"
+            };
         }
 
-        public async Task<object> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason)
+        public async Task<AiMealPlanActionResponse> GenerateMealPlanFromAiAsync(Guid userId, string prompt)
         {
-            // AI replacement advice mockup
-            return await Task.FromResult(new
+            var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var targetCalories = (int?)healthProfile?.TargetCalories ?? 2000;
+            var latestBudget = await _db.BudgetRequests.AsNoTracking()
+                .Where(x => x.UserId == userId)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync();
+            var dailyBudget = latestBudget?.BudgetVnd is > 0
+                ? Math.Max(latestBudget.BudgetVnd.Value / 7, 1000)
+                : 100000;
+            var plan = await _nutritionAssistantService.GenerateMealPlan7dAsync(
+                userId.ToString(),
+                new NutritionAssistantMealPlan7dRequest
+                {
+                    BudgetVndPerDay = dailyBudget,
+                    MaxCookTimeMin = latestBudget?.TimeLimitMin is > 0 ? latestBudget.TimeLimitMin.Value : 60,
+                    TargetCaloriesPerDay = targetCalories,
+                });
+
+            await AddAiActionAuditAsync(userId, "GenerateMealPlan", new
+            {
+                prompt,
+                targetCalories,
+                dailyBudget,
+                plan.TotalItems,
+            });
+
+            return new AiMealPlanActionResponse
+            {
+                Prompt = prompt?.Trim() ?? string.Empty,
+                GeneratedAt = DateTimeOffset.UtcNow,
+                MealPlan = plan,
+            };
+        }
+
+        public async Task<AiFoodReplacementActionResponse> SuggestFoodReplacementAsync(Guid userId, Guid foodId, string reason)
+        {
+            var original = await _db.Foods.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == foodId && x.IsActive != false)
+                ?? throw new InvalidOperationException("Food not found.");
+            var recommendations = await _nutritionAssistantService.GenerateWorkerRecommendationAsync(
+                userId.ToString(),
+                "safe",
+                new AiWorkerRecommendationRequest
+                {
+                    TargetCalories = original.CaloriesKcal.HasValue ? (int?)Math.Round(original.CaloriesKcal.Value) : null,
+                    ExcludeFoodIds = new[] { foodId.ToString() },
+                    Limit = 5,
+                });
+
+            await AddAiActionAuditAsync(userId, "ReplaceFood", new { foodId, reason });
+            return new AiFoodReplacementActionResponse
             {
                 OriginalFoodId = foodId,
-                Reason = reason,
-                ReplacementSuggested = "Đậu phụ sốt cà chua",
-                Explanation = "Vì bạn muốn thay thế thịt/hải sản do dị ứng, đậu hũ là nguồn đạm thực vật thanh đạm và an toàn lý tưởng."
-            });
+                OriginalFoodName = original.NameVi,
+                Reason = reason?.Trim() ?? string.Empty,
+                Recommendations = recommendations,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            };
+        }
+
+        public async Task<AiBudgetOptimizationResponse> OptimizeBudgetAsync(Guid userId)
+        {
+            var healthProfile = await _db.HealthProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var latestBudget = await _db.BudgetRequests.AsNoTracking()
+                .Where(x => x.UserId == userId)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync();
+            var aiProfile = await _db.UserAiProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+            var budgetPerMeal = UserAiProfilePreferencesHelper.TryGetBudgetPerMealVnd(aiProfile?.Preferences)
+                ?? (latestBudget?.BudgetVnd is > 0 ? Math.Max(latestBudget.BudgetVnd.Value / 21, 1000) : 50000);
+            var targetPerMeal = Math.Max((healthProfile?.TargetCalories ?? 1800) / 3m, 250m);
+            var recommendations = await _nutritionAssistantService.GenerateWorkerRecommendationAsync(
+                userId.ToString(),
+                "budget-aware",
+                new AiWorkerRecommendationRequest
+                {
+                    BudgetVnd = budgetPerMeal,
+                    TargetCalories = (int)Math.Round(targetPerMeal),
+                    Limit = 5,
+                });
+
+            await AddAiActionAuditAsync(userId, "BudgetOptimize", new { budgetPerMeal, targetPerMeal });
+            return new AiBudgetOptimizationResponse
+            {
+                BudgetPerMealVnd = budgetPerMeal,
+                TargetCaloriesPerMeal = targetPerMeal,
+                Recommendations = recommendations,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            };
         }
 
         // ==========================================
         // E. History / Analytics
         // ==========================================
 
-        public async Task<object> GetInsightsAsync(Guid userId)
+        public async Task<AiAssistantInsightsResponse> GetInsightsAsync(Guid userId)
         {
-            // Analytical insight mockup from conversations
-            return await Task.FromResult(new
+            var messages = await _db.AiMessages.AsNoTracking()
+                .Where(x => x.Conversation != null && x.Conversation.UserId == userId && x.Role == "user")
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new { x.Content, x.CreatedAt })
+                .ToListAsync();
+            var counts = messages
+                .GroupBy(x => ClassifyConversationTopic(x.Content))
+                .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+            var total = messages.Count;
+            var topics = counts
+                .OrderByDescending(x => x.Value)
+                .ThenBy(x => x.Key)
+                .Select(x => new AiTopicInsightResponse
+                {
+                    Topic = x.Key,
+                    Count = x.Value,
+                    Percentage = total == 0 ? 0 : Math.Round(x.Value * 100d / total, 2),
+                })
+                .ToList();
+
+            return new AiAssistantInsightsResponse
             {
-                MostDiscussedTopics = new[] { "Giảm cân", "Thực đơn ức gà", "Kiểm soát Calo" },
-                InterestDistribution = new { Nutrition = 0.65, Recipes = 0.25, Allergies = 0.10 }
-            });
+                TotalUserMessages = total,
+                FirstMessageAt = messages.FirstOrDefault()?.CreatedAt,
+                LastMessageAt = messages.LastOrDefault()?.CreatedAt,
+                Topics = topics,
+                InterestDistribution = topics.ToDictionary(x => x.Topic, x => x.Percentage / 100d),
+            };
         }
 
         public async Task<string> SummarizeConversationAsync(Guid userId, Guid conversationId)
@@ -501,21 +780,111 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Conversation not found.");
             }
 
-            var messagesCount = await _db.AiMessages.CountAsync(x => x.ConversationId == conversationId);
-            return $"Phiên hội thoại chứa {messagesCount} tin nhắn xoay quanh việc tư vấn thực đơn và tối ưu hóa calo.";
+            var messages = await _db.AiMessages.AsNoTracking()
+                .Where(x => x.ConversationId == conversationId)
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new { x.Role, x.Content, x.CreatedAt })
+                .ToListAsync();
+            if (messages.Count == 0)
+            {
+                return "This conversation has no messages yet.";
+            }
+
+            var userMessages = messages.Where(x => x.Role == "user").ToList();
+            var topics = userMessages
+                .GroupBy(x => ClassifyConversationTopic(x.Content))
+                .OrderByDescending(x => x.Count())
+                .Take(3)
+                .Select(x => x.Key)
+                .ToList();
+            var questions = userMessages
+                .Select(x => TruncateText(x.Content, 90))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Take(3)
+                .ToList();
+            var topicText = topics.Count == 0 ? "general nutrition" : string.Join(", ", topics);
+            var questionText = questions.Count == 0
+                ? "No user questions recorded."
+                : $"Key questions: {string.Join(" | ", questions)}.";
+            return $"Conversation contains {messages.Count} messages ({userMessages.Count} from the user). Main topics: {topicText}. {questionText}";
         }
 
-        public async Task<object> GetUsageMetricsAsync(Guid userId)
+        public async Task<AiAssistantUsageResponse> GetUsageMetricsAsync(Guid userId)
         {
             var conversationsCount = await _db.AiConversations.CountAsync(x => x.UserId == userId);
-            var messagesCount = await _db.AiMessages.CountAsync(x => x.Conversation != null && x.Conversation.UserId == userId);
+            var messages = await _db.AiMessages.AsNoTracking()
+                .Where(x => x.Conversation != null && x.Conversation.UserId == userId)
+                .Select(x => new { x.Role, x.CreatedAt })
+                .ToListAsync();
+            var today = DateTimeOffset.UtcNow.Date;
+            var weekStart = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+            var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var sevenDayStart = today.AddDays(-6);
+            var daily = Enumerable.Range(0, 7)
+                .Select(offset => sevenDayStart.AddDays(offset))
+                .ToDictionary(
+                    day => day.ToString("yyyy-MM-dd"),
+                    day => messages.Count(x => x.CreatedAt.HasValue && x.CreatedAt.Value.UtcDateTime.Date == day));
 
-            return await Task.FromResult(new
+            return new AiAssistantUsageResponse
             {
                 TotalConversations = conversationsCount,
-                TotalMessages = messagesCount,
-                LastUsed = DateTimeOffset.UtcNow
+                TotalMessages = messages.Count,
+                UserMessages = messages.Count(x => x.Role == "user"),
+                AssistantMessages = messages.Count(x => x.Role == "assistant"),
+                ActiveDays = messages.Where(x => x.CreatedAt.HasValue).Select(x => x.CreatedAt!.Value.UtcDateTime.Date).Distinct().Count(),
+                MessagesThisWeek = messages.Count(x => x.CreatedAt.HasValue && x.CreatedAt.Value.UtcDateTime >= weekStart),
+                MessagesThisMonth = messages.Count(x => x.CreatedAt.HasValue && x.CreatedAt.Value.UtcDateTime >= monthStart),
+                LastUsed = messages.Where(x => x.CreatedAt.HasValue).Select(x => x.CreatedAt).Max(),
+                DailyMessagesLast7Days = daily,
+            };
+        }
+
+        private async Task AddAiActionAuditAsync(Guid userId, string action, object metadata)
+        {
+            _db.ActivityLogs.Add(new ActivityLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Action = action,
+                EntityType = "AiAssistantAction",
+                Metadata = JsonSerializer.Serialize(metadata, JsonOptions),
+                CreatedAt = DateTimeOffset.UtcNow,
             });
+            await _db.SaveChangesAsync();
+        }
+
+        private static string ClassifyConversationTopic(string? content)
+        {
+            var text = NormalizeForMatching(content);
+            if (ContainsAny(text, "di ung", "allergy", "hai san", "dau phong")) return "allergy_safety";
+            if (ContainsAny(text, "ngan sach", "budget", "gia", "tiet kiem", "re hon")) return "budget";
+            if (ContainsAny(text, "thuc don", "meal plan", "ke hoach an", "7 ngay", "hang tuan")) return "meal_plan";
+            if (ContainsAny(text, "cong thuc", "cach nau", "cach lam", "nguyen lieu", "recipe")) return "recipe";
+            if (ContainsAny(text, "calo", "kcal", "protein", "carb", "macro", "tdee", "bmr", "dinh duong")) return "nutrition";
+            return "general";
+        }
+
+        private static string NormalizeForMatching(string? value)
+        {
+            var normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+            foreach (var character in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                {
+                    builder.Append(character == 'đ' ? 'd' : character);
+                }
+            }
+            return builder.ToString().Normalize(NormalizationForm.FormC);
+        }
+
+        private static bool ContainsAny(string text, params string[] tokens) => tokens.Any(text.Contains);
+
+        private static string TruncateText(string? value, int maxLength)
+        {
+            var text = (value ?? string.Empty).Trim();
+            return text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "...";
         }
 
         // ==========================================
@@ -531,7 +900,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Select(x => x.Name)
                 .ToListAsync();
             var recentNutrition = await _db.NutritionSnapshots.AsNoTracking()
-                .Where(x => x.UserId == userId)
+                .Where(x => x.UserId == userId && x.SnapshotDate == DateOnly.FromDateTime(DateTime.UtcNow))
                 .OrderByDescending(x => x.SnapshotDate)
                 .FirstOrDefaultAsync();
 
@@ -572,18 +941,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         }
 
         private async Task<WorkerChatResponse> CallWorkerAsync(
+            Guid userId,
             string message,
             Guid conversationId,
+            IReadOnlyList<WorkerConversationMessage> conversationHistory,
             object context,
             string language = "vi",
             bool stream = false)
         {
-            var baseUrl = _configuration["NutritionAssistant:WorkerUrl"];
-            if (string.IsNullOrEmpty(baseUrl))
-            {
-                return GetMockResponse(message);
-            }
-
             try
             {
                 var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
@@ -591,17 +956,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 var payload = new
                 {
-                    conversationId = conversationId,
+                    message = message.Trim(),
+                    user_id = userId.ToString(),
                     thread_id = conversationId.ToString(),
-                    language = language,
-                    stream = stream,
-                    domain = "nutrition",
-                    systemPrompt = "Bạn là AI Nutrition Assistant của MenuGreen. Hãy tư vấn dinh dưỡng bằng tiếng Việt, ngắn gọn, dễ hiểu, thực tế, an toàn. Không chẩn đoán bệnh, không thay thế bác sĩ. Nếu câu hỏi có nguy cơ sức khỏe, hãy khuyên người dùng gặp chuyên gia y tế.",
-                    userMessage = message,
-                    context
+                    request_id = Guid.NewGuid().ToString(),
+                    conversation_history = conversationHistory,
+                    context,
+                    skip_save = true
                 };
 
-                using var response = await client.PostAsJsonAsync(baseUrl, payload, JsonOptions);
+                using var response = await client.PostAsJsonAsync(BuildWorkerChatUrl(), payload, JsonOptions);
                 if (!response.IsSuccessStatusCode)
                 {
                     return GetMockResponse(message);
@@ -614,6 +978,117 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 return GetMockResponse(message);
             }
+        }
+
+        private async Task<IReadOnlyList<WorkerConversationMessage>> BuildConversationHistoryAsync(
+            Guid conversationId,
+            object context,
+            DateTimeOffset? before = null)
+        {
+            var query = _db.AiMessages
+                .AsNoTracking()
+                .Where(x => x.ConversationId == conversationId);
+
+            if (before.HasValue)
+            {
+                query = query.Where(x => x.CreatedAt < before.Value);
+            }
+
+            var history = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(12)
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new WorkerConversationMessage
+                {
+                    Role = NormalizeRole(x.Role),
+                    Content = x.Content ?? string.Empty,
+                })
+                .ToListAsync();
+
+            history.Insert(0, new WorkerConversationMessage
+            {
+                Role = "system",
+                Content = "MenuGreen user context. Use it only when relevant. "
+                    + JsonSerializer.Serialize(context, JsonOptions),
+            });
+
+            return history;
+        }
+
+        private async Task CreateWorkerFeedbackAsync(
+            Guid userId,
+            Guid conversationId,
+            AiMessage message,
+            MessageFeedbackRequest request)
+        {
+            var payload = new
+            {
+                user_id = userId.ToString(),
+                conversation_id = conversationId.ToString(),
+                message_id = message.Id.ToString(),
+                thread_id = conversationId.ToString(),
+                feedback_type = request.IsPositive ? "thumbs_up" : "thumbs_down",
+                user_note = request.Comment,
+                assistant_response = message.Content,
+                feature_area = "nutrition_chat",
+            };
+
+            var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            using var response = await client.PostAsJsonAsync(
+                BuildWorkerRootUrl().TrimEnd('/') + "/api/ai/feedback",
+                payload,
+                JsonOptions);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException(
+                    $"AI worker feedback failed with {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            }
+        }
+
+        private string BuildWorkerChatUrl()
+        {
+            return BuildWorkerChatUrl(_configuration["NutritionAssistant:WorkerUrl"]);
+        }
+
+        private string BuildWorkerRootUrl()
+        {
+            var workerChatUrl = BuildWorkerChatUrl();
+            if (workerChatUrl.EndsWith("/worker/chat", StringComparison.OrdinalIgnoreCase))
+            {
+                return workerChatUrl[..^"/worker/chat".Length];
+            }
+
+            return workerChatUrl.TrimEnd('/');
+        }
+
+        private static string BuildWorkerChatUrl(string? configuredUrl)
+        {
+            if (string.IsNullOrWhiteSpace(configuredUrl))
+            {
+                return DefaultWorkerChatUrl;
+            }
+
+            var trimmed = configuredUrl.Trim().TrimEnd('/');
+            if (trimmed.EndsWith("/worker/chat", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            return trimmed + "/worker/chat";
+        }
+
+        private static string NormalizeRole(string? role)
+        {
+            return role switch
+            {
+                "system" => "system",
+                "assistant" => "assistant",
+                _ => "user",
+            };
         }
 
         private WorkerChatResponse GetMockResponse(string userMessage)
@@ -646,7 +1121,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RequestId = Guid.NewGuid().ToString(),
                 ThreadId = Guid.NewGuid().ToString(),
                 IntentConfidence = 1.0m,
-                SubscriptionTier = "Free"
+                SubscriptionTier = "free"
             };
         }
 
@@ -659,13 +1134,35 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private sealed class WorkerChatResponse
         {
+            [JsonPropertyName("response")]
             public string Response { get; set; } = string.Empty;
+
+            [JsonPropertyName("intent")]
             public string? Intent { get; set; }
+
+            [JsonPropertyName("source")]
             public string? Source { get; set; }
+
+            [JsonPropertyName("request_id")]
             public string? RequestId { get; set; }
+
+            [JsonPropertyName("thread_id")]
             public string? ThreadId { get; set; }
+
+            [JsonPropertyName("intent_confidence")]
             public decimal? IntentConfidence { get; set; }
+
+            [JsonPropertyName("subscription_tier")]
             public string? SubscriptionTier { get; set; }
+        }
+
+        private sealed class WorkerConversationMessage
+        {
+            [JsonPropertyName("role")]
+            public string Role { get; set; } = "user";
+
+            [JsonPropertyName("content")]
+            public string Content { get; set; } = string.Empty;
         }
     }
 }

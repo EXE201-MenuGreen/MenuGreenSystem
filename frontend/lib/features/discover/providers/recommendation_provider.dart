@@ -538,9 +538,11 @@ class RecommendationProvider extends ChangeNotifier {
   // SMART SCHEDULE METHOD
   // =========================================================================
 
-  Future<SmartScheduleResponse?> buildSmartSchedule({
-    required List<String> mealTypes,
-    required List<String> mealTimes,
+  Future<dynamic> buildSmartSchedule({
+    required DateTime expectedMealTime,
+    required int cookingTimeMinutes,
+    int limit = 5,
+    int bufferMinutes = 5,
   }) async {
     _isLoading = true;
     _error = null;
@@ -548,8 +550,10 @@ class RecommendationProvider extends ChangeNotifier {
 
     try {
       final response = await _repository.buildSmartSchedule(
-        mealTypes: mealTypes,
-        mealTimes: mealTimes,
+        expectedMealTime: expectedMealTime,
+        cookingTimeMinutes: cookingTimeMinutes,
+        limit: limit,
+        bufferMinutes: bufferMinutes,
       );
       _error = null;
       return response;
