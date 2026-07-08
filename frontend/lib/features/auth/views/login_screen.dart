@@ -68,6 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleLogin() async {
     await FirebaseBootstrap.initialize();
+    if (!mounted) return;
     if (!FirebaseGoogleAuthService.isSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

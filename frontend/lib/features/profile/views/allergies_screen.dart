@@ -15,19 +15,9 @@ class AllergiesScreen extends StatefulWidget {
 class _AllergiesScreenState extends State<AllergiesScreen> {
   final _repository = AllergyRepository();
 
-  static const List<Map<String, dynamic>> _presetAllergies = [
-    {'name': 'Hải sản', 'icon': Icons.set_meal_outlined},
-    {'name': 'Đậu phộng', 'icon': Icons.circle_outlined},
-    {'name': 'Sữa', 'icon': Icons.water_drop_outlined},
-    {'name': 'Gluten', 'icon': Icons.grass_outlined},
-    {'name': 'Trứng', 'icon': Icons.egg_outlined},
-    {'name': 'Đậu nành', 'icon': Icons.eco_outlined},
-    {'name': 'Lúa mì', 'icon': Icons.breakfast_dining_outlined},
-    {'name': 'Hạt cây', 'icon': Icons.park_outlined},
-  ];
-
   final Set<String> _selected = {};
   List<AllergyItem> _existing = [];
+  List<AllergyCatalogItem> _catalog = [];
   bool _loading = true;
   bool _saving = false;
 
@@ -41,9 +31,16 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
     setState(() => _loading = true);
     try {
       final items = await _repository.getAll();
+      var catalog = <AllergyCatalogItem>[];
+      try {
+        catalog = await _repository.getCatalog();
+      } catch (_) {
+        catalog = [];
+      }
       if (!mounted) return;
       setState(() {
         _existing = items;
+        _catalog = catalog;
         _selected
           ..clear()
           ..addAll(items.where((e) => e.isActive).map((e) => e.name));
@@ -119,16 +116,74 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
     setState(() => _selected.add(name));
   }
 
+  IconData _iconForAllergy({String? key, required String name}) {
+    switch (key) {
+      case 'seafood':
+        return Icons.set_meal_outlined;
+      case 'peanut':
+        return Icons.circle_outlined;
+      case 'dairy':
+        return Icons.water_drop_outlined;
+      case 'gluten':
+        return Icons.grass_outlined;
+      case 'egg':
+        return Icons.egg_outlined;
+      case 'soy':
+        return Icons.eco_outlined;
+      case 'wheat':
+        return Icons.breakfast_dining_outlined;
+      case 'tree_nut':
+        return Icons.park_outlined;
+    }
+
+    final normalized = name.toLowerCase();
+    if (normalized.contains('seafood') || normalized.contains('hai san')) {
+      return Icons.set_meal_outlined;
+    }
+    if (normalized.contains('peanut') || normalized.contains('dau phong')) {
+      return Icons.circle_outlined;
+    }
+    if (normalized.contains('milk') ||
+        normalized.contains('dairy') ||
+        normalized.contains('lactose')) {
+      return Icons.water_drop_outlined;
+    }
+    if (normalized.contains('gluten')) return Icons.grass_outlined;
+    if (normalized.contains('egg') || normalized.contains('trung')) {
+      return Icons.egg_outlined;
+    }
+    if (normalized.contains('soy') || normalized.contains('dau nanh')) {
+      return Icons.eco_outlined;
+    }
+    if (normalized.contains('wheat') || normalized.contains('lua mi')) {
+      return Icons.breakfast_dining_outlined;
+    }
+    if (normalized.contains('nut') || normalized.contains('hat cay')) {
+      return Icons.park_outlined;
+    }
+    return Icons.warning_amber_outlined;
+  }
+
   List<Map<String, dynamic>> get _allItems {
-    final names = <String>{
-      ..._presetAllergies.map((e) => e['name'] as String),
-      ..._selected,
-    };
-    final presetsByName = {for (final p in _presetAllergies) p['name'] as String: p};
-    return names.map((name) {
-      if (presetsByName.containsKey(name)) return presetsByName[name]!;
-      return {'name': name, 'icon': Icons.warning_amber_outlined};
-    }).toList();
+    final itemsByName = <String, Map<String, dynamic>>{};
+    for (final item in _catalog) {
+      itemsByName[item.displayNameVi] = {
+        'name': item.displayNameVi,
+        'key': item.key,
+        'icon': _iconForAllergy(key: item.key, name: item.displayNameVi),
+      };
+    }
+    for (final name in _selected) {
+      itemsByName.putIfAbsent(
+        name,
+        () => {
+          'name': name,
+          'key': '',
+          'icon': _iconForAllergy(name: name),
+        },
+      );
+    }
+    return itemsByName.values.toList();
   }
 
   @override

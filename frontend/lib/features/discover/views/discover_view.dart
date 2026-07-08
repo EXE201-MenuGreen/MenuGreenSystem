@@ -8,15 +8,11 @@ import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
-import 'budget_aware_screen.dart';
 import 'favorites_screen.dart';
 import 'food_detail_screen.dart';
 import 'ingredient_detail_screen.dart';
 import 'recipe_detail_screen.dart';
-import 'recommendation_history_screen.dart';
 import 'recommendation_screen.dart';
-import 'safe_recommendations_screen.dart';
-import 'weekly_plan_screen.dart';
 
 class DiscoverView extends StatefulWidget {
   const DiscoverView({super.key});
@@ -30,7 +26,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   final _keywordController = TextEditingController();
   late final TabController _tabController;
 
-  String _allergyMode = 'warn';
+  final String _allergyMode = 'warn';
   bool _safeOnly = false;
   FoodSearchFilters _foodFilters = const FoodSearchFilters();
   bool _initialLoading = true;
@@ -222,15 +218,6 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     if (result == null || !mounted) return;
     setState(() => _foodFilters = result);
     _scheduleReload();
-  }
-
-  void _openSafeRecommendations() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SafeRecommendationsScreen(allergyMode: _effectiveAllergyMode),
-      ),
-    );
   }
 
   Future<void> _openAllergies() async {
@@ -437,7 +424,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     return ListView.separated(
       padding: const EdgeInsets.all(20),
       itemCount: _foods.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final food = _foods[index];
         return _FoodListTile(
@@ -468,7 +455,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     return ListView.separated(
       padding: const EdgeInsets.all(20),
       itemCount: _recipes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final recipe = _recipes[index];
         return ListTile(
@@ -526,7 +513,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     return ListView.separated(
       padding: const EdgeInsets.all(20),
       itemCount: _ingredients.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = _ingredients[index];
         return ListTile(

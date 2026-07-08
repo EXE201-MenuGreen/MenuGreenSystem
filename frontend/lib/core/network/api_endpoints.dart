@@ -54,14 +54,7 @@ class ApiEndpoints {
   static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
   static String ingredientRecipes(String id) =>
       '$baseUrl/Ingredient/$id/recipes';
-  static String get recommendationCalories =>
-      '$baseUrl/Recommendation/calories';
-  static String get recommendationLunch => '$baseUrl/Recommendation/lunch';
-  static String get recommendationEco => '$baseUrl/Recommendation/eco';
-  static String get recommendationDailyMenu =>
-      '$baseUrl/Recommendation/daily-menu';
-
-  // Recommendation endpoints (Extended)
+  // Recommendation endpoints
   static String get recommendationHistory => '$baseUrl/Recommendation/history';
   static String recommendationById(String id) => '$baseUrl/Recommendation/$id';
   static String get recommendationPreview => '$baseUrl/Recommendation/preview';
@@ -91,8 +84,6 @@ class ApiEndpoints {
   static String get userMealPlans => '$baseUrl/user-meal-plans';
   static String get userMealPlanAdherence =>
       '$baseUrl/user-meal-plans/adherence';
-  static String userMealPlanById(String id) => '$baseUrl/user-meal-plans/$id';
-  static String userMealPlanDelete(String id) => '$baseUrl/user-meal-plans/$id';
   static String get userMealPlansFromDailyMenu =>
       '$baseUrl/user-meal-plans/from-daily-menu';
   static String userMealPlanCompleteItem(String itemId) =>
@@ -168,6 +159,7 @@ class ApiEndpoints {
       '$baseUrl/payments/sepay/$paymentId';
 
   static String get allergies => '$baseUrl/Allergy';
+  static String get allergyCatalog => '$baseUrl/Allergy/catalog';
   static String allergyById(String allergyId) => '$baseUrl/Allergy/$allergyId';
 
   // FCM Push Notification endpoints

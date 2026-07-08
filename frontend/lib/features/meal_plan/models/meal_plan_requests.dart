@@ -1,4 +1,5 @@
 /// Request DTOs cho Meal Plan API
+library;
 
 class CreatePlanRequest {
   final String title;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/food_models.dart';
@@ -16,7 +17,8 @@ class FoodDiscoveryRepository {
   }) async {
     try {
       final params = <String, String>{
-        if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+        if (QueryMiddleware.normalizeKeyword(keyword) != null)
+          'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
         if (filters?.minCalories != null) 'minCalories': '${filters!.minCalories}',
         if (filters?.maxCalories != null) 'maxCalories': '${filters!.maxCalories}',
@@ -26,10 +28,7 @@ class FoodDiscoveryRepository {
         if (filters?.category != null && filters!.category!.trim().isNotEmpty)
           'category': filters.category!.trim(),
       };
-      final query = params.entries
-          .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
-          .join('&');
-      final url = query.isEmpty ? ApiEndpoints.foods : '${ApiEndpoints.foods}?$query';
+      final url = QueryMiddleware.buildUrl(ApiEndpoints.foods, params);
       final response = await _api.get(url);
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
@@ -45,7 +44,10 @@ class FoodDiscoveryRepository {
   Future<FoodItem?> getFoodById(String id, {String allergyMode = 'warn'}) async {
     try {
       final response = await _api.get(
-        '${ApiEndpoints.foodById(id)}?allergyMode=${Uri.encodeQueryComponent(allergyMode)}',
+        QueryMiddleware.buildUrl(
+          ApiEndpoints.foodById(id),
+          {'allergyMode': allergyMode},
+        ),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
@@ -74,14 +76,11 @@ class FoodDiscoveryRepository {
   }) async {
     try {
       final params = <String, String>{
-        if (keyword != null && keyword.trim().isNotEmpty)
-          'keyword': keyword.trim(),
+        if (QueryMiddleware.normalizeKeyword(keyword) != null)
+          'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
       };
-      final query = params.entries
-          .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
-          .join('&');
-      final url = query.isEmpty ? ApiEndpoints.recipeSearch : '${ApiEndpoints.recipeSearch}?$query';
+      final url = QueryMiddleware.buildUrl(ApiEndpoints.recipeSearch, params);
       final response = await _api.get(url);
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
@@ -97,7 +96,10 @@ class FoodDiscoveryRepository {
   Future<RecipeItem?> getRecipeById(String id, {String allergyMode = 'warn'}) async {
     try {
       final response = await _api.get(
-        '${ApiEndpoints.recipeById(id)}?allergyMode=${Uri.encodeQueryComponent(allergyMode)}',
+        QueryMiddleware.buildUrl(
+          ApiEndpoints.recipeById(id),
+          {'allergyMode': allergyMode},
+        ),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
@@ -144,15 +146,11 @@ class FoodDiscoveryRepository {
   }) async {
     try {
       final params = <String, String>{
-        if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+        if (QueryMiddleware.normalizeKeyword(keyword) != null)
+          'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
       };
-      final query = params.entries
-          .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
-          .join('&');
-      final url = query.isEmpty
-          ? ApiEndpoints.ingredientSearch
-          : '${ApiEndpoints.ingredientSearch}?$query';
+      final url = QueryMiddleware.buildUrl(ApiEndpoints.ingredientSearch, params);
       final response = await _api.get(url);
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
@@ -168,7 +166,10 @@ class FoodDiscoveryRepository {
   Future<IngredientItem?> getIngredientById(String id, {String allergyMode = 'warn'}) async {
     try {
       final response = await _api.get(
-        '${ApiEndpoints.ingredientById(id)}?allergyMode=${Uri.encodeQueryComponent(allergyMode)}',
+        QueryMiddleware.buildUrl(
+          ApiEndpoints.ingredientById(id),
+          {'allergyMode': allergyMode},
+        ),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);

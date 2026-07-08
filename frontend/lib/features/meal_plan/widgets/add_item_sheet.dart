@@ -59,7 +59,6 @@ class _AddItemSheetState extends State<AddItemSheet> {
   final _repository = FoodDiscoveryRepository();
 
   Timer? _debounceTimer;
-  bool _isLoading = false;
   bool _isSearching = false;
 
   List<dynamic> _searchResults = [];
@@ -90,18 +89,12 @@ class _AddItemSheetState extends State<AddItemSheet> {
   }
 
   Future<void> _loadRecentFoods() async {
-    setState(() => _isLoading = true);
     try {
       final favorites = await _repository.getFavorites();
       if (mounted) {
-        setState(() {
-          _recentFoods = favorites.take(6).toList();
-          _isLoading = false;
-        });
+        setState(() => _recentFoods = favorites.take(6).toList());
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    } catch (_) {}
   }
 
   void _onSearchChanged(String value) {

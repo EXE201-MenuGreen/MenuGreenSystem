@@ -29,7 +29,7 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
 
   bool _excludeAllergies = true;
   int _targetCalories = 2000;
-  int _budgetVnd = 50000;
+  final int _budgetVnd = 50000;
   bool _loading = false;
   String? _error;
 
@@ -271,7 +271,7 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = items[index];
         return ListTile(

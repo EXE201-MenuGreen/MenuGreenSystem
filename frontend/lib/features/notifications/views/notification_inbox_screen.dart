@@ -5,7 +5,6 @@ import '../../../core/constants/app_colors.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/empty_notification_state.dart';
 import '../widgets/notification_tile.dart';
-import 'notification_settings_screen.dart';
 
 class NotificationInboxScreen extends StatefulWidget {
   const NotificationInboxScreen({super.key});

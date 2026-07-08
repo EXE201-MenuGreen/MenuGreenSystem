@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../../../core/middleware/error_middleware.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/token_storage.dart';
@@ -93,20 +93,13 @@ class ProfileRepository {
 
   Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword, String confirmNewPassword) async {
     try {
-      final token = await _storage.getAccessToken();
-      if (token == null || token.isEmpty) return {'success': false, 'message': 'Not logged in'};
-
-      final response = await http.put(
-        Uri.parse(ApiEndpoints.changePassword),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
+      final response = await _api.putJson(
+        ApiEndpoints.changePassword,
+        {
           'currentPassword': currentPassword,
           'newPassword': newPassword,
           'confirmNewPassword': confirmNewPassword,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -127,7 +120,8 @@ class ProfileRepository {
         return {'success': false, 'message': errorMessage};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối'};
+      final message = e is ApiException ? e.message : 'Lỗi kết nối';
+      return {'success': false, 'message': message};
     }
   }
 

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
-import '../widgets/calorie_progress_ring.dart';
 
 /// Screen thống kê meal plan
 class MealPlanStatsScreen extends StatefulWidget {
@@ -266,7 +265,7 @@ class _MealPlanStatsScreenState extends State<MealPlanStatsScreen> {
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
             Text(
-              '${actual}/${planned} (${(percent * 100).toStringAsFixed(0)}%)',
+              '$actual/$planned (${(percent * 100).toStringAsFixed(0)}%)',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: percent >= 0.8 ? Colors.green : (percent >= 0.5 ? Colors.orange : Colors.red),
