@@ -620,7 +620,7 @@ class PlannedMealCard extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 56),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 56),
               itemBuilder: (context, index) {
                 final item = items[index];
                 return MealItemTile(

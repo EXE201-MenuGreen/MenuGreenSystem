@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
 import 'meal_plan_detail_screen.dart';
@@ -19,7 +18,7 @@ class MealPlanCalendarScreen extends StatefulWidget {
 class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   DateTime _currentMonth = DateTime.now();
   DateTime? _selectedDate;
-  Map<DateTime, DayPlanSummary> _daySummaries = {};
+  final Map<DateTime, DayPlanSummary> _daySummaries = {};
 
   @override
   Widget build(BuildContext context) {

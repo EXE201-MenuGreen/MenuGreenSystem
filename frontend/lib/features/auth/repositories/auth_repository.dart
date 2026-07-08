@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../../../core/middleware/error_middleware.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
@@ -8,20 +9,23 @@ import '../utils/auth_error_messages.dart';
 
 class AuthRepository {
   AuthRepository({
+    ApiClient? apiClient,
     TokenStorage? tokenStorage,
     FirebaseGoogleAuthService? googleAuthService,
-  })  : _storage = tokenStorage ?? TokenStorage(),
+  })  : _api = apiClient ?? ApiClient(tokenStorage: tokenStorage),
+        _storage = tokenStorage ?? TokenStorage(),
         _googleAuth = googleAuthService ?? FirebaseGoogleAuthService();
 
+  final ApiClient _api;
   final TokenStorage _storage;
   final FirebaseGoogleAuthService _googleAuth;
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.forgotPassword),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email}),
+      final response = await _api.postJson(
+        ApiEndpoints.forgotPassword,
+        {'email': email},
+        authenticated: false,
       );
 
       final decoded = response.body.isNotEmpty
@@ -41,7 +45,7 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
@@ -52,14 +56,14 @@ class AuthRepository {
     required String newPassword,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.resetPassword),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final response = await _api.postJson(
+        ApiEndpoints.resetPassword,
+        {
           'email': email,
           'otpCode': otpCode,
           'newPassword': newPassword,
-        }),
+        },
+        authenticated: false,
       );
 
       final decoded = response.body.isNotEmpty
@@ -79,7 +83,7 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
@@ -88,10 +92,10 @@ class AuthRepository {
     try {
       final idToken = await _googleAuth.signInAndGetIdToken();
 
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.googleLogin),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'idToken': idToken}),
+      final response = await _api.postJson(
+        ApiEndpoints.googleLogin,
+        {'idToken': idToken},
+        authenticated: false,
       );
 
       if (response.statusCode == 200) {
@@ -121,10 +125,10 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.login),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+      final response = await _api.postJson(
+        ApiEndpoints.login,
+        {'email': email, 'password': password},
+        authenticated: false,
       );
 
       if (response.statusCode == 200) {
@@ -144,7 +148,7 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
@@ -155,14 +159,14 @@ class AuthRepository {
     String password,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.register),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final response = await _api.postJson(
+        ApiEndpoints.register,
+        {
           'fullName': fullName,
           'email': email,
           'password': password,
-        }),
+        },
+        authenticated: false,
       );
 
       if (response.statusCode == 200) {
@@ -182,17 +186,17 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
 
   Future<Map<String, dynamic>> verifyOtp(String email, String otpCode) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.verifyOtp),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'otpCode': otpCode}),
+      final response = await _api.postJson(
+        ApiEndpoints.verifyOtp,
+        {'email': email, 'otpCode': otpCode},
+        authenticated: false,
       );
 
       if (response.statusCode == 200) {
@@ -211,7 +215,7 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
@@ -226,10 +230,10 @@ class AuthRepository {
         };
       }
 
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.refreshToken),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refresh}),
+      final response = await _api.postJson(
+        ApiEndpoints.refreshToken,
+        {'refreshToken': refresh},
+        authenticated: false,
       );
 
       if (response.statusCode == 200) {
@@ -249,7 +253,7 @@ class AuthRepository {
     } catch (e) {
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
   }
@@ -263,10 +267,10 @@ class AuthRepository {
         return {'success': true, 'message': 'Logged out'};
       }
 
-      final response = await http.post(
-        Uri.parse(ApiEndpoints.logout),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refresh}),
+      final response = await _api.postJson(
+        ApiEndpoints.logout,
+        {'refreshToken': refresh},
+        authenticated: false,
       );
 
       await _storage.clear();
@@ -285,9 +289,14 @@ class AuthRepository {
       await _storage.clear();
       return {
         'success': false,
-        'message': localizeAuthMessage('Connection error. Is backend running?'),
+        'message': _errorMessage(e),
       };
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is ApiException) return error.message;
+    return localizeAuthMessage('Connection error. Is backend running?');
   }
 
   Future<void> _maybePersistTokens(dynamic decodedJson) async {
@@ -303,8 +312,9 @@ class AuthRepository {
       userId = access != null ? JwtUtils.tryGetUserId(access) : null;
     }
 
-    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty)
+    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) {
       return;
+    }
     await _storage.saveTokens(
       accessToken: access,
       refreshToken: refresh,

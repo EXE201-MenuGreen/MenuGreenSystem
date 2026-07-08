@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/food_models.dart';
@@ -11,7 +12,8 @@ class RecommendationRepository {
 
   String _query(Map<String, String> params) {
     if (params.isEmpty) return '';
-    return '?${params.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+    final query = QueryMiddleware.buildQuery(params);
+    return query.isEmpty ? '' : '?$query';
   }
 
   // =========================================================================
@@ -300,7 +302,7 @@ class RecommendationRepository {
   }) async {
     try {
       final params = <String, String>{
-        if (recipeId != null) 'recipeId': recipeId,
+        'recipeId': ?recipeId,
         if (calories != null) 'calories': '$calories',
         if (excludeAllergies != null) 'excludeAllergies': excludeAllergies.toString(),
       };

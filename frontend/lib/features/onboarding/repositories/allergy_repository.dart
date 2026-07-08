@@ -23,6 +23,24 @@ class AllergyItem {
   }
 }
 
+class AllergyCatalogItem {
+  final String key;
+  final String displayNameVi;
+
+  const AllergyCatalogItem({
+    required this.key,
+    required this.displayNameVi,
+  });
+
+  factory AllergyCatalogItem.fromJson(Map<String, dynamic> json) {
+    return AllergyCatalogItem(
+      key: (json['key'] ?? json['Key'])?.toString() ?? '',
+      displayNameVi:
+          (json['displayNameVi'] ?? json['DisplayNameVi'])?.toString() ?? '',
+    );
+  }
+}
+
 class AllergyRepository {
   AllergyRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
@@ -38,6 +56,20 @@ class AllergyRepository {
     return decoded
         .whereType<Map<String, dynamic>>()
         .map(AllergyItem.fromJson)
+        .toList();
+  }
+
+  Future<List<AllergyCatalogItem>> getCatalog() async {
+    final response = await _api.get(ApiEndpoints.allergyCatalog);
+    if (response.statusCode != 200 || response.body.isEmpty) return [];
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return [];
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(AllergyCatalogItem.fromJson)
+        .where((item) => item.key.isNotEmpty && item.displayNameVi.isNotEmpty)
         .toList();
   }
 

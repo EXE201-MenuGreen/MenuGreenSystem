@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../providers/notification_provider.dart';
 import '../repositories/notification_repository.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {

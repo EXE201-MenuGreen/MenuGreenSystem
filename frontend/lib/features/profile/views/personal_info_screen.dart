@@ -247,9 +247,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       'fullName': _fullNameController.text.trim(),
       'gender': _gender,
       if (_dateOfBirthApiValue() != null) 'dateOfBirth': _dateOfBirthApiValue(),
-      if (height != null) 'heightCm': height,
-      if (weight != null) 'weightKg': weight,
-      if (bodyFat != null) 'bodyFatPercent': bodyFat,
+      'heightCm': ?height,
+      'weightKg': ?weight,
+      'bodyFatPercent': ?bodyFat,
       'activityLevel': _activityLevel ?? HealthProfileValues.normalizeActivity(null),
       'goal': _goal ?? HealthProfileValues.normalizeGoal(null),
     };
