@@ -34,5 +34,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 
         [JsonPropertyName("error_message")]
         public string? ErrorMessage { get; set; }
+
+        [JsonIgnore]
+        public string? Message { get; set; }
     }
 }

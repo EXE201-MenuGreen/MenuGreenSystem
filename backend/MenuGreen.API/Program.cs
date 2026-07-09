@@ -280,6 +280,9 @@ if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
 
 var app = builder.Build();
 
+// Global exception handler - must be first in pipeline
+app.UseMiddleware<MenuGreen.API.Middleware.GlobalExceptionHandler>();
+
 // Auto-apply EF Core migrations on startup (only in non-Development environments)
 if (!app.Environment.IsDevelopment())
 {
