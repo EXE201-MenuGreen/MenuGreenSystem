@@ -18,6 +18,20 @@ class ApiEndpoints {
         : trimmed;
   }
 
+  static String get realtimeBaseUrl {
+    final uri = Uri.parse(baseUrl);
+    final segments = uri.pathSegments.toList();
+    if (segments.isNotEmpty && segments.last.toLowerCase() == 'api') {
+      segments.removeLast();
+    }
+    return uri
+        .replace(path: segments.isEmpty ? '' : '/${segments.join('/')}')
+        .toString()
+        .replaceFirst(RegExp(r'/$'), '');
+  }
+
+  static String get notificationHub => '$realtimeBaseUrl/notificationHub';
+
   static String get login => '$baseUrl/Auth/login';
   static String get googleLogin => '$baseUrl/Auth/google';
   static String get register => '$baseUrl/Auth/register';

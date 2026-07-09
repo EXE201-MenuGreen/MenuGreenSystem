@@ -156,10 +156,9 @@ class ApiClient {
       authenticated: authenticated,
       jsonContentType: jsonContentType,
     );
-    final response = await ApiErrorMiddleware.guard(
+    final response = await _guardedRequest(
       method: method,
       uri: uri,
-      logger: _logger,
       request: () => send(headers),
     );
 
@@ -172,12 +171,28 @@ class ApiClient {
       authenticated: true,
       jsonContentType: jsonContentType,
     );
-    return ApiErrorMiddleware.guard(
+    return _guardedRequest(
       method: method,
       uri: uri,
-      logger: _logger,
       request: () => send(retryHeaders),
     );
+  }
+
+  Future<http.Response> _guardedRequest({
+    required String method,
+    required Uri uri,
+    required Future<http.Response> Function() request,
+  }) async {
+    try {
+      return await ApiErrorMiddleware.guard(
+        method: method,
+        uri: uri,
+        logger: _logger,
+        request: request,
+      );
+    } on ApiException catch (error) {
+      return ApiErrorMiddleware.responseFromException(error);
+    }
   }
 
   Future<Map<String, String>> _buildHeaders({
