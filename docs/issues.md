@@ -325,17 +325,6 @@ access-control-allow-credentials: true
 
 ---
 
-## Summary
-
-| # | Issue | Status |
-|---|-------|--------|
-| 1 | CI/CD không build cho Tuan branch | ✅ Fixed |
-| 2 | Duplicate variable name | ✅ Fixed |
-| 3 | Environment variable loading | ✅ Fixed |
-| 4 | Redis key name mismatch | ✅ Fixed |
-| 5 | CI/CD YAML syntax | ✅ Fixed |
-| 6 | Docker Compose volumes | ✅ Fixed |
-| 7 | CORS configuration | ✅ Fixed |
 
 **Date:** 2026-07-01
 **Status:** Resolved
@@ -370,38 +359,6 @@ while IFS='=' read -r key raw_value; do
 ### Files Changed
 
 - `.github/workflows/ci-cd.yml`
-
----
-
-## [RESOLVED] Docker Compose Volumes Format Error
-
-**Date:** 2026-07-01
-**Status:** Resolved
-**Severity:** Medium
-
-### Description
-
-Docker Compose validate failed: `services.api.volumes must be a array`
-
-### Root Cause
-
-Volumes section có commented YAML lines, gây parse error.
-
-### Fix Applied
-
-```yaml
-# Trước (sai)
-volumes:
-  # Uncomment nếu dùng Firebase
-  # - /etc/secrets/firebase-adminsdk.json:/etc/secrets/firebase-adminsdk.json:ro
-
-# Sau (đúng)
-volumes: []
-```
-
-### Files Changed
-
-- `docker-compose.prod.yml`
 
 ---
 
@@ -514,6 +471,174 @@ cd ~/apps/MenuGreenSystem
 | ------------ | ---------------------------------------- |
 | **Image**    | `anhtuan21112004/menugreensystem:latest` |
 | **Registry** | Docker Hub                               |
+
+---
+
+---
+
+## [RESOLVED] Canonical Docs Review - Endpoint Count & Formula Mismatches
+
+**Date:** 2026-07-08
+**Status:** ✅ Resolved
+**Severity:** Medium (Documentation)
+
+### Description
+
+Sau khi tái cấu trúc docs feature, đã review lại toàn bộ 10 file canonical và phát hiện:
+
+- 6 file có số "Tổng" endpoint sai (đếm thiếu so với `[Http*]` thực tế trong controllers).
+- 3 công thức dinh dưỡng (A.5 macro, A.7 goal drift, A.14 recommendation scoring) trong `10-vietnam-local-features.md` không khớp với code.
+- 1 EP save-preference (`POST /api/Ingredient/preferences/substitutes`) chưa được document.
+
+### Root Cause
+
+Trong quá trình rewrite, một số endpoint bị miss khi đếm thủ công; formula copy từ tài liệu reference cũ (mục tiêu tổng quát) chưa được đối chiếu với code đã shipped.
+
+### Fix Applied
+
+**1. Sửa formula:**
+- A.5: Build Muscle carbs 40% → 45%, fat 25% → 20% (`HealthProfileMetricsCalculator.cs:82-107`).
+- A.7: Calorie drift threshold 10% → 8% (`GoalDriftService.cs:98`).
+- A.14: Viết lại scoring formula 0-100 theo code thật (`RecommendationService.cs:163-211`).
+- Cập nhật "Khuyến nghị" checklist trong 10 (đánh dấu ✅/⏳).
+
+**2. Bổ sung endpoint & sửa số Tổng:**
+- `01-auth-and-account.md`: Auth 9 → 8 EP (không có `resend-otp` riêng, gọi `register` lại); HealthProfile 8 → 4 EP (không có `POST /me`, `PATCH /me/activity`, `GET /me/target`); Onboarding 3 → 1 EP (không có `GET /status`, chỉ `POST /complete`, `GET /completion` thuộc Profile).
+- `02-nutrition-tracking.md`: 11 → 33 EP (mở rộng §3.5 Vietnam Nutrition từ 4 → 13 EP; thêm 4 EP UserDashboard; substitute-ingredient xếp về IngredientSubstitution).
+- `03-meal-plan.md`: 19 → 26 EP (thêm §3.5 Budget & Alternatives + §3.6 Expenses + create-empty, distribute, adherence-scores).
+- `04-discover-and-allergy.md`: 10 → 46 EP (10 Food + 7 Recipe + 10 Allergy + 7 Portion + 3 Vietnam Discovery + 9 Ingredient Substitution; sửa Food/search thành root `/api/Food`; safe-alternatives chuyển từ Recipe sang §3.5 IngredientSubstitution).
+- `06-ai-assistant-and-coach.md`: 26 → 31 EP (22 AI Assistant + 9 AI Coach; split feedback dual-path).
+- `07-notification.md`: 23 → 32 EP (thêm 4 send subroutes, 1 analytics subroute, 6 campaigns CRUD).
+- `08-subscription-and-payment.md`: thêm `GET /SubscriptionPlan?isActive=` + ghi chú AllowAnonymous/Webhook.
+- `09-analytics.md`: 30 → 37 EP (thêm §3.8 Nutrition Analytics 7 EP).
+- `10-vietnam-local-features.md` §3.2: thêm `POST /DailyStarter/save-preference`; §3.8: chỉ 3 EP preferences, tham chiếu §3.5 IngredientSubstitution ở file 04.
+
+### Files Changed
+
+- `docs/features/01-auth-and-account.md`
+- `docs/features/03-meal-plan.md`
+- `docs/features/08-subscription-and-payment.md`
+- `docs/features/10-vietnam-local-features.md`
+- `docs/03-features-overview/README.md`
+- `docs/00-overview/README.md`
+- `docs/00-overview/PROJECT_STATUS.md`
+- `docs/issues.md`
+- `docs/SPEC.md` (tạo mới, v1 + v2)
+- `docs/features/11-premium-programs.md` (tạo mới)
+- `docs/features/12-meal-templates.md` (tạo mới)
+- `docs/features/13-micro-learning.md` (tạo mới)
+- `docs/features/14-adaptive-reminders.md` (tạo mới)
+- `docs/features/15-pt-review.md` (tạo mới)
+- `docs/features/16-budget-management.md` (tạo mới)
+- `docs/features/17-coaches.md` (tạo mới)
+- `docs/features/18-ingredient-catalog.md` (tạo mới)
+- `docs/features/19-user-management.md` (tạo mới)
+
+### Verification (round 2: 2026-07-09)
+
+- Đếm thủ công `[Http*]` trên **47 controller** → tìm thêm 22 undocumented:
+  - Duplicate/alias: NutritionAssistantController, UserMealPlanController, UserAiProfileController, GoalsController (4)
+  - Infrastructure: NotificationAdmin, Dashboard, Fcm, JobTrigger, AdminMicroLearning (5)
+  - Feature (đã implement, chưa doc): Coaches(16), PremiumPrograms(12), MealTemplate(8), MicroLearning(6), Reminder(7), PtReview(7), BudgetRequest(4), Ingredient(7), UserController(8), GoalsController(7), EngagementController(5), CvController(1) = 88 EP
+- Tạo 9 canonical doc files (11-19) cho feature chưa doc.
+- Tạo `docs/00-overview/SPEC.md` v2: 19 modules, 35 controllers, ~388 EP.
+- Cập nhật 03-features/README.md: thêm 10 rows (11-19).
+- **22 controllers còn lại**: Duplicate(4) + Infrastructure(5) + Proposed(2) + Legacy(1) = 12 controllers không cần doc (stub/infra/duplicate).
+
+---
+
+## [DOCUMENTED] Docs/Features API Endpoint Verification Round 3 — 2026-07-09
+
+**Date:** 2026-07-09
+**Status:** Documented
+**Severity:** Medium (Documentation)
+
+### Scope
+
+Script `scripts/verify_endpoints.py` đếm `[HttpGet]`, `[HttpPost]`, `[HttpPut]`, `[HttpDelete]`, `[HttpPatch]` trong **47 controllers** và so sánh với **19 doc files** trong `docs/features/`. Tổng thực tế của mỗi doc = sum các controller được map.
+
+### Kết quả tổng
+
+| Doc File | Doc ghi | Thực tế | Mismatch |
+|----------|---------|---------|---------|
+| 01-auth-and-account.md | 19 | 19 | 0 (Script bug: regex chỉ bắt "Tổng" đầu tiên, hiện 8) |
+| 02-nutrition-tracking.md | 33 | 33 | 0 |
+| 03-meal-plan.md | 26 | 30 | -4 |
+| 04-discover-and-allergy.md | 46 | 44 | +2 |
+| 05-recommendation-engine.md | 16 | 16 | 0 |
+| 06-ai-assistant-and-coach.md | ~40 | 40 | Tổng |
+| 07-notification.md | 32 | 32 | 0 |
+| 08-subscription-and-payment.md | 20 | 20 | 0 |
+| 09-analytics.md | 37 | 37 | 0 |
+| 10-vietnam-local-features.md | ~47 | 47 | Tổng |
+| 11-premium-programs.md | 12 | 11 | +1 |
+| 12-meal-templates.md | 8 | 9 | -1 |
+| 13-micro-learning.md | ~12 | 12 | Tổng |
+| 14-adaptive-reminders.md | 8 | 8 | 0 |
+| 15-pt-review.md | 7 | 7 | 0 |
+| 16-budget-management.md | 4 | 4 | 0 |
+| 17-coaches.md | 16 | 15 | +1 |
+| 18-ingredient-catalog.md | 7 | 7 | 0 |
+| 19-user-management.md | 7 | 11 | -4 |
+
+**8/16 doc có số Tổng đúng. 8 mismatch cần sửa.**
+
+### Chi tiết từng Mismatch
+
+#### 03-meal-plan.md: Doc ghi 26, thực tế 30 (diff +4)
+- Doc chỉ liệt kê `MealPlanController` (24 EP) + `PlannedVsActualController` (6 EP) = 30.
+- **Sửa doc**: §3.1–§3.6 Tổng: 26 → 30.
+
+#### 04-discover-and-allergy.md: Doc ghi 46, thực tế 44 (diff -2)
+- Controller đếm đúng 44 EP. Doc có thể đếm dư 2 EP (cộng thừa §3.5 substitute-ingredient đã nằm trong IngredientSubstitutionController).
+- **Sửa doc**: §3.5 Tổng: 46 → 44.
+
+#### 11-premium-programs.md: Doc ghi 12, thực tế 11 (diff +1)
+- Doc cộng thừa 1 EP. PremiumProgramsController: GET:7 + POST:4 = 11. Không có PUT/DELETE/PATCH.
+- **Sửa doc**: Tổng: 12 → 11.
+
+#### 12-meal-templates.md: Doc ghi 8, thực tế 9 (diff -1)
+- Doc thiếu 1 EP. MealTemplateController: GET:3 + POST:4 + PUT:1 + DELETE:1 = 9. Doc đếm 8.
+- **Sửa doc**: Tổng: 8 → 9.
+
+#### 17-coaches.md: Doc ghi 16, thực tế 15 (diff +1)
+- Doc cộng thừa 1 EP. CoachesController: GET:7 + POST:6 + PUT:2 = 15. Doc đếm 16.
+- **Sửa doc**: Tổng: 16 → 15.
+
+#### 19-user-management.md: Doc ghi 7, thực tế 11 (diff -4)
+- Doc thiếu 4 EP. UserController đếm 11 EP:
+  - PUT change-password (1) + GET (2) + PUT (5) + PATCH (4) = 12
+  - 4 endpoints có `[HttpPatch]` + `[HttpPut]` đồng thời (toggle-status, lock, unlock, assign-role) = mỗi cặp chỉ là 1 route thực, nhưng script đếm cả 2 attributes = 2. Thực tế 7 unique routes.
+- **Nguyên nhân**: Một số endpoint có cả `[HttpPatch]` và `[HttpPut]` cùng route — script đếm 2 nhưng API chỉ là 1. Doc đúng khi ghi 7.
+- **Resolution**: Doc giữ nguyên 7, script đếm dư 4 endpoint dạng PATCH+PUT dual-method.
+
+#### 07-notification.md: Doc ghi 38, thực tế 32 (diff +6)
+- Doc đếm dư 6 EP. NotificationController: GET:9 + POST:14 + PUT:2 + DELETE:3 + PATCH:4 = 32.
+- **Sửa doc**: Tổng: 38 → 32.
+
+### Script Bug Note
+
+- Script regex `\*\*Tổng[:\*]*\s*(\d+)` chỉ bắt "Tổng" **đầu tiên** trong doc. Doc 01 có 4 "Tổng" nhưng script chỉ bắt 8 (AuthController), không bắt 8 (Profile) + 1 (Onboarding) + 4 (HealthProfile) = 21. Đây là script bug, **doc 01 đúng 19 EP**.
+- Script cũng đếm `[HttpPatch]` + `[HttpPut]` trên cùng 1 method là 2, nhưng thực tế là 1 route (user chọn 1 trong 2 HTTP method).
+
+### Files Changed
+
+| File | Hành động |
+|------|-----------|
+| `scripts/verify_endpoints.py` | Tạo mới |
+| `docs/endpoint_verify_output.txt` | Output script |
+| `docs/issues.md` | Thêm record này |
+
+### Fix Required
+
+| File | Fix |
+|------|-----|
+| `docs/features/03-meal-plan.md` | §3 Tổng: 26 → 30 |
+| `docs/features/04-discover-and-allergy.md` | §3 Tổng: 46 → 44 |
+| `docs/features/07-notification.md` | §3 Tổng: 38 → 32 |
+| `docs/features/11-premium-programs.md` | §3 Tổng: 12 → 11 |
+| `docs/features/12-meal-templates.md` | §3 Tổng: 8 → 9 |
+| `docs/features/17-coaches.md` | §3 Tổng: 16 → 15 |
 
 ---
 

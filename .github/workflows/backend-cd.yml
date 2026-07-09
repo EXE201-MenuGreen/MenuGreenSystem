@@ -99,11 +99,12 @@ jobs:
             echo "=== Build .env file ==="
             printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
 
-            # Parse and add secrets
+            # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
             while IFS='=' read -r key raw_value; do
               [[ -z "$key" || "$key" =~ ^# ]] && continue
               [[ "$key" =~ [/[:space:]+] ]] && continue
-              [[ "$key" =~ ^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__|DATABASE_URL=|LIGHTSAIL_SSH_KEY=|REDIS_HOST=|REDIS_PORT=|REDIS_PASSWORD=) ]] && continue
+              # FIX: Không skip DB_* và REDIS_* keys - chúng cần cho backup và kết nối
+              [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
               value="${raw_value%\"}"
               value="${value#\"}"
               value="${value%\'}"
@@ -135,6 +136,26 @@ jobs:
             JWT_AUDIENCE="$(grep '^JWT_AUDIENCE=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
             [ -n "$JWT_AUDIENCE" ] && echo "JwtSettings__Audience=$JWT_AUDIENCE" >> "$APP_DIR/.env"
 
+            # FIX: Thêm Redis connection string (Program.cs đọc REDIS_URL)
+            REDIS_HOST_VAL="$(grep '^REDIS_HOST=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            REDIS_PORT_VAL="$(grep '^REDIS_PORT=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/' | head -1)"
+            REDIS_PASSWORD_VAL="$(grep '^REDIS_PASSWORD=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+            
+            if [ -n "$REDIS_HOST_VAL" ]; then
+              if [ -n "$REDIS_PASSWORD_VAL" ]; then
+                echo "REDIS_URL=${REDIS_HOST_VAL}:${REDIS_PORT_VAL:-6379},password=${REDIS_PASSWORD_VAL}" >> "$APP_DIR/.env"
+              else
+                echo "REDIS_URL=${REDIS_HOST_VAL}:${REDIS_PORT_VAL:-6379}" >> "$APP_DIR/.env"
+              fi
+            fi
+
+            # Lưu backup credentials vào file tạm để rollback dùng
+            echo "DB_HOST=$DB_HOST" > /tmp/rollback_db.env
+            echo "DB_PORT=$DB_PORT" >> /tmp/rollback_db.env
+            echo "DB_USER=$DB_USER" >> /tmp/rollback_db.env
+            echo "DB_PASSWORD=$DB_PASSWORD" >> /tmp/rollback_db.env
+            echo "DB_NAME=$DB_NAME" >> /tmp/rollback_db.env
+
             rm -f /tmp/doppler_raw.env
 
             echo "=== .env file created ==="
@@ -146,16 +167,26 @@ jobs:
             DB_PASSWORD=$(grep '^DB_PASSWORD=' "$APP_DIR/.env" | cut -d= -f2-)
             DB_NAME=$(grep '^DB_NAME=' "$APP_DIR/.env" | cut -d= -f2-)
 
-            # Backup database before deployment
+            # FIX: Backup database before deployment - FAIL = STOP DEPLOY
             if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
               BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
-              PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE" 2>/dev/null || {
-                echo "WARNING: Backup failed, continuing anyway..."
-              }
+              echo "=== Starting database backup ==="
+              PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE" 2>&1
+              BACKUP_EXIT_CODE=$?
+              
+              if [ $BACKUP_EXIT_CODE -ne 0 ]; then
+                echo "FATAL: Backup failed with exit code $BACKUP_EXIT_CODE"
+                echo "ABORTING DEPLOYMENT - Cannot rollback without valid backup!"
+                echo "Please fix database connectivity and retry."
+                exit 1
+              fi
+              
               echo "Backup saved to: $BACKUP_FILE"
+              # Giữ lại 5 backup gần nhất
               ls -t /tmp/menugreen_backup_*.sql 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
             else
               echo "WARNING: DB credentials not found in .env, skipping backup"
+              echo "WARNING: Continuing deployment without backup capability!"
             fi
 
             # =================================================================
@@ -255,14 +286,73 @@ jobs:
 
               echo ">>> Re-fetching Doppler secrets for rollback..."
               doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
-              jq -r 'to_entries | .[] | "\(.key)=\(.value)"' /tmp/doppler_rollback.env > "$APP_DIR/.env" || true
+
+              # FIX: Tạo .env rollback đúng format như deploy
+              printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
+
+              while IFS='=' read -r key raw_value; do
+                [[ -z "$key" || "$key" =~ ^# ]] && continue
+                [[ "$key" =~ [/[:space:]+] ]] && continue
+                [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
+                value="${raw_value%\"}"
+                value="${value#\"}"
+                value="${value%\'}"
+                value="${value#\'}"
+                net_key="${key//:/__}"
+                echo "${net_key}=${value}" >> "$APP_DIR/.env"
+              done < /tmp/doppler_rollback.env
+
+              # Add DB connection
+              DB_CONN_ROLLBACK="$(grep '^CONNECTIONSTRINGS__DEFAULTCONNECTION=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              [ -n "$DB_CONN_ROLLBACK" ] && echo "ConnectionStrings__DefaultConnection=$DB_CONN_ROLLBACK" >> "$APP_DIR/.env"
+
+              # Add JWT settings
+              JWT_SECRET_ROLLBACK="$(grep '^JWT_SECRET=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              [ -n "$JWT_SECRET_ROLLBACK" ] && echo "JwtSettings__SecretKey=$JWT_SECRET_ROLLBACK" >> "$APP_DIR/.env"
+
+              JWT_ISSUER_ROLLBACK="$(grep '^JWT_ISSUER=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              [ -n "$JWT_ISSUER_ROLLBACK" ] && echo "JwtSettings__Issuer=$JWT_ISSUER_ROLLBACK" >> "$APP_DIR/.env"
+
+              JWT_AUDIENCE_ROLLBACK="$(grep '^JWT_AUDIENCE=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              [ -n "$JWT_AUDIENCE_ROLLBACK" ] && echo "JwtSettings__Audience=$JWT_AUDIENCE_ROLLBACK" >> "$APP_DIR/.env"
+
+              # Add Redis connection
+              REDIS_HOST_ROLLBACK="$(grep '^REDIS_HOST=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              REDIS_PORT_ROLLBACK="$(grep '^REDIS_PORT=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/' | head -1)"
+              REDIS_PASSWORD_ROLLBACK="$(grep '^REDIS_PASSWORD=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
+              
+              if [ -n "$REDIS_HOST_ROLLBACK" ]; then
+                if [ -n "$REDIS_PASSWORD_ROLLBACK" ]; then
+                  echo "REDIS_URL=${REDIS_HOST_ROLLBACK}:${REDIS_PORT_ROLLBACK:-6379},password=${REDIS_PASSWORD_ROLLBACK}" >> "$APP_DIR/.env"
+                else
+                  echo "REDIS_URL=${REDIS_HOST_ROLLBACK}:${REDIS_PORT_ROLLBACK:-6379}" >> "$APP_DIR/.env"
+                fi
+              fi
+
               rm -f /tmp/doppler_rollback.env
 
-              echo ">>> Starting previous container..."
-              sudo docker run -d --name menugreen-api -p 5000:5000 --env-file "$APP_DIR/.env" $IMAGE:previous || {
-                echo ">>> Failed to start previous container"
-                exit 1
+              echo ">>> .env restored for rollback"
+
+              # FIX: Tag previous image for compose
+              sudo docker tag $IMAGE:previous menugreen_api
+
+              echo ">>> Starting previous container with docker compose..."
+              docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d || {
+                echo ">>> Failed to start previous container with compose, trying docker run..."
+                sudo docker run -d \
+                  --name menugreen_api \
+                  -p 5000:5000 \
+                  --env-file "$APP_DIR/.env" \
+                  --network menugreen-net \
+                  menugreen_api || {
+                  echo ">>> FATAL: Failed to start previous container"
+                  exit 1
+                }
               }
+
+              echo ">>> Waiting for rollback container to start..."
+              sleep 10
+              docker ps --filter "name=menugreen_api"
 
               echo ">>> Rollback complete!"
               exit 1

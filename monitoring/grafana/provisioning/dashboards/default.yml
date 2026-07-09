@@ -1,8 +1,0 @@
-apiVersion: 1
-
-dashboards:
-  default:
-    menugreen-overview:
-      gnetId: 1860
-      revision: 20
-      datasource: Prometheus
