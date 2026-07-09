@@ -1,5 +1,7 @@
 # CORS Configuration Guide
 
+**Last updated:** 2026-07-09
+
 ## Overview
 
 MenuGreen API uses CORS (Cross-Origin Resource Sharing) to allow frontend applications to access API endpoints.

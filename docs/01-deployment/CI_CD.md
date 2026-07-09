@@ -1,6 +1,6 @@
 # CI/CD Pipeline Guide - MenuGreen System
 
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-09
 
 ---
 
@@ -197,12 +197,64 @@ docker-compose -f docker-compose.prod.yml down
 
 ---
 
-## Nginx Configuration
+## Nginx Configuration (Snippets Approach)
 
-API được proxy qua Nginx với CORS headers:
+Tách config thành các snippets để tái sử dụng và dễ maintain.
+
+### Folder Structure
+
+```
+/etc/nginx/
+├── snippets/
+│   ├── proxy-params.conf      ← Proxy settings
+│   └── cors-headers.conf      ← CORS headers
+├── sites-available/
+│   └── api.menugreen.food     ← API config
+└── sites-enabled/
+    └── api.menugreen.food     ← Symlink
+```
+
+### Step 1: Create snippets folder
+
+```bash
+sudo mkdir -p /etc/nginx/snippets
+```
+
+### Step 2: Create proxy-params.conf
+
+```bash
+sudo nano /etc/nginx/snippets/proxy-params.conf
+```
 
 ```nginx
-# /etc/nginx/sites-available/api.menugreen.food
+# Proxy parameters - tái sử dụng cho tất cả backend services
+
+proxy_http_version 1.1;
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header Connection "";
+
+# Timeouts
+proxy_connect_timeout 60s;
+proxy_send_timeout 60s;
+proxy_read_timeout 60s;
+
+# Buffers
+proxy_buffering on;
+proxy_buffer_size 4k;
+proxy_buffers 4 4k;
+```
+
+### Step 3: Create cors-headers.conf
+
+```bash
+sudo nano /etc/nginx/snippets/cors-headers.conf
+```
+
+```nginx
+# CORS Headers - tái sử dụng
 
 # Preflight OPTIONS
 if ($request_method = 'OPTIONS') {
@@ -210,22 +262,85 @@ if ($request_method = 'OPTIONS') {
     add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
     add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With' always;
     add_header 'Access-Control-Allow-Credentials' 'true' always;
-    add_header 'Access-Control-Max-Age' 86400;
+    add_header 'Access-Control-Max-Age' 86400 always;
     add_header 'Content-Type' 'text/plain; charset=utf-8';
     add_header 'Content-Length' 0;
     return 204;
 }
 
-# Normal requests
+# Normal responses
 add_header 'Access-Control-Allow-Origin' 'https://www.menugreen.food' always;
 add_header 'Access-Control-Allow-Credentials' 'true' always;
+add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With' always;
 ```
 
-### Reload Nginx
+### Step 4: Update API config
 
 ```bash
+sudo nano /etc/nginx/sites-available/api.menugreen.food
+```
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name api.menugreen.food;
+
+    # SSL certificates
+    ssl_certificate /etc/letsencrypt/live/api.menugreen.food/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.menugreen.food/privkey.pem;
+
+    # SSL optimization
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        # Include CORS headers
+        include snippets/cors-headers.conf;
+
+        # Proxy to backend
+        proxy_pass http://localhost:5000;
+        include snippets/proxy-params.conf;
+    }
+}
+```
+
+### Step 5: Reload Nginx
+
+```bash
+# Test config
 sudo nginx -t
+
+# Reload nginx
 sudo systemctl reload nginx
+
+# Verify
+curl -I https://api.menugreen.food/health
+```
+
+### Verification Result
+
+```
+HTTP/2 200
+access-control-allow-origin: https://www.menugreen.food
+access-control-allow-credentials: true
+access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS, PATCH
+access-control-allow-headers: Content-Type, Authorization, Accept, Origin, X-Requested-With
+```
+
+### Monitoring Logs
+
+```bash
+# Access log
+sudo tail -20 /var/log/nginx/access.log
+
+# Error log
+sudo tail -20 /var/log/nginx/error.log
+
+# Real-time monitoring
+sudo tail -f /var/log/nginx/access.log
 ```
 
 ---
