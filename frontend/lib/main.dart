@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/services/firebase_bootstrap.dart';
+import 'core/services/network_status_provider.dart';
 import 'core/services/push_notification_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'features/splash/views/splash_screen.dart';
@@ -47,6 +48,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => NetworkStatusProvider()..start()),
         ChangeNotifierProvider(create: (_) => MealPlanProvider()),
         ChangeNotifierProvider(create: (_) => PushNotificationProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),

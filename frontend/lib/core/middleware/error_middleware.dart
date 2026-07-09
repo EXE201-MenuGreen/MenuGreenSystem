@@ -94,6 +94,30 @@ class ApiErrorMiddleware {
     );
   }
 
+  static http.Response responseFromException(ApiException error) {
+    final statusCode = switch (error.type) {
+      ApiErrorType.timeout => 408,
+      ApiErrorType.noInternet => 503,
+      ApiErrorType.badRequest => 400,
+      ApiErrorType.unauthorized => 401,
+      ApiErrorType.forbidden => 403,
+      ApiErrorType.notFound => 404,
+      ApiErrorType.rateLimited => 429,
+      ApiErrorType.server => error.statusCode ?? 500,
+      ApiErrorType.invalidData => 422,
+      ApiErrorType.unknown => error.statusCode ?? 500,
+    };
+
+    return http.Response(
+      jsonEncode({
+        'message': error.message,
+        'errorType': error.type.name,
+      }),
+      statusCode,
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
   static ApiErrorType typeForStatusCode(int statusCode) {
     switch (statusCode) {
       case 400:
