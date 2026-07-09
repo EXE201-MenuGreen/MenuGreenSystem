@@ -117,20 +117,26 @@ Git Push → GitHub Actions → Docker Hub → Server Deploy
 
 ## 📋 Feature Status
 
-| Feature | API | UI Flutter | Status |
-|---------|-----|-----------|--------|
-| **Auth** (Register/Login/OTP/Google) | ✅ | ✅ | Complete |
-| **Onboarding** (5 bước) | ✅ | ✅ | Complete |
-| **Profile & Health** | ✅ | ✅ | Complete |
-| **Allergy Management** | ✅ | ✅ | Complete |
-| **Discover/Khám phá** | ✅ | ✅ | Complete |
-| **Nutrition Tracking** | ✅ | ✅ | **Core - 100%** |
-| **Meal Plan** | ✅ | ✅ | **Complete** |
-| **Notification** | ✅ | ✅ | **Complete** |
-| **Subscription/SePay** | ✅ | ✅ | **Complete** |
-| **Recommendation** | ✅ | 🟡 | Partial |
-| **AI Assistant** | ✅ | ⏳ | Placeholder |
-| **Analytics** | ✅ | ❌ | Admin only |
+Trạng thái chi tiết theo từng tính năng: xem bảng canonical tại **[03-features-overview/README.md](./03-features-overview/README.md)** (19 file `01-19` theo nhóm nghiệp vụ).
+
+Tóm tắt nhanh:
+
+| Feature | API | UI Flutter | Canonical |
+|---------|-----|-----------|-----------|
+| **Auth** (Register/Login/OTP/Google) | ✅ | ✅ | [01-auth-and-account](./features/01-auth-and-account.md) |
+| **Onboarding** (5 bước) | ✅ | ✅ | [01-auth-and-account](./features/01-auth-and-account.md) |
+| **Profile & Health** | ✅ | ✅ | [01-auth-and-account](./features/01-auth-and-account.md) |
+| **Nutrition Tracking** | ✅ | ✅ | [02-nutrition-tracking](./features/02-nutrition-tracking.md) |
+| **Meal Plan** | ✅ | ✅ | [03-meal-plan](./features/03-meal-plan.md) |
+| **Discover/Khám phá** + Allergy + Portion | ✅ | ✅ | [04-discover-and-allergy](./features/04-discover-and-allergy.md) |
+| **Recommendation** | ✅ | ✅ | [05-recommendation-engine](./features/05-recommendation-engine.md) |
+| **AI Assistant & Coach** | ✅ | ⏳ Placeholder | [06-ai-assistant-and-coach](./features/06-ai-assistant-and-coach.md) |
+| **Notification** | ✅ | ✅ | [07-notification](./features/07-notification.md) |
+| **Subscription/SePay** | ✅ | ✅ | [08-subscription-and-payment](./features/08-subscription-and-payment.md) |
+| **Analytics** | ✅ | ❌ Admin only | [09-analytics](./features/09-analytics.md) |
+| **Vietnam Local Features** (Daily Starter, Gym/PT, Safety, Food Capture, Allergy Badge, Planned vs Actual) | ✅ | 🟡 Partial | [10-vietnam-local-features](./features/10-vietnam-local-features.md) |
+
+> **Note:** Bảng tóm tắt ở đây mang tính overview. Trạng thái chi tiết (số endpoint, UI components, navigation flow, business rules) xem tại file canonical tương ứng.
 
 ---
 
@@ -174,22 +180,53 @@ docker compose -f docker-compose.prod.yml up -d api
 
 ```
 docs/
-├── PROJECT_STATUS.md              # This file - Overview
-├── README_USER_WORKFLOW.md       # User workflows
-├── README_WORKFLOW_API_STATUS.md # API + UI status
-├── CI_CD.md                     # CI/CD pipeline guide
-├── issues.md                    # Issue tracker
-├── cors-config.md               # CORS configuration
-├── lightsail-setup.md           # Server setup
-├── features/                    # Feature documentation
-│   ├── index.md
-│   ├── RECOMMENDATION.md
-│   ├── AI_ASSISTANT.md
-│   ├── ANALYTICS.md
-│   └── MEAL_PLAN.md
-└── monitoring/
-    └── uptimerobot-setup.md
+├── 00-overview/                      # SPEC, README, PROJECT_STATUS
+│   ├── SPEC.md
+│   ├── README.md
+│   └── PROJECT_STATUS.md
+├── 01-deployment/                    # Deployment guides (DEPLOY, DEPLOY_FIX_PLAN, DEPLOY_REVIEW, DOPPLER_SETUP, CI_CD, lightsail-setup)
+├── 02-backend/                       # Backend models documentation, BE overview
+├── 03-features-overview/                      # features/README, AI report
+│   ├── README.md
+│   └── AI_YELLOW_ITEMS_IMPLEMENTATION_REPORT.md
+├── GITHUB_SECRETS_SETUP.md           # GitHub secrets (root-level)
+├── features/                        # 19 canonical feature specs (01-19)
+│   ├── 01-auth-and-account.md         # Auth + Onboarding + Profile + Health
+│   ├── 02-nutrition-tracking.md       # Meal log + Weight + Dashboard
+│   ├── 03-meal-plan.md                # Meal planning + reminders
+│   ├── 04-discover-and-allergy.md     # Discover + Allergy + Portion
+│   ├── 05-recommendation-engine.md    # Recommendation
+│   ├── 06-ai-assistant-and-coach.md   # AI Assistant + AI Coach
+│   ├── 07-notification.md             # Notification
+│   ├── 08-subscription-and-payment.md # Subscription + SePay
+│   ├── 09-analytics.md                # Analytics (Admin)
+│   ├── 10-vietnam-local-features.md   # Vietnam features + Nutrition Formulas
+│   ├── 11-premium-programs.md        # Premium Programs
+│   ├── 12-meal-templates.md           # Meal Templates
+│   ├── 13-micro-learning.md           # Micro-Learning
+│   ├── 14-adaptive-reminders.md      # Adaptive Reminders
+│   ├── 15-pt-review.md               # PT Review
+│   ├── 16-budget-management.md        # Budget Management
+│   ├── 17-coaches.md                 # Coaches Ecosystem
+│   ├── 18-ingredient-catalog.md      # Ingredient Catalog
+│   └── 19-user-management.md          # User Management
+├── 00-overview/                      # SPEC, README, PROJECT_STATUS
+│   ├── SPEC.md
+│   ├── README.md
+│   └── PROJECT_STATUS.md
+├── 01-deployment/                    # Deployment guides (DEPLOY, DEPLOY_FIX_PLAN, DEPLOY_REVIEW, DOPPLER_SETUP, CI_CD, lightsail-setup)
+├── 02-backend/                       # Backend models documentation, BE overview
+├── 03-features-overview/                      # features/README, AI report
+│   ├── README.md
+│   └── AI_YELLOW_ITEMS_IMPLEMENTATION_REPORT.md
+├── GITHUB_SECRETS_SETUP.md           # GitHub secrets (root-level)
+├── features/                         # 19 canonical feature specs (01-19)
+└── issues.md                         # Issue tracker
 ```
+
+> **Note:** Features 01-19 la canonical docs. Cac file cu da duoc xoa (2026-07-09).
+>
+> **System Specification:** [SPEC.md](./SPEC.md) — System-wide reference: kiến trúc, module, API, DB schema, deployment, Flutter app structure, Open Issues.
 
 ---
 
@@ -211,4 +248,4 @@ docs/
 
 ---
 
-*Last updated: 2026-07-05*
+*Last updated: 2026-07-08*
