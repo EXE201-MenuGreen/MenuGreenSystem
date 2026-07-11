@@ -47,6 +47,28 @@ class ApiMessageTranslator {
     // Nutrition warnings (English from API)
     'Calorie intake deviates more than 10% from daily target.':
         'Calo lệch hơn 10% so với mục tiêu ngày.',
+
+    // DailyStarter / VietnamLocal
+    'Menu template applied to today\'s plan successfully.':
+        'Đã áp dụng mẫu thực đơn cho kế hoạch hôm nay.',
+    'Meal added to today\'s plan successfully.':
+        'Đã thêm món vào kế hoạch hôm nay.',
+    'Feedback saved successfully.':
+        'Đã lưu phản hồi của bạn.',
+    'Saved as quick add successfully.':
+        'Đã lưu làm món ăn nhanh.',
+    'Configuration deleted successfully.':
+        'Đã xóa cấu hình.',
+    'Ingredient substitution in plan applied successfully.':
+        'Đã thay thế nguyên liệu trong kế hoạch.',
+    'Actual ingredient substitution recorded successfully.':
+        'Đã ghi nhận thay thế nguyên liệu thực tế.',
+    'FoodId or MealLogId is required.':
+        'Cần chọn món ăn hoặc nhật ký bữa ăn.',
+    'Consent updated and saved to AI Profile preferences.':
+        'Đã cập nhật đồng ý và lưu vào hồ sơ AI.',
+    'Recalibration data collected and target calories updated successfully.':
+        'Đã thu thập dữ liệu và cập nhật calo mục tiêu.',
   };
 
   static final _macroExceeds = RegExp(

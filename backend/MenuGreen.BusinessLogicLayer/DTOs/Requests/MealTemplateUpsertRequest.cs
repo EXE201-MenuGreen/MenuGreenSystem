@@ -19,6 +19,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
+        public string? MealType { get; set; }
 
         [Range(0.01, double.MaxValue)]
         public decimal QuantityG { get; set; }
@@ -31,5 +32,15 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         public DateTime? LoggedAt { get; set; }
         public string? MealType { get; set; }
+        public List<MealTemplateLogItemQuantityRequest> ItemQuantities { get; set; } = new();
+    }
+
+    public class MealTemplateLogItemQuantityRequest
+    {
+        [Required]
+        public Guid MealTemplateItemId { get; set; }
+
+        [Range(0.01, double.MaxValue)]
+        public decimal QuantityG { get; set; }
     }
 }

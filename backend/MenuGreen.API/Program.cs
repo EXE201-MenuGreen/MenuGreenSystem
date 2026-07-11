@@ -87,6 +87,7 @@ var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
 // Default allowed origins for production
 var defaultOrigins = new[]
 {
+    "https://admin.menugreen.food",
     "https://www.menugreen.food",
     "https://menugreen.food",
     "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
@@ -100,15 +101,21 @@ var configuredOrigins = (builder.Configuration["AllowedOrigins"]
     ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     ?? Array.Empty<string>();
 
-var allowedOrigins = isDevelopment
-    ? defaultOrigins.Concat(configuredOrigins).Distinct().ToArray()
-    : (configuredOrigins.Length > 0 ? configuredOrigins : defaultOrigins);
+// Always merge: default origins + env-configured origins
+// This guarantees admin.menugreen.food is allowed regardless of env config
+var allowedOrigins = defaultOrigins
+    .Concat(configuredOrigins)
+    .Distinct()
+    .ToArray();
+
+// If wildcard is configured, keep all origins allowed
+var allowAnyOrigin = allowedOrigins.Contains("*");
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicyName, policy =>
     {
-        if (isDevelopment || allowedOrigins.Length == 0 || allowedOrigins.Contains("*"))
+        if (isDevelopment || allowAnyOrigin)
         {
             policy.SetIsOriginAllowed(origin => true)
                   .AllowAnyMethod()

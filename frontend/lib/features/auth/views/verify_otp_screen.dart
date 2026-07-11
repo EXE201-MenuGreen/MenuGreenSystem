@@ -27,6 +27,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   bool _isLoading = false;
 
   Future<void> _handleVerify() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,9 +39,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
     setState(() => _isLoading = true);
     final result = await _authRepo.verifyOtp(widget.email, otp);
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (result['success'] == true) {
       final password = widget.password?.trim() ?? '';
@@ -50,7 +51,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
             backgroundColor: Colors.orange,
           ),
         );
-        Navigator.popUntil(context, (route) => route.isFirst);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.popUntil(context, (route) => route.isFirst);
+        });
         return;
       }
 
@@ -73,11 +77,14 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-        (route) => false,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+          (route) => false,
+        );
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message'] ?? 'OTP không hợp lệ'), backgroundColor: Colors.red),

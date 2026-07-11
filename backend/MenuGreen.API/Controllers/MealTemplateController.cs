@@ -65,6 +65,7 @@ namespace MenuGreen.API.Controllers
         [HttpPost("{id:guid}/log")]
         public async Task<IActionResult> Log(Guid id, [FromBody] MealTemplateLogRequest request)
         {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.LogAsync(userId, id, request));
         }

@@ -13,6 +13,13 @@ import 'core/services/push_notification_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'features/splash/views/splash_screen.dart';
 import 'features/meal_plan/providers/meal_plan_provider.dart';
+import 'features/vietnam_local/providers/daily_starter_provider.dart';
+import 'features/vietnam_local/providers/gym_goals_provider.dart';
+import 'features/vietnam_local/providers/safety_provider.dart';
+import 'features/vietnam_local/providers/local_preferences_provider.dart';
+import 'features/vietnam_local/providers/planned_vs_actual_provider.dart';
+import 'features/vietnam_local/providers/food_capture_provider.dart';
+import 'features/vietnam_local/providers/ingredient_substitution_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -59,6 +66,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MealPlanProvider()),
         ChangeNotifierProvider(create: (_) => PushNotificationProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => DailyStarterProvider()),
+        ChangeNotifierProvider(create: (_) => GymGoalsProvider()),
+        ChangeNotifierProvider(create: (_) => SafetyProvider()),
+        ChangeNotifierProvider(create: (_) => LocalPreferencesProvider()),
+        ChangeNotifierProvider(create: (_) => PlannedVsActualProvider()),
+        ChangeNotifierProvider(create: (_) => FoodCaptureProvider()),
+        ChangeNotifierProvider(create: (_) => IngredientSubstitutionProvider()),
       ],
       child: MaterialApp(
         title: 'MenuGreen',

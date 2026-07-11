@@ -1,6 +1,6 @@
 # 10. Vietnam Local Features
 
-**Status:** API Done · UI Partial
+**Status:** API Done · UI Done
 **Last updated:** 2026-07-09
 
 **Related controllers:**
@@ -12,7 +12,8 @@
 - `backend/MenuGreen.API/Controllers/SafetyController.cs`
 - `backend/MenuGreen.API/Controllers/AllergyController.cs` (Allergy Badge)
 
-**Related Flutter feature:** Đa phần backend-only hoặc tích hợp trong các feature khác (Discover, Tracking, Meal Plan, AI).
+**Related Flutter feature:** `frontend/lib/features/vietnam_local/`
+**Public barrel:** `frontend/lib/features/vietnam_local/vietnam_local.dart`
 
 ---
 
@@ -22,14 +23,16 @@ Nhóm tính năng **Vietnam-first** và các workflow đặc thù cho người d
 
 | Workflow | Mô tả | Trạng thái UI |
 |----------|-------|---------------|
-| 2.11 Vietnam-first Local Nutrition | Local preferences, discovery local, portion, meal log VN | Partial |
-| 2.12 Beginner Quick-Start ("Hôm nay ăn gì?") | Gợi ý 1-tap cho user mới | Chưa có |
-| 2.13 Gym/PT Goal-Based Workflow | Calo tự đổi theo ngày tập/ngày nghỉ, recalibrate | Chưa có |
-| 2.14 Real-world Food Data Capture | Quick template, fallback estimate | Chưa có |
-| 2.15 Safety, Trust, Compliance | Disclaimer, consent, BMI y tế, export data, delete | Chưa có |
+| 2.11 Vietnam-first Local Nutrition | Local preferences, discovery local, portion, meal log VN | Done |
+| 2.12 Beginner Quick-Start ("Hôm nay ăn gì?") | Gợi ý 1-tap cho user mới | Done |
+| 2.13 Gym/PT Goal-Based Workflow | Calo tự đổi theo ngày tập/ngày nghỉ, recalibrate | Done |
+| 2.14 Real-world Food Data Capture | Quick template, fallback estimate | Done |
+| 2.15 Safety, Trust, Compliance | Disclaimer, consent, BMI y tế, export data, delete | Done |
 | 2.16 Allergy Risk Badge | Badge UI cho meal (xem [`04-discover-and-allergy.md`](./04-discover-and-allergy.md)) | Done |
+| 2.17 Planned vs Actual Insights | So sánh kế hoạch với thực tế, điểm bám sát, drift, recalibrate | Done |
+| 2.18 Ingredient Substitution Preference | Quản lý cặp nguyên liệu thay thế ưa thích | Done |
 
-> **Ghi chú:** Phần lớn workflows này là **backend infrastructure** phục vụ các tính năng user-facing khác. UI riêng chưa ưu tiên (P3), chỉ Allergy Risk Badge đã có UI.
+> **Ghi chú:** Toàn bộ workflows đã có UI Flutter ở `frontend/lib/features/vietnam_local/`. Allergy Risk Badge tiếp tục sống trong feature Discover theo mô tả ở [`04-discover-and-allergy.md`](./04-discover-and-allergy.md).
 
 ---
 
@@ -169,12 +172,26 @@ Full API AllergyController (xem chi tiết tại [`04-discover-and-allergy.md`](
 | Component | File | Status |
 |-----------|------|--------|
 | AllergyRiskBadge | `features/discover/widgets/allergy_risk_badge.dart` | Done |
+| DailyStarterScreen | `features/vietnam_local/views/daily_starter_screen.dart` | Done |
+| DailyStarterPersonalizationScreen | `features/vietnam_local/views/daily_starter_personalization_screen.dart` | Done |
+| GymGoalsScreen (+ editor) | `features/vietnam_local/views/gym_goals_screen.dart` | Done |
+| FoodCaptureScreen | `features/vietnam_local/views/food_capture_screen.dart` | Done |
+| SafetyHubScreen | `features/vietnam_local/views/safety_hub_screen.dart` | Done |
+| DisclaimerScreen | `features/vietnam_local/views/disclaimer_screen.dart` | Done |
+| ConsentScreen | `features/vietnam_local/views/consent_screen.dart` | Done |
+| ReportIssueScreen | `features/vietnam_local/views/report_issue_screen.dart` | Done |
+| LocalPreferencesScreen | `features/vietnam_local/views/local_preferences_screen.dart` | Done |
+| PlannedVsActualScreen | `features/vietnam_local/views/planned_vs_actual_screen.dart` | Done |
+| IngredientSubstitutionScreen | `features/vietnam_local/views/ingredient_substitution_screen.dart` | Done |
+| InfoCard, SectionHeader, RangePickerField | `features/vietnam_local/widgets/` | Done |
 
-> **Trạng thái UI:**
-> - **Allergy Risk Badge:** Done (xem [`04-discover-and-allergy.md`](./04-discover-and-allergy.md)).
-> - **Vietnam Meal Log UI:** Partial (qua `MealLogSheet` trong [`02-nutrition-tracking.md`](./02-nutrition-tracking.md)).
-> - **Daily Starter screen, Gym/PT screen, Safety screen, Food Capture UI:** Chưa có (P3).
-> - **Planned vs Actual report UI:** Backend trả HTML monthly report; user app chưa có UI riêng.
+> **Điểm tích hợp:**
+> - **Home tab:** thẻ "Lối tắt nhanh" với nút mở Daily Starter và Food Capture.
+> - **Profile tab:** nhóm "Ăn uống Việt Nam" chứa Planned vs Actual, Gym/PT, Local Preferences, Ingredient Substitution, Safety hub.
+> - **Meal Log:** phần "Ăn ngoài?" fallback sang `FoodCaptureScreen`.
+> - **VN Meal Log (2.11):** `LocalPreferencesScreen` tích hợp section "Nhật ký ăn uống VN" với gợi ý món VN và ghi nhanh bằng đơn vị VN (chén, bát, muỗng). Repository hỗ trợ `POST /api/Nutrition/meal-log/vn`, `GET .../history`, `GET .../discovery/local`.
+> - **Planned vs Actual (2.17):** `PlannedVsActualScreen` có nút "Báo cáo tháng" (icon calendar_month) gọi `GET /api/Analytics/planned-vs-actual/monthly-report`.
+> - **Realtime:** Provider `SafetyProvider` dùng `Context.mounted` để tránh cảnh báo `use_build_context_synchronously`.
 
 ---
 
@@ -184,21 +201,30 @@ Vietnam-local workflows phân tán theo ngữ cảnh:
 
 ```
 Home (Tab)
-├── "Hôm nay ăn gì?" → Daily Starter flow
-│       └── GET /DailyStarter/today → list món → chọn → POST /select-meal
-│       └── POST /start-log → MealLogSheet (xem 02-nutrition-tracking.md)
-├── "Gym mode" badge → Gym Goals (nếu user là gym/PT)
-│       └── GET /GymGoals/me → hiển thị alert/plan
-│       └── POST /GymGoals/recalibrate (background)
-└── "Ăn ngoài?" → Food Capture
-        └── POST /food-capture/fallback-estimate → MealLogSheet
+├── "Lối tắt nhanh"
+│       ├── "Hôm nay ăn gì?" → DailyStarterScreen
+│       │       └── GET /DailyStarter/today → list món → chọn → POST /select-meal
+│       │       └── PUT /personalization → cập nhật sở thích
+│       └── "Ăn ngoài?" → FoodCaptureScreen
+│               └── POST /food-capture/fallback-estimate hoặc /save-as-quick-add
+└── "Kế hoạch hôm nay" → MealPlanTodayScreen (vẫn dùng flow meal plan)
 
 Profile
-└── "Bảo mật & Tuân thủ"
-        ├── DisclaimerScreen
-        ├── ConsentScreen
-        ├── ExportDataButton
-        └── DeleteAccountButton
+└── "Ăn uống Việt Nam"
+        ├── PlannedVsActualScreen
+        │       └── GET /Analytics/planned-vs-actual/* + /recalibrate
+        ├── GymGoalsScreen (+ editor)
+        │       └── GET/POST /GymGoals, /plan, /recalibrate
+        ├── LocalPreferencesScreen
+        │       └── GET/POST /Nutrition/local-preferences
+        ├── IngredientSubstitutionScreen
+        │       └── GET/POST/DELETE /Ingredient/preferences/substitutes
+        └── SafetyHubScreen
+                ├── DisclaimerScreen
+                ├── ConsentScreen (PUT /Safety/consent)
+                ├── ReportIssueScreen (POST /Safety/report-issue)
+                ├── ExportDataButton (POST /Safety/export-data)
+                └── DeleteAccountButton (DELETE /Safety/delete-data)
 ```
 
 ---
