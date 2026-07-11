@@ -184,7 +184,7 @@ docs/
 │   ├── SPEC.md
 │   ├── README.md
 │   └── PROJECT_STATUS.md
-├── 01-deployment/                    # Deployment guides (DEPLOY, DEPLOY_FIX_PLAN, DEPLOY_REVIEW, DOPPLER_SETUP, CI_CD, lightsail-setup)
+├── 01-deployment/                    # Deployment guides (ARCHITECTURE, CI_CD, NGINX_AND_CORS, SECRETS_MANAGEMENT, SERVER_SETUP)
 ├── 02-backend/                       # Backend models documentation, BE overview
 ├── 03-features-overview/                      # features/README, AI report
 │   ├── README.md
@@ -214,7 +214,7 @@ docs/
 │   ├── SPEC.md
 │   ├── README.md
 │   └── PROJECT_STATUS.md
-├── 01-deployment/                    # Deployment guides (DEPLOY, DEPLOY_FIX_PLAN, DEPLOY_REVIEW, DOPPLER_SETUP, CI_CD, lightsail-setup)
+├── 01-deployment/                    # Deployment guides (ARCHITECTURE, CI_CD, NGINX_AND_CORS, SECRETS_MANAGEMENT, SERVER_SETUP)
 ├── 02-backend/                       # Backend models documentation, BE overview
 ├── 03-features-overview/                      # features/README, AI report
 │   ├── README.md

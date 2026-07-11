@@ -1,6 +1,6 @@
 # CORS & Nginx Configuration Guide
 
-> **Last updated:** 2026-07-11 — Phản ánh config hiện tại trên server.
+> **Last updated:** 2026-07-11 — Workflow tự động qua CI/CD (không cần SSH để apply nginx).
 
 ---
 
@@ -23,7 +23,7 @@ Có 2 cách CORS được xử lý song song:
 ```
 Internet (HTTPS:443)
        ↓
-[Nginx trên host]
+[Nginx trên host]   ← Cài qua apt install, chạy như systemd service
    ├─ SSL terminate (Let's Encrypt)
    ├─ CORS check (map $http_origin $cors_origin)
    ├─ Rate limiting
@@ -32,6 +32,18 @@ Internet (HTTPS:443)
    [Docker container: menugreen_api]
    └─ .NET API + CORS middleware (fallback)
 ```
+
+### Vị trí Nginx trong hệ thống
+
+| Thành phần | Vị trí | Quản lý bởi |
+|------------|--------|--------------|
+| Nginx binary | `/usr/sbin/nginx` (apt install) | System package |
+| Nginx service | `systemctl status nginx` | systemd |
+| Config source | `MenuGreenSystem/backend/nginx/` | Git repository |
+| Config runtime | `/etc/nginx/nginx.conf` + `/etc/nginx/conf.d/` | CI/CD apply |
+| Docker image `menugreensystem:main` | ❌ KHÔNG chứa nginx | — |
+
+> **Lưu ý:** Nginx là service ĐỘC LẬP trên host, tách biệt hoàn toàn khỏi Docker Image. Sửa nginx → chỉ cần push git → CI/CD apply (không build lại image).
 
 ---
 
@@ -118,22 +130,26 @@ git commit -m "feat(nginx): add staging.menugreen.food to CORS"
 git push origin main
 ```
 
-### Bước 3: Apply lên server
+### Bước 3: CI/CD tự động apply lên server
 
-```bash
-ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100
+**Không cần SSH vào server.** GitHub Actions runner tự động:
 
-cd ~/apps/MenuGreenSystem    # hoặc ~/apps/menugreen nếu có clone
-git pull origin main
-
-sudo ./backend/nginx/deploy/deploy-nginx.sh
+```
+1. backend-ci.yml — Build & push Docker image (3-5 phút)
+2. backend-cd.yml — Deploy:
+   ├─ SCP file nginx: /tmp/nginx-deploy/  (vài giây)
+   ├─ SSH vào server, chạy script apply:
+   │   ├─ Backup config hiện tại (.bak.YYYYMMDD_HHMMSS)
+   │   ├─ Copy file mới → /etc/nginx/conf.d/cors-map.conf
+   │   ├─ nginx -t (syntax check)
+   │   │    ├─ PASS → systemctl reload nginx (zero downtime)
+   │   │    └─ FAIL → restore backup → exit 1 (abort toàn bộ deploy)
+   │   └─ Cleanup /tmp/nginx-deploy/
+   └─ Pull image mới + restart container
 ```
 
-Script `deploy-nginx.sh` sẽ tự động:
-1. Backup config cũ (timestamp)
-2. Copy file mới vào `/etc/nginx/`
-3. Test syntax (`nginx -t`) — fail → rollback tự động
-4. Reload nginx (zero downtime)
+> **Tổng thời gian:** 5-8 phút từ lúc push → nginx mới có hiệu lực.
+> **Không cần build lại Docker image** khi chỉ sửa nginx (CD vẫn chạy nhưng image giữ nguyên).
 
 ### Bước 4: Verify
 
@@ -146,6 +162,17 @@ curl -I -X OPTIONS https://api.menugreen.food/api/Auth/login \
 # Response phải có:
 # Access-Control-Allow-Origin: https://staging.menugreen.food
 ```
+
+### 4 trường hợp cập nhật Nginx
+
+| Trường hợp | Cách làm | Thời gian |
+|------------|----------|-----------|
+| **Thêm domain CORS** (phổ biến nhất) | Sửa `cors-map.conf` → push | 5-8 phút |
+| **Sửa upstream / rate limit / security header** | Sửa `nginx.conf` → push | 5-8 phút |
+| **Sửa code API + Nginx cùng lúc** | Sửa cả `.cs` + nginx → push | 5-8 phút (cả 2 update) |
+| **Chỉ sửa nginx, không sửa code** | Sửa nginx → push | 5-8 phút (image giữ nguyên) |
+
+> ⚠️ **Lưu ý:** Sửa `nginx.conf` (không phải `cors-map.conf`) cần cẩn thận — workflow có auto rollback nếu syntax fail, nhưng nên test kỹ trước khi push.
 
 ---
 
@@ -273,10 +300,10 @@ Hiện tại: dùng Option A cho domain Vercel chính (`menu-green-system-ldw5fr
 
 ## Liên quan
 
-- [DEPLOY.md](./DEPLOY.md) — Tổng quan deployment
-- [CI_CD.md](./CI_CD.md) — CI/CD pipeline
-- `backend/nginx/deploy/README.md` — Hướng dẫn chi tiết nginx deployment
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — Tổng quan deployment (workflow Nginx CI/CD)
+- [CI_CD.md](./CI_CD.md) — CI/CD pipeline chi tiết
+- `backend/nginx/deploy/setup-server.sh` — Setup lần đầu (1 lần duy nhất)
 
 ---
 
-*Last updated: 2026-07-11*
+*Last updated: 2026-07-11 — Workflow tự động qua CI/CD*

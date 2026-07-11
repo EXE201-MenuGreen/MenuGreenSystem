@@ -182,7 +182,7 @@ sudo mkdir -p /etc/nginx/snippets
 sudo mkdir -p /etc/nginx/sites-enabled
 ```
 
-> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [cors-config.md](./cors-config.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
+> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
 
 ---
 
@@ -419,4 +419,4 @@ sudo du -sh /tmp/*
 
 ---
 
-**Tiếp theo:** Sau khi setup xong, xem [DEPLOY.md](./DEPLOY.md) để hiểu flow deploy.
+**Tiếp theo:** Sau khi setup xong, xem [ARCHITECTURE.md](./ARCHITECTURE.md) để hiểu kiến trúc và [CI_CD.md](./CI_CD.md) để hiểu flow deploy.

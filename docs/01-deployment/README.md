@@ -6,49 +6,45 @@ Tài liệu về việc deploy backend MenuGreen API lên AWS Lightsail.
 
 ---
 
-## 📋 Mục lục
+## Mục lục
 
 Đọc theo thứ tự nếu bạn mới:
 
-| # | File                                  | Mục đích                              | Đối tượng              |
-|---|---------------------------------------|---------------------------------------|------------------------|
-| 1 | [DEPLOY.md](./DEPLOY.md)              | Tổng quan deployment, kiến trúc        | Tất cả                  |
-| 2 | [lightsail-setup.md](./lightsail-setup.md) | Setup server từ đầu (tạo VM, cài Docker, Nginx) | DevOps mới             |
-| 3 | [DOPPLER_SETUP.md](./DOPPLER_SETUP.md)| Quản lý secrets qua Doppler          | DevOps                  |
-| 4 | [CI_CD.md](./CI_CD.md)                | Chi tiết CI/CD pipeline               | DevOps                  |
-| 5 | [cors-config.md](./cors-config.md)    | CORS & Nginx config                   | Backend Dev + DevOps    |
-
-Tài liệu lịch sử (đã hoàn thành):
-
-| File                                  | Mục đích                                   |
-|---------------------------------------|--------------------------------------------|
-| [DEPLOY_FIX_PLAN.md](./DEPLOY_FIX_PLAN.md) | Plan fix deploy ban đầu (đã xong ✅)    |
-| [DEPLOY_REVIEW.md](./DEPLOY_REVIEW.md)    | Gap analysis giữa plan và code (đã xong ✅) |
+| # | File                                          | Mục đích                                                          | Đối tượng              |
+|---|-----------------------------------------------|-------------------------------------------------------------------|------------------------|
+| 1 | [ARCHITECTURE.md](./ARCHITECTURE.md)          | Kiến trúc tổng quan, GitHub Secrets, server info                 | Tất cả                  |
+| 2 | [SERVER_SETUP.md](./SERVER_SETUP.md)          | Setup server từ đầu (tạo VM, cài Docker, Nginx)                  | DevOps mới             |
+| 3 | [SECRETS_MANAGEMENT.md](./SECRETS_MANAGEMENT.md) | Quản lý secrets qua Doppler                                    | DevOps                  |
+| 4 | [CI_CD.md](./CI_CD.md)                        | Chi tiết CI/CD pipeline (13 bước deploy)                         | DevOps                  |
+| 5 | [NGINX_AND_CORS.md](./NGINX_AND_CORS.md)      | CORS & Nginx config (deploy tự động qua CI/CD)                   | Backend Dev + DevOps    |
 
 ---
 
-## 🚀 Quick Start (cho người mới)
+## Quick Start (cho người mới)
 
 ### Bạn muốn...
 
 **Setup server mới từ đầu?**
-→ Đọc [lightsail-setup.md](./lightsail-setup.md)
+→ Đọc [SERVER_SETUP.md](./SERVER_SETUP.md)
+
+**Hiểu kiến trúc hệ thống + các services?**
+→ Đọc [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 **Hiểu cách deploy tự động hoạt động?**
-→ Đọc [DEPLOY.md](./DEPLOY.md) + [CI_CD.md](./CI_CD.md)
+→ Đọc [CI_CD.md](./CI_CD.md)
 
 **Thêm domain vào CORS whitelist?**
-→ Đọc [cors-config.md](./cors-config.md)
+→ Đọc [NGINX_AND_CORS.md](./NGINX_AND_CORS.md)
 
 **Quản lý secrets (DB password, JWT, ...)?**
-→ Đọc [DOPPLER_SETUP.md](./DOPPLER_SETUP.md)
+→ Đọc [SECRETS_MANAGEMENT.md](./SECRETS_MANAGEMENT.md)
 
 **Trigger deploy thủ công?**
 → GitHub → Actions → `Backend CD - Deploy` → `Run workflow`
 
 ---
 
-## 🏗️ Kiến trúc tổng quan
+## Kiến trúc tổng quan
 
 ```
 Internet
@@ -63,14 +59,14 @@ Internet
 **Workflow:**
 1. Dev push code lên `main`
 2. `backend-ci.yml`: build + push Docker image lên Docker Hub
-3. `backend-cd.yml`: SSH vào Lightsail, pull Doppler secrets, deploy
+3. `backend-cd.yml`: SCP nginx files + SSH vào Lightsail, pull Doppler secrets, deploy
 4. Health check pass → live. Fail → auto-rollback.
 
-Xem chi tiết: [DEPLOY.md](./DEPLOY.md)
+Xem chi tiết: [ARCHITECTURE.md](./ARCHITECTURE.md) + [CI_CD.md](./CI_CD.md)
 
 ---
 
-## 📍 Thông tin server hiện tại
+## Thông tin server hiện tại
 
 | Property          | Value                              |
 |-------------------|------------------------------------|
@@ -87,7 +83,7 @@ Xem chi tiết: [DEPLOY.md](./DEPLOY.md)
 
 ---
 
-## 🔗 Files liên quan ngoài folder này
+## Files liên quan ngoài folder này
 
 | File                                                       | Mục đích                      |
 |------------------------------------------------------------|-------------------------------|
@@ -98,9 +94,10 @@ Xem chi tiết: [DEPLOY.md](./DEPLOY.md)
 
 ---
 
-## 📝 Thay đổi gần đây
+## Thay đổi gần đây
 
-- **2026-07-11:** Cập nhật toàn bộ docs cho khớp với workflow thật (backend-ci/cd, auto-migrate, managed Redis, nginx trên host).
+- **2026-07-11:** Tổ chức lại docs (8 → 6 file, archive removed). Merge DEPLOY.md + CI_CD.md overview thành ARCHITECTURE.md. Rename: cors-config → NGINX_AND_CORS, DOPPLER_SETUP → SECRETS_MANAGEMENT, lightsail-setup → SERVER_SETUP.
+- **2026-07-11:** Cập nhật toàn bộ docs cho khớp với workflow thật (Nginx apply qua CI/CD, SCP + SSH, auto-migrate, managed Redis).
 - **2026-07-01:** Fix Doppler secrets flow, JWT throw, Redis connection string.
 - **2026-06-30:** Import secrets vào Doppler config `prd`.
 

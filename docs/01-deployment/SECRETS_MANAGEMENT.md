@@ -118,60 +118,7 @@ Project: menugreen
 | `JWTSETTINGS__AUDIENCE`             | Alternative audience           |
 | `JWTSETTINGS__EXPIRYMINUTES`        | Token expiry                   |
 
----
-
-## Luồng hoạt động CI/CD (hiện tại)
-
-```
-GitHub Actions (backend-cd.yml)
-       │
-       │ 1. Đọc DOPPLER_TOKEN từ GitHub Secrets
-       │
-       ▼
-Doppler API (project menugreen, config prd)
-       │
-       │ 2. Trả về tất cả secrets ở format env
-       │
-       ▼
-SSH action (appleboy/ssh-action) vào Lightsail
-       │
-       │ 3. Chạy script build .env:
-       │    - Parse doppler secrets
-       │    - Convert `Foo:Bar` → `Foo__Bar=value`
-       │    - Special handling: ConnectionStrings__DefaultConnection,
-       │      JwtSettings__*, REDIS_URL
-       │
-       ▼
-File /home/ubuntu/apps/menugreen/.env
-       │
-       │ 4. docker compose up -d đọc .env qua env_file
-       │
-       ▼
-Container menugreen_api
-       └─ Đọc env vars → ASP.NET Core config
-```
-
-### Chi tiết script build `.env` (trong workflow)
-
-```bash
-# Download tất cả secrets
-doppler secrets download --token "$DOPPLER_TOKEN" --no-file \
-  --project menugreen --config prd --format env \
-  > /tmp/doppler_raw.env
-
-# Build .env từ Doppler secrets
-printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > .env
-
-# Convert tất cả keys: `Foo:Bar` → `Foo__Bar=value`
-while IFS='=' read -r key raw_value; do
-  [[ -z "$key" || "$key" =~ ^# ]] && continue
-  net_key="${key//:/__}"
-  echo "${net_key}=${value}" >> .env
-done < /tmp/doppler_raw.env
-
-# Special handling: ghép REDIS_URL từ REDIS_HOST + REDIS_PORT + REDIS_PASSWORD
-echo "REDIS_URL=${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD}" >> .env
-```
+> **Luồng CI/CD + chi tiết script build `.env`:** xem [CI_CD.md](./CI_CD.md#workflow-files-chi-tiết).
 
 ---
 

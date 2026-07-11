@@ -14,11 +14,12 @@
 
 || Document | Description |
 ||----------|-------------|
+|| **[ARCHITECTURE.md](../01-deployment/ARCHITECTURE.md)** | Kiến trúc tổng quan, GitHub Secrets, Server Info |
 || **[CI_CD.md](../01-deployment/CI_CD.md)** | CI/CD pipeline, deploy, rollback |
-|| **[lightsail-setup.md](../01-deployment/lightsail-setup.md)** | Server setup guide |
+|| **[SERVER_SETUP.md](../01-deployment/SERVER_SETUP.md)** | Server setup guide |
+|| **[SECRETS_MANAGEMENT.md](../01-deployment/SECRETS_MANAGEMENT.md)** | Quản lý secrets (Doppler) |
+|| **[NGINX_AND_CORS.md](../01-deployment/NGINX_AND_CORS.md)** | CORS & Nginx configuration |
 || **[GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md)** | GitHub secrets configuration |
-|| **[cors-config.md](../01-deployment/cors-config.md)** | CORS configuration guide |
-|| **[01-deployment/](../01-deployment/)** | Deployment guides (DEPLOY, DEPLOY_FIX_PLAN, DEPLOY_REVIEW, DOPPLER_SETUP) |
 
 ---
 
@@ -88,4 +89,4 @@ cd ~/apps/MenuGreenSystem
 
 ---
 
-*Last updated: 2026-07-09 — Restructured docs: 6 folders, 35 files.*
+*Last updated: 2026-07-11 — Reorganized 01-deployment/ docs (8 → 6 files, archive removed).*
