@@ -15,6 +15,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.Category).HasColumnType("text");
             builder.Property(x => x.Description).HasColumnType("text");
             builder.Property(x => x.ImageUrl).HasColumnType("text");
+            builder.Property(x => x.Region).HasColumnType("text");
         }
     }
 }

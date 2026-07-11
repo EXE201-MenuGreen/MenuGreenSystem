@@ -46,7 +46,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 DefaultServingG = request.DefaultServingG,
                 ImageUrl = request.ImageUrl,
                 IsActive = request.IsActive ?? true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Region = request.Region
             };
 
             await _unitOfWork.Foods.AddAsync(food);
@@ -70,6 +71,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             food.DefaultServingG = request.DefaultServingG;
             food.ImageUrl = request.ImageUrl;
             food.IsActive = request.IsActive ?? food.IsActive;
+            food.Region = request.Region;
             _unitOfWork.Foods.Update(food);
             await _unitOfWork.CompleteAsync();
             return Map(food);
@@ -140,7 +142,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 foods = foods.Where(IsVietnameseFriendlyFood);
             }
 
-            foods = ApplyRegionPreference(foods, region);
+            if (!string.IsNullOrWhiteSpace(region))
+            {
+                var normalizedRegion = region.Trim().ToLowerInvariant();
+                var dbRegion = normalizedRegion switch
+                {
+                    "north" or "bac" or "bắc" => "north",
+                    "central" or "trung" or "miền trung" => "central",
+                    "south" or "nam" or "miền nam" => "south",
+                    _ => normalizedRegion
+                };
+                foods = foods.Where(f => string.Equals(f.Region, dbRegion, StringComparison.OrdinalIgnoreCase));
+            }
 
             var foodList = foods.ToList();
             var userKeys = userId.HasValue
@@ -276,7 +289,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             EstimatedPriceVnd = f.EstimatedPriceVnd,
             DefaultServingG = f.DefaultServingG,
             ImageUrl = f.ImageUrl,
-            IsActive = f.IsActive
+            IsActive = f.IsActive,
+            Region = f.Region
         };
 
         private static FoodResponse EnrichWithAllergy(

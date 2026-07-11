@@ -19,6 +19,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int? DefaultServingG { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
+        public string? Region { get; set; }
 
         /// <summary>Mã chuẩn (peanut, dairy, …).</summary>
         public List<string> AllergenKeys { get; set; } = new();
