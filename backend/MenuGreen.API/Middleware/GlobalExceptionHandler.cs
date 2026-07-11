@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
@@ -49,7 +50,22 @@ namespace MenuGreen.API.Middleware
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception on {Method} {Path}", context.Request.Method, context.Request.Path);
-                await WriteAsync(context, HttpStatusCode.InternalServerError, "An unexpected error occurred. Please try again later.");
+
+                // DEBUG: Return exception details to help diagnose production errors
+                // TODO: Remove this and restore generic message once bug is fixed
+                var debugInfo = new
+                {
+                    Message = "An unexpected error occurred. Please try again later.",
+                    Debug = new
+                    {
+                        Type = ex.GetType().FullName,
+                        ExceptionMessage = ex.Message,
+                        StackTrace = ex.StackTrace?.Split('\n').Take(15).ToArray(),
+                        InnerException = ex.InnerException?.Message
+                    }
+                };
+                await WriteAsync(context, HttpStatusCode.InternalServerError, JsonSerializer.Serialize(debugInfo));
+                return;
             }
         }
 
@@ -64,8 +80,7 @@ namespace MenuGreen.API.Middleware
             context.Response.StatusCode = (int)status;
             context.Response.ContentType = "application/json";
 
-            var body = JsonSerializer.Serialize(new { Message = message });
-            await context.Response.WriteAsync(body);
+            await context.Response.WriteAsync(message);
         }
     }
 }
