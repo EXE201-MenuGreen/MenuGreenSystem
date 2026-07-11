@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/location_service.dart';
+import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../../profile/views/allergies_screen.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
@@ -29,6 +31,8 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   final String _allergyMode = 'warn';
   bool _safeOnly = false;
   FoodSearchFilters _foodFilters = const FoodSearchFilters();
+  String? _detectedRegion;
+  bool _detectingLocation = false;
   bool _initialLoading = true;
   bool _refreshing = false;
   bool _recipesLoading = false;
@@ -134,6 +138,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             keyword: _keyword,
             allergyMode: _effectiveAllergyMode,
             filters: _foodFilters,
+            region: _detectedRegion,
           )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
@@ -231,6 +236,49 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     }
   }
 
+  Future<void> _scanLocation() async {
+    if (_detectingLocation) return;
+    setState(() {
+      _detectingLocation = true;
+      _error = null;
+    });
+
+    try {
+      final region = await LocationService.detectCurrentRegion();
+      setState(() {
+        _detectedRegion = region;
+        _detectingLocation = false;
+      });
+      _scheduleReload();
+
+      // Lưu vùng miền định vị được vào hồ sơ AI trên database để Trợ lý AI có thể đề xuất chính xác
+      unawaited(UserAiProfileRepository().upsert(vietnamRegion: region));
+
+      if (mounted) {
+        final displayName = LocationService.getRegionDisplayName(region);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã định vị vùng hiện tại: $displayName'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _detectingLocation = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể lấy vị trí: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -313,6 +361,42 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                     setState(() => _safeOnly = v);
                     _scheduleReload();
                   },
+                ),
+                InputChip(
+                  avatar: _detectingLocation
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : Icon(
+                          _detectedRegion != null ? Icons.my_location : Icons.location_searching,
+                          size: 16,
+                          color: _detectedRegion != null ? AppColors.primary : null,
+                        ),
+                  label: Text(
+                    _detectedRegion != null
+                        ? 'Miền ${LocationService.getRegionDisplayName(_detectedRegion!)}'
+                        : 'Quét vị trí',
+                  ),
+                  selected: _detectedRegion != null,
+                  onSelected: (selected) {
+                    if (selected) {
+                      _scanLocation();
+                    } else {
+                      setState(() => _detectedRegion = null);
+                      _scheduleReload();
+                    }
+                  },
+                  onDeleted: _detectedRegion != null
+                      ? () {
+                          setState(() => _detectedRegion = null);
+                          _scheduleReload();
+                        }
+                      : null,
                 ),
                 ActionChip(
                   avatar: Icon(
