@@ -503,3 +503,39 @@ monitoring/nginx/.htpasswd
 # User configuration files
 backend/MenuGreen.API/appsettings.json
 backend/MenuGreen.API/appsettings.Development.json
+
+# ─── Secrets & deployment keys (NEVER commit) ───────────────────
+# SSL certificates (Let's Encrypt / self-signed)
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer
+# Keep nginx/ssl/ folder tracked via .gitkeep but exclude actual keys
+backend/nginx/ssl/fullchain.pem
+backend/nginx/ssl/privkey.pem
+backend/nginx/ssl/*.pem
+backend/nginx/ssl/*.key
+
+# Android signing & API keys
+frontend/android/app/keystore_pass.txt
+frontend/android/app/*.jks
+frontend/android/app/*.keystore
+frontend/android/app/google-services.json
+frontend/firebase/service-account*.json
+
+# Flutter build artifacts (do NOT push)
+frontend/app-release.aab
+frontend/app-debug.apk
+frontend/build/app/outputs/**/*.aab
+frontend/build/app/outputs/**/*.apk
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/pubspec.lock
+
+# Generated platforms (avoid noisy diffs)
+frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+frontend/windows/flutter/GeneratedPluginRegistrant.cpp
+frontend/linux/flutter/GeneratedPluginRegistrant.cc
