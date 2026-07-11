@@ -51,6 +51,8 @@ class ApiMessageTranslator {
     // DailyStarter / VietnamLocal
     'Menu template applied to today\'s plan successfully.':
         'Đã áp dụng mẫu thực đơn cho kế hoạch hôm nay.',
+    'Meal added to today\'s plan successfully.':
+        'Đã thêm món vào kế hoạch hôm nay.',
     'Feedback saved successfully.':
         'Đã lưu phản hồi của bạn.',
     'Saved as quick add successfully.':

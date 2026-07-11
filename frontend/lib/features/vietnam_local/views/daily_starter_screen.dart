@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../discover/views/food_detail_screen.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/daily_starter_provider.dart';
 import '../widgets/info_card.dart';
@@ -32,14 +33,30 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
   Future<void> _applyFeatured(DailyStarterFood food) async {
     final provider = context.read<DailyStarterProvider>();
     final result = await provider.selectMeal({
-      'foodId': food.id,
-      'name': food.name,
-      'mealType': _guessMealType(),
-      'calories': food.caloriesKcal,
+      'meals': [
+        {
+          'foodId': food.id,
+          'mealType': _guessMealType(),
+        },
+      ],
     });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ApiMessageTranslator.translate(result))),
+    );
+  }
+
+  void _openFoodDetail(DailyStarterFood food) {
+    if (food.id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy thông tin món ăn.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: food.id)),
     );
   }
 
@@ -81,7 +98,7 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                   const SizedBox(height: 20),
                   const SectionHeader(
                     title: 'Bữa nhanh gợi ý',
-                    subtitle: 'Chạm để áp dụng vào kế hoạch hôm nay',
+                    subtitle: 'Món ăn phù hợp cho hôm nay',
                     icon: Icons.bolt,
                   ),
                   const SizedBox(height: 12),
@@ -179,7 +196,7 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => _applyFeatured(food),
+                onTap: () => _openFoodDetail(food),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -226,7 +243,14 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                           ],
                         ),
                       ),
-                      const Icon(Icons.add_task, color: AppColors.primary),
+                      IconButton(
+                        tooltip: 'Thêm vào kế hoạch hôm nay',
+                        onPressed: () => _applyFeatured(food),
+                        icon: const Icon(
+                          Icons.add_circle_outline,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
