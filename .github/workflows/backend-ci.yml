@@ -2,7 +2,7 @@ name: Backend CI - Build & Push
 
 on:
   push:
-    branches: [main, Tuanx]
+    branches: [main, Tuan, Tuanx]
   pull_request:
     branches: [main, develop]
 
