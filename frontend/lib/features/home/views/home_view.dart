@@ -1,22 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
-import '../../../core/widgets/primary_button.dart';
-import '../../profile/repositories/profile_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
-import '../../notifications/providers/notification_provider.dart';
-import '../../notifications/views/notification_inbox_screen.dart';
-import '../../tracking/repositories/nutrition_tracking_repository.dart';
-import '../../tracking/utils/nutrition_warning_utils.dart';
-
 import '../../meal_plan/models/meal_plan_models.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../../meal_plan/views/meal_plan_today_screen.dart';
+import '../../notifications/providers/notification_provider.dart';
+import '../../notifications/views/notification_inbox_screen.dart';
+import '../../profile/repositories/profile_repository.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
+import '../../tracking/utils/nutrition_warning_utils.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
-import '../../tracking/views/ingredient_scan_screen.dart';
+import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
+import '../../vietnam_local/views/daily_starter_screen.dart';
+import '../widgets/home_banner_carousel.dart';
+import '../widgets/home_calorie_section.dart';
+import '../widgets/quick_action_grid.dart';
+import '../widgets/recommended_meal_card.dart';
+import '../widgets/tip_card.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({
@@ -38,11 +43,27 @@ class HomeViewState extends State<HomeView> {
   final _trackingRepository = NutritionTrackingRepository();
   final _mealPlanRepository = MealPlanRepository();
   final _notificationProvider = NotificationProvider();
+  final _dailyStarterRepo = DailyStarterRepository();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
   MealPlanAdherence? _mealPlanAdherence;
   bool _refreshing = false;
+  List<RecommendedMealItem> _recommendedMeals = [];
+  List<TipItem> _tips = [];
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Chào buổi sáng ☀️';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Chào buổi chiều 🌤️';
+    } else if (hour >= 17 && hour < 22) {
+      return 'Chào buổi tối 🌙';
+    } else {
+      return 'Ngủ ngon nhé 😴';
+    }
+  }
 
   @override
   void initState() {
@@ -50,6 +71,8 @@ class HomeViewState extends State<HomeView> {
     refreshHeader();
     _loadTodaySummary();
     _loadMealPlanAdherence();
+    _loadRecommendations();
+    _loadTips();
     _notificationProvider.loadUnreadCount();
   }
 
@@ -112,7 +135,10 @@ class HomeViewState extends State<HomeView> {
           .getDailySummary(DateTime.now())
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
-      setState(() => _todaySummary = summary);
+      setState(() {
+        _todaySummary = summary;
+      });
+      _loadTips();
     } catch (_) {
       if (!mounted) return;
       if (userInitiated) {
@@ -127,26 +153,184 @@ class HomeViewState extends State<HomeView> {
     }
   }
 
+  Future<void> _loadRecommendations() async {
+    try {
+      final result = await _dailyStarterRepo.getFeaturedMeals();
+      if (!mounted) return;
+      if (result.success && result.data != null) {
+        final data = result.data!;
+        final List<dynamic> rawList = data;
+        setState(() {
+          _recommendedMeals = rawList.map((m) {
+            final map = Map<String, dynamic>.from(m as Map);
+            final mealType = _normalizeMealType(map['mealType']?.toString() ?? '');
+            return RecommendedMealItem(
+              title: map['name']?.toString() ?? 'Món ăn',
+              subtitle: mealType,
+              calories: (map['calories'] ?? map['caloriesKcal'] ?? 0).toInt(),
+              color: AppColors.primary,
+              bgColor: const Color(0xFFE8F5E9),
+              data: map,
+            );
+          }).toList();
+        });
+      }
+    } catch (_) {
+      // silently fail
+    }
+  }
+
+  String _normalizeMealType(String type) {
+    final lower = type.toLowerCase();
+    if (lower.contains('breakfast')) return 'Bữa sáng';
+    if (lower.contains('lunch')) return 'Bữa trưa';
+    if (lower.contains('dinner')) return 'Bữa tối';
+    if (lower.contains('snack')) return 'Ăn vặt';
+    return 'Bữa phụ';
+  }
+
+  void _loadTips() {
+    final warnings = _todaySummary == null
+        ? <String>[]
+        : NutritionWarningMessages.fromSummary(_todaySummary!);
+
+    final tips = <TipItem>[
+      TipItem(
+        title: 'Uống đủ nước',
+        description: 'Nên uống ít nhất 2 lít nước mỗi ngày để duy trì sức khỏe tốt.',
+        type: TipType.health,
+      ),
+      TipItem(
+        title: 'Mẹo giảm cân',
+        description: 'Ăn chậm nhai kỹ giúp no lâu hơn và giảm lượng thức ăn nạp vào.',
+        type: TipType.tip,
+      ),
+      TipItem(
+        title: 'Tập thể dục đều đặn',
+        description: '30 phút vận động mỗi ngày giúp tăng hiệu quả giảm cân.',
+        type: TipType.health,
+      ),
+    ];
+
+    if (warnings.isNotEmpty) {
+      tips.insert(
+        0,
+        TipItem(
+          title: 'Cảnh báo dinh dưỡng',
+          description: warnings.first,
+          type: TipType.warning,
+        ),
+      );
+    }
+
+    setState(() {
+      _tips = tips;
+    });
+  }
+
+  void _onRecommendedMealTap(RecommendedMealItem item) {
+    final data = item.data;
+    if (data == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chi tiết cho "${item.title}" đang được phát triển.')),
+      );
+      return;
+    }
+
+    final recipeId = data['recipeId']?.toString();
+    final foodId = data['foodId']?.toString();
+
+    if (recipeId != null && recipeId.isNotEmpty && recipeId.toLowerCase() != 'null') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: recipeId),
+        ),
+      );
+      return;
+    }
+
+    if (foodId != null && foodId.isNotEmpty && foodId.toLowerCase() != 'null') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: foodId),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Chi tiết cho "${item.title}" đang được phát triển.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildCalorieCard(),
-            const SizedBox(height: 16),
-            _buildMealPlanCard(),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Nhật ký hôm nay', showAddButton: true),
-            const SizedBox(height: 16),
-            _buildTodayMealLogs(),
-            const SizedBox(height: 24),
-          ],
+      child: RefreshIndicator(
+        onRefresh: () async {
+          await refreshHeader();
+          await _loadTodaySummary(userInitiated: true);
+          await _loadMealPlanAdherence();
+          await _loadRecommendations();
+        },
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                child: _buildHeader(),
+              ),
+              const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: HomeBannerCarousel(),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: const QuickActionGrid(),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildTodaySection(),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: RecommendedMealSection(
+                  items: _recommendedMeals,
+                  onItemTap: _onRecommendedMealTap,
+                  onViewAll: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DailyStarterScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TipsSection(
+                  items: _tips,
+                  onItemTap: (tip) {
+                    if (tip.type == TipType.warning) {
+                      widget.onNavigateToTab?.call(1);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -157,22 +341,60 @@ class HomeViewState extends State<HomeView> {
 
     return Row(
       children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: AppColors.progressBackground,
-          backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
-          child: hasAvatar
-              ? null
-              : const Icon(Icons.person, color: AppColors.textSecondary, size: 28),
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryLight, Color(0xFF52B788)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white,
+            child: CircleAvatar(
+              radius: 20.5,
+              backgroundColor: AppColors.progressBackground,
+              backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
+              child: hasAvatar
+                  ? null
+                  : const Icon(Icons.person, color: AppColors.textSecondary, size: 24),
+            ),
+          ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('CHÀO BUỔI SÁNG!', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              const SizedBox(height: 4),
-              Text(_userName, style: const TextStyle(color: AppColors.textDark, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(
+                _getGreeting().toUpperCase(),
+                style: GoogleFonts.beVietnamPro(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _userName,
+                style: GoogleFonts.beVietnamPro(
+                  color: AppColors.textDark,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
         ),
@@ -180,167 +402,51 @@ class HomeViewState extends State<HomeView> {
           listenable: _notificationProvider,
           builder: (context, _) {
             final unreadCount = _notificationProvider.unreadCount;
-            return Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.progressBackground.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 20),
-                    if (unreadCount > 0)
-                      Positioned(
-                        right: -4,
-                        top: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          child: Text(
-                            unreadCount > 99 ? '99+' : unreadCount.toString(),
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
-                  ).then((_) => _notificationProvider.loadUnreadCount());
-                },
-              ),
+            return _IconButtonWithBadge(
+              icon: Icons.notifications_outlined,
+              badge: unreadCount,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
+                ).then((_) => _notificationProvider.loadUnreadCount());
+              },
             );
           },
         ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.progressBackground.withValues(alpha: 0.5),
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.textDark, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: _refreshing
-                ? null
-                : () => _loadTodaySummary(userInitiated: true),
-          ),
-        )
       ],
     );
   }
 
-  Widget _buildCalorieCard() {
+  Widget _buildTodaySection() {
     final summary = _todaySummary;
-    final totalCalories = summary?.totalCalories ?? 0;
-    final targetCalories = (summary?.targetCalories ?? 1850).clamp(1, 10000);
-    final remainingCalories = (targetCalories - totalCalories).clamp(-99999, 99999);
-    final progress = (totalCalories / targetCalories).clamp(0, 1).toDouble();
-    final goalPercent = summary?.goalCompletionPercent ??
-        (targetCalories > 0 ? totalCalories / targetCalories * 100 : null);
-    final totalProtein = summary?.totalProteinG ?? 0;
-    final totalCarbs = summary?.totalCarbsG ?? 0;
-    final totalFat = summary?.totalFatG ?? 0;
-    final targetProtein = (summary?.targetProteinG ?? 120).clamp(1, 10000);
-    final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(1, 10000);
-    final targetFat = (summary?.targetFatG ?? 60).clamp(1, 10000);
-    final warnings = summary == null
-        ? <String>[]
-        : NutritionWarningMessages.fromSummary(summary);
+    final totalCalories = (summary?.totalCalories ?? 0).toInt();
+    final targetCalories = (summary?.targetCalories ?? 1850).clamp(1, 10000).toInt();
+    final totalProtein = (summary?.totalProteinG ?? 0).toInt();
+    final totalCarbs = (summary?.totalCarbsG ?? 0).toInt();
+    final totalFat = (summary?.totalFatG ?? 0).toInt();
+    final targetProtein = (summary?.targetProteinG ?? 120).clamp(1, 10000).toInt();
+    final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(1, 10000).toInt();
+    final targetFat = (summary?.targetFatG ?? 60).clamp(1, 10000).toInt();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.progressBackground, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('TIẾN ĐỘ CALO HÔM NAY', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.ideographic,
-                    children: [
-                      Text('${totalCalories.toStringAsFixed(0)} ', style: const TextStyle(color: AppColors.textDark, fontSize: 28, fontWeight: FontWeight.bold)),
-                      Text('/ ${targetCalories.toStringAsFixed(0)} kcal', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                    ],
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (goalPercent != null)
-                    Text(
-                      '${goalPercent.toStringAsFixed(0)}% mục tiêu',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  const Text('Còn lại', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  Text('${remainingCalories.toStringAsFixed(0)} kcal', style: const TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              )
-            ],
-          ),
-          if (warnings.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ...warnings.take(2).map(
-              (msg) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  msg,
-                  style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppColors.progressBackground,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildMacroInfo('PROTEIN', '${totalProtein.toStringAsFixed(0)}g', '${targetProtein.toStringAsFixed(0)}g'),
-              _buildMacroInfo('CARBS', '${totalCarbs.toStringAsFixed(0)}g', '${targetCarbs.toStringAsFixed(0)}g'),
-              _buildMacroInfo('CHẤT BÉO', '${totalFat.toStringAsFixed(0)}g', '${targetFat.toStringAsFixed(0)}g'),
-            ],
-          )
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HomeCalorieSection(
+          totalCalories: totalCalories,
+          targetCalories: targetCalories,
+          protein: totalProtein,
+          targetProtein: targetProtein,
+          carbs: totalCarbs,
+          targetCarbs: targetCarbs,
+          fat: totalFat,
+          targetFat: targetFat,
+        ),
+        const SizedBox(height: 14),
+        _buildMealPlanCard(),
+        const SizedBox(height: 14),
+        _buildMealLogsSection(),
+      ],
     );
   }
 
@@ -352,69 +458,349 @@ class HomeViewState extends State<HomeView> {
 
     return InkWell(
       onTap: _openMealPlanToday,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.08),
+              AppColors.primary.withValues(alpha: 0.02),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.restaurant_menu, color: AppColors.primary),
-            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.restaurant_menu_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Kế hoạch hôm nay',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    style: GoogleFonts.beVietnamPro(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppColors.textDark,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMacroInfo(String label, String current, String total) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Text('$current ', style: const TextStyle(color: AppColors.textDark, fontSize: 14, fontWeight: FontWeight.bold)),
-            Text('/ $total', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          ],
-        )
-      ],
+  Widget _buildMealLogsSection() {
+    final logs = _todaySummary?.mealLogs ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF10B981).withValues(alpha: 0.08),
+                  const Color(0xFF10B981).withValues(alpha: 0.01),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.list_alt_rounded,
+                        color: Color(0xFF10B981),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Nhật ký ăn uống',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: _refreshing ? null : _addMealFromHome,
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                  label: Text(
+                    'Thêm',
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: logs.isEmpty
+                ? _buildEmptyMealLogs()
+                : _buildMealLogsList(logs),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSectionHeader(String title, {bool showAddButton = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildEmptyMealLogs() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.progressBackground.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.restaurant_rounded,
+            size: 40,
+            color: AppColors.textSecondary.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Chưa ghi nhận bữa ăn',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Hãy thêm bữa ăn hôm nay để tính calo.',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealLogsList(List<MealLogItem> logs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-        if (showAddButton)
-          TextButton.icon(
-            onPressed: _refreshing ? null : _addMealFromHome,
-            icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
-            label: const Text(
-              'Thêm bữa ăn',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+        ...logs.take(4).map((meal) {
+          final mealType = _mealTypeLabel(meal.mealType);
+          Color tagBgColor;
+          Color tagTextColor;
+          if (mealType == 'sáng') {
+            tagBgColor = const Color(0xFFEFF6FF);
+            tagTextColor = const Color(0xFF2563EB);
+          } else if (mealType == 'trưa') {
+            tagBgColor = const Color(0xFFFEF3C7);
+            tagTextColor = const Color(0xFFD97706);
+          } else if (mealType == 'tối') {
+            tagBgColor = const Color(0xFFFEE2E2);
+            tagTextColor = const Color(0xFFDC2626);
+          } else {
+            tagBgColor = const Color(0xFFF3E8FF);
+            tagTextColor = const Color(0xFF7C3AED);
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade100, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: tagBgColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    meal.isRecipe ? Icons.menu_book_rounded : Icons.restaurant_rounded,
+                    color: tagTextColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        meal.displayName,
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: tagBgColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Bữa $mealType',
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: tagTextColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '${meal.caloriesKcal.toStringAsFixed(0)} kcal',
+                            style: GoogleFonts.beVietnamPro(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (logs.length > 4)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              '+${logs.length - 4} bữa ăn khác',
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 13,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
       ],
@@ -429,186 +815,6 @@ class HomeViewState extends State<HomeView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Đã ghi nhật ký bữa ăn.')),
-    );
-  }
-
-  Widget _buildTodayMealLogs() {
-    final logs = _todaySummary?.mealLogs ?? [];
-    if (logs.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.progressBackground.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.progressBackground),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Chưa có bữa ăn được ghi hôm nay',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Ghi bữa ăn ngay hoặc khám phá món để thêm vào nhật ký.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                text: 'Thêm bữa ăn',
-                onPressed: _refreshing ? null : _addMealFromHome,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const IngredientScanScreen()),
-                  ).then((_) => reloadSummary());
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.camera_alt, color: Colors.white),
-                label: const Text('Quét nguyên liệu bằng AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: widget.onNavigateToTab == null
-                    ? null
-                    : () => widget.onNavigateToTab!(1),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Khám phá món'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _refreshing ? null : () => _loadTodaySummary(userInitiated: true),
-                child: Text(_refreshing ? 'Đang tải...' : 'Làm mới'),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        ...logs.map((meal) {
-          final mealType = _mealTypeLabel(meal.mealType);
-          final portion = meal.isRecipe
-              ? '${meal.quantityG.toStringAsFixed(0)}% phần'
-              : '${meal.quantityG.toStringAsFixed(0)} g';
-          final canOpenDetail = _canOpenMealDetail(meal);
-          return Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: canOpenDetail ? () => _openMealDetail(meal) : null,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.progressBackground),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.progressBackground.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        meal.isRecipe ? Icons.menu_book_outlined : Icons.restaurant,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            meal.displayName,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Bữa $mealType • $portion • ${meal.caloriesKcal.toStringAsFixed(0)} kcal',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                          if (canOpenDetail)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Chạm để xem chi tiết',
-                                style: TextStyle(fontSize: 11, color: AppColors.primary),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (canOpenDetail)
-                      const Icon(
-                        Icons.chevron_right,
-                        color: AppColors.textSecondary,
-                        size: 22,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: _refreshing ? null : () => _loadTodaySummary(userInitiated: true),
-            child: Text(_refreshing ? 'Đang tải...' : 'Làm mới'),
-          ),
-        ),
-      ],
     );
   }
 
@@ -628,37 +834,73 @@ class HomeViewState extends State<HomeView> {
         return 'phụ';
     }
   }
+}
 
-  bool _isValidId(String? id) {
-    if (id == null) return false;
-    final trimmed = id.trim();
-    return trimmed.isNotEmpty && trimmed.toLowerCase() != 'null';
-  }
+class _IconButtonWithBadge extends StatelessWidget {
+  const _IconButtonWithBadge({
+    required this.icon,
+    required this.badge,
+    required this.onTap,
+  });
 
-  bool _canOpenMealDetail(MealLogItem meal) {
-    return _isValidId(meal.recipeId) || _isValidId(meal.foodId);
-  }
+  final IconData icon;
+  final int badge;
+  final VoidCallback onTap;
 
-  Future<void> _openMealDetail(MealLogItem meal) async {
-    if (_isValidId(meal.recipeId)) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipeId: meal.recipeId!.trim()),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, color: AppColors.textDark, size: 22),
+            if (badge > 0)
+              Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: Text(
+                    badge > 99 ? '99+' : badge.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
         ),
-      );
-      return;
-    }
-    if (_isValidId(meal.foodId)) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => FoodDetailScreen(foodId: meal.foodId!.trim()),
-        ),
-      );
-      return;
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Không có liên kết chi tiết cho món này.')),
+        padding: const EdgeInsets.all(10),
+        onPressed: onTap,
+      ),
     );
   }
 }

@@ -12,6 +12,7 @@ class UserAiProfileRepository {
     String? eatingPattern,
     String? preferencesJson,
     bool? allergiesAcknowledged,
+    String? vietnamRegion,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -20,6 +21,7 @@ class UserAiProfileRepository {
       if (allergiesAcknowledged != null) {
         body['allergiesAcknowledged'] = allergiesAcknowledged;
       }
+      if (vietnamRegion != null) body['vietnamRegion'] = vietnamRegion;
 
       final response = await _api.putJson(ApiEndpoints.userAiProfileMe, body);
       if (response.statusCode == 200) {

@@ -14,6 +14,7 @@ class FoodDiscoveryRepository {
     String? keyword,
     String allergyMode = 'warn',
     FoodSearchFilters? filters,
+    String? region,
   }) async {
     try {
       final params = <String, String>{
@@ -27,6 +28,8 @@ class FoodDiscoveryRepository {
         if (filters?.maxPriceVnd != null) 'maxPriceVnd': '${filters!.maxPriceVnd}',
         if (filters?.category != null && filters!.category!.trim().isNotEmpty)
           'category': filters.category!.trim(),
+        if (region != null && region.isNotEmpty) 'region': region,
+        if (region != null && region.isNotEmpty) 'sort': 'local-friendly',
       };
       final url = QueryMiddleware.buildUrl(ApiEndpoints.foods, params);
       final response = await _api.get(url);

@@ -26,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
@@ -54,10 +56,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.orange),
         );
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => VerifyOtpScreen(email: email)),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => VerifyOtpScreen(email: email)),
+          );
+        });
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleLogin() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     await FirebaseBootstrap.initialize();
     if (!mounted) return;
     if (!FirebaseGoogleAuthService.isSupported) {

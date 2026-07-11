@@ -132,6 +132,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handleFinish(int targetCalories) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     if (_heightCm == null || _weightKg == null) {
       _showMessage('Thiếu dữ liệu cơ bản. Vui lòng nhập lại.', isError: true);
       _pageController.jumpToPage(0);
@@ -139,6 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     setState(() => _finishing = true);
+    var routeChangeScheduled = false;
     try {
       final healthResult = await _healthProfileRepository.updateMyHealthProfile(
         heightCm: _heightCm!,
@@ -184,13 +187,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       OnboardingGate.markSessionComplete();
       if (!mounted) return;
       _showMessage('Thiết lập hoàn tất!');
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-        (route) => false,
-      );
+      routeChangeScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
+      });
     } finally {
-      if (mounted) setState(() => _finishing = false);
+      if (mounted && !routeChangeScheduled) setState(() => _finishing = false);
     }
   }
 

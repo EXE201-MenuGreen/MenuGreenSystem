@@ -560,6 +560,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<decimal?>("ProteinG")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Region")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("foods", (string)null);

@@ -14,6 +14,7 @@ import '../../tracking/widgets/calendar_heatmap_legend.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
+import '../../meal_templates/repositories/meal_template_repository.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key, this.onTrackingUpdated});
@@ -30,6 +31,7 @@ class HistoryViewState extends State<HistoryView> {
   String _searchQuery = '';
   MealCategory? _mealFilter;
   final _repository = NutritionTrackingRepository();
+  final _mealTemplateRepository = MealTemplateRepository();
   MealDaySummary? _dailySummary;
   NutritionDashboard? _dashboard;
   bool _loading = false;
@@ -509,6 +511,37 @@ class HistoryViewState extends State<HistoryView> {
     _showSnack('Không có liên kết chi tiết cho món này.', isError: true);
   }
 
+  Future<void> _createTemplateFromLog(HistoryMealEntry meal) async {
+    final controller = TextEditingController(text: meal.title);
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Lưu thành thực đơn'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Tên thực đơn'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (title == null || title.isEmpty) return;
+
+    try {
+      await _mealTemplateRepository.createFromLog(meal.id, title);
+      if (mounted) _showSnack('Đã lưu thực đơn.');
+    } catch (_) {
+      if (mounted) _showSnack('Không thể lưu thực đơn.', isError: true);
+    }
+  }
+
   Future<void> _editMealLog(String mealLogId) async {
     final logs = _dailySummary?.mealLogs ?? [];
     MealLogItem? meal;
@@ -650,6 +683,7 @@ class HistoryViewState extends State<HistoryView> {
                         onDeleteMeal: _deleteMealLog,
                         onEditMeal: _editMealLog,
                         onOpenDetail: _openMealDetail,
+                        onCreateTemplate: _createTemplateFromLog,
                       );
                     }),
                 ],
@@ -981,6 +1015,7 @@ class _TimelineSectionWidget extends StatelessWidget {
     required this.onDeleteMeal,
     required this.onEditMeal,
     required this.onOpenDetail,
+    required this.onCreateTemplate,
   });
 
   final HistoryTimelineSection section;
@@ -988,6 +1023,7 @@ class _TimelineSectionWidget extends StatelessWidget {
   final Future<void> Function(String mealId) onDeleteMeal;
   final Future<void> Function(String mealId) onEditMeal;
   final Future<void> Function(HistoryMealEntry meal) onOpenDetail;
+  final Future<void> Function(HistoryMealEntry meal) onCreateTemplate;
 
   String _formatTime(TimeOfDay time) {
     final h = time.hour.toString().padLeft(2, '0');
@@ -1067,6 +1103,7 @@ class _TimelineSectionWidget extends StatelessWidget {
                           onOpenDetail: meal.canOpenDetail ? () => onOpenDetail(meal) : null,
                           onEdit: () => onEditMeal(meal.id),
                           onDelete: () => onDeleteMeal(meal.id),
+                          onCreateTemplate: () => onCreateTemplate(meal),
                         ),
                       )),
                 ],
@@ -1084,12 +1121,14 @@ class _MealCard extends StatelessWidget {
     required this.meal,
     required this.onEdit,
     required this.onDelete,
+    required this.onCreateTemplate,
     this.onOpenDetail,
   });
 
   final HistoryMealEntry meal;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onCreateTemplate;
   final VoidCallback? onOpenDetail;
 
   @override
@@ -1167,8 +1206,13 @@ class _MealCard extends StatelessWidget {
                   if (value == 'detail') onOpenDetail?.call();
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
+                  if (value == 'template') onCreateTemplate();
                 },
                 itemBuilder: (context) => [
+                  const PopupMenuItem<String>(
+                    value: 'template',
+                    child: Text('Lưu thành thực đơn'),
+                  ),
                   if (onOpenDetail != null)
                     const PopupMenuItem<String>(
                       value: 'detail',
