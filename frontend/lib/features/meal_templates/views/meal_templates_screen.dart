@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/meal_template_models.dart';
 import '../repositories/meal_template_repository.dart';
@@ -429,6 +431,19 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openSelectedItemDetail(original),
+                    icon: const Icon(Icons.info_outline),
+                    label: Text(
+                      original.recipeId != null && original.recipeId!.isNotEmpty
+                          ? 'Xem chi tiết công thức'
+                          : 'Xem chi tiết món ăn',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: mealType,
                   decoration: const InputDecoration(labelText: 'Nhóm bữa'),
@@ -480,6 +495,24 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
     quantityController.dispose();
     notesController.dispose();
     if (updated != null && mounted) setState(() => _items[index] = updated);
+  }
+
+  void _openSelectedItemDetail(MealTemplateDraftItem item) {
+    if (item.recipeId != null && item.recipeId!.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!)),
+      );
+      return;
+    }
+
+    if (item.foodId != null && item.foodId!.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: item.foodId!)),
+      );
+      return;
+    }
+
+    _showEditorMessage('Không tìm thấy thông tin chi tiết của món đã chọn.', error: true);
   }
 
   Future<void> _save() async {
