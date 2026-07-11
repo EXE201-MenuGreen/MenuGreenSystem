@@ -162,6 +162,18 @@ class ApiEndpoints {
   static String mealTemplateUsage(String id) => '${mealTemplateById(id)}/usage';
   static String mealTemplateFromLog(String mealLogId) =>
       '$mealTemplates/from-log/$mealLogId';
+  static String get microLearningRecommended =>
+      '$baseUrl/MicroLearning/cards/recommended';
+  static String microLearningCardById(String id) =>
+      '$baseUrl/MicroLearning/cards/$id';
+  static String get microLearningCategories =>
+      '$baseUrl/MicroLearning/categories';
+  static String microLearningCardAction(String id) =>
+      '${microLearningCardById(id)}/action';
+  static String get microLearningSavedCards =>
+      '$baseUrl/MicroLearning/cards/saved';
+  static String microLearningSubmitQuiz(String id) =>
+      '${microLearningCardById(id)}/quiz/submit';
 
   static String get subscriptionPlans => '$baseUrl/UserSubscription/plans';
   static String get subscriptionSubscribe =>
