@@ -244,8 +244,6 @@ Commented YAML blocks gây parse error.
 
 ---
 
----
-
 ## [RESOLVED] CORS Configuration - Backend + Nginx + Cloudflare
 
 **Date:** 2026-07-05
@@ -399,8 +397,6 @@ REDIS_URL="redis://:eH671/FNx4LyTMJcEXQJ@menugreen_redis:6379"
 
 ---
 
----
-
 ## [DOCUMENTED] Production Infrastructure
 
 **Date:** 2026-07-02
@@ -471,8 +467,6 @@ cd ~/apps/MenuGreenSystem
 | ------------ | ---------------------------------------- |
 | **Image**    | `anhtuan21112004/menugreensystem:latest` |
 | **Registry** | Docker Hub                               |
-
----
 
 ---
 
@@ -642,6 +636,63 @@ Script `scripts/verify_endpoints.py` đếm `[HttpGet]`, `[HttpPost]`, `[HttpPut
 
 ---
 
+
+---
+
+## [PENDING] Deployment Failed - Database "MenuGreenDb" Does Not Exist
+
+**Date:** 2026-07-09
+**Status:** Pending
+**Severity:** High
+
+### Description
+
+GitHub Actions deployment thất bại tại bước backup database. Lỗi:
+
+```
+pg_dump: error: connection to server at "menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com" (13.250.214.140), port 5432 failed: FATAL:  database "MenuGreenDb" does not exist
+```
+
+### Root Cause
+
+Tên database trong connection string là `MenuGreenDb` (PascalCase) nhưng database thực tế trên RDS là `menugreendb` (lowercase). PostgreSQL database names thường case-sensitive.
+
+### Environment
+
+- **Server:** AWS Lightsail Ubuntu 22.04
+- **RDS:** PostgreSQL 18.3 @ ap-southeast-1
+- **Endpoint:** `menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com`
+- **Expected DB Name:** `menugreendb`
+- **Wrong DB Name:** `MenuGreenDb`
+
+### Logs
+
+```
+2026-07-09T09:01:11.2797761Z out: === Starting database backup ===
+2026-07-09T09:01:11.4251196Z out: pg_dump: error: connection to server at "menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com" (13.250.214.140), port 5432 failed: FATAL:  database "MenuGreenDb" does not exist
+2026-07-09T09:01:11.4291841Z 2026/07/09 09:01:11 Process exited with status 1
+2026-07-09T09:01:11.4315538Z ##[error]Process completed with exit code 1.
+```
+
+### Fix Required
+
+1. **Kiểm tra Doppler secrets** - Tìm `CONNECTIONSTRINGS__DEFAULTCONNECTION` và sửa database name từ `MenuGreenDb` → `menugreendb`
+2. **Hoặc sửa CI/CD script** - Thêm step rename/sanitise database name trong backup script:
+   ```bash
+   # Sanitise database name (lowercase)
+   DB_NAME_LOWER=$(echo "$DB_NAME" | tr '[:upper:]' '[:lower:]')
+   PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME_LOWER" -F p -f "$BACKUP_FILE"
+   ```
+
+### Verification After Fix
+
+```bash
+PGPASSWORD='MenuGreen2026!' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -l
+# Kiểm tra database name hiển thị đúng
+```
+
+---
+
 ## [RESOLVED] Vietnam Local Features — UI triển khai hoàn chỉnh
 
 **Date:** 2026-07-09
@@ -660,7 +711,7 @@ Tính năng backend hoàn thiện sớm nhưng chưa được ưu tiên phát tr
 
 - Frontend: `d:\CSharp_UpSpeed\MenuGreenSystem\frontend` (Flutter 3.11, Dart 3.x)
 - Backend: `d:\CSharp_UpSpeed\MenuGreenSystem\backend\MenuGreen.API`
-- Tài liệu tham chiếu: `docs/features/10-vietnam-local-features.md`
+- Tài liệu tham khảo: `docs/features/10-vietnam-local-features.md`
 
 ### Fix Applied
 
@@ -691,8 +742,6 @@ Tạo feature hoàn chỉnh `frontend/lib/features/vietnam_local/` với:
 - `flutter build apk --debug --no-pub` → built thành công APK debug.
 - Tài liệu `10-vietnam-local-features.md` cập nhật Status, UI Components table, Navigation Flow.
 
----
-
 ## Template for New Issues
 
 ```markdown
@@ -712,6 +761,54 @@ Tạo feature hoàn chỉnh `frontend/lib/features/vietnam_local/` với:
 
 ### Fix Applied / Attempts
 ```
+
+---
+
+## [PENDING] Google Play Console - Account Deletion URL
+
+**Date:** 2026-07-09
+**Status:** Pending (waiting for user to deploy to GitHub Pages)
+**Severity:** Medium
+
+### Description
+Google Play Console yêu cầu cung cấp **URL xoá tài khoản** để tuân thủ
+chính sách User Data Policy. Cần phải có trang web công khai hướng dẫn
+user cách yêu cầu xoá tài khoản và dữ liệu cá nhân.
+
+### Root Cause
+App cung cấp đăng ký tài khoản (email + Google OAuth) nên theo chính
+sách Google, phải có URL xoá tài khoản hiển thị trên trang CH Play.
+
+### Environment
+- Google Play Console → App content → Data safety
+- Trang: https://play.google.com/console
+
+### Fix Applied
+**Đã tạo 2 file HTML sẵn sàng deploy:**
+
+1. `assets/delete-account/delete-account.html` - Tiếng Việt (mặc định)
+2. `assets/delete-account/delete-account-en.html` - English
+3. `assets/delete-account/README.md` - Hướng dẫn deploy GitHub Pages
+
+**Trang bao gồm đầy đủ nội dung theo yêu cầu Google:**
+- ✅ Nhắc đến tên app "MenuGreen"
+- ✅ 5 bước yêu cầu xoá tài khoản (in-app + email)
+- ✅ Liệt kê dữ liệu bị xoá (6 loại)
+- ✅ Liệt kê dữ liệu giữ lại (2 loại, theo yêu cầu pháp lý)
+- ✅ Thời gian xử lý (7 ngày làm việc)
+- ✅ Thông tin liên hệ support
+
+### Attempts
+- [x] Tạo file HTML song ngữ với thiết kế chuyên nghiệp
+- [x] Responsive (mobile + desktop)
+- [ ] User deploy lên GitHub Pages
+- [ ] User dán URL vào Play Console
+- [ ] User bấm Save trong form An toàn dữ liệu
+
+### Customization cần thay trước khi deploy
+- `support@menugreen.app` → email thật của nhà phát triển
+- `https://menugreen.app` → website thật (nếu có)
+- `MenuGreen Team` → tên nhà phát triển chính xác theo Play Console
 
 ---
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Logo centered with padding for safe zone -->
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        
+        <!-- Main icon area (54x54 centered in 108x108) -->
+        <group
+            android:translateX="0"
+            android:translateY="0">
+            
+            <!-- Green background circle approximation as path -->
+            <path
+                android:fillColor="#009650"
+                android:pathData="M27,0 C41.912,0 54,12.088 54,27 C54,41.912 41.912,54 27,54 C12.088,54 0,41.912 0,27 C0,12.088 12.088,0 27,0 Z"/>
+            
+            <!-- Leaf/Salad icon - simplified vector -->
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M27,12 C32.523,12 37,16.477 37,22 C37,27.523 32.523,32 27,32 C21.477,32 17,27.523 17,22 C17,16.477 21.477,12 27,12 Z M27,15 C23.686,15 21,17.686 21,21 C21,24.314 23.686,27 27,27 C30.314,27 33,24.314 33,21 C33,17.686 30.314,15 27,15 Z M22,30 L27,42 L32,30 C30,28 28,28 27,28 C26,28 24,28 22,30 Z"/>
+                
+            <!-- Text "MG" simplified -->
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M24,36 L24,40 L26,40 L26,36 L24,36 Z M28,36 L28,40 L30,40 L30,36 L28,36 Z"/>
+        </group>
+    </group>
+</vector>
