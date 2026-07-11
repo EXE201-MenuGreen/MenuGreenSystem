@@ -202,8 +202,10 @@ jobs:
             echo "=== Download secrets from Doppler ==="
             doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_raw.env
 
-            echo "=== Build .env file ==="
-            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
+            # Build .env file
+            # TEMP: SHOW_DETAILED_ERRORS=true để debug 500 errors trong production
+            # TODO: Remove sau khi fix xong lỗi
+            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_DETAILED_ERRORS=true\n' > "$APP_DIR/.env"
 
             # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
             while IFS='=' read -r key raw_value; do
