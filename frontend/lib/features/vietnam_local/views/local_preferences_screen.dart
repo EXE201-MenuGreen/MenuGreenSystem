@@ -457,29 +457,32 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                 itemCount: results.length,
                 itemBuilder: (_, i) {
                   final item = results[i];
+                  final foodName = item['nameVi'] ?? '—';
+                  final calories = item['caloriesKcal'];
+                  final priceVnd = item['estimatedPriceVnd'] ?? '?';
                   return ListTile(
                     leading: const Icon(Icons.rice_bowl, color: AppColors.primary),
-                    title: Text(item['name'] ?? '—'),
+                    title: Text(foodName),
                     subtitle: Text(
-                      '${item['caloriesKcal'] ?? '?'} kcal • ${item['priceVnd'] ?? '?'} VND',
+                      '${calories ?? '?'} kcal • $priceVnd VND',
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () async {
                         final logOk = await provider.createVnMealLog({
-                          'foodName': item['name'] ?? '',
+                          'foodName': foodName,
                           'mealType': 'lunch',
                           'portionUnits': 'bát',
                           'portionAmount': 1,
-                          'estimatedCalories': item['caloriesKcal'] ?? 0,
+                          'estimatedCalories': calories ?? 0,
                         });
                         if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(logOk
-                                ? 'Đã ghi: ${item['name']}'
+                                ? 'Đã ghi: $foodName'
                                 : 'Không ghi được.'),
                           ),
                         );

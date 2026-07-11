@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
 import '../../discover/views/food_detail_screen.dart';
@@ -17,7 +18,7 @@ import '../../tracking/widgets/meal_log_sheet.dart';
 import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../widgets/home_banner_carousel.dart';
-import '../widgets/home_calorie_card.dart';
+import '../widgets/home_calorie_section.dart';
 import '../widgets/quick_action_grid.dart';
 import '../widgets/recommended_meal_card.dart';
 import '../widgets/tip_card.dart';
@@ -50,6 +51,19 @@ class HomeViewState extends State<HomeView> {
   bool _refreshing = false;
   List<RecommendedMealItem> _recommendedMeals = [];
   List<TipItem> _tips = [];
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Chào buổi sáng ☀️';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Chào buổi chiều 🌤️';
+    } else if (hour >= 17 && hour < 22) {
+      return 'Chào buổi tối 🌙';
+    } else {
+      return 'Ngủ ngon nhé 😴';
+    }
+  }
 
   @override
   void initState() {
@@ -268,27 +282,27 @@ class HomeViewState extends State<HomeView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                 child: _buildHeader(),
               ),
               const SizedBox(height: 20),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: 16),
                 child: HomeBannerCarousel(),
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: const QuickActionGrid(),
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildTodaySection(),
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: RecommendedMealSection(
                   items: _recommendedMeals,
                   onItemTap: _onRecommendedMealTap,
@@ -304,12 +318,12 @@ class HomeViewState extends State<HomeView> {
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TipsSection(
                   items: _tips,
                   onItemTap: (tip) {
                     if (tip.type == TipType.warning) {
-                      widget.onNavigateToTab?.call(1); // Discover tab
+                      widget.onNavigateToTab?.call(1);
                     }
                   },
                 ),
@@ -327,35 +341,58 @@ class HomeViewState extends State<HomeView> {
 
     return Row(
       children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: AppColors.progressBackground,
-          backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
-          child: hasAvatar
-              ? null
-              : const Icon(Icons.person, color: AppColors.textSecondary, size: 26),
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryLight, Color(0xFF52B788)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white,
+            child: CircleAvatar(
+              radius: 20.5,
+              backgroundColor: AppColors.progressBackground,
+              backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
+              child: hasAvatar
+                  ? null
+                  : const Icon(Icons.person, color: AppColors.textSecondary, size: 24),
+            ),
+          ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'CHÀO BUỔI SÁNG!',
-                style: TextStyle(
+              Text(
+                _getGreeting().toUpperCase(),
+                style: GoogleFonts.beVietnamPro(
                   color: AppColors.textSecondary,
                   fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 _userName,
-                style: const TextStyle(
+                style: GoogleFonts.beVietnamPro(
                   color: AppColors.textDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
                 ),
               ),
             ],
@@ -395,7 +432,7 @@ class HomeViewState extends State<HomeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HomeCalorieCard(
+        HomeCalorieSection(
           totalCalories: totalCalories,
           targetCalories: targetCalories,
           protein: totalProtein,
@@ -405,9 +442,9 @@ class HomeViewState extends State<HomeView> {
           fat: totalFat,
           targetFat: targetFat,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildMealPlanCard(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildMealLogsSection(),
       ],
     );
@@ -421,43 +458,89 @@ class HomeViewState extends State<HomeView> {
 
     return InkWell(
       onTap: _openMealPlanToday,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.08),
+              AppColors.primary.withValues(alpha: 0.02),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.restaurant_menu, color: AppColors.primary, size: 20),
+              child: const Icon(
+                Icons.restaurant_menu_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Kế hoạch hôm nay',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    style: GoogleFonts.beVietnamPro(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
           ],
         ),
       ),
@@ -468,92 +551,259 @@ class HomeViewState extends State<HomeView> {
     final logs = _todaySummary?.mealLogs ?? [];
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.progressBackground),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Nhật ký hôm nay',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark),
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF10B981).withValues(alpha: 0.08),
+                  const Color(0xFF10B981).withValues(alpha: 0.01),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              TextButton.icon(
-                onPressed: _refreshing ? null : _addMealFromHome,
-                icon: const Icon(Icons.add, size: 16, color: AppColors.primary),
-                label: const Text(
-                  'Thêm bữa ăn',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
-                ),
-              ),
-            ],
-          ),
-          if (logs.isEmpty) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Chưa có bữa ăn được ghi hôm nay.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
-          ] else ...[
-            const SizedBox(height: 8),
-            ...logs.take(3).map((meal) {
-              final mealType = _mealTypeLabel(meal.mealType);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.progressBackground.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
-                        meal.isRecipe ? Icons.menu_book_outlined : Icons.restaurant,
-                        color: AppColors.primary,
-                        size: 18,
+                      child: const Icon(
+                        Icons.list_alt_rounded,
+                        color: Color(0xFF10B981),
+                        size: 20,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            meal.displayName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Bữa $mealType • ${meal.caloriesKcal.toStringAsFixed(0)} kcal',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                        ],
+                    const SizedBox(width: 12),
+                    Text(
+                      'Nhật ký ăn uống',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
                 ),
-              );
-            }),
-            if (logs.length > 3)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '+${logs.length - 3} bữa ăn khác',
-                  style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                TextButton.icon(
+                  onPressed: _refreshing ? null : _addMealFromHome,
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                  label: Text(
+                    'Thêm',
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
-              ),
-          ],
+              ],
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: logs.isEmpty
+                ? _buildEmptyMealLogs()
+                : _buildMealLogsList(logs),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmptyMealLogs() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.progressBackground.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.restaurant_rounded,
+            size: 40,
+            color: AppColors.textSecondary.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Chưa ghi nhận bữa ăn',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Hãy thêm bữa ăn hôm nay để tính calo.',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealLogsList(List<MealLogItem> logs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...logs.take(4).map((meal) {
+          final mealType = _mealTypeLabel(meal.mealType);
+          Color tagBgColor;
+          Color tagTextColor;
+          if (mealType == 'sáng') {
+            tagBgColor = const Color(0xFFEFF6FF);
+            tagTextColor = const Color(0xFF2563EB);
+          } else if (mealType == 'trưa') {
+            tagBgColor = const Color(0xFFFEF3C7);
+            tagTextColor = const Color(0xFFD97706);
+          } else if (mealType == 'tối') {
+            tagBgColor = const Color(0xFFFEE2E2);
+            tagTextColor = const Color(0xFFDC2626);
+          } else {
+            tagBgColor = const Color(0xFFF3E8FF);
+            tagTextColor = const Color(0xFF7C3AED);
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade100, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: tagBgColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    meal.isRecipe ? Icons.menu_book_rounded : Icons.restaurant_rounded,
+                    color: tagTextColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        meal.displayName,
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: tagBgColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Bữa $mealType',
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: tagTextColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '${meal.caloriesKcal.toStringAsFixed(0)} kcal',
+                            style: GoogleFonts.beVietnamPro(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (logs.length > 4)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              '+${logs.length - 4} bữa ăn khác',
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 13,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -600,38 +850,55 @@ class _IconButtonWithBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.5),
-        shape: BoxShape.circle,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: IconButton(
         icon: Stack(
           clipBehavior: Clip.none,
           children: [
-            Icon(icon, color: AppColors.textDark, size: 20),
+            Icon(icon, color: AppColors.textDark, size: 22),
             if (badge > 0)
               Positioned(
                 right: -4,
                 top: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
                   constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                   child: Text(
                     badge > 99 ? '99+' : badge.toString(),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ),
           ],
         ),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
+        padding: const EdgeInsets.all(10),
         onPressed: onTap,
       ),
     );

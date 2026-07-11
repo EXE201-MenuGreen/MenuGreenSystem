@@ -26,6 +26,9 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
 
   final Widget destination = complete ? const MainScreen() : const OnboardingScreen();
 
+  await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return;
+
   Navigator.pushAndRemoveUntil(
     context,
     MaterialPageRoute(builder: (_) => destination),

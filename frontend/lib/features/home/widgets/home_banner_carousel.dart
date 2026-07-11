@@ -21,22 +21,22 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       title: 'Hôm nay ăn gì?',
       subtitle: 'Gợi ý thực đơn cân bằng dinh dưỡng cho bạn',
       icon: Icons.restaurant_menu,
-      color: Color(0xFF1B4332),
-      bgColor: Color(0xFFE8F5E9),
+      gradientColors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
+      accentColor: Color(0xFF52B788),
     ),
     _BannerData(
       title: 'Theo dõi cân nặng',
       subtitle: 'Cập nhật cân nặng mỗi ngày để đạt mục tiêu',
       icon: Icons.monitor_weight_outlined,
-      color: Color(0xFF2D5A45),
-      bgColor: Color(0xFFE3F2FD),
+      gradientColors: [Color(0xFF0077B6), Color(0xFF00B4D8)],
+      accentColor: Color(0xFF90E0EF),
     ),
     _BannerData(
       title: 'Kế hoạch vs Thực tế',
       subtitle: 'Xem điểm bám sát kế hoạch dinh dưỡng của bạn',
       icon: Icons.insights,
-      color: Color(0xFF1B4332),
-      bgColor: Color(0xFFFFF8E1),
+      gradientColors: [Color(0xFFF77F00), Color(0xFFFCBF49)],
+      accentColor: Color(0xFFFEE440),
     ),
   ];
 
@@ -70,29 +70,29 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 120,
+          height: 140,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (page) => setState(() => _currentPage = page),
             itemCount: _banners.length,
-            itemBuilder: (context, index) => _buildBanner(_banners[index], index),
+            itemBuilder: (context, index) => _buildBanner(_banners[index]),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
             _banners.length,
             (i) => AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: i == _currentPage ? 20 : 6,
-              height: 6,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: i == _currentPage ? 24 : 8,
+              height: 8,
               decoration: BoxDecoration(
                 color: i == _currentPage
-                    ? AppColors.primary
+                    ? _banners[i].gradientColors.first
                     : AppColors.progressBackground,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
           ),
@@ -101,74 +101,121 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     );
   }
 
-  Widget _buildBanner(_BannerData data, int index) {
+  Widget _buildBanner(_BannerData data) {
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
         double value = 0;
         if (_pageController.position.haveDimensions) {
-          value = index - (_pageController.page ?? 0);
+          value = _currentPage - (_pageController.page ?? 0);
           value = (1 - value.abs() * 0.3).clamp(0.0, 1.0);
         }
         return Transform.scale(
           scale: 0.95 + (value * 0.05),
           child: Opacity(
-            opacity: 0.6 + (value * 0.4),
+            opacity: 0.7 + (value * 0.3),
             child: child,
           ),
         );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: data.bgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: data.color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: data.gradientColors,
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: data.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(data.icon, color: data.color, size: 28),
+          boxShadow: [
+            BoxShadow(
+              color: data.gradientColors.first.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Decorative circles
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -30,
+              bottom: -30,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
                 children: [
-                  Text(
-                    data.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: data.color,
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(data.icon, color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          data.title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          data.subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    data.subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ],
               ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: data.color.withValues(alpha: 0.5),
             ),
           ],
         ),
@@ -181,14 +228,14 @@ class _BannerData {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color color;
-  final Color bgColor;
+  final List<Color> gradientColors;
+  final Color accentColor;
 
   const _BannerData({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.color,
-    required this.bgColor,
+    required this.gradientColors,
+    required this.accentColor,
   });
 }
