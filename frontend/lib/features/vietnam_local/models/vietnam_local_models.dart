@@ -87,7 +87,21 @@ class DailyStarterFood {
   factory DailyStarterFood.fromJson(Map<String, dynamic> json) {
     return DailyStarterFood(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
-      name: _string(json, 'name') ?? _string(json, 'Name') ?? '',
+      name: _firstString(json, const [
+            'nameVi',
+            'nameVI',
+            'nameVN',
+            'name_vi',
+            'NameVi',
+            'NameVI',
+            'NameVN',
+            'foodNameVi',
+            'foodName',
+            'name',
+            'Name',
+            'title',
+          ]) ??
+          '',
       caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
@@ -757,6 +771,14 @@ class IngredientSubstitutePreference {
 String? _string(Map<String, dynamic> json, String key) {
   final v = json[key];
   return v == null ? null : v.toString();
+}
+
+String? _firstString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = _string(json, key)?.trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
 }
 
 double? _double(Map<String, dynamic> json, String key) {

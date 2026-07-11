@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../meal_templates/views/meal_templates_screen.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
@@ -91,6 +92,12 @@ class QuickActionGrid extends StatelessWidget {
       gradientColors: [Color(0xFF65A30D), Color(0xFFA3E635)],
       bgColor: Color(0xFFECFCCB),
     ),
+    _ActionItem(
+      icon: Icons.bookmark_outline,
+      label: 'Thực đơn\nđã lưu',
+      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+      bgColor: Color(0xFFCCFBF1),
+    ),
   ];
 
   void _navigateTo(BuildContext context, int index) {
@@ -131,6 +138,9 @@ class QuickActionGrid extends StatelessWidget {
         break;
       case 11:
         screen = const IngredientSubstitutionScreen();
+        break;
+      case 12:
+        screen = const MealTemplatesScreen();
         break;
       default:
         return;
