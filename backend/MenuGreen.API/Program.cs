@@ -87,8 +87,9 @@ var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
 // Default allowed origins for production
 var defaultOrigins = new[]
 {
-    "https://www.menugreen.food",
-    "https://menugreen.food",
+    "https://admin.menu-green.food",
+    "https://www.menu-green.food",
+    "https://menu-green.food",
     "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
     "http://localhost:3000",
     "http://localhost:3001"
