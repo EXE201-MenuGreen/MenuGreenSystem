@@ -74,12 +74,34 @@ jobs:
 
             # =================================================================
             # BƯỚC 0: Apply nginx config (TRƯỚC khi restart container)
-            # - Đã SCP file nginx lên /tmp/nginx-deploy/ ở step trước
+            # - SCP đã upload file lên /tmp/nginx-deploy/
+            # - appleboy/scp-action giữ cấu trúc thư mục theo source.
+            #   Nếu target là /tmp/nginx-deploy và source là backend/nginx/...,
+            #   thì file thực sự nằm ở /tmp/nginx-deploy/backend/nginx/nginx.conf
             # - Tự rollback nếu nginx -t fail
             # =================================================================
             echo "=== [0/10] Apply nginx config from git ==="
-            if [ -f /tmp/nginx-deploy/nginx.conf ] && [ -f /tmp/nginx-deploy/conf.d/cors-map.conf ]; then
+
+            # Tìm đường dẫn thực tế của file sau khi SCP (hỗ trợ cả 2 layout)
+            NGINX_CONF_DEPLOYED=""
+            CORS_MAP_DEPLOYED=""
+
+            for candidate in \
+              "/tmp/nginx-deploy/nginx.conf" \
+              "/tmp/nginx-deploy/backend/nginx/nginx.conf"; do
+              if [ -f "$candidate" ]; then NGINX_CONF_DEPLOYED="$candidate"; break; fi
+            done
+
+            for candidate in \
+              "/tmp/nginx-deploy/conf.d/cors-map.conf" \
+              "/tmp/nginx-deploy/backend/nginx/conf.d/cors-map.conf"; do
+              if [ -f "$candidate" ]; then CORS_MAP_DEPLOYED="$candidate"; break; fi
+            done
+
+            if [ -n "$NGINX_CONF_DEPLOYED" ] && [ -n "$CORS_MAP_DEPLOYED" ]; then
               NGINX_TS=$(date +"%Y%m%d_%H%M%S")
+              echo "  Found nginx.conf at: $NGINX_CONF_DEPLOYED"
+              echo "  Found cors-map.conf at: $CORS_MAP_DEPLOYED"
 
               # 1. Backup config hiện tại
               if [ -f /etc/nginx/conf.d/cors-map.conf ]; then
@@ -94,9 +116,9 @@ jobs:
               fi
 
               # 2. Copy file mới
-              sudo cp /tmp/nginx-deploy/nginx.conf /etc/nginx/nginx.conf
+              sudo cp "$NGINX_CONF_DEPLOYED" /etc/nginx/nginx.conf
               sudo mkdir -p /etc/nginx/conf.d
-              sudo cp /tmp/nginx-deploy/conf.d/cors-map.conf /etc/nginx/conf.d/cors-map.conf
+              sudo cp "$CORS_MAP_DEPLOYED" /etc/nginx/conf.d/cors-map.conf
 
               # 3. Test syntax - FAIL thì rollback NGAY, không restart container
               if sudo nginx -t 2>&1; then
@@ -120,7 +142,10 @@ jobs:
               # Cleanup tmp
               rm -rf /tmp/nginx-deploy
             else
-              echo "  ⊘ No nginx files uploaded (skip nginx deploy)"
+              echo "  ⊘ nginx.conf or cors-map.conf not found in /tmp/nginx-deploy"
+              echo "  Skipping nginx deploy. Server-side CORS config NOT updated."
+              echo "  (ls /tmp/nginx-deploy for debug)"
+              ls -la /tmp/nginx-deploy 2>/dev/null || true
             fi
 
             echo "=== Cleanup disk space - Before ==="
