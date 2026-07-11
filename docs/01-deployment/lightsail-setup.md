@@ -1,5 +1,7 @@
 # AWS Lightsail Setup Guide - MenuGreen
 
+> **Last updated:** 2026-07-11 — Phản ánh server production hiện tại.
+
 ## Mục lục
 
 1. [Tạo AWS Account](#1-tạo-aws-account)
@@ -7,9 +9,10 @@
 3. [Cấu hình Firewall](#3-cấu-hình-firewall)
 4. [Kết nối SSH](#4-kết-nối-ssh)
 5. [Cài đặt Docker](#5-cài-đặt-docker)
-6. [Deploy MenuGreen](#6-deploy-menugreen)
-7. [Cấu hình Domain (Optional)](#7-cấu-hình-domain-optional)
-8. [Setup SSL (Optional)](#8-setup-ssl-optional)
+6. [Cài đặt Nginx](#6-cài-đặt-nginx)
+7. [Cấu hình Server](#7-cấu-hình-server)
+8. [Cấu hình Domain (Optional)](#8-cấu-hình-domain-optional)
+9. [Setup SSL (Optional)](#9-setup-ssl-optional)
 
 ---
 
@@ -19,26 +22,21 @@
 
 1. Truy cập: https://aws.amazon.com
 2. Click **"Create an AWS Account"**
-3. Điền thông tin:
-   - Email address
-   - Password
-   - AWS account name
+3. Điền thông tin: email, password, AWS account name
 4. Chọn **"Personal"** account type
 5. Điền thông tin cá nhân
-6. Thêm thông tin thanh toán (Credit card)
-   - **Lưu ý**: Cần có thẻ tín dụng/ghi nợ quốc tế (Visa, Mastercard)
-   - AWS sẽ charge $1 để verify thẻ (sẽ hoàn lại)
+6. Thêm thông tin thanh toán (Visa/Mastercard quốc tế)
+   - AWS charge $1 để verify thẻ (sẽ hoàn lại)
 7. Xác minh danh tính qua phone
 8. Chọn Support plan: **Basic (Free)**
 
-### Bước 1.2: Mặc định có gì miễn phí?
+### Free Tier (3 tháng đầu)
 
 | Service        | Free Tier                                   |
 | -------------- | ------------------------------------------- |
 | Lightsail      | 3 tháng đầu ($3.50-$10/month instance free) |
 | RDS PostgreSQL | 750 giờ/tháng (db.t3.micro)                 |
 | S3             | 5GB storage                                 |
-| CloudWatch     | 10 metrics                                  |
 
 ---
 
@@ -50,156 +48,87 @@
 2. Search "Lightsail" hoặc truy cập: https://lightsail.aws.amazon.com
 3. Click **"Create instance"**
 
-### Bước 2.2: Cấu hình Instance
+### Bước 2.2: Cấu hình Instance (đang dùng)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  CREATE AN INSTANCE                                                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  Location:                                                             │
-│  ├─ Region: Asia Pacific (Singapore) hoặc Asia Pacific (Tokyo)        │
-│  └─ Availability Zone: Any (single zone OK for now)                   │
-│                                                                         │
-│  Instance image:                                                       │
-│  └─ Platform: Linux/Unix                                               │
-│  └─ Blueprint: Ubuntu 22.04 LTS                                        │
-│     └─ [✅] Include launch scripts (optional - skip for now)           │
-│                                                                          │
-│  Instance plan:                                                        │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │  $3.50/mo - Nano                          [CURRENTLY FREE 3 MO] │  │
-│  │  ├─ 512 MB RAM, 1 vCPU, 20 GB SSD                               │  │
-│  │  └─ 1 TB Transfer                                              │  │
-│  ├─────────────────────────────────────────────────────────────────┤  │
-│  │  $5/mo - Micro                             [CURRENTLY FREE 3 MO] │  │
-│  │  ├─ 1 GB RAM, 1 vCPU, 40 GB SSD                                │  │
-│  │  └─ 2 TB Transfer                                              │  │
-│  ├─────────────────────────────────────────────────────────────────┤  │
-│  │  $10/mo - Small  ★ RECOMMENDED          [CURRENTLY FREE 3 MO] │  │
-│  │  ├─ 2 GB RAM, 1 vCPU, 60 GB SSD                                │  │
-│  │  └─ 3 TB Transfer                                              │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-│  Identify your instance:                                               │
-│  └─ Instance name: menugreen-server                                    │
-│                                                                         │
-│  [Create instance]                                                    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+Region:           Asia Pacific (Singapore) - ap-southeast-1
+Blueprint:        Ubuntu 22.04 LTS
+Instance plan:    $10/mo - Small
+                  ├─ 2 GB RAM, 1 vCPU, 60 GB SSD
+                  └─ 3 TB Transfer
+Instance name:    menugreen-server
 ```
 
-### Bước 2.3: Giải thích các Plans
+### Bước 2.3: Đợi Instance khởi tạo (~2-5 phút)
 
-| Plan          | RAM     | vCPU  | SSD      | Transfer | Phù hợp                       |
-| ------------- | ------- | ----- | -------- | -------- | ----------------------------- |
-| Nano $3.5     | 512MB   | 1     | 20GB     | 1TB      | Demo, test                    |
-| Micro $5      | 1GB     | 1     | 40GB     | 2TB      | Light production              |
-| **Small $10** | **2GB** | **1** | **60GB** | **3TB**  | **✅ Production (~5k users)** |
+Status chuyển từ **Pending** → **Running**.
 
-**Khuyến nghị**: Chọn **Small $10** (hiện tại free 3 tháng đầu)
+### Thông tin server hiện tại
 
-### Bước 2.4: Đợi Instance khởi tạo
-
-- Thời gian: ~2-5 phút
-- Status sẽ chuyển từ "Pending" → "Running"
+| Property          | Value                                  |
+|-------------------|----------------------------------------|
+| **Public IP**     | `52.77.218.100`                        |
+| **Domain**        | `api.menugreen.food` (A record → IP)   |
+| **OS**            | Ubuntu 22.04 LTS                       |
+| **RAM**           | 2 GB                                   |
+| **Disk**          | 60 GB SSD                              |
+| **App directory** | `/home/ubuntu/apps/menugreen`          |
 
 ---
 
 ## 3. Cấu hình Firewall
 
-### Bước 3.1: Mở Firewall Ports
+### Mở ports qua Lightsail Console
 
-1. Trong Lightsail console, click vào instance vừa tạo
-2. Click tab **"Networking"**
-3. Firewall hiện tại:
+Vào instance → tab **"Networking"** → **IPv4 Firewall** → **+ Add rule**:
+
+| Protocol | Port | Source             | Mục đích             |
+|----------|------|--------------------|----------------------|
+| SSH      | 22   | My IP / 0.0.0.0/0  | SSH                  |
+| HTTP     | 80   | Anywhere           | Nginx (redirect HTTPS) |
+| HTTPS    | 443  | Anywhere           | Nginx SSL            |
+
+> **Không cần mở port 5000** ở firewall — Nginx reverse proxy từ 80/443 → localhost:5000 (API trong Docker).
+
+> **Không cần mở port 5432** ở firewall — RDS ở AWS bên ngoài, kết nối qua internal network.
+
+### Lightsail Firewall mặc định (sau khi setup)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  FIREWALL                                                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  IPv6 Firewall                                                         │
-│  ┌─────────────────┬────────────────┬─────────────────────────────────┐ │
-│  │ Protocol       │ Port           │ Source                          │ │
-│  ├─────────────────┼────────────────┼─────────────────────────────────┤ │
-│  │ SSH            │ TCP 22         │ Anywhere (0.0.0.0/0)           │ │
-│  │ HTTP           │ TCP 80         │ Anywhere (0.0.0.0/0)           │ │
-│  │ HTTPS          │ TCP 443        │ Anywhere (0.0.0.0/0)           │ │
-│  └─────────────────┴────────────────┴─────────────────────────────────┘ │
-│                                                                         │
-│  [ + Add rule ]  [ + Another rule ]                                    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  FIREWALL                                   │
+├─────────────────────────────────────────────┤
+│  Protocol   Port   Source                    │
+│  ────────   ────   ──────                    │
+│  SSH        TCP 22  Anywhere (0.0.0.0/0)    │
+│  HTTP       TCP 80  Anywhere (0.0.0.0/0)    │
+│  HTTPS      TCP 443 Anywhere (0.0.0.0/0)    │
+└─────────────────────────────────────────────┘
 ```
-
-### Bước 3.2: Thêm Rules cần thiết
-
-Click **"+ Add rule"** và thêm:
-
-| Protocol | Port     | Source                               |
-| -------- | -------- | ------------------------------------ |
-| Custom   | TCP 3000 | Anywhere                             |
-| Custom   | TCP 8080 | Anywhere                             |
-| Custom   | TCP 9090 | Anywhere                             |
-| Custom   | TCP 2375 | My IP (Docker management - tạm thời) |
-
-**Sau khi setup xong, nên restrict port 2375 về My IP**
 
 ---
 
 ## 4. Kết nối SSH
 
-### Phương 1: Lightsail Browser SSH (Dễ nhất)
+### Phương pháp khuyến nghị: Git Bash / Windows Terminal
 
-1. Trong Lightsail console, click instance
-2. Click **"Connect using SSH"**
-3. Terminal sẽ mở trong browser
-
-### Phương 2: PuTTY (Windows)
-
-1. Download PuTTY: https://www.putty.org/
-2. Download private key:
-   - Click instance → **"Account"** → **"SSH keys"**
-   - Download default key hoặc create new
-3. Convert .pem to .ppk (nếu cần):
-   - Mở PuTTYgen → Load .pem file → Save private key
-4. Connect với PuTTY:
-   - Host: Public IP của instance
-   - Port: 22
-   - Connection → SSH → Auth → Browse .ppk file
-
-### Phương 3: Windows Terminal / Git Bash (Khuyến nghị)
-
-1. Download SSH key:
+1. Download SSH key từ Lightsail:
    - Lightsail → Account → SSH keys
-   - Download default key (e.g., `LightsailDefaultKey.pem`)
+   - Download default key `LightsailDefaultKey.pem`
 
-2. Connect:
+2. Set permissions (Git Bash):
+   ```bash
+   chmod 400 ~/Downloads/LightsailDefaultKey.pem
+   ```
 
-```bash
-# Set permissions cho key file
-chmod 400 ~/Downloads/LightsailDefaultKey.pem
+3. Connect:
+   ```bash
+   ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@52.77.218.100
+   ```
 
-# Connect
-ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@<PUBLIC_IP>
-```
+> **Lưu ý:** Key có thể tên khác (`LightsailDefaultKeyPair.pem`). Cần thêm nội dung file này vào GitHub Secret `LIGHTSAIL_SSH_KEY`.
 
-### Bước 4.1: Lấy Public IP
-
-1. Trong Lightsail console, click instance
-2. Copy **Public IP** (ví dụ: `54.123.45.67`)
-
-### Bước 4.2: Test Connection
-
-```bash
-ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@54.123.45.67
-
-# Nếu hỏi "Are you sure you want to continue connecting?"
-# Gõ: yes
-```
-
-### Bước 4.3: Verify Connection
+### Verify connection thành công
 
 ```
 Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 5.15.0-1051-aws x86_64)
@@ -208,11 +137,7 @@ Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 5.15.0-1051-aws x86_64)
  * Management:     https://landscape.canonical.com
  * Support:        https://ubuntu.com/pro
 
-  System information as of Mon Jun 29 10:00:00 UTC 2026
-
-  0 updates can be applied immediately.
-
-Last login: Mon Jun 29 09:00:00 2026 from 203.0.113.1
+Last login: ...
 ubuntu@menugreen-server:~$
 ```
 
@@ -220,335 +145,149 @@ ubuntu@menugreen-server:~$
 
 ## 5. Cài đặt Docker
 
-### Bước 5.1: Update System
-
 ```bash
 sudo apt update && sudo apt upgrade -y
-```
 
-### Bước 5.2: Install Docker
-
-```bash
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Add user to docker group (không cần sudo cho docker)
+# Add user ubuntu to docker group (không cần sudo cho docker)
 sudo usermod -aG docker ubuntu
 
-# Verify Docker installation
-docker --version
-# Output: Docker version 26.x.x
-```
-
-### Bước 5.3: Install Docker Compose
-
-```bash
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-# Make executable
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Verify
-docker-compose --version
-# Output: Docker Compose version v2.x.x
-```
-
-### Bước 5.4: Logout và Login lại
-
-```bash
-# Thoát SSH
+# Logout và login lại để áp dụng group
 exit
 
-# Login lại để áp dụng docker group
-ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@54.123.45.67
+# Re-login
+ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@52.77.218.100
 
-# Verify không cần sudo
+# Verify
+docker --version        # Docker version 26.x.x
+docker compose version  # Docker Compose version v2.x.x
+docker ps               # Không cần sudo
+```
+
+---
+
+## 6. Cài đặt Nginx
+
+> Nginx chạy **trực tiếp trên host** (không phải Docker container) để tiết kiệm RAM.
+
+```bash
+# Cài Nginx
+sudo apt install -y nginx certbot python3-certbot-nginx
+
+# Tạo folder snippets
+sudo mkdir -p /etc/nginx/snippets
+sudo mkdir -p /etc/nginx/sites-enabled
+```
+
+> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [cors-config.md](./cors-config.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
+
+---
+
+## 7. Cấu hình Server
+
+### 7.1 App directory
+
+CD workflow tự tạo folder này. Không cần clone repo trên server.
+
+```bash
+sudo mkdir -p /home/ubuntu/apps/menugreen
+sudo chown ubuntu:ubuntu /home/ubuntu/apps/menugreen
+```
+
+### 7.2 GitHub Actions SSH access
+
+Thêm public key của GitHub Actions runner vào `~/.ssh/authorized_keys`:
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+
+# Hoặc dùng Lightsail default key + paste vào GitHub Secret LIGHTSAIL_SSH_KEY
+```
+
+### 7.3 Outbound connections cần thiết
+
+Server cần kết nối ra ngoài đến:
+
+| Destination                    | Port | Mục đích             |
+|--------------------------------|------|----------------------|
+| `registry-1.docker.io`         | 443  | Pull Docker image    |
+| `api.doppler.com`              | 443  | Download secrets     |
+| `<RDS_ENDPOINT>.rds.amazonaws.com` | 5432 | Kết nối PostgreSQL |
+| `<REDIS_HOST>`                 | 6379 | Kết nối Redis (nếu managed) |
+
+Không cần mở ports cho outbound — Lightsail mặc định cho phép tất cả outbound.
+
+### 7.4 RDS Security Group
+
+Vào **AWS Console → RDS → menugreen-db → Connectivity & security → Security group** → Edit inbound rules:
+
+| Type            | Protocol | Port | Source            |
+|-----------------|----------|------|-------------------|
+| PostgreSQL      | TCP      | 5432 | `52.77.218.100/32` (IP Lightsail) |
+
+### 7.5 Verify server
+
+```bash
+# Docker OK?
 docker ps
-# Output: CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
+
+# Network outbound
+curl -fsSL https://api.doppler.com > /dev/null && echo "Doppler OK"
+nc -zv <RDS_ENDPOINT> 5432
+
+# Disk space
+df -h
 ```
 
 ---
 
-## 6. Deploy MenuGreen
+## 8. Cấu hình Domain (Optional - đã có api.menugreen.food)
 
-### Bước 6.1: Cài đặt Git
+### Bước 8.1: Tạo Static IP
 
-```bash
-sudo apt install -y git
+1. Lightsail → **"Networking"** → **"Create static IP"**
+2. Attach vào instance `menugreen-server`
+3. Ghi nhớ Static IP
+
+### Bước 8.2: Point DNS về Lightsail
+
+Vào domain registrar (Namecheap/Cloudflare/GoDaddy), thêm A record:
+
+```
+api.menugreen.food  →  A  →  52.77.218.100
 ```
 
-### Bước 6.2: Clone Project
-
-```bash
-# Tạo directory cho app
-mkdir -p apps && cd apps
-
-# Clone project (thay URL bằng repo của bạn)
-git clone https://github.com/your-username/MenuGreenSystem.git
-
-# Vào directory
-cd MenuGreenSystem
-```
-
-### Bước 6.3: Tạo Docker Network
-
-```bash
-docker network create menugreen-net
-```
-
-### Bước 6.4: Configure Environment Variables
-
-```bash
-# Copy template .env.example
-cp .env.example .env
-
-# Edit .env với giá trị của bạn
-nano .env
-
-# Hoặc generate htpasswd password cho monitoring
-cd monitoring/scripts
-chmod +x generate-password.sh
-./generate-password.sh admin
-# Nhập password mới khi được yêu cầu
-
-# Copy output vào monitoring/nginx/.htpasswd
-cd ../nginx
-nano .htpasswd
-# Paste nội dung đã generate
-
-# Quay lại root directory
-cd ~/apps/MenuGreenSystem
-```
-
-**Lưu ý quan trọng:**
-- File `.env` KHÔNG được commit lên Git (đã có trong `.gitignore`)
-- Chỉ cần điền các biến trong `.env`, `docker-compose.yml` đã dùng `${VAR}` rồi
-- Grafana password được lấy từ `GF_SECURITY_ADMIN_PASSWORD` trong `.env`
-- Nginx basic auth password được lấy từ `NGINX_BASIC_AUTH_PASSWORD` trong `.env`
-
-### Bước 6.5: Sử dụng Docker Compose Production (Khuyến nghị)
-
-Dự án đã cung cấp file `docker-compose.prod.yml` để deploy production:
-
-**Tại sao dùng `docker-compose.prod.yml`?**
-- Chỉ deploy services cần thiết (API + DB + Redis)
-- Port DB/Redis chỉ bind localhost (`127.0.0.1`) để tăng security
-- Không bao gồm monitoring stack trong deploy chính (monitoring sẽ setup sau)
-- Giảm attack surface và tài nguyên server
-
-```bash
-# Build image
-docker-compose -f docker-compose.prod.yml build --no-cache
-
-# Start services
-docker-compose -f docker-compose.prod.yml up -d
-
-# Xem logs
-docker-compose -f docker-compose.prod.yml logs -f
-```
-
-### Bước 6.6: Deploy bằng Script (Tự động hóa)
-
-```bash
-# Download deploy script (hoặc đã có sẵn trong repo)
-cd ~/apps/MenuGreenSystem/scripts
-
-# Chmod +x
-chmod +x deploy.sh
-
-# Chạy deploy (cần sudo)
-sudo ./deploy.sh
-```
-
-Script sẽ tự động:
-- Kiểm tra Docker + Docker Compose
-- Tạo Docker network nếu chưa có
-- Build images
-- Start DB/Redis, chờ DB sẵn sàng
-- Chạy EF migrations (nếu dotnet CLI có sẵn)
-- Start API
-- Chạy health check
-
-### Bước 6.7: Deploy thủ công (nếu cần)
-
-```bash
-cd ~/apps/MenuGreenSystem
-
-# Build image
-docker-compose -f docker-compose.prod.yml build
-
-# Start services theo thứ tự
-docker-compose -f docker-compose.prod.yml up -d db redis
-
-# Chờ DB ready (kiểm tra)
-docker-compose -f docker-compose.prod.yml exec db pg_isready -U postgres
-
-# Chạy EF migrations (nếu cần)
-cd backend/MenuGreen.API
-dotnet ef database update --no-build
-cd ~/apps/MenuGreenSystem
-
-# Start API
-docker-compose -f docker-compose.prod.yml up -d api
-```
-
-### Bước 6.8: Verify Services
-
-```bash
-# Kiểm tra container status
-docker-compose -f docker-compose.prod.yml ps
-
-# Output mong đợi:
-# NAME                IMAGE               COMMAND              SERVICE
-# menugreen_db        postgres:15-alpine  "docker-entrypoint..." db
-# menugreen_api       menugreen_api       "dotnet ..."        api
-# menugreen_redis     redis:7-alpine      "redis-server ..."   redis
-
-# Test API
-curl http://localhost:5000/health
-
-# Test qua Nginx (nếu đã setup domain)
-curl http://your-domain.com/health
-```
+Đợi 5-30 phút để DNS propagate.
 
 ---
 
-## 7. Cấu hình Domain (Optional)
-
-### Bước 7.1: Mua Domain (nếu chưa có)
-
-Mua domain tại:
-
-- Namecheap (~$10/năm)
-- GoDaddy (~$12/năm)
-- Google Domains (~$12/năm)
-- Cloudflare Registrar (~$9/năm)
-
-### Bước 7.2: Tạo Static IP tĩnh
-
-1. Trong Lightsail console → **"Networking"**
-2. Click **"Create static IP"**
-3. Attach vào instance của bạn
-4. **Quan trọng**: Ghi nhớ Static IP
-
-### Bước 7.3: Point DNS về Lightsail
-
-1. Vào domain registrar (nơi bạn mua domain)
-2. Tìm DNS settings
-3. Thêm records:
-
-| Type  | Name | Value                                      |
-| ----- | ---- | ------------------------------------------ |
-| A     | @    | `<STATIC_IP>`                              |
-| A     | www  | `<STATIC_IP>`                              |
-| CNAME | @    | `<STATIC_IP>.singapore.cloudapp.azure.com` |
-
-**Ví dụ với Cloudflare:**
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  DNS Settings - yourdomain.com                                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  Type    Name    Content                    Proxy status   TTL         │
-│  ─────   ────   ──────────────────────     ────────────   ────         │
-│  A       @       54.123.45.67              DNS only       Auto        │
-│  A       www     54.123.45.67              DNS only       Auto        │
-│                                                                         │
-│  [ + Add record ]                                                      │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-4. Đợi 5-30 phút để DNS propagate
-
-### Bước 7.4: Test Domain
+## 9. Setup SSL (Let's Encrypt)
 
 ```bash
-# Thay your-domain.com bằng domain thật
-curl http://your-domain.com/health
-```
-
----
-
-## 8. Setup SSL (Let's Encrypt)
-
-### Bước 8.1: Cài đặt Certbot
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-```
-
-### Bước 8.2: Lấy SSL Certificate
-
-```bash
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+# Lấy SSL certificate cho domain
+sudo certbot --nginx -d api.menugreen.food
 
 # Làm theo prompts:
-# Enter email: your-email@example.com
-# Accept terms: A
-# Share email: N
-# Redirect HTTP to HTTPS: 2 (Redirect)
+# - Enter email: your-email@example.com
+# - Accept terms: A
+# - Share email: N
+# - Redirect HTTP to HTTPS: 2 (Redirect)
 ```
 
-### Bước 8.3: Verify SSL
+### Verify SSL
 
 ```bash
-# Test SSL certificate
-curl https://your-domain.com/health
-
-# Check certificate expiration
 sudo certbot certificates
 
-# Output:
-# Certificate name: your-domain.com
-# Valid from: Mon Jun 29 10:00:00 2026
-# Valid until: Sun Sep 27 10:00:00 2026
-# SSL Grade: A+
-```
-
-### Bước 8.4: Auto-renewal (Certbot tự làm)
-
-```bash
 # Test renewal
 sudo certbot renew --dry-run
 
-# Kiểm tra cron job đã được tạo
+# Auto-renewal đã setup sẵn bởi certbot
 sudo systemctl status certbot.timer
-```
-
----
-
-## 9. Setup Alerts (Cuối cùng)
-
-### Bước 9.1: Cài đặt Alert Script Dependencies
-
-```bash
-sudo apt install -y bc mailutils curl
-```
-
-### Bước 9.2: Configure Alerts
-
-```bash
-cd ~/apps/MenuGreenSystem/monitoring/scripts
-nano alert.sh
-
-# Sửa các dòng sau:
-ALERT_EMAIL="your-email@example.com"
-```
-
-### Bước 9.3: Setup Cron Job
-
-```bash
-# Edit crontab
-crontab -e
-
-# Thêm dòng này (every 5 minutes):
-*/5 * * * * /home/ubuntu/apps/MenuGreenSystem/monitoring/scripts/alert.sh >> /var/log/menugreen-alert.log 2>&1
-
-# Save và exit
 ```
 
 ---
@@ -556,130 +295,128 @@ crontab -e
 ## Checklist Setup Hoàn chỉnh
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  MENUGREEN SETUP CHECKLIST                                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  AWS Account:                                                           │
-│  [ ] Đăng ký AWS account                                              │
-│  [ ] Verify credit card                                                │
-│                                                                         │
-│  Lightsail Instance:                                                   │
-│  [ ] Tạo instance (Ubuntu 22.04, Small $10)                           │
-│  [ ] Mở firewall ports (80, 443, 3000, 8080, 9090)                   │
-│  [ ] Tạo static IP (optional nhưng khuyến nghị)                       │
-│                                                                         │
-│  SSH Connection:                                                        │
-│  [ ] Download SSH key                                                  │
-│  [ ] Connect thành công                                                │
-│                                                                         │
-│  Docker:                                                                │
-│  [ ] Cài Docker                                                         │
-│  [ ] Cài Docker Compose                                                │
-│  [ ] Test docker ps                                                    │
-│                                                                         │
-│  MenuGreen Deployment:                                                 │
-│  [ ] Clone project                                                     │
-│  [ ] Tạo Docker network                                               │
-│  [ ] docker-compose up -d                                             │
-│  [ ] Verify tất cả containers running                                  │
-│  [ ] Test /health endpoint                                             │
-│                                                                         │
-│  Domain & SSL:                                                          │
-│  [ ] Point DNS về Lightsail IP                                        │
-│  [ ] Setup SSL với Let's Encrypt                                       │
-│  [ ] Test HTTPS                                                        │
-│                                                                         │
-│  Monitoring:                                                            │
-│  [ ] Setup monitoring sau khi deploy production thành công              │
-│                                                                         │
-│  Security:                                                              │
-│  [ ] Đổi all default passwords                                         │
-│  [ ] Close port 2375 (Docker)                                         │
-│  [ ] Setup firewall rules restrictively                                │
-│  [ ] Backup credentials                                                │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  MENUGREEN SERVER SETUP CHECKLIST                    │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  AWS Account:                                         │
+│  [✅] Đăng ký AWS account                            │
+│  [✅] Verify credit card                              │
+│                                                      │
+│  Lightsail Instance:                                  │
+│  [✅] Tạo instance Ubuntu 22.04, Small $10            │
+│  [✅] Mở firewall: 22, 80, 443                       │
+│  [✅] Static IP: 52.77.218.100                        │
+│                                                      │
+│  SSH:                                                 │
+│  [✅] Download SSH key                               │
+│  [✅] Test connect thành công                         │
+│  [✅] LIGHTSAIL_SSH_KEY paste vào GitHub Secrets      │
+│                                                      │
+│  Software:                                            │
+│  [✅] Docker installed                                │
+│  [✅] Docker Compose plugin                           │
+│  [✅] Nginx installed                                 │
+│  [✅] Certbot installed                               │
+│                                                      │
+│  Database (RDS):                                      │
+│  [✅] PostgreSQL RDS created                          │
+│  [✅] Security group allow IP Lightsail               │
+│  [✅] Database `menugreendb` exists                   │
+│                                                      │
+│  App directory:                                       │
+│  [✅] /home/ubuntu/apps/menugreen exists              │
+│  [✅] Owned by ubuntu:ubuntu                          │
+│                                                      │
+│  GitHub Secrets:                                      │
+│  [✅] DOPPLER_TOKEN                                   │
+│  [✅] LIGHTSAIL_HOST, USER, SSH_KEY                   │
+│  [✅] DOCKERHUB_USERNAME, TOKEN                       │
+│                                                      │
+│  Domain & SSL:                                        │
+│  [✅] api.menugreen.food A record → 52.77.218.100     │
+│  [✅] SSL Let's Encrypt (auto-renew)                  │
+│                                                      │
+│  First deploy:                                        │
+│  [✅] GitHub Actions backend-ci + backend-cd pass     │
+│  [✅] Container `menugreen_api` running               │
+│  [✅] Health check OK                                 │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Chi phí
 
-| Item                          | Cost                            |
-| ----------------------------- | ------------------------------- |
-| AWS Lightsail Small (2GB RAM) | **$0** (Free 3 tháng đầu)       |
-| Sau 3 tháng                   | $10/tháng                       |
-| Domain                        | ~$10-15/năm                     |
-| SSL                           | Miễn phí (Let's Encrypt)        |
-| **Total Year 1**              | **~$20-30** (chủ yếu là domain) |
+| Item                            | Cost                            |
+|---------------------------------|---------------------------------|
+| AWS Lightsail Small (2GB)       | $10/tháng                       |
+| AWS RDS db.t3.micro             | ~$15/tháng (free tier hết)      |
+| Domain `menugreen.food`         | ~$10/năm                        |
+| SSL Let's Encrypt               | Miễn phí                        |
+| **Total Month**                 | **~$25-30/tháng**               |
 
 ---
 
 ## Troubleshooting
 
-### Không kết nối được SSH?
+### Không SSH được?
 
 ```bash
-# Kiểm tra Security Groups
-Lightsail → Instance → Networking → Firewall
-
-# Kiểm tra instance status
-Lightsail → Instances → Kiểm tra status (Running?)
+# Kiểm tra Security Group Lightsail
+Lightsail → Instance → Networking → Firewall (đảm bảo có port 22)
 
 # Reset SSH keys
 Lightsail → Account → SSH keys → Reset
 ```
 
-### Docker containers không start?
+### Docker pull fail?
 
 ```bash
-# Xem logs
-docker-compose logs -f
+# Test outbound
+curl -fsSL https://registry-1.docker.io/v2/ > /dev/null && echo "OK"
 
-# Restart
-docker-compose restart
-
-# Rebuild nếu cần
-docker-compose down
-docker-compose up -d --build
+# Login Docker Hub (nếu image private)
+sudo docker login -u anhtuan21112004
 ```
 
-### Health check fails?
+### Nginx không start?
 
 ```bash
-# Check container status
-docker-compose ps
-
-# Check logs của API
-docker-compose logs api
-
-# Kiểm tra port đang listen
-curl http://localhost:5000/health
+sudo nginx -t           # Check syntax
+sudo systemctl status nginx
+sudo tail -50 /var/log/nginx/error.log
 ```
 
-### DNS không hoạt động?
+### RDS không kết nối?
 
 ```bash
-# Flush DNS cache (local)
-# Windows: ipconfig /flushdns
-# Mac: sudo dscacheutil -flushcache
+# Test từ server
+nc -zv <RDS_ENDPOINT> 5432
+PGPASSWORD=xxx psql -h <RDS_ENDPOINT> -U postgres -d menugreendb
+```
 
-# Verify DNS propagation
-dig your-domain.com
-# hoặc
-nslookup your-domain.com
+### Disk đầy?
+
+```bash
+# Cleanup Docker
+sudo docker system prune -af --volumes
+
+# Xem dung lượng lớn
+sudo du -sh /var/log/*
+sudo du -sh /tmp/*
 ```
 
 ---
 
 ## Support Links
 
-- AWS Lightsail Documentation: https://docs.aws.amazon.com/lightsail/
-- Docker Documentation: https://docs.docker.com/
+- AWS Lightsail Docs: https://docs.aws.amazon.com/lightsail/
+- Docker Docs: https://docs.docker.com/
 - Let's Encrypt: https://letsencrypt.org/docs/
-- UptimeRobot: https://uptimerobot.com/dashboard
+- Ubuntu Server Guide: https://ubuntu.com/server/docs
 
 ---
 
-**Tiếp theo**: [Sau khi deploy xong, setup Monitoring](./monitoring/README.md)
+**Tiếp theo:** Sau khi setup xong, xem [DEPLOY.md](./DEPLOY.md) để hiểu flow deploy.

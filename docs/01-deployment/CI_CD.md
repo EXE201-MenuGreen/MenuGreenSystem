@@ -1,408 +1,421 @@
 # CI/CD Pipeline Guide - MenuGreen System
 
-**Last updated:** 2026-07-09
+> **Last updated:** 2026-07-11 — Phản ánh workflow hiện tại (backend-ci.yml + backend-cd.yml).
 
 ---
 
 ## Overview
 
-MenuGreen sử dụng GitHub Actions để tự động hóa CI/CD pipeline:
-- Build & Test .NET
-- Build Docker image
-- Deploy lên AWS Lightsail
+MenuGreen sử dụng **2 GitHub Actions workflows** riêng biệt:
+
+| File                        | Mục đích                                     | Trigger                |
+|-----------------------------|----------------------------------------------|------------------------|
+| `backend-ci.yml`            | Build + Test + Push Docker image             | Push/PR vào `main`     |
+| `backend-cd.yml`            | Deploy lên AWS Lightsail                     | Sau khi CI pass + manual |
 
 ---
 
-## Pipeline Flow
+## Pipeline Flow (hiện tại)
 
 ```
-Git Push → GitHub Actions → Docker Hub → Server Deploy
-                                              │
-                                              ▼
-                                    ┌─────────────────┐
-                                    │ 1. SSH to Server│
-                                    │ 2. Pull .env    │
-                                    │    from Doppler │
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ 3. Backup DB    │ ← pg_dump
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ 4. Pull Image   │
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ 5. EF Migration │
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ 6. Health Check │
-                                    └─────────────────┘
+┌──────────────────────┐
+│  Developer           │
+│  git push origin main│
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────────────────────────┐
+│  backend-ci.yml (Build & Push)          │
+│  ┌────────────────────────────────────┐  │
+│  │ 1. Checkout                        │  │
+│  │ 2. Setup .NET 9.0                  │  │
+│  │ 3. Restore + Build                 │  │
+│  │ 4. (Optional) Run tests            │  │
+│  │ 5. Docker login (Docker Hub)       │  │
+│  │ 6. Build image → push :main + :sha │  │
+│  └────────────────────────────────────┘  │
+└──────────┬───────────────────────────────┘
+           │ workflow_run completed
+           ▼
+┌──────────────────────────────────────────┐
+│  backend-cd.yml (Deploy)                 │
+│  ┌────────────────────────────────────┐  │
+│  │ 1. SSH → Lightsail                 │  │
+│  │ 2. Cleanup old Docker resources    │  │
+│  │ 3. Decode docker-compose.prod.yml  │  │ ← base64 embedded
+│  │ 4. Install Doppler CLI (if needed) │  │
+│  │ 5. Doppler secrets → .env          │  │
+│  │ 6. Backup RDS (pg_dump)            │  │
+│  │ 7. Tag :main → :previous           │  │
+│  │ 8. Pull :main                      │  │
+│  │ 9. Stop old container              │  │
+│  │10. Up new container                │  │
+│  │11. Verify tables exist in DB       │  │
+│  │12. Health check /health/ready      │  │
+│  │    └─ FAIL → Auto rollback         │  │
+│  │13. Prune old Docker images         │  │
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+           │
+           ▼
+    API live at:
+    https://api.menugreen.food
 ```
 
 ---
 
-## GitHub Secrets
+## GitHub Secrets (bắt buộc)
 
-### Required
+| Secret                | Description                                | Example                         |
+|-----------------------|--------------------------------------------|---------------------------------|
+| `DOPPLER_TOKEN`       | Doppler service token (config `prd`)       | `dp.prd.xxx...`                 |
+| `LIGHTSAIL_HOST`      | Server IP                                  | `52.77.218.100`                 |
+| `LIGHTSAIL_USER`      | SSH username                               | `ubuntu`                        |
+| `LIGHTSAIL_SSH_KEY`   | SSH private key (.pem full content)        | `-----BEGIN...`                 |
+| `DOCKERHUB_USERNAME`  | Docker Hub account                         | `anhtuan21112004`               |
+| `DOCKERHUB_TOKEN`     | Docker Hub access token (Read+Write)       | `dckr_pat_xxx...`               |
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOPPLER_TOKEN` | Doppler production config token | `dp.prd.xxx` |
-| `LIGHTSAIL_HOST` | Server IP | `52.77.218.100` |
-| `LIGHTSAIL_USER` | SSH user | `ubuntu` |
-| `LIGHTSAIL_SSH_KEY` | SSH private key | `-----BEGIN...` |
+Vào **GitHub** → Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
-### Optional
+Chi tiết setup xem: [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md)
 
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_USERNAME` | `anhtuan21112004` |
-| `DOCKERHUB_TOKEN` | Docker Hub access token |
+---
 
-### Setup Guide
+## Workflow files chi tiết
 
-See: [GITHUB_SECRETS_SETUP.md](./GITHUB_SECRETS_SETUP.md)
+### `.github/workflows/backend-ci.yml`
+
+**Triggers:**
+- `push` to `main`
+- `pull_request` to `main`
+- Manual `workflow_dispatch`
+
+**Jobs:**
+
+1. **Checkout code**
+2. **Setup .NET 9.0.x**
+3. **Restore dependencies**
+4. **Build** (Release config)
+5. **Run tests** (nếu có)
+6. **Docker login** với Docker Hub credentials
+7. **Build & tag**:
+   - `:main` (latest trên main branch)
+   - `:${{ github.sha }}` (commit SHA cụ thể)
+   - `:latest`
+8. **Push** to Docker Hub
+
+**Outputs:**
+- Image available at: `docker.io/anhtuan21112004/menugreensystem:main`
+
+---
+
+### `.github/workflows/backend-cd.yml`
+
+**Triggers:**
+- `workflow_run` từ `backend-ci.yml` với conclusion = `success` (chỉ trên nhánh `main`, không phải PR)
+- Manual `workflow_dispatch` (option `production` hoặc `staging`)
+
+**Skip deploy** nếu:
+- CI failed/cancelled
+- Commit message chứa `#skipdeploy`
+- Trigger là `pull_request`
+
+**Steps (deploy via SSH):**
+
+```bash
+# 1. Cleanup disk
+sudo docker system prune -af --volumes
+
+# 2. Decode embedded docker-compose.prod.yml
+echo "$COMPOSE_B64" | base64 -d > "$APP_DIR/docker-compose.prod.yml"
+
+# 3. Install Doppler CLI (if missing)
+curl -fsSL https://github.com/DopplerHQ/cli/releases/...
+
+# 4. Download Doppler secrets
+doppler secrets download --token $DOPPLER_TOKEN \
+  --no-file --project menugreen --config prd --format env \
+  > /tmp/doppler_raw.env
+
+# 5. Build .env from secrets
+# Format: Foo__Bar=value (convert : to __ for nested keys)
+# Special handling for: ConnectionStrings__DefaultConnection, JwtSettings__*, REDIS_URL
+
+# 6. Backup RDS (FAIL = ABORT DEPLOY)
+PGPASSWORD=$DB_PASSWORD pg_dump -h $DB_HOST -U $DB_USER \
+  -d $DB_NAME -F p -f /tmp/menugreen_backup_*.sql
+
+# 7. Tag previous image
+docker tag $IMAGE:main $IMAGE:previous
+docker push $IMAGE:previous
+
+# 8. Pull latest
+docker pull $IMAGE:main
+
+# 9. Stop + remove old container
+docker compose -f $APP_DIR/docker-compose.prod.yml down --remove-orphans
+
+# 10. Start new container
+docker compose -f $APP_DIR/docker-compose.prod.yml up -d
+
+# 11. Wait + health check
+for i in {1..30}; do
+  curl -sf http://localhost:5000/health/ready && break
+  sleep 2
+done
+
+# 12. Auto-rollback if health check fails
+# - Logs failed container
+# - Down compose
+# - Pull $IMAGE:previous
+# - Re-fetch Doppler secrets
+# - Up with previous image
+```
 
 ---
 
 ## Server Information
 
-| Property | Value |
-|----------|-------|
-| **SSH** | `ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100` |
-| **App Location** | `~/apps/MenuGreenSystem` |
-| **Docker Image** | `anhtuan21112004/menugreensystem:latest` |
-| **API Port** | 5000 |
-| **OS** | Ubuntu 22.04 LTS |
+| Property         | Value                                                          |
+|------------------|----------------------------------------------------------------|
+| **SSH**          | `ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100`    |
+| **App directory** | `/home/ubuntu/apps/menugreen`                                  |
+| **Docker Image** | `docker.io/anhtuan21112004/menugreensystem:main`                |
+| **API Port**     | 5000 (chỉ internal)                                            |
+| **Domain**       | `https://api.menugreen.food`                                   |
+| **OS**           | Ubuntu 22.04 LTS                                                |
 
 ---
 
-## Deployment Commands
+## Docker Compose Production (embedded base64)
 
-```bash
-# SSH to server
-ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100
+`docker-compose.prod.yml` được **embedded base64 trong workflow**, không nằm trong repo. Decode ra:
 
-# Check container status
-docker ps
+```yaml
+services:
+  api:
+    image: docker.io/anhtuan21112004/menugreensystem:latest
+    container_name: menugreen_api
+    pull_policy: always
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5000:5000"
+    networks:
+      - menugreen-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+          cpus: '1.0'
+    volumes: []
 
-# View API logs
-docker logs menugreen_api --tail 50 -f
-
-# Restart API
-docker restart menugreen_api
-
-# Pull latest image manually
-docker pull anhtuan21112004/menugreensystem:latest
-docker compose -f docker-compose.prod.yml up -d api
-
-# Database backup
-pg_dump -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com \
-  -U postgres -d menugreendb -F p -f backup.sql
-
-# Navigate to app
-cd ~/apps/MenuGreenSystem
+networks:
+  menugreen-net:
+    external: true
 ```
+
+> **Lưu ý:** Compose này **CHỈ** có service `api` — không có Redis (Redis là managed service, connection string từ `REDIS_URL` env).
 
 ---
 
 ## Database Migration
 
-### Automatic (via CI/CD)
+### Automatic (trên app startup)
 
-CI/CD pipeline tự động chạy migration khi deploy:
-1. Backup database với `pg_dump`
-2. Run `dotnet ef database update`
-3. Nếu fail → rollback, không start API
+App tự chạy EF Core migration khi khởi động (xem `Program.cs` / `DbContext`). Không cần efbundle hay chạy `dotnet ef` trong container.
 
-### Manual
+### Backup trước khi deploy
+
+CD workflow tự động `pg_dump` trước khi deploy:
 
 ```bash
-# SSH vào server
-ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100
+BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" \
+  -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE"
 
-# Backup trước
-pg_dump -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com \
-  -U postgres -d menugreendb -F p -f backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Run migration
-docker exec menugreen_api dotnet ef database update \
-  --project backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
-  --startup-project backend/MenuGreen.API/MenuGreen.API.csproj
+# Backup fail → ABORT deployment
 ```
+
+Backup giữ lại 5 file gần nhất ở `/tmp/`.
 
 ---
 
 ## Health Check
 
-### Endpoints
+| Endpoint             | Description                | Check trong CI |
+|----------------------|----------------------------|----------------|
+| `GET /health`        | Full health (DB + Redis)   |                |
+| `GET /health/ready`  | Readiness (DB + Redis)     | ✅ (30 lần, 2s/lần) |
+| `GET /health/live`   | Liveness (always OK)       | (trong Docker healthcheck) |
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Full health check (DB + Redis) |
-| `GET /health/ready` | Readiness check |
-| `GET /health/live` | Liveness check |
-
-### Test
+### Test thủ công
 
 ```bash
-curl https://api.menugreen.food/health
+# Qua Nginx (public)
+curl -I https://api.menugreen.food/health/live
+
+# Trực tiếp API (trên server)
+curl -I http://localhost:5000/health/ready
+
+# Trên server từ máy local
+ssh -i LightsailDefaultKeyPair.pem ubuntu@52.77.218.100 \
+  "curl http://localhost:5000/health/ready"
 ```
 
 ---
 
 ## Rollback Plan
 
-### If Migration Fail
+### Auto rollback (CD workflow tự làm)
 
-1. SSH vào server
-2. Restore từ backup:
-   ```bash
-   psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com \
-     -U postgres -d menugreendb < backup.sql
-   ```
-3. Pull image version cũ
-4. Không start API cho đến khi fix xong
+Nếu health check fail 30 lần (60s) sau khi deploy:
 
-### If Deployment Fail
+1. Log container lỗi
+2. Stop container hiện tại
+3. Pull image `anhtuan21112004/menugreensystem:previous`
+4. Re-fetch Doppler secrets (đảm bảo `.env` đúng format)
+5. Tag previous image
+6. `docker compose up -d` với image cũ
+7. `exit 1` để workflow fail
 
-1. SSH vào server
-2. Stop current: `docker compose -f docker-compose.prod.yml down`
-3. Pull image cũ: `docker pull docker.io/anhtuan21112004/menugreensystem:<previous-tag>`
-4. Start: `docker compose -f docker-compose.prod.yml up -d`
-5. Verify health check
-
----
-
-## Docker Compose Production
+### Manual rollback
 
 ```bash
-# Build & Start
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml up -d
+ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100
 
-# View logs
-docker-compose -f docker-compose.prod.yml logs -f
+cd /home/ubuntu/apps/menugreen
 
-# Stop
-docker-compose -f docker-compose.prod.yml down
-```
+# Stop current
+docker compose -f docker-compose.prod.yml down
 
----
+# Pull previous image
+sudo docker pull anhtuan21112004/menugreensystem:previous
 
-## Nginx Configuration (Snippets Approach)
+# Tag cho compose
+sudo docker tag anhtuan21112004/menugreensystem:previous menugreen_api
 
-Tách config thành các snippets để tái sử dụng và dễ maintain.
-
-### Folder Structure
-
-```
-/etc/nginx/
-├── snippets/
-│   ├── proxy-params.conf      ← Proxy settings
-│   └── cors-headers.conf      ← CORS headers
-├── sites-available/
-│   └── api.menugreen.food     ← API config
-└── sites-enabled/
-    └── api.menugreen.food     ← Symlink
-```
-
-### Step 1: Create snippets folder
-
-```bash
-sudo mkdir -p /etc/nginx/snippets
-```
-
-### Step 2: Create proxy-params.conf
-
-```bash
-sudo nano /etc/nginx/snippets/proxy-params.conf
-```
-
-```nginx
-# Proxy parameters - tái sử dụng cho tất cả backend services
-
-proxy_http_version 1.1;
-proxy_set_header Host $host;
-proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-proxy_set_header X-Forwarded-Proto $scheme;
-proxy_set_header Connection "";
-
-# Timeouts
-proxy_connect_timeout 60s;
-proxy_send_timeout 60s;
-proxy_read_timeout 60s;
-
-# Buffers
-proxy_buffering on;
-proxy_buffer_size 4k;
-proxy_buffers 4 4k;
-```
-
-### Step 3: Create cors-headers.conf
-
-```bash
-sudo nano /etc/nginx/snippets/cors-headers.conf
-```
-
-```nginx
-# CORS Headers - tái sử dụng
-
-# Preflight OPTIONS
-if ($request_method = 'OPTIONS') {
-    add_header 'Access-Control-Allow-Origin' 'https://www.menugreen.food' always;
-    add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
-    add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With' always;
-    add_header 'Access-Control-Allow-Credentials' 'true' always;
-    add_header 'Access-Control-Max-Age' 86400 always;
-    add_header 'Content-Type' 'text/plain; charset=utf-8';
-    add_header 'Content-Length' 0;
-    return 204;
-}
-
-# Normal responses
-add_header 'Access-Control-Allow-Origin' 'https://www.menugreen.food' always;
-add_header 'Access-Control-Allow-Credentials' 'true' always;
-add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
-add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With' always;
-```
-
-### Step 4: Update API config
-
-```bash
-sudo nano /etc/nginx/sites-available/api.menugreen.food
-```
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name api.menugreen.food;
-
-    # SSL certificates
-    ssl_certificate /etc/letsencrypt/live/api.menugreen.food/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.menugreen.food/privkey.pem;
-
-    # SSL optimization
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {
-        # Include CORS headers
-        include snippets/cors-headers.conf;
-
-        # Proxy to backend
-        proxy_pass http://localhost:5000;
-        include snippets/proxy-params.conf;
-    }
-}
-```
-
-### Step 5: Reload Nginx
-
-```bash
-# Test config
-sudo nginx -t
-
-# Reload nginx
-sudo systemctl reload nginx
+# Start
+docker compose -f docker-compose.prod.yml up -d
 
 # Verify
-curl -I https://api.menugreen.food/health
+docker logs menugreen_api --tail 50
+curl http://localhost:5000/health/ready
 ```
 
-### Verification Result
-
-```
-HTTP/2 200
-access-control-allow-origin: https://www.menugreen.food
-access-control-allow-credentials: true
-access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS, PATCH
-access-control-allow-headers: Content-Type, Authorization, Accept, Origin, X-Requested-With
-```
-
-### Monitoring Logs
+### Rollback DB từ backup
 
 ```bash
-# Access log
-sudo tail -20 /var/log/nginx/access.log
+ls -t /tmp/menugreen_backup_*.sql | head -1
 
-# Error log
-sudo tail -20 /var/log/nginx/error.log
-
-# Real-time monitoring
-sudo tail -f /var/log/nginx/access.log
+# Restore
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST \
+  -U $DB_USER -d $DB_NAME < /tmp/menugreen_backup_20260711_143000.sql
 ```
+
+---
+
+## Nginx Configuration (trên host)
+
+Cấu hình chi tiết: xem [cors-config.md](./cors-config.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
+
+Tóm tắt:
+
+- Nginx chạy **trên host** (không trong Docker)
+- Config trong `/etc/nginx/nginx.conf` + `/etc/nginx/conf.d/cors-map.conf`
+- Proxy: `https://api.menugreen.food` → `http://localhost:5000`
+- CORS dùng **map** trong `cors-map.conf` (whitelist origins)
+- SSL Let's Encrypt auto-renew
+
+---
+
+## Monitoring (hiện tại)
+
+- Health check `curl /health/ready` trong CD workflow
+- Application logs: `docker logs menugreen_api -f`
+- Nginx access logs: `/var/log/nginx/access.log`
+- Nginx error logs: `/var/log/nginx/error.log`
+
+Có thể tích hợp thêm:
+- UptimeRobot: ping `/health/live` mỗi 5 phút
+- CloudWatch: collect Docker metrics
+- Prometheus + Grafana: (chưa setup, có thể thêm sau)
 
 ---
 
 ## Troubleshooting
 
-### Build Failures
+### Build failures
 
 ```bash
-# Check network connectivity
+# Check network
 curl -s https://api.nuget.org/v3/index.json | head
 
 # Clear NuGet cache
 dotnet nuget locals all --clear
 ```
 
-### Deployment Failures
+### Deployment failures
 
 ```bash
-# Check logs
-docker logs menugreen_api
+# Container logs
+docker logs menugreen_api --tail 100
 
-# Check environment variables
+# Environment variables trong container
 docker exec menugreen_api env | sort
 
-# Check port availability
-netstat -tlnp | grep 5000
+# Port availability
+sudo netstat -tlnp | grep 5000
+
+# Container status
+docker ps -a | grep menugreen
 ```
 
-### CORS Issues
+### Doppler issues
 
 ```bash
-# Test preflight
-curl -I -X OPTIONS https://api.menugreen.food/api/Auth/login \
-  -H "Origin: https://www.menugreen.food" \
-  -H "Access-Control-Request-Method: POST"
-
-# Verify CORS headers
-curl -I https://api.menugreen.food/health
+# Test download thủ công
+DOPPLER_TOKEN=dp.prd.xxx doppler secrets download \
+  --no-file --project menugreen --config prd --format env
 ```
 
----
+### Health check fails
 
-## Monitoring Stack (Future)
+```bash
+# Trên server
+curl -v http://localhost:5000/health/ready
+docker logs menugreen_api --tail 50
 
-See: [monitoring/uptimerobot-setup.md](./monitoring/uptimerobot-setup.md)
-
-Planned:
-- Prometheus metrics: `/metrics`
-- Grafana dashboards
-- UptimeRobot alerts
+# Qua Nginx
+curl -v https://api.menugreen.food/health/ready
+sudo nginx -t
+sudo tail -20 /var/log/nginx/error.log
+```
 
 ---
 
 ## Related Documents
 
-| Document | Description |
-|----------|-------------|
-| [GITHUB_SECRETS_SETUP.md](./GITHUB_SECRETS_SETUP.md) | GitHub secrets setup guide |
-| [lightsail-setup.md](./lightsail-setup.md) | Server setup guide |
-| [issues.md](./issues.md) | Issue tracker |
+| Document                                    | Description                          |
+|---------------------------------------------|--------------------------------------|
+| [DEPLOY.md](./DEPLOY.md)                    | Tổng quan deployment plan            |
+| [lightsail-setup.md](./lightsail-setup.md)  | Setup server từ đầu                  |
+| [DOPPLER_SETUP.md](./DOPPLER_SETUP.md)      | Quản lý secrets qua Doppler          |
+| [cors-config.md](./cors-config.md)          | CORS & Nginx                         |
+| [DEPLOY_FIX_PLAN.md](./DEPLOY_FIX_PLAN.md)  | Lịch sử fix deploy (đã xong)         |
+| [DEPLOY_REVIEW.md](./DEPLOY_REVIEW.md)      | Lịch sử review gap (đã xong)         |
+| [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md) | Setup GitHub Secrets         |
 
 ---
 
-*Last updated: 2026-07-05*
+*Last updated: 2026-07-11*
