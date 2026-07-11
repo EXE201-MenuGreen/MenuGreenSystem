@@ -200,4 +200,88 @@ class ApiEndpoints {
   static String get aiAssistantProfile => '$baseUrl/AiAssistant/profile';
   static String get aiAssistantSuggestions =>
       '$baseUrl/AiAssistant/suggestions';
+
+  // Vietnam Local Features (10-vietnam-local-features.md)
+  // Daily Starter (2.12)
+  static String get dailyStarterToday => '$baseUrl/DailyStarter/today';
+  static String get dailyStarterFeaturedMeals =>
+      '$baseUrl/DailyStarter/featured-meals';
+  static String get dailyStarterSelectMeal =>
+      '$baseUrl/DailyStarter/select-meal';
+  static String get dailyStarterStartLog => '$baseUrl/DailyStarter/start-log';
+  static String get dailyStarterRecommendations =>
+      '$baseUrl/DailyStarter/recommendations';
+  static String get dailyStarterPersonalization =>
+      '$baseUrl/DailyStarter/personalization';
+  static String get dailyStarterSavePreference =>
+      '$baseUrl/DailyStarter/save-preference';
+
+  // Gym/PT Goals (2.13)
+  static String get gymGoalsMe => '$baseUrl/GymGoals/me';
+  static String get gymGoals => '$baseUrl/GymGoals';
+  static String get gymGoalsPlan => '$baseUrl/GymGoals/plan';
+  static String get gymGoalsRecalibrate =>
+      '$baseUrl/GymGoals/recalibrate';
+  static String get gymGoalsAlerts => '$baseUrl/GymGoals/alerts';
+  static String get gymGoalsCoachReport =>
+      '$baseUrl/GymGoals/coach-report';
+
+  // Food Capture (2.14)
+  static String get foodCaptureQuickTemplate =>
+      '$baseUrl/Nutrition/food-capture/quick-template';
+  static String get foodCaptureTemplateFromPlan =>
+      '$baseUrl/Nutrition/food-capture/template-from-plan';
+  static String get foodCaptureFallbackEstimate =>
+      '$baseUrl/Nutrition/food-capture/fallback-estimate';
+  static String get foodCaptureSaveAsQuickAdd =>
+      '$baseUrl/Nutrition/food-capture/save-as-quick-add';
+
+  // Safety/Compliance (2.15)
+  static String get safetyDisclaimer => '$baseUrl/Safety/disclaimer';
+  static String get safetyConsent => '$baseUrl/Safety/consent';
+  static String get safetyAlerts => '$baseUrl/Safety/alerts';
+  static String get safetyExportData => '$baseUrl/Safety/export-data';
+  static String get safetyDeleteData => '$baseUrl/Safety/delete-data';
+  static String get safetyReportIssue => '$baseUrl/Safety/report-issue';
+
+  // Local Preferences (2.11) — alias trên UserAiProfile
+  static String get localPreferences =>
+      '$baseUrl/Nutrition/local-preferences';
+  static String get localRecommendationsBudgetAware =>
+      '$baseUrl/Nutrition/recommendations/budget-aware';
+  static String get localRecommendationsLocalFriendly =>
+      '$baseUrl/Nutrition/recommendations/local-friendly';
+  static String get localRecommendationsFeedback =>
+      '$baseUrl/Nutrition/recommendations/feedback';
+  static String get mealLogVnSuggestions =>
+      '$baseUrl/Nutrition/meal-log/vn/suggestions';
+  static String get mealLogVnQuickAdd =>
+      '$baseUrl/Nutrition/meal-log/vn/quick-add';
+  static String get mealLogVnHistory =>
+      '$baseUrl/Nutrition/meal-log/vn/history';
+  static String get mealLogVn => '$baseUrl/Nutrition/meal-log/vn';
+  static String get nutritionDiscoveryLocal =>
+      '$baseUrl/Nutrition/discovery/local';
+  static String get nutritionDiscoveryLocalByBudget =>
+      '$baseUrl/Nutrition/discovery/local/by-budget';
+
+  // Planned vs Actual (2.17)
+  static String get plannedVsActualSummary =>
+      '$baseUrl/Analytics/planned-vs-actual';
+  static String get plannedVsActualAdherenceScore =>
+      '$baseUrl/Analytics/planned-vs-actual/adherence-score';
+  static String get plannedVsActualDriftAnalysis =>
+      '$baseUrl/Analytics/planned-vs-actual/drift-analysis';
+  static String get plannedVsActualRecommendations =>
+      '$baseUrl/Analytics/planned-vs-actual/recommendations';
+  static String get plannedVsActualMonthlyReport =>
+      '$baseUrl/Analytics/planned-vs-actual/monthly-report';
+  static String get plannedVsActualRecalibrate =>
+      '$baseUrl/Analytics/planned-vs-actual/recalibrate';
+
+  // Ingredient Substitution Preference (2.18)
+  static String get ingredientSubstitutesPreferences =>
+      '$baseUrl/Ingredient/preferences/substitutes';
+  static String ingredientSubstitutePreferenceById(String id) =>
+      '$baseUrl/Ingredient/preferences/substitutes/$id';
 }

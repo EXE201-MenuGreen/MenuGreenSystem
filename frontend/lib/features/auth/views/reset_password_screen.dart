@@ -24,6 +24,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   bool _isLoading = false;
 
   Future<void> _handleReset() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final otp = _otpController.text.trim();
     final newPassword = _newPasswordController.text;
 
@@ -62,11 +64,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text((result['message'] ?? 'Đặt lại mật khẩu thất bại').toString()), backgroundColor: Colors.red),

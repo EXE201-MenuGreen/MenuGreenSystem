@@ -642,6 +642,57 @@ Script `scripts/verify_endpoints.py` đếm `[HttpGet]`, `[HttpPost]`, `[HttpPut
 
 ---
 
+## [RESOLVED] Vietnam Local Features — UI triển khai hoàn chỉnh
+
+**Date:** 2026-07-09
+**Status:** ✅ Resolved
+**Severity:** Medium
+
+### Description
+
+Tài liệu `docs/features/10-vietnam-local-features.md` liệt kê 7 workflow (2.11 – 2.18) với trạng thái `API Done · UI Partial`. Phần lớn UI chưa có, ngoại trừ Allergy Risk Badge. Cần triển khai đầy đủ giao diện Flutter cho từng workflow dựa trên các endpoint backend đã có.
+
+### Root Cause
+
+Tính năng backend hoàn thiện sớm nhưng chưa được ưu tiên phát triển UI vì các task tracking/meal plan/allergy được xếp P1 trước. Khi roadmap chuyển sang giai đoạn "Vietnam-first", tài liệu ghi nhận các workflow này nhưng chưa có giao diện.
+
+### Environment
+
+- Frontend: `d:\CSharp_UpSpeed\MenuGreenSystem\frontend` (Flutter 3.11, Dart 3.x)
+- Backend: `d:\CSharp_UpSpeed\MenuGreenSystem\backend\MenuGreen.API`
+- Tài liệu tham chiếu: `docs/features/10-vietnam-local-features.md`
+
+### Fix Applied
+
+Tạo feature hoàn chỉnh `frontend/lib/features/vietnam_local/` với:
+
+1. **Models** — `vietnam_local_models.dart` ánh xạ 18+ DTO backend (DailyStarter, GymGoal, SafetyConsent, PlannedVsActualSummary, DriftAnalysis, IngredientSubstitutePreference, ...).
+2. **Repositories** — `vietnam_local_repositories.dart` gom 8 repository (DailyStarter, GymGoals, Safety, FoodCapture, LocalPreferences, PlannedVsActual, IngredientSubstitutionPreferences) chia sẻ helper `_VietnamLocalApi._exec` trả `ApiResult<T>` với `translatedMessage` qua `ApiMessageTranslator`.
+3. **Providers** — 8 ChangeNotifier providers mount trong `main.dart` (DailyStarter, GymGoals, Safety, LocalPreferences, PlannedVsActual, FoodCapture, IngredientSubstitution).
+4. **Widgets dùng chung** — `InfoCard`, `SectionHeader`, `RangePickerField` theo convention `flutter-ui-conventions.md`.
+5. **Màn hình Views (12 files)**:
+   - `daily_starter_screen.dart` + `daily_starter_personalization_screen.dart` (2.12)
+   - `gym_goals_screen.dart` (2.13, kèm editor)
+   - `food_capture_screen.dart` (2.14)
+   - `safety_hub_screen.dart`, `disclaimer_screen.dart`, `consent_screen.dart`, `report_issue_screen.dart` (2.15)
+   - `local_preferences_screen.dart` (2.11)
+   - `planned_vs_actual_screen.dart` (2.17)
+   - `ingredient_substitution_screen.dart` (2.18)
+6. **Endpoints** — bổ sung vào `core/network/api_endpoints.dart` cho tất cả controller mới.
+7. **Translations** — mở rộng `ApiMessageTranslator` với 8 message mới (Recalibration, Consent updated, Substitution applied, ...).
+8. **Tích hợp navigation**:
+   - `home_view.dart`: thêm thẻ "Lối tắt nhanh" (Hôm nay ăn gì? + Ăn ngoài?).
+   - `profile_view.dart`: thêm nhóm "Ăn uống Việt Nam" (5 mục).
+   - `main.dart`: đăng ký 7 provider mới trong MultiProvider.
+
+### Verification
+
+- `flutter analyze lib/features/vietnam_local lib/main.dart lib/core/i18n/api_message_translator.dart lib/core/network/api_endpoints.dart lib/features/home lib/features/profile` → 0 lỗi compile.
+- `flutter build apk --debug --no-pub` → built thành công APK debug.
+- Tài liệu `10-vietnam-local-features.md` cập nhật Status, UI Components table, Navigation Flow.
+
+---
+
 ## Template for New Issues
 
 ```markdown
