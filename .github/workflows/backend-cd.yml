@@ -73,6 +73,27 @@ jobs:
             SHA=${{ github.sha }}
 
             # =================================================================
+            # BƯỚC 0a: Ensure self-signed cert exists (for catch-all HTTPS)
+            # - /etc/ssl/certs/ssl-cert-snakeoil.pem không có sẵn trên Ubuntu minimal
+            # - Generate on-the-fly nếu chưa có
+            # - Cert này dùng cho catch-all HTTPS server (reject unknown SNI)
+            # =================================================================
+            echo "=== [0a] Ensure self-signed cert exists ==="
+            if [ ! -f /etc/ssl/certs/menugreen-catchall.pem ] || [ ! -f /etc/ssl/private/menugreen-catchall.key ]; then
+              sudo mkdir -p /etc/ssl/private
+              sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /etc/ssl/private/menugreen-catchall.key \
+                -out /etc/ssl/certs/menugreen-catchall.pem \
+                -subj "/CN=menugreen-catchall/O=MenuGreenSystem/C=VN" \
+                2>/dev/null
+              sudo chmod 600 /etc/ssl/private/menugreen-catchall.key
+              sudo chmod 644 /etc/ssl/certs/menugreen-catchall.pem
+              echo "  ✓ Generated self-signed cert"
+            else
+              echo "  ⊘ Self-signed cert already exists"
+            fi
+
+            # =================================================================
             # BƯỚC 0: Apply nginx config (TRƯỚC khi restart container)
             # - SCP đã upload file lên /tmp/nginx-deploy/
             # - appleboy/scp-action giữ cấu trúc thư mục theo source.
