@@ -246,7 +246,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<CoachClientSummaryResponse>> GetMyClientsAsync(Guid coachId)
         {
             var connections = await _unitOfWork.CoachConnections.FindAsync(
-                c => c.CoachId == coachId && c.Status == "Connected");
+                c => c.CoachId == coachId && (c.Status == "Pending" || c.Status == "Connected"));
 
             var results = new List<CoachClientSummaryResponse>();
 
@@ -291,6 +291,37 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 });
             }
 
+            return results.OrderByDescending(x => x.ConnectedAt);
+        }
+
+        public async Task<IEnumerable<MyCoachResponse>> GetMyCoachesAsync(Guid clientId)
+        {
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.ClientId == clientId && (c.Status == "Pending" || c.Status == "Connected"));
+            var results = new List<MyCoachResponse>();
+            foreach (var connection in connections)
+            {
+                var coachProfile = (await _unitOfWork.CoachProfiles.FindAsync(c => c.UserId == connection.CoachId)).FirstOrDefault();
+                if (coachProfile == null) continue;
+                var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == connection.CoachId)).FirstOrDefault();
+                results.Add(new MyCoachResponse
+                {
+                    Id = coachProfile.Id,
+                    UserId = coachProfile.UserId,
+                    FullName = profile?.FullName ?? "MenuGreen Expert",
+                    AvatarUrl = profile?.AvatarUrl ?? string.Empty,
+                    Specialty = coachProfile.Specialty,
+                    Bio = coachProfile.Bio,
+                    ExperienceYears = coachProfile.ExperienceYears,
+                    CertificateUrl = coachProfile.CertificateUrl,
+                    PriceVnd = coachProfile.PriceVnd,
+                    IsActive = coachProfile.IsActive,
+                    CreatedAt = coachProfile.CreatedAt,
+                    ConnectionStatus = connection.Status,
+                    IsAccessGranted = connection.IsAccessGranted,
+                    ConnectedAt = connection.UpdatedAt
+                });
+            }
             return results.OrderByDescending(x => x.ConnectedAt);
         }
 
@@ -528,26 +559,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _unitOfWork.MealPlanHeaders.Update(plan);
 
-            // Replace items
-            var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id);
-            _unitOfWork.MealPlanItems.RemoveRange(existingItems);
-            await _unitOfWork.CompleteAsync();
-
-            foreach (var item in request.Items)
+            // An empty item list means header-only adjustment. This prevents a
+            // Coach from accidentally deleting the student's complete plan.
+            if (request.Items.Count > 0)
             {
-                await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
+                var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id);
+                _unitOfWork.MealPlanItems.RemoveRange(existingItems);
+                await _unitOfWork.CompleteAsync();
+                foreach (var item in request.Items)
                 {
-                    Id = Guid.NewGuid(),
-                    MealPlanId = plan.Id,
-                    MealType = item.MealType,
-                    FoodId = item.FoodId,
-                    RecipeId = item.RecipeId,
-                    PlannedDate = item.PlannedDate,
-                    ScheduledTime = item.ScheduledTime,
-                    TargetCalories = item.TargetCalories,
-                    IsCompleted = item.IsCompleted,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
+                    {
+                        Id = Guid.NewGuid(), MealPlanId = plan.Id, MealType = item.MealType,
+                        FoodId = item.FoodId, RecipeId = item.RecipeId, PlannedDate = item.PlannedDate,
+                        ScheduledTime = item.ScheduledTime, TargetCalories = item.TargetCalories,
+                        IsCompleted = item.IsCompleted, CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
 
             await _unitOfWork.CompleteAsync();

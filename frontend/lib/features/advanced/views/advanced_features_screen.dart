@@ -92,8 +92,35 @@ class _PtTabState extends State<_PtTab> {
         builder: (dialogContext) => AlertDialog(
           title: Text('Kết quả tuần ${_v(result, 'weekStartDate')}'),
           content: SingleChildScrollView(
-            child: Text(
-              'PT: ${_v(result, 'ptComment', 'Chưa có nhận xét')}\nCalo đề xuất: ${_v(result, 'suggestedCalorieTarget', '-')}\nProtein đề xuất: ${_v(result, 'suggestedProteinTarget', '-')}\nTrạng thái: ${_v(result, 'status')}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'PT: ${_v(result, 'ptComment', 'Chưa có nhận xét')}\nCalo đề xuất: ${_v(result, 'suggestedCalorieTarget', '-')}\nProtein đề xuất: ${_v(result, 'suggestedProteinTarget', '-')}\nTrạng thái: ${_v(result, 'status')}',
+                ),
+                const Divider(),
+                const Text(
+                  'Thay đổi thực đơn',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                if ((result['suggestedChanges'] ?? result['SuggestedChanges'])
+                    is List)
+                  for (final raw
+                      in (result['suggestedChanges'] ??
+                              result['SuggestedChanges'])
+                          as List)
+                    if (raw is Map)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          '${raw['action'] ?? raw['Action']} • ${raw['mealType'] ?? raw['MealType']}',
+                        ),
+                        subtitle: Text(
+                          '${raw['dayOfWeek'] ?? raw['DayOfWeek']}\n${raw['notes'] ?? raw['Notes'] ?? ''}',
+                        ),
+                      ),
+              ],
             ),
           ),
           actions: [
@@ -329,6 +356,14 @@ class _CoachTabState extends State<_CoachTab> {
                   ),
                 ],
               ),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  sheetContext,
+                  MaterialPageRoute(builder: (_) => const MyCoachesScreen()),
+                ),
+                icon: const Icon(Icons.people_outline),
+                label: const Text('Coach của tôi & phản hồi'),
+              ),
             ],
           ),
         ),
@@ -414,13 +449,19 @@ class _IngredientTab extends StatefulWidget {
 }
 
 class _IngredientTabState extends State<_IngredientTab> {
-  final repo = AdvancedRepository(), search = TextEditingController();
+  final repo = AdvancedRepository(),
+      search = TextEditingController(),
+      category = TextEditingController();
   List<Map<String, dynamic>> rows = [];
   bool safe = false, loading = false;
   Future<void> load() async {
     setState(() => loading = true);
     try {
-      rows = await repo.ingredients(search.text, safe);
+      rows = await repo.ingredients(
+        search.text,
+        safe,
+        category: category.text.trim(),
+      );
     } catch (e) {
       if (mounted) _notice(context, e);
     }
@@ -446,6 +487,21 @@ class _IngredientTabState extends State<_IngredientTab> {
             suffixIcon: IconButton(
               onPressed: load,
               icon: const Icon(Icons.search),
+            ),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: TextField(
+          controller: category,
+          onSubmitted: (_) => load(),
+          decoration: InputDecoration(
+            labelText: 'Lọc theo danh mục',
+            suffixIcon: IconButton(
+              onPressed: load,
+              icon: const Icon(Icons.filter_alt_outlined),
             ),
             border: const OutlineInputBorder(),
           ),
@@ -554,6 +610,12 @@ class _UserTabState extends State<_UserTab> {
               for (final r in rows)
                 Card(
                   child: ListTile(
+                    onTap: () => Navigator.push(
+                      c,
+                      MaterialPageRoute(
+                        builder: (_) => UserDetailScreen(userId: _v(r, 'id')),
+                      ),
+                    ),
                     title: Text(_v(r, 'fullName')),
                     subtitle: Text('${_v(r, 'email')} • ${_v(r, 'role')}'),
                     leading: Icon(

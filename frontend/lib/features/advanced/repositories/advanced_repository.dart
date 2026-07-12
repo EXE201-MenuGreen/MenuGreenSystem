@@ -106,6 +106,12 @@ class AdvancedRepository {
   Future<List<Map<String, dynamic>>> clients() async => _list(
     _body(await _api.get('${ApiEndpoints.baseUrl}/Coaches/my-clients')),
   );
+  Future<List<Map<String, dynamic>>> myCoaches() async => _list(
+    _body(await _api.get('${ApiEndpoints.baseUrl}/Coaches/my-coaches')),
+  );
+  Future<List<Map<String, dynamic>>> myCoachFeedback() async => _list(
+    _body(await _api.get('${ApiEndpoints.baseUrl}/Coaches/my-feedback')),
+  );
   Future<void> connect(String id) async => _body(
     await _api.postJson('${ApiEndpoints.baseUrl}/Coaches/connect/$id', {}),
   );
@@ -137,7 +143,7 @@ class AdvancedRepository {
       await _api.get('${ApiEndpoints.baseUrl}/Coaches/clients/$id/profile'),
     ),
   );
-  Future<Map<String, dynamic>> clientNutrition(String id) async => _map(
+  Future<List<Map<String, dynamic>>> clientNutrition(String id) async => _list(
     _body(
       await _api.get(
         '${ApiEndpoints.baseUrl}/Coaches/clients/$id/nutrition-summary?days=7',
@@ -183,10 +189,15 @@ class AdvancedRepository {
 
   Future<List<Map<String, dynamic>>> ingredients(
     String keyword,
-    bool safe,
-  ) async {
+    bool safe, {
+    String? category,
+  }) async {
     final uri = Uri.parse('${ApiEndpoints.baseUrl}/Ingredient/search').replace(
-      queryParameters: {'keyword': keyword, if (safe) 'allergyMode': 'safe'},
+      queryParameters: {
+        'keyword': keyword,
+        if (safe) 'allergyMode': 'safe',
+        if (category != null && category.isNotEmpty) 'category': category,
+      },
     );
     return _list(_body(await _api.get(uri.toString())));
   }
@@ -216,6 +227,8 @@ class AdvancedRepository {
 
   Future<List<Map<String, dynamic>>> users() async =>
       _list(_body(await _api.get('${ApiEndpoints.baseUrl}/User')));
+  Future<Map<String, dynamic>> user(String id) async =>
+      _map(_body(await _api.get('${ApiEndpoints.baseUrl}/User/$id')));
   Future<void> userAction(String id, String action, [String? role]) async =>
       _body(
         await _api.putJson(

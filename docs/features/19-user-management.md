@@ -58,7 +58,7 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 ## 4. UI Components
 
 - User-facing: `ChangePasswordScreen` trong Profile feature (đã có).
-- Admin-facing: User management trong Admin Panel (chưa có).
+- Admin-facing: danh sách, chi tiết, status, lock/unlock và role assignment trong tab quản trị.
 
 ---
 
@@ -79,6 +79,7 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 
 - [x] User có màn hình đổi mật khẩu hiện hữu.
 - [x] Admin có danh sách user, bật/tắt, lock/unlock và gán role User/Coach/Admin.
+- [x] Có màn hình chi tiết user dùng `GET /api/User/{id}` với trạng thái, role, email confirmation và thời điểm đăng nhập.
 - [x] Non-admin nhận màn hình giải thích quyền truy cập thay vì crash.
 - [x] Đã sửa route tài liệu từ `/api/Users` sang route controller thực tế `/api/User`.
 - [x] Flutter analyzer không có error/warning cho feature.

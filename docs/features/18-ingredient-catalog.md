@@ -54,10 +54,11 @@ Khác với `IngredientSubstitutionController`: Substitution = tìm thay thế c
 
 ## 4. UI Components
 
-Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
+Flutter UI đã triển khai trong feature `advanced` và liên kết với:
 
 - Discover/Ingredient search screen
 - Recipe creation/editing screen
+- Ingredient detail/recipes và Admin create/edit/delete
 
 ---
 
@@ -78,6 +79,7 @@ Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
 ## 7. Verification & Assessment (2026-07-12)
 
 - [x] Có UI tìm kiếm catalog và chế độ chỉ hiện nguyên liệu an toàn dị ứng.
+- [x] Có bộ lọc category gửi đúng query `category` cho backend.
 - [x] Đã sửa route tài liệu từ `/api/Ingredients` sang route controller thực tế `/api/Ingredient`.
 - [x] Có ingredient detail và danh sách recipes sử dụng nguyên liệu.
 - [x] Có form Admin tạo/sửa/xóa với các trường nutrition, giá, đơn vị và ảnh.

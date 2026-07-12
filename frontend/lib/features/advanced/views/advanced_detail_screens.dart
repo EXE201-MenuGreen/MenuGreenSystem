@@ -26,7 +26,107 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
       calories = TextEditingController(),
       protein = TextEditingController();
   Map<String, dynamic>? report;
+  final List<Map<String, String>> changes = [];
   bool loading = false;
+
+  Future<void> addChange() async {
+    final day = TextEditingController(),
+        meal = TextEditingController(),
+        notes = TextEditingController(),
+        oldFood = TextEditingController(),
+        newFood = TextEditingController(),
+        newRecipe = TextEditingController();
+    String action = 'Replace';
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Đề xuất thay đổi món'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: day,
+                  decoration: const InputDecoration(
+                    labelText: 'Ngày trong tuần, ví dụ Monday',
+                  ),
+                ),
+                TextField(
+                  controller: meal,
+                  decoration: const InputDecoration(
+                    labelText: 'Bữa ăn, ví dụ Breakfast',
+                  ),
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: action,
+                  items: const [
+                    DropdownMenuItem(value: 'Replace', child: Text('Thay món')),
+                    DropdownMenuItem(value: 'Add', child: Text('Thêm món')),
+                    DropdownMenuItem(value: 'Remove', child: Text('Bỏ món')),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => action = value ?? action),
+                ),
+                TextField(
+                  controller: notes,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Mô tả món thay đổi / ghi chú',
+                  ),
+                ),
+                TextField(
+                  controller: oldFood,
+                  decoration: const InputDecoration(
+                    labelText: 'Food ID cũ (không bắt buộc)',
+                  ),
+                ),
+                TextField(
+                  controller: newFood,
+                  decoration: const InputDecoration(
+                    labelText: 'Food ID mới (không bắt buộc)',
+                  ),
+                ),
+                TextField(
+                  controller: newRecipe,
+                  decoration: const InputDecoration(
+                    labelText: 'Recipe ID mới (không bắt buộc)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Thêm'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (accepted == true &&
+        day.text.trim().isNotEmpty &&
+        meal.text.trim().isNotEmpty) {
+      setState(
+        () => changes.add({
+          'dayOfWeek': day.text.trim(),
+          'mealType': meal.text.trim(),
+          'action': action,
+          'notes': notes.text.trim(),
+          if (oldFood.text.trim().isNotEmpty) 'oldFoodId': oldFood.text.trim(),
+          if (newFood.text.trim().isNotEmpty) 'newFoodId': newFood.text.trim(),
+          if (newRecipe.text.trim().isNotEmpty)
+            'newRecipeId': newRecipe.text.trim(),
+        }),
+      );
+    }
+  }
+
   Future<void> load() async {
     if (token.text.trim().isEmpty) return;
     setState(() => loading = true);
@@ -48,7 +148,7 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
         'comment': comment.text.trim(),
         'suggestedCalorieTarget': int.tryParse(calories.text),
         'suggestedProteinTarget': int.tryParse(protein.text),
-        'suggestedChanges': <dynamic>[],
+        'suggestedChanges': changes,
       });
       if (mounted) {
         showError(context, 'Đã gửi đánh giá');
@@ -131,6 +231,24 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: addChange,
+            icon: const Icon(Icons.playlist_add),
+            label: const Text('Thêm thay đổi thực đơn'),
+          ),
+          for (var i = 0; i < changes.length; i++)
+            ListTile(
+              title: Text(
+                '${changes[i]['action']} • ${changes[i]['mealType']}',
+              ),
+              subtitle: Text(
+                '${changes[i]['dayOfWeek']}\n${changes[i]['notes']}',
+              ),
+              trailing: IconButton(
+                onPressed: () => setState(() => changes.removeAt(i)),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
           FilledButton.icon(
             onPressed: submit,
             icon: const Icon(Icons.send),
@@ -219,6 +337,92 @@ class CoachClientsScreen extends StatefulWidget {
   const CoachClientsScreen({super.key});
   @override
   State<CoachClientsScreen> createState() => _CoachClientsScreenState();
+}
+
+class MyCoachesScreen extends StatefulWidget {
+  const MyCoachesScreen({super.key});
+  @override
+  State<MyCoachesScreen> createState() => _MyCoachesScreenState();
+}
+
+class _MyCoachesScreenState extends State<MyCoachesScreen> {
+  final repo = AdvancedRepository();
+  List<Map<String, dynamic>> coaches = [], feedback = [];
+  bool loading = true;
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final results = await Future.wait([
+        repo.myCoaches(),
+        repo.myCoachFeedback(),
+      ]);
+      coaches = results[0];
+      feedback = results[1];
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Coach của tôi')),
+    body: loading
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: load,
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                const Text(
+                  'Kết nối',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                if (coaches.isEmpty) const Text('Chưa có kết nối coach.'),
+                for (final coach in coaches)
+                  Card(
+                    child: ListTile(
+                      title: Text(valueOf(coach, 'fullName')),
+                      subtitle: Text(
+                        '${valueOf(coach, 'specialty')} • ${valueOf(coach, 'connectionStatus')}\nQuyền dữ liệu: ${valueOf(coach, 'isAccessGranted')}',
+                      ),
+                      isThreeLine: true,
+                      trailing:
+                          valueOf(coach, 'connectionStatus').toLowerCase() ==
+                              'connected'
+                          ? Switch(
+                              value:
+                                  valueOf(coach, 'isAccessGranted') == 'true',
+                              onChanged: (grant) async {
+                                await repo.access(valueOf(coach, 'id'), grant);
+                                await load();
+                              },
+                            )
+                          : null,
+                    ),
+                  ),
+                const Divider(),
+                const Text(
+                  'Phản hồi đã nhận',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                if (feedback.isEmpty) const Text('Chưa có phản hồi.'),
+                for (final item in feedback)
+                  ListTile(
+                    title: Text(valueOf(item, 'content')),
+                    subtitle: Text(
+                      '${valueOf(item, 'coachName')} • ${valueOf(item, 'createdAt')}',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+  );
 }
 
 class _CoachClientsScreenState extends State<CoachClientsScreen> {
@@ -321,7 +525,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       planId = TextEditingController(),
       planTitle = TextEditingController(),
       planCalories = TextEditingController();
-  Map<String, dynamic>? profile, nutrition;
+  Map<String, dynamic>? profile;
+  List<Map<String, dynamic>> nutrition = [];
   List<Map<String, dynamic>> feedbacks = [], weights = [];
   bool loading = true;
   String get id => valueOf(widget.client, 'clientId');
@@ -340,7 +545,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         repo.feedback(id),
       ]);
       profile = results[0] as Map<String, dynamic>;
-      nutrition = results[1] as Map<String, dynamic>;
+      nutrition = results[1] as List<Map<String, dynamic>>;
       weights = results[2] as List<Map<String, dynamic>>;
       feedbacks = results[3] as List<Map<String, dynamic>>;
     } catch (e) {
@@ -410,16 +615,38 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text('Hồ sơ\n${profile.toString()}'),
+                  child: Text(
+                    'Hồ sơ\nChiều cao: ${valueOf(profile ?? {}, 'heightCm', '-')} cm • Cân nặng: ${valueOf(profile ?? {}, 'weightKg', '-')} kg\nMục tiêu: ${valueOf(profile ?? {}, 'goal', '-')} • BMI: ${valueOf(profile ?? {}, 'bmi', '-')}\nDị ứng: ${valueOf(profile ?? {}, 'allergies', 'Không có')}',
+                  ),
                 ),
               ),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('Dinh dưỡng 7 ngày\n${nutrition.toString()}'),
-                ),
+              const Text(
+                'Dinh dưỡng 7 ngày',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text('Cân nặng: ${weights.length} bản ghi'),
+              if (nutrition.isEmpty) const Text('Chưa có dữ liệu dinh dưỡng.'),
+              for (final day in nutrition)
+                ListTile(
+                  dense: true,
+                  title: Text(valueOf(day, 'date')),
+                  subtitle: Text(
+                    'Calo ${valueOf(day, 'actualCalories')}/${valueOf(day, 'targetCalories')} • Protein ${valueOf(day, 'actualProtein')}/${valueOf(day, 'targetProtein')} g',
+                  ),
+                ),
+              const Text(
+                'Xu hướng cân nặng',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (weights.isEmpty) const Text('Chưa có bản ghi cân nặng.'),
+              for (final point in weights)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.monitor_weight_outlined),
+                  title: Text('${valueOf(point, 'weightKg', '-')} kg'),
+                  subtitle: Text(
+                    '${valueOf(point, 'recordedAt')} • Body fat ${valueOf(point, 'bodyFatPercent', '-')}%',
+                  ),
+                ),
               const Divider(),
               const Text(
                 'Điều chỉnh mục tiêu',
@@ -587,6 +814,65 @@ class IngredientEditScreen extends StatefulWidget {
   final Map<String, dynamic>? ingredient;
   @override
   State<IngredientEditScreen> createState() => _IngredientEditScreenState();
+}
+
+class UserDetailScreen extends StatefulWidget {
+  const UserDetailScreen({super.key, required this.userId});
+  final String userId;
+  @override
+  State<UserDetailScreen> createState() => _UserDetailScreenState();
+}
+
+class _UserDetailScreenState extends State<UserDetailScreen> {
+  final repo = AdvancedRepository();
+  Map<String, dynamic>? user;
+  bool loading = true;
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      user = await repo.user(widget.userId);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Chi tiết người dùng')),
+    body: loading
+        ? const Center(child: CircularProgressIndicator())
+        : user == null
+        ? const Center(child: Text('Không tìm thấy người dùng'))
+        : ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              CircleAvatar(
+                radius: 36,
+                child: Text(valueOf(user!, 'fullName', '?').characters.first),
+              ),
+              const SizedBox(height: 16),
+              for (final field in [
+                ('Họ tên', 'fullName'),
+                ('Email', 'email'),
+                ('Vai trò', 'role'),
+                ('Đang hoạt động', 'isActive'),
+                ('Đã xác nhận email', 'emailConfirmed'),
+                ('Ngày tạo', 'createdAt'),
+                ('Đăng nhập gần nhất', 'lastSignInAt'),
+              ])
+                ListTile(
+                  title: Text(field.$1),
+                  subtitle: Text(valueOf(user!, field.$2, '-')),
+                ),
+            ],
+          ),
+  );
 }
 
 class _IngredientEditScreenState extends State<IngredientEditScreen> {

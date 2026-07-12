@@ -53,12 +53,12 @@ Khác với `CoachesController`: Coaches = hệ sinh thái kết nối dài hạ
 
 ## 4. UI Components
 
-Chưa có Flutter UI. Cần phát triển:
+Flutter UI đã triển khai:
 
 - Create review request screen
 - My requests list screen
 - Review result view
-- PT-facing report page (web-friendly, mobile-responsive — vì PT không cần login)
+- PT-facing report page theo share token, không yêu cầu login
 
 ---
 
@@ -82,6 +82,7 @@ Chưa có Flutter UI. Cần phát triển:
 - [x] Đã có Flutter UI tạo báo cáo tuần, tải danh sách request, apply/reject.
 - [x] Repository đã nối đủ endpoint phía user và có xử lý lỗi HTTP.
 - [x] Có màn hình guest mở report theo share token, xem thông tin tuần và submit feedback/calo/protein suggestion không cần đăng nhập.
+- [x] PT có thể thêm nhiều menu suggestion theo ngày/bữa/action/ghi chú; user xem lại đầy đủ các thay đổi trước khi apply/reject.
 - [ ] Chưa kiểm thử end-to-end với user/PT thật và database thật.
 
 **Đánh giá: DONE.** Luồng user tạo/xem/apply/reject và luồng PT guest mở link/submit review đã khép kín theo API contract. E2E với dữ liệu production vẫn là bước smoke test trước phát hành, không còn là phần implementation thiếu.

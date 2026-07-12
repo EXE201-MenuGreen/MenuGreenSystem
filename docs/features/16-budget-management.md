@@ -45,7 +45,7 @@ Khác với `MealPlanController.generate-by-budget`: generate-by-budget tạo me
 
 ## 4. UI Components
 
-Chưa có Flutter UI. Cần phát triển:
+Flutter UI đã triển khai:
 
 - Budget setup/edit screen
 - Budget display on home/dashboard
