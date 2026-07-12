@@ -91,7 +91,16 @@ jobs:
           debug: true
           # SHA is injected via envs above (instead of ${{ github.sha }} in the
           # script body) so it survives the move from YAML to the .sh file.
+          # Run the deploy script as the SSH user (e.g. ubuntu), NOT under sudo.
+          # Why no `sudo`? appleboy/ssh-action forwards envs: APP_DIR, IMAGE_NAME,
+          # SHA, DOPPLER_TOKEN into the remote shell, but `sudo` resets the
+          # environment by default. Wrapping the whole script in sudo would
+          # strip those vars before deploy-server.sh reads them, causing
+          # `mkdir -p "$APP_DIR"` to fail with "cannot create directory ''"
+          # (the exact failure we saw in run 8d9e7c2). The script's internal
+          # `sudo docker …`, `sudo nginx -t`, etc. keep working because the
+          # SSH user has passwordless sudo.
           script: |
             set -e
             chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
-            sudo /tmp/nginx-deploy/backend/scripts/deploy-server.sh
+            /tmp/nginx-deploy/backend/scripts/deploy-server.sh

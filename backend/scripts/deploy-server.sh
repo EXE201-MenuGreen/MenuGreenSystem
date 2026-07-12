@@ -7,7 +7,7 @@
 # this size blew past that limit on line 69 of backend-cd.yml.
 #
 # Invocation (from CI):
-#   sudo bash /tmp/nginx-deploy/deploy-server.sh
+#   /tmp/nginx-deploy/backend/scripts/deploy-server.sh
 # Required env vars:
 #   IMAGE_NAME   e.g. docker.io/<user>/menugreensystem (provided by CI)
 #   SHA          git SHA of the deploy commit         (provided by CI)
