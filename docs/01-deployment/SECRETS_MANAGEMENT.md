@@ -1,6 +1,8 @@
 # Doppler Setup — MenuGreen System
 
-> **Last updated:** 2026-07-11 — Phản ánh workflow thật trong `backend-cd.yml`.
+> **Last updated:** 2026-07-12 — Phản ánh workflow thật trong `backend-cd.yml`.
+>
+> **Đã sửa:** Bỏ `LIGHTSAIL_*` khỏi Doppler (chỉ ở GitHub Secrets), bổ sung ghi chú về format env (`Foo__Bar` vs `Foo:Bar`), chỉnh sửa mapping JWT key.
 
 ---
 
@@ -13,9 +15,8 @@
 | 3 | Thêm secrets vào config `dev` (Local development)            | ✅         |
 | 4 | Tạo Service Token cho config `prd` (Read-only)               | ✅         |
 | 5 | Thêm `DOPPLER_TOKEN` vào GitHub Secrets                      | ✅         |
-| 6 | Cập nhật `.github/workflows/backend-cd.yml` để dùng Doppler | ✅         |
-| 7 | Push code + workflow chạy thật                               | ✅         |
-| 8 | Deploy thành công từ CI/CD                                   | ✅         |
+| 6 | CD workflow dùng Doppler CLI để download secrets → build `.env` | ✅         |
+| 7 | Deploy thành công từ CI/CD                                   | ✅         |
 
 ---
 
@@ -29,9 +30,41 @@ Project: menugreen
 
 ---
 
+## Cách secrets được inject vào container
+
+CD script (`backend/scripts/deploy-server.sh`) chạy trên server:
+
+```bash
+doppler secrets download --token "$DOPPLER_TOKEN" \
+  --no-file --project menugreen --config prd --format env \
+  > /tmp/doppler_raw.env
+```
+
+Rồi parse từng dòng `KEY=VALUE`, ghi vào `$APP_DIR/.env` theo format .NET:
+
+| Doppler secret        | Trong `.env`              | Đọc bởi                                         |
+|-----------------------|---------------------------|--------------------------------------------------|
+| `CONNECTIONSTRINGS__DEFAULTCONNECTION` | `ConnectionStrings__DefaultConnection=...` | `ConnectionStringHelper.ResolvePostgresConnectionString` |
+| `REDIS__CONNECTIONSTRING`             | `Redis__ConnectionString=...`              | `Program.cs` (`builder.Configuration["Redis:ConnectionString"]`) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Ghép thành `REDIS_URL=host:port,password=...` | `Program.cs` (fallback env)         |
+| `JWT_SECRET`                          | `JwtSettings__SecretKey=...`               | `Program.cs` JWT config                            |
+| `JWT_ISSUER`                          | `JwtSettings__Issuer=...`                  | JWT config                                         |
+| `JWT_AUDIENCE`                        | `JwtSettings__Audience=...`                | JWT config                                         |
+| `JWTSETTINGS__SECRETKEY` (alt)        | `JwtSettings__SecretKey=...`               | JWT config                                         |
+| `ALLOWEDORIGINS`                      | `ALLOWEDORIGINS=...` (giữ nguyên)          | `Program.cs` (`builder.Configuration["AllowedOrigins"]`) |
+| Bất kỳ `Foo__Bar=value`               | `Foo__Bar=value`                           | .NET config binding                                |
+| Bất kỳ `Foo:Bar=value`                | `Foo__Bar=value` (script đổi `:` → `__`)   | .NET config binding                                |
+| `LIGHTSAIL_SSH_KEY=...`               | **BỊ SKIP** — không inject vào `.env`      | (chỉ dùng cho SSH từ GH Actions runner)           |
+
+> **Lưu ý về format:**
+> - Doppler khuyến nghị dùng `:` cho nested key (`JWT:SecretKey`), nhưng .NET đọc cả `:` lẫn `__`. Script ưu tiên giữ `__` nếu key đã có sẵn, fallback convert `:` → `__` cho key dạng cũ.
+> - Doppler sometimes wrap value trong quotes (`"value"` hoặc `""value""`); script strip hết layer quotes trước khi ghi `.env` (fix bug 5432 → "5432" gây `pg_dump` fail).
+
+---
+
 ## Secrets trong config `prd`
 
-### Database (cho backup script + backup dùng)
+### Database (cho backup script)
 
 | Secret         | Mục đích                  |
 |----------------|---------------------------|
@@ -42,7 +75,7 @@ Project: menugreen
 | `DB_PASSWORD`  | Password RDS              |
 | `DB_SSL_MODE`  | `Require`                 |
 
-### Redis (sẽ ghép thành `REDIS_URL` cho Program.cs)
+### Redis (ghép thành `REDIS_URL`)
 
 | Secret           | Mục đích                       |
 |------------------|--------------------------------|
@@ -50,28 +83,26 @@ Project: menugreen
 | `REDIS_PORT`     | `6379`                         |
 | `REDIS_PASSWORD` | Password Redis                 |
 
-### JWT (cho JwtSettings__*)
+### JWT
 
-| Secret          | Mục đích                |
-|-----------------|-------------------------|
-| `JWT_SECRET`    | Random key cho JWT      |
-| `JWT_ISSUER`    | `MenuGreenAPI`          |
-| `JWT_AUDIENCE`  | `MenuGreenApp`          |
+| Secret                                  | Mục đích                                |
+|-----------------------------------------|-----------------------------------------|
+| `JWT_SECRET`                            | Random key cho JWT (ưu tiên)            |
+| `JWT_ISSUER`                            | `MenuGreenAPI`                          |
+| `JWT_AUDIENCE`                          | `MenuGreenApp`                          |
+| `JWTSETTINGS__SECRETKEY` *(alternative)*| Secret key nếu không dùng `JWT_SECRET`  |
+| `JWTSETTINGS__ISSUER` *(alt)*           | Issuer nếu không dùng `JWT_ISSUER`      |
+| `JWTSETTINGS__AUDIENCE` *(alt)*         | Audience nếu không dùng `JWT_AUDIENCE`  |
+| `JWTSETTINGS__EXPIRYMINUTES`            | Token expiry                            |
 
-### SSH (chỉ để backup, không inject vào app)
+> **Note:** Script ưu tiên `JWT_SECRET`/`JWT_ISSUER`/`JWT_AUDIENCE` (dạng phẳng, dễ đọc), fallback `JWTSETTINGS__*` (dạng .NET nested). Có thể dùng 1 trong 2 nhóm, không cần cả hai.
 
-| Secret              | Mục đích               |
-|---------------------|------------------------|
-| `LIGHTSAIL_HOST`    | IP Lightsail server    |
-| `LIGHTSAIL_USER`    | `ubuntu`               |
-| `LIGHTSAIL_SSH_KEY` | Nội dung file `.pem`   |
+### Connection strings
 
-### Connection strings (cho app)
-
-| Secret                                   | Mục đích                          |
-|------------------------------------------|-----------------------------------|
-| `CONNECTIONSTRINGS__DEFAULTCONNECTION`   | Full PostgreSQL connection string |
-| `REDIS__CONNECTIONSTRING`                | Redis connection (alternative)    |
+| Secret                                         | Mục đích                          |
+|------------------------------------------------|-----------------------------------|
+| `CONNECTIONSTRINGS__DEFAULTCONNECTION`         | Full PostgreSQL connection string |
+| `REDIS__CONNECTIONSTRING` *(alternative)*      | Redis connection (alternative)    |
 
 ### Email (Resend)
 
@@ -112,13 +143,19 @@ Project: menugreen
 | `CVSERVICE__BASEURL`                | Computer Vision microservice   |
 | `CVSERVICE__APISECRETKEY`           | CV service API key             |
 | `NUTRITIONASSISTANT__WORKERURL`     | Nutrition AI worker URL        |
-| `ALLOWEDORIGINS`                    | CORS whitelist origins         |
-| `JWTSETTINGS__SECRETKEY`            | Alternative JWT secret key     |
-| `JWTSETTINGS__ISSUER`               | Alternative issuer             |
-| `JWTSETTINGS__AUDIENCE`             | Alternative audience           |
-| `JWTSETTINGS__EXPIRYMINUTES`        | Token expiry                   |
+| `ALLOWEDORIGINS`                    | CORS whitelist origins (.NET fallback) |
 
-> **Luồng CI/CD + chi tiết script build `.env`:** xem [CI_CD.md](./CI_CD.md#workflow-files-chi-tiết).
+---
+
+## SSH secrets — KHÔNG đặt trong Doppler
+
+`LIGHTSAIL_HOST`, `LIGHTSAIL_USER`, `LIGHTSAIL_SSH_KEY` chỉ tồn tại ở **GitHub Secrets**, KHÔNG đặt trong Doppler:
+
+1. CD script skip key `LIGHTSAIL_SSH_KEY=` khi build `.env` (tránh inject private key vào container).
+2. GitHub Actions runner dùng `LIGHTSAIL_SSH_KEY` để SSH vào server — Doppler không tham gia bước này.
+3. Doppler chỉ chứa **application secrets** (DB, JWT, API keys...). **Infrastructure secrets** (SSH, Docker Hub) ở GitHub Secrets.
+
+> **Lưu ý bảo mật:** Nếu Doppler config `prd` có `LIGHTSAIL_*` keys cũ (từ trước khi refactor) → xóa đi, vì chúng sẽ bị script skip và tạo cảm giác "có nhưng không dùng".
 
 ---
 
@@ -173,20 +210,13 @@ doppler run -- printenv | grep DB_
 
 ---
 
-## File đã sửa (chỉ để tham khảo)
-
-| File                                       | Thay đổi                                                       |
-|--------------------------------------------|----------------------------------------------------------------|
-| `.github/workflows/backend-cd.yml`         | Dùng Doppler CLI để download secrets → build `.env` trên server |
-| `.github/workflows/backend-ci.yml`         | Build + push Docker image, không cần Doppler                    |
-
----
-
 ## Lưu ý bảo mật
 
 - **Không commit file `.env`** vào Git (đã có `.gitignore`).
-- **GitHub Secrets chỉ chứa `DOPPLER_TOKEN`**, `LIGHTSAIL_*` (SSH), `DOCKERHUB_*`.
-- **Doppler dashboard** là nơi quản lý tất cả secrets ứng dụng (single source of truth).
+- **GitHub Secrets** chứa 2 nhóm:
+  - **CI/CD infrastructure:** `DOPPLER_TOKEN`, `LIGHTSAIL_*` (SSH), `DOCKERHUB_*`.
+  - **KHÔNG** lưu application secrets (DB password, JWT, ...) trong GitHub Secrets.
+- **Doppler dashboard** là nơi quản lý tất cả **application secrets** (single source of truth).
 - Service Token Doppler chỉ có quyền **Read** config `prd` (least privilege).
 - Khi rotate secret: chỉ cần update trong Doppler, CD workflow pull secret mới ở deploy kế tiếp.
 
@@ -202,6 +232,7 @@ doppler run -- printenv | grep DB_
 | RDS SSL error                | `DB_SSL_MODE` sai                        | Đảm bảo config `prd` có `DB_SSL_MODE=Require`  |
 | JWT không nhận diện          | `JWT_SECRET` thiếu hoặc sai key          | Kiểm tra secret trong Doppler config `prd`     |
 | `REDIS_URL` format sai       | Thiếu `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` | Verify cả 3 secrets có trong Doppler   |
+| `.env` chứa `LIGHTSAIL_SSH_KEY=...` | Doppler config có key này (từ trước) | Xóa key khỏi Doppler — script skip key này     |
 
 ### Test Doppler CLI thủ công
 
@@ -214,15 +245,6 @@ DOPPLER_TOKEN=dp.prd.xxx \
     --config prd \
     --format env
 ```
-
----
-
-## Tiến độ tiếp theo
-
-- [✅] Push code và chạy GitHub Actions workflow thật
-- [✅] Health endpoint OK sau deploy
-- [x] (Tùy chọn) Xóa GitHub Secrets cũ `DB_*`, `JWT_SECRET` (đã làm — chỉ giữ `DOPPLER_TOKEN`)
-- [ ] (Tương lai) Thêm Doppler config `stg` cho staging environment
 
 ---
 
@@ -249,3 +271,10 @@ DOPPLER_TOKEN=dp.prd.xxx \
 - Backup DB tự động trước khi deploy ✅
 - Auto-rollback nếu health check fail ✅
 - Doppler secrets tự động inject đúng format ✅
+
+### 2026-07-12: Refactor rollback + cleanup Doppler keys
+
+- Thêm EXIT trap fail-safe cho mọi lỗi không lường trước ✅
+- Thêm 3-tier local rollback tag (không phụ thuộc Docker Hub) ✅
+- Loại bỏ logic base64-embed docker-compose.prod.yml (file đã có trong repo) ✅
+- Xóa ghi chú về việc Doppler chứa `LIGHTSAIL_*` (chỉ ở GitHub Secrets) ✅

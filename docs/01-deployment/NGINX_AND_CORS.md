@@ -1,6 +1,8 @@
 # CORS & Nginx Configuration Guide
 
-> **Last updated:** 2026-07-11 — Workflow tự động qua CI/CD (không cần SSH để apply nginx).
+> **Last updated:** 2026-07-12 — Workflow tự động qua CI/CD (không cần SSH để apply nginx).
+>
+> **Đã sửa:** Mapping env `ALLOWEDORIGINS` → `AllowedOrigins` chính xác theo Program.cs. Bổ sung flow apply toàn bộ `nginx.conf` + `cors-map.conf` (không chỉ cors-map).
 
 ---
 
@@ -11,14 +13,14 @@ MenuGreen API dùng **Nginx chạy trên host** (không Docker) để:
 - **Reverse proxy** → port 5000 (API trong Docker)
 - **CORS handling** (whitelist origins qua dynamic map)
 
-Có 2 cách CORS được xử lý song song:
+Có 2 lớp CORS xử lý song song:
 
-1. **Nginx** (chính, whitelist qua `cors-map.conf`)
-2. **.NET API** (fallback, qua `Program.cs` đọc `ALLOWEDORIGINS` env)
+1. **Nginx** (chính, whitelist qua `cors-map.conf` với `map $http_origin $cors_origin`)
+2. **.NET API** (fallback, qua `Program.cs` đọc `AllowedOrigins` config key)
 
 ---
 
-## Kiến trúc Nginx (hiện tại)
+## Kiến trúc Nginx
 
 ```
 Internet (HTTPS:443)
@@ -35,13 +37,13 @@ Internet (HTTPS:443)
 
 ### Vị trí Nginx trong hệ thống
 
-| Thành phần | Vị trí | Quản lý bởi |
-|------------|--------|--------------|
-| Nginx binary | `/usr/sbin/nginx` (apt install) | System package |
-| Nginx service | `systemctl status nginx` | systemd |
-| Config source | `MenuGreenSystem/backend/nginx/` | Git repository |
-| Config runtime | `/etc/nginx/nginx.conf` + `/etc/nginx/conf.d/` | CI/CD apply |
-| Docker image `menugreensystem:main` | ❌ KHÔNG chứa nginx | — |
+| Thành phần                       | Vị trí                                       | Quản lý bởi        |
+|----------------------------------|----------------------------------------------|---------------------|
+| Nginx binary                     | `/usr/sbin/nginx` (apt install)              | System package      |
+| Nginx service                    | `systemctl status nginx`                     | systemd             |
+| Config source                    | `MenuGreenSystem/backend/nginx/`             | Git repository      |
+| Config runtime                   | `/etc/nginx/nginx.conf` + `/etc/nginx/conf.d/` | CI/CD apply       |
+| Docker image `menugreensystem:main` | ❌ KHÔNG chứa nginx                       | —                   |
 
 > **Lưu ý:** Nginx là service ĐỘC LẬP trên host, tách biệt hoàn toàn khỏi Docker Image. Sửa nginx → chỉ cần push git → CI/CD apply (không build lại image).
 
@@ -67,14 +69,14 @@ MenuGreenSystem/backend/nginx/
 ├── conf.d/
 │   └── cors-map.conf       # Source CORS map (copy về /etc/nginx/conf.d/)
 └── deploy/
-    ├── deploy-nginx.sh     # Script apply config
+    ├── deploy-nginx.sh     # Script apply config (legacy, giờ CD làm)
     ├── setup-server.sh     # Script setup lần đầu
-    └── README.md           # Hướng dẫn chi tiết
+    └── README.md           # Hướng dẫn cũ (xem CI_CD.md thay thế)
 ```
 
 ---
 
-## CORS Map — Hiện tại
+## CORS Map — hiện tại
 
 File `/etc/nginx/conf.d/cors-map.conf` (source: `MenuGreenSystem/backend/nginx/conf.d/cors-map.conf`):
 
@@ -137,19 +139,20 @@ git push origin main
 ```
 1. backend-ci.yml — Build & push Docker image (3-5 phút)
 2. backend-cd.yml — Deploy:
-   ├─ SCP file nginx: /tmp/nginx-deploy/  (vài giây)
-   ├─ SSH vào server, chạy script apply:
-   │   ├─ Backup config hiện tại (.bak.YYYYMMDD_HHMMSS)
-   │   ├─ Copy file mới → /etc/nginx/conf.d/cors-map.conf
-   │   ├─ nginx -t (syntax check)
-   │   │    ├─ PASS → systemctl reload nginx (zero downtime)
-   │   │    └─ FAIL → restore backup → exit 1 (abort toàn bộ deploy)
-   │   └─ Cleanup /tmp/nginx-deploy/
-   └─ Pull image mới + restart container
+   ├─ SCP files lên /tmp/nginx-deploy/:
+   │   ├─ backend/nginx/nginx.conf
+   │   └─ backend/nginx/conf.d/cors-map.conf
+   └─ SSH vào server, chạy deploy-server.sh:
+      ├─ Backup config hiện tại (.bak.YYYYMMDD_HHMMSS)
+      ├─ Copy file mới → /etc/nginx/nginx.conf + /etc/nginx/conf.d/cors-map.conf
+      ├─ nginx -t (syntax check)
+      │    ├─ PASS → systemctl reload nginx (zero downtime)
+      │    └─ FAIL → restore backup → exit 1 (abort toàn bộ deploy)
+      └─ Pull image mới + restart container
 ```
 
 > **Tổng thời gian:** 5-8 phút từ lúc push → nginx mới có hiệu lực.
-> **Không cần build lại Docker image** khi chỉ sửa nginx (CD vẫn chạy nhưng image giữ nguyên).
+> **Không cần build lại Docker image** khi chỉ sửa nginx (CD vẫn chạy nhưng image giữ nguyên — tag mới được push lên Hub nhưng server vẫn pull `:main` chứa image mới nhất).
 
 ### Bước 4: Verify
 
@@ -165,37 +168,68 @@ curl -I -X OPTIONS https://api.menugreen.food/api/Auth/login \
 
 ### 4 trường hợp cập nhật Nginx
 
-| Trường hợp | Cách làm | Thời gian |
-|------------|----------|-----------|
-| **Thêm domain CORS** (phổ biến nhất) | Sửa `cors-map.conf` → push | 5-8 phút |
-| **Sửa upstream / rate limit / security header** | Sửa `nginx.conf` → push | 5-8 phút |
-| **Sửa code API + Nginx cùng lúc** | Sửa cả `.cs` + nginx → push | 5-8 phút (cả 2 update) |
-| **Chỉ sửa nginx, không sửa code** | Sửa nginx → push | 5-8 phút (image giữ nguyên) |
+| Trường hợp                                          | Cách làm                                            | Thời gian |
+|------------------------------------------------------|-----------------------------------------------------|-----------|
+| **Thêm domain CORS** (phổ biến nhất)                | Sửa `cors-map.conf` → push                          | 5-8 phút  |
+| **Sửa upstream / rate limit / security header**     | Sửa `nginx.conf` → push                             | 5-8 phút  |
+| **Sửa code API + Nginx cùng lúc**                   | Sửa cả `.cs` + nginx → push                        | 5-8 phút (cả 2 update) |
+| **Chỉ sửa nginx, không sửa code**                   | Sửa nginx → push                                    | 5-8 phút (image vẫn được build nhưng giống cũ) |
 
 > ⚠️ **Lưu ý:** Sửa `nginx.conf` (không phải `cors-map.conf`) cần cẩn thận — workflow có auto rollback nếu syntax fail, nhưng nên test kỹ trước khi push.
 
 ---
 
-## Thay đổi trong Program.cs (CORS fallback)
+## CORS fallback trong .NET API (`Program.cs`)
 
-`Program.cs` cũng có CORS middleware đọc từ config `AllowedOrigins`:
+`Program.cs` đọc `AllowedOrigins` từ configuration (key phẳng, không phải PascalCase nested) và **concat với `defaultOrigins` cứng trong code** (đảm bảo các domain production quan trọng luôn được phép). Doppler secret `ALLOWEDORIGINS` được giữ nguyên (không convert `:` → `__` vì không có `:`):
 
 ```csharp
+// Default origins cứng trong code (luôn được phép)
+var defaultOrigins = new[]
+{
+    "https://admin.menugreen.food",
+    "https://www.menugreen.food",
+    "https://menugreen.food",
+    "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001"
+};
+
+// Lấy thêm từ config/env (Doppler ALLOWEDORIGINS)
+var configuredOrigins = (builder.Configuration["AllowedOrigins"]
+    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS"))
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+// Merge + dedupe
+var allowedOrigins = defaultOrigins.Concat(configuredOrigins).Distinct().ToArray();
+var allowAnyOrigin = allowedOrigins.Contains("*");
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigins", policy =>
+    options.AddPolicy(corsPolicyName, policy =>
     {
-        policy.WithOrigins(
-                builder.Configuration["AllowedOrigins"]
-                    ?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>())
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+        if (isDevelopment || allowAnyOrigin)
+        {
+            // Dev mode hoặc wildcard → allow all
+            policy.SetIsOriginAllowed(origin => true)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Production → whitelist cứng
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
     });
 });
 ```
 
-### Config qua env `ALLOWED_ORIGINS`
+### Config qua Doppler
 
 Set trong Doppler config `prd`:
 
@@ -203,7 +237,11 @@ Set trong Doppler config `prd`:
 ALLOWEDORIGINS=https://www.menugreen.food,https://menugreen.food,https://admin.menugreen.food
 ```
 
-CD workflow sẽ tự convert thành `ALLOWED_ORIGINS=...` trong file `.env` trên server.
+CD workflow ghi vào `.env` đúng key `ALLOWEDORIGINS=...` (giữ nguyên tên, không thêm underscore). `Program.cs` đọc qua `builder.Configuration["AllowedOrigins"]` (key flat, không phải PascalCase). Nếu không có, fallback `Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")`.
+
+> **Lưu ý:**
+> - **Nginx CORS** (chính) xử lý phần lớn request trước khi tới .NET. .NET CORS là **fallback** cho trường hợp Nginx đã pass request nhưng .NET vẫn cần check (vd internal call, test với curl bỏ qua Nginx).
+> - Wildcard `*` chỉ bật khi `ASPNETCORE_ENVIRONMENT=Development` hoặc Doppler `ALLOWEDORIGINS=*`. Production luôn dùng whitelist cứng.
 
 ---
 
@@ -301,9 +339,9 @@ Hiện tại: dùng Option A cho domain Vercel chính (`menu-green-system-ldw5fr
 ## Liên quan
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Tổng quan deployment (workflow Nginx CI/CD)
-- [CI_CD.md](./CI_CD.md) — CI/CD pipeline chi tiết
+- [CI_CD.md](./CI_CD.md) — CI/CD pipeline chi tiết + rollback
 - `backend/nginx/deploy/setup-server.sh` — Setup lần đầu (1 lần duy nhất)
 
 ---
 
-*Last updated: 2026-07-11 — Workflow tự động qua CI/CD*
+*Last updated: 2026-07-12 — Workflow tự động qua CI/CD*
