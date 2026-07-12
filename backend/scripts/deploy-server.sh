@@ -115,12 +115,30 @@ sudo docker system prune -af --volumes || true
 echo "=== Disk space after cleanup ==="
 df -h
 
-# Docker compose config (base64 encoded) - NO REDIS
-COMPOSE_B64='c2VydmljZXM6DQogIGFwaToNCiAgICBpbWFnZTogZG9ja2VyLmlvL2FuaHR1YW4yMTExMjAwNC9tZW51Z3JlZW5zeXN0ZW06bGF0ZXN0DQogICAgY29udGFpbmVyX25hbWU6IG1lbnVncmVlbl9hcGkNCiAgICBwdWxsX3BvbGljeTogYWx3YXlzDQogICAgZW52X2ZpbGU6DQogICAgICAtIC5lbnYNCiAgICBlbnZpcm9ubWVudDoNCiAgICAgIC0gQVNQTkVUQ09SRV9FTlZJUk9OTUVOVD0ke0FTUE5FVENPUkVfRU5WSVJPTk1FTlR9DQogICAgICAtIEFTUE5FVENPUkVfVVJMUz1odHRwOi8vKzo1MDAwDQogICAgcG9ydHM6DQogICAgICAtICI1MDAwOjUwMDAiDQogICAgbmV0d29ya3M6DQogICAgICAtIG1lbnVncmVlbi1uZXQNCiAgICByZXN0YXJ0OiB1bmxlc3Mtc3RvcHBlZA0KICAgIGhlYWx0aGNoZWNrOg0KICAgICAgdGVzdDogWyJDTUQiLCAiY3VybCIsICItZiIsICJodHRwOi8vbG9jYWxob3N0OjUwMDAvaGVhbHRoL2xpdmUiXQ0KICAgICAgaW50ZXJ2YWw6IDMwcw0KICAgICAgdGltZW91dDogMTBzDQogICAgICByZXRyaWVzOiAzDQogICAgICBzdGFydF9wZXJpb2Q6IDQwcw0KICAgIGRlcGxveToNCiAgICAgIHJlc291cmNlczoNCiAgICAgICAgbGltaXRzOg0KICAgICAgICAgIG1lbW9yeTogODAwTQ0KICAgICAgICAgIGNwdXM6ICcxLjAnDQogICAgdm9sdW1lczogW10NCg0KbmV0d29ya3M6DQogIG1lbnVncmVlbi1uZXQ6DQogICAgZXh0ZXJuYWw6IHRydWUNCg=='
+# =================================================================
+# Docker compose config — SCP'd from git by the CD workflow
+# (source list in .github/workflows/backend-cd.yml).
+# appleboy/scp-action keeps the source path under `target`, so the file
+# ends up at either /tmp/nginx-deploy/docker-compose.prod.yml (when the
+# CD list uses the root path) or /tmp/nginx-deploy/backend/docker-compose.prod.yml
+# (when the CD list prefixes with `backend/`). Search both layouts.
+# =================================================================
+echo "=== Locate SCP'd docker-compose.prod.yml ==="
+COMPOSE_DEPLOYED=""
+for candidate in \
+  "/tmp/nginx-deploy/docker-compose.prod.yml" \
+  "/tmp/nginx-deploy/backend/docker-compose.prod.yml"; do
+  if [ -f "$candidate" ]; then COMPOSE_DEPLOYED="$candidate"; break; fi
+done
 
-echo "$COMPOSE_B64" | base64 -d > "$APP_DIR/docker-compose.prod.yml"
-
-echo "=== docker-compose.prod.yml uploaded (NO REDIS) ==="
+if [ -z "$COMPOSE_DEPLOYED" ]; then
+  echo ">>> FATAL: docker-compose.prod.yml not found under /tmp/nginx-deploy/"
+  echo ">>> Check the `source:` list in .github/workflows/backend-cd.yml"
+  exit 1
+fi
+echo "  Found docker-compose.prod.yml at: $COMPOSE_DEPLOYED"
+cp "$COMPOSE_DEPLOYED" "$APP_DIR/docker-compose.prod.yml"
+echo "=== docker-compose.prod.yml installed ==="
 
 # Create Docker network if not exists
 docker network create menugreen-net 2>/dev/null || true
