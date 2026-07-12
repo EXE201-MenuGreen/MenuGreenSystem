@@ -214,7 +214,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ...PlanType.values.map((type) => RadioListTile<PlanType>(
             title: Text(_planTypeLabel(type)),
             value: type,
+            // ignore: deprecated_member_use
             groupValue: _selectedPlanType,
+            // ignore: deprecated_member_use
             onChanged: (value) {
               if (value != null) {
                 setState(() {

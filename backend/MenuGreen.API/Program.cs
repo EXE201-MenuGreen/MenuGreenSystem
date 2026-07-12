@@ -80,20 +80,42 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
 });
 
-// Configure CORS
-var allowedOrigins = (builder.Configuration["AllowedOrigins"] 
-    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
-    ?? "*")
-    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
+// Configure CORS - Allow frontend domains
 var isDevelopment = builder.Environment.IsDevelopment();
 var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
+
+// Default allowed origins for production
+var defaultOrigins = new[]
+{
+    "https://admin.menugreen.food",
+    "https://www.menugreen.food",
+    "https://menugreen.food",
+    "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001"
+};
+
+// Get origins from config/env, or use defaults
+var configuredOrigins = (builder.Configuration["AllowedOrigins"]
+    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS"))
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+// Always merge: default origins + env-configured origins
+// This guarantees admin.menugreen.food is allowed regardless of env config
+var allowedOrigins = defaultOrigins
+    .Concat(configuredOrigins)
+    .Distinct()
+    .ToArray();
+
+// If wildcard is configured, keep all origins allowed
+var allowAnyOrigin = allowedOrigins.Contains("*");
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicyName, policy =>
     {
-        if (isDevelopment || allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
+        if (isDevelopment || allowAnyOrigin)
         {
             policy.SetIsOriginAllowed(origin => true)
                   .AllowAnyMethod()
@@ -240,13 +262,13 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Health Checks
-var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+// var pgConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+//     ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
-if (string.IsNullOrEmpty(pgConnection))
-{
-    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
-}
+// if (string.IsNullOrEmpty(pgConnection))
+// {
+//     throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is not configured.");
+// }
 
 // Convert URI format to Npgsql keyword format if needed
 var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(builder.Configuration);
@@ -265,24 +287,93 @@ if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
 
 var app = builder.Build();
 
+// Global exception handler - must be first in pipeline
+app.UseMiddleware<MenuGreen.API.Middleware.GlobalExceptionHandler>();
+
 // Auto-apply EF Core migrations on startup (only in non-Development environments)
 if (!app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // -------------------------------------------------------------------------
+    // Diagnostics: identify the running image so production issues can be
+    // correlated with the exact commit / DLL build that produced them.
+    // -------------------------------------------------------------------------
+    var gitSha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "<unknown>";
+    var dllVersion = typeof(MenuGreen.DataAccessLayer.Context.ApplicationDbContext).Assembly
+        .GetCustomAttributes(typeof(System.Reflection.AssemblyFileVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyFileVersionAttribute>()
+        .FirstOrDefault()?.Version ?? "<unknown>";
+    logger.LogInformation("[MIGRATION] GitSHA={GitSha} DataAccessLayerDllFileVersion={DllVersion}", gitSha, dllVersion);
+
+    // -------------------------------------------------------------------------
+    // List pending/applied migrations BEFORE applying (for diagnostics).
+    // -------------------------------------------------------------------------
+    List<string> applied = new();
+    List<string> pending = new();
     try
     {
-        app.Logger.LogInformation("Applying database migrations...");
-        db.Database.Migrate();
-        app.Logger.LogInformation("Database migrations applied successfully.");
+        applied = db.Database.GetAppliedMigrations().ToList();
+        pending = db.Database.GetPendingMigrations().ToList();
+        logger.LogInformation("[MIGRATION] Applied ({Count}): [{List}]", applied.Count, string.Join(", ", applied));
+        logger.LogInformation("[MIGRATION] Pending ({Count}): [{List}]", pending.Count, string.Join(", ", pending));
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Failed to apply database migrations. Starting application anyway...");
+        logger.LogWarning(ex, "[MIGRATION] Could not enumerate migration status (DB may be unreachable). Will attempt Migrate() anyway.");
+    }
+
+    // -------------------------------------------------------------------------
+    // Drift detection: if history contains a row that the running DLL does NOT
+    // know about (e.g. previous image was rolled back), warn loudly. This is a
+    // symptom of Use case B (history drift) and means auto-apply will throw.
+    // -------------------------------------------------------------------------
+    try
+    {
+        var known = db.Database.GetMigrations().ToHashSet();
+        var unknownInHistory = applied.Where(id => !known.Contains(id)).ToList();
+        if (unknownInHistory.Count > 0)
+        {
+            logger.LogWarning(
+                "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. " +
+                "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
+                unknownInHistory.Count, string.Join(", ", unknownInHistory));
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "[MIGRATION] Could not run drift check.");
+    }
+
+    if (pending.Count > 0)
+    {
+        logger.LogInformation("[MIGRATION] Will apply {Count} pending migration(s) now.", pending.Count);
+    }
+
+    // -------------------------------------------------------------------------
+    // CRITICAL: Apply migrations. If it fails, REFUSE to start so we don't
+    // serve traffic against a schema that the code doesn't expect.
+    // -------------------------------------------------------------------------
+    try
+    {
+        logger.LogInformation("[MIGRATION] Applying database migrations...");
+        db.Database.Migrate();
+        logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
+
+        // Re-list applied after migrate for verification
+        var appliedAfter = db.Database.GetAppliedMigrations().ToList();
+        logger.LogInformation("[MIGRATION] Post-apply Applied ({Count}): [{List}]", appliedAfter.Count, string.Join(", ", appliedAfter));
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "FATAL: Failed to apply database migrations. Application will NOT start to avoid serving requests with mismatched schema.");
+        throw; // Crash the app - DO NOT start with broken schema
     }
 }
 
-// Seed data: run backend/seeddata.sql in pgAdmin after migrations.
+// Seed data: run backend/run_seed_data.ps1 after migrations.
 
 // Configure the HTTP request pipeline.
 

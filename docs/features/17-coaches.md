@@ -1,6 +1,10 @@
 # 17. Coaches Ecosystem
 
+<<<<<<< HEAD
 **Status:** API Done · UI Done · **Assessment: DONE**
+=======
+**Status:** API Done · UI Not Done
+>>>>>>> main
 **Last updated:** 2026-07-09
 
 **Related controller:** `backend/MenuGreen.API/Controllers/CoachesController.cs`
@@ -121,6 +125,7 @@ Chưa có Flutter UI. Cần phát triển:
 - Grant/revoke access là voluntary từ student side.
 - Coach có thể điều chỉnh meal plan mà không cần student approve.
 - Có thể tích hợp notification khi coach gửi feedback.
+<<<<<<< HEAD
 
 ## 7. Verification & Assessment (2026-07-12)
 
@@ -133,3 +138,5 @@ Chưa có Flutter UI. Cần phát triển:
 - [ ] Chưa kiểm thử phân quyền `UserOnly`/`CoachOnly` end-to-end.
 
 **Đánh giá: DONE.** Catalog, registration, connection, access control, client views và coach actions đều đã có Flutter UI/API contract. Phân quyền thực tế cần smoke test bằng JWT User/Coach trước production.
+=======
+>>>>>>> main

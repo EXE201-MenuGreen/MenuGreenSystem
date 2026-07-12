@@ -7,15 +7,24 @@ import '../../auth/views/welcome_screen.dart';
 import '../../subscription/models/subscription_models.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
+import '../../vietnam_local/views/gym_goals_screen.dart';
+import '../../vietnam_local/views/local_preferences_screen.dart';
+import '../../vietnam_local/views/safety_hub_screen.dart';
+import '../../vietnam_local/views/planned_vs_actual_screen.dart';
+import '../../vietnam_local/views/ingredient_substitution_screen.dart';
 import 'personal_info_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../advanced/views/advanced_features_screen.dart';
 >>>>>>> Stashed changes
+=======
+import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
+>>>>>>> main
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -251,6 +260,97 @@ class _ProfileViewState extends State<ProfileView> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const NotificationSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.schedule_outlined,
+                    'Nhắc nhở thông minh',
+                    'Cài đặt giờ ăn và lịch nhắc của bạn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdaptiveRemindersScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Ăn uống Việt Nam',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSettingItem(
+                    Icons.restaurant_menu,
+                    'Kế hoạch & thực tế',
+                    'So sánh kế hoạch ăn với nhật ký thực tế',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PlannedVsActualScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.fitness_center,
+                    'Chế độ Gym / PT',
+                    'Cấu hình calo tự đổi theo ngày tập/nghỉ',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GymGoalsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.public,
+                    'Sở thích ăn uống',
+                    'Vùng miền, ngân sách, món không thích',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LocalPreferencesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.swap_horiz,
+                    'Thay thế nguyên liệu',
+                    'Thiết lập nguyên liệu thay thế ưa thích',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const IngredientSubstitutionScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.shield_outlined,
+                    'Bảo mật & Tuân thủ',
+                    'Miễn trừ trách nhiệm, đồng ý, xuất/xoá dữ liệu',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SafetyHubScreen(),
                         ),
                       );
                     },

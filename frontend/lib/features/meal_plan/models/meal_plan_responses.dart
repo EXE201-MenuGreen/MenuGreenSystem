@@ -1,4 +1,5 @@
 /// Additional response models cho Meal Plan
+library;
 
 class MealPlanListItem {
   final String id;

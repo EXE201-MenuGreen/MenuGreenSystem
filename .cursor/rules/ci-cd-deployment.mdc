@@ -45,7 +45,7 @@ GitHub Actions CI/CD
 
 ## Server Setup Script
 
-Xem `scripts/setup-server.sh` - chỉ cài Docker, không cài git.
+Setup nginx + Docker xem `docs/01-deployment/SERVER_SETUP.md` — bao gồm cài nginx, certbot, Docker.
 
 ## Files trên Server
 

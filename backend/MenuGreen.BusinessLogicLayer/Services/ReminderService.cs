@@ -133,6 +133,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<ScheduledReminderResponse> CreateReminderAsync(Guid userId, ScheduledReminderCreateRequest request)
         {
+            if (request.ScheduledAt <= DateTimeOffset.UtcNow)
+            {
+                throw new ArgumentException("Reminder time must be in the future.");
+            }
+
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),
@@ -157,7 +162,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var notification = await GetOwnedReminderAsync(userId, reminderId);
             if (request.Title != null) notification.Title = request.Title;
             if (request.Body != null) notification.Body = request.Body;
-            if (request.ScheduledAt.HasValue) notification.ScheduledAt = request.ScheduledAt.Value;
+            if (request.ScheduledAt.HasValue)
+            {
+                if (request.ScheduledAt.Value <= DateTimeOffset.UtcNow)
+                {
+                    throw new ArgumentException("Reminder time must be in the future.");
+                }
+
+                notification.ScheduledAt = request.ScheduledAt.Value;
+            }
 
             if (request.IsEnabled.HasValue)
             {
@@ -193,6 +206,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<ScheduledReminderResponse> SnoozeReminderAsync(Guid userId, Guid reminderId, int minutes)
         {
+            if (minutes is < 1 or > 1440)
+            {
+                throw new ArgumentException("Snooze duration must be between 1 and 1440 minutes.");
+            }
+
             var notification = await GetOwnedReminderAsync(userId, reminderId);
             if (notification.ScheduledAt.HasValue)
             {

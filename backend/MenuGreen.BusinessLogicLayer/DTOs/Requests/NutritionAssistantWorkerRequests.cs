@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
@@ -64,13 +65,65 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int Limit { get; set; } = 5;
     }
 
+    public class AiWorkerActionPayload
+    {
+        [JsonPropertyName("food_id")]
+        public Guid? FoodId { get; set; }
+        [JsonPropertyName("recipe_id")]
+        public Guid? RecipeId { get; set; }
+        [JsonPropertyName("meal_slot")]
+        public string? MealSlot { get; set; }
+        [JsonPropertyName("meal_type")]
+        public string? MealType { get; set; }
+        [JsonPropertyName("quantity_g")]
+        public decimal? QuantityG { get; set; }
+        [JsonPropertyName("quantity")]
+        public decimal? Quantity { get; set; }
+        [JsonPropertyName("unit")]
+        public string? Unit { get; set; }
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
+        [JsonPropertyName("logged_at")]
+        public string? LoggedAt { get; set; }
+        [JsonPropertyName("planned_date")]
+        public string? PlannedDate { get; set; }
+        [JsonPropertyName("scheduled_time")]
+        public string? ScheduledTime { get; set; }
+        [JsonPropertyName("date")]
+        public string? Date { get; set; }
+        [JsonPropertyName("time")]
+        public string? Time { get; set; }
+        [JsonPropertyName("budget_vnd")]
+        public int? BudgetVnd { get; set; }
+        [JsonPropertyName("budget_vnd_per_day")]
+        public int? BudgetVndPerDay { get; set; }
+        [JsonPropertyName("budget_per_meal_vnd")]
+        public int? BudgetPerMealVnd { get; set; }
+        [JsonPropertyName("max_cook_time_min")]
+        public int? MaxCookTimeMin { get; set; }
+        [JsonPropertyName("target_calories")]
+        public int? TargetCalories { get; set; }
+        [JsonPropertyName("target_calories_per_day")]
+        public int? TargetCaloriesPerDay { get; set; }
+        [JsonPropertyName("daily_target_calories")]
+        public int? DailyTargetCalories { get; set; }
+        [JsonPropertyName("calories_kcal")]
+        public decimal? CaloriesKcal { get; set; }
+        [JsonPropertyName("protein_g")]
+        public decimal? ProteinG { get; set; }
+        [JsonPropertyName("carbs_g")]
+        public decimal? CarbsG { get; set; }
+        [JsonPropertyName("fat_g")]
+        public decimal? FatG { get; set; }
+    }
+
     public class AiWorkerActionExecuteRequest
     {
         [Required]
         [RegularExpression("^(generate_meal_plan|replace_food|budget_optimize|schedule_meal|show_recipe|log_meal|ask_followup)$")]
         public string Type { get; set; } = "ask_followup";
 
-        public JsonElement? Payload { get; set; }
+        public AiWorkerActionPayload? Payload { get; set; }
 
         public bool Confirmed { get; set; }
     }

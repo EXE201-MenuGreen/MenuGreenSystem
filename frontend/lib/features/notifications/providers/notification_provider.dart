@@ -5,7 +5,7 @@ import '../repositories/notification_repository.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationRepository _repository = NotificationRepository();
-  bool _disposed = false;
+  final bool _disposed = false;
 
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;

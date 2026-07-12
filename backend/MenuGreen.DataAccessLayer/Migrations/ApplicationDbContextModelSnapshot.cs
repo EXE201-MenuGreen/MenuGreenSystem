@@ -4,6 +4,7 @@ using System.Net;
 using MenuGreen.DataAccessLayer.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -559,6 +560,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.Property<decimal?>("ProteinG")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("Region")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

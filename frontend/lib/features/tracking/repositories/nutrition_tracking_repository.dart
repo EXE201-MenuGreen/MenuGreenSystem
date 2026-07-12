@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/nutrition_models.dart';
@@ -13,7 +14,9 @@ class NutritionTrackingRepository {
 
   Future<MealDaySummary?> getDailySummary(DateTime date) async {
     final dateStr = _formatDate(date);
-    final response = await _api.get('${ApiEndpoints.nutritionDaily}?date=$dateStr');
+    final response = await _api.get(
+      QueryMiddleware.buildUrl(ApiEndpoints.nutritionDaily, {'date': dateStr}),
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return null;
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) return null;
@@ -28,8 +31,9 @@ class NutritionTrackingRepository {
     final params = <String, String>{'range': range};
     if (startDate != null) params['startDate'] = _formatDate(startDate);
     if (endDate != null) params['endDate'] = _formatDate(endDate);
-    final query = params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
-    final response = await _api.get('${ApiEndpoints.nutritionDashboard}?$query');
+    final response = await _api.get(
+      QueryMiddleware.buildUrl(ApiEndpoints.nutritionDashboard, params),
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return null;
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) return null;
@@ -125,10 +129,9 @@ class NutritionTrackingRepository {
   }
 
   Future<List<CatalogItem>> getFoods({String? keyword}) async {
-    final query = (keyword != null && keyword.trim().isNotEmpty)
-        ? '?keyword=${Uri.encodeQueryComponent(keyword.trim())}'
-        : '';
-    final response = await _api.get('${ApiEndpoints.foods}$query');
+    final response = await _api.get(
+      QueryMiddleware.buildUrl(ApiEndpoints.foods, {'keyword': keyword}),
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) return [];
@@ -141,10 +144,9 @@ class NutritionTrackingRepository {
   }
 
   Future<List<CatalogItem>> getRecipes({String? keyword}) async {
-    final query = (keyword != null && keyword.trim().isNotEmpty)
-        ? '?keyword=${Uri.encodeQueryComponent(keyword.trim())}'
-        : '';
-    final response = await _api.get('${ApiEndpoints.recipeSearch}$query');
+    final response = await _api.get(
+      QueryMiddleware.buildUrl(ApiEndpoints.recipeSearch, {'keyword': keyword}),
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) return [];

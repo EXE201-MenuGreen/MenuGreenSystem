@@ -454,17 +454,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             try
             {
+                JsonElement? payloadElement = null;
+                if (request.Payload != null)
+                {
+                    payloadElement = JsonSerializer.SerializeToElement(request.Payload, JsonOptions);
+                }
+
                 object result = action switch
                 {
-                    "generate_meal_plan" => await ExecuteGenerateMealPlanActionAsync(userId, request.Payload),
-                    "replace_food" => await ExecuteReplaceFoodActionAsync(userId, request.Payload),
-                    "budget_optimize" => await ExecuteBudgetOptimizeActionAsync(userId, request.Payload),
-                    "schedule_meal" => await ExecuteScheduleMealActionAsync(userGuid, request.Payload),
-                    "log_meal" => await ExecuteLogMealActionAsync(userGuid, request.Payload),
-                    "show_recipe" => await ExecuteShowRecipeActionAsync(request.Payload),
+                    "generate_meal_plan" => await ExecuteGenerateMealPlanActionAsync(userId, payloadElement),
+                    "replace_food" => await ExecuteReplaceFoodActionAsync(userId, payloadElement),
+                    "budget_optimize" => await ExecuteBudgetOptimizeActionAsync(userId, payloadElement),
+                    "schedule_meal" => await ExecuteScheduleMealActionAsync(userGuid, payloadElement),
+                    "log_meal" => await ExecuteLogMealActionAsync(userGuid, payloadElement),
+                    "show_recipe" => await ExecuteShowRecipeActionAsync(payloadElement),
                     "ask_followup" => new
                     {
-                        message = GetPayloadString(request.Payload, "question", "message")
+                        message = GetPayloadString(payloadElement, "question", "message")
                             ?? "Please provide your meal, budget, cooking time, or nutrition goal.",
                     },
                     _ => throw new InvalidOperationException("Unsupported AI action type."),
@@ -659,6 +665,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 if (names.Any(name => property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                 {
+                    if (property.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        return null;
+                    }
                     return property.Value;
                 }
             }

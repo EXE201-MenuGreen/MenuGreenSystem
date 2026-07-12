@@ -21,14 +21,17 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
+  static const _discoverTab = 0;
+  static const _homeTab = 2;
+  static const _historyTab = 3;
+  static const _profileTab = 4;
+
+  int _currentIndex = _homeTab;
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
   final _historyKey = GlobalKey<HistoryViewState>();
   DateTime? _lastHomeRefreshAt;
   DateTime? _lastHistoryRefreshAt;
-
-  final List<Widget?> _pageCache = List<Widget?>.filled(6, null);
 
   @override
   void initState() {
@@ -46,37 +49,23 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  Widget _pageAt(int index) {
-    return _pageCache[index] ??= switch (index) {
-      0 => HomeView(
-          key: _homeKey,
-          onNavigateToTab: (index) => setState(() => _currentIndex = index),
-          onTrackingUpdated: () {
-            _homeKey.currentState?.reloadSummary();
-            _historyKey.currentState?.reloadData();
-          },
-        ),
-      1 => DiscoverView(key: _discoverKey),
-      2 => const MealPlanScreen(),
-      3 => HistoryView(
-          key: _historyKey,
-          onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
-        ),
-      4 => ChangeNotifierProvider(
-          create: (_) => AiAssistantProvider()..loadConversations(),
-          child: const AiConversationListScreen(),
-        ),
-      5 => ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
-      _ => const SizedBox.shrink(),
-    };
-  }
-
-  Widget _stackChild(int index) {
-    if (_pageCache[index] == null && index != _currentIndex) {
-      return const SizedBox.shrink();
-    }
-    return _pageAt(index);
-  }
+  List<Widget> _buildPages() => [
+    DiscoverView(key: _discoverKey),
+    const MealPlanScreen(),
+    HomeView(
+      key: _homeKey,
+      onNavigateToTab: _selectTab,
+      onTrackingUpdated: () {
+        _homeKey.currentState?.reloadSummary();
+        _historyKey.currentState?.reloadData();
+      },
+    ),
+    HistoryView(
+      key: _historyKey,
+      onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
+    ),
+    ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
+  ];
 
   void _refreshHomeIfStale() {
     final last = _lastHomeRefreshAt;
@@ -97,26 +86,44 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _selectTab(int index) {
+    if (index < _discoverTab || index > _profileTab) return;
+
+    setState(() => _currentIndex = index);
+    if (index == _homeTab) {
+      _refreshHomeIfStale();
+    } else if (index == _discoverTab) {
+      _discoverKey.currentState?.refreshAllergyStatus();
+    } else if (index == _historyTab) {
+      _refreshHistoryIfStale();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: List.generate(6, _stackChild),
-      ),
+      body: IndexedStack(index: _currentIndex, children: _buildPages()),
+      floatingActionButton: _currentIndex == _homeTab
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider(
+                      create: (_) => AiAssistantProvider()..loadConversations(),
+                      child: const AiConversationListScreen(),
+                    ),
+                  ),
+                );
+              },
+              backgroundColor: AppColors.primary,
+              child: const Icon(Icons.auto_awesome, color: Colors.white),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 0) {
-            _refreshHomeIfStale();
-          } else if (index == 1) {
-            _discoverKey.currentState?.refreshAllergyStatus();
-          } else if (index == 3) {
-            _refreshHistoryIfStale();
-          }
-        },
+        onTap: _selectTab,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         elevation: 10,
@@ -125,35 +132,108 @@ class _MainScreenState extends State<MainScreen> {
         selectedFontSize: 10,
         unselectedFontSize: 10,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Trang chủ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore_outlined),
-            activeIcon: Icon(Icons.explore),
+        items: [
+          const BottomNavigationBarItem(
+            icon: SizedBox(
+              height: 44,
+              child: Icon(Icons.explore_outlined, size: 24),
+            ),
+            activeIcon: SizedBox(
+              height: 44,
+              child: Icon(Icons.explore, size: 24),
+            ),
             label: 'Khám phá',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_menu_outlined),
-            activeIcon: Icon(Icons.restaurant_menu),
+          const BottomNavigationBarItem(
+            icon: SizedBox(
+              height: 44,
+              child: Icon(Icons.restaurant_menu_outlined, size: 24),
+            ),
+            activeIcon: SizedBox(
+              height: 44,
+              child: Icon(Icons.restaurant_menu, size: 24),
+            ),
             label: 'Kế hoạch',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
+            icon: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.grey.shade100,
+                    Colors.grey.shade200,
+                  ],
+                  center: const Alignment(-0.3, -0.3),
+                  radius: 0.75,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.home_outlined,
+                size: 26,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            activeIcon: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.95),
+                    AppColors.primary,
+                  ],
+                  center: const Alignment(-0.3, -0.3),
+                  radius: 0.75,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.home,
+                size: 26,
+                color: Colors.white,
+              ),
+            ),
+            label: 'Trang chủ',
+          ),
+          const BottomNavigationBarItem(
+            icon: SizedBox(
+              height: 44,
+              child: Icon(Icons.history_outlined, size: 24),
+            ),
+            activeIcon: SizedBox(
+              height: 44,
+              child: Icon(Icons.history, size: 24),
+            ),
             label: 'Lịch sử',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_outlined),
-            activeIcon: Icon(Icons.auto_awesome),
-            label: 'Trợ lý AI',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
+          const BottomNavigationBarItem(
+            icon: SizedBox(
+              height: 44,
+              child: Icon(Icons.person_outline, size: 24),
+            ),
+            activeIcon: SizedBox(
+              height: 44,
+              child: Icon(Icons.person, size: 24),
+            ),
             label: 'Cá nhân',
           ),
         ],

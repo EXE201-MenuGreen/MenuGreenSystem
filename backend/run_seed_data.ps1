@@ -7,7 +7,7 @@ $DbContainer = "menugreen_db"
 $DbUser = "postgres"
 $DbName = "MenuGreenDb"
 $DbPassword = "12345"
-$SeedDirName = "MenuGreen_AI_SeedData"
+$SeedDirName = "database"
 
 # Đường dẫn thư mục
 $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition

@@ -119,6 +119,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       context,
       MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
     ).then((_) {
+      if (!context.mounted) return;
       context.read<MealPlanProvider>().loadAllForHome();
     });
   }

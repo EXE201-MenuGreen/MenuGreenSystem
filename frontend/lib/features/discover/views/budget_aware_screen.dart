@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../models/food_models.dart';
 import '../providers/recommendation_provider.dart';
 import '../widgets/recommendation_card.dart';
 import 'recommendation_detail_screen.dart';

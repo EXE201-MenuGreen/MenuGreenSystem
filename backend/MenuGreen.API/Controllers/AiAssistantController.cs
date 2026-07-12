@@ -216,10 +216,10 @@ namespace MenuGreen.API.Controllers
         /// Get list of suggested next action questions based on nutrition profile.
         /// </summary>
         [HttpGet("suggestions")]
-        public async Task<IActionResult> GetSuggestions()
+        public async Task<IActionResult> GetSuggestions([FromQuery] Guid? conversationId = null)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.GetSuggestionsAsync(userId));
+            return Ok(await _service.GetSuggestionsAsync(userId, conversationId));
         }
 
         /// <summary>

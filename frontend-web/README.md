@@ -69,7 +69,7 @@ Mở [http://localhost:3000](http://localhost:3000) — tự redirect `/dashboar
 
 > Chỉ tài khoản có role **Admin** mới vào được dashboard. User thường sẽ bị từ chối sau khi đăng nhập.
 
-Seed data: `backend/seeddata.sql`
+Seed data: `backend/run_seed_data.ps1`
 
 ---
 
@@ -241,4 +241,4 @@ Cài Node.js 20+ và đảm bảo `node` có trong PATH (đặc biệt khi dùng
 |------------|-----------|
 | Backend API | `../backend/MenuGreen.API` |
 | Flutter mobile app | `../frontend` |
-| Seed data | `../backend/seeddata.sql` |
+| Seed data | `../backend/run_seed_data.ps1` |

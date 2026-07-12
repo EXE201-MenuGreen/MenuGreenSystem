@@ -1,6 +1,10 @@
 # 18. Ingredient Catalog
 
+<<<<<<< HEAD
 **Status:** API Done · UI Done · **Assessment: DONE**
+=======
+**Status:** API Done · UI Not Done
+>>>>>>> main
 **Last updated:** 2026-07-09
 
 **Related controller:** `backend/MenuGreen.API/Controllers/IngredientController.cs`
@@ -35,18 +39,31 @@ Khác với `IngredientSubstitutionController`: Substitution = tìm thay thế c
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+<<<<<<< HEAD
 | `GET` | `/api/Ingredient/search` | Tìm kiếm nguyên liệu (keyword, category, allergyMode) |
 | `GET` | `/api/Ingredient/{id}` | Chi tiết nguyên liệu |
 | `GET` | `/api/Ingredient/{id}/recipes` | Danh sách recipes dùng nguyên liệu này |
 | `GET` | `/api/Ingredient/catalog` | Catalog đầy đủ (cho browse) |
+=======
+| `GET` | `/api/Ingredients/search` | Tìm kiếm nguyên liệu (keyword, category, allergyMode) |
+| `GET` | `/api/Ingredients/{id}` | Chi tiết nguyên liệu |
+| `GET` | `/api/Ingredients/{id}/recipes` | Danh sách recipes dùng nguyên liệu này |
+| `GET` | `/api/Ingredients/catalog` | Catalog đầy đủ (cho browse) |
+>>>>>>> main
 
 ### 3.2 Admin — CRUD
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+<<<<<<< HEAD
 | `POST` | `/api/Ingredient` | Tạo nguyên liệu mới (Admin) |
 | `PUT` | `/api/Ingredient/{id}` | Cập nhật nguyên liệu (Admin) |
 | `DELETE` | `/api/Ingredient/{id}` | Xóa nguyên liệu (Admin) |
+=======
+| `POST` | `/api/Ingredients` | Tạo nguyên liệu mới (Admin) |
+| `PUT` | `/api/Ingredients/{id}` | Cập nhật nguyên liệu (Admin) |
+| `DELETE` | `/api/Ingredients/{id}` | Xóa nguyên liệu (Admin) |
+>>>>>>> main
 
 **Tổng: 7 endpoint.**
 
@@ -74,6 +91,7 @@ Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
 
 - Đây là data layer — user thường không tương tác trực tiếp mà qua Recipe/Food screens.
 - Admin CRUD có thể tích hợp vào Admin Panel.
+<<<<<<< HEAD
 
 ## 7. Verification & Assessment (2026-07-12)
 
@@ -83,3 +101,5 @@ Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
 - [x] Có form Admin tạo/sửa/xóa với các trường nutrition, giá, đơn vị và ảnh.
 
 **Đánh giá: DONE.** Search/allergy mode, detail/recipes và Admin CRUD đều đã có UI nối đúng route `/api/Ingredient`. Cần smoke test thêm bằng JWT Admin thật trước production.
+=======
+>>>>>>> main

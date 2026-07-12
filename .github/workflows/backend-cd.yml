@@ -5,7 +5,7 @@ on:
   workflow_run:
     workflows: ["Backend CI - Build & Push"]
     types: [completed]
-    branches: [main]
+    branches: [main, Tuan, Tuanx]  # Added Tuan so pushing to Tuan also auto-deploys nginx
   # Manual trigger
   workflow_dispatch:
     inputs:
@@ -43,10 +43,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Expose github.sha as $SHA in the runner environment so appleboy/ssh-action's
+      # `envs: SHA` lookup in the next step resolves to the current commit SHA.
+      # The deploy script depends on $SHA for:
+      #   - the :$SHA-tagged image kept during pruning
+      #   - the comparison check in `:main-[0-9a-f]{7}` (used as a Hub tag fallback)
+      - name: Export SHA to environment
+        run: echo "SHA=${{ github.sha }}" >> "$GITHUB_ENV"
+
       - name: Check disk space - Before
         run: |
           echo "=== Initial disk space ==="
           df -h
+
+      # -----------------------------------------------------------------------------
+      # Upload nginx config + deploy script to the server.
+      #
+      # Why deploy-server.sh is uploaded (not inlined into the SSH action):
+      #   GitHub Actions caps every ${{ }} expression at 21,000 characters. The
+      #   full deploy logic (DB backup, Nginx reload, Doppler secret download,
+      #   DB migration health-check, three-tier image rollback, etc.) easily
+      #   exceeds that, which previously caused GitHub to reject the workflow
+      #   with "Exceeded max expression length 21000 (Line: 69, Col: 19)" —
+      #   i.e. the exact validation failure this file fixes.
+      #
+      # appleboy/scp-action preserves the source path under `target`, so the
+      # script ends up at /tmp/nginx-deploy/backend/scripts/deploy-server.sh,
+      # which the SSH step invokes below.
+      # -----------------------------------------------------------------------------
+      - name: Upload nginx config + deploy script to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          # docker-compose.prod.yml lives at the repo root and is consumed by
+          # deploy-server.sh (it `cp`'s the file into $APP_DIR before
+          # `docker compose up -d`).
+          source: "backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf,backend/scripts/deploy-server.sh,docker-compose.prod.yml"
+          target: "/tmp/nginx-deploy"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.1.0
@@ -55,231 +90,20 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           port: 22
-          envs: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME
+          envs: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME,SHA
           debug: true
+          # SHA is injected via envs above (instead of ${{ github.sha }} in the
+          # script body) so it survives the move from YAML to the .sh file.
+          # Run the deploy script as the SSH user (e.g. ubuntu), NOT under sudo.
+          # Why no `sudo`? appleboy/ssh-action forwards envs: APP_DIR, IMAGE_NAME,
+          # SHA, DOPPLER_TOKEN into the remote shell, but `sudo` resets the
+          # environment by default. Wrapping the whole script in sudo would
+          # strip those vars before deploy-server.sh reads them, causing
+          # `mkdir -p "$APP_DIR"` to fail with "cannot create directory ''"
+          # (the exact failure we saw in run 8d9e7c2). The script's internal
+          # `sudo docker …`, `sudo nginx -t`, etc. keep working because the
+          # SSH user has passwordless sudo.
           script: |
             set -e
-
-            IMAGE=$IMAGE_NAME
-            SHA=${{ github.sha }}
-
-            echo "=== Cleanup disk space - Before ==="
-            sudo docker system prune -af --volumes || true
-            echo "=== Disk space after cleanup ==="
-            df -h
-
-            mkdir -p "$APP_DIR"
-
-            # Docker compose config (base64 encoded) - NO REDIS
-            COMPOSE_B64='c2VydmljZXM6DQogIGFwaToNCiAgICBpbWFnZTogZG9ja2VyLmlvL2FuaHR1YW4yMTExMjAwNC9tZW51Z3JlZW5zeXN0ZW06bGF0ZXN0DQogICAgY29udGFpbmVyX25hbWU6IG1lbnVncmVlbl9hcGkNCiAgICBwdWxsX3BvbGljeTogYWx3YXlzDQogICAgZW52X2ZpbGU6DQogICAgICAtIC5lbnYNCiAgICBlbnZpcm9ubWVudDoNCiAgICAgIC0gQVNQTkVUQ09SRV9FTlZJUk9OTUVOVD0ke0FTUE5FVENPUkVfRU5WSVJPTk1FTlR9DQogICAgICAtIEFTUE5FVENPUkVfVVJMUz1odHRwOi8vKzo1MDAwDQogICAgcG9ydHM6DQogICAgICAtICI1MDAwOjUwMDAiDQogICAgbmV0d29ya3M6DQogICAgICAtIG1lbnVncmVlbi1uZXQNCiAgICByZXN0YXJ0OiB1bmxlc3Mtc3RvcHBlZA0KICAgIGhlYWx0aGNoZWNrOg0KICAgICAgdGVzdDogWyJDTUQiLCAiY3VybCIsICItZiIsICJodHRwOi8vbG9jYWxob3N0OjUwMDAvaGVhbHRoL2xpdmUiXQ0KICAgICAgaW50ZXJ2YWw6IDMwcw0KICAgICAgdGltZW91dDogMTBzDQogICAgICByZXRyaWVzOiAzDQogICAgICBzdGFydF9wZXJpb2Q6IDQwcw0KICAgIGRlcGxveToNCiAgICAgIHJlc291cmNlczoNCiAgICAgICAgbGltaXRzOg0KICAgICAgICAgIG1lbW9yeTogODAwTQ0KICAgICAgICAgIGNwdXM6ICcxLjAnDQogICAgdm9sdW1lczogW10NCg0KbmV0d29ya3M6DQogIG1lbnVncmVlbi1uZXQ6DQogICAgZXh0ZXJuYWw6IHRydWUNCg=='
-
-            echo "$COMPOSE_B64" | base64 -d > "$APP_DIR/docker-compose.prod.yml"
-
-            echo "=== docker-compose.prod.yml uploaded (NO REDIS) ==="
-
-            # Create Docker network if not exists
-            docker network create menugreen-net 2>/dev/null || true
-
-            echo "=== Install Doppler CLI ==="
-            if ! command -v doppler &> /dev/null; then
-              mkdir -p ~/.local/bin
-              DOPPLER_VERSION="$(curl -fsSL https://api.github.com/repos/DopplerHQ/cli/releases/latest | jq -r .tag_name)"
-              curl -fsSL "https://github.com/DopplerHQ/cli/releases/download/${DOPPLER_VERSION}/doppler_${DOPPLER_VERSION#v}_linux_amd64.tar.gz" -o /tmp/doppler.tar.gz
-              tar -xzf /tmp/doppler.tar.gz -C ~/.local/bin doppler
-              chmod +x ~/.local/bin/doppler
-              rm -f /tmp/doppler.tar.gz
-              export PATH="$HOME/.local/bin:$PATH"
-            else
-              export PATH="$HOME/.local/bin:$PATH"
-            fi
-
-            echo "=== Download secrets from Doppler ==="
-            doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_raw.env
-
-            echo "=== Build .env file ==="
-            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
-
-            # Parse and add secrets
-            while IFS='=' read -r key raw_value; do
-              [[ -z "$key" || "$key" =~ ^# ]] && continue
-              [[ "$key" =~ [/[:space:]+] ]] && continue
-              [[ "$key" =~ ^(DB_|REDIS_|DB=|CONNECTIONSTRINGS__|DATABASE_URL=|LIGHTSAIL_SSH_KEY=|REDIS_HOST=|REDIS_PORT=|REDIS_PASSWORD=) ]] && continue
-              value="${raw_value%\"}"
-              value="${value#\"}"
-              value="${value%\'}"
-              value="${value#\'}"
-              net_key="${key//:/__}"
-              echo "${net_key}=${value}" >> "$APP_DIR/.env"
-            done < /tmp/doppler_raw.env
-
-            # Add DB connection
-            DB_CONN="$(grep '^CONNECTIONSTRINGS__DEFAULTCONNECTION=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-            if [ -n "$DB_CONN" ]; then
-              echo "ConnectionStrings__DefaultConnection=$DB_CONN" >> "$APP_DIR/.env"
-            fi
-
-            # Add JWT settings
-            JWT_SECRET="$(grep '^JWT_SECRET=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-            if [ -n "$JWT_SECRET" ]; then
-              echo "JwtSettings__SecretKey=$JWT_SECRET" >> "$APP_DIR/.env"
-            else
-              JWT_FALLBACK="$(grep '^JwtSettings__SecretKey=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-              if [ -n "$JWT_FALLBACK" ]; then
-                echo "JwtSettings__SecretKey=$JWT_FALLBACK" >> "$APP_DIR/.env"
-              fi
-            fi
-
-            JWT_ISSUER="$(grep '^JWT_ISSUER=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-            [ -n "$JWT_ISSUER" ] && echo "JwtSettings__Issuer=$JWT_ISSUER" >> "$APP_DIR/.env"
-
-            JWT_AUDIENCE="$(grep '^JWT_AUDIENCE=' /tmp/doppler_raw.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
-            [ -n "$JWT_AUDIENCE" ] && echo "JwtSettings__Audience=$JWT_AUDIENCE" >> "$APP_DIR/.env"
-
-            rm -f /tmp/doppler_raw.env
-
-            echo "=== .env file created ==="
-
-            # Extract DB connection for backup
-            DB_HOST=$(grep '^DB_HOST=' "$APP_DIR/.env" | cut -d= -f2-)
-            DB_PORT=$(grep '^DB_PORT=' "$APP_DIR/.env" | cut -d= -f2-)
-            DB_USER=$(grep '^DB_USER=' "$APP_DIR/.env" | cut -d= -f2-)
-            DB_PASSWORD=$(grep '^DB_PASSWORD=' "$APP_DIR/.env" | cut -d= -f2-)
-            DB_NAME=$(grep '^DB_NAME=' "$APP_DIR/.env" | cut -d= -f2-)
-
-            # Backup database before deployment
-            if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
-              BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
-              PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE" 2>/dev/null || {
-                echo "WARNING: Backup failed, continuing anyway..."
-              }
-              echo "Backup saved to: $BACKUP_FILE"
-              ls -t /tmp/menugreen_backup_*.sql 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
-            else
-              echo "WARNING: DB credentials not found in .env, skipping backup"
-            fi
-
-            # =================================================================
-            # Tag previous image for rollback BEFORE pulling new one
-            # =================================================================
-            echo "=== Tag previous image for rollback ==="
-            sudo docker pull $IMAGE:main || true
-            sudo docker tag $IMAGE:main $IMAGE:previous || true
-            sudo docker push $IMAGE:previous || true
-
-            echo "=== Pull latest image ==="
-            sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
-            
-            echo "=== Tag image for local use ==="
-            sudo docker tag $IMAGE:main menugreen_api
-
-            echo "=== Stop and remove all existing containers ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
-            docker stop menugreen_api 2>/dev/null || true
-            docker rm menugreen_api 2>/dev/null || true
-
-            echo "=== Remove old local image to force fresh pull ==="
-            docker rmi menugreen_api 2>/dev/null || true
-            docker rmi $IMAGE:main 2>/dev/null || true
-            docker rmi $IMAGE:latest 2>/dev/null || true
-
-            echo "=== Pull latest image ==="
-            sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
-            
-            echo "=== Tag image for local use ==="
-            sudo docker tag $IMAGE:main menugreen_api
-
-            echo "=== Start API container ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
-
-            echo "=== Waiting for container to be ready ==="
-            for i in $(seq 1 15); do
-              if docker ps --filter "name=menugreen_api" --filter "status=running" | grep -q menugreen_api; then
-                echo "Container is running!"
-                break
-              fi
-              echo "Waiting for container... ($i/15)"
-              sleep 2
-            done
-
-            # Wait for app to start and auto-migrate (migration is now handled by the app on startup)
-            echo "=== Waiting for app startup and auto-migration (max 45 seconds) ==="
-            sleep 15
-            echo "App should have auto-migrated on startup."
-            
-            # Verify tables exist
-            echo "Checking database tables..."
-            DB_CONN=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
-            if [ -n "$DB_CONN" ]; then
-              PGPASSWORD=$(echo "$DB_CONN" | grep -oP 'Password=\K[^;]+' || true)
-              DB_HOST=$(echo "$DB_CONN" | grep -oP 'Host=\K[^;]+' || true)
-              DB_USER=$(echo "$DB_CONN" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN" | grep -oP 'User Id=\K[^;]+' || true)
-              DB_NAME=$(echo "$DB_CONN" | grep -oP 'Database=\K[^;]+' || true)
-              
-              if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
-                TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null || echo "0")
-                echo "Found $TABLE_COUNT tables in database '$DB_NAME'"
-                
-                if [ "$TABLE_COUNT" -eq "0" ]; then
-                  echo "FATAL: No tables found after migration!"
-                  exit 1
-                fi
-              fi
-            fi
-
-            echo "=== Waiting for health check (max 30 attempts) ==="
-            HEALTH_PASSED=false
-            for i in $(seq 1 30); do
-              if curl -sf "http://localhost:5000/health/ready" > /dev/null 2>&1; then
-                echo "Health check passed!"
-                HEALTH_PASSED=true
-                break
-              fi
-              echo "Waiting for health check... ($i/30)"
-              sleep 2
-            done
-
-            # =================================================================
-            # ROLLBACK MECHANISM - If health check fails
-            # =================================================================
-            if [ "$HEALTH_PASSED" = false ]; then
-              echo ">>> Health check failed after 30 attempts, initiating rollback..."
-
-              echo ">>> Logging failed container..."
-              docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50
-
-              echo ">>> Stopping current containers..."
-              docker compose -f "$APP_DIR/docker-compose.prod.yml" down || true
-
-              echo ">>> Pulling previous image..."
-              sudo docker pull $IMAGE:previous || { echo ">>> Failed to pull previous image"; exit 1; }
-
-              echo ">>> Re-fetching Doppler secrets for rollback..."
-              doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
-              jq -r 'to_entries | .[] | "\(.key)=\(.value)"' /tmp/doppler_rollback.env > "$APP_DIR/.env" || true
-              rm -f /tmp/doppler_rollback.env
-
-              echo ">>> Starting previous container..."
-              sudo docker run -d --name menugreen-api -p 5000:5000 --env-file "$APP_DIR/.env" $IMAGE:previous || {
-                echo ">>> Failed to start previous container"
-                exit 1
-              }
-
-              echo ">>> Rollback complete!"
-              exit 1
-            fi
-
-            echo "=== Verify containers ==="
-            docker compose -f "$APP_DIR/docker-compose.prod.yml" ps
-
-            # =================================================================
-            # PRUNE UNUSED IMAGES - Keep only current, previous, and SHA tags
-            # =================================================================
-            echo "=== Pruning unused Docker images ==="
-            sudo docker images "$IMAGE" --format "{{.Repository}}:{{.Tag}}" \
-              | grep -v -E "(:main|:previous|:$SHA)" \
-              | xargs -r sudo docker rmi -f || true
-
-            echo "=== Final disk space check ==="
-            df -h
-
-            echo "=== Deployment complete successfully! ==="
+            chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
+            /tmp/nginx-deploy/backend/scripts/deploy-server.sh

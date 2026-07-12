@@ -1,141 +1,209 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' show min;
 
 import 'package:http/http.dart' as http;
 
+import '../middleware/error_middleware.dart';
+import '../middleware/logging_middleware.dart';
 import 'api_endpoints.dart';
 import 'jwt_utils.dart';
 import 'token_storage.dart';
 
-/// HTTP client dùng chung — tránh refresh token trùng lặp khi nhiều tab gọi API cùng lúc.
+/// Shared HTTP client. It keeps auth refresh, timeout, logging and transport
+/// error handling in one place so repositories do not duplicate that logic.
 class ApiClient {
   ApiClient({
     http.Client? httpClient,
     TokenStorage? tokenStorage,
     Duration? timeout,
+    ApiLoggingMiddleware? logger,
   })  : _http = httpClient ?? http.Client(),
         _storage = tokenStorage ?? TokenStorage(),
-        _timeout = timeout ?? const Duration(seconds: 20);
+        _timeout = timeout ?? const Duration(seconds: 20),
+        _logger = logger ?? const ApiLoggingMiddleware();
 
   final http.Client _http;
   final TokenStorage _storage;
   final Duration _timeout;
+  final ApiLoggingMiddleware _logger;
 
   static Completer<bool>? _refreshInFlight;
   static DateTime? _lastSuccessfulRefresh;
 
-  Future<http.Response> get(String url) async {
+  Future<http.Response> get(String url, {bool authenticated = true}) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http.get(Uri.parse(url), headers: headers).timeout(_timeout),
+      method: 'GET',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http.get(uri, headers: headers).timeout(_timeout),
     );
   }
 
-  Future<http.Response> delete(String url) async {
+  Future<http.Response> delete(String url, {bool authenticated = true}) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http.delete(Uri.parse(url), headers: headers).timeout(_timeout),
+      method: 'DELETE',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http.delete(uri, headers: headers).timeout(_timeout),
     );
   }
 
-  Future<http.Response> deleteWithBody(String url, Map<String, dynamic> body) async {
+  Future<http.Response> deleteWithBody(
+    String url,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http
-          .delete(
-            Uri.parse(url),
-            headers: headers,
-            body: jsonEncode(body),
-          )
+      method: 'DELETE',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http
+          .delete(uri, headers: headers, body: jsonEncode(body))
           .timeout(_timeout),
     );
   }
 
-  Future<http.Response> putJson(String url, Map<String, dynamic> body) async {
+  Future<http.Response> putJson(
+    String url,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http
-          .put(
-            Uri.parse(url),
-            headers: headers,
-            body: jsonEncode(body),
-          )
+      method: 'PUT',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http
+          .put(uri, headers: headers, body: jsonEncode(body))
           .timeout(_timeout),
     );
   }
 
-  Future<http.Response> patchJson(String url, Map<String, dynamic> body) async {
+  Future<http.Response> patchJson(
+    String url,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http
-          .patch(
-            Uri.parse(url),
-            headers: headers,
-            body: jsonEncode(body),
-          )
+      method: 'PATCH',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http
+          .patch(uri, headers: headers, body: jsonEncode(body))
           .timeout(_timeout),
     );
   }
 
-  Future<http.Response> postJson(String url, Map<String, dynamic> body) async {
+  Future<http.Response> postJson(
+    String url,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) {
+    final uri = Uri.parse(url);
     return _sendWithAuthRetry(
-      (headers) => _http
-          .post(
-            Uri.parse(url),
-            headers: headers,
-            body: jsonEncode(body),
-          )
+      method: 'POST',
+      uri: uri,
+      authenticated: authenticated,
+      send: (headers) => _http
+          .post(uri, headers: headers, body: jsonEncode(body))
           .timeout(_timeout),
     );
   }
 
-  Future<http.Response> postMultipart(String url, List<int> fileBytes, String fieldName, String filename) async {
-    return _sendWithAuthRetry((headers) async {
-      final uri = Uri.parse(url);
-      final request = http.MultipartRequest('POST', uri);
-      
-      // Copy headers
-      request.headers.addAll(headers);
-      
-      // Add multipart file
-      final multipartFile = http.MultipartFile.fromBytes(
-        fieldName,
-        fileBytes,
-        filename: filename,
-      );
-      request.files.add(multipartFile);
-      
-      final streamedResponse = await request.send().timeout(_timeout);
-      return http.Response.fromStream(streamedResponse);
-    });
+  Future<http.Response> postMultipart(
+    String url,
+    List<int> fileBytes,
+    String fieldName,
+    String filename, {
+    bool authenticated = true,
+  }) {
+    final uri = Uri.parse(url);
+    return _sendWithAuthRetry(
+      method: 'POST',
+      uri: uri,
+      authenticated: authenticated,
+      jsonContentType: false,
+      send: (headers) async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers.addAll(headers);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            fileBytes,
+            filename: filename,
+          ),
+        );
+        final streamedResponse = await request.send().timeout(_timeout);
+        return http.Response.fromStream(streamedResponse);
+      },
+    );
   }
 
-  Future<http.Response> _sendWithAuthRetry(
-    Future<http.Response> Function(Map<String, String> headers) send,
-  ) async {
-    await _ensureFreshAccessToken();
-    final headers = await _buildAuthHeaders();
-    print('[DEBUG] API Request headers: $headers');
-    final res = await send(headers);
-    print('[DEBUG] API Response status: ${res.statusCode}');
-    print('[DEBUG] API Response body: ${res.body.substring(0, min(500, res.body.length))}');
-    if (res.statusCode != 401) return res;
+  Future<http.Response> _sendWithAuthRetry({
+    required String method,
+    required Uri uri,
+    required bool authenticated,
+    required Future<http.Response> Function(Map<String, String> headers) send,
+    bool jsonContentType = true,
+  }) async {
+    if (authenticated) await _ensureFreshAccessToken();
+
+    final headers = await _buildHeaders(
+      authenticated: authenticated,
+      jsonContentType: jsonContentType,
+    );
+    final response = await _guardedRequest(
+      method: method,
+      uri: uri,
+      request: () => send(headers),
+    );
+
+    if (!authenticated || response.statusCode != 401) return response;
 
     final refreshed = await _refreshTokenOnce();
-    if (!refreshed) return res;
+    if (!refreshed) return response;
 
-    final headers2 = await _buildAuthHeaders();
-    return send(headers2);
+    final retryHeaders = await _buildHeaders(
+      authenticated: true,
+      jsonContentType: jsonContentType,
+    );
+    return _guardedRequest(
+      method: method,
+      uri: uri,
+      request: () => send(retryHeaders),
+    );
   }
 
-  Future<Map<String, String>> _buildAuthHeaders() async {
-    final token = await _storage.getAccessToken();
-    final headers = {
-      'Content-Type': 'application/json',
+  Future<http.Response> _guardedRequest({
+    required String method,
+    required Uri uri,
+    required Future<http.Response> Function() request,
+  }) async {
+    try {
+      return await ApiErrorMiddleware.guard(
+        method: method,
+        uri: uri,
+        logger: _logger,
+        request: request,
+      );
+    } on ApiException catch (error) {
+      return ApiErrorMiddleware.responseFromException(error);
+    }
+  }
+
+  Future<Map<String, String>> _buildHeaders({
+    required bool authenticated,
+    required bool jsonContentType,
+  }) async {
+    final token = authenticated ? await _storage.getAccessToken() : null;
+    return {
+      if (jsonContentType) 'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
-    // DEBUG: print token status
-    print('[DEBUG] Token exists: ${token != null && token.isNotEmpty}');
-    if (token != null && token.isNotEmpty) {
-      print('[DEBUG] Token preview: ${token.substring(0, min(20, token.length))}...');
-    }
-    return headers;
   }
 
   Future<bool> _tryRefreshToken() async {
@@ -143,24 +211,30 @@ class ApiClient {
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
     try {
-      final res = await _http
-          .post(
-            Uri.parse(ApiEndpoints.refreshToken),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'refreshToken': refreshToken}),
-          )
-          .timeout(_timeout);
-      if (res.statusCode != 200) {
-        print('[DEBUG] Refresh token failed: status ${res.statusCode}');
-        return false;
-      }
+      final uri = Uri.parse(ApiEndpoints.refreshToken);
+      final response = await ApiErrorMiddleware.guard(
+        method: 'POST',
+        uri: uri,
+        logger: _logger,
+        request: () => _http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'refreshToken': refreshToken}),
+            )
+            .timeout(_timeout),
+      );
+      if (response.statusCode != 200) return false;
 
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       final access = (data['accessToken'] ?? data['AccessToken'])?.toString();
       final refresh = (data['refreshToken'] ?? data['RefreshToken'])?.toString();
       final fullName = (data['fullName'] ?? data['FullName'])?.toString();
 
-      if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) {
+      if (access == null ||
+          access.isEmpty ||
+          refresh == null ||
+          refresh.isEmpty) {
         return false;
       }
       await _storage.saveTokens(
@@ -175,11 +249,9 @@ class ApiClient {
     }
   }
 
-  /// Chỉ một refresh chạy tại một thời điểm — các request khác chờ kết quả.
   Future<bool> _refreshTokenOnce() async {
-    if (_refreshInFlight != null) {
-      return _refreshInFlight!.future;
-    }
+    if (_refreshInFlight != null) return _refreshInFlight!.future;
+
     final completer = Completer<bool>();
     _refreshInFlight = completer;
     try {
@@ -205,7 +277,8 @@ class ApiClient {
     if (exp - nowSec > 60) return;
 
     final last = _lastSuccessfulRefresh;
-    if (last != null && DateTime.now().difference(last) < const Duration(seconds: 45)) {
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 45)) {
       return;
     }
 

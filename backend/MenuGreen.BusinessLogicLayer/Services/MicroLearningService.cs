@@ -28,7 +28,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             throw new InvalidOperationException(
-                "Micro-learning cards are empty. Please run the seed script at backend/MenuGreen_AI_SeedData/49_micro_learning_cards.sql before starting the app."
+                "Micro-learning cards are empty. Please run the seed script at backend/database/49_micro_learning_cards.sql before starting the app."
             );
         }
 

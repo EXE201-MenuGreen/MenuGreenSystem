@@ -2,7 +2,7 @@ name: Backend CI - Build & Push
 
 on:
   push:
-    branches: [main, Tuanx]
+    branches: [main, Tuan, Tuanx]
   pull_request:
     branches: [main, develop]
 
@@ -104,8 +104,14 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # Pin the Dockerfile path explicitly. With `context: .` Docker would
+          # default to `./Dockerfile` anyway, but pinning prevents drift if
+          # someone later tries to add a Dockerfile at a different path.
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}

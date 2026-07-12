@@ -1,6 +1,10 @@
 # 19. User Management
 
+<<<<<<< HEAD
 **Status:** API Done · UI Done · **Assessment: DONE**
+=======
+**Status:** API Done · UI Not Done
+>>>>>>> main
 **Last updated:** 2026-07-09
 
 **Related controller:** `backend/MenuGreen.API/Controllers/UserController.cs`
@@ -36,18 +40,31 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+<<<<<<< HEAD
 | `PUT` | `/api/User/change-password` | Đổi mật khẩu (yêu cầu current password) |
+=======
+| `PUT` | `/api/Users/change-password` | Đổi mật khẩu (yêu cầu current password) |
+>>>>>>> main
 
 ### 3.2 Admin
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+<<<<<<< HEAD
 | `GET` | `/api/User` | Danh sách tất cả users |
 | `GET` | `/api/User/{id}` | Chi tiết user |
 | `PUT` | `/api/User/{id}/toggle-status` | Toggle active/inactive *(code: cả PATCH và PUT variants)* |
 | `PUT` | `/api/User/{id}/lock` | Lock user (không đăng nhập được) *(code: cả PATCH và PUT variants)* |
 | `PUT` | `/api/User/{id}/unlock` | Unlock user *(code: cả PATCH và PUT variants)* |
 | `PUT` | `/api/User/{id}/assign-role` | Gán role cho user (Admin/User/Coach) *(code: cả PATCH và PUT variants)* |
+=======
+| `GET` | `/api/Users` | Danh sách tất cả users |
+| `GET` | `/api/Users/{id}` | Chi tiết user |
+| `PUT` | `/api/Users/{id}/toggle-status` | Toggle active/inactive *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/Users/{id}/lock` | Lock user (không đăng nhập được) *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/Users/{id}/unlock` | Unlock user *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/Users/{id}/assign-role` | Gán role cho user (Admin/User/Coach) *(code: cả PATCH và PUT variants)* |
+>>>>>>> main
 
 > **Ghi chú:** Controller đăng ký cả `PATCH` và `PUT` cho 4 admin endpoints (toggle-status, lock, unlock, assign-role). Cả 2 HTTP methods cùng handler. Doc liệt kê PUT cho đơn giản.
 
@@ -74,6 +91,7 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 
 - Change password có thể gọi từ Profile screen (hiện đã có Flutter UI).
 - Admin user management có thể tích hợp vào existing Admin Panel nếu có.
+<<<<<<< HEAD
 
 ## 7. Verification & Assessment (2026-07-12)
 
@@ -84,3 +102,5 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 - [x] Flutter analyzer không có error/warning cho feature.
 
 **Đánh giá: DONE** về UI/API contract. Cần smoke test thêm với JWT Admin thật trước khi phát hành production.
+=======
+>>>>>>> main
