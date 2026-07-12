@@ -16,6 +16,7 @@ import 'personal_info_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
+import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -238,6 +239,19 @@ class _ProfileViewState extends State<ProfileView> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const NotificationSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.schedule_outlined,
+                    'Nhắc nhở thông minh',
+                    'Cài đặt giờ ăn và lịch nhắc của bạn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdaptiveRemindersScreen(),
                         ),
                       );
                     },

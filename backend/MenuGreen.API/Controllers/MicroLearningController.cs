@@ -29,7 +29,11 @@ namespace MenuGreen.API.Controllers
         [HttpGet("cards/recommended")]
         public async Task<IActionResult> GetRecommended()
         {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (ModelState.IsValid == false)
+                return BadRequest(ModelState);
+
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
             var result = await _service.GetRecommendedCardsAsync(userId);
             return Ok(result);
         }
@@ -40,7 +44,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("cards/{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
             try
             {
                 var result = await _service.GetCardByIdAsync(id, userId);
@@ -68,13 +73,21 @@ namespace MenuGreen.API.Controllers
         [HttpPost("cards/{id:guid}/action")]
         public async Task<IActionResult> RecordAction(Guid id, [FromBody] CardActionRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
 
             try
             {
                 var result = await _service.RecordCardActionAsync(userId, id, request.Action);
-                return Ok(new { success = result, message = $"Action '{request.Action}' recorded successfully." });
+                return Ok(
+                    new
+                    {
+                        success = result,
+                        message = $"Action '{request.Action}' recorded successfully.",
+                    }
+                );
             }
             catch (ArgumentException ex)
             {
@@ -92,7 +105,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("cards/saved")]
         public async Task<IActionResult> GetSavedCards()
         {
-            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
             var result = await _service.GetSavedCardsAsync(userId);
             return Ok(result);
         }
@@ -103,12 +117,18 @@ namespace MenuGreen.API.Controllers
         [HttpPost("cards/{id:guid}/quiz/submit")]
         public async Task<IActionResult> SubmitQuiz(Guid id, [FromBody] QuizSubmitRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (!TryGetUserId(out var userId)) return Unauthorized();
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
 
             try
             {
-                var result = await _service.SubmitQuizAnswerAsync(userId, id, request.SelectedOptionIndex);
+                var result = await _service.SubmitQuizAnswerAsync(
+                    userId,
+                    id,
+                    request.SelectedOptionIndex
+                );
                 return Ok(result);
             }
             catch (Exception ex)
