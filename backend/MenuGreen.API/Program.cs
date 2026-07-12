@@ -373,7 +373,7 @@ if (!app.Environment.IsDevelopment())
     }
 }
 
-// Seed data: run backend/seeddata.sql in pgAdmin after migrations.
+// Seed data: run backend/run_seed_data.ps1 after migrations.
 
 // Configure the HTTP request pipeline.
 
