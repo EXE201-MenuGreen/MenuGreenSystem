@@ -1,16 +1,12 @@
 # 15. PT Review
 
-<<<<<<< HEAD
 **Status:** API Done · UI Done · **Assessment: DONE**
-=======
-**Status:** API Done · UI Not Done
->>>>>>> main
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-13
 
 **Related controller:** `backend/MenuGreen.API/Controllers/PtReviewController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/PtReviewService.cs`
 
-**Related Flutter features:** Chưa có
+**Related Flutter features:** `frontend/lib/features/advanced/` — user request/result/apply/reject và PT guest review bằng share token.
 
 ---
 
@@ -80,7 +76,6 @@ Chưa có Flutter UI. Cần phát triển:
 - Token-based sharing (no login required for PT) giúp PT ngoài hệ thống cũng có thể review.
 - Shared report URL nên có expiry.
 - Apply review tự động recalculate calorie targets → trigger notification.
-<<<<<<< HEAD
 
 ## 7. Verification & Assessment (2026-07-12)
 
@@ -90,5 +85,3 @@ Chưa có Flutter UI. Cần phát triển:
 - [ ] Chưa kiểm thử end-to-end với user/PT thật và database thật.
 
 **Đánh giá: DONE.** Luồng user tạo/xem/apply/reject và luồng PT guest mở link/submit review đã khép kín theo API contract. E2E với dữ liệu production vẫn là bước smoke test trước phát hành, không còn là phần implementation thiếu.
-=======
->>>>>>> main

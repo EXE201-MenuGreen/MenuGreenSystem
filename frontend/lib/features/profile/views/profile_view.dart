@@ -16,15 +16,8 @@ import 'personal_info_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../advanced/views/advanced_features_screen.dart';
->>>>>>> Stashed changes
-=======
-import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
->>>>>>> main
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -209,7 +202,8 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                         ),
                       ),
-<<<<<<< Updated upstream
+                      /* Legacy duplicate produced by stash conflict; retained as a comment so the
+   resolved implementation below remains the single executable widget tree.
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -365,7 +359,7 @@ class _ProfileViewState extends State<ProfileView> {
                         color: Colors.red,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-=======
+*/
                       const SizedBox(height: 16),
                       _buildSettingItem(
                         Icons.person_outline,
@@ -546,7 +540,6 @@ class _ProfileViewState extends State<ProfileView> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
->>>>>>> Stashed changes
                       ),
                       const SizedBox(height: 24),
                     ],
