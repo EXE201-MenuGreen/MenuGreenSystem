@@ -106,7 +106,7 @@ jobs:
           context: .
           # Pin the Dockerfile path explicitly. With `context: .` Docker would
           # default to `./Dockerfile` anyway, but pinning prevents drift if
-          # someone later adds a `backend/Dockerfile` to the build context.
+          # someone later tries to add a Dockerfile at a different path.
           file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}

@@ -65,14 +65,13 @@ Internet (HTTPS:443)
 
 ```
 MenuGreenSystem/backend/nginx/
-├── nginx.conf              # Source nginx.conf (copy về /etc/nginx/)
+├── nginx.conf              # Source nginx.conf (CI/CD copy về /etc/nginx/)
 ├── conf.d/
-│   └── cors-map.conf       # Source CORS map (copy về /etc/nginx/conf.d/)
-└── deploy/
-    ├── deploy-nginx.sh     # Script apply config (legacy, giờ CD làm)
-    ├── setup-server.sh     # Script setup lần đầu
-    └── README.md           # Hướng dẫn cũ (xem CI_CD.md thay thế)
+│   └── cors-map.conf       # Source CORS map (CI/CD copy về /etc/nginx/conf.d/)
+└── ssl/                    # Mount point cho SSL certs (file thực nằm trên server)
 ```
+
+> **Apply flow:** Toàn bộ `nginx/` được CD workflow SCP lên `/tmp/nginx-deploy/` mỗi lần push, sau đó `deploy-server.sh` copy vào `/etc/nginx/` và reload. Không cần chạy script thủ công trên server.
 
 ---
 
@@ -340,7 +339,6 @@ Hiện tại: dùng Option A cho domain Vercel chính (`menu-green-system-ldw5fr
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Tổng quan deployment (workflow Nginx CI/CD)
 - [CI_CD.md](./CI_CD.md) — CI/CD pipeline chi tiết + rollback
-- `backend/nginx/deploy/setup-server.sh` — Setup lần đầu (1 lần duy nhất)
 
 ---
 
