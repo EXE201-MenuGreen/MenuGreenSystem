@@ -20,6 +20,7 @@ namespace MenuGreen.DataAccessLayer.Entities
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public string? Region { get; set; }
 
         public virtual ICollection<Recipe> Recipes { get; set; } = new List<Recipe>();
     }

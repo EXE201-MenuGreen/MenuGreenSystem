@@ -20,5 +20,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int? DefaultServingG { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
+        public string? Region { get; set; }
     }
 }

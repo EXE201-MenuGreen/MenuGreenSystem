@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MenuGreen cần vị trí của bạn để tìm kiếm và quét các đặc sản món ăn thuộc vùng miền của bạn.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MenuGreen cần vị trí của bạn để tìm kiếm và quét các đặc sản món ăn thuộc vùng miền của bạn.</string>
 </dict>
 </plist>

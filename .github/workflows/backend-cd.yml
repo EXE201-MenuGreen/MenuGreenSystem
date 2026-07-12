@@ -5,7 +5,7 @@ on:
   workflow_run:
     workflows: ["Backend CI - Build & Push"]
     types: [completed]
-    branches: [main]
+    branches: [main, Tuan, Tuanx]  # Added Tuan so pushing to Tuan also auto-deploys nginx
   # Manual trigger
   workflow_dispatch:
     inputs:
@@ -48,6 +48,15 @@ jobs:
           echo "=== Initial disk space ==="
           df -h
 
+      - name: Upload nginx config to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf"
+          target: "/tmp/nginx-deploy"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.1.0
         with:
@@ -62,6 +71,103 @@ jobs:
 
             IMAGE=$IMAGE_NAME
             SHA=${{ github.sha }}
+
+            # =================================================================
+            # BƯỚC 0a: Ensure self-signed cert exists (for catch-all HTTPS)
+            # - /etc/ssl/certs/ssl-cert-snakeoil.pem không có sẵn trên Ubuntu minimal
+            # - Generate on-the-fly nếu chưa có
+            # - Cert này dùng cho catch-all HTTPS server (reject unknown SNI)
+            # =================================================================
+            echo "=== [0a] Ensure self-signed cert exists ==="
+            if [ ! -f /etc/ssl/certs/menugreen-catchall.pem ] || [ ! -f /etc/ssl/private/menugreen-catchall.key ]; then
+              sudo mkdir -p /etc/ssl/private
+              sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /etc/ssl/private/menugreen-catchall.key \
+                -out /etc/ssl/certs/menugreen-catchall.pem \
+                -subj "/CN=menugreen-catchall/O=MenuGreenSystem/C=VN" \
+                2>/dev/null
+              sudo chmod 600 /etc/ssl/private/menugreen-catchall.key
+              sudo chmod 644 /etc/ssl/certs/menugreen-catchall.pem
+              echo "  ✓ Generated self-signed cert"
+            else
+              echo "  ⊘ Self-signed cert already exists"
+            fi
+
+            # =================================================================
+            # BƯỚC 0: Apply nginx config (TRƯỚC khi restart container)
+            # - SCP đã upload file lên /tmp/nginx-deploy/
+            # - appleboy/scp-action giữ cấu trúc thư mục theo source.
+            #   Nếu target là /tmp/nginx-deploy và source là backend/nginx/...,
+            #   thì file thực sự nằm ở /tmp/nginx-deploy/backend/nginx/nginx.conf
+            # - Tự rollback nếu nginx -t fail
+            # =================================================================
+            echo "=== [0/10] Apply nginx config from git ==="
+
+            # Tìm đường dẫn thực tế của file sau khi SCP (hỗ trợ cả 2 layout)
+            NGINX_CONF_DEPLOYED=""
+            CORS_MAP_DEPLOYED=""
+
+            for candidate in \
+              "/tmp/nginx-deploy/nginx.conf" \
+              "/tmp/nginx-deploy/backend/nginx/nginx.conf"; do
+              if [ -f "$candidate" ]; then NGINX_CONF_DEPLOYED="$candidate"; break; fi
+            done
+
+            for candidate in \
+              "/tmp/nginx-deploy/conf.d/cors-map.conf" \
+              "/tmp/nginx-deploy/backend/nginx/conf.d/cors-map.conf"; do
+              if [ -f "$candidate" ]; then CORS_MAP_DEPLOYED="$candidate"; break; fi
+            done
+
+            if [ -n "$NGINX_CONF_DEPLOYED" ] && [ -n "$CORS_MAP_DEPLOYED" ]; then
+              NGINX_TS=$(date +"%Y%m%d_%H%M%S")
+              echo "  Found nginx.conf at: $NGINX_CONF_DEPLOYED"
+              echo "  Found cors-map.conf at: $CORS_MAP_DEPLOYED"
+
+              # 1. Backup config hiện tại
+              if [ -f /etc/nginx/conf.d/cors-map.conf ]; then
+                sudo cp /etc/nginx/conf.d/cors-map.conf \
+                        /etc/nginx/conf.d/cors-map.conf.bak.$NGINX_TS
+              fi
+              if [ -f /etc/nginx/nginx.conf ] && [ ! -f /etc/nginx/nginx.conf.original.backup ]; then
+                sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.original.backup
+              fi
+              if [ -f /etc/nginx/nginx.conf ]; then
+                sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak.$NGINX_TS
+              fi
+
+              # 2. Copy file mới
+              sudo cp "$NGINX_CONF_DEPLOYED" /etc/nginx/nginx.conf
+              sudo mkdir -p /etc/nginx/conf.d
+              sudo cp "$CORS_MAP_DEPLOYED" /etc/nginx/conf.d/cors-map.conf
+
+              # 3. Test syntax - FAIL thì rollback NGAY, không restart container
+              if sudo nginx -t 2>&1; then
+                # 4. Reload nginx (zero downtime)
+                sudo systemctl reload nginx
+                echo "  ✓ Nginx config applied and reloaded"
+              else
+                echo ">>> FATAL: nginx -t failed, rolling back nginx config..."
+                if [ -f /etc/nginx/conf.d/cors-map.conf.bak.$NGINX_TS ]; then
+                  sudo cp /etc/nginx/conf.d/cors-map.conf.bak.$NGINX_TS \
+                          /etc/nginx/conf.d/cors-map.conf
+                fi
+                if [ -f /etc/nginx/nginx.conf.bak.$NGINX_TS ]; then
+                  sudo cp /etc/nginx/nginx.conf.bak.$NGINX_TS \
+                          /etc/nginx/nginx.conf
+                fi
+                echo ">>> ABORTING: Nginx config rolled back, deployment stopped"
+                exit 1
+              fi
+
+              # Cleanup tmp
+              rm -rf /tmp/nginx-deploy
+            else
+              echo "  ⊘ nginx.conf or cors-map.conf not found in /tmp/nginx-deploy"
+              echo "  Skipping nginx deploy. Server-side CORS config NOT updated."
+              echo "  (ls /tmp/nginx-deploy for debug)"
+              ls -la /tmp/nginx-deploy 2>/dev/null || true
+            fi
 
             echo "=== Cleanup disk space - Before ==="
             sudo docker system prune -af --volumes || true
@@ -96,8 +202,10 @@ jobs:
             echo "=== Download secrets from Doppler ==="
             doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_raw.env
 
-            echo "=== Build .env file ==="
-            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
+            # Build .env file
+            # TEMP: SHOW_DETAILED_ERRORS=true để debug 500 errors trong production
+            # TODO: Remove sau khi fix xong lỗi
+            printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_DETAILED_ERRORS=true\n' > "$APP_DIR/.env"
 
             # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
             while IFS='=' read -r key raw_value; do

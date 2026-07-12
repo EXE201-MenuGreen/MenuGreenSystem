@@ -1,0 +1,12 @@
+# Place SSL certificates here
+# For production, you can use Let's Encrypt:
+#   certbot --nginx -d api.menugreen.food -d admin.menugreen.food -d www.menugreen.food
+
+# Required files:
+# - fullchain.pem (certificate + intermediates)
+# - privkey.pem (private key)
+
+# To generate self-signed certs for testing:
+#   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout privkey.pem -out fullchain.pem \
+#     -subj "/CN=api.menugreen.food"
