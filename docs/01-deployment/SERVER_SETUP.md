@@ -195,7 +195,7 @@ Deploy script cần một self-signed cert để Nginx có thể reject các req
 
 Bạn **không cần tạo thủ công** — chỉ cần đảm bảo `/etc/ssl/private/` tồn tại. User `ubuntu` mặc định có quyền `sudo` trên Ubuntu 22.04 nên có thể chạy `sudo openssl req -x509 ...` để generate cert.
 
-> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
+> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md).
 
 ---
 

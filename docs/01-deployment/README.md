@@ -91,7 +91,8 @@ Xem chi tiết: [ARCHITECTURE.md](./ARCHITECTURE.md) + [CI_CD.md](./CI_CD.md)
 | File                                                       | Mục đích                      |
 |------------------------------------------------------------|-------------------------------|
 | [`../GITHUB_SECRETS_SETUP.md`](../GITHUB_SECRETS_SETUP.md) | Setup GitHub Secrets chi tiết |
-| [`../../backend/nginx/deploy/README.md`](../../backend/nginx/deploy/README.md) | Nginx deployment workflow |
+| [`../../backend/nginx/nginx.conf`](../../backend/nginx/nginx.conf) | Nginx main config (applied qua CD) |
+| [`../../backend/nginx/conf.d/cors-map.conf`](../../backend/nginx/conf.d/cors-map.conf) | CORS whitelist (applied qua CD) |
 | [`../../.github/workflows/backend-ci.yml`](../../.github/workflows/backend-ci.yml) | CI workflow (build image) |
 | [`../../.github/workflows/backend-cd.yml`](../../.github/workflows/backend-cd.yml) | CD workflow (deploy) |
 
