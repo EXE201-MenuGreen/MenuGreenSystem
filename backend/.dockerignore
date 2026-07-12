@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+docker-compose*.yaml
+.docker/
+
+# Node (frontend)
+node_modules/
+
+# Logs
+**/*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certificates (these are mounted as volumes or generated at runtime)
+# ssl/
+
+# Secrets (these are passed via .env or environment variables)
+.env
+.env.*
+!.env.example
+
+# Database migrations backup
+**/Migrations/*.backup.sql
+
+# Test results
+TestResults/
+coverage/

@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260617054403_init")]
-    partial class init
+    [Migration("20260702122304_AddUsersTable")]
+    partial class AddUsersTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -168,6 +168,304 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("budget_requests", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Campaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<TimeOnly>("SendTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<string>("TargetSegment")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("campaigns", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAccessGranted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CoachId");
+
+                    b.HasIndex("ClientId", "CoachId")
+                        .IsUnique();
+
+                    b.ToTable("coach_connections", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FeedbackType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateOnly?>("LogDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("MealType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("CoachId");
+
+                    b.ToTable("coach_feedbacks", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bio")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ExperienceYears")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PriceVnd")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Specialty")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("coach_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CustomUserPortion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("GramsEquivalent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("UnitName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UnitName")
+                        .IsUnique();
+
+                    b.ToTable("custom_user_portions", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.DefaultPortionUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("GramsEquivalent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("UnitName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitName")
+                        .IsUnique();
+
+                    b.ToTable("default_portion_units", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.DeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DeviceType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "IsActive");
+
+                    b.ToTable("device_tokens", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.EmailVerification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -297,6 +595,35 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("AllergyId");
 
                     b.ToTable("food_allergies", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.FoodPortionMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FoodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("GramsPerUnit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodId", "Unit")
+                        .IsUnique();
+
+                    b.ToTable("food_portion_mappings", (string)null);
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.GoalDriftAlert", b =>
@@ -521,6 +848,41 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("meal_logs", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealLogSubstitution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MealLogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginalIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("OriginalQuantity")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("SubstituteIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("SubstituteQuantity")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealLogId");
+
+                    b.HasIndex("OriginalIngredientId");
+
+                    b.HasIndex("SubstituteIngredientId");
+
+                    b.ToTable("meal_log_substitutions", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealPlanHeader", b =>
                 {
                     b.Property<Guid>("Id")
@@ -624,6 +986,41 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("meal_plan_items", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealPlanItemSubstitution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MealPlanItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginalIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("OriginalQuantity")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("SubstituteIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("SubstituteQuantity")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealPlanItemId");
+
+                    b.HasIndex("OriginalIngredientId");
+
+                    b.HasIndex("SubstituteIngredientId");
+
+                    b.ToTable("meal_plan_item_substitutions", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealTemplate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -655,7 +1052,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("UsageCount")
-                        .HasColumnType("integer");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -711,18 +1110,88 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("meal_template_items", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MicroLearningCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("CorrectOptionIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("PointsReward")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("QuizOptions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("QuizQuestion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Tips")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("micro_learning_cards", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("ActionCompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Body")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClickedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DismissedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDismissed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsRead")
                         .ValueGeneratedOnAdd()
@@ -750,6 +1219,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
 
                     b.HasIndex("UserId");
 
@@ -916,6 +1387,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("UserPremiumProgramId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("UserSubscriptionId")
                         .HasColumnType("uuid");
 
@@ -923,6 +1397,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasIndex("ProviderOrderCode")
                         .IsUnique();
+
+                    b.HasIndex("UserPremiumProgramId");
 
                     b.HasIndex("UserSubscriptionId");
 
@@ -932,6 +1408,50 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         {
                             t.HasCheckConstraint("CK_payments_status", "\"Status\" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED')");
                         });
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.PremiumProgram", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DurationWeeks")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GoalType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PriceVnd")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SampleMenu")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TargetCaloriesDaily")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("premium_programs", (string)null);
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Profile", b =>
@@ -966,6 +1486,70 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("profiles", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.PtReviewRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PtComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ReportDataJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewToken")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("SuggestedCalorieTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SuggestedCarbsTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SuggestedChangesJson")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SuggestedFatTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SuggestedProteinTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("WeekStartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PtReviewRequests", (string)null);
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Recipe", b =>
@@ -1452,6 +2036,131 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("user_allergies", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserCardInteraction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDismissed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsQuizCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("IsQuizCorrect")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSaved")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("SelectedQuizOption")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.HasIndex("UserId", "CardId")
+                        .IsUnique();
+
+                    b.ToTable("user_card_interactions", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserPremiumProgram", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProgramId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProgramId");
+
+                    b.HasIndex("UserId", "ProgramId")
+                        .IsUnique();
+
+                    b.ToTable("user_premium_programs", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserProgramMilestone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("BodyFatPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("CheckInDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCheckedIn")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsUnlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UnlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserProgramId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("WeekNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserProgramId", "WeekNumber")
+                        .IsUnique();
+
+                    b.ToTable("user_program_milestones", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1496,6 +2205,35 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("user_subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubstitutionPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OriginalIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubstituteIngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OriginalIngredientId");
+
+                    b.HasIndex("SubstituteIngredientId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("user_substitution_preferences", (string)null);
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.WeightLog", b =>
@@ -1578,6 +2316,77 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachConnection", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Coach");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachFeedback", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Coach");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachProfile", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("MenuGreen.DataAccessLayer.Entities.CoachProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CustomUserPortion", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.DeviceToken", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.EmailVerification", b =>
                 {
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
@@ -1638,6 +2447,17 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("Food");
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.FoodPortionMapping", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Food", "Food")
+                        .WithMany()
+                        .HasForeignKey("FoodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Food");
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.GoalDriftAlert", b =>
                 {
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
@@ -1690,6 +2510,33 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealLogSubstitution", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.MealLog", "MealLog")
+                        .WithMany()
+                        .HasForeignKey("MealLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "OriginalIngredient")
+                        .WithMany()
+                        .HasForeignKey("OriginalIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "SubstituteIngredient")
+                        .WithMany()
+                        .HasForeignKey("SubstituteIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MealLog");
+
+                    b.Navigation("OriginalIngredient");
+
+                    b.Navigation("SubstituteIngredient");
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealPlanHeader", b =>
                 {
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
@@ -1724,6 +2571,33 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("MealPlanHeader");
 
                     b.Navigation("Recipe");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealPlanItemSubstitution", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.MealPlanItem", "MealPlanItem")
+                        .WithMany()
+                        .HasForeignKey("MealPlanItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "OriginalIngredient")
+                        .WithMany()
+                        .HasForeignKey("OriginalIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "SubstituteIngredient")
+                        .WithMany()
+                        .HasForeignKey("SubstituteIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MealPlanItem");
+
+                    b.Navigation("OriginalIngredient");
+
+                    b.Navigation("SubstituteIngredient");
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MealTemplate", b =>
@@ -1762,11 +2636,18 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Notification", b =>
                 {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Campaign");
 
                     b.Navigation("User");
                 });
@@ -1812,12 +2693,19 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.UserPremiumProgram", "UserPremiumProgram")
+                        .WithMany()
+                        .HasForeignKey("UserPremiumProgramId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.UserSubscription", "UserSubscription")
                         .WithMany()
                         .HasForeignKey("UserSubscriptionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
+
+                    b.Navigation("UserPremiumProgram");
 
                     b.Navigation("UserSubscription");
                 });
@@ -1827,6 +2715,17 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
                         .WithOne("Profile")
                         .HasForeignKey("MenuGreen.DataAccessLayer.Entities.Profile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.PtReviewRequest", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1996,6 +2895,55 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserCardInteraction", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.MicroLearningCard", "MicroLearningCard")
+                        .WithMany("UserCardInteractions")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MicroLearningCard");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserPremiumProgram", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.PremiumProgram", "PremiumProgram")
+                        .WithMany("UserPremiumPrograms")
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PremiumProgram");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserProgramMilestone", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.UserPremiumProgram", "UserPremiumProgram")
+                        .WithMany("UserProgramMilestones")
+                        .HasForeignKey("UserProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserPremiumProgram");
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.HasOne("MenuGreen.DataAccessLayer.Entities.SubscriptionPlan", "SubscriptionPlan")
@@ -2011,6 +2959,33 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .IsRequired();
 
                     b.Navigation("SubscriptionPlan");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubstitutionPreference", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "OriginalIngredient")
+                        .WithMany()
+                        .HasForeignKey("OriginalIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.Ingredient", "SubstituteIngredient")
+                        .WithMany()
+                        .HasForeignKey("SubstituteIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OriginalIngredient");
+
+                    b.Navigation("SubstituteIngredient");
 
                     b.Navigation("User");
                 });
@@ -2046,6 +3021,16 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.MicroLearningCard", b =>
+                {
+                    b.Navigation("UserCardInteractions");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.PremiumProgram", b =>
+                {
+                    b.Navigation("UserPremiumPrograms");
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.Recipe", b =>
                 {
                     b.Navigation("RecipeIngredients");
@@ -2063,6 +3048,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Navigation("Profile");
 
                     b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserPremiumProgram", b =>
+                {
+                    b.Navigation("UserProgramMilestones");
                 });
 #pragma warning restore 612, 618
         }

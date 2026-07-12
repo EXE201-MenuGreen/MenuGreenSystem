@@ -6,6 +6,7 @@ import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
+import '../../micro_learning/views/micro_learning_screen.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
@@ -98,6 +99,12 @@ class QuickActionGrid extends StatelessWidget {
       gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
       bgColor: Color(0xFFCCFBF1),
     ),
+    _ActionItem(
+      icon: Icons.menu_book_outlined,
+      label: 'Góc\ndinh dưỡng',
+      gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
+      bgColor: Color(0xFFDBEAFE),
+    ),
   ];
 
   void _navigateTo(BuildContext context, int index) {
@@ -141,6 +148,9 @@ class QuickActionGrid extends StatelessWidget {
         break;
       case 12:
         screen = const MealTemplatesScreen();
+        break;
+      case 13:
+        screen = const MicroLearningScreen();
         break;
       default:
         return;
