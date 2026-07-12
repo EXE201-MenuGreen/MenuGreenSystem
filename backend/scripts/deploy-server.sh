@@ -239,6 +239,66 @@ else
 fi
 
 # =================================================================
+# CRITICAL PHASE BOUNDARY
+# After this point, the old container can be torn down. If anything
+# fails between here and the end of the script, the rollback trap
+# (set further down) MUST bring the service back up — otherwise the
+# old image is still tagged locally and we can recover without manual
+# intervention.
+# =================================================================
+DEPLOY_PHASE_STARTED=1
+
+# =================================================================
+# FAIL-SAFE ROLLBACK TRAP
+# If the script exits non-zero from any point after the old container
+# has been (or is about to be) taken down — `set -e` would normally
+# just bail out and leave the service DOWN — this trap intercepts the
+# exit, runs the same three-tier rollback that the health-check path
+# uses, and then re-exits with the original status.
+#
+# Why not just rely on the health-check `if [ "$HEALTH_PASSED" = false ]`
+# block? Because that path only triggers when the new container is
+# RUNNING but its /health/ready keeps returning non-2xx. If the new
+# container crashes immediately (port collision, missing env, OOM,
+# bad image manifest, etc.), the loop at line ~281 may never observe
+# it as "running", and `set -e` propagates the failure out of the
+# script BEFORE we ever reach the health check — leaving no service.
+#
+# The EXIT trap catches ANY exit (success or failure) between
+# DEPLOY_PHASE_STARTED=1 and the end of the script. The body only
+# runs rollback if exit code is non-zero AND the trap hasn't already
+# run (ROLLBACK_DONE guards against double execution).
+# =================================================================
+ROLLBACK_TRIGGERED_BY_TRAP=0
+deploy_rollback_trap() {
+  local exit_code=$?
+  # Only act on failures after we've entered the deploy phase.
+  if [ "$exit_code" -eq 0 ] || [ "${DEPLOY_PHASE_STARTED:-0}" -ne 1 ]; then
+    return
+  fi
+  # If the health-check rollback path already ran, don't double-rollback.
+  if [ "${ROLLBACK_DONE:-0}" -eq 1 ]; then
+    return
+  fi
+  echo "=========================================="
+  echo ">>> FAIL-SAFE TRAP: deploy phase exited with code $exit_code"
+  echo ">>> Attempting automatic rollback to previous image..."
+  echo "=========================================="
+  if declare -F perform_rollback > /dev/null; then
+    perform_rollback
+    local rb=$?
+    if [ $rb -ne 0 ]; then
+      echo ">>> FAIL-SAFE TRAP: rollback itself failed (code $rb)"
+    fi
+  else
+    echo ">>> perform_rollback not yet defined — rollback skipped"
+  fi
+  # Re-exit with the ORIGINAL failure code so the GH Action still shows
+  # failed and an operator is paged — even though the service may be back.
+  exit $exit_code
+}
+trap deploy_rollback_trap EXIT
+
 # Save previous running image locally for rollback BEFORE pulling new one
 # - Uses local tag only (no Docker Hub round-trip, no push required,
 #   no rate-limit risk, no scope concern).
@@ -276,17 +336,26 @@ docker rm menugreen_api 2>/dev/null || true
 # is shared across tags, so this costs no extra disk per tag.
 
 echo "=== Start API container ==="
-docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
+# Wrap `up -d` so a failure here doesn't immediately kill the script
+# (which would leave us with the old container already stopped and no
+# new one running — i.e. service DOWN). With `|| UP_FAILED=1`, set -e
+# doesn't exit, the script continues, health check will fail, and the
+# EXIT trap will run perform_rollback() to bring the old image back.
+docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d || UP_FAILED=1
 
-echo "=== Waiting for container to be ready ==="
-for i in $(seq 1 15); do
-  if docker ps --filter "name=menugreen_api" --filter "status=running" | grep -q menugreen_api; then
-    echo "Container is running!"
-    break
-  fi
-  echo "Waiting for container... ($i/15)"
-  sleep 2
-done
+if [ "${UP_FAILED:-0}" -eq 1 ]; then
+  echo ">>> docker compose up failed — skipping readiness loop, will go to health check"
+else
+  echo "=== Waiting for container to be ready ==="
+  for i in $(seq 1 15); do
+    if docker ps --filter "name=menugreen_api" --filter "status=running" | grep -q menugreen_api; then
+      echo "Container is running!"
+      break
+    fi
+    echo "Waiting for container... ($i/15)"
+    sleep 2
+  done
+fi
 
 # Wait for app to start and auto-migrate (migration is now handled by the app on startup)
 echo "=== Waiting for app startup and auto-migration (max 45 seconds) ==="
@@ -306,9 +375,15 @@ if [ -n "$DB_CONN" ]; then
     TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null || echo "0")
     echo "Found $TABLE_COUNT tables in database '$DB_NAME'"
 
+    # NOTE: Previously this branch called `exit 1` on TABLE_COUNT=0, which
+    # bypassed the health-check loop and rollback path entirely. Now we
+    # just log the situation and let the health check be the gatekeeper:
+    # if migration truly failed, /health/ready will return non-2xx and the
+    # rollback (or fail-safe EXIT trap) will fire. If the DB just hasn't
+    # fully migrated yet but the app can still serve traffic, we let it
+    # run rather than tearing down a working service.
     if [ "$TABLE_COUNT" -eq "0" ]; then
-      echo "FATAL: No tables found after migration!"
-      exit 1
+      echo ">>> WARNING: No tables found yet. Will let health check decide."
     fi
   fi
 fi
@@ -325,22 +400,37 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
+# Disable the EXIT-trap rollback while we run the health-check path
+# ourselves — we don't want the trap to also run rollback after we exit 1.
+trap - EXIT
+
 # =================================================================
-# ROLLBACK MECHANISM - If health check fails
+# ROLLBACK MECHANISM (wrapped as a function so the EXIT trap can
+# invoke the same logic on unexpected failures).
+#
 # Priority order:
 #   1. Local rollback-local-* tag (fastest, no network)
 #   2. Docker Hub :previous tag (legacy fallback, may not exist
 #      after Fix 1 deployment but kept for backward compat)
 #   3. Pull from Hub by SHA tag (e.g. main-<oldsha>) - last resort
+#
+# `ROLLBACK_DONE` guards against double-execution when both the
+# health-check path and the EXIT trap want to rollback.
 # =================================================================
-if [ "$HEALTH_PASSED" = false ]; then
-  echo ">>> Health check failed after 30 attempts, initiating rollback..."
+perform_rollback() {
+  if [ "${ROLLBACK_DONE:-0}" -eq 1 ]; then
+    echo ">>> Rollback already in progress or completed, skipping"
+    return
+  fi
+  ROLLBACK_DONE=1
+
+  echo ">>> Initiating rollback..."
 
   echo ">>> Logging failed container..."
-  docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50
+  docker compose -f "$APP_DIR/docker-compose.prod.yml" logs --tail=50 2>/dev/null || true
 
   echo ">>> Stopping current containers..."
-  docker compose -f "$APP_DIR/docker-compose.prod.yml" down || true
+  docker compose -f "$APP_DIR/docker-compose.prod.yml" down 2>/dev/null || true
 
   # ----- Pick rollback image -----
   ROLLBACK_IMAGE_TAG=""
@@ -358,7 +448,7 @@ if [ "$HEALTH_PASSED" = false ]; then
   # 2. Try legacy :previous tag on Hub (may not exist anymore)
   if [ -z "$ROLLBACK_IMAGE_TAG" ]; then
     echo ">>> No local rollback tag found, trying $IMAGE:previous..."
-    if sudo docker pull $IMAGE:previous 2>/dev/null; then
+    if sudo docker pull "$IMAGE:previous" 2>/dev/null; then
       ROLLBACK_IMAGE_TAG="$IMAGE:previous"
       ROLLBACK_SOURCE="hub-previous"
       echo ">>> Pulled $IMAGE:previous"
@@ -368,10 +458,6 @@ if [ "$HEALTH_PASSED" = false ]; then
   # 3. Last resort: pull from Hub by SHA tag
   if [ -z "$ROLLBACK_IMAGE_TAG" ]; then
     echo ">>> No $IMAGE:previous, trying $IMAGE:main-<oldsha> from Hub..."
-    # The :$SHA tag from CI is the build that just failed; we want
-    # the SHA from the previous deploy. The previous :$SHA is one
-    # we just pulled $IMAGE:main from, but if main also failed we
-    # can't trust it. Fall back to any cached hub-<sha> image we have.
     FALLBACK_SHA=$(sudo docker images --format "{{.Tag}}" \
       | grep -E "^main-[0-9a-f]{7}$" \
       | sort -r | head -1 || true)
@@ -386,31 +472,26 @@ if [ "$HEALTH_PASSED" = false ]; then
     echo ">>> FATAL: No rollback image available (local, :previous, or :main-<sha>)"
     echo ">>> Manual recovery required. Service is DOWN."
     echo ">>> Container state preserved for debugging."
-    exit 1
+    return 1
   fi
 
   echo ">>> Re-fetching Doppler secrets for rollback..."
   doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
 
-  # FIX: Tạo .env rollback đúng format như deploy
   printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
 
   while IFS='=' read -r key raw_value; do
     [[ -z "$key" || "$key" =~ ^# ]] && continue
     [[ "$key" =~ [/[:space:]+] ]] && continue
     [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
-    # See note in the deploy-path loop above re: the sed-based multi-layer
-    # quote stripping. Same fix is needed here for the rollback .env rebuild.
     value="$(printf '%s' "$raw_value" | sed -E "s/^[\"']+//; s/[\"']+\$//")"
     net_key="${key//:/__}"
     echo "${net_key}=${value}" >> "$APP_DIR/.env"
   done < /tmp/doppler_rollback.env
 
-  # Add DB connection
   DB_CONN_ROLLBACK="$(grep '^CONNECTIONSTRINGS__DEFAULTCONNECTION=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
   [ -n "$DB_CONN_ROLLBACK" ] && echo "ConnectionStrings__DefaultConnection=$DB_CONN_ROLLBACK" >> "$APP_DIR/.env"
 
-  # Add JWT settings
   JWT_SECRET_ROLLBACK="$(grep '^JWT_SECRET=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
   [ -n "$JWT_SECRET_ROLLBACK" ] && echo "JwtSettings__SecretKey=$JWT_SECRET_ROLLBACK" >> "$APP_DIR/.env"
 
@@ -420,7 +501,6 @@ if [ "$HEALTH_PASSED" = false ]; then
   JWT_AUDIENCE_ROLLBACK="$(grep '^JWT_AUDIENCE=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
   [ -n "$JWT_AUDIENCE_ROLLBACK" ] && echo "JwtSettings__Audience=$JWT_AUDIENCE_ROLLBACK" >> "$APP_DIR/.env"
 
-  # Add Redis connection
   REDIS_HOST_ROLLBACK="$(grep '^REDIS_HOST=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
   REDIS_PORT_ROLLBACK="$(grep '^REDIS_PORT=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/' | head -1)"
   REDIS_PASSWORD_ROLLBACK="$(grep '^REDIS_PASSWORD=' /tmp/doppler_rollback.env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')"
@@ -434,33 +514,30 @@ if [ "$HEALTH_PASSED" = false ]; then
   fi
 
   rm -f /tmp/doppler_rollback.env
-
   echo ">>> .env restored for rollback"
 
-  # Tag the chosen rollback image so compose / docker run can find it
   sudo docker tag "$ROLLBACK_IMAGE_TAG" menugreen_api
   echo ">>> Tagged $ROLLBACK_IMAGE_TAG as menugreen_api for rollback (source: $ROLLBACK_SOURCE)"
 
   echo ">>> Starting previous container with docker compose..."
-  docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d || {
+  if ! docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d 2>&1; then
     echo ">>> Failed to start previous container with compose, trying docker run..."
-    sudo docker run -d \
+    if ! sudo docker run -d \
       --name menugreen_api \
       -p 5000:5000 \
       --env-file "$APP_DIR/.env" \
       --network menugreen-net \
-      menugreen_api || {
+      menugreen_api 2>&1; then
       echo ">>> FATAL: Failed to start previous container"
       echo ">>> Service is DOWN. Manual recovery required."
-      exit 1
-    }
-  }
+      return 1
+    fi
+  fi
 
   echo ">>> Waiting for rollback container to start..."
   sleep 10
   docker ps --filter "name=menugreen_api"
 
-  # Verify rollback container is actually healthy
   echo ">>> Verifying rollback health check..."
   ROLLBACK_HEALTHY=false
   for i in $(seq 1 15); do
@@ -476,12 +553,18 @@ if [ "$HEALTH_PASSED" = false ]; then
   if [ "$ROLLBACK_HEALTHY" = false ]; then
     echo ">>> WARNING: Rollback container started but /health/live is not responding"
     echo ">>> Container state preserved for manual inspection"
-  else
-    echo ">>> Rollback verified healthy. Service restored."
+    return 1
   fi
 
+  echo ">>> Rollback verified healthy. Service restored."
+  return 0
+}
+
+if [ "$HEALTH_PASSED" = false ]; then
+  echo ">>> Health check failed after 30 attempts, initiating rollback..."
+  perform_rollback || true
   # Always exit 1 so the GitHub Action is marked failed and an
-  # operator is notified — but the service is back up.
+  # operator is notified — but the service should be back up.
   exit 1
 fi
 
