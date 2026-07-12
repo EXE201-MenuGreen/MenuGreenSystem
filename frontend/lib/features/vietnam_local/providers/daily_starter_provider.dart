@@ -6,7 +6,7 @@ import '../repositories/vietnam_local_repositories.dart';
 /// Daily Starter provider — `2.12 Beginner Quick-Start` ("Hôm nay ăn gì?").
 class DailyStarterProvider extends ChangeNotifier {
   DailyStarterProvider({DailyStarterRepository? repository})
-      : _repo = repository ?? DailyStarterRepository();
+    : _repo = repository ?? DailyStarterRepository();
 
   final DailyStarterRepository _repo;
 
@@ -72,10 +72,10 @@ class DailyStarterProvider extends ChangeNotifier {
     _isPersonalizationLoading = true;
     notifyListeners();
     final result = await _repo.updatePersonalization({
-      if (heightCm != null) 'heightCm': heightCm,
-      if (weightKg != null) 'weightKg': weightKg,
-      if (targetCalories != null) 'targetCalories': targetCalories,
-      if (dietaryPreference != null) 'dietaryPreference': dietaryPreference,
+      'heightCm': ?heightCm,
+      'weightKg': ?weightKg,
+      'targetCalories': ?targetCalories,
+      'dietaryPreference': ?dietaryPreference,
     });
     _isPersonalizationLoading = false;
     if (!result.success) {

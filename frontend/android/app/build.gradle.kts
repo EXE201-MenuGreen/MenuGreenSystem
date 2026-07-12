@@ -18,7 +18,7 @@ val hasReleaseSigningConfig =
         .all { !keystoreProperties.getProperty(it).isNullOrBlank() }
 
 android {
-    namespace = "com.example.frontend"
+    namespace = "com.menugreen.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -39,7 +39,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.frontend"
+        applicationId = "com.menugreen.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

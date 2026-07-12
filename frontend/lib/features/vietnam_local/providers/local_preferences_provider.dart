@@ -6,7 +6,7 @@ import '../repositories/vietnam_local_repositories.dart';
 /// Local Preferences provider — `2.11 Vietnam-first Local Nutrition`.
 class LocalPreferencesProvider extends ChangeNotifier {
   LocalPreferencesProvider({LocalPreferencesRepository? repository})
-      : _repo = repository ?? LocalPreferencesRepository();
+    : _repo = repository ?? LocalPreferencesRepository();
 
   final LocalPreferencesRepository _repo;
 
@@ -51,12 +51,12 @@ class LocalPreferencesProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     final payload = <String, dynamic>{
-      if (vietnamRegion != null) 'VietnamRegion': vietnamRegion,
-      if (mealContext != null) 'MealContext': mealContext,
-      if (budgetPerMealVnd != null) 'BudgetPerMealVnd': budgetPerMealVnd,
-      if (preferredPortionUnits != null) 'PreferredPortionUnits': preferredPortionUnits,
-      if (eatingPattern != null) 'EatingPattern': eatingPattern,
-      if (dislikedFoods != null) 'DislikedFoods': dislikedFoods,
+      'VietnamRegion': ?vietnamRegion,
+      'MealContext': ?mealContext,
+      'BudgetPerMealVnd': ?budgetPerMealVnd,
+      'PreferredPortionUnits': ?preferredPortionUnits,
+      'EatingPattern': ?eatingPattern,
+      'DislikedFoods': ?dislikedFoods,
     };
     final result = await _repo.upsert(payload);
     _isLoading = false;
@@ -70,7 +70,11 @@ class LocalPreferencesProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<void> loadBudgetAware({int? budgetVnd, int? targetCalories, int? top = 10}) async {
+  Future<void> loadBudgetAware({
+    int? budgetVnd,
+    int? targetCalories,
+    int? top = 10,
+  }) async {
     final result = await _repo.getBudgetAware(
       budgetVnd: budgetVnd,
       targetCalories: targetCalories,
@@ -111,7 +115,7 @@ class LocalPreferencesProvider extends ChangeNotifier {
     final result = await _repo.sendFeedback({
       'recommendationId': recommendationId,
       'rating': rating,
-      if (comment != null) 'comment': comment,
+      'comment': ?comment,
     });
     if (!result.success) {
       _errorMessage = result.translatedMessage;
@@ -148,14 +152,22 @@ class LocalPreferencesProvider extends ChangeNotifier {
   }
 
   /// GET /api/Nutrition/discovery/local
-  Future<List<Map<String, dynamic>>> discoveryLocal({String? keyword, int? maxPriceVnd}) async {
-    final result = await _repo.discoveryLocal(keyword: keyword, maxPriceVnd: maxPriceVnd);
+  Future<List<Map<String, dynamic>>> discoveryLocal({
+    String? keyword,
+    int? maxPriceVnd,
+  }) async {
+    final result = await _repo.discoveryLocal(
+      keyword: keyword,
+      maxPriceVnd: maxPriceVnd,
+    );
     if (!result.success) return [];
     return result.data ?? [];
   }
 
   /// GET /api/Nutrition/discovery/local/by-budget
-  Future<List<Map<String, dynamic>>> discoveryLocalByBudget({required int maxPriceVnd}) async {
+  Future<List<Map<String, dynamic>>> discoveryLocalByBudget({
+    required int maxPriceVnd,
+  }) async {
     final result = await _repo.discoveryLocalByBudget(maxPriceVnd: maxPriceVnd);
     if (!result.success) return [];
     return result.data ?? [];

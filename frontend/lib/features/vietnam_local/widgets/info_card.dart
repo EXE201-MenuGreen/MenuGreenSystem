@@ -77,7 +77,7 @@ class InfoCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (trailing != null) trailing!,
+                  ?trailing,
                 ],
               ),
               if (subtitle != null) ...[
@@ -112,10 +112,7 @@ class InfoCard extends StatelessWidget {
                   ),
                 ),
               ],
-              if (child != null) ...[
-                const SizedBox(height: 12),
-                child!,
-              ],
+              if (child != null) ...[const SizedBox(height: 12), child!],
             ],
           ),
         ),

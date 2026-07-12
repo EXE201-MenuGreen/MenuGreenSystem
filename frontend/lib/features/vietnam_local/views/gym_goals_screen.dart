@@ -37,7 +37,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         elevation: 0,
         title: const Text(
           'Chế độ Gym / PT',
-          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
@@ -176,7 +179,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     if (provider.isLoading && provider.planSuggestions.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
-        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
     if (provider.planSuggestions.isEmpty) {
@@ -254,14 +259,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     );
   }
 
-  Future<void> _openEditor(BuildContext context, GymGoalProfile? profile) async {
+  Future<void> _openEditor(
+    BuildContext context,
+    GymGoalProfile? profile,
+  ) async {
     final updated = await Navigator.push<GymGoalProfile?>(
       context,
-      MaterialPageRoute(
-        builder: (_) => GymGoalsEditorScreen(initial: profile),
-      ),
+      MaterialPageRoute(builder: (_) => GymGoalsEditorScreen(initial: profile)),
     );
-    if (updated != null && mounted) {
+    if (updated != null && context.mounted) {
       final provider = context.read<GymGoalsProvider>();
       final ok = await provider.save(updated);
       if (!ok) return;
@@ -319,12 +325,24 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     _restCal = TextEditingController(
       text: (init?.restDayTargetCalories ?? '').toString(),
     );
-    _minCal = TextEditingController(text: (init?.minCalories ?? 1200).toString());
-    _maxCal = TextEditingController(text: (init?.maxCalories ?? 3500).toString());
-    _minProtein = TextEditingController(text: (init?.minProteinG ?? 80).toString());
-    _maxProtein = TextEditingController(text: (init?.maxProteinG ?? 220).toString());
-    _trainCount = TextEditingController(text: (init?.trainingDaysPerWeek ?? 3).toString());
-    _restCount = TextEditingController(text: (init?.restDaysPerWeek ?? 4).toString());
+    _minCal = TextEditingController(
+      text: (init?.minCalories ?? 1200).toString(),
+    );
+    _maxCal = TextEditingController(
+      text: (init?.maxCalories ?? 3500).toString(),
+    );
+    _minProtein = TextEditingController(
+      text: (init?.minProteinG ?? 80).toString(),
+    );
+    _maxProtein = TextEditingController(
+      text: (init?.maxProteinG ?? 220).toString(),
+    );
+    _trainCount = TextEditingController(
+      text: (init?.trainingDaysPerWeek ?? 3).toString(),
+    );
+    _restCount = TextEditingController(
+      text: (init?.restDaysPerWeek ?? 4).toString(),
+    );
     _notes = TextEditingController(text: init?.notes ?? '');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _initializing = false);
@@ -365,7 +383,9 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
   Widget build(BuildContext context) {
     if (_initializing) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
     return Scaffold(
@@ -375,7 +395,10 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         elevation: 0,
         title: const Text(
           'Cấu hình gym',
-          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
         actions: [
@@ -453,17 +476,25 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: _buildNumberField('Ngày tập/tuần', _trainCount)),
+                  Expanded(
+                    child: _buildNumberField('Ngày tập/tuần', _trainCount),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildNumberField('Ngày nghỉ/tuần', _restCount)),
+                  Expanded(
+                    child: _buildNumberField('Ngày nghỉ/tuần', _restCount),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildNumberField('Calo ngày tập', _trainCal)),
+                  Expanded(
+                    child: _buildNumberField('Calo ngày tập', _trainCal),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildNumberField('Calo ngày nghỉ', _restCal)),
+                  Expanded(
+                    child: _buildNumberField('Calo ngày nghỉ', _restCal),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -477,9 +508,16 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildNumberField('Protein tối thiểu (g)', _minProtein)),
+                  Expanded(
+                    child: _buildNumberField(
+                      'Protein tối thiểu (g)',
+                      _minProtein,
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildNumberField('Protein tối đa (g)', _maxProtein)),
+                  Expanded(
+                    child: _buildNumberField('Protein tối đa (g)', _maxProtein),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -490,7 +528,9 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                 decoration: InputDecoration(
                   labelText: 'Ghi chú',
                   filled: true,
-                  fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
+                  fillColor: AppColors.progressBackground.withValues(
+                    alpha: 0.3,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,

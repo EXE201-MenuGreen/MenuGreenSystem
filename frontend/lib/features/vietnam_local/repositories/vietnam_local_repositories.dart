@@ -28,9 +28,7 @@ class ApiResult<T> {
 class _VietnamLocalApi {
   _VietnamLocalApi();
 
-  Future<ApiResult<dynamic>> _exec(
-    Future<dynamic> Function() run,
-  ) async {
+  Future<ApiResult<dynamic>> _exec(Future<dynamic> Function() run) async {
     try {
       final response = await run();
       if (response is ApiException) {
@@ -47,7 +45,10 @@ class _VietnamLocalApi {
       final msg = _extractMessage(response.body) ?? 'Máy chủ phản hồi lỗi.';
       return ApiResult<dynamic>(success: false, message: msg);
     } catch (e) {
-      return ApiResult<dynamic>(success: false, message: 'Lỗi kết nối máy chủ.');
+      return ApiResult<dynamic>(
+        success: false,
+        message: 'Lỗi kết nối máy chủ.',
+      );
     }
   }
 
@@ -74,14 +75,16 @@ class _VietnamLocalApi {
 
 class DailyStarterRepository {
   DailyStarterRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
 
   Future<ApiResult<DailyStarterToday>> getToday() async {
-    final result = await _http._exec(() => _api.get(ApiEndpoints.dailyStarterToday));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.dailyStarterToday),
+    );
     if (!result.success) {
       return ApiResult<DailyStarterToday>(
         success: false,
@@ -94,24 +97,31 @@ class DailyStarterRepository {
       );
       return ApiResult<DailyStarterToday>(success: true, data: data);
     } catch (e) {
-      return ApiResult<DailyStarterToday>(success: false, message: 'Không đọc được dữ liệu.');
+      return ApiResult<DailyStarterToday>(
+        success: false,
+        message: 'Không đọc được dữ liệu.',
+      );
     }
   }
 
   Future<ApiResult<List<DailyStarterFood>>> getFeaturedMeals() async {
-    final result =
-        await _http._exec(() => _api.get(ApiEndpoints.dailyStarterFeaturedMeals));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.dailyStarterFeaturedMeals),
+    );
     if (!result.success) {
-      return ApiResult<List<DailyStarterFood>>(success: false, message: result.message);
+      return ApiResult<List<DailyStarterFood>>(
+        success: false,
+        message: result.message,
+      );
     }
     final raw = result.data;
     final list = raw is List
         ? raw
         : (raw is Map<String, dynamic> && raw['items'] is List
-            ? raw['items'] as List
-            : (raw is Map<String, dynamic> && raw['data'] is List
-                ? raw['data'] as List
-                : <dynamic>[]));
+              ? raw['items'] as List
+              : (raw is Map<String, dynamic> && raw['data'] is List
+                    ? raw['data'] as List
+                    : <dynamic>[]));
     final data = list
         .whereType<Map>()
         .map((e) => DailyStarterFood.fromJson(e.cast<String, dynamic>()))
@@ -129,8 +139,10 @@ class DailyStarterRepository {
       data: result.success
           ? ApiMessageTranslator.translate(
               (result.data is Map<String, dynamic> &&
-                      (result.data['message'] ?? result.data['Message']) != null)
-                  ? (result.data['message'] ?? result.data['Message']).toString()
+                      (result.data['message'] ?? result.data['Message']) !=
+                          null)
+                  ? (result.data['message'] ?? result.data['Message'])
+                        .toString()
                   : (result.message ?? ''),
             )
           : null,
@@ -138,10 +150,14 @@ class DailyStarterRepository {
   }
 
   Future<ApiResult<DailyStarterStartLog>> startLog() async {
-    final result =
-        await _http._exec(() => _api.postJson(ApiEndpoints.dailyStarterStartLog, const {}));
+    final result = await _http._exec(
+      () => _api.postJson(ApiEndpoints.dailyStarterStartLog, const {}),
+    );
     if (!result.success) {
-      return ApiResult<DailyStarterStartLog>(success: false, message: result.message);
+      return ApiResult<DailyStarterStartLog>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = DailyStarterStartLog.fromJson(
@@ -157,8 +173,9 @@ class DailyStarterRepository {
   }
 
   Future<ApiResult<DailyStarterPersonalization>> getPersonalization() async {
-    final result =
-        await _http._exec(() => _api.get(ApiEndpoints.dailyStarterPersonalization));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.dailyStarterPersonalization),
+    );
     if (!result.success) {
       return ApiResult<DailyStarterPersonalization>(
         success: false,
@@ -185,7 +202,10 @@ class DailyStarterRepository {
       () => _api.putJson(ApiEndpoints.dailyStarterPersonalization, payload),
     );
     if (!result.success) {
-      return ApiResult<DailyStarterPersonalization>(success: false, message: result.message);
+      return ApiResult<DailyStarterPersonalization>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = DailyStarterPersonalization.fromJson(
@@ -209,9 +229,9 @@ class DailyStarterRepository {
     if (targetCalories != null) params['targetCalories'] = '$targetCalories';
     if (budgetVnd != null) params['budgetVnd'] = '$budgetVnd';
     if (top != null) params['top'] = '$top';
-    final url = Uri.parse(ApiEndpoints.dailyStarterRecommendations).replace(
-      queryParameters: params,
-    );
+    final url = Uri.parse(
+      ApiEndpoints.dailyStarterRecommendations,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
       return ApiResult<List<LocalRecommendationItem>>(
@@ -223,8 +243,8 @@ class DailyStarterRepository {
     final list = raw is List
         ? raw
         : (raw is Map<String, dynamic> && raw['items'] is List
-            ? raw['items'] as List
-            : <dynamic>[]);
+              ? raw['items'] as List
+              : <dynamic>[]);
     final data = list
         .whereType<Map>()
         .map((e) => LocalRecommendationItem.fromJson(e.cast<String, dynamic>()))
@@ -235,8 +255,8 @@ class DailyStarterRepository {
 
 class GymGoalsRepository {
   GymGoalsRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
@@ -278,8 +298,13 @@ class GymGoalsRepository {
       'notes': profile.notes,
       'Preferences': preferences,
     };
-    final result = await _http._exec(() => _api.postJson(ApiEndpoints.gymGoals, payload));
-    return ApiResult<GymGoalProfile>(success: result.success, message: result.message);
+    final result = await _http._exec(
+      () => _api.postJson(ApiEndpoints.gymGoals, payload),
+    );
+    return ApiResult<GymGoalProfile>(
+      success: result.success,
+      message: result.message,
+    );
   }
 
   Future<ApiResult<List<LocalRecommendationItem>>> getPlan({
@@ -291,7 +316,9 @@ class GymGoalsRepository {
       params['targetCalories'] = '$targetCalories';
     }
     if (top != null) params['top'] = '$top';
-    final url = Uri.parse(ApiEndpoints.gymGoalsPlan).replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.gymGoalsPlan,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
       return ApiResult<List<LocalRecommendationItem>>(
@@ -303,8 +330,8 @@ class GymGoalsRepository {
     final list = raw is List
         ? raw
         : (raw is Map<String, dynamic> && raw['items'] is List
-            ? raw['items'] as List
-            : <dynamic>[]);
+              ? raw['items'] as List
+              : <dynamic>[]);
     final data = list
         .whereType<Map>()
         .map((e) => LocalRecommendationItem.fromJson(e.cast<String, dynamic>()))
@@ -319,17 +346,20 @@ class GymGoalsRepository {
     DateTime? endDate,
   }) async {
     final payload = <String, dynamic>{
-      if (period != null) 'period': period,
-      if (date != null) 'date': _formatDateOnly(date),
-      if (startDate != null) 'startDate': _formatDateOnly(startDate),
-      if (endDate != null) 'endDate': _formatDateOnly(endDate),
+      'period': ?period,
+      'date': ?(date == null ? null : _formatDateOnly(date)),
+      'startDate': ?(startDate == null ? null : _formatDateOnly(startDate)),
+      'endDate': ?(endDate == null ? null : _formatDateOnly(endDate)),
       'range': 'week',
     };
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.gymGoalsRecalibrate, payload),
     );
     if (!result.success) {
-      return ApiResult<GymRecalibrationResult>(success: false, message: result.message);
+      return ApiResult<GymRecalibrationResult>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = GymRecalibrationResult.fromJson(
@@ -344,13 +374,22 @@ class GymGoalsRepository {
     }
   }
 
-  Future<ApiResult<dynamic>> getAlerts({DateTime? startDate, DateTime? endDate}) async {
+  Future<ApiResult<dynamic>> getAlerts({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     final params = <String, String>{};
     if (startDate != null) params['startDate'] = _formatDateOnly(startDate);
     if (endDate != null) params['endDate'] = _formatDateOnly(endDate);
-    final url = Uri.parse(ApiEndpoints.gymGoalsAlerts).replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.gymGoalsAlerts,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   String _formatDateOnly(DateTime date) {
@@ -363,16 +402,21 @@ class GymGoalsRepository {
 
 class SafetyRepository {
   SafetyRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
 
   Future<ApiResult<SafetyDisclaimer>> getDisclaimer() async {
-    final result = await _http._exec(() => _api.get(ApiEndpoints.safetyDisclaimer));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.safetyDisclaimer),
+    );
     if (!result.success) {
-      return ApiResult<SafetyDisclaimer>(success: false, message: result.message);
+      return ApiResult<SafetyDisclaimer>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = SafetyDisclaimer.fromJson(
@@ -388,7 +432,9 @@ class SafetyRepository {
   }
 
   Future<ApiResult<SafetyConsent>> getConsent() async {
-    final result = await _http._exec(() => _api.get(ApiEndpoints.safetyConsent));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.safetyConsent),
+    );
     if (!result.success) {
       return ApiResult<SafetyConsent>(success: false, message: result.message);
     }
@@ -437,11 +483,17 @@ class SafetyRepository {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.safetyExportData, const {}),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   Future<ApiResult<String>> deleteData() async {
-    final result = await _http._exec(() => _api.delete(ApiEndpoints.safetyDeleteData));
+    final result = await _http._exec(
+      () => _api.delete(ApiEndpoints.safetyDeleteData),
+    );
     return ApiResult<String>(
       success: result.success,
       message: result.message,
@@ -456,16 +508,13 @@ class SafetyRepository {
     String? contactEmail,
   }) async {
     final result = await _http._exec(
-      () => _api.postJson(
-        ApiEndpoints.safetyReportIssue,
-        {
-          'category': category,
-          'severity': severity,
-          'description': description,
-          if (contactEmail != null && contactEmail.isNotEmpty)
-            'contactEmail': contactEmail,
-        },
-      ),
+      () => _api.postJson(ApiEndpoints.safetyReportIssue, {
+        'category': category,
+        'severity': severity,
+        'description': description,
+        if (contactEmail != null && contactEmail.isNotEmpty)
+          'contactEmail': contactEmail,
+      }),
     );
     return ApiResult<String>(
       success: result.success,
@@ -477,8 +526,8 @@ class SafetyRepository {
 
 class FoodCaptureRepository {
   FoodCaptureRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
@@ -487,31 +536,50 @@ class FoodCaptureRepository {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.foodCaptureQuickTemplate, payload),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   Future<ApiResult<dynamic>> templateFromPlan(DateTime date) async {
-    final params = <String, String>{
-      'date': _formatDateOnly(date),
-    };
-    final url = Uri.parse(ApiEndpoints.foodCaptureTemplateFromPlan)
-        .replace(queryParameters: params);
+    final params = <String, String>{'date': _formatDateOnly(date)};
+    final url = Uri.parse(
+      ApiEndpoints.foodCaptureTemplateFromPlan,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
-  Future<ApiResult<dynamic>> fallbackEstimate(Map<String, dynamic> payload) async {
+  Future<ApiResult<dynamic>> fallbackEstimate(
+    Map<String, dynamic> payload,
+  ) async {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.foodCaptureFallbackEstimate, payload),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
-  Future<ApiResult<dynamic>> saveAsQuickAdd(Map<String, dynamic> payload) async {
+  Future<ApiResult<dynamic>> saveAsQuickAdd(
+    Map<String, dynamic> payload,
+  ) async {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.foodCaptureSaveAsQuickAdd, payload),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   String _formatDateOnly(DateTime date) {
@@ -524,16 +592,21 @@ class FoodCaptureRepository {
 
 class LocalPreferencesRepository {
   LocalPreferencesRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
 
   Future<ApiResult<LocalPreferencesProfile>> get() async {
-    final result = await _http._exec(() => _api.get(ApiEndpoints.localPreferences));
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.localPreferences),
+    );
     if (!result.success) {
-      return ApiResult<LocalPreferencesProfile>(success: false, message: result.message);
+      return ApiResult<LocalPreferencesProfile>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = LocalPreferencesProfile.fromJson(
@@ -548,12 +621,17 @@ class LocalPreferencesRepository {
     }
   }
 
-  Future<ApiResult<LocalPreferencesProfile>> upsert(Map<String, dynamic> payload) async {
+  Future<ApiResult<LocalPreferencesProfile>> upsert(
+    Map<String, dynamic> payload,
+  ) async {
     final result = await _http._exec(
       () => _api.putJson(ApiEndpoints.localPreferences, payload),
     );
     if (!result.success) {
-      return ApiResult<LocalPreferencesProfile>(success: false, message: result.message);
+      return ApiResult<LocalPreferencesProfile>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = LocalPreferencesProfile.fromJson(
@@ -577,8 +655,9 @@ class LocalPreferencesRepository {
     if (budgetVnd != null) params['BudgetVnd'] = '$budgetVnd';
     if (targetCalories != null) params['TargetCalories'] = '$targetCalories';
     if (top != null) params['top'] = '$top';
-    final url = Uri.parse(ApiEndpoints.localRecommendationsBudgetAware)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.localRecommendationsBudgetAware,
+    ).replace(queryParameters: params);
     return _listResult(url);
   }
 
@@ -589,8 +668,9 @@ class LocalPreferencesRepository {
     final params = <String, String>{};
     if (targetCalories != null) params['TargetCalories'] = '$targetCalories';
     if (top != null) params['top'] = '$top';
-    final url = Uri.parse(ApiEndpoints.localRecommendationsLocalFriendly)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.localRecommendationsLocalFriendly,
+    ).replace(queryParameters: params);
     return _listResult(url);
   }
 
@@ -598,71 +678,130 @@ class LocalPreferencesRepository {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.localRecommendationsFeedback, payload),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   /// POST /api/Nutrition/meal-log/vn — ghi meal log với đơn vị VN (chén, bát...).
-  Future<ApiResult<dynamic>> createVnMealLog(Map<String, dynamic> payload) async {
+  Future<ApiResult<dynamic>> createVnMealLog(
+    Map<String, dynamic> payload,
+  ) async {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.mealLogVn, payload),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   /// GET /api/Nutrition/meal-log/vn/history — lịch sử meal log VN.
-  Future<ApiResult<List<Map<String, dynamic>>>> getVnMealLogHistory({int page = 1, int pageSize = 20}) async {
+  Future<ApiResult<List<Map<String, dynamic>>>> getVnMealLogHistory({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     final result = await _http._exec(
-      () => _api.get('${ApiEndpoints.mealLogVnHistory}?page=$page&pageSize=$pageSize'),
+      () => _api.get(
+        '${ApiEndpoints.mealLogVnHistory}?page=$page&pageSize=$pageSize',
+      ),
     );
     if (!result.success) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: result.message);
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final raw = result.data;
       final items = raw is Map && raw['items'] is List
           ? raw['items'] as List
           : (raw is List ? raw : <dynamic>[]);
-      final data = items.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      final data = items
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
       return ApiResult<List<Map<String, dynamic>>>(success: true, data: data);
     } catch (_) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: 'Không đọc được lịch sử.');
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: 'Không đọc được lịch sử.',
+      );
     }
   }
 
   /// GET /api/Nutrition/discovery/local — tìm món ăn local theo keyword.
-  Future<ApiResult<List<Map<String, dynamic>>>> discoveryLocal({String? keyword, int? maxPriceVnd}) async {
+  Future<ApiResult<List<Map<String, dynamic>>>> discoveryLocal({
+    String? keyword,
+    int? maxPriceVnd,
+  }) async {
     final params = <String, String>{};
     if (keyword != null && keyword.isNotEmpty) params['keyword'] = keyword;
     if (maxPriceVnd != null) params['maxPriceVnd'] = '$maxPriceVnd';
-    final url = Uri.parse(ApiEndpoints.nutritionDiscoveryLocal).replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.nutritionDiscoveryLocal,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: result.message);
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final raw = result.data;
-      final items = raw is List ? raw : (raw is Map && raw['items'] is List ? raw['items'] as List : <dynamic>[]);
-      final data = items.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      final items = raw is List
+          ? raw
+          : (raw is Map && raw['items'] is List
+                ? raw['items'] as List
+                : <dynamic>[]);
+      final data = items
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
       return ApiResult<List<Map<String, dynamic>>>(success: true, data: data);
     } catch (_) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: 'Không tìm được món ăn.');
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: 'Không tìm được món ăn.',
+      );
     }
   }
 
   /// GET /api/Nutrition/discovery/local/by-budget — tìm món theo ngân sách.
-  Future<ApiResult<List<Map<String, dynamic>>>> discoveryLocalByBudget({required int maxPriceVnd}) async {
-    final url = Uri.parse('${ApiEndpoints.nutritionDiscoveryLocalByBudget}?maxPrice=$maxPriceVnd');
+  Future<ApiResult<List<Map<String, dynamic>>>> discoveryLocalByBudget({
+    required int maxPriceVnd,
+  }) async {
+    final url = Uri.parse(
+      '${ApiEndpoints.nutritionDiscoveryLocalByBudget}?maxPrice=$maxPriceVnd',
+    );
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: result.message);
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final raw = result.data;
-      final items = raw is List ? raw : (raw is Map && raw['items'] is List ? raw['items'] as List : <dynamic>[]);
-      final data = items.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      final items = raw is List
+          ? raw
+          : (raw is Map && raw['items'] is List
+                ? raw['items'] as List
+                : <dynamic>[]);
+      final data = items
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
       return ApiResult<List<Map<String, dynamic>>>(success: true, data: data);
     } catch (_) {
-      return ApiResult<List<Map<String, dynamic>>>(success: false, message: 'Không tìm được món theo ngân sách.');
+      return ApiResult<List<Map<String, dynamic>>>(
+        success: false,
+        message: 'Không tìm được món theo ngân sách.',
+      );
     }
   }
 
@@ -678,8 +817,8 @@ class LocalPreferencesRepository {
     final list = raw is List
         ? raw
         : (raw is Map<String, dynamic> && raw['items'] is List
-            ? raw['items'] as List
-            : <dynamic>[]);
+              ? raw['items'] as List
+              : <dynamic>[]);
     final data = list
         .whereType<Map>()
         .map((e) => LocalRecommendationItem.fromJson(e.cast<String, dynamic>()))
@@ -690,21 +829,28 @@ class LocalPreferencesRepository {
 
 class PlannedVsActualRepository {
   PlannedVsActualRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
 
-  Future<ApiResult<PlannedVsActualSummary>> getSummary({DateTime? from, DateTime? to}) async {
+  Future<ApiResult<PlannedVsActualSummary>> getSummary({
+    DateTime? from,
+    DateTime? to,
+  }) async {
     final params = <String, String>{};
     if (from != null) params['from'] = _formatDateOnly(from);
     if (to != null) params['to'] = _formatDateOnly(to);
-    final url = Uri.parse(ApiEndpoints.plannedVsActualSummary)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.plannedVsActualSummary,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
-      return ApiResult<PlannedVsActualSummary>(success: false, message: result.message);
+      return ApiResult<PlannedVsActualSummary>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = PlannedVsActualSummary.fromJson(
@@ -726,8 +872,9 @@ class PlannedVsActualRepository {
     final params = <String, String>{};
     if (from != null) params['from'] = _formatDateOnly(from);
     if (to != null) params['to'] = _formatDateOnly(to);
-    final url = Uri.parse(ApiEndpoints.plannedVsActualAdherenceScore)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.plannedVsActualAdherenceScore,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
       return ApiResult<AdherenceScore>(success: false, message: result.message);
@@ -752,8 +899,9 @@ class PlannedVsActualRepository {
     final params = <String, String>{};
     if (from != null) params['from'] = _formatDateOnly(from);
     if (to != null) params['to'] = _formatDateOnly(to);
-    final url = Uri.parse(ApiEndpoints.plannedVsActualDriftAnalysis)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.plannedVsActualDriftAnalysis,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
       return ApiResult<DriftAnalysis>(success: false, message: result.message);
@@ -785,7 +933,10 @@ class PlannedVsActualRepository {
       final data = PlannedVsActualRecommendations.fromJson(
         (result.data as Map).cast<String, dynamic>(),
       );
-      return ApiResult<PlannedVsActualRecommendations>(success: true, data: data);
+      return ApiResult<PlannedVsActualRecommendations>(
+        success: true,
+        data: data,
+      );
     } catch (_) {
       return ApiResult<PlannedVsActualRecommendations>(
         success: false,
@@ -798,7 +949,11 @@ class PlannedVsActualRepository {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.plannedVsActualRecalibrate, const {}),
     );
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   /// GET /api/Analytics/planned-vs-actual/monthly-report — báo cáo tháng (JSON hoặc HTML).
@@ -811,10 +966,15 @@ class PlannedVsActualRepository {
     if (month != null) params['month'] = '$month';
     if (year != null) params['year'] = '$year';
     if (format.isNotEmpty) params['format'] = format;
-    final url = Uri.parse(ApiEndpoints.plannedVsActualMonthlyReport)
-        .replace(queryParameters: params);
+    final url = Uri.parse(
+      ApiEndpoints.plannedVsActualMonthlyReport,
+    ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
-    return ApiResult<dynamic>(success: result.success, message: result.message, data: result.data);
+    return ApiResult<dynamic>(
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    );
   }
 
   String _formatDateOnly(DateTime date) {
@@ -827,8 +987,8 @@ class PlannedVsActualRepository {
 
 class IngredientSubstitutionPreferencesRepository {
   IngredientSubstitutionPreferencesRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient(),
-        _http = _VietnamLocalApi();
+    : _api = apiClient ?? ApiClient(),
+      _http = _VietnamLocalApi();
 
   final ApiClient _api;
   final _VietnamLocalApi _http;
@@ -847,31 +1007,48 @@ class IngredientSubstitutionPreferencesRepository {
     final list = raw is List
         ? raw
         : (raw is Map<String, dynamic> && raw['items'] is List
-            ? raw['items'] as List
-            : <dynamic>[]);
+              ? raw['items'] as List
+              : <dynamic>[]);
     final data = list
         .whereType<Map>()
-        .map((e) => IngredientSubstitutePreference.fromJson(e.cast<String, dynamic>()))
+        .map(
+          (e) => IngredientSubstitutePreference.fromJson(
+            e.cast<String, dynamic>(),
+          ),
+        )
         .toList();
-    return ApiResult<List<IngredientSubstitutePreference>>(success: true, data: data);
+    return ApiResult<List<IngredientSubstitutePreference>>(
+      success: true,
+      data: data,
+    );
   }
 
   Future<ApiResult<IngredientSubstitutePreference>> create(
     Map<String, dynamic> payload,
   ) async {
     final result = await _http._exec(
-      () => _api.postJson(ApiEndpoints.ingredientSubstitutesPreferences, payload),
+      () =>
+          _api.postJson(ApiEndpoints.ingredientSubstitutesPreferences, payload),
     );
     if (!result.success) {
-      return ApiResult<IngredientSubstitutePreference>(success: false, message: result.message);
+      return ApiResult<IngredientSubstitutePreference>(
+        success: false,
+        message: result.message,
+      );
     }
     try {
       final data = IngredientSubstitutePreference.fromJson(
         (result.data as Map).cast<String, dynamic>(),
       );
-      return ApiResult<IngredientSubstitutePreference>(success: true, data: data);
+      return ApiResult<IngredientSubstitutePreference>(
+        success: true,
+        data: data,
+      );
     } catch (_) {
-      return ApiResult<IngredientSubstitutePreference>(success: true, message: result.message);
+      return ApiResult<IngredientSubstitutePreference>(
+        success: true,
+        message: result.message,
+      );
     }
   }
 

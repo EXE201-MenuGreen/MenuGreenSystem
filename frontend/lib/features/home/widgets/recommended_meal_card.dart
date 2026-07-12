@@ -186,8 +186,8 @@ class RecommendedMealSection extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFFFF6B6B).withValues(alpha: 0.12),
-                  const Color(0xFFFF6B6B).withValues(alpha: 0.05),
+                  AppColors.primary.withValues(alpha: 0.1),
+                  AppColors.primary.withValues(alpha: 0.03),
                 ],
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -197,12 +197,12 @@ class RecommendedMealSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.restaurant_menu,
-                    color: Color(0xFFFF6B6B),
+                    color: AppColors.primary,
                     size: 18,
                   ),
                 ),
@@ -223,7 +223,7 @@ class RecommendedMealSection extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Row(
@@ -233,7 +233,7 @@ class RecommendedMealSection extends StatelessWidget {
                             'Xem thêm',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFFFF6B6B),
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -241,7 +241,7 @@ class RecommendedMealSection extends StatelessWidget {
                           Icon(
                             Icons.arrow_forward_ios,
                             size: 10,
-                            color: Color(0xFFFF6B6B),
+                            color: AppColors.primary,
                           ),
                         ],
                       ),

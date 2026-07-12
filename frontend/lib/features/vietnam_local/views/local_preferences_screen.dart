@@ -55,9 +55,16 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
     }
     setState(() {
       _region = _normalize(p.vietnamRegion, _regions, _regions.last);
-      _mealContext = _normalize(p.mealContext, _mealContexts, _mealContexts.last);
-      _eatingPattern =
-          _normalize(p.eatingPattern, _eatingPatterns, _eatingPatterns.first);
+      _mealContext = _normalize(
+        p.mealContext,
+        _mealContexts,
+        _mealContexts.last,
+      );
+      _eatingPattern = _normalize(
+        p.eatingPattern,
+        _eatingPatterns,
+        _eatingPatterns.first,
+      );
       _budgetController.text = p.budgetPerMealVnd?.toString() ?? '';
       _portionUnitsController.text = p.preferredPortionUnits ?? '';
       _dislikedController.text = p.dislikedFoods ?? '';
@@ -187,7 +194,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
   Widget build(BuildContext context) {
     if (_initializing) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
     return Scaffold(
@@ -197,7 +206,10 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
         elevation: 0,
         title: const Text(
           'Sở thích ăn uống',
-          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
@@ -207,10 +219,7 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
             return ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const SectionHeader(
-                  title: 'Vùng miền',
-                  icon: Icons.public,
-                ),
+                const SectionHeader(title: 'Vùng miền', icon: Icons.public),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -220,7 +229,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                           label: Text(_regionLabel(e)),
                           selected: _region == e,
                           onSelected: (_) => setState(() => _region = e),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                          selectedColor: AppColors.primary.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       )
                       .toList(),
@@ -239,7 +250,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                           label: Text(_mealContextLabel(e)),
                           selected: _mealContext == e,
                           onSelected: (_) => setState(() => _mealContext = e),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                          selectedColor: AppColors.primary.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       )
                       .toList(),
@@ -258,7 +271,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                           label: Text(_eatingPatternLabel(e)),
                           selected: _eatingPattern == e,
                           onSelected: (_) => setState(() => _eatingPattern = e),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                          selectedColor: AppColors.primary.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       )
                       .toList(),
@@ -270,7 +285,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   decoration: InputDecoration(
                     labelText: 'Ngân sách mỗi bữa (VND)',
                     filled: true,
-                    fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
+                    fillColor: AppColors.progressBackground.withValues(
+                      alpha: 0.3,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -283,7 +300,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   decoration: InputDecoration(
                     labelText: 'Đơn vị ưa thích (vd: chén, bát, muỗng, trái)',
                     filled: true,
-                    fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
+                    fillColor: AppColors.progressBackground.withValues(
+                      alpha: 0.3,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -298,7 +317,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   decoration: InputDecoration(
                     labelText: 'Món không thích (phân cách dấu phẩy)',
                     filled: true,
-                    fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
+                    fillColor: AppColors.progressBackground.withValues(
+                      alpha: 0.3,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -374,16 +395,18 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                     child: Column(
                       children: provider.budgetAware
                           .take(5)
-                          .map((e) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2),
-                                child: Text(
-                                  '• ${e.name} • ${e.caloriesKcal.toStringAsFixed(0)} kcal',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
+                          .map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text(
+                                '• ${e.name} • ${e.caloriesKcal.toStringAsFixed(0)} kcal',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
                                 ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
@@ -400,7 +423,8 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                 ),
                 _buildShortcut(
                   title: 'Ghi nhật ký nhanh',
-                  subtitle: 'Ghi bữa ăn nhanh bằng đơn vị VN (chén, bát, muỗng).',
+                  subtitle:
+                      'Ghi bữa ăn nhanh bằng đơn vị VN (chén, bát, muỗng).',
                   onTap: () => _showQuickLogDialog(context),
                 ),
               ],
@@ -418,7 +442,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
     final results = await provider.discoveryLocal(maxPriceVnd: budget);
     if (!context.mounted) return;
     if (results.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Không có gợi ý nào.')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Không có gợi ý nào.')),
+      );
       return;
     }
     showModalBottomSheet(
@@ -461,7 +487,10 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   final calories = item['caloriesKcal'];
                   final priceVnd = item['estimatedPriceVnd'] ?? '?';
                   return ListTile(
-                    leading: const Icon(Icons.rice_bowl, color: AppColors.primary),
+                    leading: const Icon(
+                      Icons.rice_bowl,
+                      color: AppColors.primary,
+                    ),
                     title: Text(foodName),
                     subtitle: Text(
                       '${calories ?? '?'} kcal • $priceVnd VND',
@@ -481,9 +510,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                         Navigator.pop(ctx);
                         messenger.showSnackBar(
                           SnackBar(
-                            content: Text(logOk
-                                ? 'Đã ghi: $foodName'
-                                : 'Không ghi được.'),
+                            content: Text(
+                              logOk ? 'Đã ghi: $foodName' : 'Không ghi được.',
+                            ),
                           ),
                         );
                       },
@@ -535,9 +564,13 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: selectedUnit,
+                      initialValue: selectedUnit,
                       decoration: const InputDecoration(labelText: 'Đơn vị'),
-                      items: units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                      items: units
+                          .map(
+                            (u) => DropdownMenuItem(value: u, child: Text(u)),
+                          )
+                          .toList(),
                       onChanged: (v) => selectedUnit = v ?? selectedUnit,
                     ),
                   ),
@@ -545,16 +578,24 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedMeal,
+                initialValue: selectedMeal,
                 decoration: const InputDecoration(labelText: 'Bữa ăn'),
-                items: meals.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                items: meals.entries
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    )
+                    .toList(),
                 onChanged: (v) => selectedMeal = v ?? selectedMeal,
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (foodCtrl.text.trim().isEmpty) return;
@@ -568,7 +609,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(ok ? 'Đã ghi bữa ăn.' : 'Không ghi được.')),
+                SnackBar(
+                  content: Text(ok ? 'Đã ghi bữa ăn.' : 'Không ghi được.'),
+                ),
               );
             },
             child: const Text('Ghi'),
@@ -602,7 +645,10 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
           subtitle,
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }

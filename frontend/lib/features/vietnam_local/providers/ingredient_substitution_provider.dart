@@ -51,7 +51,7 @@ class IngredientSubstitutionProvider extends ChangeNotifier {
       'substituteIngredientId': substituteIngredientId,
       'substituteIngredientName': substituteIngredientName,
       'reason': reason,
-      if (maxPriceVnd != null) 'maxPriceVnd': maxPriceVnd,
+      'maxPriceVnd': ?maxPriceVnd,
       'macroMatch': macroMatch,
     });
     if (!result.success) {
