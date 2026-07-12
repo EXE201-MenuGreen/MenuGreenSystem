@@ -454,8 +454,8 @@ docker logs menugreen_api --tail 50 -f
 docker restart menugreen_api
 
 # Database operations
-PGPASSWORD='MenuGreen2026!' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -c "CREATE DATABASE menugreendb;"
-PGPASSWORD='MenuGreen2026!' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -l
+PGPASSWORD='<YOUR_PASSWORD>' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -c "CREATE DATABASE menugreendb;"
+PGPASSWORD='<YOUR_PASSWORD>' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -l
 
 # Navigate to app
 cd ~/apps/MenuGreenSystem
@@ -687,7 +687,7 @@ Tên database trong connection string là `MenuGreenDb` (PascalCase) nhưng data
 ### Verification After Fix
 
 ```bash
-PGPASSWORD='MenuGreen2026!' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -l
+PGPASSWORD='<YOUR_PASSWORD>' psql -h menugreen-db.cr4uo6sksium.ap-southeast-1.rds.amazonaws.com -U postgres -l
 # Kiểm tra database name hiển thị đúng
 ```
 
