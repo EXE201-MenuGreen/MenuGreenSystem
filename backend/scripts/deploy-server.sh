@@ -152,10 +152,12 @@ while IFS='=' read -r key raw_value; do
   [[ "$key" =~ [/[:space:]+] ]] && continue
   # FIX: Không skip DB_* và REDIS_* keys - chúng cần cho backup và kết nối
   [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
-  value="${raw_value%\"}"
-  value="${value#\"}"
-  value="${raw_value%\'}"
-  value="${value#\'}"
+  # Strip ALL layers of leading/trailing double- or single-quotes. Doppler sometimes
+  # emits values with nested quoting (e.g. ""5432"" on numeric secrets), which broke
+  # the previous 4-line "%X / #X" dance that only removed one layer and caused
+  # `pg_dump -p "$DB_PORT"` to choke on "5432". The `g` flag with `:s/["']//g` after
+  # anchoring `^["']*` / `["']*$` makes this robust to 0, 1, or many quote layers.
+  value="$(printf '%s' "$raw_value" | sed -E "s/^[\"']+//; s/[\"']+\$//")"
   net_key="${key//:/__}"
   echo "${net_key}=${value}" >> "$APP_DIR/.env"
 done < /tmp/doppler_raw.env
@@ -397,10 +399,9 @@ if [ "$HEALTH_PASSED" = false ]; then
     [[ -z "$key" || "$key" =~ ^# ]] && continue
     [[ "$key" =~ [/[:space:]+] ]] && continue
     [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
-    value="${raw_value%\"}"
-    value="${value#\"}"
-    value="${raw_value%\'}"
-    value="${value#\'}"
+    # See note in the deploy-path loop above re: the sed-based multi-layer
+    # quote stripping. Same fix is needed here for the rollback .env rebuild.
+    value="$(printf '%s' "$raw_value" | sed -E "s/^[\"']+//; s/[\"']+\$//")"
     net_key="${key//:/__}"
     echo "${net_key}=${value}" >> "$APP_DIR/.env"
   done < /tmp/doppler_rollback.env
