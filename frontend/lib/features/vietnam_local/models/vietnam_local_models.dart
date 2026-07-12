@@ -28,13 +28,26 @@ class DailyStarterToday {
 
   factory DailyStarterToday.fromJson(Map<String, dynamic> json) {
     return DailyStarterToday(
-      welcomeMessage: _string(json, 'welcomeMessage') ?? _string(json, 'WelcomeMessage') ?? '',
+      welcomeMessage:
+          _string(json, 'welcomeMessage') ??
+          _string(json, 'WelcomeMessage') ??
+          '',
       quote: _string(json, 'quote') ?? _string(json, 'Quote') ?? '',
       author: _string(json, 'author') ?? _string(json, 'Author') ?? '',
-      caloriesTarget: _double(json, 'caloriesTarget') ?? _double(json, 'CaloriesTarget') ?? 0,
-      isOnboardingComplete: _bool(json, 'isOnboardingComplete') ?? _bool(json, 'IsOnboardingComplete') ?? false,
-      hasLoggedToday: _bool(json, 'hasLoggedToday') ?? _bool(json, 'HasLoggedToday') ?? false,
-      currentWeightKg: _double(json, 'currentWeightKg') ?? _double(json, 'CurrentWeightKg'),
+      caloriesTarget:
+          _double(json, 'caloriesTarget') ??
+          _double(json, 'CaloriesTarget') ??
+          0,
+      isOnboardingComplete:
+          _bool(json, 'isOnboardingComplete') ??
+          _bool(json, 'IsOnboardingComplete') ??
+          false,
+      hasLoggedToday:
+          _bool(json, 'hasLoggedToday') ??
+          _bool(json, 'HasLoggedToday') ??
+          false,
+      currentWeightKg:
+          _double(json, 'currentWeightKg') ?? _double(json, 'CurrentWeightKg'),
     );
   }
 }
@@ -52,7 +65,10 @@ class DailyStarterStartLog {
 
   factory DailyStarterStartLog.fromJson(Map<String, dynamic> json) {
     return DailyStarterStartLog(
-      suggestedMealType: _string(json, 'suggestedMealType') ?? _string(json, 'SuggestedMealType') ?? 'Breakfast',
+      suggestedMealType:
+          _string(json, 'suggestedMealType') ??
+          _string(json, 'SuggestedMealType') ??
+          'Breakfast',
       suggestedFoods: _listFromJson(
         json,
         'suggestedFoods',
@@ -87,7 +103,8 @@ class DailyStarterFood {
   factory DailyStarterFood.fromJson(Map<String, dynamic> json) {
     return DailyStarterFood(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
-      name: _firstString(json, const [
+      name:
+          _firstString(json, const [
             'nameVi',
             'nameVI',
             'nameVN',
@@ -102,7 +119,8 @@ class DailyStarterFood {
             'title',
           ]) ??
           '',
-      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      caloriesKcal:
+          _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
@@ -135,17 +153,28 @@ class DailyStarterPersonalization {
     return DailyStarterPersonalization(
       heightCm: _double(json, 'heightCm') ?? _double(json, 'HeightCm'),
       weightKg: _double(json, 'weightKg') ?? _double(json, 'WeightKg'),
-      targetCalories: _double(json, 'targetCalories') ?? _double(json, 'TargetCalories'),
-      dietaryPreference: _string(json, 'dietaryPreference') ?? _string(json, 'DietaryPreference'),
+      targetCalories:
+          _double(json, 'targetCalories') ?? _double(json, 'TargetCalories'),
+      dietaryPreference:
+          _string(json, 'dietaryPreference') ??
+          _string(json, 'DietaryPreference'),
       allergenKeys: _listFromJson(json, 'allergenKeys', (e) => e.toString()),
-      allergens: _listFromJson(json, 'allergens', (e) => AllergenProfileItem.fromJson(e)),
+      allergens: _listFromJson(
+        json,
+        'allergens',
+        (e) => AllergenProfileItem.fromJson(e),
+      ),
     );
   }
 }
 
 @immutable
 class AllergenProfileItem {
-  const AllergenProfileItem({required this.key, required this.name, this.severity});
+  const AllergenProfileItem({
+    required this.key,
+    required this.name,
+    this.severity,
+  });
 
   final String key;
   final String name;
@@ -204,11 +233,14 @@ class GymGoalProfile {
   }) {
     return GymGoalProfile(
       goalMode: goalMode ?? this.goalMode,
-      weeklyTrainingSchedule: weeklyTrainingSchedule ?? this.weeklyTrainingSchedule,
+      weeklyTrainingSchedule:
+          weeklyTrainingSchedule ?? this.weeklyTrainingSchedule,
       trainingDaysPerWeek: trainingDaysPerWeek ?? this.trainingDaysPerWeek,
       restDaysPerWeek: restDaysPerWeek ?? this.restDaysPerWeek,
-      trainingDayTargetCalories: trainingDayTargetCalories ?? this.trainingDayTargetCalories,
-      restDayTargetCalories: restDayTargetCalories ?? this.restDayTargetCalories,
+      trainingDayTargetCalories:
+          trainingDayTargetCalories ?? this.trainingDayTargetCalories,
+      restDayTargetCalories:
+          restDayTargetCalories ?? this.restDayTargetCalories,
       minCalories: minCalories ?? this.minCalories,
       maxCalories: maxCalories ?? this.maxCalories,
       minProteinG: minProteinG ?? this.minProteinG,
@@ -311,16 +343,17 @@ class SafetyConsent {
   factory SafetyConsent.fromJson(Map<String, dynamic> json) {
     return SafetyConsent(
       analytics: _bool(json, 'analytics') ?? _bool(json, 'Analytics') ?? true,
-      notification: _bool(json, 'notification') ?? _bool(json, 'Notification') ?? true,
+      notification:
+          _bool(json, 'notification') ?? _bool(json, 'Notification') ?? true,
       marketing: _bool(json, 'marketing') ?? _bool(json, 'Marketing') ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'Analytics': analytics,
-        'Notification': notification,
-        'Marketing': marketing,
-      };
+    'Analytics': analytics,
+    'Notification': notification,
+    'Marketing': marketing,
+  };
 }
 
 @immutable
@@ -375,15 +408,22 @@ class LocalPreferencesProfile {
   factory LocalPreferencesProfile.fromJson(Map<String, dynamic> json) {
     return LocalPreferencesProfile(
       preferences: _string(json, 'preferences') ?? _string(json, 'Preferences'),
-      dislikedFoods: _string(json, 'dislikedFoods') ?? _string(json, 'DislikedFoods'),
-      eatingPattern: _string(json, 'eatingPattern') ?? _string(json, 'EatingPattern'),
-      vietnamRegion: _string(json, 'vietnamRegion') ?? _string(json, 'VietnamRegion'),
+      dislikedFoods:
+          _string(json, 'dislikedFoods') ?? _string(json, 'DislikedFoods'),
+      eatingPattern:
+          _string(json, 'eatingPattern') ?? _string(json, 'EatingPattern'),
+      vietnamRegion:
+          _string(json, 'vietnamRegion') ?? _string(json, 'VietnamRegion'),
       mealContext: _string(json, 'mealContext') ?? _string(json, 'MealContext'),
-      budgetPerMealVnd: _int(json, 'budgetPerMealVnd') ?? _int(json, 'BudgetPerMealVnd'),
+      budgetPerMealVnd:
+          _int(json, 'budgetPerMealVnd') ?? _int(json, 'BudgetPerMealVnd'),
       preferredPortionUnits:
-          _string(json, 'preferredPortionUnits') ?? _string(json, 'PreferredPortionUnits'),
+          _string(json, 'preferredPortionUnits') ??
+          _string(json, 'PreferredPortionUnits'),
       allergiesAcknowledged:
-          _bool(json, 'allergiesAcknowledged') ?? _bool(json, 'AllergiesAcknowledged') ?? false,
+          _bool(json, 'allergiesAcknowledged') ??
+          _bool(json, 'AllergiesAcknowledged') ??
+          false,
       updatedAt: _parseDate(json['updatedAt'] ?? json['UpdatedAt']),
     );
   }
@@ -423,15 +463,20 @@ class LocalRecommendationItem {
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       name: _string(json, 'name') ?? _string(json, 'Name') ?? '',
       type: _string(json, 'type') ?? _string(json, 'Type') ?? 'Food',
-      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      caloriesKcal:
+          _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
       estimatedPriceVnd:
-          _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd') ?? 0,
-      cookingTimeMin: _int(json, 'cookingTimeMin') ?? _int(json, 'CookingTimeMin') ?? 0,
+          _int(json, 'estimatedPriceVnd') ??
+          _int(json, 'EstimatedPriceVnd') ??
+          0,
+      cookingTimeMin:
+          _int(json, 'cookingTimeMin') ?? _int(json, 'CookingTimeMin') ?? 0,
       score: _double(json, 'score') ?? _double(json, 'Score') ?? 0,
-      instructions: _string(json, 'instructions') ?? _string(json, 'Instructions'),
+      instructions:
+          _string(json, 'instructions') ?? _string(json, 'Instructions'),
     );
   }
 }
@@ -486,7 +531,8 @@ class PlannedNutrition {
 
   factory PlannedNutrition.fromJson(Map<String, dynamic> json) {
     return PlannedNutrition(
-      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      caloriesKcal:
+          _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
@@ -577,13 +623,26 @@ class DriftAnalysis {
       unplannedIntakeCount: _int(json, 'unplannedIntakeCount') ?? 0,
       substitutedItemsCount: _int(json, 'substitutedItemsCount') ?? 0,
       portionMismatchesCount: _int(json, 'portionMismatchesCount') ?? 0,
-      skippedMeals: _listFromJson(json, 'skippedMeals', (e) => SkippedMeal.fromJson(e)),
-      unplannedIntakes:
-          _listFromJson(json, 'unplannedIntakes', (e) => UnplannedIntake.fromJson(e)),
-      substitutedItems:
-          _listFromJson(json, 'substitutedItems', (e) => SubstitutedItem.fromJson(e)),
-      portionMismatches:
-          _listFromJson(json, 'portionMismatches', (e) => PortionMismatch.fromJson(e)),
+      skippedMeals: _listFromJson(
+        json,
+        'skippedMeals',
+        (e) => SkippedMeal.fromJson(e),
+      ),
+      unplannedIntakes: _listFromJson(
+        json,
+        'unplannedIntakes',
+        (e) => UnplannedIntake.fromJson(e),
+      ),
+      substitutedItems: _listFromJson(
+        json,
+        'substitutedItems',
+        (e) => SubstitutedItem.fromJson(e),
+      ),
+      portionMismatches: _listFromJson(
+        json,
+        'portionMismatches',
+        (e) => PortionMismatch.fromJson(e),
+      ),
     );
   }
 }
@@ -606,7 +665,8 @@ class SkippedMeal {
 
   factory SkippedMeal.fromJson(Map<String, dynamic> json) {
     return SkippedMeal(
-      mealPlanItemId: (json['mealPlanItemId'] ?? json['MealPlanItemId'] ?? '').toString(),
+      mealPlanItemId: (json['mealPlanItemId'] ?? json['MealPlanItemId'] ?? '')
+          .toString(),
       itemName: _string(json, 'itemName') ?? '',
       mealType: _string(json, 'mealType') ?? '',
       targetCalories: _int(json, 'targetCalories') ?? 0,
@@ -637,7 +697,8 @@ class UnplannedIntake {
       itemName: _string(json, 'itemName') ?? '',
       mealType: _string(json, 'mealType') ?? '',
       caloriesKcal: _double(json, 'caloriesKcal') ?? 0,
-      loggedAt: _parseDate(json['loggedAt'] ?? json['LoggedAt']) ?? DateTime.now(),
+      loggedAt:
+          _parseDate(json['loggedAt'] ?? json['LoggedAt']) ?? DateTime.now(),
     );
   }
 }
@@ -717,7 +778,11 @@ class PlannedVsActualRecommendations {
   factory PlannedVsActualRecommendations.fromJson(Map<String, dynamic> json) {
     return PlannedVsActualRecommendations(
       insights: _listFromJson(json, 'insights', (e) => e.toString()),
-      actionableSteps: _listFromJson(json, 'actionableSteps', (e) => e.toString()),
+      actionableSteps: _listFromJson(
+        json,
+        'actionableSteps',
+        (e) => e.toString(),
+      ),
       summaryMessage: _string(json, 'summaryMessage') ?? '',
     );
   }
@@ -750,18 +815,24 @@ class IngredientSubstitutePreference {
     return IngredientSubstitutePreference(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       originalIngredientId:
-          (json['originalIngredientId'] ?? json['OriginalIngredientId'])?.toString(),
+          (json['originalIngredientId'] ?? json['OriginalIngredientId'])
+              ?.toString(),
       originalIngredientName:
-          _string(json, 'originalIngredientName') ?? _string(json, 'OriginalIngredientName') ?? '',
+          _string(json, 'originalIngredientName') ??
+          _string(json, 'OriginalIngredientName') ??
+          '',
       substituteIngredientId:
-          (json['substituteIngredientId'] ?? json['SubstituteIngredientId'])?.toString(),
+          (json['substituteIngredientId'] ?? json['SubstituteIngredientId'])
+              ?.toString(),
       substituteIngredientName:
           _string(json, 'substituteIngredientName') ??
-              _string(json, 'SubstituteIngredientName') ??
-              '',
-      reason: _string(json, 'reason') ?? _string(json, 'Reason') ?? 'not_available',
+          _string(json, 'SubstituteIngredientName') ??
+          '',
+      reason:
+          _string(json, 'reason') ?? _string(json, 'Reason') ?? 'not_available',
       maxPriceVnd: _int(json, 'maxPriceVnd') ?? _int(json, 'MaxPriceVnd'),
-      macroMatch: _bool(json, 'macroMatch') ?? _bool(json, 'MacroMatch') ?? false,
+      macroMatch:
+          _bool(json, 'macroMatch') ?? _bool(json, 'MacroMatch') ?? false,
     );
   }
 }
@@ -770,7 +841,7 @@ class IngredientSubstitutePreference {
 
 String? _string(Map<String, dynamic> json, String key) {
   final v = json[key];
-  return v == null ? null : v.toString();
+  return v?.toString();
 }
 
 String? _firstString(Map<String, dynamic> json, List<String> keys) {

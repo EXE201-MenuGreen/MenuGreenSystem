@@ -27,7 +27,10 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([_repository.getRecommended(), _repository.getCategories()]);
+      final results = await Future.wait([
+        _repository.getRecommended(),
+        _repository.getCategories(),
+      ]);
       if (!mounted) return;
       setState(() {
         _cards = results[0] as List<MicroLearningCard>;
@@ -42,12 +45,18 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
 
   List<MicroLearningCard> get _visibleCards => _category == null
       ? _cards
-      : _cards.where((card) => card.category.toLowerCase() == _category!.toLowerCase()).toList();
+      : _cards
+            .where(
+              (card) => card.category.toLowerCase() == _category!.toLowerCase(),
+            )
+            .toList();
 
   Future<void> _openCard(MicroLearningCard card) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => MicroLearningDetailScreen(cardId: card.id)),
+      MaterialPageRoute(
+        builder: (_) => MicroLearningDetailScreen(cardId: card.id),
+      ),
     );
     if (changed == true) await _load();
   }
@@ -91,9 +100,16 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _ProgressPanel(read: read, quizzes: quizzes, total: _cards.length),
+                  _ProgressPanel(
+                    read: read,
+                    quizzes: quizzes,
+                    total: _cards.length,
+                  ),
                   const SizedBox(height: 20),
-                  const Text('Chủ đề', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Chủ đề',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 10),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -106,9 +122,12 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
                         ),
                         ..._categories.map(
                           (item) => _CategoryChip(
-                            label: item.displayName.isEmpty ? item.name : item.displayName,
+                            label: item.displayName.isEmpty
+                                ? item.name
+                                : item.displayName,
                             selected: _category == item.name,
-                            onSelected: () => setState(() => _category = item.name),
+                            onSelected: () =>
+                                setState(() => _category = item.name),
                           ),
                         ),
                       ],
@@ -117,19 +136,29 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
                   const SizedBox(height: 24),
                   Text(
                     _category == null ? 'Dành cho bạn' : 'Thẻ thuộc chủ đề',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   if (_visibleCards.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: Text('Chưa có thẻ phù hợp trong danh sách đề xuất.')),
+                      child: Center(
+                        child: Text(
+                          'Chưa có thẻ phù hợp trong danh sách đề xuất.',
+                        ),
+                      ),
                     )
                   else
                     ..._visibleCards.map(
                       (card) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _LearningCard(card: card, onTap: () => _openCard(card)),
+                        child: _LearningCard(
+                          card: card,
+                          onTap: () => _openCard(card),
+                        ),
                       ),
                     ),
                 ],
@@ -143,7 +172,8 @@ class SavedMicroLearningScreen extends StatefulWidget {
   const SavedMicroLearningScreen({super.key});
 
   @override
-  State<SavedMicroLearningScreen> createState() => _SavedMicroLearningScreenState();
+  State<SavedMicroLearningScreen> createState() =>
+      _SavedMicroLearningScreenState();
 }
 
 class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
@@ -166,7 +196,10 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', '')), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -177,7 +210,9 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
   Future<void> _openCard(MicroLearningCard card) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => MicroLearningDetailScreen(cardId: card.id)),
+      MaterialPageRoute(
+        builder: (_) => MicroLearningDetailScreen(cardId: card.id),
+      ),
     );
     if (changed == true) {
       _changed = true;
@@ -187,10 +222,10 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pop(context, _changed);
-        return false;
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _changed);
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('Kiến thức đã lưu')),
@@ -199,21 +234,21 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _cards.isEmpty
-                  ? ListView(
-                      children: const [
-                        SizedBox(height: 180),
-                        Center(child: Text('Bạn chưa lưu thẻ kiến thức nào.')),
-                      ],
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _cards.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (_, index) => _LearningCard(
-                        card: _cards[index],
-                        onTap: () => _openCard(_cards[index]),
-                      ),
-                    ),
+              ? ListView(
+                  children: const [
+                    SizedBox(height: 180),
+                    Center(child: Text('Bạn chưa lưu thẻ kiến thức nào.')),
+                  ],
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _cards.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (_, index) => _LearningCard(
+                    card: _cards[index],
+                    onTap: () => _openCard(_cards[index]),
+                  ),
+                ),
         ),
       ),
     );
@@ -226,7 +261,8 @@ class MicroLearningDetailScreen extends StatefulWidget {
   final String cardId;
 
   @override
-  State<MicroLearningDetailScreen> createState() => _MicroLearningDetailScreenState();
+  State<MicroLearningDetailScreen> createState() =>
+      _MicroLearningDetailScreenState();
 }
 
 class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
@@ -273,7 +309,9 @@ class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
     setState(() => _saving = true);
     try {
       await _repository.recordAction(card.id, card.isSaved ? 'unsave' : 'save');
-      if (mounted) setState(() => _card = card.copyWith(isSaved: !card.isSaved));
+      if (mounted) {
+        setState(() => _card = card.copyWith(isSaved: !card.isSaved));
+      }
       _changed = true;
     } catch (error) {
       if (mounted) _message(error.toString(), error: true);
@@ -319,17 +357,20 @@ class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
 
   void _message(String value, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(value.replaceFirst('Exception: ', '')), backgroundColor: error ? Colors.red : null),
+      SnackBar(
+        content: Text(value.replaceFirst('Exception: ', '')),
+        backgroundColor: error ? Colors.red : null,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final card = _card;
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pop(context, _changed);
-        return false;
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _changed);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -338,71 +379,107 @@ class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
             IconButton(
               tooltip: card?.isSaved == true ? 'Bỏ lưu' : 'Lưu thẻ',
               onPressed: card == null || _saving ? null : _toggleSaved,
-              icon: Icon(card?.isSaved == true ? Icons.bookmark : Icons.bookmark_border),
+              icon: Icon(
+                card?.isSaved == true ? Icons.bookmark : Icons.bookmark_border,
+              ),
             ),
             PopupMenuButton<String>(
               onSelected: (action) {
                 if (action == 'dismiss') _dismiss();
               },
-              itemBuilder: (_) => const [PopupMenuItem(value: 'dismiss', child: Text('Ẩn thẻ này'))],
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'dismiss', child: Text('Ẩn thẻ này')),
+              ],
             ),
           ],
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : card == null
-                ? const Center(child: Text('Không tìm thấy thẻ kiến thức.'))
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _CategoryBadge(category: card.category),
-                        const SizedBox(height: 14),
-                        Text(card.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 12),
-                        Text(card.summary, style: const TextStyle(fontSize: 16, height: 1.5)),
-                        if (card.tips.isNotEmpty) ...[
-                          const SizedBox(height: 28),
-                          const Text('Mẹo áp dụng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          ...card.tips.map(
-                            (tip) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 20),
-                                  const SizedBox(width: 10),
-                                  Expanded(child: Text(tip, style: const TextStyle(height: 1.4))),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (card.hasQuiz) ...[
-                          const SizedBox(height: 28),
-                          _QuizPanel(
-                            card: card,
-                            selectedOption: _selectedOption,
-                            result: _result,
-                            submitting: _submitting,
-                            onSelected: card.isQuizCompleted
-                                ? null
-                                : (value) => setState(() => _selectedOption = value),
-                            onSubmit: card.isQuizCompleted || _selectedOption == null ? null : _submitQuiz,
-                          ),
-                        ],
-                      ],
+            ? const Center(child: Text('Không tìm thấy thẻ kiến thức.'))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CategoryBadge(category: card.category),
+                    const SizedBox(height: 14),
+                    Text(
+                      card.title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Text(
+                      card.summary,
+                      style: const TextStyle(fontSize: 16, height: 1.5),
+                    ),
+                    if (card.tips.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      const Text(
+                        'Mẹo áp dụng',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...card.tips.map(
+                        (tip) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  tip,
+                                  style: const TextStyle(height: 1.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (card.hasQuiz) ...[
+                      const SizedBox(height: 28),
+                      _QuizPanel(
+                        card: card,
+                        selectedOption: _selectedOption,
+                        result: _result,
+                        submitting: _submitting,
+                        onSelected: card.isQuizCompleted
+                            ? null
+                            : (value) =>
+                                  setState(() => _selectedOption = value),
+                        onSubmit:
+                            card.isQuizCompleted || _selectedOption == null
+                            ? null
+                            : _submitQuiz,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
       ),
     );
   }
 }
 
 class _ProgressPanel extends StatelessWidget {
-  const _ProgressPanel({required this.read, required this.quizzes, required this.total});
+  const _ProgressPanel({
+    required this.read,
+    required this.quizzes,
+    required this.total,
+  });
 
   final int read;
   final int quizzes;
@@ -420,7 +497,10 @@ class _ProgressPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Tiến độ hôm nay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Tiến độ hôm nay',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 10),
           LinearProgressIndicator(value: progress, color: AppColors.primary),
           const SizedBox(height: 10),
@@ -432,7 +512,11 @@ class _ProgressPanel extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({required this.label, required this.selected, required this.onSelected});
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
 
   final String label;
   final bool selected;
@@ -440,9 +524,13 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(label: Text(label), selected: selected, onSelected: (_) => onSelected()),
-      );
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+    ),
+  );
 }
 
 class _LearningCard extends StatelessWidget {
@@ -453,28 +541,34 @@ class _LearningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          onTap: onTap,
-          contentPadding: const EdgeInsets.all(14),
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-            child: Icon(_categoryIcon(card.category), color: AppColors.primary),
-          ),
-          title: Text(card.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(card.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
-          ),
-          trailing: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (card.isSaved) const Icon(Icons.bookmark, color: AppColors.primary, size: 18),
-              if (card.isQuizCompleted)
-                Icon(card.isQuizCorrect == true ? Icons.check_circle : Icons.quiz_outlined, size: 18),
-            ],
-          ),
-        ),
-      );
+    child: ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.all(14),
+      leading: CircleAvatar(
+        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+        child: Icon(_categoryIcon(card.category), color: AppColors.primary),
+      ),
+      title: Text(card.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(card.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+      ),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (card.isSaved)
+            const Icon(Icons.bookmark, color: AppColors.primary, size: 18),
+          if (card.isQuizCompleted)
+            Icon(
+              card.isQuizCorrect == true
+                  ? Icons.check_circle
+                  : Icons.quiz_outlined,
+              size: 18,
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CategoryBadge extends StatelessWidget {
@@ -484,9 +578,9 @@ class _CategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Chip(
-        avatar: Icon(_categoryIcon(category), size: 18, color: AppColors.primary),
-        label: Text(_categoryLabel(category)),
-      );
+    avatar: Icon(_categoryIcon(category), size: 18, color: AppColors.primary),
+    label: Text(_categoryLabel(category)),
+  );
 }
 
 class _QuizPanel extends StatelessWidget {
@@ -510,35 +604,70 @@ class _QuizPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final completed = card.isQuizCompleted;
     final feedback = result?.feedback;
+    void handleOptionChanged(int? value) {
+      if (!completed && value != null) {
+        onSelected?.call(value);
+      }
+    }
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(child: Text('Kiểm tra nhanh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-              Text('+${card.pointsReward} điểm', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+              const Expanded(
+                child: Text(
+                  'Kiểm tra nhanh',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Text(
+                '+${card.pointsReward} điểm',
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(card.quizQuestion!),
           const SizedBox(height: 8),
-          ...card.quizOptions.asMap().entries.map(
-                (entry) => RadioListTile<int>(
-                  contentPadding: EdgeInsets.zero,
-                  value: entry.key,
-                  groupValue: selectedOption,
-                  onChanged: completed ? null : (value) => value == null ? null : onSelected?.call(value),
-                  title: Text(entry.value),
-                ),
-              ),
+          RadioGroup<int>(
+            groupValue: selectedOption,
+            onChanged: handleOptionChanged,
+            child: Column(
+              children: card.quizOptions
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => RadioListTile<int>(
+                      contentPadding: EdgeInsets.zero,
+                      value: entry.key,
+                      enabled: !completed,
+                      title: Text(entry.value),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
           if (completed || feedback != null) ...[
             const SizedBox(height: 8),
             Text(
-              feedback ?? (card.isQuizCorrect == true ? 'Bạn đã hoàn thành quiz.' : 'Bạn đã hoàn thành quiz.'),
-              style: TextStyle(color: card.isQuizCorrect == true ? AppColors.primary : Colors.orange.shade800),
+              feedback ??
+                  (card.isQuizCorrect == true
+                      ? 'Bạn đã hoàn thành quiz.'
+                      : 'Bạn đã hoàn thành quiz.'),
+              style: TextStyle(
+                color: card.isQuizCorrect == true
+                    ? AppColors.primary
+                    : Colors.orange.shade800,
+              ),
             ),
           ] else
             SizedBox(
