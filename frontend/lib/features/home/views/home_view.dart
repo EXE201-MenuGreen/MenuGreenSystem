@@ -24,11 +24,7 @@ import '../widgets/recommended_meal_card.dart';
 import '../widgets/tip_card.dart';
 
 class HomeView extends StatefulWidget {
-  const HomeView({
-    super.key,
-    this.onNavigateToTab,
-    this.onTrackingUpdated,
-  });
+  const HomeView({super.key, this.onNavigateToTab, this.onTrackingUpdated});
 
   final void Function(int tabIndex)? onNavigateToTab;
   final VoidCallback? onTrackingUpdated;
@@ -80,9 +76,9 @@ class HomeViewState extends State<HomeView> {
     final name = await _tokenStorage.getFullName();
     Map<String, dynamic>? profile;
     try {
-      profile = await _profileRepository
-          .getMyProfile()
-          .timeout(const Duration(seconds: 20));
+      profile = await _profileRepository.getMyProfile().timeout(
+        const Duration(seconds: 20),
+      );
     } catch (_) {
       profile = null;
     }
@@ -93,7 +89,9 @@ class HomeViewState extends State<HomeView> {
       if (name != null && name.isNotEmpty) _userName = name;
       final fullName = profile?['fullName']?.toString();
       if (fullName != null && fullName.isNotEmpty) _userName = fullName;
-      _avatarUrl = (rawAvatar != null && rawAvatar.isNotEmpty) ? rawAvatar : null;
+      _avatarUrl = (rawAvatar != null && rawAvatar.isNotEmpty)
+          ? rawAvatar
+          : null;
     });
   }
 
@@ -163,7 +161,9 @@ class HomeViewState extends State<HomeView> {
         setState(() {
           _recommendedMeals = rawList.map((m) {
             final map = Map<String, dynamic>.from(m as Map);
-            final mealType = _normalizeMealType(map['mealType']?.toString() ?? '');
+            final mealType = _normalizeMealType(
+              map['mealType']?.toString() ?? '',
+            );
             return RecommendedMealItem(
               title: map['name']?.toString() ?? 'Món ăn',
               subtitle: mealType,
@@ -197,12 +197,14 @@ class HomeViewState extends State<HomeView> {
     final tips = <TipItem>[
       TipItem(
         title: 'Uống đủ nước',
-        description: 'Nên uống ít nhất 2 lít nước mỗi ngày để duy trì sức khỏe tốt.',
+        description:
+            'Nên uống ít nhất 2 lít nước mỗi ngày để duy trì sức khỏe tốt.',
         type: TipType.health,
       ),
       TipItem(
         title: 'Mẹo giảm cân',
-        description: 'Ăn chậm nhai kỹ giúp no lâu hơn và giảm lượng thức ăn nạp vào.',
+        description:
+            'Ăn chậm nhai kỹ giúp no lâu hơn và giảm lượng thức ăn nạp vào.',
         type: TipType.tip,
       ),
       TipItem(
@@ -232,7 +234,9 @@ class HomeViewState extends State<HomeView> {
     final data = item.data;
     if (data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chi tiết cho "${item.title}" đang được phát triển.')),
+        SnackBar(
+          content: Text('Chi tiết cho "${item.title}" đang được phát triển.'),
+        ),
       );
       return;
     }
@@ -240,7 +244,9 @@ class HomeViewState extends State<HomeView> {
     final recipeId = data['recipeId']?.toString();
     final foodId = data['foodId']?.toString();
 
-    if (recipeId != null && recipeId.isNotEmpty && recipeId.toLowerCase() != 'null') {
+    if (recipeId != null &&
+        recipeId.isNotEmpty &&
+        recipeId.toLowerCase() != 'null') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -253,15 +259,15 @@ class HomeViewState extends State<HomeView> {
     if (foodId != null && foodId.isNotEmpty && foodId.toLowerCase() != 'null') {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => FoodDetailScreen(foodId: foodId),
-        ),
+        MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: foodId)),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Chi tiết cho "${item.title}" đang được phát triển.')),
+      SnackBar(
+        content: Text('Chi tiết cho "${item.title}" đang được phát triển.'),
+      ),
     );
   }
 
@@ -323,7 +329,7 @@ class HomeViewState extends State<HomeView> {
                   items: _tips,
                   onItemTap: (tip) {
                     if (tip.type == TipType.warning) {
-                      widget.onNavigateToTab?.call(1);
+                      widget.onNavigateToTab?.call(0);
                     }
                   },
                 ),
@@ -346,7 +352,11 @@ class HomeViewState extends State<HomeView> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryLight, Color(0xFF52B788)],
+              colors: [
+                AppColors.primary,
+                AppColors.primaryLight,
+                Color(0xFF52B788),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -367,7 +377,11 @@ class HomeViewState extends State<HomeView> {
               backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
               child: hasAvatar
                   ? null
-                  : const Icon(Icons.person, color: AppColors.textSecondary, size: 24),
+                  : const Icon(
+                      Icons.person,
+                      color: AppColors.textSecondary,
+                      size: 24,
+                    ),
             ),
           ),
         ),
@@ -408,7 +422,9 @@ class HomeViewState extends State<HomeView> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationInboxScreen(),
+                  ),
                 ).then((_) => _notificationProvider.loadUnreadCount());
               },
             );
@@ -421,11 +437,15 @@ class HomeViewState extends State<HomeView> {
   Widget _buildTodaySection() {
     final summary = _todaySummary;
     final totalCalories = (summary?.totalCalories ?? 0).toInt();
-    final targetCalories = (summary?.targetCalories ?? 1850).clamp(1, 10000).toInt();
+    final targetCalories = (summary?.targetCalories ?? 1850)
+        .clamp(1, 10000)
+        .toInt();
     final totalProtein = (summary?.totalProteinG ?? 0).toInt();
     final totalCarbs = (summary?.totalCarbsG ?? 0).toInt();
     final totalFat = (summary?.totalFatG ?? 0).toInt();
-    final targetProtein = (summary?.targetProteinG ?? 120).clamp(1, 10000).toInt();
+    final targetProtein = (summary?.targetProteinG ?? 120)
+        .clamp(1, 10000)
+        .toInt();
     final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(1, 10000).toInt();
     final targetFat = (summary?.targetFatG ?? 60).clamp(1, 10000).toInt();
 
@@ -441,6 +461,7 @@ class HomeViewState extends State<HomeView> {
           targetCarbs: targetCarbs,
           fat: totalFat,
           targetFat: targetFat,
+          onTap: () => widget.onNavigateToTab?.call(0),
         ),
         const SizedBox(height: 14),
         _buildMealPlanCard(),
@@ -577,7 +598,9 @@ class HomeViewState extends State<HomeView> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -611,10 +634,19 @@ class HomeViewState extends State<HomeView> {
                   onPressed: _refreshing ? null : _addMealFromHome,
                   style: TextButton.styleFrom(
                     backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  icon: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                  icon: const Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
                   label: Text(
                     'Thêm',
                     style: GoogleFonts.beVietnamPro(
@@ -723,7 +755,9 @@ class HomeViewState extends State<HomeView> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    meal.isRecipe ? Icons.menu_book_rounded : Icons.restaurant_rounded,
+                    meal.isRecipe
+                        ? Icons.menu_book_rounded
+                        : Icons.restaurant_rounded,
                     color: tagTextColor,
                     size: 20,
                   ),
@@ -747,7 +781,10 @@ class HomeViewState extends State<HomeView> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: tagBgColor,
                               borderRadius: BorderRadius.circular(8),
@@ -813,9 +850,9 @@ class HomeViewState extends State<HomeView> {
     await _loadTodaySummary(userInitiated: false);
     widget.onTrackingUpdated?.call();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã ghi nhật ký bữa ăn.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã ghi nhật ký bữa ăn.')));
   }
 
   String _mealTypeLabel(String? mealType) {
@@ -872,7 +909,10 @@ class _IconButtonWithBadge extends StatelessWidget {
                 right: -4,
                 top: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444),
                     shape: BoxShape.circle,
@@ -884,7 +924,10 @@ class _IconButtonWithBadge extends StatelessWidget {
                       ),
                     ],
                   ),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
                   child: Text(
                     badge > 99 ? '99+' : badge.toString(),
                     style: const TextStyle(
