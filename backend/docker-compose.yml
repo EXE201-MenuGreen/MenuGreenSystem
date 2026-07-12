@@ -14,8 +14,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./database/seeddata.sql:/docker-entrypoint-initdb.d/01-seeddata.sql:ro
-      - ./database/MenuGreen_AI_SeedData:/docker-entrypoint-initdb.d/02-ai-seeddata:ro
+      - ./database:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-MenuGreenDb}"]
       interval: 10s
