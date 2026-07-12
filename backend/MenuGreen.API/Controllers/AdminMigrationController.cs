@@ -33,8 +33,9 @@ public class AdminMigrationController : ControllerBase
     }
 
     /// <summary>
-    /// Snapshot of migration state visible to the running DLL: applied,
-    /// pending, and any drift (history rows the DLL no longer recognizes).
+    /// Snapshot of migration state visible to the running DLL: applied
+    /// and pending. Drift detection (rows in DB the DLL no longer recognizes)
+    /// is handled by diagnose-migrations.sh, not by this endpoint.
     /// </summary>
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus(CancellationToken ct)
@@ -47,8 +48,11 @@ public class AdminMigrationController : ControllerBase
 
         var applied = (await _db.Database.GetAppliedMigrationsAsync(ct)).ToList();
         var pending = (await _db.Database.GetPendingMigrationsAsync(ct)).ToList();
-        var known = (await _db.Database.GetMigrationsAsync(ct)).ToHashSet();
-        var drift = applied.Where(id => !known.Contains(id)).ToList();
+
+        // NOTE: EF Core's DatabaseFacade does NOT expose a "GetMigrationsAsync"
+        // method (only Applied + Pending). Drift detection (rows in DB the DLL
+        // no longer recognizes) is handled externally by diagnose-migrations.sh,
+        // not by this endpoint. Use /history to inspect raw __EFMigrationsHistory.
 
         return Ok(new
         {
@@ -56,7 +60,6 @@ public class AdminMigrationController : ControllerBase
             dataAccessLayerVersion = dllVersion,
             applied,
             pending,
-            drift,
         });
     }
 
