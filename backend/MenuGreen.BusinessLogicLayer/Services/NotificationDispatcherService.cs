@@ -47,7 +47,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 n => n.SentAt == null
                      && n.ScheduledAt != null
                      && n.ScheduledAt <= now
-                     && !n.IsDismissed);
+                     && !n.IsDismissed
+                     && (n.Type == null || !n.Type.StartsWith("DISABLED_")));
 
             var notificationList = pendingNotifications.ToList();
 
@@ -86,7 +87,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 n => n.SentAt == null
                      && n.ScheduledAt != null
                      && n.ScheduledAt <= now
-                     && !n.IsDismissed);
+                     && !n.IsDismissed
+                     && (n.Type == null || !n.Type.StartsWith("DISABLED_")));
 
             var notificationList = pendingNotifications.ToList();
 

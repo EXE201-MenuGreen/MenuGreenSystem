@@ -158,7 +158,8 @@ class ApiEndpoints {
   static String get mealTemplates => '$baseUrl/MealTemplate';
   static String mealTemplateById(String id) => '$mealTemplates/$id';
   static String mealTemplateLog(String id) => '${mealTemplateById(id)}/log';
-  static String mealTemplateDuplicate(String id) => '${mealTemplateById(id)}/duplicate';
+  static String mealTemplateDuplicate(String id) =>
+      '${mealTemplateById(id)}/duplicate';
   static String mealTemplateUsage(String id) => '${mealTemplateById(id)}/usage';
   static String mealTemplateFromLog(String mealLogId) =>
       '$mealTemplates/from-log/$mealLogId';
@@ -174,6 +175,14 @@ class ApiEndpoints {
       '$baseUrl/MicroLearning/cards/saved';
   static String microLearningSubmitQuiz(String id) =>
       '${microLearningCardById(id)}/quiz/submit';
+
+  static String get reminderProfile => '$baseUrl/Reminder/profile';
+  static String get reminderProfileRecalculate =>
+      '$reminderProfile/recalculate';
+  static String get scheduledReminders => '$baseUrl/Reminder/scheduled';
+  static String scheduledReminderById(String id) => '$scheduledReminders/$id';
+  static String scheduledReminderSnooze(String id) =>
+      '${scheduledReminderById(id)}/snooze';
 
   static String get subscriptionPlans => '$baseUrl/UserSubscription/plans';
   static String get subscriptionSubscribe =>
