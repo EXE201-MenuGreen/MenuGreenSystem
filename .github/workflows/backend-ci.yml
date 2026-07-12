@@ -104,8 +104,14 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # Pin the Dockerfile path explicitly. With `context: .` Docker would
+          # default to `./Dockerfile` anyway, but pinning prevents drift if
+          # someone later adds a `backend/Dockerfile` to the build context.
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
