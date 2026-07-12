@@ -298,16 +298,28 @@ jobs:
             fi
 
             # =================================================================
-            # Tag previous image for rollback BEFORE pulling new one
+            # Save previous running image locally for rollback BEFORE pulling new one
+            # - Uses local tag only (no Docker Hub round-trip, no push required,
+            #   no rate-limit risk, no scope concern).
+            # - We tag from `menugreen_api` (the in-use tag pointing at the
+            #   running image) rather than `$IMAGE:main` because after a previous
+            #   rollback the local `$IMAGE:main` may equal the just-rolled-back
+            #   image. `menugreen_api` is the source of truth for what's running.
+            # - If no container is currently using `menugreen_api` (cold deploy),
+            #   we skip the tag (nothing to roll back to).
             # =================================================================
-            echo "=== Tag previous image for rollback ==="
-            sudo docker pull $IMAGE:main || true
-            sudo docker tag $IMAGE:main $IMAGE:previous || true
-            sudo docker push $IMAGE:previous || true
+            echo "=== Save previous image locally for rollback ==="
+            if docker inspect menugreen_api > /dev/null 2>&1; then
+              ROLLBACK_LOCAL_TAG="menugreen_api:rollback-local-$(date +%s)"
+              sudo docker tag menugreen_api "$ROLLBACK_LOCAL_TAG" || echo "  ! Could not tag previous image (non-fatal)"
+              echo "  ✓ Saved rollback image as $ROLLBACK_LOCAL_TAG"
+            else
+              echo "  ⊘ No existing menugreen_api image found, skipping rollback save (cold deploy)"
+            fi
 
             echo "=== Pull latest image ==="
             sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
-            
+
             echo "=== Tag image for local use ==="
             sudo docker tag $IMAGE:main menugreen_api
 
@@ -316,16 +328,11 @@ jobs:
             docker stop menugreen_api 2>/dev/null || true
             docker rm menugreen_api 2>/dev/null || true
 
-            echo "=== Remove old local image to force fresh pull ==="
-            docker rmi menugreen_api 2>/dev/null || true
-            docker rmi $IMAGE:main 2>/dev/null || true
-            docker rmi $IMAGE:latest 2>/dev/null || true
-
-            echo "=== Pull latest image ==="
-            sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
-            
-            echo "=== Tag image for local use ==="
-            sudo docker tag $IMAGE:main menugreen_api
+            # NOTE: We intentionally do NOT remove the local $IMAGE:main image
+            # or the rollback-local-* tag here. Keeping them cached lets the
+            # rollback path fall back to a local tag if Docker Hub is
+            # unreachable during a deploy-time incident. Docker's layer cache
+            # is shared across tags, so this costs no extra disk per tag.
 
             echo "=== Start API container ==="
             docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d
@@ -379,6 +386,11 @@ jobs:
 
             # =================================================================
             # ROLLBACK MECHANISM - If health check fails
+            # Priority order:
+            #   1. Local rollback-local-* tag (fastest, no network)
+            #   2. Docker Hub :previous tag (legacy fallback, may not exist
+            #      after Fix 1 deployment but kept for backward compat)
+            #   3. Pull from Hub by SHA tag (e.g. main-<oldsha>) - last resort
             # =================================================================
             if [ "$HEALTH_PASSED" = false ]; then
               echo ">>> Health check failed after 30 attempts, initiating rollback..."
@@ -389,8 +401,52 @@ jobs:
               echo ">>> Stopping current containers..."
               docker compose -f "$APP_DIR/docker-compose.prod.yml" down || true
 
-              echo ">>> Pulling previous image..."
-              sudo docker pull $IMAGE:previous || { echo ">>> Failed to pull previous image"; exit 1; }
+              # ----- Pick rollback image -----
+              ROLLBACK_IMAGE_TAG=""
+              ROLLBACK_SOURCE=""
+
+              # 1. Try local rollback-local-* (preferred)
+              ROLLBACK_IMAGE_TAG=$(sudo docker images --format "{{.Repository}}:{{.Tag}}" \
+                | grep "^menugreen_api:rollback-local-" \
+                | sort -r | head -1 || true)
+              if [ -n "$ROLLBACK_IMAGE_TAG" ]; then
+                ROLLBACK_SOURCE="local-rollback-tag"
+                echo ">>> Found local rollback image: $ROLLBACK_IMAGE_TAG"
+              fi
+
+              # 2. Try legacy :previous tag on Hub (may not exist anymore)
+              if [ -z "$ROLLBACK_IMAGE_TAG" ]; then
+                echo ">>> No local rollback tag found, trying $IMAGE:previous..."
+                if sudo docker pull $IMAGE:previous 2>/dev/null; then
+                  ROLLBACK_IMAGE_TAG="$IMAGE:previous"
+                  ROLLBACK_SOURCE="hub-previous"
+                  echo ">>> Pulled $IMAGE:previous"
+                fi
+              fi
+
+              # 3. Last resort: pull from Hub by SHA tag
+              if [ -z "$ROLLBACK_IMAGE_TAG" ]; then
+                echo ">>> No $IMAGE:previous, trying $IMAGE:main-<oldsha> from Hub..."
+                # The :$SHA tag from CI is the build that just failed; we want
+                # the SHA from the previous deploy. The previous :$SHA is one
+                # we just pulled $IMAGE:main from, but if main also failed we
+                # can't trust it. Fall back to any cached hub-<sha> image we have.
+                FALLBACK_SHA=$(sudo docker images --format "{{.Tag}}" \
+                  | grep -E "^main-[0-9a-f]{7}$" \
+                  | sort -r | head -1 || true)
+                if [ -n "$FALLBACK_SHA" ] && sudo docker pull "$IMAGE:$FALLBACK_SHA" 2>/dev/null; then
+                  ROLLBACK_IMAGE_TAG="$IMAGE:$FALLBACK_SHA"
+                  ROLLBACK_SOURCE="hub-sha-fallback"
+                  echo ">>> Pulled $IMAGE:$FALLBACK_SHA as fallback"
+                fi
+              fi
+
+              if [ -z "$ROLLBACK_IMAGE_TAG" ]; then
+                echo ">>> FATAL: No rollback image available (local, :previous, or :main-<sha>)"
+                echo ">>> Manual recovery required. Service is DOWN."
+                echo ">>> Container state preserved for debugging."
+                exit 1
+              fi
 
               echo ">>> Re-fetching Doppler secrets for rollback..."
               doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
@@ -441,8 +497,9 @@ jobs:
 
               echo ">>> .env restored for rollback"
 
-              # FIX: Tag previous image for compose
-              sudo docker tag $IMAGE:previous menugreen_api
+              # Tag the chosen rollback image so compose / docker run can find it
+              sudo docker tag "$ROLLBACK_IMAGE_TAG" menugreen_api
+              echo ">>> Tagged $ROLLBACK_IMAGE_TAG as menugreen_api for rollback (source: $ROLLBACK_SOURCE)"
 
               echo ">>> Starting previous container with docker compose..."
               docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d || {
@@ -454,6 +511,7 @@ jobs:
                   --network menugreen-net \
                   menugreen_api || {
                   echo ">>> FATAL: Failed to start previous container"
+                  echo ">>> Service is DOWN. Manual recovery required."
                   exit 1
                 }
               }
@@ -462,7 +520,28 @@ jobs:
               sleep 10
               docker ps --filter "name=menugreen_api"
 
-              echo ">>> Rollback complete!"
+              # Verify rollback container is actually healthy
+              echo ">>> Verifying rollback health check..."
+              ROLLBACK_HEALTHY=false
+              for i in $(seq 1 15); do
+                if curl -sf "http://localhost:5000/health/live" > /dev/null 2>&1; then
+                  echo ">>> Rollback container is responding on /health/live"
+                  ROLLBACK_HEALTHY=true
+                  break
+                fi
+                echo ">>> Waiting for rollback health... ($i/15)"
+                sleep 2
+              done
+
+              if [ "$ROLLBACK_HEALTHY" = false ]; then
+                echo ">>> WARNING: Rollback container started but /health/live is not responding"
+                echo ">>> Container state preserved for manual inspection"
+              else
+                echo ">>> Rollback verified healthy. Service restored."
+              fi
+
+              # Always exit 1 so the GitHub Action is marked failed and an
+              # operator is notified — but the service is back up.
               exit 1
             fi
 
@@ -470,11 +549,19 @@ jobs:
             docker compose -f "$APP_DIR/docker-compose.prod.yml" ps
 
             # =================================================================
-            # PRUNE UNUSED IMAGES - Keep only current, previous, and SHA tags
+            # PRUNE UNUSED IMAGES - Keep only:
+            #   - $IMAGE:main, $IMAGE:latest, $IMAGE:$SHA  (current)
+            #   - $IMAGE:previous                            (legacy hub tag, kept for backward compat)
+            #   - menugreen_api:rollback-local-*             (rollback safety net)
             # =================================================================
             echo "=== Pruning unused Docker images ==="
             sudo docker images "$IMAGE" --format "{{.Repository}}:{{.Tag}}" \
-              | grep -v -E "(:main|:previous|:$SHA)" \
+              | grep -v -E "(:main|:latest|:previous|:$SHA|:main-[0-9a-f]{7}$)" \
+              | xargs -r sudo docker rmi -f || true
+
+            # Also prune menugreen_api:* tags not in use, except rollback-local-*
+            sudo docker images "menugreen_api" --format "{{.Repository}}:{{.Tag}}" \
+              | grep -v -E "(^menugreen_api:rollback-local-|^menugreen_api:latest$)" \
               | xargs -r sudo docker rmi -f || true
 
             echo "=== Final disk space check ==="
