@@ -37,7 +37,9 @@ class _RecommendationHistoryScreenState extends State<RecommendationHistoryScree
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ChangeNotifierProvider.value(
+      value: _provider,
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Lịch sử gợi ý'),
@@ -66,6 +68,7 @@ class _RecommendationHistoryScreenState extends State<RecommendationHistoryScree
             child: _buildHistoryList(provider.history),
           );
         },
+      ),
       ),
     );
   }

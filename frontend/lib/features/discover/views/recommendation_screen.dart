@@ -110,7 +110,9 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ChangeNotifierProvider.value(
+      value: _provider,
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Gợi ý cá nhân hóa'),
@@ -133,6 +135,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }

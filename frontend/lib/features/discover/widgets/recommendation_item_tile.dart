@@ -47,30 +47,22 @@ class RecommendationItemTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '${item.caloriesKcal.round()} kcal',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '·',
-                          style: TextStyle(color: Colors.grey.shade500),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${item.proteinG.round()}g đạm',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '${item.caloriesKcal.round()} kcal · P ${item.proteinG.round()}g · C ${item.carbsG.round()}g · F ${item.fatG.round()}g',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (item.matchReason != null)
+                      Text(
+                        item.matchReason!,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
@@ -103,6 +95,10 @@ class RecommendationItemTile extends StatelessWidget {
   }
 
   Widget _buildDefaultTrailing() {
+    if (item.score <= 0) {
+      return const Icon(Icons.chevron_right, color: AppColors.textLight);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:http_parser/http_parser.dart';
+
 import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -195,12 +197,17 @@ class NutritionTrackingRepository {
     return '$y-$m-$d';
   }
 
-  Future<CvInferenceResponse?> analyzeFoodImage(List<int> fileBytes, String filename) async {
+  Future<CvInferenceResponse?> analyzeFoodImage(
+    List<int> fileBytes,
+    String filename, {
+    required String mimeType,
+  }) async {
     final response = await _api.postMultipart(
       ApiEndpoints.cvAnalyze,
       fileBytes,
       'image',
       filename,
+      fileContentType: MediaType.parse(mimeType),
     );
     if (response.statusCode != 200 || response.body.isEmpty) return null;
     final decoded = jsonDecode(response.body);

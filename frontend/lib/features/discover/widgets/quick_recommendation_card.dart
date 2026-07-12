@@ -295,9 +295,14 @@ class _MealRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${meal.proteinG.round()}g đạm · ${_formatPrice(meal.estimatedPriceVnd)}',
+                  'P ${meal.proteinG.round()}g · C ${meal.carbsG.round()}g · F ${meal.fatG.round()}g',
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
+                if (meal.estimatedPriceVnd > 0)
+                  Text(
+                    _formatPrice(meal.estimatedPriceVnd),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
               ],
             ),
           ],
