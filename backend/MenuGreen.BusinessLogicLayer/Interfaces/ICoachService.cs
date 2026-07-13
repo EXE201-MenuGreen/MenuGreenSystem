@@ -14,6 +14,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<bool> ConnectCoachAsync(Guid clientId, Guid coachId);
         Task<bool> ApproveConnectionAsync(Guid coachId, Guid clientId, bool approve);
         Task<IEnumerable<CoachClientSummaryResponse>> GetMyClientsAsync(Guid coachId);
+        Task<IEnumerable<MyCoachResponse>> GetMyCoachesAsync(Guid clientId);
         Task<bool> GrantAccessAsync(Guid clientId, Guid coachId);
         Task<bool> RevokeAccessAsync(Guid clientId, Guid coachId);
         Task<object> GetClientProfileAsync(Guid coachId, Guid clientId);

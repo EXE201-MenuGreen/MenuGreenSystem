@@ -1,12 +1,12 @@
 # 16. Budget Management
 
-**Status:** API Done · UI Not Done
-**Last updated:** 2026-07-09
+**Status:** API Done · UI Done · **Assessment: DONE**
+**Last updated:** 2026-07-13
 
 **Related controller:** `backend/MenuGreen.API/Controllers/BudgetRequestController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/BudgetRequestService.cs`
 
-**Related Flutter features:** Chưa có
+**Related Flutter features:** `frontend/lib/features/advanced/` — xem/tạo/sửa/xóa active budget.
 
 ---
 
@@ -45,7 +45,7 @@ Khác với `MealPlanController.generate-by-budget`: generate-by-budget tạo me
 
 ## 4. UI Components
 
-Chưa có Flutter UI. Cần phát triển:
+Flutter UI đã triển khai:
 
 - Budget setup/edit screen
 - Budget display on home/dashboard
@@ -64,3 +64,12 @@ Chưa có Flutter UI. Cần phát triển:
 
 - Đây là configuration layer đơn giản — không có analytics chi tiêu riêng.
 - MealPlanController có `compare-expenses` và `expense-breakdown` cho chi tiết chi phí thực tế vs kế hoạch.
+
+## 7. Verification & Assessment (2026-07-12)
+
+- [x] Có màn hình xem/tạo/sửa/xóa active budget.
+- [x] Validate dữ liệu số ở UI; backend tiếp tục enforce khoảng tiền và thời gian nấu.
+- [x] Có entry point từ Profile → Dịch vụ & quản lý → Ngân sách.
+- [x] Flutter analyzer không có error/warning cho feature.
+
+**Đánh giá: DONE** cho phạm vi CRUD/configuration đã mô tả. Chưa chạy E2E với tài khoản production nhưng API contract và UI đã hoàn chỉnh.

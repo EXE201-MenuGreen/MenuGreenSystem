@@ -1,12 +1,12 @@
 # 18. Ingredient Catalog
 
-**Status:** API Done · UI Not Done
-**Last updated:** 2026-07-09
+**Status:** API Done · UI Done · **Assessment: DONE**
+**Last updated:** 2026-07-13
 
 **Related controller:** `backend/MenuGreen.API/Controllers/IngredientController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/IngredientService.cs`
 
-**Related Flutter features:** Chưa có (ingredient search nằm trong Discover feature)
+**Related Flutter features:** `frontend/lib/features/advanced/` — search/allergy-safe, detail/recipes và Admin CRUD.
 
 ---
 
@@ -35,18 +35,18 @@ Khác với `IngredientSubstitutionController`: Substitution = tìm thay thế c
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/Ingredients/search` | Tìm kiếm nguyên liệu (keyword, category, allergyMode) |
-| `GET` | `/api/Ingredients/{id}` | Chi tiết nguyên liệu |
-| `GET` | `/api/Ingredients/{id}/recipes` | Danh sách recipes dùng nguyên liệu này |
-| `GET` | `/api/Ingredients/catalog` | Catalog đầy đủ (cho browse) |
+| `GET` | `/api/Ingredient/search` | Tìm kiếm nguyên liệu (keyword, category, allergyMode) |
+| `GET` | `/api/Ingredient/{id}` | Chi tiết nguyên liệu |
+| `GET` | `/api/Ingredient/{id}/recipes` | Danh sách recipes dùng nguyên liệu này |
+| `GET` | `/api/Ingredient/catalog` | Catalog đầy đủ (cho browse) |
 
 ### 3.2 Admin — CRUD
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/Ingredients` | Tạo nguyên liệu mới (Admin) |
-| `PUT` | `/api/Ingredients/{id}` | Cập nhật nguyên liệu (Admin) |
-| `DELETE` | `/api/Ingredients/{id}` | Xóa nguyên liệu (Admin) |
+| `POST` | `/api/Ingredient` | Tạo nguyên liệu mới (Admin) |
+| `PUT` | `/api/Ingredient/{id}` | Cập nhật nguyên liệu (Admin) |
+| `DELETE` | `/api/Ingredient/{id}` | Xóa nguyên liệu (Admin) |
 
 **Tổng: 7 endpoint.**
 
@@ -54,10 +54,11 @@ Khác với `IngredientSubstitutionController`: Substitution = tìm thay thế c
 
 ## 4. UI Components
 
-Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
+Flutter UI đã triển khai trong feature `advanced` và liên kết với:
 
 - Discover/Ingredient search screen
 - Recipe creation/editing screen
+- Ingredient detail/recipes và Admin create/edit/delete
 
 ---
 
@@ -74,3 +75,13 @@ Chưa có Flutter UI riêng. Ingredient search có thể tích hợp vào:
 
 - Đây là data layer — user thường không tương tác trực tiếp mà qua Recipe/Food screens.
 - Admin CRUD có thể tích hợp vào Admin Panel.
+
+## 7. Verification & Assessment (2026-07-12)
+
+- [x] Có UI tìm kiếm catalog và chế độ chỉ hiện nguyên liệu an toàn dị ứng.
+- [x] Có bộ lọc category gửi đúng query `category` cho backend.
+- [x] Đã sửa route tài liệu từ `/api/Ingredients` sang route controller thực tế `/api/Ingredient`.
+- [x] Có ingredient detail và danh sách recipes sử dụng nguyên liệu.
+- [x] Có form Admin tạo/sửa/xóa với các trường nutrition, giá, đơn vị và ảnh.
+
+**Đánh giá: DONE.** Search/allergy mode, detail/recipes và Admin CRUD đều đã có UI nối đúng route `/api/Ingredient`. Cần smoke test thêm bằng JWT Admin thật trước production.

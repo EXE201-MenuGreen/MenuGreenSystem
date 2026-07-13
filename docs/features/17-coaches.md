@@ -1,12 +1,12 @@
 # 17. Coaches Ecosystem
 
-**Status:** API Done · UI Not Done
-**Last updated:** 2026-07-09
+**Status:** API Done · UI Done · **Assessment: DONE**
+**Last updated:** 2026-07-13
 
 **Related controller:** `backend/MenuGreen.API/Controllers/CoachesController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/CoachService.cs`
 
-**Related Flutter features:** Chưa có
+**Related Flutter features:** `frontend/lib/features/advanced/` — catalog, registration, connection, clients, feedback, targets và meal plan.
 
 ---
 
@@ -62,6 +62,7 @@ User có thể đăng ký trở thành Coach (expert role), student kết nối 
 | `POST` | `/api/Coaches/connect/{coachId}` | Student gửi yêu cầu kết nối |
 | `POST` | `/api/Coaches/approve-connection/{clientId}` | Coach approve/reject student (CoachOnly) |
 | `GET` | `/api/Coaches/my-clients` | Coach xem danh sách students đã kết nối (CoachOnly) |
+| `GET` | `/api/Coaches/my-coaches` | Student xem coach đang pending/connected (UserOnly) |
 
 ### 3.4 Data Access
 
@@ -84,16 +85,17 @@ User có thể đăng ký trở thành Coach (expert role), student kết nối 
 |--------|----------|-------------|
 | `POST` | `/api/Coaches/clients/{clientId}/feedback` | Gửi feedback cho student (CoachOnly) |
 | `GET` | `/api/Coaches/clients/{clientId}/feedback` | Xem feedback (Student hoặc connected Coach) |
+| `GET` | `/api/Coaches/my-feedback` | Student xem toàn bộ feedback của chính mình |
 | `PUT` | `/api/Coaches/clients/{clientId}/meal-plan/{planId}` | Điều chỉnh student's meal plan (CoachOnly) |
 | `PUT` | `/api/Coaches/clients/{clientId}/health-targets` | Điều chỉnh student's calorie/macro targets (CoachOnly) |
 
-**Tổng: 15 endpoint.**
+**Tổng: 17 endpoint.**
 
 ---
 
 ## 4. UI Components
 
-Chưa có Flutter UI. Cần phát triển:
+Flutter UI đã triển khai:
 
 - Coach catalog & search screen
 - Coach profile detail screen
@@ -102,6 +104,7 @@ Chưa có Flutter UI. Cần phát triển:
 - Client detail + nutrition view (coach)
 - Feedback & adjust forms (coach)
 - Student feedback view
+- My Coaches và quản lý quyền truy cập dữ liệu
 
 ---
 
@@ -121,3 +124,18 @@ Chưa có Flutter UI. Cần phát triển:
 - Grant/revoke access là voluntary từ student side.
 - Coach có thể điều chỉnh meal plan mà không cần student approve.
 - Có thể tích hợp notification khi coach gửi feedback.
+
+## 7. Verification & Assessment (2026-07-12)
+
+- [x] Có catalog coach, thông tin specialty/kinh nghiệm/phí và gửi yêu cầu kết nối.
+- [x] Repository đã có register coach, my-clients và grant/revoke access để tiếp tục mở rộng UI.
+- [x] Có màn hình đăng ký coach, duyệt/từ chối kết nối và danh sách học viên.
+- [x] Có client dashboard xem hồ sơ, nutrition 7 ngày, weight records và feedback history.
+- [x] Có form gửi feedback, chỉnh calorie/macro targets và cập nhật meal plan.
+- [x] Coach detail hỗ trợ cấp/thu hồi data access từ phía student.
+- [x] Có màn hình My Coaches và lịch sử feedback phía student.
+- [x] Client dashboard render hồ sơ, dinh dưỡng từng ngày và các mốc weight/body-fat thay vì dữ liệu thô.
+- [x] Header-only meal-plan adjustment không còn xóa items hiện hữu khi request gửi danh sách rỗng.
+- [ ] Chưa kiểm thử phân quyền `UserOnly`/`CoachOnly` end-to-end.
+
+**Đánh giá: DONE.** Catalog, registration, connection, access control, client views và coach actions đều đã có Flutter UI/API contract. Phân quyền thực tế cần smoke test bằng JWT User/Coach trước production.
