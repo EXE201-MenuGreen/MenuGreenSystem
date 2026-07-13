@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MenuGreen Workflows — Interactive System Map</title>
+<script>
+  (function () {
+    const saved = localStorage.getItem('theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #F3F4F6; /* light gray bg */
+    --surface: #FFFFFF;
+    --surface2: #F9FAFB;
+    --ink: #111827; /* dark charcoal */
+    --body: #374151; /* medium gray */
+    --muted: #6B7280; /* cool gray */
+    --line: #E5E7EB;
+    --line-soft: #F3F4F6;
+    
+    --primary: #0F766E; /* Teal 700 */
+    --primary-soft: rgba(15, 118, 110, 0.08);
+    --secondary: #0D9488; /* Teal 600 */
+    
+    --accent: #D97706; /* Amber 600 */
+    --accent-soft: rgba(217, 119, 6, 0.08);
+    
+    --blue: #2563EB;
+    --orange: #EA580C;
+    --purple: #7C3AED;
+    
+    --zone: rgba(15, 118, 110, 0.015);
+    --zone-line: #CBD5E1;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  html.dark {
+    --bg: #111827; /* Tailwind gray-900 */
+    --surface: #1F2937; /* Tailwind gray-800 */
+    --surface2: #374151; /* Tailwind gray-700 */
+    --ink: #F9FAFB; /* Tailwind gray-50 */
+    --body: #E5E7EB; /* Tailwind gray-200 */
+    --muted: #9CA3AF; /* Tailwind gray-400 */
+    --line: #374151;
+    --line-soft: #1F2937;
+    
+    --primary: #2DD4BF; /* Teal 400 */
+    --primary-soft: rgba(45, 212, 191, 0.12);
+    --secondary: #14B8A6; /* Teal 500 */
+    
+    --accent: #F59E0B; /* Amber 500 */
+    --accent-soft: rgba(245, 158, 11, 0.12);
+    
+    --blue: #60A5FA;
+    --orange: #FB923C;
+    --purple: #A78BFA;
+    
+    --zone: rgba(45, 212, 191, 0.02);
+    --zone-line: #4B5563;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--body); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column;
+  }
+
+  /* ── top bar ─────────────────────────────── */
+  .bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface); flex: none;
+    z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .bar h1 { font-weight: 700; font-size: 20px; color: var(--ink); letter-spacing: -0.02em; }
+  .bar .sub { font-size: 11px; font-family: monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  .spacer { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px; font-weight: 500;
+    padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface2); color: var(--body); cursor: pointer; transition: all .15s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--muted); background: var(--line-soft); }
+  .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  
+  .controls-group { display: flex; gap: 8px; align-items: center; }
+  .btn-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--body); cursor: pointer; transition: all .15s ease;
+  }
+  .btn-icon:hover { color: var(--ink); border-color: var(--muted); background: var(--line-soft); }
+
+  /* ── stage ───────────────────────────────── */
+  .stage { flex: 1; position: relative; min-height: 0; cursor: grab; background: var(--bg); }
+  .stage:active { cursor: grabbing; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; select: none; }
+
+  /* zones */
+  .zone rect { fill: var(--zone); stroke: var(--zone-line); stroke-width: 1.5; stroke-dasharray: 6 4; rx: 14; }
+  .zone .ztitle { font-size: 13px; font-weight: 700; fill: var(--ink); text-transform: uppercase; letter-spacing: 0.05em; }
+  .zone .zsub { font-size: 11px; fill: var(--muted); }
+
+  /* nodes */
+  .node { cursor: pointer; }
+  .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; rx: 10; transition: stroke .15s ease, filter .15s ease, opacity .15s ease; }
+  .node:hover rect { stroke: var(--muted); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
+  .node.sel rect { stroke: var(--primary) !important; stroke-width: 2.5; }
+  .node .t { font-size: 13.5px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+  .node .m { font-size: 10.5px; fill: var(--muted); pointer-events: none; }
+  .node .k { font-size: 9.5px; font-family: monospace; font-weight: 700; text-transform: uppercase; fill: var(--primary); pointer-events: none; }
+  
+  /* role colors */
+  .node.role-user rect { stroke: var(--secondary); fill: var(--primary-soft); }
+  .node.role-user .k { fill: var(--secondary); }
+  .node.role-coach rect { stroke: var(--orange); fill: rgba(234, 88, 12, 0.06); }
+  .node.role-coach .k { fill: var(--orange); }
+  .node.role-pt rect { stroke: var(--accent); fill: var(--accent-soft); }
+  .node.role-pt .k { fill: var(--accent); }
+  .node.role-admin rect { stroke: var(--purple); fill: rgba(124, 58, 237, 0.06); }
+  .node.role-admin .k { fill: var(--purple); }
+  
+  /* database node styles */
+  .node.store rect { fill: var(--surface2); stroke: var(--line); }
+  .node.store .k { fill: var(--muted); }
+
+  /* edges */
+  .edge { stroke: var(--muted); stroke-width: 1.8; fill: none; marker-end: url(#arrow-muted); transition: opacity .25s ease, stroke .25s ease; }
+  .edge.dash { stroke-dasharray: 5 4; }
+  .elbl { font-size: 10.5px; font-weight: 500; fill: var(--muted); transition: opacity .25s ease, fill .25s ease; }
+
+  /* flow highlighting */
+  .stage.flowing .edge { opacity: 0.15; }
+  .stage.flowing .elbl { opacity: 0.15; }
+  .stage.flowing .node { opacity: 0.25; }
+  .stage.flowing .zone { opacity: 0.40; }
+  
+  .stage.flowing .edge.lit { opacity: 1; stroke: var(--primary); marker-end: url(#arrow-lit); stroke-dasharray: 8 4; animation: march 1s linear infinite; }
+  .stage.flowing .elbl.lit { opacity: 1; fill: var(--primary); font-weight: 600; }
+  .stage.flowing .node.lit { opacity: 1; }
+  .stage.flowing .node.lit rect { stroke: var(--primary); stroke-width: 2; }
+  
+  @keyframes march { to { stroke-dashoffset: -12; } }
+  @media (prefers-reduced-motion: reduce) { .stage.flowing .edge.lit { animation: none; } }
+
+  /* ── floating cards ──────────────────────── */
+  .card {
+    position: absolute; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 10;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  /* Flow panel (Bottom Left) */
+  #flowcap { left: 20px; bottom: 20px; width: 440px; display: none; }
+  #flowcap.show { display: block; }
+  #flowcap .fname { font-weight: 700; font-size: 14px; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+  #flowcap ol { margin-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+  #flowcap li { font-size: 12.5px; line-height: 1.5; color: var(--body); }
+  #flowcap li code { font-family: monospace; font-size: 11.5px; background: var(--line-soft); padding: 1px 4px; border-radius: 4px; color: var(--ink); }
+
+  /* Details panel (Bottom Right) */
+  #detail { right: 20px; bottom: 20px; width: 380px; }
+  #detail .close-btn {
+    position: absolute; top: 12px; right: 12px; border: none; background: transparent;
+    font-size: 16px; font-weight: 700; color: var(--muted); cursor: pointer;
+  }
+  #detail .close-btn:hover { color: var(--ink); }
+  #detail h3 { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  #detail .meta { font-size: 11px; font-weight: 600; font-family: monospace; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; }
+  #detail .body-content { font-size: 13px; line-height: 1.6; color: var(--body); }
+  #detail .body-content code { font-family: monospace; font-size: 12px; background: var(--line-soft); padding: 2px 4px; border-radius: 4px; color: var(--primary); }
+
+  /* Zoom controls indicator */
+  #zoom-controls {
+    position: absolute; right: 20px; top: 20px; display: flex; gap: 6px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); padding: 4px 8px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  #zoom-indicator { font-size: 11px; font-family: monospace; font-weight: 600; color: var(--body); width: 44px; text-align: center; }
+
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .stage { min-height: 70vh; }
+    #detail { position: static; width: auto; margin: 15px 20px; }
+    #flowcap { position: static; width: auto; margin: 0 20px 20px; }
+    #zoom-controls { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div>
+    <h1>MenuGreen Workflows — Interactive System Map</h1>
+    <div class="sub">3 vai trò chính · 14 phân hệ nghiệp vụ · sepay & ai dynamic flow</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="chips" id="chips">
+    <button class="chip on" data-flow="all">Tổng quan map</button>
+    <button class="chip" data-flow="auth">1. Auth & Onboard</button>
+    <button class="chip" data-flow="tracking">2. Nhật ký & AI</button>
+    <button class="chip" data-flow="meal_plan">3. Lập kế hoạch</button>
+    <button class="chip" data-flow="sepay">4. Nâng cấp Premium</button>
+    <button class="chip" data-flow="pt_review">5. Guest PT Đánh giá</button>
+    <button class="chip" data-flow="coach_flow">6. Coach Kết nối</button>
+    <button class="chip" data-flow="admin_ops">7. Admin Vận hành</button>
+  </div>
+  <div class="controls-group">
+    <button id="themeToggle" class="btn-icon" title="Toggle Theme">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5zM0 8a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2A.5.5 0 0 1 0 8zm13 0a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5zM2.05 2.05a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L2.05 2.757a.5.5 0 0 1 0-.707zm9.9 9.9a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707l-1.414-1.414a.5.5 0 0 1 0-.707zm0-9.9a.5.5 0 0 1 0 .707L10.535 4.18a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm-9.9 9.9a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div id="zoom-controls">
+    <button class="btn-icon" id="zoom-in" title="Phóng to">+</button>
+    <div id="zoom-indicator">100%</div>
+    <button class="btn-icon" id="zoom-out" title="Thu nhỏ">-</button>
+    <button class="btn-icon" id="zoom-reset" title="Mặc định">⟲</button>
+  </div>
+
+  <svg id="svg-stage" viewBox="0 0 1560 920" preserveAspectRatio="xMidYMid meet" role="img" aria-label="MenuGreen System Workflows Map">
+    <defs>
+      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/>
+      </marker>
+      <marker id="arrow-lit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill: var(--primary)"/>
+      </marker>
+    </defs>
+    
+    <g id="svg-content" transform="translate(0, 0) scale(1)">
+      <!-- ── zones ─────────────────────────────── -->
+      <g class="zone" id="z-roles">
+        <rect x="40" y="120" width="280" height="720"/>
+        <text class="ztitle" x="60" y="152">👥 Roles (Nhóm Vai Trò)</text>
+        <text class="zsub" x="60" y="170">Hành vi & Phân quyền ứng dụng</text>
+      </g>
+      <g class="zone" id="z-api">
+        <rect x="360" y="120" width="680" height="720"/>
+        <text class="ztitle" x="380" y="152">⚡ API Gateways & Controllers</text>
+        <text class="zsub" x="380" y="170">Logic xử lý trung gian (.NET Core + FastAPI)</text>
+      </g>
+      <g class="zone" id="z-db">
+        <rect x="1080" y="120" width="420" height="720"/>
+        <text class="ztitle" x="1100" y="152">💾 Databases & Storage</text>
+        <text class="zsub" x="1100" y="170">Quản lý trạng thái & Lưu trữ dữ liệu</text>
+      </g>
+
+      <!-- ── edges (control & data paths) ──────── -->
+      <!-- Auth flow edges -->
+      <path class="edge" id="e-user-auth" d="M 280,215 L 400,215"/>
+      <path class="edge" id="e-auth-db" d="M 680,215 C 800,215 900,215 1120,210"/>
+      <path class="edge" id="e-user-onboard" d="M 280,225 C 330,250 650,250 720,215"/>
+      <path class="edge" id="e-onboard-auth-db" d="M 1000,215 L 1120,220"/>
+      <path class="edge" id="e-onboard-nut-db" d="M 1000,225 C 1050,235 1070,300 1120,320"/>
+
+      <!-- Tracker flow edges -->
+      <path class="edge" id="e-user-tracker" d="M 280,240 C 330,260 370,300 400,320"/>
+      <path class="edge" id="e-tracker-nut-db" d="M 680,330 C 850,330 950,330 1120,335"/>
+      <path class="edge" id="e-user-ai-chat" d="M 220,265 C 220,400 220,720 400,720"/>
+      <path class="edge" id="e-ai-chat-db" d="M 680,730 L 1120,730"/>
+      <path class="edge" id="e-ai-chat-catalog" d="M 680,720 C 880,720 950,520 1120,500"/>
+      <path class="edge dash" id="e-user-camera-ai" d="M 540,370 L 540,690"/>
+      
+      <!-- Adaptive Reminders edges -->
+      <path class="edge" id="e-user-reminder" d="M 280,245 C 310,270 330,350 400,370"/>
+      <path class="edge" id="e-reminder-nut-db" d="M 680,370 C 850,370 950,355 1120,355"/>
+
+      <!-- Meal Plan edges -->
+      <path class="edge" id="e-user-plan" d="M 280,255 C 330,280 650,320 720,320"/>
+      <path class="edge" id="e-plan-nut-db" d="M 1000,330 C 1050,330 1070,340 1120,345"/>
+      <path class="edge" id="e-plan-catalog-db" d="M 1000,340 C 1050,350 1070,450 1120,460"/>
+      
+      <!-- Meal Template edges -->
+      <path class="edge" id="e-user-template" d="M 280,250 C 320,290 650,360 720,370"/>
+      <path class="edge" id="e-template-nut-db" d="M 1000,370 C 1050,370 1080,360 1120,360"/>
+
+      <!-- SePay payment edges -->
+      <path class="edge" id="e-user-sepay" d="M 200,265 C 200,450 200,580 400,580"/>
+      <path class="edge" id="e-sepay-payment-db" d="M 680,600 C 850,600 950,610 1120,615"/>
+      <path class="edge" id="e-payment-db-auth-db" d="M 1300,580 L 1300,260"/>
+      
+      <!-- Premium Programs edges -->
+      <path class="edge" id="e-user-premium-program" d="M 220,265 C 220,450 220,630 400,650"/>
+      <path class="edge" id="e-program-payment-db" d="M 680,660 C 850,660 950,630 1120,625"/>
+
+      <!-- PT Review edges -->
+      <path class="edge" id="e-user-pt-link" d="M 260,265 C 280,320 620,430 720,440"/>
+      <path class="edge" id="e-pt-pt-api" d="M 280,522 C 380,522 620,470 720,470"/>
+      <path class="edge" id="e-pt-api-nut-db" d="M 1000,462 C 1060,462 1080,380 1120,380"/>
+
+      <!-- Coach edges -->
+      <path class="edge" id="e-coach-api" d="M 280,372 C 340,372 370,435 400,435"/>
+      <path class="edge" id="e-coach-api-nut-db" d="M 680,462 C 850,462 950,370 1120,370"/>
+
+      <!-- Admin edges -->
+      <path class="edge" id="e-admin-api" d="M 280,672 C 380,672 620,620 720,600"/>
+      <path class="edge" id="e-admin-api-auth-db" d="M 1000,590 C 1070,590 1090,260 1120,250"/>
+      <path class="edge" id="e-admin-api-catalog-db" d="M 1000,600 C 1060,600 1080,510 1120,510"/>
+      <path class="edge" id="e-admin-crawler" d="M 280,685 C 380,720 620,730 720,730"/>
+      <path class="edge" id="e-crawler-ai-db" d="M 1000,730 L 1120,740"/>
+      
+      <!-- Micro-Learning edges -->
+      <path class="edge" id="e-user-micro-learning" d="M 250,265 C 280,320 620,650 720,660"/>
+      <path class="edge" id="e-micro-learning-ai-db" d="M 1000,660 C 1050,660 1070,720 1120,730"/>
+      <path class="edge" id="e-admin-micro-learning" d="M 860,640 L 860,635"/>
+
+      <!-- edge labels -->
+      <text class="elbl" data-e="e-user-auth" x="340" y="208" text-anchor="middle">Auth & Verify</text>
+      <text class="elbl" data-e="e-user-onboard" x="500" y="260" text-anchor="middle">5 Steps Onboarding</text>
+      <text class="elbl" data-e="e-user-tracker" x="340" y="295" text-anchor="middle">Ghi nhật ký</text>
+      <text class="elbl" data-e="e-user-camera-ai" x="550" y="520" text-anchor="start">Food Capture (Ảnh đĩa ăn)</text>
+      <text class="elbl" data-e="e-user-plan" x="500" y="305" text-anchor="middle">Lên thực đơn tuần</text>
+      <text class="elbl" data-e="e-user-template" x="500" y="362" text-anchor="middle">Thực đơn mẫu</text>
+      <text class="elbl" data-e="e-user-reminder" x="340" y="390" text-anchor="middle">Nhắc nhở ăn</text>
+      <text class="elbl" data-e="e-user-sepay" x="220" y="555" text-anchor="start">Quét mã QR chuyển khoản</text>
+      <text class="elbl" data-e="e-user-premium-program" x="225" y="615" text-anchor="start">Mua lộ trình tuần</text>
+      <text class="elbl" data-e="e-payment-db-auth-db" x="1310" y="420" text-anchor="start">Kích hoạt Premium</text>
+      <text class="elbl" data-e="e-user-pt-link" x="500" y="405" text-anchor="middle">Tạo shareable link</text>
+      <text class="elbl" data-e="e-pt-pt-api" x="500" y="515" text-anchor="middle">Đánh giá không cần login</text>
+      <text class="elbl" data-e="e-pt-api-nut-db" x="1090" y="430" text-anchor="end">Apply đề xuất calo</text>
+      <text class="elbl" data-e="e-coach-api-nut-db" x="1070" y="415" text-anchor="end">Tweak menu & target</text>
+      <text class="elbl" data-e="e-admin-api-auth-db" x="1110" y="270" text-anchor="end">Lock / Role assign</text>
+      <text class="elbl" data-e="e-user-micro-learning" x="500" y="678" text-anchor="middle">Học & làm quiz</text>
+
+      <!-- ── nodes: roles ────────────────────── -->
+      <g class="node role-user" data-k="user">
+        <rect x="80" y="180" width="200" height="85"/>
+        <text class="t" x="100" y="210">User / Student</text>
+        <text class="k" x="100" y="230">Người dùng</text>
+        <text class="m" x="100" y="246">Free & Premium app</text>
+      </g>
+      <g class="node role-coach" data-k="coach">
+        <rect x="80" y="330" width="200" height="85"/>
+        <text class="t" x="100" y="360">In-App Coach</text>
+        <text class="k" x="100" y="380">Huấn luyện viên</text>
+        <text class="m" x="100" y="396">Điều chỉnh sức khỏe</text>
+      </g>
+      <g class="node role-pt" data-k="pt">
+        <rect x="80" y="480" width="200" height="85"/>
+        <text class="t" x="100" y="510">Guest PT</text>
+        <text class="k" x="100" y="530">PT bên ngoài</text>
+        <text class="m" x="100" y="546">Đánh giá qua web</text>
+      </g>
+      <g class="node role-admin" data-k="admin">
+        <rect x="80" y="630" width="200" height="85"/>
+        <text class="t" x="100" y="660">Admin / Ops</text>
+        <text class="k" x="100" y="680">Quản trị viên</text>
+        <text class="m" x="100" y="696">Vận hành & Kiểm duyệt</text>
+      </g>
+
+      <!-- ── nodes: api & services ────────────── -->
+      <!-- Row 1 -->
+      <g class="node" data-k="auth_verify">
+        <rect x="400" y="180" width="280" height="70"/>
+        <text class="t" x="420" y="210">/api/Auth</text>
+        <text class="k" x="420" y="228">xác thực & OTP</text>
+        <text class="m" x="420" y="240">Email OTP · JWT Identity</text>
+      </g>
+      <g class="node" data-k="onboard_api">
+        <rect x="720" y="180" width="280" height="70"/>
+        <text class="t" x="740" y="210">/api/Onboarding/complete</text>
+        <text class="k" x="740" y="228">khởi tạo chỉ số</text>
+        <text class="m" x="740" y="240">TDEE · Allergy · Profile Setup</text>
+      </g>
+      
+      <!-- Row 2 -->
+      <g class="node" data-k="tracker_api">
+        <rect x="400" y="290" width="280" height="50"/>
+        <text class="t" x="420" y="312">/api/MealLog & Weights</text>
+        <text class="k" x="420" y="328">nhật ký calo & weights</text>
+      </g>
+      <g class="node" data-k="plan_api">
+        <rect x="720" y="290" width="280" height="50"/>
+        <text class="t" x="740" y="312">/api/MealPlan</text>
+        <text class="k" x="740" y="328">lên kế hoạch budget</text>
+      </g>
+      
+      <!-- Row 2.5 (New Symmetric nodes) -->
+      <g class="node" data-k="reminder_api">
+        <rect x="400" y="355" width="280" height="50"/>
+        <text class="t" x="420" y="377">/api/Reminder</text>
+        <text class="k" x="420" y="393">nhắc nhở thông minh thích ứng</text>
+      </g>
+      <g class="node" data-k="meal_template_api">
+        <rect x="720" y="355" width="280" height="50"/>
+        <text class="t" x="740" y="377">/api/MealTemplate</text>
+        <text class="k" x="740" y="393">bữa ăn mẫu lặp lại</text>
+      </g>
+      
+      <!-- Row 3 -->
+      <g class="node" data-k="coach_api">
+        <rect x="400" y="420" width="280" height="85"/>
+        <text class="t" x="420" y="450">/api/Coaches</text>
+        <text class="k" x="420" y="470">quản lý học viên</text>
+        <text class="m" x="420" y="482">Approve Connect · Client Dashboard</text>
+      </g>
+      <g class="node" data-k="pt_review_api">
+        <rect x="720" y="420" width="280" height="85"/>
+        <text class="t" x="740" y="450">/api/PtReview</text>
+        <text class="k" x="740" y="470">đánh giá một lần</text>
+        <text class="m" x="740" y="482">Token-based Shareable Link</text>
+      </g>
+      
+      <!-- Row 4 -->
+      <g class="node" data-k="sepay_api">
+        <rect x="400" y="560" width="280" height="50"/>
+        <text class="t" x="420" y="582">/api/Sepay (Webhook)</text>
+        <text class="k" x="420" y="598">thanh toán tự động</text>
+      </g>
+      <g class="node" data-k="admin_api">
+        <rect x="720" y="560" width="280" height="50"/>
+        <text class="t" x="740" y="582">/api/Users & /api/Foods</text>
+        <text class="k" x="740" y="598">ops control panel</text>
+      </g>
+      
+      <!-- Row 4.5 (New Symmetric nodes) -->
+      <g class="node" data-k="premium_program_api">
+        <rect x="400" y="635" width="280" height="50"/>
+        <text class="t" x="420" y="657">/api/PremiumPrograms</text>
+        <text class="k" x="420" y="673">lộ trình dinh dưỡng theo tuần</text>
+      </g>
+      <g class="node" data-k="micro_learning_api">
+        <rect x="720" y="635" width="280" height="50"/>
+        <text class="t" x="740" y="657">/api/MicroLearning</text>
+        <text class="k" x="740" y="673">thẻ kiến thức & quiz</text>
+      </g>
+      
+      <!-- Row 5 -->
+      <g class="node" data-k="ai_chat">
+        <rect x="400" y="700" width="280" height="80"/>
+        <text class="t" x="420" y="730">AI Assistant & Food CV</text>
+        <text class="k" x="420" y="750">fastapi + gemini cv</text>
+        <text class="m" x="420" y="762">Function Calling · Quét ảnh thức ăn</text>
+      </g>
+      <g class="node" data-k="crawler_admin">
+        <rect x="720" y="700" width="280" height="80"/>
+        <text class="t" x="740" y="730">AI Curation & Crawler</text>
+        <text class="k" x="740" y="750">ai admin portal</text>
+        <text class="m" x="740" y="762">Normalize crawler data · Train models</text>
+      </g>
+
+      <!-- ── nodes: databases ─────────────────── -->
+      <g class="node store" data-k="auth_db">
+        <rect x="1120" y="180" width="340" height="80"/>
+        <text class="t" x="1140" y="210">Auth & Health DB</text>
+        <text class="k" x="1140" y="230">database • users</text>
+        <text class="m" x="1140" y="242">Tài khoản · Vai trò · Premium Subscription</text>
+      </g>
+      <g class="node store" data-k="nutrition_db">
+        <rect x="1120" y="300" width="340" height="90"/>
+        <text class="t" x="1140" y="330">Nutrition Logs & Targets DB</text>
+        <text class="k" x="1140" y="350">database • tracking</text>
+        <text class="m" x="1140" y="364">MealLog · WeightLog · Dynamic Targets</text>
+      </g>
+      <g class="node store" data-k="catalog_db">
+        <rect x="1120" y="440" width="340" height="90"/>
+        <text class="t" x="1140" y="470">Master Food & Allergy Catalog</text>
+        <text class="k" x="1140" y="490">database • master data</text>
+        <text class="m" x="1140" y="504">Thực phẩm VN · Công thức · Dị ứng</text>
+      </g>
+      <g class="node store" data-k="payment_db">
+        <rect x="1120" y="580" width="340" height="80"/>
+        <text class="t" x="1140" y="610">Payment & Subscriptions DB</text>
+        <text class="k" x="1140" y="630">database • transactions</text>
+        <text class="m" x="1140" y="642">Sepay Transactions · Subscription Plans</text>
+      </g>
+      <g class="node store" data-k="ai_db">
+        <rect x="1120" y="700" width="340" height="80"/>
+        <text class="t" x="1140" y="730">AI Conversation & Curation DB</text>
+        <text class="k" x="1140" y="750">database • conversations</text>
+        <text class="m" x="1140" y="762">AiConversation · Training Samples</text>
+      </g>
+    </g>
+  </svg>
+
+  <!-- ── Floating Cards ──────────────────────── -->
+  <!-- Left Side: Flow steps description -->
+  <div class="card" id="flowcap">
+    <div class="fname" id="f-name"></div>
+    <ol id="f-steps"></ol>
+  </div>
+
+  <!-- Right Side: Details panel -->
+  <div class="card" id="detail">
+    <button class="close-btn" id="detail-close" title="Close Panel">×</button>
+    <h3 id="d-title">Click để khám phá</h3>
+    <div class="meta" id="d-meta">Thành phần kiến trúc</div>
+    <div class="body-content" id="d-body">
+      Click chọn bất kỳ vai trò, phân hệ API hay cơ sở dữ liệu nào trên bản đồ để xem chi tiết nghiệp vụ và cấu trúc của MenuGreen. Bạn cũng có thể chọn các tab luồng quy trình phía trên để xem hoạt ảnh dữ liệu.
+    </div>
+  </div>
+</div>
+
+<script>
+const DETAIL = {
+  user: {
+    t: "User / Student (Người dùng ứng dụng)",
+    m: "Client • Flutter App",
+    b: "Mặc định tài khoản đăng ký mới là Free User. Để truy cập các tính năng nâng cao, người dùng nâng cấp lên Premium User qua SePay.<br><br><b>Các hoạt động chính:</b><br>• Setup hồ sơ & dị ứng khi Onboarding.<br>• Ghi nhật ký ăn uống và cân nặng hàng ngày.<br>• Sử dụng Meal Plan và Trợ lý AI Coach.<br>• Kết nối với Coach chính thức hoặc chia sẻ báo cáo nhanh với PT ngoài."
+  },
+  coach: {
+    t: "In-App Coach (Huấn luyện viên chính thức)",
+    m: "Client • Flutter App (Chế độ Coach)",
+    b: "Huấn luyện viên chuyên môn trong ứng dụng. Có thể cấu hình Profile chuyên môn (Specialty, Bio) và Giá dịch vụ. Khi kết nối học viên thành công và được cấp quyền, Coach có thể xem Dashboard chỉ số của học viên, trực tiếp điều chỉnh thực đơn tuần và thay đổi chỉ tiêu calo của học viên."
+  },
+  pt: {
+    t: "Guest PT / External (PT tự do bên ngoài)",
+    m: "Web UI • Trình duyệt điện thoại",
+    b: "PT tự do ngoài đời thực, không có tài khoản trên ứng dụng MenuGreen.<br><br><b>Quy trình tương tác:</b><br>• Học viên gửi liên kết chia sẻ (chứa mã token bảo mật).<br>• PT nhấp vào link và được dẫn tới trang web tối giản (không cần đăng nhập).<br>• PT xem biểu đồ calo, macro 7 ngày và cân nặng.<br>• PT gửi phản hồi nhận xét và các thông số calo đề xuất mới trực tiếp lên hệ thống."
+  },
+  admin: {
+    t: "Admin / Operator (Quản trị viên)",
+    m: "Web Admin Portal",
+    b: "Quản lý hệ thống được gán quyền bởi chính sách <code>AdminOnly</code>.<br><br><b>Nhiệm vụ chính:</b><br>• Quản trị bảo mật: Khóa/Mở khóa tài khoản, phân quyền Coach/Admin.<br>• Duyệt danh mục thực phẩm IsVerified, thiết lập liên kết dị ứng thực phẩm.<br>• Cấu hình ma trận thay thế nguyên liệu (Ingredient Substitutions).<br>• Đối soát thanh toán SePay thủ công khi người dùng nhập sai cú pháp.<br>• Kiểm duyệt lịch sử trò chuyện AI (AiConversation) và tinh chỉnh dữ liệu huấn luyện."
+  },
+  auth_verify: {
+    t: "/api/Auth Controller",
+    m: ".NET Controller • Auth Service",
+    b: "Quản lý toàn bộ vòng đời tài khoản và đăng nhập.<br><br><b>Nghiệp vụ chi tiết:</b><br>• Đăng ký tài khoản: Gửi OTP xác thực qua email để kích hoạt.<br>• Trả về cặp JWT Access Token (ngắn hạn) + Refresh Token (dài hạn) lưu dưới client.<br>• Hỗ trợ đăng nhập bằng tài khoản Google thông qua xác thực Firebase Auth từ Flutter."
+  },
+  onboard_api: {
+    t: "/api/Onboarding/complete",
+    m: ".NET Controller • Profile Initialization",
+    b: "API trọng yếu của luồng cài đặt ban đầu. Sau khi người dùng điền thông tin qua 5 bước Onboarding ở client, ứng dụng gọi duy nhất API này để đẩy toàn bộ dữ liệu lên.<br><br><b>Hoạt động hệ thống:</b><br>• Lưu hồ sơ sức khỏe cơ bản.<br>• Tính toán TDEE và calo mục tiêu (Carbs/Protein/Fat).<br>• Tạo bản ghi dị ứng nguyên liệu của người dùng.<br>• Thiết lập nhóm hành vi người dùng (A, B hoặc C)."
+  },
+  tracker_api: {
+    t: "/api/MealLog & weights",
+    m: ".NET Controller • Daily Tracker",
+    b: "API quản lý việc ghi nhận chỉ số dinh dưỡng thực tế hàng ngày.<br><br><b>Chi tiết tính năng:</b><br>• Meal Log: Ghi nhận thực phẩm theo bữa (Sáng, Trưa, Tối, Nhẹ). Hỗ trợ tìm kiếm, ghi nhanh, hoặc quét qua Gemini CV.<br>• Weight Log: Lưu cân nặng thực tế và tính toán xu hướng thay đổi cân nặng so với đích mong muốn."
+  },
+  plan_api: {
+    t: "/api/MealPlan",
+    m: ".NET Controller • Meal Planning",
+    b: "Công cụ lên kế hoạch bữa ăn thông minh cho tài khoản Premium.<br><br><b>Logic nghiệp vụ:</b><br>• Lập thực đơn tuần tự động dựa trên ngân sách thiết lập (Budget-Aware) và calo mục tiêu.<br>• Lọc bỏ tự động các công thức nấu ăn chứa nguyên liệu dị ứng của người dùng."
+  },
+  reminder_api: {
+    t: "/api/Reminder (Adaptive Reminders)",
+    m: ".NET Controller • Smart Reminders",
+    b: "Tính năng Nhắc nhở thông minh thích ứng. Tự động tính trung bình giờ ăn từ nhật ký <code>MealLog</code> để đề xuất lịch nhắc ăn Sáng/Trưa/Tối hoặc chỉnh thủ công. Hỗ trợ scheduled reminders, snooze dời lịch nhắc và vô hiệu hóa kênh."
+  },
+  meal_template_api: {
+    t: "/api/MealTemplate (Thực đơn đã lưu)",
+    m: ".NET Controller • Reusable Meals",
+    b: "Quản lý thực đơn bữa ăn lặp lại quen thuộc của người dùng.<br><br><b>Nghiệp vụ:</b><br>• Cho phép lưu bất kỳ bữa ăn nào trong nhật ký ăn uống thành mẫu để dùng lại nhanh.<br>• CRUD các thực đơn đã lưu riêng lẻ và nhân bản nhanh.<br>• Ghi nhanh thực đơn mẫu vào nhật ký ăn uống cho phép ghi đè (override) khối lượng từng món."
+  },
+  coach_api: {
+    t: "/api/Coaches Controller",
+    m: ".NET Controller • Coach Platform",
+    b: "Hệ thống quản lý mối quan hệ học viên - huấn luyện viên.<br><br><b>Quy trình hoạt động:</b><br>• Tiếp nhận đăng ký chuyên môn (Specialty, Bio, Price) từ User.<br>• API liệt kê danh sách Coach công khai kèm các bộ lọc tìm kiếm.<br>• Quản lý yêu cầu kết nối: Cho phép Coach xem và phê duyệt học viên kết nối.<br>• Điều khiển can thiệp: Thực thi chỉnh sửa target, thực đơn của học viên đã cấp quyền."
+  },
+  pt_review_api: {
+    t: "/api/PtReview Controller",
+    m: ".NET Controller • Pt Report API",
+    b: "API hỗ trợ việc chia sẻ báo cáo tuần với PT ngoài hệ thống.<br><br><b>Luồng dữ liệu:</b><br>• <code>POST /api/PtReview/reports</code>: Đóng gói nhật ký dinh dưỡng 7 ngày, sinh mã Token ngẫu nhiên có thời gian hết hạn.<br>• <code>GET /api/PtReview/shared-reports/{token}</code>: Đọc dữ liệu thô báo cáo không cần đăng nhập.<br>• <code>POST /api/PtReview/shared-reports/{token}/submit</code>: Tiếp nhận feedback và thông số đề xuất calo mới của PT.<br>• <code>POST /api/PtReview/requests/{id}/apply</code>: Cập nhật mục tiêu mới vào profile học viên khi được họ chấp thuận."
+  },
+  sepay_api: {
+    t: "/api/Sepay Controller",
+    m: ".NET Webhook • SePay Integration",
+    b: "Cổng thanh toán tự động hóa nâng cấp tài khoản Premium.<br><br><b>Luồng giao dịch:</b><br>• <code>POST /api/Sepay/orders</code>: Tạo hóa đơn trong DB và tạo đường link chứa ảnh QR Code động cho app ngân hàng.<br>• <code>POST /api/Sepay/webhook</code>: Cổng SePay gọi Webhook khi phát hiện giao dịch thành công. API phân tích cú pháp (ví dụ: MG12345), đối soát hóa đơn và lập tức kích hoạt thời hạn Premium cho người dùng."
+  },
+  admin_api: {
+    t: "/api/Users & /api/Foods (Admin Controller)",
+    m: ".NET Controller • System Administration",
+    b: "Công cụ quản trị hệ thống dành riêng cho tài khoản có vai trò Admin.<br><br><b>Chi tiết chức năng:</b><br>• <code>/api/Users/{id}/lock</code> & <code>/unlock</code>: Thu hồi JWT và khóa/mở khóa tài khoản người dùng.<br>• Duyệt thực phẩm: Nhận đề xuất món ăn mới và bấm xác thực (<code>IsVerified = true</code>).<br>• Quản lý thẻ dị ứng nguyên liệu trong cơ sở dữ liệu."
+  },
+  premium_program_api: {
+    t: "/api/PremiumPrograms (Lộ trình tuần)",
+    m: ".NET Controller • Structured Programs",
+    b: "Tính năng Chương trình lộ trình tuần Premium giúp tăng độ gắn kết của người dùng thông qua lộ trình rèn luyện dài hạn.<br><br><b>Logic:</b><br>• Lộ trình N tuần, yêu cầu check-in định kỳ chỉ số weight & body fat mỗi tuần.<br>• Cấu hình các cột mốc tuần (Milestone), yêu cầu tốt nghiệp (Graduate) ở tuần cuối cùng và tạo báo cáo tổng hợp (Wrap-up report)."
+  },
+  micro_learning_api: {
+    t: "/api/MicroLearning (Góc dinh dưỡng)",
+    m: ".NET Controller • Gamification",
+    b: "Khu vực thẻ học kiến thức ngắn được đề xuất cá nhân hóa dựa trên health profile, dị ứng và meal logs. Mỗi thẻ đi kèm quiz trắc nghiệm giúp người dùng kiểm tra hiểu biết, giải thích đáp án và nhận điểm thưởng quiz."
+  },
+  ai_chat: {
+    t: "AI Assistant & Food CV API",
+    m: "FastAPI CV Service + Gemini LLM",
+    b: "Phân hệ xử lý AI cho MenuGreen.<br><br><b>Công nghệ & Tính năng:</b><br>• Quét ảnh (Food Capture): Trích xuất thực phẩm từ hình ảnh đĩa ăn, ước tính dinh dưỡng và kiểm tra nguy cơ dị ứng.<br>• AI Coach Chat: Giải đáp thắc mắc về chế độ ăn uống 24/7.<br>• Function Calling (Gọi hàm tự động): AI tự phân tích câu chat (ví dụ: 'tôi ăn bát phở sáng nay') để tự động gọi API ghi nhận bữa ăn hoặc tự động lập Meal Plan cho người dùng."
+  },
+  crawler_admin: {
+    t: "AI Curation & Crawler System",
+    m: "FastAPI • AI Admin Panel",
+    b: "Màn hình dành cho Content & AI Admin.<br><br><b>Nhiệm vụ:</b><br>• Quản lý các crawler tự động thu thập thực phẩm từ internet, làm sạch dữ liệu thô (normalize) trước khi đưa vào Master DB.<br>• Rà soát các cuộc trò chuyện AI bị người dùng đánh giá tiêu cực (Dislike) để sửa đổi, tạo bộ dữ liệu mẫu (Training Samples) phục vụ quá trình tinh chỉnh (Fine-tuning) AI."
+  },
+  auth_db: {
+    t: "Auth & Health DB",
+    m: "Relational Database Table",
+    b: "Lưu trữ cấu trúc thông tin người dùng chính thức.<br><br><b>Dữ liệu bao gồm:</b><br>• Tài khoản: ID, Email, Hash mật khẩu, Role (User / Coach / Admin).<br>• Subscription: Loại tài khoản (Free / Premium), ngày hết hạn Premium.<br>• Health Profile: Chiều cao, cân nặng cơ bản, chỉ số hoạt động."
+  },
+  nutrition_db: {
+    t: "Nutrition Logs & Targets DB",
+    m: "Relational Database Table",
+    b: "Lưu trữ toàn bộ nhật ký sinh hoạt của người dùng.<br><br><b>Dữ liệu bao gồm:</b><br>• Meal Log: Danh sách thực phẩm đã ăn theo từng bữa, số lượng (gram), calo thực tế.<br>• Weight Log: Lịch sử cân nặng theo ngày để vẽ biểu đồ xu hướng.<br>• Health Targets: Mục tiêu calo, macro (protein, carbs, fat) hàng ngày được tính toán động dựa trên thực tế tập luyện."
+  },
+  catalog_db: {
+    t: "Master Food & Allergy Catalog",
+    m: "Relational Database Table",
+    b: "Cơ sở dữ liệu master chứa kiến thức dinh dưỡng của ứng dụng.<br><br><b>Dữ liệu bao gồm:</b><br>• Foods: Danh mục hàng ngàn thực phẩm, món ăn, công thức nấu ăn thuần Việt được cấu hình calo chuẩn xác.<br>• Allergen Tags: Thẻ dị ứng gắn với từng món ăn.<br>• Ingredient Substitutions: Ma trận các nguyên liệu thay thế nguyên liệu tương đương."
+  },
+  payment_db: {
+    t: "Payment & Subscriptions DB",
+    m: "Relational Database Table",
+    b: "Lưu trữ thông tin liên quan đến các gói cước và giao dịch.<br><br><b>Dữ liệu bao gồm:</b><br>• Subscription Plans: Các gói cước Premium do Admin cấu hình (1 tháng, 6 tháng, 12 tháng).<br>• Sepay Transactions: Lịch sử nhận webhook, mã giao dịch, số tiền chuyển khoản và trạng thái hóa đơn (Pending / Completed)."
+  },
+  ai_db: {
+    t: "AI Conversation & Curation DB",
+    m: "Relational Database Table",
+    b: "Lưu trữ dữ liệu phục vụ phát triển AI.<br><br><b>Dữ liệu bao gồm:</b><br>• Lịch sử chat: Nội dung chi tiết các tin nhắn của người dùng và AI Coach (AiConversation, AiMessage) phục vụ kiểm duyệt.<br>• Feedback: Lưu các lượt Like/Dislike của người dùng.<br>• Curation Data: Các mẫu câu trả lời chuẩn phục vụ huấn luyện tinh chỉnh mô hình."
+  }
+};
+
+const FLOWS = {
+  all: {
+    name: "MenuGreen High-Level Architecture",
+    edges: [],
+    nodes: [],
+    steps: [
+      "Click vào bất kỳ hộp nào để xem chi tiết kiến trúc phân hệ.",
+      "Chọn các tab luồng nghiệp vụ phía trên để chạy hoạt ảnh minh họa luồng đi của dữ liệu."
+    ]
+  },
+  auth: {
+    name: "1. Đăng ký & Onboarding",
+    edges: ["e-user-auth", "e-auth-db", "e-user-onboard", "e-onboard-auth-db", "e-onboard-nut-db"],
+    nodes: ["user", "auth_verify", "onboard_api", "auth_db", "nutrition_db"],
+    steps: [
+      "Người dùng nhập Email & Mật khẩu trên Flutter App gửi tới <code>/api/Auth/register</code>.",
+      "Hệ thống gửi mã OTP xác thực qua Email. Khi nhập OTP đúng, API trả về JWT Token và chuyển hướng tới Onboarding.",
+      "Người dùng điền thông tin 5 bước Onboarding: thông số cơ bản, mục tiêu, calo tự động, thẻ dị ứng và nhóm hành vi.",
+      "Ứng dụng Flutter gom dữ liệu và gửi 1 request duy nhất tới <code>/api/Onboarding/complete</code>.",
+      "Hệ thống khởi tạo đồng thời hồ sơ người dùng trong <b>Auth DB</b> và chỉ tiêu calo hàng ngày trong <b>Nutrition DB</b>."
+    ]
+  },
+  tracking: {
+    name: "2. Nhật ký & AI (Daily Tracking)",
+    edges: ["e-user-tracker", "e-tracker-nut-db", "e-user-ai-chat", "e-ai-chat-db", "e-user-camera-ai", "e-ai-chat-catalog", "e-user-reminder", "e-reminder-nut-db"],
+    nodes: ["user", "tracker_api", "ai_chat", "reminder_api", "nutrition_db", "ai_db", "catalog_db"],
+    steps: [
+      "Người dùng ghi nhận bữa ăn hàng ngày thủ công bằng tìm kiếm món ăn hoặc ghi nhanh qua <code>/api/MealLog</code>.",
+      "Người dùng Premium chụp ảnh đĩa ăn (Food Capture), app gửi file ảnh tới <b>AI Assistant & Food CV</b> service.",
+      "AI Coach gọi FastAPI CV + Gemini API để nhận diện món ăn, kiểm tra dị ứng từ <b>Catalog DB</b> và gợi ý lưu nhật ký.",
+      "Khi người dùng nói: <i>'Tôi vừa ăn một bát phở bò'</i>, AI dùng <b>Function Calling</b> để tự động gọi API lưu vào nhật ký ăn uống.",
+      "API lưu nhật ký ăn uống vào <b>Nutrition DB</b> và lập tức cập nhật calo đã nạp trên Dashboard của người dùng.",
+      "Hệ thống Adaptive Reminders tự động tính toán giờ ăn dựa trên meal log và gửi thông báo nhắc ăn."
+    ]
+  },
+  meal_plan: {
+    name: "3. Lập kế hoạch bữa ăn & Thực đơn mẫu",
+    edges: ["e-user-plan", "e-plan-nut-db", "e-plan-catalog-db", "e-user-template", "e-template-nut-db"],
+    nodes: ["user", "plan_api", "meal_template_api", "nutrition_db", "catalog_db"],
+    steps: [
+      "Người dùng Premium yêu cầu tạo kế hoạch ăn uống mới cho tuần tới phù hợp với ngân sách tối đa.",
+      "Hệ thống gọi API <code>/api/MealPlan</code> để tự động thiết kế thực đơn dựa trên giới hạn calo và ngân sách.",
+      "Hệ thống tự động loại bỏ các món ăn chứa thành phần dị ứng của người dùng từ <b>Catalog DB</b>.",
+      "Người dùng có thể lưu một bữa ăn bất kỳ trong lịch sử hoặc tạo thủ công bữa ăn mẫu lặp lại qua <code>/api/MealTemplate</code>.",
+      "Người dùng áp dụng thực đơn đã lưu (Meal Template) vào nhật ký ăn uống với tùy chỉnh khối lượng món ăn."
+    ]
+  },
+  sepay: {
+    name: "4. Nâng cấp Premium & Lộ trình tuần",
+    edges: ["e-user-sepay", "e-sepay-payment-db", "e-payment-db-auth-db", "e-user-premium-program", "e-program-payment-db"],
+    nodes: ["user", "sepay_api", "premium_program_api", "payment_db", "auth_db"],
+    steps: [
+      "Người dùng chọn gói Premium hoặc một Chương trình Lộ trình tuần trong Catalog, hệ thống sinh mã QR chuyển khoản động.",
+      "Người dùng quét mã QR bằng ứng dụng ngân hàng và tiến hành chuyển khoản với nội dung định danh (ví dụ: MG12345).",
+      "Cổng SePay nhận thông báo giao dịch thành công từ ngân hàng và gửi Webhook tới <code>/api/Sepay/webhook</code>.",
+      "Hệ thống khớp hóa đơn, lưu log giao dịch vào <b>Payment DB</b>, và cập nhật trạng thái gói Premium / kích hoạt chương trình lộ trình tuần."
+    ]
+  },
+  pt_review: {
+    name: "5. Chia sẻ & PT Đánh giá nhanh (Guest PT)",
+    edges: ["e-user-pt-link", "e-pt-pt-api", "e-pt-api-nut-db"],
+    nodes: ["user", "pt", "pt_review_api", "nutrition_db"],
+    steps: [
+      "Học viên bấm 'Nhờ PT nhận xét' tuần dinh dưỡng, ứng dụng tạo token-link chia sẻ gửi cho PT qua Zalo/SMS.",
+      "Guest PT click vào link để xem nhanh báo cáo dinh dưỡng 7 ngày trên giao diện web tối giản (không cần đăng nhập).",
+      "PT điền nhận xét và nhập chỉ số calo/macro khuyến nghị mới rồi nhấn 'Gửi đánh giá' lên hệ thống.",
+      "Học viên nhận được push notification, xem nhận xét và chọn Chấp nhận để hệ thống cập nhật mục tiêu mới vào <b>Nutrition DB</b>."
+    ]
+  },
+  coach_flow: {
+    name: "6. Hệ sinh thái Huấn luyện viên (In-app Coach)",
+    edges: ["e-coach-api", "e-coach-api-nut-db"],
+    nodes: ["coach", "coach_api", "nutrition_db", "auth_db"],
+    steps: [
+      "Huấn luyện viên đăng ký tài khoản Coach trên app và xuất hiện trên danh mục tìm kiếm công khai.",
+      "Học viên tìm kiếm Coach, gửi yêu cầu kết nối và đồng ý cấp quyền truy cập dữ liệu sức khỏe của mình.",
+      "Coach truy cập màn hình Coach Dashboard để xem nhật ký ăn uống 7 ngày và biểu đồ cân nặng học viên.",
+      "Coach gửi nhận xét, trực tiếp điều chỉnh thực đơn tuần và thay đổi giới hạn dinh dưỡng của học viên trong <b>Nutrition DB</b>."
+    ]
+  },
+  admin_ops: {
+    name: "7. Vận hành & Quản trị viên (Admin)",
+    edges: ["e-admin-api", "e-admin-api-auth-db", "e-admin-api-catalog-db", "e-admin-crawler", "e-crawler-ai-db", "e-admin-micro-learning", "e-micro-learning-ai-db"],
+    nodes: ["admin", "admin_api", "crawler_admin", "micro_learning_api", "auth_db", "catalog_db", "ai_db"],
+    steps: [
+      "Admin đăng nhập cổng quản trị, quản lý tài khoản (khóa/mở khóa) trong <b>Auth DB</b>.",
+      "Admin phê duyệt thực phẩm IsVerified, gắn thẻ dị ứng, và cấu hình ma trận nguyên liệu thay thế trong <b>Catalog DB</b>.",
+      "Admin đối soát thủ công các giao dịch SePay bị lỗi chuyển khoản sai cú pháp.",
+      "Admin duyệt dữ liệu cào thô (normalize), kiểm tra các cuộc trò chuyện bị đánh giá tiêu cực và tạo mẫu huấn luyện AI.",
+      "Admin soạn thảo các thẻ kiến thức Micro-Learning dinh dưỡng, biên soạn Quiz kiểm tra trắc nghiệm và điểm thưởng tương ứng."
+    ]
+  }
+};
+
+const stage = document.getElementById('stage');
+const svg = document.getElementById('svg-stage');
+const gContent = document.getElementById('svg-content');
+const nodes = document.querySelectorAll('.node');
+const edges = document.querySelectorAll('.edge');
+const elbls = document.querySelectorAll('.elbl');
+const chips = document.querySelectorAll('.chip');
+const fcap = document.getElementById('flowcap');
+const detailPanel = document.getElementById('detail');
+
+// Zoom and Pan States
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let hasDragged = false;
+
+function updateTransform() {
+  gContent.setAttribute('transform', `translate(${offsetX}, ${offsetY}) scale(${scale})`);
+  document.getElementById('zoom-indicator').textContent = `${Math.round(scale * 100)}%`;
+}
+
+// Mouse dragging (pan) logic
+svg.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return; // Only left click drag
+  isDragging = true;
+  startX = e.clientX - offsetX;
+  startY = e.clientY - offsetY;
+  hasDragged = false;
+  stage.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const newOffsetX = e.clientX - startX;
+  const newOffsetY = e.clientY - startY;
+  
+  const dx = newOffsetX - offsetX;
+  const dy = newOffsetY - offsetY;
+  if (Math.sqrt(dx*dx + dy*dy) > 5) {
+    hasDragged = true;
+  }
+  
+  offsetX = newOffsetX;
+  offsetY = newOffsetY;
+  updateTransform();
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  stage.style.cursor = 'grab';
+});
+
+// Suppress click events if mouse has dragged (panned)
+svg.addEventListener('click', (e) => {
+  if (hasDragged) {
+    e.stopPropagation();
+    e.preventDefault();
+    hasDragged = false;
+  }
+}, true); // Capture phase intercept!
+
+// Mouse Wheel Zoom logic
+svg.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  
+  const rect = svg.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  
+  const oldScale = scale;
+  const zoomFactor = 1.08;
+  
+  if (e.deltaY < 0) {
+    scale = Math.min(scale * zoomFactor, 6.0); // Max zoom 6x
+  } else {
+    scale = Math.max(scale / zoomFactor, 0.4); // Min zoom 0.4x
+  }
+  
+  offsetX = mouseX - (mouseX - offsetX) * (scale / oldScale);
+  offsetY = mouseY - (mouseY - offsetY) * (scale / oldScale);
+  
+  updateTransform();
+}, { passive: false });
+
+// Zoom controls actions
+document.getElementById('zoom-in').addEventListener('click', () => {
+  const oldScale = scale;
+  scale = Math.min(scale * 1.2, 6.0);
+  const rect = svg.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  offsetX = cx - (cx - offsetX) * (scale / oldScale);
+  offsetY = cy - (cy - offsetY) * (scale / oldScale);
+  updateTransform();
+});
+
+document.getElementById('zoom-out').addEventListener('click', () => {
+  const oldScale = scale;
+  scale = Math.max(scale / 1.2, 0.4);
+  const rect = svg.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  offsetX = cx - (cx - offsetX) * (scale / oldScale);
+  offsetY = cy - (cy - offsetY) * (scale / oldScale);
+  updateTransform();
+});
+
+document.getElementById('zoom-reset').addEventListener('click', () => {
+  scale = 1.0;
+  offsetX = 0;
+  offsetY = 0;
+  updateTransform();
+});
+
+// Flow switcher logic
+function setFlow(key) {
+  chips.forEach(c => c.classList.toggle('on', c.dataset.flow === key));
+  edges.forEach(e => e.classList.remove('lit'));
+  elbls.forEach(l => l.classList.remove('lit'));
+  nodes.forEach(n => n.classList.remove('lit'));
+  
+  if (key === 'all') {
+    stage.classList.remove('flowing');
+    fcap.classList.remove('show');
+    return;
+  }
+  
+  const f = FLOWS[key];
+  stage.classList.add('flowing');
+  f.edges.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('lit');
+  });
+  elbls.forEach(l => {
+    if (f.edges.includes(l.dataset.e)) {
+      l.classList.add('lit');
+    }
+  });
+  f.nodes.forEach(k => {
+    const el = document.querySelector(`.node[data-k="${k}"]`);
+    if (el) el.classList.add('lit');
+  });
+  
+  document.getElementById('f-name').textContent = f.name;
+  document.getElementById('f-steps').innerHTML = f.steps.map(s => `<li>${s}</li>`).join('');
+  fcap.classList.add('show');
+}
+
+chips.forEach(c => c.addEventListener('click', () => setFlow(c.dataset.flow)));
+
+// Node details logic
+nodes.forEach(n => n.addEventListener('click', () => {
+  nodes.forEach(x => x.classList.remove('sel'));
+  n.classList.add('sel');
+  const d = DETAIL[n.dataset.k];
+  if (!d) return;
+  document.getElementById('d-title').textContent = d.t;
+  document.getElementById('d-meta').textContent = d.m;
+  document.getElementById('d-body').innerHTML = d.b;
+  detailPanel.style.display = 'block';
+  detailPanel.style.opacity = '1';
+}));
+
+// Close details button
+document.getElementById('detail-close').addEventListener('click', () => {
+  detailPanel.style.display = 'none';
+  nodes.forEach(x => x.classList.remove('sel'));
+});
+
+// Theme Toggle
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+});
+</script>
+</body>
+</html>
