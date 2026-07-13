@@ -10,6 +10,38 @@ class RecommendationRepository {
 
   final ApiClient _api;
 
+  Map<String, dynamic> _decodeObject(String body, String operation) {
+    final decoded = jsonDecode(body);
+    if (decoded is Map) {
+      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    }
+    throw FormatException('$operation trả về dữ liệu không đúng định dạng.');
+  }
+
+  String _responseError(dynamic response, String operation) {
+    if (response.body is String && (response.body as String).isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body as String);
+        if (decoded is Map) {
+          final message = decoded['message'] ?? decoded['Message'] ?? decoded['error'] ?? decoded['Error'];
+          if (message != null && message.toString().trim().isNotEmpty) {
+            return message.toString();
+          }
+        }
+      } on FormatException {
+        // Use the stable fallback below when the error body is not JSON.
+      }
+    }
+    return '$operation thất bại (HTTP ${response.statusCode}).';
+  }
+
+  Map<String, dynamic> _requireObject(dynamic response, String operation) {
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      throw StateError(_responseError(response, operation));
+    }
+    return _decodeObject(response.body, operation);
+  }
+
   String _query(Map<String, String> params) {
     if (params.isEmpty) return '';
     final query = QueryMiddleware.buildQuery(params);
@@ -74,50 +106,38 @@ class RecommendationRepository {
     int? targetCalories,
     bool excludeUserAllergies = true,
   }) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationGenerateDailyMenu,
-        {
-          'MealType': 'any',
-          'TargetCalories': targetCalories ?? 2000,
-          'MaxResults': 3,
-          'ExcludeUserAllergies': excludeUserAllergies,
-        },
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      final decoded = jsonDecode(response.body);
-      
-      final rawItems = decoded['items'] ?? decoded['Items'] ?? decoded['recommendations'] ?? decoded['Recommendations'];
-      if (rawItems is! List) return null;
-      
-      final items = rawItems.whereType<Map<String, dynamic>>().map((item) {
-        final id = (item['id'] ?? item['Id'] ?? '').toString();
-        final name = (item['name'] ?? item['Name'] ?? '').toString();
-        final isFood = item['isFood'] == true || item['IsFood'] == true;
-        final mealType = (item['mealType'] ?? item['MealType'] ?? 'Breakfast').toString();
-        final cals = item['calories_kcal'] ?? item['CaloriesKcal'] ?? 0;
-        
-        return DailyMenuPlanItem(
-          id: id,
-          name: name,
-          mealType: mealType,
-          foodId: isFood ? id : null,
-          recipeId: !isFood ? id : null,
-          sourceEntityType: isFood ? 'Food' : 'Recipe',
-          targetCalories: cals is num ? cals.round() : 0,
-        );
-      }).toList();
-      
-      int total = items.fold(0, (sum, item) => sum + item.targetCalories);
-      
-      return DailyMenuPlan(
-        targetCalories: targetCalories ?? 2000,
-        totalCalories: total,
-        items: items,
-      );
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationGenerateDailyMenu,
+      {
+        'MealType': 'any',
+        'TargetCalories': targetCalories ?? 2000,
+        'MaxResults': 3,
+        'ExcludeUserAllergies': excludeUserAllergies,
+      },
+    );
+    final recommendation = RecommendationGenerateResponse.fromJson(
+      _requireObject(response, 'Không thể tạo thực đơn trong ngày'),
+    );
+    final items = recommendation.items
+        .map(
+          (item) => DailyMenuPlanItem(
+            id: item.id,
+            name: item.name,
+            mealType: item.mealType ?? 'snack',
+            foodId: item.isFood ? item.id : null,
+            recipeId: item.isFood ? null : item.id,
+            sourceEntityType: item.type,
+            targetCalories: item.caloriesKcal.round(),
+            recommendation: item,
+          ),
+        )
+        .toList();
+
+    return DailyMenuPlan(
+      targetCalories: recommendation.targetCalories ?? targetCalories ?? 2000,
+      totalCalories: recommendation.totalCalories,
+      items: items,
+    );
   }
 
   // =========================================================================
@@ -127,61 +147,49 @@ class RecommendationRepository {
   Future<RecommendationGenerateResponse?> generateRecommendation(
     RecommendationGenerateRequest request,
   ) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationGenerate,
-        request.toJson(),
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return RecommendationGenerateResponse.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationGenerate,
+      request.toJson(),
+    );
+    return RecommendationGenerateResponse.fromJson(
+      _requireObject(response, 'Không thể tải gợi ý'),
+    );
   }
 
   Future<RecommendationGenerateResponse?> generateSafeRecommendation(
     SafeRecommendationRequest request,
   ) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationGenerateSafe,
-        request.toJson(),
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return RecommendationGenerateResponse.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationGenerateSafe,
+      request.toJson(),
+    );
+    return RecommendationGenerateResponse.fromJson(
+      _requireObject(response, 'Không thể tải gợi ý an toàn'),
+    );
   }
 
   Future<WeeklyPlanResponse?> generateWeeklyPlan(
     WeeklyPlanRequest request,
   ) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationGenerateWeeklyPlan,
-        request.toJson(),
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return WeeklyPlanResponse.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationGenerateWeeklyPlan,
+      request.toJson(),
+    );
+    return WeeklyPlanResponse.fromJson(
+      _requireObject(response, 'Không thể tạo thực đơn tuần'),
+    );
   }
 
   Future<BudgetAwareResponse?> generateBudgetAware(
     BudgetAwareRequest request,
   ) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationGenerateBudgetAware,
-        request.toJson(),
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return BudgetAwareResponse.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationGenerateBudgetAware,
+      request.toJson(),
+    );
+    return BudgetAwareResponse.fromJson(
+      _requireObject(response, 'Không thể tải gợi ý theo ngân sách'),
+    );
   }
 
   // =========================================================================
@@ -189,28 +197,26 @@ class RecommendationRepository {
   // =========================================================================
 
   Future<List<RecommendationHistoryItem>> getHistory() async {
-    try {
-      final response = await _api.get(ApiEndpoints.recommendationHistory);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List) return [];
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(RecommendationHistoryItem.fromJson)
-          .toList();
-    } catch (_) {
-      return [];
+    final response = await _api.get(ApiEndpoints.recommendationHistory);
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      throw StateError(_responseError(response, 'Không thể tải lịch sử gợi ý'));
     }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw const FormatException('Lịch sử gợi ý trả về dữ liệu không đúng định dạng.');
+    }
+    return decoded
+        .whereType<Map>()
+        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+        .map(RecommendationHistoryItem.fromJson)
+        .toList();
   }
 
   Future<RecommendationDetail?> getById(String id) async {
-    try {
-      final response = await _api.get(ApiEndpoints.recommendationById(id));
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return RecommendationDetail.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.get(ApiEndpoints.recommendationById(id));
+    return RecommendationDetail.fromJson(
+      _requireObject(response, 'Không thể tải chi tiết gợi ý'),
+    );
   }
 
   // =========================================================================
@@ -220,16 +226,13 @@ class RecommendationRepository {
   Future<RecommendationGenerateResponse?> preview(
     RecommendationPreviewRequest request,
   ) async {
-    try {
-      final response = await _api.postJson(
-        ApiEndpoints.recommendationPreview,
-        request.toJson(),
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return RecommendationGenerateResponse.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.postJson(
+      ApiEndpoints.recommendationPreview,
+      request.toJson(),
+    );
+    return RecommendationGenerateResponse.fromJson(
+      _requireObject(response, 'Không thể xem trước gợi ý'),
+    );
   }
 
   // =========================================================================
@@ -252,7 +255,11 @@ class RecommendationRepository {
     try {
       final response = await _api.putJson(
         ApiEndpoints.recommendationUpdateFeedback(id),
-        feedback.toJson(),
+        {
+          'Rating': feedback.isLiked ? 5 : 1,
+          if (feedback.comment != null) 'Comment': feedback.comment,
+          'WouldRecommend': feedback.isLiked,
+        },
       );
       return response.statusCode == 200;
     } catch (_) {
@@ -261,13 +268,10 @@ class RecommendationRepository {
   }
 
   Future<FeedbackSummary?> getFeedbackSummary() async {
-    try {
-      final response = await _api.get(ApiEndpoints.recommendationFeedbackSummary);
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return FeedbackSummary.fromJson(jsonDecode(response.body));
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.get(ApiEndpoints.recommendationFeedbackSummary);
+    return FeedbackSummary.fromJson(
+      _requireObject(response, 'Không thể tải thống kê phản hồi'),
+    );
   }
 
   // =========================================================================
@@ -275,20 +279,13 @@ class RecommendationRepository {
   // =========================================================================
 
   Future<String?> explain(String id) async {
-    try {
-      final response = await _api.get(ApiEndpoints.recommendationExplain(id));
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded['explanation']?.toString() ??
-            decoded['Explanation']?.toString() ??
-            decoded['message']?.toString() ??
-            decoded['Message']?.toString();
-      }
-      return decoded.toString();
-    } catch (_) {
-      return null;
-    }
+    final response = await _api.get(ApiEndpoints.recommendationExplain(id));
+    final decoded = _requireObject(response, 'Không thể tải lý do gợi ý');
+    final explanation = decoded['explanation'] ?? decoded['Explanation'] ?? decoded['message'] ?? decoded['Message'];
+    if (explanation != null) return explanation.toString();
+    final reasons = decoded['reasons'] ?? decoded['Reasons'];
+    if (reasons is List) return reasons.map((reason) => reason.toString()).join('\n');
+    return null;
   }
 
   // =========================================================================
@@ -302,15 +299,15 @@ class RecommendationRepository {
   }) async {
     try {
       final params = <String, String>{
-        'recipeId': ?recipeId,
-        if (calories != null) 'calories': '$calories',
-        if (excludeAllergies != null) 'excludeAllergies': excludeAllergies.toString(),
+        if (calories != null) 'targetCalories': '$calories',
+        if (excludeAllergies != null) 'excludeUserAllergies': excludeAllergies.toString(),
       };
       final response = await _api.get(
         ApiEndpoints.recommendationScores + _query(params),
       );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      return RecommendationScore.fromJson(jsonDecode(response.body));
+      return RecommendationScore.fromJson(
+        _requireObject(response, 'Không thể tải điểm phù hợp'),
+      );
     } catch (_) {
       return null;
     }

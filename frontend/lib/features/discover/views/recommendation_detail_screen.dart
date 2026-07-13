@@ -6,6 +6,7 @@ import '../models/food_models.dart';
 import '../providers/recommendation_provider.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../views/food_detail_screen.dart';
+import '../views/recipe_detail_screen.dart';
 import '../widgets/feedback_buttons.dart';
 import '../widgets/recommendation_item_tile.dart';
 import '../widgets/score_breakdown_widget.dart';
@@ -62,7 +63,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     setState(() => _isLoading = true);
 
     try {
-      _detail = await _provider.loadDetail(widget.historyItem!.id) as RecommendationDetail?;
+      await _provider.loadDetail(widget.historyItem!.id);
+      _detail = _provider.currentDetail;
       if (_detail != null) {
         await _provider.explain(_detail!.id);
         _explanation = _provider.explanation;
@@ -82,7 +84,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     setState(() => _isLoading = true);
 
     try {
-      await _provider.loadScores(recipeId: widget.recommendationItem!.id);
+      await _provider.loadScores(
+        calories: widget.recommendationItem!.caloriesKcal.round(),
+      );
     } catch (e) {
       // Handle error
     }
@@ -179,7 +183,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   String _resolveMealType(RecommendationItem item) {
-    final lower = item.name.toLowerCase();
+    final lower = item.mealType?.toLowerCase() ?? '';
     if (lower.contains('sáng') || lower.contains('breakfast')) return 'breakfast';
     if (lower.contains('trưa') || lower.contains('lunch')) return 'lunch';
     if (lower.contains('tối') || lower.contains('dinner')) return 'dinner';
@@ -229,6 +233,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         ],
         if (_detail != null) ...[
           _buildItemsList(_detail!.items),
+          const SizedBox(height: 24),
+          _buildHistoryMetadata(_detail!),
           const SizedBox(height: 24),
         ],
         _buildFeedbackSection(),
@@ -368,6 +374,18 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                 color: AppColors.primary,
               ),
             ),
+            if (response.totalEstimatedCost != null || response.maxBudgetVnd != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                [
+                  if (response.totalEstimatedCost != null)
+                    'Chi phí: ${_formatPrice(response.totalEstimatedCost!)}',
+                  if (response.maxBudgetVnd != null)
+                    'Ngân sách: ${_formatPrice(response.maxBudgetVnd!)}',
+                ].join(' · '),
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ],
           ],
         ),
       ),
@@ -386,6 +404,19 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (item.imageUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  item.imageUrl!,
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               children: [
                 Container(
@@ -429,15 +460,17 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${item.score.toStringAsFixed(1)} điểm',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                          if (item.score > 0) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(item.score * 100).round()}% phù hợp',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ],
@@ -445,6 +478,31 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                 ),
               ],
             ),
+            if (item.description != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                item.description!,
+                style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+              ),
+            ],
+            if (item.matchReason != null) ...[
+              const SizedBox(height: 12),
+              _buildInfoMessage(
+                icon: Icons.auto_awesome,
+                text: item.matchReason!,
+                color: AppColors.primary,
+              ),
+            ],
+            if (item.hasAllergyWarning) ...[
+              const SizedBox(height: 12),
+              _buildInfoMessage(
+                icon: Icons.warning_amber_rounded,
+                text: item.matchedAllergens.isEmpty
+                    ? 'Món này cần được kiểm tra thêm về dị ứng.'
+                    : 'Có thành phần cần lưu ý: ${item.matchedAllergens.join(', ')}',
+                color: Colors.red,
+              ),
+            ],
           ],
         ),
       ),
@@ -513,8 +571,10 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                     ),
                   );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Chi tiết công thức đang phát triển')),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => RecipeDetailScreen(recipeId: item.id),
+                    ),
                   );
                 }
               },
@@ -543,47 +603,39 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
               ),
             ),
             const SizedBox(height: 16),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 16,
               children: [
-                Expanded(
-                  child: _buildNutrientItem(
-                    'Calories',
-                    '${item.caloriesKcal.round()}',
-                    'kcal',
-                    Colors.orange,
-                  ),
-                ),
-                Expanded(
-                  child: _buildNutrientItem(
-                    'Protein',
-                    '${item.proteinG.round()}',
-                    'g',
-                    Colors.red,
-                  ),
-                ),
+                if (item.caloriesKcal > 0)
+                  _buildNutrientItem('Calories', '${item.caloriesKcal.round()}', 'kcal', Colors.orange),
+                if (item.proteinG > 0)
+                  _buildNutrientItem('Protein', '${item.proteinG.round()}', 'g', Colors.red),
+                if (item.carbsG > 0)
+                  _buildNutrientItem('Carbs', '${item.carbsG.round()}', 'g', Colors.blue),
+                if (item.fatG > 0)
+                  _buildNutrientItem('Chất béo', '${item.fatG.round()}', 'g', Colors.purple),
+                if (item.fiberG > 0)
+                  _buildNutrientItem('Chất xơ', '${item.fiberG.round()}', 'g', Colors.teal),
+                if (item.estimatedPriceVnd > 0)
+                  _buildNutrientItem('Chi phí', _formatPrice(item.estimatedPriceVnd), '', Colors.green),
+                if (item.displayTimeMin > 0)
+                  _buildNutrientItem('Thời gian', '${item.displayTimeMin}', 'phút', Colors.indigo),
+                if (item.servings != null)
+                  _buildNutrientItem('Khẩu phần', '${item.servings}', 'người', Colors.brown),
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildNutrientItem(
-                    'Chi phí',
-                    _formatPrice(item.estimatedPriceVnd),
-                    '',
-                    Colors.green,
-                  ),
-                ),
-                Expanded(
-                  child: _buildNutrientItem(
-                    'Thời gian',
-                    '${item.cookingTimeMin}',
-                    'phút',
-                    Colors.blue,
-                  ),
-                ),
+            if (item.difficulty != null || item.instructions != null) ...[
+              const SizedBox(height: 20),
+              if (item.difficulty != null)
+                Text('Độ khó: ${item.difficulty}', style: TextStyle(color: Colors.grey.shade700)),
+              if (item.instructions != null) ...[
+                if (item.difficulty != null) const SizedBox(height: 12),
+                const Text('Hướng dẫn', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text(item.instructions!, style: TextStyle(color: Colors.grey.shade700, height: 1.5)),
               ],
-            ),
+            ],
           ],
         ),
       ),
@@ -591,7 +643,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   Widget _buildNutrientItem(String label, String value, String unit, Color color) {
-    return Column(
+    return SizedBox(
+      width: 96,
+      child: Column(
       children: [
         Text(
           value,
@@ -608,6 +662,56 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
             color: Colors.grey.shade600,
           ),
         ),
+      ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryMetadata(RecommendationDetail detail) {
+    if (detail.type == null && detail.confidence == null && detail.input == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Thông tin tạo gợi ý', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            if (detail.type != null) ...[
+              const SizedBox(height: 10),
+              Text('Loại: ${detail.type}', style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (detail.confidence != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Độ tin cậy: ${(detail.confidence! * 100).round()}%',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoMessage({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: TextStyle(color: color, height: 1.35))),
       ],
     );
   }

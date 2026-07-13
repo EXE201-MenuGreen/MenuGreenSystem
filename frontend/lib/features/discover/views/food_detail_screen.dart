@@ -114,6 +114,19 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
               AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
             ],
           ),
+          if (food.imageUrl != null) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                food.imageUrl!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
           if (food.matchedAllergens.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
@@ -140,7 +153,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             children: [
               if (food.caloriesKcal != null) _chip('${food.caloriesKcal!.round()} kcal'),
               if (food.proteinG != null) _chip('${food.proteinG!.round()}g đạm'),
+              if (food.carbsG != null) _chip('C ${food.carbsG!.round()}g'),
+              if (food.fatG != null) _chip('F ${food.fatG!.round()}g'),
+              if (food.fiberG != null) _chip('Chất xơ ${food.fiberG!.round()}g'),
+              if (food.defaultServingG != null) _chip('${food.defaultServingG}g/khẩu phần'),
+              if (food.estimatedPriceVnd != null) _chip(_formatPrice(food.estimatedPriceVnd!)),
               if (food.category != null) _chip(food.category!),
+              if (food.region != null) _chip(food.region!),
             ],
           ),
           if (food.allergenLabelsVi.isNotEmpty) ...[
@@ -243,5 +262,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
       backgroundColor: AppColors.primary.withValues(alpha: 0.08),
       labelStyle: const TextStyle(color: AppColors.primary, fontSize: 12),
     );
+  }
+
+  String _formatPrice(int amount) {
+    if (amount >= 1000) return '${(amount / 1000).toStringAsFixed(0)}K đ';
+    return '$amount đ';
   }
 }

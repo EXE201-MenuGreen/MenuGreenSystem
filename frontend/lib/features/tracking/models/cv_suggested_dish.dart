@@ -27,16 +27,16 @@ class CvSuggestedDish {
   final List<String> matchedAllergens;
 
   factory CvSuggestedDish.fromJson(Map<String, dynamic> json) {
-    final rawIngredients = json['nguyenLieuSuDung'];
-    final rawNutri = json['thongTinDinhDuongMonAn'];
-    final rawAllergens = json['matchedAllergens'];
+    final rawIngredients = json['nguyen_lieu_su_dung'] ?? json['nguyenLieuSuDung'];
+    final rawNutri = json['thong_tin_dinh_duong_mon_an'] ?? json['thongTinDinhDuongMonAn'];
+    final rawAllergens = json['matched_allergens'] ?? json['matchedAllergens'];
     return CvSuggestedDish(
-      idMonAnGoiY: (json['idMonAnGoiY'] ?? '').toString(),
-      tenMonAn: (json['tenMonAn'] ?? '').toString(),
-      tenMonAnKyThuat: json['tenMonAnKyThuat']?.toString(),
-      moTaNgan: (json['moTaNgan'] ?? '').toString(),
-      doKhaThi: (json['doKhaThi'] ?? '').toString(),
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      idMonAnGoiY: (json['id_mon_an_goi_y'] ?? json['idMonAnGoiY'] ?? '').toString(),
+      tenMonAn: (json['ten_mon_an'] ?? json['tenMonAn'] ?? '').toString(),
+      tenMonAnKyThuat: (json['ten_mon_an_ky_thuat'] ?? json['tenMonAnKyThuat'])?.toString(),
+      moTaNgan: (json['mo_ta_ngan'] ?? json['moTaNgan'] ?? '').toString(),
+      doKhaThi: (json['do_kha_thi'] ?? json['doKhaThi'] ?? '').toString(),
+      confidence: _number(json['confidence']),
       nguyenLieuSuDung: rawIngredients is List
           ? rawIngredients
               .whereType<Map<String, dynamic>>()
@@ -46,10 +46,12 @@ class CvSuggestedDish {
       thongTinDinhDuongMonAn: rawNutri is Map<String, dynamic>
           ? CvNutritionInfo.fromJson(rawNutri)
           : CvNutritionInfo(tongCalories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0),
-      isSafeForUser: json['isSafeForUser'] == true,
+      isSafeForUser: json['is_safe_for_user'] == true || json['isSafeForUser'] == true,
       matchedAllergens: rawAllergens is List
           ? rawAllergens.map((e) => e.toString()).toList()
           : [],
     );
   }
 }
+
+double _number(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value') ?? 0;

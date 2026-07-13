@@ -46,57 +46,92 @@ class RecommendationCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         _buildChip(
                           '${item.caloriesKcal.round()} kcal',
                           Colors.orange,
                         ),
-                        const SizedBox(width: 8),
                         _buildChip(
-                          '${item.proteinG.round()}g đạm',
+                          'P ${item.proteinG.round()}g',
                           Colors.red,
+                        ),
+                        _buildChip(
+                          'C ${item.carbsG.round()}g',
+                          Colors.blue,
+                        ),
+                        _buildChip(
+                          'F ${item.fatG.round()}g',
+                          Colors.purple,
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${item.cookingTimeMin} phút',
-                          style: TextStyle(
-                            fontSize: 12,
+                        if (item.displayTimeMin > 0) ...[
+                          Icon(
+                            Icons.access_time,
+                            size: 14,
                             color: Colors.grey.shade600,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.attach_money,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        Text(
-                          _formatPrice(item.estimatedPriceVnd),
-                          style: TextStyle(
-                            fontSize: 12,
+                          const SizedBox(width: 4),
+                          Text(
+                            '${item.displayTimeMin} phút',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                        if (item.estimatedPriceVnd > 0) ...[
+                          if (item.displayTimeMin > 0) const SizedBox(width: 12),
+                          Icon(
+                            Icons.attach_money,
+                            size: 14,
                             color: Colors.grey.shade600,
                           ),
-                        ),
+                          Text(
+                            _formatPrice(item.estimatedPriceVnd),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
+                    if (item.matchReason != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.matchReason!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      ),
+                    ],
+                    if (item.hasAllergyWarning) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.matchedAllergens.isEmpty
+                            ? 'Cần kiểm tra thông tin dị ứng'
+                            : 'Dị ứng: ${item.matchedAllergens.join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Colors.red),
+                      ),
+                    ],
                   ],
                 ),
               ),
               Column(
                 children: [
-                  _buildScoreBadge(),
-                  const SizedBox(height: 8),
+                  if (item.score > 0) ...[
+                    _buildScoreBadge(),
+                    const SizedBox(height: 8),
+                  ],
                   if (onFavorite != null)
                     IconButton(
                       onPressed: onFavorite,

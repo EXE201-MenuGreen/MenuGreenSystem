@@ -15,11 +15,13 @@ class CvNutritionInfo {
 
   factory CvNutritionInfo.fromJson(Map<String, dynamic> json) {
     return CvNutritionInfo(
-      tongCalories: (json['tongCalories'] as num?)?.toDouble() ?? 0.0,
-      proteinG: (json['proteinG'] as num?)?.toDouble() ?? 0.0,
-      carbsG: (json['carbsG'] as num?)?.toDouble() ?? 0.0,
-      fatG: (json['fatG'] as num?)?.toDouble() ?? 0.0,
-      fiberG: (json['fiberG'] as num?)?.toDouble() ?? 0.0,
+      tongCalories: _number(json['tong_calories'] ?? json['tongCalories']),
+      proteinG: _number(json['protein_g'] ?? json['proteinG']),
+      carbsG: _number(json['carbs_g'] ?? json['carbsG']),
+      fatG: _number(json['fat_g'] ?? json['fatG']),
+      fiberG: _number(json['fiber_g'] ?? json['fiberG']),
     );
   }
 }
+
+double _number(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value') ?? 0;

@@ -11,6 +11,8 @@ import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../tracking/views/ingredient_scan_screen.dart';
+import '../../discover/views/recommendation_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
 
 class MainScreen extends StatefulWidget {
@@ -106,18 +108,10 @@ class _MainScreenState extends State<MainScreen> {
       body: IndexedStack(index: _currentIndex, children: _buildPages()),
       floatingActionButton: _currentIndex == _homeTab
           ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider(
-                      create: (_) => AiAssistantProvider()..loadConversations(),
-                      child: const AiConversationListScreen(),
-                    ),
-                  ),
-                );
-              },
-              backgroundColor: AppColors.primary,
+              onPressed: () => _showAiMenu(context),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.85),
+              shape: const CircleBorder(),
+              elevation: 4,
               child: const Icon(Icons.auto_awesome, color: Colors.white),
             )
           : null,
@@ -237,6 +231,207 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Cá nhân',
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAiMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 15,
+                spreadRadius: 1,
+                offset: Offset(0, -2),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pull handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Text(
+                'MenuGreen AI',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Chọn tính năng thông minh của trợ lý dinh dưỡng',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              
+              // 1. Quét nguyên liệu
+              _buildAiMenuItem(
+                context: context,
+                icon: Icons.qr_code_scanner_rounded,
+                title: 'Quét nguyên liệu',
+                subtitle: 'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
+                iconGradient: const [Color(0xFF2D5A45), Color(0xFF1B4332)],
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const IngredientScanScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              
+              // 2. Gợi ý cá nhân hóa
+              _buildAiMenuItem(
+                context: context,
+                icon: Icons.auto_awesome_rounded,
+                title: 'Gợi ý cá nhân hóa',
+                subtitle: 'Thực đơn thông minh phù hợp với thể trạng của bạn',
+                iconGradient: const [Color(0xFF40916C), Color(0xFF2D5A45)],
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RecommendationScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              
+              // 3. Trò chuyện AI
+              _buildAiMenuItem(
+                context: context,
+                icon: Icons.chat_bubble_rounded,
+                title: 'Trợ lý trò chuyện',
+                subtitle: 'Hỏi đáp dinh dưỡng & giải đáp thắc mắc sức khỏe',
+                iconGradient: const [Color(0xFF74C69D), Color(0xFF40916C)],
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChangeNotifierProvider(
+                        create: (_) => AiAssistantProvider()..loadConversations(),
+                        child: const AiConversationListScreen(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAiMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required List<Color> iconGradient,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: iconGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

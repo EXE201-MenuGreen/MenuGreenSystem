@@ -79,6 +79,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               AllergyRiskBadge(riskLevel: recipe.allergyRiskLevel),
             ],
           ),
+          if (recipe.imageUrl != null) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                recipe.imageUrl!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
           if (recipe.matchedAllergens.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
@@ -98,6 +111,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           if (recipe.description != null && recipe.description!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(recipe.description!, style: const TextStyle(color: AppColors.textSecondary)),
+          ],
+          if (_hasMetadata(recipe)) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (recipe.prepTimeMin != null) _chip('Sơ chế ${recipe.prepTimeMin} phút'),
+                if (recipe.cookTimeMin != null) _chip('Nấu ${recipe.cookTimeMin} phút'),
+                if (recipe.totalTimeMin != null) _chip('Tổng ${recipe.totalTimeMin} phút'),
+                if (recipe.servings != null) _chip('${recipe.servings} khẩu phần'),
+                if (recipe.difficulty != null) _chip(recipe.difficulty!),
+                if (recipe.mealType != null) _chip(recipe.mealType!),
+                if (recipe.estimatedPriceVnd != null) _chip(_formatPrice(recipe.estimatedPriceVnd!)),
+              ],
+            ),
           ],
           const SizedBox(height: 16),
           const Text('Nguyên liệu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -122,6 +151,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 ),
               ),
             ),
+          if (recipe.instructions != null && recipe.instructions!.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text('Hướng dẫn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(recipe.instructions!, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          ],
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -189,5 +224,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return item.notes != null && item.notes!.trim().isNotEmpty
         ? '$name — $amount (${item.notes!.trim()})'
         : '$name — $amount';
+  }
+
+  bool _hasMetadata(RecipeItem recipe) {
+    return recipe.prepTimeMin != null ||
+        recipe.cookTimeMin != null ||
+        recipe.totalTimeMin != null ||
+        recipe.servings != null ||
+        recipe.difficulty != null ||
+        recipe.mealType != null ||
+        recipe.estimatedPriceVnd != null;
+  }
+
+  Widget _chip(String text) {
+    return Chip(
+      label: Text(text),
+      backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+      labelStyle: const TextStyle(color: AppColors.primary, fontSize: 12),
+    );
+  }
+
+  String _formatPrice(int amount) {
+    if (amount >= 1000) return '${(amount / 1000).toStringAsFixed(0)}K đ';
+    return '$amount đ';
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../middleware/error_middleware.dart';
 import '../middleware/logging_middleware.dart';
@@ -119,6 +120,7 @@ class ApiClient {
     List<int> fileBytes,
     String fieldName,
     String filename, {
+    MediaType? fileContentType,
     bool authenticated = true,
   }) {
     final uri = Uri.parse(url);
@@ -133,9 +135,10 @@ class ApiClient {
         request.files.add(
           http.MultipartFile.fromBytes(
             fieldName,
-            fileBytes,
-            filename: filename,
-          ),
+          fileBytes,
+          filename: filename,
+          contentType: fileContentType,
+        ),
         );
         final streamedResponse = await request.send().timeout(_timeout);
         return http.Response.fromStream(streamedResponse);

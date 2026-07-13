@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
 import '../providers/recommendation_provider.dart';
 import '../widgets/weekly_plan_day_card.dart';
+import 'recommendation_detail_screen.dart';
 
 class WeeklyPlanScreen extends StatefulWidget {
   const WeeklyPlanScreen({super.key});
@@ -46,6 +47,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
   }
 
   Future<void> _generatePlan() async {
+    setState(() {});
     await _provider.generateWeeklyPlan(
       startDate: _startDate,
       endDate: _endDate,
@@ -53,7 +55,9 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
       excludeUserAllergies: _excludeUserAllergies,
     );
 
-    if (mounted && _provider.error != null) {
+    if (!mounted) return;
+    setState(() {});
+    if (_provider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi: ${_provider.error}')),
       );
@@ -271,7 +275,20 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...plan.days.map((day) => WeeklyPlanDayCard(day: day)),
+        ...plan.days.map(
+          (day) => WeeklyPlanDayCard(
+            day: day,
+            onMealTap: (meal) {
+              final item = meal.recommendation;
+              if (item == null) return;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecommendationDetailScreen(recommendationItem: item),
+                ),
+              );
+            },
+          ),
+        ),
         const SizedBox(height: 24),
         if (plan.days.isNotEmpty) _buildSummary(plan),
       ],
