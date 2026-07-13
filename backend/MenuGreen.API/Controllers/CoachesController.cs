@@ -131,6 +131,26 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpGet("my-coaches")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetMyCoaches()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _coachService.GetMyCoachesAsync(userId)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        [HttpGet("my-feedback")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetMyFeedback()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _coachService.GetFeedbacksAsync(userId)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
         /// <summary>Student grants health data access to Coach.</summary>
         [HttpPost("grant-access/{coachId:guid}")]
         [Authorize]

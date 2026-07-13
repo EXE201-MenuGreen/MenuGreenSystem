@@ -77,7 +77,10 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: "backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf,backend/scripts/deploy-server.sh"
+          # docker-compose.prod.yml lives at the repo root and is consumed by
+          # deploy-server.sh (it `cp`'s the file into $APP_DIR before
+          # `docker compose up -d`).
+          source: "backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf,backend/scripts/deploy-server.sh,docker-compose.prod.yml"
           target: "/tmp/nginx-deploy"
 
       - name: Deploy via SSH

@@ -220,7 +220,7 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _provider.isGenerating ? _generatePlan : null,
+            onPressed: _provider.isGenerating ? null : _generatePlan,
             icon: _provider.isGenerating
                 ? const SizedBox(
                     width: 20,
@@ -359,7 +359,9 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
       excludeUserAllergies: _excludeUserAllergies,
     );
 
-    if (mounted && _provider.error != null) {
+    if (!mounted) return;
+    setState(() {});
+    if (_provider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi: ${_provider.error}')),
       );

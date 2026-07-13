@@ -24,10 +24,12 @@ services:
       - menugreen-network
 
   # Backend API
+  # NOTE: Dockerfile lives at the repo ROOT (not in backend/), so the build
+  # context is `../` (parent of backend/) and dockerfile points up one level.
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ../Dockerfile
     container_name: menugreen-api
     restart: unless-stopped
     ports:

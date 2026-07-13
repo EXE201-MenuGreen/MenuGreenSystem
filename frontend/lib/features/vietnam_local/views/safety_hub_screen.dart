@@ -37,7 +37,10 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
         elevation: 0,
         title: const Text(
           'Bảo mật & Tuân thủ',
-          style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
@@ -99,7 +102,8 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
       icon: Icons.health_and_safety,
       color: color,
       title: 'Cảnh báo y khoa',
-      subtitle: 'Mức độ rủi ro: ${_riskLabel(level)}'
+      subtitle:
+          'Mức độ rủi ro: ${_riskLabel(level)}'
           '${alerts.bmi != null ? ' • BMI ${alerts.bmi!.toStringAsFixed(1)}' : ''}'
           '${alerts.allergiesCount > 0 ? ' • ${alerts.allergiesCount} dị ứng' : ''}',
       child: Column(
@@ -196,7 +200,10 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
           subtitle,
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }
@@ -221,7 +228,9 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
                           ? 'Đã chuẩn bị dữ liệu xuất.'
                           : ApiMessageTranslator.translate(result.message),
                     ),
-                    backgroundColor: result.success ? AppColors.primary : Colors.red,
+                    backgroundColor: result.success
+                        ? AppColors.primary
+                        : Colors.red,
                   ),
                 );
               },
@@ -242,10 +251,17 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () => _confirmDelete(context, provider),
-              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white),
+              icon: const Icon(
+                Icons.delete_outline,
+                size: 18,
+                color: Colors.white,
+              ),
               label: const Text(
                 'Vô hiệu hoá tài khoản',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
@@ -267,7 +283,10 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, SafetyProvider provider) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    SafetyProvider provider,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -283,7 +302,9 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
               child: const Text('Huỷ'),
             ),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+              ),
               onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Vô hiệu hoá'),
             ),
@@ -291,10 +312,10 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
         );
       },
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final result = await provider.deleteData();
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (result.success) {
       messenger.showSnackBar(
         SnackBar(

@@ -33,6 +33,13 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public DateTime ConnectedAt { get; set; }
     }
 
+    public class MyCoachResponse : CoachProfileResponse
+    {
+        public string ConnectionStatus { get; set; } = string.Empty;
+        public bool IsAccessGranted { get; set; }
+        public DateTime ConnectedAt { get; set; }
+    }
+
     public class ClientNutritionSummaryResponse
     {
         public Guid ClientId { get; set; }

@@ -1,6 +1,8 @@
-# AWS Lightsail Setup Guide - MenuGreen
+# AWS Lightsail Setup Guide — MenuGreen
 
-> **Last updated:** 2026-07-11 — Phản ánh server production hiện tại.
+> **Last updated:** 2026-07-12 — Phản ánh server production hiện tại.
+>
+> **Đã sửa:** Bổ sung thông tin về self-signed catch-all cert, bỏ bước cài Doppler CLI thủ công (CD tự install).
 
 ## Mục lục
 
@@ -182,7 +184,18 @@ sudo mkdir -p /etc/nginx/snippets
 sudo mkdir -p /etc/nginx/sites-enabled
 ```
 
-> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md) và `MenuGreenSystem/backend/nginx/deploy/README.md`.
+### Self-signed cert cho catch-all HTTPS server
+
+Deploy script cần một self-signed cert để Nginx có thể reject các request HTTPS với SNI không xác định (chỉ domain `api.menugreen.food` mới được route tới API). Cert này sẽ được `deploy-server.sh` **tự generate** nếu chưa có:
+
+```
+/etc/ssl/certs/menugreen-catchall.pem
+/etc/ssl/private/menugreen-catchall.key
+```
+
+Bạn **không cần tạo thủ công** — chỉ cần đảm bảo `/etc/ssl/private/` tồn tại. User `ubuntu` mặc định có quyền `sudo` trên Ubuntu 22.04 nên có thể chạy `sudo openssl req -x509 ...` để generate cert.
+
+> **Cấu hình chi tiết Nginx (CORS, proxy, SSL):** xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md).
 
 ---
 
@@ -208,7 +221,21 @@ chmod 700 ~/.ssh
 # Hoặc dùng Lightsail default key + paste vào GitHub Secret LIGHTSAIL_SSH_KEY
 ```
 
-### 7.3 Outbound connections cần thiết
+### 7.3 Doppler CLI
+
+**KHÔNG cần cài thủ công** — `deploy-server.sh` tự download Doppler CLI ở lần deploy đầu tiên nếu chưa có:
+
+```bash
+# Tự động chạy bởi CD (chỉ khi command -v doppler fail):
+mkdir -p ~/.local/bin
+DOPPLER_VERSION="$(curl -fsSL https://api.github.com/repos/DopplerHQ/cli/releases/latest | jq -r .tag_name)"
+curl -fsSL "https://github.com/DopplerHQ/cli/releases/download/${DOPPLER_VERSION}/doppler_${DOPPLER_VERSION#v}_linux_amd64.tar.gz" -o /tmp/doppler.tar.gz
+tar -xzf /tmp/doppler.tar.gz -C ~/.local/bin doppler
+```
+
+Yêu cầu: `jq` phải có sẵn (Ubuntu 22.04 mặc định có).
+
+### 7.4 Outbound connections cần thiết
 
 Server cần kết nối ra ngoài đến:
 
@@ -221,7 +248,7 @@ Server cần kết nối ra ngoài đến:
 
 Không cần mở ports cho outbound — Lightsail mặc định cho phép tất cả outbound.
 
-### 7.4 RDS Security Group
+### 7.5 RDS Security Group
 
 Vào **AWS Console → RDS → menugreen-db → Connectivity & security → Security group** → Edit inbound rules:
 
@@ -229,7 +256,7 @@ Vào **AWS Console → RDS → menugreen-db → Connectivity & security → Secu
 |-----------------|----------|------|-------------------|
 | PostgreSQL      | TCP      | 5432 | `52.77.218.100/32` (IP Lightsail) |
 
-### 7.5 Verify server
+### 7.6 Verify server
 
 ```bash
 # Docker OK?

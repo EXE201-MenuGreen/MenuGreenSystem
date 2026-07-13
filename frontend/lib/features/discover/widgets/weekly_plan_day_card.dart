@@ -174,33 +174,54 @@ class WeeklyPlanDayCard extends StatelessWidget {
   Widget _buildMealItem(DailyMenuPlanItem meal) {
     return Padding(
       padding: const EdgeInsets.only(left: 32, top: 4),
-      child: Row(
-        children: [
-          Icon(
-            meal.isFood ? Icons.restaurant : Icons.menu_book,
-            size: 14,
-            color: Colors.grey,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              meal.name,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade800,
+      child: InkWell(
+        onTap: onMealTap == null ? null : () => onMealTap!(meal),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                meal.isFood ? Icons.restaurant : Icons.menu_book,
+                size: 14,
+                color: Colors.grey,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meal.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (meal.recommendation != null)
+                      Text(
+                        'P ${meal.recommendation!.proteinG.round()}g · C ${meal.recommendation!.carbsG.round()}g · F ${meal.recommendation!.fatG.round()}g',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                '${meal.targetCalories} kcal',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              if (onMealTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade500),
+              ],
+            ],
           ),
-          Text(
-            '${meal.targetCalories} kcal',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

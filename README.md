@@ -90,9 +90,8 @@ MenuGreenSystem/
 ├── monitoring/                        # Prometheus, Grafana, Alertmanager
 ├── scripts/                           # Scripts triển khai, ops, utilities
 ├── firebase/                          # Firebase rules
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── docker-compose.monitoring.yml
+├── docker-compose.yml           # Local dev (postgres + api + nginx) — backend/docker-compose.yml
+├── docker-compose.prod.yml      # Production (api only) — SCP'd by CD workflow
 ├── Dockerfile
 ├── .env.example
 ├── .env.production.example

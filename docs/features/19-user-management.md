@@ -1,12 +1,12 @@
 # 19. User Management
 
-**Status:** API Done · UI Not Done
-**Last updated:** 2026-07-09
+**Status:** API Done · UI Done · **Assessment: DONE**
+**Last updated:** 2026-07-13
 
 **Related controller:** `backend/MenuGreen.API/Controllers/UserController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/UserService.cs`
 
-**Related Flutter features:** Chưa có (User-facing part nằm trong Profile feature)
+**Related Flutter features:** Profile đổi mật khẩu và `frontend/lib/features/advanced/` cho Admin user management.
 
 ---
 
@@ -36,18 +36,18 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `PUT` | `/api/Users/change-password` | Đổi mật khẩu (yêu cầu current password) |
+| `PUT` | `/api/User/change-password` | Đổi mật khẩu (yêu cầu current password) |
 
 ### 3.2 Admin
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/Users` | Danh sách tất cả users |
-| `GET` | `/api/Users/{id}` | Chi tiết user |
-| `PUT` | `/api/Users/{id}/toggle-status` | Toggle active/inactive *(code: cả PATCH và PUT variants)* |
-| `PUT` | `/api/Users/{id}/lock` | Lock user (không đăng nhập được) *(code: cả PATCH và PUT variants)* |
-| `PUT` | `/api/Users/{id}/unlock` | Unlock user *(code: cả PATCH và PUT variants)* |
-| `PUT` | `/api/Users/{id}/assign-role` | Gán role cho user (Admin/User/Coach) *(code: cả PATCH và PUT variants)* |
+| `GET` | `/api/User` | Danh sách tất cả users |
+| `GET` | `/api/User/{id}` | Chi tiết user |
+| `PUT` | `/api/User/{id}/toggle-status` | Toggle active/inactive *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/User/{id}/lock` | Lock user (không đăng nhập được) *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/User/{id}/unlock` | Unlock user *(code: cả PATCH và PUT variants)* |
+| `PUT` | `/api/User/{id}/assign-role` | Gán role cho user (Admin/User/Coach) *(code: cả PATCH và PUT variants)* |
 
 > **Ghi chú:** Controller đăng ký cả `PATCH` và `PUT` cho 4 admin endpoints (toggle-status, lock, unlock, assign-role). Cả 2 HTTP methods cùng handler. Doc liệt kê PUT cho đơn giản.
 
@@ -58,7 +58,7 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 ## 4. UI Components
 
 - User-facing: `ChangePasswordScreen` trong Profile feature (đã có).
-- Admin-facing: User management trong Admin Panel (chưa có).
+- Admin-facing: danh sách, chi tiết, status, lock/unlock và role assignment trong tab quản trị.
 
 ---
 
@@ -74,3 +74,14 @@ Khác với `ProfileController`: Profile = thông tin hiển thị (name, avatar
 
 - Change password có thể gọi từ Profile screen (hiện đã có Flutter UI).
 - Admin user management có thể tích hợp vào existing Admin Panel nếu có.
+
+## 7. Verification & Assessment (2026-07-12)
+
+- [x] User có màn hình đổi mật khẩu hiện hữu.
+- [x] Admin có danh sách user, bật/tắt, lock/unlock và gán role User/Coach/Admin.
+- [x] Có màn hình chi tiết user dùng `GET /api/User/{id}` với trạng thái, role, email confirmation và thời điểm đăng nhập.
+- [x] Non-admin nhận màn hình giải thích quyền truy cập thay vì crash.
+- [x] Đã sửa route tài liệu từ `/api/Users` sang route controller thực tế `/api/User`.
+- [x] Flutter analyzer không có error/warning cho feature.
+
+**Đánh giá: DONE** về UI/API contract. Cần smoke test thêm với JWT Admin thật trước khi phát hành production.

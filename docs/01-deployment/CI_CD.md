@@ -1,12 +1,14 @@
-# CI/CD Pipeline Guide - MenuGreen System
+# CI/CD Pipeline Guide — MenuGreen System
 
-> **Last updated:** 2026-07-11 — Phản ánh workflow hiện tại (backend-ci.yml + backend-cd.yml).
+> **Last updated:** 2026-07-12 — Phản ánh workflow hiện tại (`backend-ci.yml` + `backend-cd.yml`).
 >
-> **Kiến trúc tổng quan + GitHub Secrets + Server Info + docker-compose.prod.yml:** xem [ARCHITECTURE.md](./ARCHITECTURE.md).
+> **Đã sửa:** Bỏ mô tả "13 bước deploy + push previous + base64 compose". Thêm mô tả 3-tier local rollback và EXIT trap fail-safe.
+>
+> **Kiến trúc tổng quan + GitHub Secrets + Server Info:** xem [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
-## Pipeline Flow (hiện tại)
+## Pipeline Flow
 
 ```
 ┌──────────────────────┐
@@ -16,43 +18,56 @@
            │
            ▼
 ┌──────────────────────────────────────────┐
-│  backend-ci.yml (Build & Push)          │
+│  backend-ci.yml (Build & Push)           │
 │  ┌────────────────────────────────────┐  │
 │  │ 1. Checkout                        │  │
-│  │ 2. Setup .NET 9.0                  │  │
+│  │ 2. Setup .NET 9.0.x                │  │
 │  │ 3. Restore + Build                 │  │
 │  │ 4. (Optional) Run tests            │  │
 │  │ 5. Docker login (Docker Hub)       │  │
-│  │ 6. Build image → push :main + :sha │  │
+│  │ 6. Build image                     │  │
+│  │ 7. Tag :main + :sha + :latest      │  │
+│  │ 8. Push to Docker Hub              │  │
 │  └────────────────────────────────────┘  │
 └──────────┬───────────────────────────────┘
-           │ workflow_run completed
+           │ workflow_run completed (success only)
            ▼
 ┌──────────────────────────────────────────┐
 │  backend-cd.yml (Deploy)                 │
 │  ┌────────────────────────────────────┐  │
-│  │ 1. Checkout                        │  │
+│  │ 1. Checkout + export SHA           │  │
 │  │ 2. Check disk space                │  │
-│  │ 3. SCP nginx files → server       │  │
-│  │    (nginx.conf + cors-map.conf)    │  │
+│  │ 3. SCP files lên /tmp/nginx-deploy/│  │
+│  │    ├─ docker-compose.prod.yml      │  │
+│  │    ├─ backend/nginx/nginx.conf     │  │
+│  │    └─ backend/nginx/conf.d/cors... │  │
 │  │ 4. SSH → Lightsail                 │  │
 │  │ 5. Apply nginx config (FIRST!)     │  │
 │  │    ├─ Backup → Copy → nginx -t     │  │
 │  │    ├─ PASS: reload nginx           │  │
 │  │    └─ FAIL: restore + abort        │  │
-│  │ 6. Cleanup old Docker resources    │  │
-│  │ 7. Decode docker-compose.prod.yml  │  │ ← base64 embedded
-│  │ 8. Install Doppler CLI (if needed) │  │
-│  │ 9. Doppler secrets → .env          │  │
-│  │10. Backup RDS (pg_dump)            │  │
-│  │11. Tag :main → :previous           │  │
-│  │12. Pull :main                      │  │
-│  │13. Stop old container              │  │
-│  │14. Up new container                │  │
-│  │15. Verify tables exist in DB       │  │
-│  │16. Health check /health/ready      │  │
-│  │    └─ FAIL → Auto rollback         │  │
-│  │17. Prune old Docker images         │  │
+│  │ 6. Cleanup disk                    │  │
+│  │ 7. Install Doppler CLI (if needed) │  │
+│  │ 8. Doppler secrets → .env          │  │
+│  │ 9. Backup RDS (pg_dump)            │  │
+│  │    └─ FAIL = ABORT DEPLOY          │  │
+│  │10. >>> DEPLOY PHASE STARTED <<<    │  │
+│  │11. Tag menugreen_api               │  │
+│  │    → rollback-local-<timestamp>    │  │
+│  │12. Pull :main + tag menugreen_api  │  │
+│  │13. Stop + remove old container     │  │
+│  │14. docker compose up -d            │  │
+│  │    (|| UP_FAILED=1, KHÔNG exit)    │  │
+│  │15. Wait + health check             │  │
+│  │    /health/ready × 30 attempts     │  │
+│  │    ├─ PASS → done                  │  │
+│  │    └─ FAIL → perform_rollback()    │  │
+│  │16. Prune old images                │  │
+│  │                                     │  │
+│  │ EXIT TRAP (any non-zero exit):     │  │
+│  │    if DEPLOY_PHASE_STARTED=1:      │  │
+│  │      perform_rollback()            │  │
+│  │    exit with ORIGINAL code         │  │
 │  └────────────────────────────────────┘  │
 └──────────────────────────────────────────┘
            │
@@ -121,148 +136,147 @@ Vào **GitHub** → Repository → **Settings** → **Secrets and variables** �
 - Commit message chứa `#skipdeploy`
 - Trigger là `pull_request`
 
-**Steps (deploy via SCP + SSH):**
+**Lý do tách script deploy thành file riêng:**
+
+CD workflow upload `deploy-server.sh` (~500 lines) qua SCP rồi gọi qua SSH, thay vì inline vào workflow. Lý do: GitHub Actions cap mỗi `${{ }}` expression ở 21,000 chars; logic đầy đủ (backup DB, nginx reload, Doppler download, health check, 3-tier rollback, EXIT trap) vượt quá giới hạn.
+
+**Deploy steps (file `backend/scripts/deploy-server.sh`):**
+
+#### Phase A — Pre-flight (fail = abort, container cũ vẫn live)
 
 ```bash
-# === Pre-SSH: SCP nginx files ===
-# GitHub Actions dùng appleboy/scp-action copy file từ repo lên server
-scp backend/nginx/nginx.conf ubuntu@server:/tmp/nginx-deploy/
-scp backend/nginx/conf.d/cors-map.conf ubuntu@server:/tmp/nginx-deploy/
+# 1. Đảm bảo self-signed cert tồn tại (cho catch-all HTTPS server)
+[ -f /etc/ssl/certs/menugreen-catchall.pem ] || openssl req -x509 ...
 
-# === SSH vào server ===
+# 2. Apply nginx config FIRST (zero downtime)
+mkdir -p "$APP_DIR"
+#   - Backup config hiện tại: cors-map.conf.bak.YYYYMMDD_HHMMSS, nginx.conf.bak.YYYYMMDD_HHMMSS
+#   - Copy file mới từ /tmp/nginx-deploy/
+#   - sudo nginx -t
+#     - PASS: systemctl reload nginx
+#     - FAIL: restore backup + exit 1 (container KHÔNG bị restart)
 
-# 1. Apply nginx config (FIRST - trước khi restart container)
-#    Nếu fail → restore backup + abort toàn bộ deploy (zero downtime)
-NGINX_TS=$(date +"%Y%m%d_%H%M%S")
-sudo cp /etc/nginx/conf.d/cors-map.conf \
-        /etc/nginx/conf.d/cors-map.conf.bak.$NGINX_TS
-sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak.$NGINX_TS
-sudo cp /tmp/nginx-deploy/nginx.conf /etc/nginx/nginx.conf
-sudo cp /tmp/nginx-deploy/conf.d/cors-map.conf /etc/nginx/conf.d/cors-map.conf
-if sudo nginx -t 2>&1; then
-  sudo systemctl reload nginx
-else
-  sudo cp /etc/nginx/conf.d/cors-map.conf.bak.$NGINX_TS \
-          /etc/nginx/conf.d/cors-map.conf
-  sudo cp /etc/nginx/nginx.conf.bak.$NGINX_TS /etc/nginx/nginx.conf
-  exit 1
-fi
-rm -rf /tmp/nginx-deploy
-
-# 2. Cleanup disk
+# 3. Cleanup disk
 sudo docker system prune -af --volumes
 
-# 3. Decode embedded docker-compose.prod.yml
-echo "$COMPOSE_B64" | base64 -d > "$APP_DIR/docker-compose.prod.yml"
+# 4. Tạo docker-compose.prod.yml (đã SCP từ workflow)
+# (KHÔNG còn base64-embed, file nằm trong repo)
 
-# 4. Install Doppler CLI (if missing)
-curl -fsSL https://github.com/DopplerHQ/cli/releases/...
+# 5. Install Doppler CLI (nếu chưa có)
 
-# 5. Download Doppler secrets
-doppler secrets download --token $DOPPLER_TOKEN \
-  --no-file --project menugreen --config prd --format env \
-  > /tmp/doppler_raw.env
+# 6. Download Doppler secrets → /tmp/doppler_raw.env
+doppler secrets download --token "$DOPPLER_TOKEN" \
+  --no-file --project menugreen --config prd --format env
 
-# 6. Build .env from secrets
-# Format: Foo__Bar=value (convert : to __ for nested keys)
-# Special handling for: ConnectionStrings__DefaultConnection, JwtSettings__*, REDIS_URL
+# 7. Build .env từ Doppler secrets
+# Format: Foo__Bar=value (giữ nguyên key có __, thay : → __ cho nested keys)
+# Special handling: ConnectionStrings__DefaultConnection, JwtSettings__*, REDIS_URL
+# Skip: LIGHTSAIL_SSH_KEY (tránh inject private key vào container)
 
-# 7. Backup RDS (FAIL = ABORT DEPLOY)
-PGPASSWORD=$DB_PASSWORD pg_dump -h $DB_HOST -U $DB_USER \
-  -d $DB_NAME -F p -f /tmp/menugreen_backup_*.sql
+# 8. Backup RDS (FAIL = ABORT DEPLOY)
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" \
+  -U "$DB_USER" -d "$DB_NAME" -F p -f "/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
+# Giữ 5 file backup gần nhất
+```
 
-# 8. Tag previous image
-docker tag $IMAGE:main $IMAGE:previous
-docker push $IMAGE:previous
+#### Phase B — Deploy (bắt đầu từ đây, fail = EXIT trap rollback)
 
-# 9. Pull latest
-docker pull $IMAGE:main
+```bash
+# === DEPLOY PHASE STARTED ===
+# Set flag DEPLOY_PHASE_STARTED=1 — bật EXIT trap từ đây
 
-# 10. Stop + remove old container
-docker compose -f $APP_DIR/docker-compose.prod.yml down --remove-orphans
+# 9. Tag snapshot image hiện tại để rollback local
+if docker inspect menugreen_api > /dev/null 2>&1; then
+  ROLLBACK_LOCAL_TAG="menugreen_api:rollback-local-$(date +%s)"
+  sudo docker tag menugreen_api "$ROLLBACK_LOCAL_TAG"
+fi
 
-# 11. Start new container
-docker compose -f $APP_DIR/docker-compose.prod.yml up -d
+# 10. Pull image mới
+sudo docker pull $IMAGE:main || { echo "Failed to pull"; exit 1; }
 
-# 12. Wait + health check
+# 11. Tag :main → menugreen_api
+sudo docker tag $IMAGE:main menugreen_api
+
+# 12. Stop container cũ (atomic với up)
+docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans || true
+
+# 13. Up container mới — FAIL không exit ngay
+docker compose -f "$APP_DIR/docker-compose.prod.yml" up -d || UP_FAILED=1
+# ↑ nếu fail: tiếp tục tới health check → rollback tự nhiên
+
+# 14. Wait + health check
 for i in {1..30}; do
   curl -sf http://localhost:5000/health/ready && break
   sleep 2
 done
-
-# 13. Auto-rollback if health check fails
-# - Logs failed container
-# - Down compose
-# - Pull $IMAGE:previous
-# - Re-fetch Doppler secrets
-# - Up with previous image
+# HEALTH_PASSED=false → gọi perform_rollback() → exit 1
+# HEALTH_PASSED=true  → tiếp tục prune images
 ```
 
 > **Server info (SSH, app dir, image, port, domain):** xem [ARCHITECTURE.md](./ARCHITECTURE.md#server-information).
 
 ---
 
-## Database Migration
+## Rollback & Fail-safe
 
-### Automatic (trên app startup)
+### Layer 1: Nginx fail → restore + abort
 
-App tự chạy EF Core migration khi khởi động (xem `Program.cs` / `DbContext`). Không cần efbundle hay chạy `dotnet ef` trong container.
+Nếu `nginx -t` fail (Phase A):
+- Restore `cors-map.conf.bak.YYYYMMDD_HHMMSS` và `nginx.conf.bak.YYYYMMDD_HHMMSS`
+- `exit 1`
+- **Container cũ không bị restart**, **nginx vẫn chạy config cũ**
+- Zero downtime cho user
 
-### Backup trước khi deploy
+### Layer 2: Health check fail → `perform_rollback()`
 
-CD workflow tự động `pg_dump` trước khi deploy:
+Nếu `curl /health/ready` fail 30 lần (60s) sau `docker compose up`:
 
-```bash
-BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
-PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" \
-  -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE"
+1. `docker compose logs --tail=50` (ghi log container lỗi)
+2. `docker compose down`
+3. **Chọn rollback image theo 3-tier priority:**
 
-# Backup fail → ABORT deployment
-```
+| Tier | Source                                | Khi nào dùng                                  |
+|------|---------------------------------------|-----------------------------------------------|
+| 1    | Local `menugreen_api:rollback-local-*`| Mặc định — nhanh nhất, không cần Docker Hub   |
+| 2    | Hub `$IMAGE:previous`                  | Local tag bị mất (vd sau nhiều lần prune)     |
+| 3    | Hub `$IMAGE:main-<oldsha>`            | Local + previous đều mất                      |
 
-Backup giữ lại 5 file gần nhất ở `/tmp/`.
-
----
-
-## Health Check
-
-| Endpoint             | Description                | Check trong CI |
-|----------------------|----------------------------|----------------|
-| `GET /health`        | Full health (DB + Redis)   |                |
-| `GET /health/ready`  | Readiness (DB + Redis)     | ✅ (30 lần, 2s/lần) |
-| `GET /health/live`   | Liveness (always OK)       | (trong Docker healthcheck) |
-
-### Test thủ công
-
-```bash
-# Qua Nginx (public)
-curl -I https://api.menugreen.food/health/live
-
-# Trực tiếp API (trên server)
-curl -I http://localhost:5000/health/ready
-
-# Trên server từ máy local
-ssh -i LightsailDefaultKeyPair.pem ubuntu@52.77.218.100 \
-  "curl http://localhost:5000/health/ready"
-```
-
----
-
-## Rollback Plan
-
-### Auto rollback (CD workflow tự làm)
-
-Nếu health check fail 30 lần (60s) sau khi deploy:
-
-1. Log container lỗi
-2. Stop container hiện tại
-3. Pull image `anhtuan21112004/menugreensystem:previous`
 4. Re-fetch Doppler secrets (đảm bảo `.env` đúng format)
-5. Tag previous image
-6. `docker compose up -d` với image cũ
-7. `exit 1` để workflow fail
+5. `sudo docker tag <chosen> menugreen_api`
+6. `docker compose up -d`
+7. Verify `/health/live` × 15 lần
+8. `exit 1` để workflow fail, operator nhận alert
+
+### Layer 3: EXIT trap fail-safe (mới thêm 2026-07-12)
+
+Bash `EXIT trap` được set ngay sau khi `DEPLOY_PHASE_STARTED=1`:
+
+```bash
+deploy_rollback_trap() {
+  local exit_code=$?
+  if [ "$exit_code" -eq 0 ] || [ "${DEPLOY_PHASE_STARTED:-0}" -ne 1 ]; then
+    return
+  fi
+  if [ "${ROLLBACK_DONE:-0}" -eq 1 ]; then
+    return
+  fi
+  echo ">>> FAIL-SAFE TRAP: deploy phase exited with code $exit_code"
+  perform_rollback || true
+  exit $exit_code  # giữ exit code gốc để GH Action vẫn hiển thị failed
+}
+trap deploy_rollback_trap EXIT
+```
+
+**Khi nào trigger:** Bất kỳ lệnh nào trong Phase B exit non-zero. Ví dụ:
+- `docker compose up` crash giữa chừng → `set -e` exit → trap fires
+- `pg_dump` đã fail ở Phase A nhưng `DEPLOY_PHASE_STARTED` chưa set → trap KHÔNG fire (đúng — backup fail không cần rollback)
+- `wait` loop kết thúc với health fail → `HEALTH_PASSED=false` → gọi `perform_rollback()` thủ công
+
+**Hai đường rollback (health path và trap) đều được guard bởi `ROLLBACK_DONE=1`** để tránh chạy hai lần.
 
 ### Manual rollback
+
+Nếu auto rollback fail (cả 3-tier đều hết image):
 
 ```bash
 ssh -i ~/LightsailDefaultKeyPair.pem ubuntu@52.77.218.100
@@ -298,6 +312,64 @@ PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST \
 
 ---
 
+## Database Migration
+
+### Automatic (trên app startup)
+
+App tự chạy EF Core migration khi khởi động (xem `Program.cs` / `DbContext`). Không cần efbundle hay chạy `dotnet ef` trong container.
+
+Migration files ở `MenuGreen.DataAccessLayer/Migrations/`. Khi push migration mới → CI/CD build image mới → container mới tự apply lúc startup.
+
+### Manual trigger (Admin endpoint)
+
+Có sẵn endpoint admin để chạy migration thủ công:
+
+```
+POST /api/AdminMigration/migrate
+```
+
+Xem chi tiết tại `backend/MenuGreen.API/Controllers/AdminMigrationController.cs`. **Chỉ dùng khi auto-migration fail.**
+
+### Backup trước khi deploy
+
+CD workflow tự động `pg_dump` trước khi deploy:
+
+```bash
+BACKUP_FILE="/tmp/menugreen_backup_$(date +%Y%m%d_%H%M%S).sql"
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" \
+  -U "$DB_USER" -d "$DB_NAME" -F p -f "$BACKUP_FILE"
+
+# Backup fail → ABORT deployment
+```
+
+Backup giữ lại 5 file gần nhất ở `/tmp/`.
+
+---
+
+## Health Check
+
+| Endpoint             | Description                | Check trong CD |
+|----------------------|----------------------------|----------------|
+| `GET /health`        | Full health (DB + Redis)   |                |
+| `GET /health/ready`  | Readiness (DB + Redis)     | ✅ (30 lần × 2s = 60s) |
+| `GET /health/live`   | Liveness (always OK)       | ✅ (trong Docker healthcheck + rollback verify) |
+
+### Test thủ công
+
+```bash
+# Qua Nginx (public)
+curl -I https://api.menugreen.food/health/live
+
+# Trực tiếp API (trên server)
+curl -I http://localhost:5000/health/ready
+
+# Trên server từ máy local
+ssh -i LightsailDefaultKeyPair.pem ubuntu@52.77.218.100 \
+  "curl http://localhost:5000/health/ready"
+```
+
+---
+
 ## Nginx Configuration (auto-deploy qua CI/CD)
 
 Cấu hình chi tiết: xem [NGINX_AND_CORS.md](./NGINX_AND_CORS.md) và `backend/nginx/`.
@@ -322,7 +394,7 @@ git push origin main
 backend-ci.yml — build Docker image (3-5 phút)
        ↓
 backend-cd.yml:
-  ├─ SCP file nginx lên /tmp/nginx-deploy/
+  ├─ SCP file nginx + docker-compose.prod.yml → /tmp/nginx-deploy/
   └─ SSH apply:
      ├─ Backup config (.bak.YYYYMMDD_HHMMSS)
      ├─ Copy file mới → /etc/nginx/
@@ -413,9 +485,8 @@ sudo tail -20 /var/log/nginx/error.log
 | [NGINX_AND_CORS.md](./NGINX_AND_CORS.md)    | CORS & Nginx configuration           |
 | [SECRETS_MANAGEMENT.md](./SECRETS_MANAGEMENT.md) | Quản lý secrets qua Doppler    |
 | [SERVER_SETUP.md](./SERVER_SETUP.md)        | Setup server từ đầu                  |
-| [archive/](./archive/)                      | Lịch sử fix + review (đã xong)       |
-| [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md) | Setup GitHub Secrets         |
+| [`../GITHUB_SECRETS_SETUP.md`](../GITHUB_SECRETS_SETUP.md) | Setup GitHub Secrets         |
 
 ---
 
-*Last updated: 2026-07-11*
+*Last updated: 2026-07-12*

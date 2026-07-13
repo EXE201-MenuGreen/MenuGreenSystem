@@ -39,7 +39,7 @@ class RangePickerField extends StatelessWidget {
   String _fmt(DateTime date) {
     final dd = date.day.toString().padLeft(2, '0');
     final mm = date.month.toString().padLeft(2, '0');
-    return '$dd/${mm}/${date.year}';
+    return '$dd/$mm/${date.year}';
   }
 
   @override

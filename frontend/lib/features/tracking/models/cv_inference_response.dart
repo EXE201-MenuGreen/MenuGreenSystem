@@ -23,15 +23,15 @@ class CvInferenceResponse {
   final List<CvSuggestedDish>? danhSachMonAnGoiY;
 
   factory CvInferenceResponse.fromJson(Map<String, dynamic> json) {
-    final rawRawIngredients = json['nguyenLieuThoQuetDuoc'];
-    final rawDishes = json['danhSachMonAnGoiY'];
+    final rawRawIngredients = json['nguyen_lieu_tho_quet_duoc'] ?? json['nguyenLieuThoQuetDuoc'];
+    final rawDishes = json['danh_sach_mon_an_goi_y'] ?? json['danhSachMonAnGoiY'];
     return CvInferenceResponse(
-      jobId: (json['jobId'] ?? '').toString(),
-      requestId: (json['requestId'] ?? '').toString(),
-      apiVersion: (json['apiVersion'] ?? 'v1').toString(),
+      jobId: (json['job_id'] ?? json['jobId'] ?? '').toString(),
+      requestId: (json['request_id'] ?? json['requestId'] ?? '').toString(),
+      apiVersion: (json['api_version'] ?? json['apiVersion'] ?? 'v1').toString(),
       status: (json['status'] ?? '').toString(),
-      processingTimeMs: (json['processingTimeMs'] as num?)?.toDouble(),
-      luongTinCayChung: json['luongTinCayChung']?.toString(),
+      processingTimeMs: _number(json['processing_time_ms'] ?? json['processingTimeMs']),
+      luongTinCayChung: (json['luong_tin_cay_chung'] ?? json['luongTinCayChung'])?.toString(),
       nguyenLieuThoQuetDuoc: rawRawIngredients is List
           ? rawRawIngredients
               .whereType<Map<String, dynamic>>()
@@ -47,3 +47,5 @@ class CvInferenceResponse {
     );
   }
 }
+
+double? _number(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value');

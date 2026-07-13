@@ -12,8 +12,10 @@ class CvRecipeIngredient {
   factory CvRecipeIngredient.fromJson(Map<String, dynamic> json) {
     return CvRecipeIngredient(
       ten: (json['ten'] ?? '').toString(),
-      tenKyThuat: (json['tenKyThuat'] ?? '').toString(),
-      khoiLuongG: (json['khoiLuongG'] as num?)?.toDouble() ?? 0.0,
+      tenKyThuat: (json['ten_ky_thuat'] ?? json['tenKyThuat'] ?? '').toString(),
+      khoiLuongG: _number(json['khoi_luong_g'] ?? json['khoiLuongG']),
     );
   }
 }
+
+double _number(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value') ?? 0;

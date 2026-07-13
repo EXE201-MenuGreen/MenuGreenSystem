@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
@@ -20,7 +21,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
   bool _loading = false;
   String _loadingStep = '';
   Timer? _stepTimer;
-  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
 
   // Scan line animation
   late AnimationController _animController;
@@ -86,14 +87,17 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
       );
       if (image == null) return;
 
-      setState(() {
-        _selectedImage = image;
-      });
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+      setState(() => _selectedImageBytes = bytes);
 
       _startLoadingSteps();
 
-      final bytes = await image.readAsBytes();
-      final result = await _repository.analyzeFoodImage(bytes, image.name);
+      final result = await _repository.analyzeFoodImage(
+        bytes,
+        image.name,
+        mimeType: _imageMimeType(image),
+      );
 
       _stepTimer?.cancel();
       if (!mounted) return;
@@ -200,12 +204,11 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
           Positioned.fill(
             child: Container(
               color: Colors.black,
-              child: _selectedImage != null
+              child: _selectedImageBytes != null
                   ? Opacity(
                       opacity: 0.6,
-                      // If user selected an image, show it as background
-                      child: Image.network(
-                        _selectedImage!.path,
+                      child: Image.memory(
+                        _selectedImageBytes!,
                         fit: BoxFit.cover,
                       ),
                     )
@@ -465,4 +468,14 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
       ),
     );
   }
+}
+
+String _imageMimeType(XFile image) {
+  final extension = image.name.split('.').last.toLowerCase();
+  return switch (extension) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    _ => 'image/jpeg',
+  };
 }
