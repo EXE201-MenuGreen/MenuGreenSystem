@@ -36,14 +36,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existingUsers = await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail);
             if (existingUsers.Any()) throw new Exception("Email is already registered.");
 
-            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
+            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "Free")).FirstOrDefault();
             if (userRole == null)
             {
                 userRole = new Role
                 {
                     Id = Guid.NewGuid(),
-                    Name = "User",
-                    Description = "Standard User Role",
+                    Name = "Free",
+                    Description = "Free User Role",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -106,7 +106,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             user.LastSignInAt = DateTime.UtcNow;
             _unitOfWork.Users.Update(user);
 
-            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "User";
+            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "Free";
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
             var accessToken = GenerateJwtToken(user, roleName);
             var refreshToken = GenerateRefreshToken();
@@ -134,7 +134,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (user == null || !user.IsActive)
                 throw new Exception("Your account has been locked or does not exist.");
 
-            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "User";
+            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "Free";
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
             var newAccessToken = GenerateJwtToken(user, roleName);
             var newRefreshToken = GenerateRefreshToken();
@@ -270,14 +270,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (user == null)
             {
-                var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
+                var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "Free")).FirstOrDefault();
                 if (userRole == null)
                 {
                     userRole = new Role
                     {
                         Id = Guid.NewGuid(),
-                        Name = "User",
-                        Description = "Standard User Role",
+                        Name = "Free",
+                        Description = "Free User Role",
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
@@ -345,7 +345,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private async Task<AuthResponse> IssueAuthResponseAsync(User user, Profile? profile)
         {
-            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "User";
+            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId)).FirstOrDefault()?.Name ?? "Free";
             profile ??= (await _unitOfWork.Profiles.FindAsync(p => p.UserId == user.Id)).FirstOrDefault();
 
             var accessToken = GenerateJwtToken(user, roleName);

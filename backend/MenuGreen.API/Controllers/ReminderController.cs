@@ -14,7 +14,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    [Authorize(Policy = "UserOnly")]
+    [Authorize(Policy = "OfficeOnly")]
     public class ReminderController : ControllerBase
     {
         private readonly IReminderService _service;

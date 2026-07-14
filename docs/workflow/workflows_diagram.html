@@ -187,6 +187,26 @@
     #flowcap { position: static; width: auto; margin: 0 20px 20px; }
     #zoom-controls { display: none; }
   }
+
+  /* step badge style */
+  .step-badge {
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .step-badge circle {
+    fill: var(--accent); /* Amber for high-contrast visibility */
+    stroke: var(--surface);
+    stroke-width: 1.5px;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.15));
+  }
+  .step-badge text {
+    fill: #FFFFFF;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: var(--sans);
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
 </style>
 </head>
 <body>
@@ -206,6 +226,10 @@
     <button class="chip" data-flow="pt_review">5. Guest PT Đánh giá</button>
     <button class="chip" data-flow="coach_flow">6. Coach Kết nối</button>
     <button class="chip" data-flow="admin_ops">7. Admin Vận hành</button>
+    <button class="chip" data-flow="casual_flow">8. Luồng Casual</button>
+    <button class="chip" data-flow="gymer_flow">9. Luồng Gymer</button>
+    <button class="chip" data-flow="office_flow">10. Luồng Office</button>
+    <button class="chip" data-flow="free_user">11. Free User</button>
   </div>
   <div class="controls-group">
     <button id="themeToggle" class="btn-icon" title="Toggle Theme">
@@ -477,6 +501,8 @@
         <text class="k" x="1140" y="750">database • conversations</text>
         <text class="m" x="1140" y="762">AiConversation · Training Samples</text>
       </g>
+      <!-- Container for dynamic workflow step badges -->
+      <g id="step-badges-group"></g>
     </g>
   </svg>
 
@@ -627,89 +653,334 @@ const FLOWS = {
       "Chọn các tab luồng nghiệp vụ phía trên để chạy hoạt ảnh minh họa luồng đi của dữ liệu."
     ]
   },
+
   auth: {
     name: "1. Đăng ký & Onboarding",
-    edges: ["e-user-auth", "e-auth-db", "e-user-onboard", "e-onboard-auth-db", "e-onboard-nut-db"],
+    edges: [
+      "e-user-auth",
+      "e-auth-db",
+      "e-user-onboard",
+      "e-onboard-auth-db",
+      "e-onboard-nut-db"
+    ],
+    edgeSteps: {
+      "e-user-auth":       1,
+      "e-auth-db":         2,
+      "e-user-onboard":    3,
+      "e-onboard-auth-db": 4,
+      "e-onboard-nut-db":  5
+    },
     nodes: ["user", "auth_verify", "onboard_api", "auth_db", "nutrition_db"],
     steps: [
-      "Người dùng nhập Email & Mật khẩu trên Flutter App gửi tới <code>/api/Auth/register</code>.",
-      "Hệ thống gửi mã OTP xác thực qua Email. Khi nhập OTP đúng, API trả về JWT Token và chuyển hướng tới Onboarding.",
-      "Người dùng điền thông tin 5 bước Onboarding: thông số cơ bản, mục tiêu, calo tự động, thẻ dị ứng và nhóm hành vi.",
-      "Ứng dụng Flutter gom dữ liệu và gửi 1 request duy nhất tới <code>/api/Onboarding/complete</code>.",
-      "Hệ thống khởi tạo đồng thời hồ sơ người dùng trong <b>Auth DB</b> và chỉ tiêu calo hàng ngày trong <b>Nutrition DB</b>."
+      "Người dùng nhập Email & Mật khẩu gửi tới <code>POST /api/Auth/register</code> — hệ thống gửi mã OTP xác thực qua Email.",
+      "Người dùng nhập OTP hợp lệ → <code>POST /api/Auth/verify-otp</code> → Auth DB lưu <code>EmailConfirmed = true</code>, trả về JWT Access Token + Refresh Token.",
+      "Flutter App chuyển vào màn hình Onboarding 5 bước: Basic Info → Health Profile → Goal/Activity → Allergy → AI Profile.",
+      "Flutter gom toàn bộ dữ liệu gửi 1 request duy nhất tới <code>POST /api/Onboarding/complete</code> → Auth DB lưu HealthProfile & UserAllergy.",
+      "Backend tự động tính BMR/TDEE/Macro targets và khởi tạo <code>NutritionSnapshot</code> ban đầu vào <b>Nutrition DB</b>."
     ]
   },
+
   tracking: {
     name: "2. Nhật ký & AI (Daily Tracking)",
-    edges: ["e-user-tracker", "e-tracker-nut-db", "e-user-ai-chat", "e-ai-chat-db", "e-user-camera-ai", "e-ai-chat-catalog", "e-user-reminder", "e-reminder-nut-db"],
-    nodes: ["user", "tracker_api", "ai_chat", "reminder_api", "nutrition_db", "ai_db", "catalog_db"],
+    edges: [
+      "e-user-tracker",
+      "e-tracker-nut-db",
+      "e-user-reminder",
+      "e-reminder-nut-db",
+      "e-user-camera-ai",
+      "e-ai-chat-catalog",
+      "e-user-ai-chat",
+      "e-ai-chat-db"
+    ],
+    edgeSteps: {
+      "e-user-tracker":    1,
+      "e-tracker-nut-db":  1,
+      "e-user-reminder":   2,
+      "e-reminder-nut-db": 2,
+      "e-user-camera-ai":  3,
+      "e-ai-chat-catalog": 3,
+      "e-user-ai-chat":    4,
+      "e-ai-chat-db":      4
+    },
+    nodes: ["user", "tracker_api", "reminder_api", "ai_chat", "nutrition_db", "ai_db", "catalog_db"],
     steps: [
-      "Người dùng ghi nhận bữa ăn hàng ngày thủ công bằng tìm kiếm món ăn hoặc ghi nhanh qua <code>/api/MealLog</code>.",
-      "Người dùng Premium chụp ảnh đĩa ăn (Food Capture), app gửi file ảnh tới <b>AI Assistant & Food CV</b> service.",
-      "AI Coach gọi FastAPI CV + Gemini API để nhận diện món ăn, kiểm tra dị ứng từ <b>Catalog DB</b> và gợi ý lưu nhật ký.",
-      "Khi người dùng nói: <i>'Tôi vừa ăn một bát phở bò'</i>, AI dùng <b>Function Calling</b> để tự động gọi API lưu vào nhật ký ăn uống.",
-      "API lưu nhật ký ăn uống vào <b>Nutrition DB</b> và lập tức cập nhật calo đã nạp trên Dashboard của người dùng.",
-      "Hệ thống Adaptive Reminders tự động tính toán giờ ăn dựa trên meal log và gửi thông báo nhắc ăn."
+      "Người dùng ghi nhật ký ăn uống thủ công bằng tìm kiếm món hoặc quét Barcode → <code>POST /api/NutritionTracking/meal-logs</code> lưu vào <b>Nutrition DB</b>.",
+      "Adaptive Reminders đọc lịch sử <code>MealLog</code>, tự động tính trung bình giờ ăn Sáng/Trưa/Tối → gửi Push Notification nhắc ăn đúng giờ.",
+      "Người dùng Premium chụp ảnh đĩa ăn (Food Capture) → AI & Food CV nhận diện món ăn, kiểm tra dị ứng từ <b>Catalog DB</b>, gợi ý lưu nhật ký.",
+      "Người dùng chat với AI: <i>'Tôi vừa ăn một bát phở bò'</i> → AI dùng <b>Function Calling</b> tự động gọi API ghi MealLog, lưu lịch sử hội thoại vào <b>AI DB</b>."
     ]
   },
+
   meal_plan: {
     name: "3. Lập kế hoạch bữa ăn & Thực đơn mẫu",
-    edges: ["e-user-plan", "e-plan-nut-db", "e-plan-catalog-db", "e-user-template", "e-template-nut-db"],
-    nodes: ["user", "plan_api", "meal_template_api", "nutrition_db", "catalog_db"],
+    edges: [
+      "e-user-plan",
+      "e-plan-catalog-db",
+      "e-plan-nut-db",
+      "e-user-template",
+      "e-template-nut-db"
+    ],
+    edgeSteps: {
+      "e-user-plan":       1,
+      "e-plan-catalog-db": 2,
+      "e-plan-nut-db":     3,
+      "e-user-template":   4,
+      "e-template-nut-db": 5
+    },
+    nodes: ["user", "plan_api", "meal_template_api", "catalog_db", "nutrition_db"],
     steps: [
-      "Người dùng Premium yêu cầu tạo kế hoạch ăn uống mới cho tuần tới phù hợp với ngân sách tối đa.",
-      "Hệ thống gọi API <code>/api/MealPlan</code> để tự động thiết kế thực đơn dựa trên giới hạn calo và ngân sách.",
-      "Hệ thống tự động loại bỏ các món ăn chứa thành phần dị ứng của người dùng từ <b>Catalog DB</b>.",
-      "Người dùng có thể lưu một bữa ăn bất kỳ trong lịch sử hoặc tạo thủ công bữa ăn mẫu lặp lại qua <code>/api/MealTemplate</code>.",
-      "Người dùng áp dụng thực đơn đã lưu (Meal Template) vào nhật ký ăn uống với tùy chỉnh khối lượng món ăn."
+      "Người dùng mở Meal Plan, nhập ngân sách tối đa và calo mục tiêu → <code>POST /api/MealPlan</code> khởi tạo kế hoạch tuần mới.",
+      "MealPlan API truy vấn <b>Catalog DB</b> để chọn món ăn phù hợp, <b>tự động loại bỏ</b> các món chứa nguyên liệu gây dị ứng của người dùng.",
+      "Kế hoạch thực đơn được lưu vào <b>Nutrition DB</b>. Mỗi lần ghi đủ 1 bữa, hệ thống cập nhật Streak và calorie progress.",
+      "Người dùng lưu các bữa ăn hay dùng thành Template <code>POST /api/MealTemplate</code> để sử dụng lại bằng 1 chạm.",
+      "Template được áp dụng → convert thành <code>MealLog</code> thực tế với tùy chỉnh khối lượng, lưu ngay vào <b>Nutrition DB</b>."
     ]
   },
+
   sepay: {
     name: "4. Nâng cấp Premium & Lộ trình tuần",
-    edges: ["e-user-sepay", "e-sepay-payment-db", "e-payment-db-auth-db", "e-user-premium-program", "e-program-payment-db"],
+    edges: [
+      "e-user-sepay",
+      "e-sepay-payment-db",
+      "e-payment-db-auth-db",
+      "e-user-premium-program",
+      "e-program-payment-db"
+    ],
+    edgeSteps: {
+      "e-user-sepay":           1,
+      "e-sepay-payment-db":     2,
+      "e-payment-db-auth-db":   3,
+      "e-user-premium-program": 4,
+      "e-program-payment-db":   4
+    },
     nodes: ["user", "sepay_api", "premium_program_api", "payment_db", "auth_db"],
     steps: [
-      "Người dùng chọn gói Premium hoặc một Chương trình Lộ trình tuần trong Catalog, hệ thống sinh mã QR chuyển khoản động.",
-      "Người dùng quét mã QR bằng ứng dụng ngân hàng và tiến hành chuyển khoản với nội dung định danh (ví dụ: MG12345).",
-      "Cổng SePay nhận thông báo giao dịch thành công từ ngân hàng và gửi Webhook tới <code>/api/Sepay/webhook</code>.",
-      "Hệ thống khớp hóa đơn, lưu log giao dịch vào <b>Payment DB</b>, và cập nhật trạng thái gói Premium / kích hoạt chương trình lộ trình tuần."
+      "User chọn gói Premium (1/6/12 tháng) → <code>POST /api/payments/sepay/create-order</code> → hệ thống tạo VietQR code động hiển thị trong app.",
+      "User quét QR bằng ứng dụng ngân hàng, chuyển khoản với nội dung định danh → SePay gọi <code>POST /api/payments/sepay/webhook</code>, lưu <code>SepayTransaction</code> vào <b>Payment DB</b>.",
+      "Webhook tự động đối soát hóa đơn → kích hoạt <code>UserSubscription</code>, cập nhật role/ngày hết hạn Premium vào <b>Auth DB</b>.",
+      "User Premium đăng ký <b>Lộ trình tuần</b> (ví dụ: tăng 3kg cơ trong 8 tuần) → check-in chỉ số cơ thể mỗi tuần, mở khóa milestone → tốt nghiệp nhận chứng nhận."
     ]
   },
+
   pt_review: {
     name: "5. Chia sẻ & PT Đánh giá nhanh (Guest PT)",
-    edges: ["e-user-pt-link", "e-pt-pt-api", "e-pt-api-nut-db"],
+    edges: [
+      "e-user-pt-link",
+      "e-pt-pt-api",
+      "e-pt-api-nut-db"
+    ],
+    edgeSteps: {
+      "e-user-pt-link":  1,
+      "e-pt-pt-api":     2,
+      "e-pt-api-nut-db": 3
+    },
     nodes: ["user", "pt", "pt_review_api", "nutrition_db"],
     steps: [
-      "Học viên bấm 'Nhờ PT nhận xét' tuần dinh dưỡng, ứng dụng tạo token-link chia sẻ gửi cho PT qua Zalo/SMS.",
-      "Guest PT click vào link để xem nhanh báo cáo dinh dưỡng 7 ngày trên giao diện web tối giản (không cần đăng nhập).",
-      "PT điền nhận xét và nhập chỉ số calo/macro khuyến nghị mới rồi nhấn 'Gửi đánh giá' lên hệ thống.",
-      "Học viên nhận được push notification, xem nhận xét và chọn Chấp nhận để hệ thống cập nhật mục tiêu mới vào <b>Nutrition DB</b>."
+      "Học viên chọn tuần dinh dưỡng, bấm 'Nhờ PT nhận xét' → <code>POST /api/PtReview/reports</code> đóng gói nhật ký 7 ngày và sinh <b>token-link bảo mật</b>. Gửi link cho PT qua Zalo/SMS.",
+      "Guest PT click link mở trang web tối giản <b>(không cần đăng nhập)</b> → <code>GET /api/PtReview/shared-reports/{token}</code> hiển thị biểu đồ calo, macro và cân nặng 7 ngày.",
+      "PT nhập nhận xét chuyên môn + chỉ số calo/macro đề xuất → submit. Học viên nhận Push Notification, xem feedback → bấm <b>Apply</b> để hệ thống cập nhật mục tiêu vào <b>Nutrition DB</b>."
     ]
   },
+
   coach_flow: {
     name: "6. Hệ sinh thái Huấn luyện viên (In-app Coach)",
-    edges: ["e-coach-api", "e-coach-api-nut-db"],
-    nodes: ["coach", "coach_api", "nutrition_db", "auth_db"],
+    edges: [
+      "e-coach-api",
+      "e-coach-api-nut-db"
+    ],
+    edgeSteps: {
+      "e-coach-api":        1,
+      "e-coach-api-nut-db": 2
+    },
+    nodes: ["user", "coach", "coach_api", "nutrition_db", "auth_db"],
     steps: [
-      "Huấn luyện viên đăng ký tài khoản Coach trên app và xuất hiện trên danh mục tìm kiếm công khai.",
-      "Học viên tìm kiếm Coach, gửi yêu cầu kết nối và đồng ý cấp quyền truy cập dữ liệu sức khỏe của mình.",
-      "Coach truy cập màn hình Coach Dashboard để xem nhật ký ăn uống 7 ngày và biểu đồ cân nặng học viên.",
-      "Coach gửi nhận xét, trực tiếp điều chỉnh thực đơn tuần và thay đổi giới hạn dinh dưỡng của học viên trong <b>Nutrition DB</b>."
+      "Coach đăng ký tài khoản chuyên môn <code>POST /api/Coaches/register</code> → Role được nâng lên <b>Coach</b>, xuất hiện trên Public Catalog với Specialty, Bio và Price.",
+      "Student tìm kiếm Coach phù hợp, gửi yêu cầu kết nối <code>POST /api/Coaches/connect/{coachId}</code> → Coach approve. Student bấm <b>Grant Data Access</b> để Coach xem được dữ liệu.",
+      "Coach truy cập <b>Coach Dashboard</b>: xem hồ sơ học viên, nhật ký ăn uống 7 ngày, xu hướng cân nặng từ <b>Nutrition DB</b>.",
+      "Coach can thiệp trực tiếp: gửi feedback, điều chỉnh thực đơn tuần <code>PUT meal-plan/{planId}</code> và cập nhật chỉ tiêu dinh dưỡng <code>PUT health-targets</code> vào <b>Nutrition DB</b>."
     ]
   },
+
   admin_ops: {
     name: "7. Vận hành & Quản trị viên (Admin)",
-    edges: ["e-admin-api", "e-admin-api-auth-db", "e-admin-api-catalog-db", "e-admin-crawler", "e-crawler-ai-db", "e-admin-micro-learning", "e-micro-learning-ai-db"],
+    edges: [
+      "e-admin-api",
+      "e-admin-api-auth-db",
+      "e-admin-api-catalog-db",
+      "e-admin-crawler",
+      "e-crawler-ai-db",
+      "e-admin-micro-learning",
+      "e-micro-learning-ai-db"
+    ],
+    edgeSteps: {
+      "e-admin-api":            1,
+      "e-admin-api-auth-db":    1,
+      "e-admin-api-catalog-db": 2,
+      "e-admin-crawler":        3,
+      "e-crawler-ai-db":        3,
+      "e-admin-micro-learning": 4,
+      "e-micro-learning-ai-db": 4
+    },
     nodes: ["admin", "admin_api", "crawler_admin", "micro_learning_api", "auth_db", "catalog_db", "ai_db"],
     steps: [
-      "Admin đăng nhập cổng quản trị, quản lý tài khoản (khóa/mở khóa) trong <b>Auth DB</b>.",
-      "Admin phê duyệt thực phẩm IsVerified, gắn thẻ dị ứng, và cấu hình ma trận nguyên liệu thay thế trong <b>Catalog DB</b>.",
-      "Admin đối soát thủ công các giao dịch SePay bị lỗi chuyển khoản sai cú pháp.",
-      "Admin duyệt dữ liệu cào thô (normalize), kiểm tra các cuộc trò chuyện bị đánh giá tiêu cực và tạo mẫu huấn luyện AI.",
-      "Admin soạn thảo các thẻ kiến thức Micro-Learning dinh dưỡng, biên soạn Quiz kiểm tra trắc nghiệm và điểm thưởng tương ứng."
+      "Admin quản lý bảo mật tài khoản: khóa/mở khóa (<code>/api/Users/{id}/lock</code>), phân quyền Coach/Admin (<code>/api/Users/{id}/assign-role</code>), cập nhật <b>Auth DB</b>.",
+      "Admin duyệt thực phẩm mới (<code>IsVerified = true</code>), gắn thẻ dị ứng, cấu hình ma trận nguyên liệu thay thế trong <b>Catalog DB</b>. Đối soát thủ công giao dịch SePay sai cú pháp.",
+      "Admin vận hành <b>AI Crawler</b>: kiểm duyệt dữ liệu cào thô từ internet, normalize và đưa vào <b>AI DB</b> để làm giàu dữ liệu dinh dưỡng.",
+      "Admin soạn thảo thẻ <b>Micro-Learning</b> (kiến thức dinh dưỡng ngắn + Quiz trắc nghiệm) qua <code>AdminMicroLearningController</code>, lưu vào <b>AI DB</b>."
+    ]
+  },
+
+  casual_flow: {
+    name: "8. Hành trình Người dùng Casual",
+    edges: [
+      "e-user-auth",
+      "e-auth-db",
+      "e-user-onboard",
+      "e-onboard-nut-db",
+      "e-user-micro-learning",
+      "e-micro-learning-ai-db",
+      "e-user-template",
+      "e-template-nut-db",
+      "e-user-tracker",
+      "e-tracker-nut-db"
+    ],
+    edgeSteps: {
+      "e-user-auth":            1,
+      "e-auth-db":              1,
+      "e-user-onboard":         1,
+      "e-onboard-nut-db":       1,
+      "e-user-micro-learning":  2,
+      "e-micro-learning-ai-db": 2,
+      "e-user-template":        3,
+      "e-template-nut-db":      3,
+      "e-user-tracker":         4,
+      "e-tracker-nut-db":       4
+    },
+    nodes: ["user", "auth_verify", "onboard_api", "tracker_api", "micro_learning_api", "meal_template_api", "auth_db", "nutrition_db", "ai_db"],
+    steps: [
+      "Người dùng Casual đăng ký Email + OTP → Onboarding chọn vai trò <b>Casual</b>, mức vận động nhẹ, mục tiêu Duy trì cân nặng. Hệ thống tính TDEE phù hợp.",
+      "Hàng ngày khám phá <b>Góc dinh dưỡng</b>: đọc thẻ kiến thức ngắn <code>/api/MicroLearning/cards/recommended</code> và làm Quiz trắc nghiệm nhận điểm thưởng.",
+      "Ghi nhanh bữa ăn quen thuộc bằng <b>Meal Template 1-chạm</b>: chọn template → override khối lượng → convert thành MealLog vào <b>Nutrition DB</b>.",
+      "Ghi nhận nhật ký ăn uống hàng ngày đơn giản, theo dõi Dashboard calo Hôm nay để kiểm soát mức tiêu thụ theo mục tiêu đã đặt."
+    ]
+  },
+
+  gymer_flow: {
+    name: "9. Hành trình Gymer (Tập luyện & Thể hình)",
+    edges: [
+      "e-user-onboard",
+      "e-onboard-auth-db",
+      "e-onboard-nut-db",
+      "e-user-tracker",
+      "e-tracker-nut-db",
+      "e-user-pt-link",
+      "e-pt-pt-api",
+      "e-pt-api-nut-db",
+      "e-coach-api",
+      "e-coach-api-nut-db",
+      "e-user-premium-program",
+      "e-program-payment-db"
+    ],
+    edgeSteps: {
+      "e-user-onboard":         1,
+      "e-onboard-auth-db":      1,
+      "e-onboard-nut-db":       1,
+      "e-user-tracker":         2,
+      "e-tracker-nut-db":       2,
+      "e-user-pt-link":         3,
+      "e-pt-pt-api":            3,
+      "e-pt-api-nut-db":        3,
+      "e-coach-api":            4,
+      "e-coach-api-nut-db":     4,
+      "e-user-premium-program": 5,
+      "e-program-payment-db":   5
+    },
+    nodes: ["user", "onboard_api", "tracker_api", "pt_review_api", "coach_api", "premium_program_api", "nutrition_db", "auth_db", "payment_db"],
+    steps: [
+      "Người tập Gym Onboarding: chọn mục tiêu <b>Tăng cơ</b>/<b>Giảm mỡ</b>, mức vận động Nặng (5-7 buổi/tuần) → hệ thống tính TDEE Surplus/Deficit và đặt tỷ lệ Protein cao (25-30%).",
+      "Ghi nhật ký hàng ngày tập trung theo dõi <b>Protein</b>, Carbs, Fat — nhận cảnh báo drift >15% so với macro target. Cập nhật cân nặng & Body Fat % định kỳ.",
+      "Nhờ PT ngoài review tuần: gửi token-link, PT xem báo cáo web <b>(không cần login)</b>, submit calo/macro đề xuất → Student apply để cập nhật <b>Nutrition DB</b>.",
+      "Kết nối dài hạn với Coach hệ thống: Coach xem Dashboard 7 ngày, điều chỉnh <b>meal plan</b> và <b>calorie/macro targets</b> trực tiếp vào <b>Nutrition DB</b>.",
+      "Tham gia <b>Lộ trình tập luyện Premium</b> (8-12 tuần): check-in chỉ số mỗi tuần, mở khóa Milestone huy hiệu và tốt nghiệp nhận báo cáo tổng kết chứng nhận."
+    ]
+  },
+
+  office_flow: {
+    name: "10. Hành trình Nhân viên Văn phòng",
+    edges: [
+      "e-user-onboard",
+      "e-onboard-auth-db",
+      "e-onboard-nut-db",
+      "e-user-reminder",
+      "e-reminder-nut-db",
+      "e-user-plan",
+      "e-plan-catalog-db",
+      "e-plan-nut-db",
+      "e-user-tracker",
+      "e-tracker-nut-db"
+    ],
+    edgeSteps: {
+      "e-user-onboard":    1,
+      "e-onboard-auth-db": 1,
+      "e-onboard-nut-db":  1,
+      "e-user-reminder":   2,
+      "e-reminder-nut-db": 2,
+      "e-user-plan":       3,
+      "e-plan-catalog-db": 3,
+      "e-plan-nut-db":     3,
+      "e-user-tracker":    4,
+      "e-tracker-nut-db":  4
+    },
+    nodes: ["user", "onboard_api", "reminder_api", "plan_api", "tracker_api", "auth_db", "nutrition_db", "catalog_db"],
+    steps: [
+      "Người dùng văn phòng Onboarding: mức vận động <b>Sedentary</b>, mục tiêu Giảm cân nhẹ → hệ thống đặt calo thâm hụt nhẹ (-300 kcal), tỷ lệ macro cân bằng 30/40/30.",
+      "<b>Adaptive Reminders</b> kích hoạt: tự tính giờ ăn Sáng/Trưa/Tối từ lịch sử MealLog (<code>POST /api/Reminder/profile/recalculate</code>), gửi Push Notification nhắc ăn đúng giờ và nhắc đứng dậy vận động.",
+      "Lên thực đơn <b>lunchbox</b> mang đi làm: <code>POST /api/MealPlan</code> với ngân sách tối đa → lọc công thức phù hợp từ <b>Catalog DB</b>, sinh danh sách mua nguyên liệu tuần.",
+      "Ghi nhật ký bữa ăn hàng ngày tại văn phòng, theo dõi Dashboard calo/macro để đảm bảo không vượt mức Target. Snooze nhắc nhở khi họp bận (<code>POST /api/Reminder/scheduled/{id}/snooze</code>)."
+    ]
+  },
+
+  free_user: {
+    name: "11. Hành trình Free User (Chưa Premium)",
+    edges: [
+      "e-user-auth",
+      "e-auth-db",
+      "e-user-onboard",
+      "e-onboard-auth-db",
+      "e-onboard-nut-db",
+      "e-user-tracker",
+      "e-tracker-nut-db",
+      "e-user-micro-learning",
+      "e-micro-learning-ai-db",
+      "e-user-sepay",
+      "e-sepay-payment-db",
+      "e-payment-db-auth-db"
+    ],
+    edgeSteps: {
+      "e-user-auth":            1,
+      "e-auth-db":              1,
+      "e-user-onboard":         1,
+      "e-onboard-auth-db":      1,
+      "e-onboard-nut-db":       1,
+      "e-user-tracker":         2,
+      "e-tracker-nut-db":       3,
+      "e-user-micro-learning":  4,
+      "e-micro-learning-ai-db": 4,
+      "e-user-sepay":           5,
+      "e-sepay-payment-db":     5,
+      "e-payment-db-auth-db":   5
+    },
+    nodes: ["user", "auth_verify", "onboard_api", "tracker_api", "micro_learning_api",
+            "sepay_api", "auth_db", "nutrition_db", "ai_db", "payment_db"],
+    steps: [
+      "Đăng ký Email + OTP → <code>POST /api/Auth/register</code> → xác thực OTP → Onboarding 5 bước (Basic Info, Health Profile, Goal, Allergy, AI Profile) → hệ thống tính TDEE và cấp tài khoản <b>Free</b> mặc định.",
+      "Khám phá thực phẩm và công thức qua <code>GET /api/Food</code> &amp; <code>GET /api/Recipe</code>; quản lý dị ứng cá nhân qua <code>/api/Allergy</code>; xác nhận món an toàn bằng Allergy Risk Badge.",
+      "Ghi nhật ký ăn uống thủ công hàng ngày qua <code>POST /api/NutritionTracking/meal-logs</code>; ghi cân nặng qua <code>/weight-logs</code>; theo dõi Dashboard calo, macro và tiến độ mục tiêu trong <b>Nutrition DB</b>.",
+      "Khám phá <b>Góc dinh dưỡng</b>: đọc thẻ kiến thức ngắn, làm Quiz trắc nghiệm nhận điểm thưởng qua <code>/api/MicroLearning</code>; nhận gợi ý món an toàn theo dị ứng qua <code>POST /api/Recommendation/generate/safe</code>.",
+      "Gặp các tính năng <b>chỉ Premium</b> (AI Chat, Food Capture, Meal Plan, Template, Coach...) → bấm <i>Nâng cấp</i> → chọn gói → quét <b>VietQR SePay</b> → webhook xác nhận → kích hoạt Premium tức khắc."
     ]
   }
-};
+}
 
 const stage = document.getElementById('stage');
 const svg = document.getElementById('svg-stage');
@@ -829,12 +1100,47 @@ document.getElementById('zoom-reset').addEventListener('click', () => {
   updateTransform();
 });
 
+// Helper to check if a point is inside (or too close to) any node's bounding box
+function isPointInsideAnyNode(x, y) {
+  const nodeRects = document.querySelectorAll('.node rect');
+  const padding = 12; // Avoid badge overlapping node borders
+  for (let rect of nodeRects) {
+    const rx = parseFloat(rect.getAttribute('x'));
+    const ry = parseFloat(rect.getAttribute('y'));
+    const rw = parseFloat(rect.getAttribute('width'));
+    const rh = parseFloat(rect.getAttribute('height'));
+    if (x >= rx - padding && x <= rx + rw + padding && 
+        y >= ry - padding && y <= ry + rh + padding) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Find a visible point along the path that does not overlap with any node
+function getVisiblePointOnPath(pathEl) {
+  const totalLength = pathEl.getTotalLength();
+  // Try points in order of preference (near center first)
+  const tValues = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85, 0.1, 0.9];
+  for (let t of tValues) {
+    const pt = pathEl.getPointAtLength(totalLength * t);
+    if (!isPointInsideAnyNode(pt.x, pt.y)) {
+      return pt;
+    }
+  }
+  return pathEl.getPointAtLength(totalLength * 0.5); // Fallback to midpoint
+}
+
 // Flow switcher logic
 function setFlow(key) {
   chips.forEach(c => c.classList.toggle('on', c.dataset.flow === key));
   edges.forEach(e => e.classList.remove('lit'));
   elbls.forEach(l => l.classList.remove('lit'));
   nodes.forEach(n => n.classList.remove('lit'));
+  
+  // Clear old badges
+  const badgesGroup = document.getElementById('step-badges-group');
+  if (badgesGroup) badgesGroup.innerHTML = '';
   
   if (key === 'all') {
     stage.classList.remove('flowing');
@@ -846,7 +1152,37 @@ function setFlow(key) {
   stage.classList.add('flowing');
   f.edges.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.classList.add('lit');
+    if (el) {
+      el.classList.add('lit');
+      
+      // Draw dynamic step badge at a visible point of the path
+      const stepNum = f.edgeSteps ? f.edgeSteps[id] : null;
+      if (stepNum && badgesGroup) {
+        try {
+          const midpoint = getVisiblePointOnPath(el);
+          
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          g.setAttribute("class", "step-badge");
+          
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", midpoint.x);
+          circle.setAttribute("cy", midpoint.y);
+          circle.setAttribute("r", "10");
+          
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", midpoint.x);
+          text.setAttribute("y", midpoint.y);
+          text.setAttribute("dy", "0.3em"); // Vertical alignment centering
+          text.textContent = stepNum;
+          
+          g.appendChild(circle);
+          g.appendChild(text);
+          badgesGroup.appendChild(g);
+        } catch (e) {
+          console.error("Error drawing badge for edge: " + id, e);
+        }
+      }
+    }
   });
   elbls.forEach(l => {
     if (f.edges.includes(l.dataset.e)) {
