@@ -186,40 +186,30 @@ printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_D
 # without manual rollback.
 # =================================================================
 echo "=== Materialize Firebase credentials JSON ==="
-# Doppler --format env emits a multi-line value as a quoted string that
-# spans several lines, with embedded `"` escaped as `\"`. The previous
-# attempts failed because:
-#   - `cut -d= -f2-`               only kept the leading "{" (one line).
-#   - python regex with `KEY=(.*)` kept the surrounding double-quotes so
-#     json.loads failed at column 2.
-# Use a small line-based extractor: find the header line, then collect
-# subsequent lines until we see the unescaped closing `"` (detected by
-# the count of unescaped quotes being even). Then unescape \" -> " so
-# the file written to disk is a real, multi-line JSON that FirebaseAdmin
-# can load.
-FIREBASE_JSON="$(python3 -c '
-import re, sys
-path = "/tmp/doppler_raw.env"
-with open(path) as f:
-    lines = f.read().split("\n")
-for i, line in enumerate(lines):
-    if line.startswith("FIREBASE_CREDENTIALS_JSON="):
-        collected = [line[len("FIREBASE_CREDENTIALS_JSON="):]]
-        j = i + 1
-        while j < len(lines):
-            collected.append(lines[j])
-            joined = "\n".join(collected)
-            if lines[j].endswith(chr(34)) or lines[j] == chr(34) or lines[j].endswith(chr(125) + chr(34)):
-                stripped = joined.replace(chr(92) + chr(34), "")
-                if stripped.count(chr(34)) % 2 == 0:
-                    break
-            j += 1
-        joined = "\n".join(collected)
-        if joined.startswith(chr(34)) and joined.endswith(chr(34)):
-            joined = joined[1:-1]
-        sys.stdout.write(joined.replace(chr(92) + chr(34), chr(34)))
-        break
-')"
+# Use `doppler secrets get ... --plain` instead of extracting from the
+# bulk `--format env` download. Multi-line secrets (like our Firebase JSON)
+# are fragile in --format env because Doppler wraps the value in "..." with
+# embedded " escaped as \" and newline handling depends on the format
+# version — even one missed un-escape leaves the PEM body on a single
+# line and GoogleCredential.FromFile() crashes with:
+#   System.ArgumentException: PKCS8 data must be contained within
+#   '-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----'.
+#
+# `secrets get --plain` prints the raw secret value byte-for-byte (per
+# Doppler docs: "Prints the value of a single secret to STDOUT"). The
+# output is exactly the original JSON file content, no quote-wrapping,
+# no \" or \\n escapes. We capture it, sanity-check it, and write to disk.
+#
+# Tradeoff: this triggers one extra Doppler CLI call (vs. parsing the
+# bulk download). Cost is negligible (~100ms over LAN); clarity is worth it.
+FIREBASE_JSON=""
+if command -v doppler > /dev/null 2>&1; then
+  FIREBASE_JSON="$(doppler secrets get FIREBASE_CREDENTIALS_JSON \
+    --token "$DOPPLER_TOKEN" \
+    --project menugreen \
+    --config prd \
+    --plain 2>/dev/null)"
+fi
 if [ -z "$FIREBASE_JSON" ]; then
   echo ">>> FATAL: FIREBASE_CREDENTIALS_JSON secret missing from Doppler (project=menugreen, config=prd)."
   echo ">>> Add it via: doppler secrets set FIREBASE_CREDENTIALS_JSON=\$(cat firebase-adminsdk.json) --project menugreen --config prd"
@@ -229,31 +219,28 @@ fi
 echo "$FIREBASE_JSON" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
 sudo chown root:root "$APP_DIR/firebase-adminsdk.json"
 sudo chmod 600 "$APP_DIR/firebase-adminsdk.json"
-# Sanity-check + re-serialize: the JSON we extracted from Doppler --format env
-# has its `private_key` field stored with embedded LITERAL newlines (\n as two
-# chars: backslash + n) inside the PEM block — that's how JSON encodes strings.
-# That is technically valid JSON, but GoogleCredential.FromFile() uses
-# BCL's RSA crypto which expects REAL newlines in the PKCS8 PEM block, then
-# passes the decoded PEM to Pkcs8.DecodeRsaParameters which checks for
-# "-----BEGIN PRIVATE KEY-----<newline>MIIE...".
-# If those newlines are still the literal two-char sequence `\n`, the PEM
-# becomes one giant line and the runtime throws:
+# Sanity-check + re-serialize: even though `doppler secrets get --plain`
+# returns the raw JSON byte-for-byte (no escaping), we still run a final
+# verification before trusting the file. GoogleCredential.FromFile() uses
+# BCL's RSA crypto which expects REAL newlines between the BEGIN/END
+# markers in the PKCS8 PEM block. If those newlines are missing or are
+# the literal two-char sequence `\n`, the runtime throws:
 #   System.ArgumentException: PKCS8 data must be contained within
 #   '-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----'.
-# So: (1) json.loads the file to parse it; (2) verify private_key actually
+# So: (1) json.load the file to parse it; (2) verify private_key actually
 # has the expected markers around a newline; (3) write it back with
-# json.dumps(indent=2) so the JSON on disk is canonical and the PEM is
-# always human-readable. ANY failure aborts the deploy — much better than
-# having the container crash-loop into 30 health-check failures.
+# json.dump(indent=2) so the on-disk JSON is canonical and the PEM is
+# always human-readable. ANY failure aborts the deploy — much better
+# than having the container crash-loop into 30 health-check failures.
 #
-# IMPORTANT: We can't use `sudo python3 -` or `sudo python3 <<PYEOF` because
-# the `pk` global we declared on a previous line (the Doppler env-extraction
-# Python heredoc) bleeds into the script context and 'sudo python3 -' on some
-# sudo builds refuses to read stdin. Writing the script to /tmp and running
-# it directly is bulletproof.
-# Heredoc is UNQUOTED (note: bare PYSCRIPT, no single quotes). Quoting it
-# with 'PYSCRIPT' would prevent bash from expanding $APP_DIR, leaving the
-# literal string "$APP_DIR" in the Python script.
+# IMPORTANT: We use a file-based python script (not `python3 -` or heredoc)
+# because (a) heredoc contents can collide with prior shell variables in
+# this same script, and (b) `sudo python3 -` is unreliable across sudo
+# versions. Writing to /tmp and running it directly is bulletproof.
+#
+# The heredoc tag is UNQUOTED (bare PYSCRIPT, no single quotes). Quoting
+# it with 'PYSCRIPT' would prevent bash from expanding $APP_DIR and
+# leave a literal "$APP_DIR" string in the Python script.
 sudo tee /tmp/firebase_pem_check.py > /dev/null <<PYSCRIPT
 import json, sys
 path = "$APP_DIR/firebase-adminsdk.json"
