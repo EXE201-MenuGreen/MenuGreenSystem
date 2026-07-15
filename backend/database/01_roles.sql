@@ -17,10 +17,11 @@ CREATE TABLE roles (
 
 INSERT INTO roles ("Id", "Name", "Description", "CreatedAt", "UpdatedAt")
 VALUES
-('00000000-0000-0000-0000-000000000001', 'Free', 'Gói người dùng miễn phí', now(), now()),
-('00000000-0000-0000-0000-000000000002', 'Pro', 'Gói Pro / Premium quyền lợi cao nhất', now(), now()),
-('00000000-0000-0000-0000-000000000003', 'User', 'Standard system user role', now(), now()),
-('00000000-0000-0000-0000-000000000004', 'Admin', 'Quản trị viên hệ thống', now(), now())
+('00000000-0000-0000-0000-000000000001', 'Free', 'Free tier user', now(), now()),
+('00000000-0000-0000-0000-000000000004', 'Admin', 'System administrator', now(), now()),
+('00000000-0000-0000-0000-000000000005', 'Casual', 'Diet undecided or casual user', now(), now()),
+('00000000-0000-0000-0000-000000000006', 'Gymer', 'Fitness and gym enthusiast', now(), now()),
+('00000000-0000-0000-0000-000000000007', 'Office', 'Office and desk worker', now(), now())
 ON CONFLICT DO NOTHING;
 
 COMMIT;
