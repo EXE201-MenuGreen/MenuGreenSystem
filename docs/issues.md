@@ -792,6 +792,171 @@ Tạo feature hoàn chỉnh `frontend/lib/features/vietnam_local/` với:
 - `flutter build apk --debug --no-pub` → built thành công APK debug.
 - Tài liệu `10-vietnam-local-features.md` cập nhật Status, UI Components table, Navigation Flow.
 
+## [RESOLVED] Release APK/AAB Crash on Install - Missing .env + libapp.so Not Packaged
+
+**Date:** 2026-07-14
+**Status:** Resolved
+**Severity:** High
+
+### Description
+
+Build `app-release.apb` 38.5MB trước đó (2026-07-09) bị lỗi khi cài lên thiết bị: mở app lên thì crash ngay với log:
+
+```
+[ERROR:flutter/runtime/dart_vm_data.cc(20)] VM snapshot invalid and could not be inferred from settings.
+[ERROR:flutter/runtime/dart_vm.cc(253)] Could not set up VM data to bootstrap the VM from.
+F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x6b8 in tid X
+```
+
+Sau đó `Process com.menugreen.app has crashed too many times, killing!`.
+
+### Root Cause
+
+Hai vấn đề đồng thời khiến AAB không chạy được:
+
+**1. File `.env` thiếu so với khai báo trong `pubspec.yaml`:**
+```yaml
+flutter:
+  assets:
+    - assets/images/
+    - .env  # <- file này không tồn tại
+```
+Build release lần đầu (sau khi pubspec đã thêm `.env`) fail với:
+```
+Error detected in pubspec.yaml: No file or variants found for asset: .env.
+Target aot_android_asset_bundle failed: Exception: Failed to bundle asset files.
+```
+Dev có thể đã tạo `.env` tạm thời để build pass, rồi xoá đi. Sau đó build bằng cached intermediate → APK thiếu assets nhưng vẫn ra file.
+
+**2. AGP `mergeReleaseNativeLibs` không pick up `libapp.so`:**
+Trong build intermediates có file:
+```
+build/app/intermediates/flutter/release/jniLibs/arm64-v8a/libapp.so (14MB)
+build/app/intermediates/flutter/release/jniLibs/x86_64/libapp.so (14MB)
+```
+nhưng AGP chỉ merge `libflutter.so` vào APK. Kết quả APK không có `libapp.so` (chứa AOT snapshot), app boot lên thì Flutter engine không tìm được VM snapshot → SIGSEGV.
+
+Nguyên nhân: project đã config `subprojects { afterEvaluate { project.layout.buildDirectory.value(...) } }` trong `android/build.gradle.kts:10-26` để redirect `:app` build sang `frontend/build/`. Có thể Flutter Gradle plugin không tự động register `libapp.so` như native lib qua cơ chế `jniLibs` mặc định của nó khi build directory bị override.
+
+### Environment
+- Flutter 3.44.0 / Dart 3.12.0
+- Android Gradle Plugin 8.9.1, Gradle 8.11.1
+- Emulator Pixel_6 (Android 14, x86_64)
+
+### Logs
+
+```
+# Build ban đầu fail:
+Error detected in pubspec.yaml: No file or variants found for asset: .env.
+
+# Build sau khi tạo .env:
+Release app bundle failed to strip debug symbols from native libraries.
+
+# Verify APK thiếu libapp.so:
+unzip -l app-release.apk | grep "\.so"
+  lib/arm64-v8a/libflutter.so
+  lib/x86_64/libflutter.so
+  # <- KHÔNG có libapp.so
+
+# Logcat khi cài lên emulator:
+E flutter : [ERROR:flutter/runtime/dart_vm_data.cc(20)] VM snapshot invalid and could not be inferred from settings.
+F libc    : Fatal signal 11 (SIGSEGV)
+W ActivityManager: Process com.menugreen.app has crashed too many times, killing!
+```
+
+### Fix Applied
+
+**1. Tạo file `.env` mẫu** tại `frontend/.env` (đã có trong `.gitignore`):
+```
+# MenuGreen - Environment Configuration
+API_BASE_URL=
+GOONG_API_KEY=
+```
+
+**2. Thêm `jniLibs.srcDirs` vào `android/app/build.gradle.kts`** để ép AGP include `libapp.so`:
+```kotlin
+android {
+    defaultConfig {
+        applicationId = "com.menugreen.app"
+        // ...
+        ndk {
+            // no abiFilters override here - let --target-platform drive it
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs(
+                "src/main/jniLibs",
+                "../../build/app/intermediates/flutter/release/jniLibs",
+            )
+        }
+    }
+    // ...
+}
+```
+
+**3. Tăng version `1.0.0+1 → 1.0.0+2`** trong `pubspec.yaml`.
+
+**4. Build lại AAB** với đầy đủ architectures:
+```bash
+flutter clean
+flutter pub get
+flutter build appbundle --release --target-platform android-arm,android-arm64,android-x64
+# -> build/app/outputs/bundle/release/app-release.aab (67.2 MB)
+```
+
+**5. Build APK cho local test:**
+```bash
+flutter build apk --release --target-platform android-arm64,android-x64
+# -> build/app/outputs/flutter-apk/app-release.apk (49.4 MB)
+```
+
+**6. Verify APK có đủ `libapp.so`:**
+```
+unzip -l app-release.apk | grep "\.so"
+  lib/arm64-v8a/libapp.so        9.8 MB
+  lib/arm64-v8a/libflutter.so   11.6 MB
+  lib/x86_64/libapp.so          10.0 MB
+  lib/x86_64/libflutter.so      12.9 MB
+```
+
+**7. Smoke test trên emulator Pixel_6 (Android 14, x86_64):**
+- Install via adb: `Success`
+- Launch app: `Displayed com.menugreen.app/.MainActivity for user 0: +1s102ms`
+- Flutter engine: `Using the Impeller rendering backend (OpenGLES)` → OK
+- Splash screen render đúng (icon + "MenuGreen" + tagline + progress bar)
+- Không còn fatal/crash
+- Firebase Messaging + Geolocator background services init OK
+
+### Files Changed
+- `frontend/.env` (mới, đã có trong .gitignore)
+- `frontend/pubspec.yaml` (line 19: version bump)
+- `frontend/android/app/build.gradle.kts` (thêm sourceSets.jniLibs.srcDirs)
+- `docs/issues.md` (record này)
+
+### Verification
+- `flutter analyze`: 0 errors, chỉ có 6 warnings (unnecessary_underscores) + 1 warning `asset_does_not_exist` (.env đã tạo).
+- `apksigner verify --print-certs` trên APK:
+  ```
+  Signer #1 certificate DN: CN=MenuGreen Team, O=MenuGreen, L=Ho Chi Minh, ST=HCM, C=VN
+  ```
+- `unzip -l` AAB có `.env` ở `base/assets/flutter_assets/.env` (331 bytes) ✅
+
+### Build Artifacts
+- `frontend/build/app/outputs/bundle/release/app-release.aab` (67.2 MB) — upload Play Store
+- `frontend/build/app/outputs/flutter-apk/app-release.apk` (49.4 MB) — local test
+- Backup tại `C:\Users\Admin\menu-green-assets\app-release-closed-v2.aab`
+
+### Status
+- [x] Root cause identified
+- [x] Fix applied + committed
+- [x] AAB/APK build thành công, có libapp.so
+- [x] Smoke test trên emulator pass (no crash, splash render)
+- [ ] Closed testing track trên Play Console (cần user thực hiện thủ công)
+
+---
+
 ## Template for New Issues
 
 ```markdown

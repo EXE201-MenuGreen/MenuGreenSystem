@@ -14,7 +14,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError('Thêm app iOS trên Firebase Console rồi chạy flutterfire configure.');
+        throw UnsupportedError(
+          'Thêm app iOS trên Firebase Console rồi chạy flutterfire configure.',
+        );
       default:
         throw UnsupportedError(
           'Firebase Storage chỉ hỗ trợ upload trên Android/iOS. Chạy app trên emulator/thiết bị Android.',
@@ -24,7 +26,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAuRO9XaVnsEfdsadYxOoTUIp4G21-8qWs',
-    appId: '1:709315528907:android:c75baa68ff19bc9c54b34e',
+    appId: '1:709315528907:android:1a896858d0654a9454b34e',
     messagingSenderId: '709315528907',
     projectId: 'menugreen-9fb5b',
     storageBucket: 'menugreen-9fb5b.firebasestorage.app',

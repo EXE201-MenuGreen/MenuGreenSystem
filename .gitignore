@@ -535,10 +535,19 @@ frontend/.flutter-plugins-dependencies
 frontend/.packages
 frontend/pubspec.lock
 
-# Generated platforms (avoid noisy diffs)
+# Generated platforms (avoid noisy diffs from line endings / plugin changes)
 frontend/macos/Flutter/GeneratedPluginRegistrant.swift
-frontend/windows/flutter/GeneratedPluginRegistrant.cpp
-frontend/linux/flutter/GeneratedPluginRegistrant.cc
+frontend/linux/flutter/generated_plugin_registrant.cc
+frontend/linux/flutter/generated_plugin_registrant.h
+frontend/linux/flutter/generated_plugins.cmake
+frontend/windows/flutter/generated_plugin_registrant.cc
+frontend/windows/flutter/generated_plugin_registrant.h
+frontend/windows/flutter/generated_plugins.cmake
+frontend/macos/Flutter/generated_plugin_registrant.swift
+frontend/macos/flutter/generated_plugins.cmake
+frontend/ios/Flutter/GeneratedPluginRegistrant.m
+frontend/ios/Flutter/GeneratedPluginRegistrant.h
+frontend/android/app/GeneratedPluginRegistrant.java
 
 # Local helper scripts (keystore generators, screenshot tools, etc.)
 # Keep code in scripts/ and ci/ directories; ignore ad-hoc assets/
