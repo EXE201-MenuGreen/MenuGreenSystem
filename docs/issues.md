@@ -764,6 +764,89 @@ Tạo feature hoàn chỉnh `frontend/lib/features/vietnam_local/` với:
 
 ---
 
+---
+
+## [PENDING] Google Sign-In Fails on Real Device — Missing google-services.json & SHA-1 Fingerprint Not Registered
+
+**Date:** 2026-07-15
+**Status:** Pending
+**Severity:** High
+
+### Description
+
+Khi login bằng Google trên **thiết bị thật**, app gọi `GoogleSignIn.signIn()` nhưng flow đứt ngang — `SignInHubActivity` mở lên rồi bị đóng (`WindowStopped`, `Input channel destroyed` trong logcat 8.txt) và không trả về Google account. Trên emulator thì chạy ổn.
+
+Backend `POST /api/Auth/google` trả về `Invalid Google sign-in token.` (frontend map sang "Token đăng nhập Google hết hạn hoặc không hợp lệ." qua `localizeAuthMessage`).
+
+### Root Cause
+
+Hai vấn đề đồng thời khiến plugin `google_sign_in` không nhận được idToken trên thiết bị thật:
+
+**1. Thiếu file `frontend/android/app/google-services.json`:**
+- Plugin `google_sign_in` (v6.2.2) + plugin Gradle `com.google.gms.google-services:4.4.4` đều cần file này để generate `res/values/strings.xml` chứa OAuth Client ID Android + SHA-1 đã đăng ký.
+- Repo hiện **không có file này** (đã glob toàn workspace — không tìm thấy).
+- File `frontend/lib/firebase_options.dart` chỉ hardcode cho `Firebase Core SDK`, **không đủ** cho plugin `google_sign_in` lấy Android OAuth Client.
+- Kết quả: `GoogleSignIn.signIn()` ném `PlatformException(sign_in_failed, ApiException: 10 — DEVELOPER_ERROR)` trên thiết bị thật (Play Services check SHA-1 nghiêm ngặt). Emulator bypass một phần nên "có vẻ" chạy.
+
+**2. Release build fallback về debug keystore + SHA-1 debug chưa đăng ký Firebase Console:**
+- File `frontend/android/key.properties` **không tồn tại** trong repo → `hasReleaseSigningConfig = false` trong `build.gradle.kts:16-18`.
+- `signingConfig = signingConfigs.getByName("debug")` ở `build.gradle.kts:69-74` → APK/AAB release được ký bằng debug keystore của máy build (random SHA-1 mỗi máy).
+- SHA-1 của debug keystore máy dev **chưa được add vào Firebase Console** → Android app `com.menugreen.app` (project `menugreen-9fb5b`) không có OAuth client Android khớp → Google từ chối cấp `idToken`.
+
+### Environment
+
+- **Project:** `menugreen-9fb5b` (Firebase)
+- **Android app:** `com.menugreen.app`
+- **Frontend packages:** `firebase_core ^3.15.2`, `firebase_auth ^5.7.0`, `google_sign_in ^6.2.2`
+- **Hard-coded web client ID trong code:** `709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com` (`lib/core/services/firebase_google_auth_service.dart:9`)
+- **Keystore info file:** `frontend/android/app/keystore_pass.txt` (chưa có file `.jks` thật)
+
+### Logs
+
+```
+# terminals/8.txt — flow bị ngắt giữa chừng
+I/ViewRootImpl@4df76ac[SignInHubActivity](29137): Resizing ...
+I/InsetsSourceConsumer(29137): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.menugreen.app/com.google.android.gms.auth.api.signin.internal.SignInHubActivity
+...
+I/ViewRootImpl@4df76ac[SignInHubActivity](29137): handleAppVisibility mAppVisible = true visible = false
+I/ViewRootImpl@4df76ac[SignInHubActivity](29137): stopped(true) old = false
+D/ViewRootImpl@4df76ac[SignInHubActivity](29137): WindowStopped on com.menugreen.app/com.google.android.gms.auth.api.signin.internal.SignInHubActivity set to true
+W/WindowOnBackDispatcher(29137): sendCancelIfRunning: isInProgress=falsecallback=android.view.ViewRootImpl$$ExternalSyntheticLambda19@5235198
+I/ViewRootImpl@4df76ac[SignInHubActivity](29137): dispatchDetachedFromWindow
+D/InputTransport(29137): Input channel destroyed: '66a4ca5', fd=169
+# => SignInHubActivity bị dispose, MainActivity focus lại nhưng không có user/auth object.
+```
+
+User-facing message tiếng Việt (qua `auth_error_messages.dart`):
+```
+Token đăng nhập Google hết hạn hoặc không hợp lệ.
+```
+
+### Attempts
+
+- [ ] Tạo/copy `frontend/android/app/google-services.json` từ Firebase Console (project `menugreen-9fb5b` → Android app → Download google-services.json)
+- [ ] Lấy SHA-1 + SHA-256 của **debug keystore** (đường dẫn `%USERPROFILE%\.android\debug.keystore`) bằng `keytool -list -v ...` rồi add vào Firebase Console
+- [ ] Lấy SHA-1 + SHA-256 của **release keystore** (`frontend/android/app/upload-keystore.jks` khi đã tạo) và add vào Firebase Console
+- [ ] (Nếu chưa có file `.jks`) tạo release keystore từ thông tin trong `keystore_pass.txt`
+- [ ] Tạo `frontend/android/key.properties` để release build dùng đúng keystore (tránh phải gỡ app khi lên Play Store)
+- [ ] `flutter clean && flutter pub get && flutter build apk --release`
+- [ ] Cài lại lên thiết bị thật và test Google Sign-In
+
+### Verification After Fix
+
+```bash
+# 1. SHA-1 phải có trong google-services.json sau khi tải về
+cat frontend/android/app/google-services.json | grep -A 2 "oauth_client"
+
+# 2. APK release phải được ký đúng keystore
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+
+# 3. Logcat không còn PlatformException
+adb logcat | grep -i "GoogleSignIn\|ApiException"
+```
+
+---
+
 ## [PENDING] Google Play Console - Account Deletion URL
 
 **Date:** 2026-07-09
@@ -809,6 +892,71 @@ sách Google, phải có URL xoá tài khoản hiển thị trên trang CH Play.
 - `support@menugreen.app` → email thật của nhà phát triển
 - `https://menugreen.app` → website thật (nếu có)
 - `MenuGreen Team` → tên nhà phát triển chính xác theo Play Console
+
+---
+
+## [RESOLVED] Google sign-in / FCM fail on production - Firebase credentials missing
+
+**Date:** 2026-07-16
+**Status:** ✅ Resolved (deploy pending — see Attempts)
+**Severity:** High
+
+### Description
+Google sign-in (`FirebaseAuth.VerifyIdTokenAsync`) và push notification (`FirebaseMessaging.SendAsync`) silently fail trên production vì `FirebaseApp.DefaultInstance == null` ở startup. Code path đã có sẵn (`Program.cs` dòng 27-38, `AuthService` dòng 248-249, `FcmService` dòng 22-28), nhưng thiếu file `firebase-adminsdk.json` trên server.
+
+Triệu chứng cụ thể:
+- Mobile app bấm "Sign in with Google" → backend trả `Google sign-in is not configured on the server.` (`AuthService` line 249).
+- Push notification bị skip với log `Firebase is not initialized. Message will not be sent.` (`FcmService` line 196).
+
+### Root Cause
+1. `docker-compose.prod.yml` không mount `firebase-adminsdk.json` vào container (chỉ có `volumes: []` rỗng).
+2. `Program.cs` đọc `builder.Configuration["Firebase:CredentialPath"]` — nếu file không tồn tại thì skip `FirebaseApp.Create()` (line 33 guard `File.Exists(fullPath)`).
+3. Không có file nào cung cấp secret ở `/etc/secrets/firebase-adminsdk.json` trong container.
+
+### Environment
+- Production server: `menugreen-api` (Lightsail LXD container)
+- Docker image: `docker.io/anhtuan21112004/menugreensystem`
+- Doppler project: `menugreen`, config: `prd`
+
+### Logs
+Không có error log trước đó vì đây là silent failure — `File.Exists` guard nuốt mất log. User đã manually chạy:
+```
+sudo chown 0:0 /home/ubuntu/apps/menugreen/firebase-adminsdk.json
+sudo chmod 600 /home/ubuntu/apps/menugreen/firebase-adminsdk.json
+docker exec menugreen_api id   # → uid=0(root) gid=0(root)
+```
+→ Confirmed file đã sẵn trên host với owner=root, mode=600. Nhưng chưa được mount vào container.
+
+### Fix Applied (committed locally, pending deploy)
+
+**1. `docker-compose.prod.yml`** — thêm volume mount + env var:
+```yaml
+environment:
+  - Firebase__CredentialPath=${FIREBASE_CREDENTIAL_PATH:-/etc/secrets/firebase-adminsdk.json}
+volumes:
+  - /home/ubuntu/apps/menugreen/firebase-adminsdk.json:/etc/secrets/firebase-adminsdk.json:ro
+```
+
+**2. `backend/scripts/deploy-server.sh`** — materialize JSON từ Doppler mỗi deploy:
+- Đọc secret `FIREBASE_CREDENTIALS_JSON` (full JSON body) từ Doppler
+- Ghi ra `$APP_DIR/firebase-adminsdk.json` với mode 600, owner root
+- Validate JSON parse + có `private_key` field trước khi pull image mới
+- Block tương tự trong `perform_rollback()` để rollback path cũng có Firebase
+
+**3. Doppler secrets cần thêm** (user đã thêm xong):
+- ✅ `FIREBASE_CREDENTIAL_PATH=/etc/secrets/firebase-adminsdk.json` (đã thêm)
+- ⏳ `FIREBASE_CREDENTIALS_JSON=<full nội dung firebase-adminsdk.json>` (CẦN THÊM)
+
+### Attempts
+- [x] Confirmed file ownership=root trên host, mode=600
+- [x] Smoke test container mount bằng `docker run --rm alpine:3.19` → READ_OK
+- [x] Sửa `docker-compose.prod.yml` (volume + env var)
+- [x] Sửa `deploy-server.sh` (main path + rollback path)
+- [ ] **User thêm Doppler secret `FIREBASE_CREDENTIALS_JSON`**
+- [ ] User commit + push lên branch (main/Tuan/Tuanx — đã có trigger)
+- [ ] Verify GitHub Action deploy chạy thành công
+- [ ] Test Google sign-in trên Flutter app (production build) → phải tạo được user
+- [ ] Test gửi FCM push từ backend → notification phải đến device
 
 ---
 
