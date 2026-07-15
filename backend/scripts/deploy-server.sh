@@ -280,7 +280,7 @@ if ! sudo python3 /tmp/firebase_pem_check.py; then
   echo ">>> Aborting deploy before pulling new image."
   exit 1
 fi
-rm -f /tmp/firebase_pem_check.py
+sudo rm -f /tmp/firebase_pem_check.py
 echo "  ✓ Firebase credentials materialized (root:root, mode 600, valid JSON, real-PEM private_key)"
 
 # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
