@@ -247,13 +247,25 @@ while IFS='=' read -r key raw_value; do
   [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
   # Skip the multi-line Firebase Admin SDK JSON. It's materialized to disk
   # via the FIREBASE_CREDENTIALS_JSON handler above (echo ... > json file),
-  # NOT injected as an env var — if we let it fall through to the .env loop
-  # below, each continuation line of the JSON (e.g. `  "private_key": "..."`
-  # or the closing `}`) gets echoed verbatim into $APP_DIR/.env, which
-  # docker compose then refuses to parse with:
+  # NOT injected as an env var.
+  #
+  # Doppler --format env wraps a multi-line value in double quotes that
+  # span several lines, e.g.:
+  #   FIREBASE_CREDENTIALS_JSON="{
+  #     \"type\": \"service_account\",
+  #     ...
+  #   }"
+  # If we let those continuation lines fall through to the .env loop, each
+  # one (e.g. the closing `}"` or `  \"private_key\": \"...\"`) gets echoed
+  # verbatim into $APP_DIR/.env, which docker compose then refuses to parse
+  # with:
   #   line N: unexpected character "}" in variable name "}="="
-  # (The previous build died exactly there: see issues.md [RESOLVED] 2026-07-16.)
-  [[ "$key" =~ ^(FIREBASE_CREDENTIALS_JSON=) ]] && continue
+  # The previous fix only matched the header line, so the continuation
+  # lines still leaked through. Now we require the key to look like a
+  # real ALL-CAPS env identifier: any line that doesn't start with
+  # [A-Z_][A-Z0-9_]*= (i.e. continuation of a quoted multi-line value,
+  # blank lines, comments) is dropped.
+  [[ ! "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]] && continue
   # Strip ALL layers of leading/trailing double- or single-quotes. Doppler sometimes
   # emits values with nested quoting (e.g. ""5432"" on numeric secrets), which broke
   # the previous 4-line "%X / #X" dance that only removed one layer and caused
@@ -649,13 +661,12 @@ for i, line in enumerate(lines):
     [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
   # Skip the multi-line Firebase Admin SDK JSON. It's materialized to disk
   # via the FIREBASE_CREDENTIALS_JSON handler above (echo ... > json file),
-  # NOT injected as an env var — if we let it fall through to the .env loop
-  # below, each continuation line of the JSON (e.g. `  "private_key": "..."`
-  # or the closing `}`) gets echoed verbatim into $APP_DIR/.env, which
-  # docker compose then refuses to parse with:
-  #   line N: unexpected character "}" in variable name "}="="
-  # (The previous build died exactly there: see issues.md [RESOLVED] 2026-07-16.)
-  [[ "$key" =~ ^(FIREBASE_CREDENTIALS_JSON=) ]] && continue
+  # NOT injected as an env var. Same whitelist logic as the main path:
+  # any line whose "key" doesn't look like a real ALL-CAPS env identifier
+  # (i.e. continuation of a quoted multi-line value, blank line, comment)
+  # is dropped — otherwise the closing `}"` of the JSON leaks into the
+  # .env file and docker compose fails to parse it.
+  [[ ! "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]] && continue
     value="$(printf '%s' "$raw_value" | sed -E "s/^[\"']+//; s/[\"']+\$//")"
     net_key="${key//:/__}"
     echo "${net_key}=${value}" >> "$APP_DIR/.env"
