@@ -76,8 +76,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("User", "Admin", "Free", "Pro"));
+    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "Free", "Casual", "Gymer", "Office"));
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
+    options.AddPolicy("GymerOnly", policy => policy.RequireRole("Gymer", "Admin"));
+    options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
+    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "Admin"));
 });
 
 // Configure CORS - Allow frontend domains

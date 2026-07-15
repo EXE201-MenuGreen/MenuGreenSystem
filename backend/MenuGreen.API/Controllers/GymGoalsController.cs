@@ -15,7 +15,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    [Authorize(Policy = "UserOnly")]
+    [Authorize(Policy = "GymerOnly")]
     public class GymGoalsController : ControllerBase
     {
         private readonly IUserAiProfileService _userAiProfileService;

@@ -14,7 +14,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    [Authorize(Policy = "UserOnly")]
+    [Authorize(Policy = "CasualOnly")]
     public class DailyStarterController : ControllerBase
     {
         private readonly IDailyStarterService _service;

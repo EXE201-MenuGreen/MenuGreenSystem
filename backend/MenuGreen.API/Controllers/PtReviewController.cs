@@ -11,6 +11,7 @@ namespace MenuGreen.API.Controllers
 {
     [ApiController]
     [Route("api/PtReview")]
+    [Authorize(Policy = "GymerOnly")]
     public class PtReviewController : ControllerBase
     {
         private readonly IPtReviewService _service;
