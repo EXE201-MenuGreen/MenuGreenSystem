@@ -212,6 +212,15 @@ while IFS='=' read -r key raw_value; do
   [[ "$key" =~ [/[:space:]+] ]] && continue
   # FIX: Không skip DB_* và REDIS_* keys - chúng cần cho backup và kết nối
   [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
+  # Skip the multi-line Firebase Admin SDK JSON. It's materialized to disk
+  # via the FIREBASE_CREDENTIALS_JSON handler above (echo ... > json file),
+  # NOT injected as an env var — if we let it fall through to the .env loop
+  # below, each continuation line of the JSON (e.g. `  "private_key": "..."`
+  # or the closing `}`) gets echoed verbatim into $APP_DIR/.env, which
+  # docker compose then refuses to parse with:
+  #   line N: unexpected character "}" in variable name "}="="
+  # (The previous build died exactly there: see issues.md [RESOLVED] 2026-07-16.)
+  [[ "$key" =~ ^(FIREBASE_CREDENTIALS_JSON=) ]] && continue
   # Strip ALL layers of leading/trailing double- or single-quotes. Doppler sometimes
   # emits values with nested quoting (e.g. ""5432"" on numeric secrets), which broke
   # the previous 4-line "%X / #X" dance that only removed one layer and caused
@@ -557,6 +566,15 @@ perform_rollback() {
     [[ -z "$key" || "$key" =~ ^# ]] && continue
     [[ "$key" =~ [/[:space:]+] ]] && continue
     [[ "$key" =~ ^(LIGHTSAIL_SSH_KEY=) ]] && continue
+  # Skip the multi-line Firebase Admin SDK JSON. It's materialized to disk
+  # via the FIREBASE_CREDENTIALS_JSON handler above (echo ... > json file),
+  # NOT injected as an env var — if we let it fall through to the .env loop
+  # below, each continuation line of the JSON (e.g. `  "private_key": "..."`
+  # or the closing `}`) gets echoed verbatim into $APP_DIR/.env, which
+  # docker compose then refuses to parse with:
+  #   line N: unexpected character "}" in variable name "}="="
+  # (The previous build died exactly there: see issues.md [RESOLVED] 2026-07-16.)
+  [[ "$key" =~ ^(FIREBASE_CREDENTIALS_JSON=) ]] && continue
     value="$(printf '%s' "$raw_value" | sed -E "s/^[\"']+//; s/[\"']+\$//")"
     net_key="${key//:/__}"
     echo "${net_key}=${value}" >> "$APP_DIR/.env"
