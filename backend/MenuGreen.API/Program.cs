@@ -1,18 +1,18 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using MenuGreen.DataAccessLayer;
 using MenuGreen.BusinessLogicLayer;
+using MenuGreen.DataAccessLayer;
 using MenuGreen.DataAccessLayer.Context;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Prometheus;
 
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
@@ -32,10 +32,7 @@ if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
         : Path.Combine(builder.Environment.ContentRootPath, firebaseCredentialPath);
     if (File.Exists(fullPath) && FirebaseApp.DefaultInstance == null)
     {
-        FirebaseApp.Create(new AppOptions
-        {
-            Credential = GoogleCredential.FromFile(fullPath),
-        });
+        FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fullPath) });
     }
 }
 
@@ -62,12 +59,20 @@ else
 builder.Services.AddBusinessLogicLayer();
 
 builder.Services.AddSignalR();
-builder.Services.AddScoped<MenuGreen.BusinessLogicLayer.Interfaces.INotificationHubService, MenuGreen.API.Hubs.NotificationHubService>();
+builder.Services.AddScoped<
+    MenuGreen.BusinessLogicLayer.Interfaces.INotificationHubService,
+    MenuGreen.API.Hubs.NotificationHubService
+>();
 
-builder.Services.AddControllers()
+builder
+    .Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System
+            .Text
+            .Json
+            .JsonNamingPolicy
+            .CamelCase;
         options.JsonSerializerOptions.Converters.Add(new DateOnlyConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
@@ -76,7 +81,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "Free", "Casual", "Gymer", "Office"));
+    options.AddPolicy(
+        "UserOnly",
+        policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office")
+    );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
     options.AddPolicy("GymerOnly", policy => policy.RequireRole("Gymer", "Admin"));
     options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
@@ -95,73 +103,82 @@ var defaultOrigins = new[]
     "https://menugreen.food",
     "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
     "http://localhost:3000",
-    "http://localhost:3001"
+    "http://localhost:3001",
 };
 
 // Get origins from config/env, or use defaults
-var configuredOrigins = (builder.Configuration["AllowedOrigins"]
-    ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS"))
-    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+var configuredOrigins =
+    (
+        builder.Configuration["AllowedOrigins"]
+        ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    )?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     ?? Array.Empty<string>();
 
 // Always merge: default origins + env-configured origins
 // This guarantees admin.menugreen.food is allowed regardless of env config
-var allowedOrigins = defaultOrigins
-    .Concat(configuredOrigins)
-    .Distinct()
-    .ToArray();
+var allowedOrigins = defaultOrigins.Concat(configuredOrigins).Distinct().ToArray();
 
 // If wildcard is configured, keep all origins allowed
 var allowAnyOrigin = allowedOrigins.Contains("*");
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(corsPolicyName, policy =>
-    {
-        if (isDevelopment || allowAnyOrigin)
+    options.AddPolicy(
+        corsPolicyName,
+        policy =>
         {
-            policy.SetIsOriginAllowed(origin => true)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
+            if (isDevelopment || allowAnyOrigin)
+            {
+                policy
+                    .SetIsOriginAllowed(origin => true)
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            }
+            else
+            {
+                policy
+                    .WithOrigins(allowedOrigins)
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            }
         }
-        else
-        {
-            policy.WithOrigins(allowedOrigins)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
-        }
-    });
+    );
 });
 
 // 1. Configure Swagger to show Authorize button (Enter Token)
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "MenuGreen API", Version = "v1" });
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Paste the Token here (without the 'Bearer ' prefix).",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT"
-    });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
+            Description = "Paste the Token here (without the 'Bearer ' prefix).",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
         }
-    });
+    );
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer",
+                    },
+                },
+                new string[] { }
+            },
+        }
+    );
 });
 
 // 2. Configure JWT Authentication
@@ -172,38 +189,42 @@ if (string.IsNullOrEmpty(secretKey))
 }
 var key = Encoding.ASCII.GetBytes(secretKey);
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
+builder
+    .Services.AddAuthentication(options =>
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Issuer"]),
-        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-        ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Audience"]),
-        ValidAudience = builder.Configuration["JwtSettings:Audience"],
-    };
-    options.Events = new JwtBearerEvents
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
     {
-        OnMessageReceived = context =>
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Issuer"]),
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+            ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Audience"]),
+            ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
             {
-                context.Token = accessToken;
-            }
-            return Task.CompletedTask;
-        }
-    };
-});
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.Request.Path;
+                if (
+                    !string.IsNullOrEmpty(accessToken)
+                    && path.StartsWithSegments("/notificationHub")
+                )
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
+        };
+    });
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -213,55 +234,77 @@ builder.Services.AddRateLimiter(options =>
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
         var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
-        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
-        {
-            AutoReplenishment = true,
-            PermitLimit = 100,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0
-        });
+        return RateLimitPartition.GetFixedWindowLimiter(
+            ipAddress,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }
+        );
     });
 
     // 2. AiPolicy: 5 requests per 1 minute per User (fallback to IP if anonymous)
-    options.AddPolicy("AiPolicy", httpContext =>
-    {
-        var identity = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                       ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                       ?? "unknown-user";
-        return RateLimitPartition.GetFixedWindowLimiter(identity, _ => new FixedWindowRateLimiterOptions
+    options.AddPolicy(
+        "AiPolicy",
+        httpContext =>
         {
-            AutoReplenishment = true,
-            PermitLimit = 5,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0
-        });
-    });
+            var identity =
+                httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown-user";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                identity,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }
+            );
+        }
+    );
 
     // 3. AuthPolicy: 5 requests per 2 minutes per IP
-    options.AddPolicy("AuthPolicy", httpContext =>
-    {
-        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
-        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+    options.AddPolicy(
+        "AuthPolicy",
+        httpContext =>
         {
-            AutoReplenishment = true,
-            PermitLimit = 5,
-            Window = TimeSpan.FromMinutes(2),
-            QueueLimit = 0
-        });
-    });
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                ipAddress,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(2),
+                    QueueLimit = 0,
+                }
+            );
+        }
+    );
 
     // 4. OtpPolicy: 2 requests per 1 minute per IP
-    options.AddPolicy("OtpPolicy", httpContext =>
-    {
-        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
-        return RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+    options.AddPolicy(
+        "OtpPolicy",
+        httpContext =>
         {
-            AutoReplenishment = true,
-            PermitLimit = 2,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0
-        });
-    });
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                ipAddress,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 2,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }
+            );
+        }
+    );
 });
 
 // Health Checks
@@ -274,17 +317,21 @@ builder.Services.AddRateLimiter(options =>
 // }
 
 // Convert URI format to Npgsql keyword format if needed
-var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(builder.Configuration);
+var pgConnectionResolved = ConnectionStringHelper.ResolvePostgresConnectionString(
+    builder.Configuration
+);
 
 var healthCheckRedisConnection = Environment.GetEnvironmentVariable("REDIS_URL");
 
-builder.Services.AddHealthChecks()
+builder
+    .Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" })
     .AddNpgSql(pgConnectionResolved, name: "postgresql", tags: new[] { "db", "ready" });
 
 if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
 {
-    builder.Services.AddHealthChecks()
+    builder
+        .Services.AddHealthChecks()
         .AddRedis(healthCheckRedisConnection, name: "redis", tags: new[] { "cache", "ready" });
 }
 
@@ -297,7 +344,8 @@ app.UseMiddleware<MenuGreen.API.Middleware.GlobalExceptionHandler>();
 if (!app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
+    var db =
+        scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
     // -------------------------------------------------------------------------
@@ -305,11 +353,21 @@ if (!app.Environment.IsDevelopment())
     // correlated with the exact commit / DLL build that produced them.
     // -------------------------------------------------------------------------
     var gitSha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "<unknown>";
-    var dllVersion = typeof(MenuGreen.DataAccessLayer.Context.ApplicationDbContext).Assembly
-        .GetCustomAttributes(typeof(System.Reflection.AssemblyFileVersionAttribute), false)
-        .OfType<System.Reflection.AssemblyFileVersionAttribute>()
-        .FirstOrDefault()?.Version ?? "<unknown>";
-    logger.LogInformation("[MIGRATION] GitSHA={GitSha} DataAccessLayerDllFileVersion={DllVersion}", gitSha, dllVersion);
+    var dllVersion =
+        typeof(MenuGreen.DataAccessLayer.Context.ApplicationDbContext)
+            .Assembly.GetCustomAttributes(
+                typeof(System.Reflection.AssemblyFileVersionAttribute),
+                false
+            )
+            .OfType<System.Reflection.AssemblyFileVersionAttribute>()
+            .FirstOrDefault()
+            ?.Version
+        ?? "<unknown>";
+    logger.LogInformation(
+        "[MIGRATION] GitSHA={GitSha} DataAccessLayerDllFileVersion={DllVersion}",
+        gitSha,
+        dllVersion
+    );
 
     // -------------------------------------------------------------------------
     // List pending/applied migrations BEFORE applying (for diagnostics).
@@ -320,12 +378,23 @@ if (!app.Environment.IsDevelopment())
     {
         applied = db.Database.GetAppliedMigrations().ToList();
         pending = db.Database.GetPendingMigrations().ToList();
-        logger.LogInformation("[MIGRATION] Applied ({Count}): [{List}]", applied.Count, string.Join(", ", applied));
-        logger.LogInformation("[MIGRATION] Pending ({Count}): [{List}]", pending.Count, string.Join(", ", pending));
+        logger.LogInformation(
+            "[MIGRATION] Applied ({Count}): [{List}]",
+            applied.Count,
+            string.Join(", ", applied)
+        );
+        logger.LogInformation(
+            "[MIGRATION] Pending ({Count}): [{List}]",
+            pending.Count,
+            string.Join(", ", pending)
+        );
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "[MIGRATION] Could not enumerate migration status (DB may be unreachable). Will attempt Migrate() anyway.");
+        logger.LogWarning(
+            ex,
+            "[MIGRATION] Could not enumerate migration status (DB may be unreachable). Will attempt Migrate() anyway."
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -340,9 +409,11 @@ if (!app.Environment.IsDevelopment())
         if (unknownInHistory.Count > 0)
         {
             logger.LogWarning(
-                "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. " +
-                "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
-                unknownInHistory.Count, string.Join(", ", unknownInHistory));
+                "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. "
+                    + "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
+                unknownInHistory.Count,
+                string.Join(", ", unknownInHistory)
+            );
         }
     }
     catch (Exception ex)
@@ -352,7 +423,10 @@ if (!app.Environment.IsDevelopment())
 
     if (pending.Count > 0)
     {
-        logger.LogInformation("[MIGRATION] Will apply {Count} pending migration(s) now.", pending.Count);
+        logger.LogInformation(
+            "[MIGRATION] Will apply {Count} pending migration(s) now.",
+            pending.Count
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -367,11 +441,18 @@ if (!app.Environment.IsDevelopment())
 
         // Re-list applied after migrate for verification
         var appliedAfter = db.Database.GetAppliedMigrations().ToList();
-        logger.LogInformation("[MIGRATION] Post-apply Applied ({Count}): [{List}]", appliedAfter.Count, string.Join(", ", appliedAfter));
+        logger.LogInformation(
+            "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
+            appliedAfter.Count,
+            string.Join(", ", appliedAfter)
+        );
     }
     catch (Exception ex)
     {
-        logger.LogCritical(ex, "FATAL: Failed to apply database migrations. Application will NOT start to avoid serving requests with mismatched schema.");
+        logger.LogCritical(
+            ex,
+            "FATAL: Failed to apply database migrations. Application will NOT start to avoid serving requests with mismatched schema."
+        );
         throw; // Crash the app - DO NOT start with broken schema
     }
 }
@@ -386,7 +467,6 @@ app.UseSwaggerUI();
 // Prometheus metrics endpoint
 app.UseMetricServer(); // /metrics endpoint
 app.UseHttpMetrics(); // Auto-instrument HTTP requests
-
 
 // Enable CORS
 app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
@@ -404,42 +484,48 @@ app.MapControllers();
 app.MapHub<MenuGreen.API.Hubs.NotificationHub>("/notificationHub");
 
 // Health check endpoints
-app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-{
-    Predicate = _ => true,
-    ResponseWriter = async (context, report) =>
+app.MapHealthChecks(
+    "/health",
+    new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
-        context.Response.ContentType = "application/json";
-        var result = new
+        Predicate = _ => true,
+        ResponseWriter = async (context, report) =>
         {
-            status = report.Status.ToString(),
-            checks = report.Entries.Select(e => new
+            context.Response.ContentType = "application/json";
+            var result = new
             {
-                name = e.Key,
-                status = e.Value.Status.ToString(),
-                description = e.Value.Description,
-                duration = e.Value.Duration.TotalMilliseconds
-            }),
-            totalDuration = report.TotalDuration.TotalMilliseconds
-        };
-        await context.Response.WriteAsJsonAsync(result);
+                status = report.Status.ToString(),
+                checks = report.Entries.Select(e => new
+                {
+                    name = e.Key,
+                    status = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    duration = e.Value.Duration.TotalMilliseconds,
+                }),
+                totalDuration = report.TotalDuration.TotalMilliseconds,
+            };
+            await context.Response.WriteAsJsonAsync(result);
+        },
     }
-});
+);
 
-app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready"),
-    ResponseWriter = async (context, report) =>
+app.MapHealthChecks(
+    "/health/ready",
+    new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+        },
     }
-});
+);
 
-app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-{
-    Predicate = _ => false
-});
+app.MapHealthChecks(
+    "/health/live",
+    new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false }
+);
 
 app.Run();
 
@@ -447,7 +533,11 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
 {
     private const string DateFormat = "yyyy-MM-dd";
 
-    public override DateOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override DateOnly Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         if (reader.TokenType == JsonTokenType.Null)
             return default;
@@ -459,7 +549,15 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
         if (DateOnly.TryParse(value, out var date))
             return date;
 
-        if (DateOnly.TryParseExact(value, DateFormat, null, System.Globalization.DateTimeStyles.None, out var exactDate))
+        if (
+            DateOnly.TryParseExact(
+                value,
+                DateFormat,
+                null,
+                System.Globalization.DateTimeStyles.None,
+                out var exactDate
+            )
+        )
             return exactDate;
 
         if (DateTime.TryParse(value, out var dt))

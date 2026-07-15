@@ -37,6 +37,7 @@ class _ProfileViewState extends State<ProfileView> {
   bool _subscriptionLoading = false;
   String? _loadError;
   bool _subscriptionActionLoading = false;
+  bool _officeModeActivated = false;
 
   @override
   void initState() {
@@ -109,11 +110,18 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _openUpgradeScreen() async {
-    await Navigator.push(
+    final result = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => const UpgradePlanScreen()),
     );
-    if (mounted) await _fetchData();
+    if (!mounted) return;
+    if (result == 'officeActivated') {
+      setState(() => _officeModeActivated = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã mở chế độ Office.')),
+      );
+    }
+    await _fetchData();
   }
 
   void _handleLogout() async {
@@ -271,6 +279,18 @@ class _ProfileViewState extends State<ProfileView> {
                       );
                     },
                   ),
+                  if (_officeModeActivated)
+                    _buildSettingItem(
+                      Icons.business_center_outlined,
+                      'Không gian Office',
+                      'Ngân sách cơm hộp, kế hoạch tuần và nguyên liệu cần mua',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdvancedFeaturesScreen(),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 32),
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -628,10 +648,13 @@ class _ProfileViewState extends State<ProfileView> {
         ? subscription
         : null;
     final planName =
-        activeSubscription?.subscriptionPlanName ??
+        _officeModeActivated
+        ? 'Office'
+        : activeSubscription?.subscriptionPlanName ??
         subscription?.subscriptionPlanName ??
         (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
     final isPro =
+        _officeModeActivated ||
         activeSubscription != null &&
         !activeSubscription.subscriptionPlanName.toLowerCase().contains(
           'free',
@@ -672,7 +695,7 @@ class _ProfileViewState extends State<ProfileView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  isPro ? 'ACTIVE' : 'FREE',
+                  _officeModeActivated ? 'OFFICE' : (isPro ? 'ACTIVE' : 'FREE'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,

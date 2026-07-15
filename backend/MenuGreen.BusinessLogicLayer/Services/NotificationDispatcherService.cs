@@ -194,6 +194,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Mark as sent
             notification.SentAt = DateTimeOffset.UtcNow;
             _unitOfWork.Notifications.Update(notification);
+            var repeatInterval = ReminderService.GetRepeatInterval(notification.Type);
+            if (repeatInterval.HasValue && notification.ScheduledAt.HasValue)
+            {
+                var nextAt = notification.ScheduledAt.Value.AddMinutes(repeatInterval.Value);
+                while (nextAt <= DateTimeOffset.UtcNow) nextAt = nextAt.AddMinutes(repeatInterval.Value);
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    Id = Guid.NewGuid(), UserId = notification.UserId, Title = notification.Title,
+                    Body = notification.Body, Type = notification.Type, IsRead = false,
+                    CreatedAt = DateTimeOffset.UtcNow, ScheduledAt = nextAt
+                });
+                result.NotificationsCreated++;
+            }
             await _unitOfWork.CompleteAsync();
         }
 

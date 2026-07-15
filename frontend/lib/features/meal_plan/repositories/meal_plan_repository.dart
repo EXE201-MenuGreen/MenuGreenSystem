@@ -351,6 +351,24 @@ class MealPlanRepository {
     return MealPlanStreak.fromJson(decoded);
   }
 
+  /// Creates a weekly budget-aware plan. For Office users the API selects
+  /// recipes within the configured cooking-time limit and labels it lunchbox-ready.
+  Future<MealPlanDetail> generateBudgetLunchboxPlan() async {
+    final response = await _api.postJson(ApiEndpoints.mealPlanGenerateByBudget, const {});
+    if (response.statusCode != 200 || response.body.isEmpty) throw Exception(_messageFromResponse(response));
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) throw Exception('Invalid response format');
+    return MealPlanDetail.fromJson(decoded);
+  }
+
+  Future<Map<String, dynamic>> getGroceryList(String planId) async {
+    final response = await _api.get(ApiEndpoints.mealPlanGroceryList(planId));
+    if (response.statusCode != 200 || response.body.isEmpty) throw Exception(_messageFromResponse(response));
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) throw Exception('Invalid response format');
+    return decoded;
+  }
+
   // ==================== Helpers ====================
 
   String _messageFromResponse(dynamic response) {

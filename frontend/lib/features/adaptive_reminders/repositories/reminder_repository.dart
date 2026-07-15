@@ -34,12 +34,14 @@ class ReminderRepository {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    int? repeatIntervalMinutes,
   }) async =>
       ScheduledReminder.fromJson(await _object(_api.postJson(ApiEndpoints.scheduledReminders, {
         'title': title,
         'body': body,
         'scheduledAt': scheduledAt.toUtc().toIso8601String(),
         'type': 'CUSTOM_REMINDER',
+        'repeatIntervalMinutes': ?repeatIntervalMinutes,
       })));
 
   Future<ScheduledReminder> update(
