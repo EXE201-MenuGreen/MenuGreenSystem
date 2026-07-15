@@ -186,7 +186,23 @@ printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_D
 # without manual rollback.
 # =================================================================
 echo "=== Materialize Firebase credentials JSON ==="
-FIREBASE_JSON="$(grep '^FIREBASE_CREDENTIALS_JSON=' /tmp/doppler_raw.env | cut -d= -f2-)"
+# Doppler --format env exports a multi-line JSON as a single secret, e.g.
+#   FIREBASE_CREDENTIALS_JSON={
+#     "type": "service_account",
+#     ...
+#     "private_key": "-----BEGIN..."
+#     ...
+#   }
+# The previous `cut -d= -f2-` only kept the first line (i.e. just "{"), so the
+# materialized file was missing private_key and the python sanity check below
+# bailed out. Use python to extract the full multi-line value between the
+# header line and EOF (or the next KEY= line).
+FIREBASE_JSON="$(python3 -c '
+import re, sys
+text = open("/tmp/doppler_raw.env").read()
+m = re.search(r"^FIREBASE_CREDENTIALS_JSON=(.*?)(?=^[A-Z_]+=|\Z)", text, re.S | re.M)
+sys.stdout.write(m.group(1) if m else "")
+')"
 if [ -z "$FIREBASE_JSON" ]; then
   echo ">>> FATAL: FIREBASE_CREDENTIALS_JSON secret missing from Doppler (project=menugreen, config=prd)."
   echo ">>> Add it via: doppler secrets set FIREBASE_CREDENTIALS_JSON=\$(cat firebase-adminsdk.json) --project menugreen --config prd"
@@ -551,8 +567,14 @@ perform_rollback() {
 
   # Re-materialize Firebase JSON from Doppler (in case it changed since the
   # failed deploy). Same validation as the main path so rollback doesn't
-  # come back up with a broken Firebase app.
-  FIREBASE_JSON_ROLLBACK="$(grep '^FIREBASE_CREDENTIALS_JSON=' /tmp/doppler_rollback.env | cut -d= -f2-)"
+  # come back up with a broken Firebase app. Same multi-line extract trick
+  # as the main path — `cut -d= -f2-` would only keep the leading "{".
+  FIREBASE_JSON_ROLLBACK="$(python3 -c '
+import re, sys
+text = open("/tmp/doppler_rollback.env").read()
+m = re.search(r"^FIREBASE_CREDENTIALS_JSON=(.*?)(?=^[A-Z_]+=|\Z)", text, re.S | re.M)
+sys.stdout.write(m.group(1) if m else "")
+')"
   if [ -n "$FIREBASE_JSON_ROLLBACK" ]; then
     echo "$FIREBASE_JSON_ROLLBACK" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
     sudo chown root:root "$APP_DIR/firebase-adminsdk.json"
