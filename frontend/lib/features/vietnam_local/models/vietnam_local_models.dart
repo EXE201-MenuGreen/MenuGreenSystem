@@ -901,3 +901,55 @@ DateTime? _parseDate(dynamic raw) {
   if (raw is DateTime) return raw;
   return DateTime.tryParse(raw.toString());
 }
+
+class LuckyWheelFood {
+  const LuckyWheelFood({
+    required this.id,
+    required this.name,
+    this.caloriesKcal = 0,
+    this.proteinG = 0,
+    this.carbsG = 0,
+    this.fatG = 0,
+    this.imageUrl,
+    this.description,
+    this.estimatedPriceVnd,
+  });
+
+  final String id;
+  final String name;
+  final double caloriesKcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final String? imageUrl;
+  final String? description;
+  final int? estimatedPriceVnd;
+
+  factory LuckyWheelFood.fromJson(Map<String, dynamic> json) {
+    return LuckyWheelFood(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      name: _firstString(json, const [
+            'nameVi',
+            'nameVI',
+            'nameVN',
+            'name_vi',
+            'NameVi',
+            'NameVI',
+            'NameVN',
+            'foodNameVi',
+            'foodName',
+            'name',
+            'Name',
+            'title',
+          ]) ??
+          '',
+      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
+      carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
+      fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
+      imageUrl: _string(json, 'imageUrl') ?? _string(json, 'ImageUrl'),
+      description: _string(json, 'description') ?? _string(json, 'Description'),
+      estimatedPriceVnd: _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd'),
+    );
+  }
+}

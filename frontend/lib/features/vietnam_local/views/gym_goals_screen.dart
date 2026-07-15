@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/widgets/premium_paywall_widget.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/gym_goals_provider.dart';
 import '../widgets/info_card.dart';
@@ -17,9 +19,46 @@ class GymGoalsScreen extends StatefulWidget {
 }
 
 class _GymGoalsScreenState extends State<GymGoalsScreen> {
+  final _subRepo = UserSubscriptionRepository();
+  bool _subLoading = true;
+  bool _hasProAccess = false;
+
   @override
   void initState() {
     super.initState();
+    _checkSubscription();
+  }
+
+  Future<void> _checkSubscription() async {
+    setState(() {
+      _subLoading = true;
+    });
+
+    try {
+      final sub = await _subRepo.getCurrent();
+      final hasAccess = sub != null &&
+          sub.isActive &&
+          sub.daysRemaining >= 0 &&
+          !sub.subscriptionPlanName.toLowerCase().contains('free') &&
+          !sub.subscriptionPlanName.toLowerCase().contains('cơ bản');
+
+      setState(() {
+        _hasProAccess = hasAccess;
+        _subLoading = false;
+      });
+
+      if (hasAccess) {
+        _loadGymData();
+      }
+    } catch (_) {
+      setState(() {
+        _hasProAccess = false;
+        _subLoading = false;
+      });
+    }
+  }
+
+  void _loadGymData() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<GymGoalsProvider>();
       await provider.loadProfile();
@@ -45,60 +84,71 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
       body: SafeArea(
-        child: Consumer<GymGoalsProvider>(
-          builder: (context, provider, _) {
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: () async {
-                await provider.loadProfile();
-                await provider.loadPlan(top: 10);
-              },
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
-                children: [
-                  InfoCard(
-                    icon: Icons.fitness_center,
-                    title: _goalLabel(provider.profile?.goalMode ?? 'maintain'),
-                    subtitle: _scheduleSummary(provider.profile),
-                    value: _calorieSummary(provider.profile),
-                    footnote:
-                        'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
-                    trailing: TextButton(
-                      onPressed: () => _openEditor(context, provider.profile),
-                      child: const Text('Cấu hình'),
-                    ),
+        child: _subLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                ),
+              )
+            : !_hasProAccess
+                ? const PremiumPaywallWidget(
+                    featureName: 'Chế độ Gym / PT',
+                    featureDescription: 'Tính năng tự động hiệu chỉnh dinh dưỡng và calo chuyên biệt dành riêng cho thành viên gói cước Pro.',
+                  )
+                : Consumer<GymGoalsProvider>(
+                    builder: (context, provider, _) {
+                      return RefreshIndicator(
+                        color: AppColors.primary,
+                        onRefresh: () async {
+                          await provider.loadProfile();
+                          await provider.loadPlan(top: 10);
+                        },
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            InfoCard(
+                              icon: Icons.fitness_center,
+                              title: _goalLabel(provider.profile?.goalMode ?? 'maintain'),
+                              subtitle: _scheduleSummary(provider.profile),
+                              value: _calorieSummary(provider.profile),
+                              footnote:
+                                  'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
+                              trailing: TextButton(
+                                onPressed: () => _openEditor(context, provider.profile),
+                                child: const Text('Cấu hình'),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildRecalibrateCard(provider),
+                            const SizedBox(height: 24),
+                            const SectionHeader(
+                              title: 'Gợi ý thực đơn cho hôm nay',
+                              icon: Icons.restaurant_menu,
+                              subtitle: 'Dựa trên chế độ gym và calo mục tiêu',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildPlanList(provider),
+                            if (provider.errorMessage != null) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange.shade200),
+                                ),
+                                child: Text(
+                                  provider.errorMessage!,
+                                  style: TextStyle(color: Colors.orange.shade900),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 16),
-                  _buildRecalibrateCard(provider),
-                  const SizedBox(height: 24),
-                  const SectionHeader(
-                    title: 'Gợi ý thực đơn cho hôm nay',
-                    icon: Icons.restaurant_menu,
-                    subtitle: 'Dựa trên chế độ gym và calo mục tiêu',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPlanList(provider),
-                  if (provider.errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Text(
-                        provider.errorMessage!,
-                        style: TextStyle(color: Colors.orange.shade900),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-        ),
       ),
     );
   }

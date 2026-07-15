@@ -1,49 +1,37 @@
-# 20. Lucky Wheel (Vòng Quay May Mắn)
+# Tính năng 20: Vòng Quay Món Ăn (Food Lucky Wheel)
 
-**Status:** PLANNED / DỰ KIẾN (Chưa triển khai)  
-**Last updated:** 2026-07-14
-
-**Related controller:** `backend/MenuGreen.API/Controllers/LuckyWheelController.cs` (Dự kiến)  
-**Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/LuckyWheelService.cs` (Dự kiến)  
+## 1. Tổng quan
+Vòng Quay Món Ăn là một tính năng hỗ trợ ra quyết định và tăng tính tương tác (Gamification) dành cho nhóm người dùng **Casual / Simple Eater (Nhóm Ăn uống đơn giản)**. Tính năng này giúp họ giải quyết câu hỏi khó khăn *"Hôm nay ăn gì?"* bằng cách lựa chọn ngẫu nhiên 1 trong 10 món ăn được gợi ý cá nhân hóa và không bị trùng lặp từ cơ sở dữ liệu.
 
 ---
 
-## 1. Overview
-
-**Vòng Quay May Mắn (Lucky Wheel)** là một tính năng game hóa (gamification) độc quyền dành riêng cho gói **Casual** (người dùng phổ thông, băn khoăn về chế độ ăn uống). Tính năng này khuyến khích tương tác hàng ngày bằng cách tặng quà ngẫu nhiên mỗi 24 giờ như điểm thói quen, công thức ăn uống lành mạnh ngẫu nhiên, hoặc mẹo nhanh.
-
----
-
-## 2. Business Rules
-
-- Chỉ người dùng có vai trò `Casual` hoặc `Admin` được phép tham gia vòng quay.
-- Mỗi người dùng chỉ được quay tối đa **1 lần mỗi ngày** (tính theo ngày UTC hoặc ngày địa phương).
-- Trạng thái quay của ngày hôm nay sẽ được lưu trữ và kiểm tra trước khi thực hiện lượt quay mới.
-- **Cơ cấu phần thưởng dự kiến**:
-  - **Points (Điểm)**: Cộng trực tiếp 5, 10, hoặc 20 điểm thói quen vào tài khoản.
-  - **Recipe (Công thức)**: Đề xuất ngẫu nhiên công thức nấu ăn ngon như *Salad ức gà*, *Cá hồi sốt chanh*.
-  - **Tip (Mẹo)**: Gợi ý nhanh về lối sống lành mạnh (ví dụ: *Uống thêm 250ml nước lọc ngay bây giờ*).
+## 2. Thuật toán lựa chọn món ăn cá nhân hóa
+Khi người dùng truy cập vào màn hình vòng quay, Backend sẽ tự động tạo ra một danh sách gồm chính xác **10 món ăn không trùng lặp** theo các nguyên tắc sau:
+1. **Loại bỏ chất gây dị ứng (Allergens)**: Truy vấn danh sách các chất gây dị ứng đang hoạt động của người dùng. Hệ thống sẽ lọc bỏ tất cả các món ăn chứa thành phần gây dị ứng cho người dùng đó.
+2. **Chấm điểm độ tương thích (Personalization Scoring)**: Với mỗi món ăn an toàn còn lại, hệ thống tính toán điểm tương thích:
+   - **Phù hợp ngân sách (+10 điểm)**: Giá tiền ước tính của món ăn bằng hoặc thấp hơn cấu hình `BudgetPerMealVnd` (Ngân sách mỗi bữa ăn) trong sở thích của người dùng.
+   - **Phù hợp vùng miền (+15 điểm)**: Vùng miền ẩm thực của món ăn trùng khớp với miền ăn uống ưu thích của người dùng (`VietnamRegion` - Bắc, Trung, hoặc Nam).
+   - **Phù hợp sở thích cá nhân (+20 điểm)**: Tên món ăn có chứa các từ khóa nằm trong danh sách món ăn ưa thích trong hồ sơ AI của người dùng.
+3. **Lựa chọn ứng viên ngẫu nhiên**:
+   - Sắp xếp các món ăn an toàn theo điểm tương thích từ cao xuống thấp.
+   - Chọn ra 30 ứng viên có điểm số cao nhất.
+   - Lấy ngẫu nhiên ra 10 món ăn không trùng lặp từ nhóm 30 ứng viên này để vẽ lên các ô trên vòng quay. Điều này vừa đảm bảo món ăn phù hợp với người dùng vừa mang lại sự đa dạng đổi mới mỗi khi mở vòng quay.
 
 ---
 
-## 3. Planned API Endpoints
+## 3. Các API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/LuckyWheel/spin` | Quay vòng quay (1 lần/ngày), chọn giải thưởng ngẫu nhiên và lưu vết |
-| `GET` | `/api/LuckyWheel/status` | Kiểm tra trạng thái lượt quay ngày hôm nay và thời gian được quay tiếp theo |
-
----
-
-## 4. UI Components (Planned)
-
-- **Màn hình Vòng quay**: Giao diện vòng tròn may mắn quay thưởng với các ô giải thưởng, nút "Quay Ngay" (bị vô hiệu hóa và hiển thị đếm ngược nếu đã quay hôm nay).
-- **Hộp thoại chúc mừng**: Hiển thị khi quay trúng phần thưởng kèm nút "Xem công thức" (nếu trúng công thức) hoặc "OK".
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET`  | `/api/LuckyWheel/foods` | Trả về danh sách 10 món ăn cá nhân hóa và không trùng lặp để vẽ lên vòng quay. |
+| `POST` | `/api/LuckyWheel/apply` | Áp dụng món ăn được chọn vào thực đơn của ngày hôm nay theo bữa tương ứng (Sáng, Trưa, Tối, Phụ). |
 
 ---
 
-## 5. Relationship with Other Modules
-
-- **ActivityLog**: Lưu trữ nhật ký hoạt động quay thưởng để kiểm soát giới hạn lượt quay hàng ngày.
-- **User / Profiles**: Cộng điểm tích lũy vào tài khoản học tập/thói quen của người dùng.
-- **Recipe & Catalog**: Truy vấn và gợi ý các món ăn/công thức có sẵn trong hệ thống khi trúng giải công thức.
+## 4. Luồng trải nghiệm người dùng (UI/UX Flow)
+1. Người dùng nhấp vào mục **"Vòng quay món ăn"** từ trang cá nhân hoặc bảng điều khiển.
+2. Ứng dụng tải về 10 món ăn cá nhân hóa từ Backend và vẽ tên các món ăn lên 10 ô của vòng quay di động.
+3. Người dùng nhấn nút **"Quay Ngay"**. Vòng quay sẽ xoay tròn với hiệu ứng vật lý giảm tốc mượt mà và dừng lại ở món ăn trúng thưởng.
+4. Một hộp thoại popup hiện lên hiển thị tên món ăn, mô tả, calo, thành phần dinh dưỡng (Protein, Carbs, Fat), giá dự kiến cùng hai nút hành động:
+   - **"Ăn món này"**: Gửi yêu cầu POST lên API để thêm món ăn này vào thực đơn của ngày hôm nay, sau đó tự động đóng màn hình và quay về trang chủ.
+   - **"Quay lại"**: Đóng hộp thoại để người dùng có thể quay lại món ăn khác.

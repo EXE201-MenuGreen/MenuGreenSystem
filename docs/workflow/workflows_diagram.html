@@ -335,6 +335,11 @@
       <path class="edge" id="e-micro-learning-ai-db" d="M 1000,660 C 1050,660 1070,720 1120,730"/>
       <path class="edge" id="e-admin-micro-learning" d="M 860,640 L 860,635"/>
 
+      <!-- Lucky Wheel edges -->
+      <path class="edge" id="e-user-lucky-wheel" d="M 280,260 C 310,310 650,490 720,510"/>
+      <path class="edge" id="e-lucky-wheel-catalog-db" d="M 1000,525 L 1120,490"/>
+      <path class="edge" id="e-lucky-wheel-nut-db" d="M 1000,515 C 1050,515 1070,390 1120,380"/>
+
       <!-- edge labels -->
       <text class="elbl" data-e="e-user-auth" x="340" y="208" text-anchor="middle">Auth & Verify</text>
       <text class="elbl" data-e="e-user-onboard" x="500" y="260" text-anchor="middle">5 Steps Onboarding</text>
@@ -352,6 +357,7 @@
       <text class="elbl" data-e="e-coach-api-nut-db" x="1070" y="415" text-anchor="end">Tweak menu & target</text>
       <text class="elbl" data-e="e-admin-api-auth-db" x="1110" y="270" text-anchor="end">Lock / Role assign</text>
       <text class="elbl" data-e="e-user-micro-learning" x="500" y="678" text-anchor="middle">Học & làm quiz</text>
+      <text class="elbl" data-e="e-user-lucky-wheel" x="500" y="445" text-anchor="middle">Quay chọn món</text>
 
       <!-- ── nodes: roles ────────────────────── -->
       <g class="node role-user" data-k="user">
@@ -431,7 +437,14 @@
         <text class="k" x="740" y="470">đánh giá một lần</text>
         <text class="m" x="740" y="482">Token-based Shareable Link</text>
       </g>
-      
+
+      <!-- Row 3.5 (Lucky Wheel) -->
+      <g class="node" data-k="lucky_wheel_api">
+        <rect x="720" y="500" width="280" height="50"/>
+        <text class="t" x="740" y="522">/api/LuckyWheel</text>
+        <text class="k" x="740" y="538">vòng quay món ăn</text>
+      </g>
+
       <!-- Row 4 -->
       <g class="node" data-k="sepay_api">
         <rect x="400" y="560" width="280" height="50"/>
@@ -605,6 +618,11 @@ const DETAIL = {
     t: "/api/MicroLearning (Góc dinh dưỡng)",
     m: ".NET Controller • Gamification",
     b: "Khu vực thẻ học kiến thức ngắn được đề xuất cá nhân hóa dựa trên health profile, dị ứng và meal logs. Mỗi thẻ đi kèm quiz trắc nghiệm giúp người dùng kiểm tra hiểu biết, giải thích đáp án và nhận điểm thưởng quiz."
+  },
+  lucky_wheel_api: {
+    t: "/api/LuckyWheel (Vòng quay món ăn)",
+    m: ".NET Controller • Gamification",
+    b: "Tính năng Vòng quay món ăn cho người dùng Casual/General.<br><br><b>Quy trình hoạt động:</b><br>• Lấy 10 món ăn cá nhân hóa không trùng lặp dựa trên dị ứng, ngân sách và sở thích.<br>• Khi quay trúng, người dùng có thể áp dụng trực tiếp món ăn này vào thực đơn hôm nay."
   },
   ai_chat: {
     t: "AI Assistant & Food CV API",
@@ -837,6 +855,9 @@ const FLOWS = {
       "e-auth-db",
       "e-user-onboard",
       "e-onboard-nut-db",
+      "e-user-lucky-wheel",
+      "e-lucky-wheel-catalog-db",
+      "e-lucky-wheel-nut-db",
       "e-user-micro-learning",
       "e-micro-learning-ai-db",
       "e-user-template",
@@ -849,17 +870,21 @@ const FLOWS = {
       "e-auth-db":              1,
       "e-user-onboard":         1,
       "e-onboard-nut-db":       1,
-      "e-user-micro-learning":  2,
-      "e-micro-learning-ai-db": 2,
-      "e-user-template":        3,
-      "e-template-nut-db":      3,
-      "e-user-tracker":         4,
-      "e-tracker-nut-db":       4
+      "e-user-lucky-wheel":     2,
+      "e-lucky-wheel-catalog-db": 2,
+      "e-lucky-wheel-nut-db":     2,
+      "e-user-micro-learning":  3,
+      "e-micro-learning-ai-db": 3,
+      "e-user-template":        4,
+      "e-template-nut-db":      4,
+      "e-user-tracker":         5,
+      "e-tracker-nut-db":       5
     },
-    nodes: ["user", "auth_verify", "onboard_api", "tracker_api", "micro_learning_api", "meal_template_api", "auth_db", "nutrition_db", "ai_db"],
+    nodes: ["user", "auth_verify", "onboard_api", "tracker_api", "lucky_wheel_api", "micro_learning_api", "meal_template_api", "auth_db", "nutrition_db", "ai_db", "catalog_db"],
     steps: [
       "Người dùng Casual đăng ký Email + OTP → Onboarding chọn vai trò <b>Casual</b>, mức vận động nhẹ, mục tiêu Duy trì cân nặng. Hệ thống tính TDEE phù hợp.",
-      "Hàng ngày khám phá <b>Góc dinh dưỡng</b>: đọc thẻ kiến thức ngắn <code>/api/MicroLearning/cards/recommended</code> và làm Quiz trắc nghiệm nhận điểm thưởng.",
+      "Quay <b>Vòng Quay Món Ăn (Food Lucky Wheel)</b>: hệ thống tự động lọc bỏ dị ứng và gợi ý 10 món phù hợp ngân sách, sở thích từ Catalog DB → người dùng chọn để lưu vào thực đơn.",
+      "Hàng ngày khám phá <b>Góc dinh dưỡng</b>: đọc thẻ kiến thức ngắn <code>/api/MicroLearning/cards/recommended</code> và làm Quiz trắc nghiệm.",
       "Ghi nhanh bữa ăn quen thuộc bằng <b>Meal Template 1-chạm</b>: chọn template → override khối lượng → convert thành MealLog vào <b>Nutrition DB</b>.",
       "Ghi nhận nhật ký ăn uống hàng ngày đơn giản, theo dõi Dashboard calo Hôm nay để kiểm soát mức tiêu thụ theo mục tiêu đã đặt."
     ]
