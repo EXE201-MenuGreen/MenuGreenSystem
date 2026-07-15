@@ -229,15 +229,54 @@ fi
 echo "$FIREBASE_JSON" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
 sudo chown root:root "$APP_DIR/firebase-adminsdk.json"
 sudo chmod 600 "$APP_DIR/firebase-adminsdk.json"
-# Sanity-check: the JSON must parse and contain a private_key — otherwise
-# FirebaseApp.Create() will throw at runtime and Google sign-in / FCM
-# silently break. Better to fail loudly here than during a user login.
-if ! sudo python3 -c "import json,sys; d=json.loads(open('$APP_DIR/firebase-adminsdk.json').read()); assert d.get('private_key','').startswith('-----BEGIN'), 'private_key missing'" 2>/dev/null; then
-  echo ">>> FATAL: $APP_DIR/firebase-adminsdk.json is missing or invalid (no private_key field)."
+# Sanity-check + re-serialize: the JSON we extracted from Doppler --format env
+# has its `private_key` field stored with embedded LITERAL newlines (\n as two
+# chars: backslash + n) inside the PEM block — that's how JSON encodes strings.
+# That is technically valid JSON, but GoogleCredential.FromFile() uses
+# BCL's RSA crypto which expects REAL newlines in the PKCS8 PEM block, then
+# passes the decoded PEM to Pkcs8.DecodeRsaParameters which checks for
+# "-----BEGIN PRIVATE KEY-----<newline>MIIE...".
+# If those newlines are still the literal two-char sequence `\n`, the PEM
+# becomes one giant line and the runtime throws:
+#   System.ArgumentException: PKCS8 data must be contained within
+#   '-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----'.
+# So: (1) json.loads the file to parse it; (2) verify private_key actually
+# has the expected markers around a newline; (3) write it back with
+# json.dumps(indent=2) so the JSON on disk is canonical and the PEM is
+# always human-readable. ANY failure aborts the deploy — much better than
+# having the container crash-loop into 30 health-check failures.
+sudo python3 - <<PYEOF || {
+  import json, sys
+  path = "$APP_DIR/firebase-adminsdk.json"
+  with open(path) as f:
+    data = json.load(f)
+  pk = data.get("private_key", "")
+  if "-----BEGIN" not in pk or "-----END" not in pk:
+    raise SystemExit("private_key is missing BEGIN/END markers")
+  # After json.load, every JSON \n has become a real \n in `pk`. Verify
+  # PEM markers are separated by real newlines (otherwise GoogleCredential
+  # will crash with the exact same ArgumentException we saw).
+  if not pk.startswith("-----BEGIN") or "-----BEGIN PRIVATE KEY-----" not in pk:
+    raise SystemExit("private_key does not start with BEGIN PRIVATE KEY")
+  # The PEM body must contain at least one real newline between BEGIN and END
+  begin_idx = pk.index("-----BEGIN PRIVATE KEY-----")
+  end_idx   = pk.index("-----END PRIVATE KEY-----")
+  body      = pk[begin_idx:end_idx]
+  if "\n" not in body:
+    raise SystemExit(
+      "private_key PEM has no real newlines between BEGIN and END — "
+      "Doppler likely escaped them as literal \\\\n; GoogleCredential "
+      "needs real \\\\n in the PEM body."
+    )
+  # Re-serialize canonically so the on-disk file is consistent across deploys.
+  with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+  echo ">>> FATAL: $APP_DIR/firebase-adminsdk.json failed sanity check (private_key PEM malformed)."
   echo ">>> Aborting deploy before pulling new image."
   exit 1
-fi
-echo "  ✓ Firebase credentials materialized (root:root, mode 600, valid JSON)"
+}
+echo "  ✓ Firebase credentials materialized (root:root, mode 600, valid JSON, real-PEM private_key)"
 
 # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
 while IFS='=' read -r key raw_value; do
