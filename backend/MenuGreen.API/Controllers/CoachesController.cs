@@ -76,7 +76,7 @@ namespace MenuGreen.API.Controllers
         /// <summary>Student sends request to connect with a Coach.</summary>
         [HttpPost("connect/{coachId:guid}")]
         [Authorize]
-        [Authorize(Policy = "UserOnly")]
+        [Authorize(Policy = "CoachAccessOnly")]
         public async Task<IActionResult> ConnectCoach(Guid coachId)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();

@@ -307,8 +307,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
 
             string feedback = isCorrect
-                ? "Chính xác! Chúc mừng bạn đã trả lời đúng câu hỏi và tích lũy được điểm thói quen."
-                : $"Chưa chính xác. Đáp án đúng là phương án số {card.CorrectOptionIndex.Value + 1}. Hãy đọc lại thẻ kiến thức để nắm vững thông tin nhé.";
+                ? "Correct! Congratulations on answering the quiz correctly."
+                : $"Incorrect. The correct answer is option {card.CorrectOptionIndex.Value + 1}. Please review the learning card to understand the topic better.";
 
             return new QuizSubmitResponse
             {
