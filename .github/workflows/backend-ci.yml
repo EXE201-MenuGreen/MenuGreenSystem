@@ -113,5 +113,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Docker Buildx v6 pushes provenance/SBOM attestations by default.
+          # On the deploy host, `docker pull` then tries to commit those
+          # attestation manifests into containerd's blob store and frequently
+          # fails with:
+          #   failed commit on ref "attestation-sha256:...": rename ...
+          #   no such file or directory
+          # because the containerd ingest directory isn't always in sync with
+          # the layer blob directory after a `docker image prune`.
+          # We don't use the attestations downstream (no cosign verify, no
+          # policy check), so turn them off to keep `docker pull` reliable.
+          provenance: false
+          sbom: false
           build-args: |
             GIT_SHA=${{ github.sha }}

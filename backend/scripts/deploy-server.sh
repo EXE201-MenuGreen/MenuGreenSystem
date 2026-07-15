@@ -421,7 +421,32 @@ else
 fi
 
 echo "=== Pull latest image ==="
-sudo docker pull $IMAGE:main || { echo "Failed to pull image $IMAGE:main"; exit 1; }
+# Retry loop: even on a "fresh" deploy host, the first `docker pull` after
+# `docker image prune` (step 6) sometimes fails with a containerd attestation
+# commit error:
+#   failed commit on ref "attestation-sha256:...": rename .../data .../blobs/...
+#   no such file or directory
+# That's because Buildx v6 pushes provenance + SBOM attestations by default
+# (see backend-ci.yml where we now disable them), and the containerd ingest
+# dir is briefly inconsistent during prune. Retry up to 3 times; if that
+# still fails, also restart containerd to force a clean state and try once
+# more. We do NOT swallow the final failure — if the pull never succeeds,
+# the deploy must abort so CD can roll back via the previous image.
+PULL_OK=0
+for attempt in 1 2 3; do
+  if sudo docker pull "$IMAGE:main" 2>&1 | tail -5; then
+    PULL_OK=1
+    break
+  fi
+  echo "  ! Pull attempt $attempt failed, retrying in 5s..."
+  sleep 5
+done
+if [ "$PULL_OK" = "0" ]; then
+  echo "  ! Pull still failing after 3 attempts — restarting containerd and trying once more"
+  sudo systemctl restart containerd 2>/dev/null || sudo systemctl restart docker 2>/dev/null || true
+  sleep 5
+  sudo docker pull "$IMAGE:main" || { echo "Failed to pull image $IMAGE:main"; exit 1; }
+fi
 
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
