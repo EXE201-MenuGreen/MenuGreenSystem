@@ -186,22 +186,39 @@ printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_D
 # without manual rollback.
 # =================================================================
 echo "=== Materialize Firebase credentials JSON ==="
-# Doppler --format env exports a multi-line JSON as a single secret, e.g.
-#   FIREBASE_CREDENTIALS_JSON={
-#     "type": "service_account",
-#     ...
-#     "private_key": "-----BEGIN..."
-#     ...
-#   }
-# The previous `cut -d= -f2-` only kept the first line (i.e. just "{"), so the
-# materialized file was missing private_key and the python sanity check below
-# bailed out. Use python to extract the full multi-line value between the
-# header line and EOF (or the next KEY= line).
+# Doppler --format env emits a multi-line value as a quoted string that
+# spans several lines, with embedded `"` escaped as `\"`. The previous
+# attempts failed because:
+#   - `cut -d= -f2-`               only kept the leading "{" (one line).
+#   - python regex with `KEY=(.*)` kept the surrounding double-quotes so
+#     json.loads failed at column 2.
+# Use a small line-based extractor: find the header line, then collect
+# subsequent lines until we see the unescaped closing `"` (detected by
+# the count of unescaped quotes being even). Then unescape \" -> " so
+# the file written to disk is a real, multi-line JSON that FirebaseAdmin
+# can load.
 FIREBASE_JSON="$(python3 -c '
 import re, sys
-text = open("/tmp/doppler_raw.env").read()
-m = re.search(r"^FIREBASE_CREDENTIALS_JSON=(.*?)(?=^[A-Z_]+=|\Z)", text, re.S | re.M)
-sys.stdout.write(m.group(1) if m else "")
+path = "/tmp/doppler_raw.env"
+with open(path) as f:
+    lines = f.read().split("\n")
+for i, line in enumerate(lines):
+    if line.startswith("FIREBASE_CREDENTIALS_JSON="):
+        collected = [line[len("FIREBASE_CREDENTIALS_JSON="):]]
+        j = i + 1
+        while j < len(lines):
+            collected.append(lines[j])
+            joined = "\n".join(collected)
+            if lines[j].endswith(chr(34)) or lines[j] == chr(34) or lines[j].endswith(chr(125) + chr(34)):
+                stripped = joined.replace(chr(92) + chr(34), "")
+                if stripped.count(chr(34)) % 2 == 0:
+                    break
+            j += 1
+        joined = "\n".join(collected)
+        if joined.startswith(chr(34)) and joined.endswith(chr(34)):
+            joined = joined[1:-1]
+        sys.stdout.write(joined.replace(chr(92) + chr(34), chr(34)))
+        break
 ')"
 if [ -z "$FIREBASE_JSON" ]; then
   echo ">>> FATAL: FIREBASE_CREDENTIALS_JSON secret missing from Doppler (project=menugreen, config=prd)."
@@ -567,13 +584,30 @@ perform_rollback() {
 
   # Re-materialize Firebase JSON from Doppler (in case it changed since the
   # failed deploy). Same validation as the main path so rollback doesn't
-  # come back up with a broken Firebase app. Same multi-line extract trick
-  # as the main path — `cut -d= -f2-` would only keep the leading "{".
+  # come back up with a broken Firebase app. Mirror the same line-based
+  # quoted-value extractor as the main path (see comment block there).
   FIREBASE_JSON_ROLLBACK="$(python3 -c '
 import re, sys
-text = open("/tmp/doppler_rollback.env").read()
-m = re.search(r"^FIREBASE_CREDENTIALS_JSON=(.*?)(?=^[A-Z_]+=|\Z)", text, re.S | re.M)
-sys.stdout.write(m.group(1) if m else "")
+path = "/tmp/doppler_rollback.env"
+with open(path) as f:
+    lines = f.read().split("\n")
+for i, line in enumerate(lines):
+    if line.startswith("FIREBASE_CREDENTIALS_JSON="):
+        collected = [line[len("FIREBASE_CREDENTIALS_JSON="):]]
+        j = i + 1
+        while j < len(lines):
+            collected.append(lines[j])
+            joined = "\n".join(collected)
+            if lines[j].endswith(chr(34)) or lines[j] == chr(34) or lines[j].endswith(chr(125) + chr(34)):
+                stripped = joined.replace(chr(92) + chr(34), "")
+                if stripped.count(chr(34)) % 2 == 0:
+                    break
+            j += 1
+        joined = "\n".join(collected)
+        if joined.startswith(chr(34)) and joined.endswith(chr(34)):
+            joined = joined[1:-1]
+        sys.stdout.write(joined.replace(chr(92) + chr(34), chr(34)))
+        break
 ')"
   if [ -n "$FIREBASE_JSON_ROLLBACK" ]; then
     echo "$FIREBASE_JSON_ROLLBACK" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
