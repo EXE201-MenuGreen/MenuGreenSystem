@@ -1064,6 +1064,53 @@ class IngredientSubstitutionPreferencesRepository {
   }
 }
 
+class LuckyWheelRepository {
+  LuckyWheelRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+
+  final ApiClient _api;
+  final _VietnamLocalApi _http = _VietnamLocalApi();
+
+  Future<ApiResult<List<LuckyWheelFood>>> getFoods() async {
+    final result = await _http._exec(
+      () => _api.get(ApiEndpoints.luckyWheelFoods),
+    );
+    if (!result.success) {
+      return ApiResult<List<LuckyWheelFood>>(
+        success: false,
+        message: result.message,
+      );
+    }
+    final raw = result.data;
+    final list = raw is List
+        ? raw
+        : (raw is Map<String, dynamic> && raw['items'] is List
+              ? raw['items'] as List
+              : (raw is Map<String, dynamic> && raw['data'] is List
+                    ? raw['data'] as List
+                    : <dynamic>[])
+          );
+    final data = list
+        .whereType<Map>()
+        .map((e) => LuckyWheelFood.fromJson(e.cast<String, dynamic>()))
+        .toList();
+    return ApiResult<List<LuckyWheelFood>>(success: true, data: data);
+  }
+
+  Future<ApiResult<String>> applySelection(String foodId, String mealType) async {
+    final result = await _http._exec(
+      () => _api.postJson(ApiEndpoints.luckyWheelApply, {
+        'foodId': foodId,
+        'mealType': mealType,
+      }),
+    );
+    return ApiResult<String>(
+      success: result.success,
+      message: result.message,
+      data: result.message,
+    );
+  }
+}
+
 Map<String, dynamic> _decodePreferences(String? raw) {
   if (raw == null || raw.isEmpty) return <String, dynamic>{};
   try {

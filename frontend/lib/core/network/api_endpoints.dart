@@ -193,6 +193,12 @@ class ApiEndpoints {
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 
+  // Premium Programs endpoints
+  static String get premiumPrograms => '$baseUrl/PremiumPrograms';
+  static String premiumProgramCheckout(String id) => '$baseUrl/PremiumPrograms/$id/checkout';
+  static String premiumProgramActivate(String id) => '$baseUrl/PremiumPrograms/$id/activate';
+  static String get myActivePremiumProgram => '$baseUrl/PremiumPrograms/my-active';
+
   static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
   static String get sepayCreateRenewOrder =>
       '$baseUrl/payments/sepay/create-renew-order';
@@ -312,4 +318,8 @@ class ApiEndpoints {
       '$baseUrl/Ingredient/preferences/substitutes';
   static String ingredientSubstitutePreferenceById(String id) =>
       '$baseUrl/Ingredient/preferences/substitutes/$id';
+
+  // Lucky Wheel (2.20)
+  static String get luckyWheelFoods => '$baseUrl/LuckyWheel/foods';
+  static String get luckyWheelApply => '$baseUrl/LuckyWheel/apply';
 }

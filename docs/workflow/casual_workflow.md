@@ -14,10 +14,8 @@ Tài liệu này chi tiết hành trình của **Người dùng phổ thông (Ca
    - Chọn nhóm hành vi: **Casual / Simple Eater** (Nhóm Ăn uống đơn giản).
 3. **Nâng cấp gói cước**: Người dùng mua gói cước Casual/Pro thông qua quét mã QR SePay tự động. Hệ thống nâng cấp vai trò người dùng thành `Casual`.
 
----
-
-## 2. Vòng Quay May Mắn (Lucky Wheel - Gamification) - ⚠️ *Tính năng dự kiến / Chưa triển khai*
-Để khuyến khích người dùng mở ứng dụng hàng ngày, tính năng Vòng quay may mắn dự kiến cung cấp phần thưởng ngẫu nhiên mỗi 24 giờ.
+## 2. Vòng Quay Món Ăn (Food Lucky Wheel Flow)
+Giúp người dùng Casual nhanh chóng quyết định "Hôm nay ăn gì" bằng cách lựa chọn ngẫu nhiên từ danh sách 10 món ăn được gợi ý cá nhân hóa và an toàn.
 
 ```mermaid
 sequenceDiagram
@@ -25,26 +23,24 @@ sequenceDiagram
     participant App as Flutter App
     participant BE as LuckyWheel API
     
-    U->>App: Truy cập màn hình Vòng Quay
-    App->>BE: GET /api/LuckyWheel/status (Kiểm tra trạng thái)
-    BE-->>App: Trả về trạng thái (Đã quay hôm nay: True/False)
+    U->>App: Truy cập màn hình Vòng Quay Món Ăn
+    App->>BE: GET /api/LuckyWheel/foods (Lấy 10 món ăn cá nhân hóa)
+    Note over BE: Loại bỏ dị ứng & Lọc theo ngân sách, sở thích, vùng miền
+    BE-->>App: Trả về danh sách 10 món ăn (không trùng lặp)
     
-    alt Chưa quay hôm nay
-        U->>App: Nhấn nút "Quay Ngay"
-        App->>BE: POST /api/LuckyWheel/spin
-        Note over BE: Chọn phần thưởng ngẫu nhiên (Điểm, Công thức, Mẹo)
-        BE->>BE: Lưu lịch sử quay vào ActivityLogs
-        BE-->>App: Trả về kết quả (Phần thưởng, Loại phần thưởng)
-        App->>U: Hiển thị hiệu ứng vòng quay và thông báo phần thưởng
-    else Đã quay hôm nay
-        App->>U: Hiển thị nút Quay bị khóa & Đồng hồ đếm ngược tới ngày mai
+    U->>App: Nhấn nút "Quay ngẫu nhiên"
+    App->>App: Chạy hiệu ứng vòng quay và dừng lại ở món trúng
+    App->>U: Hiển thị thông tin món ăn (Calo, Macro, Giá)
+    
+    alt Người dùng đồng ý ăn món này
+        U->>App: Bấm nút "Ăn món này"
+        App->>BE: POST /api/LuckyWheel/apply (Lưu vào thực đơn ngày hôm nay)
+        BE-->>App: Xác nhận thành công
+        App->>U: Quay lại màn hình chính & hiển thị món ăn trong thực đơn
+    else Muốn quay lại
+        U->>App: Bấm nút "Quay lại" hoặc đóng hộp thoại
     end
 ```
-
-### Cơ cấu giải thưởng:
-- **Điểm thói quen (5 / 10 / 20 Points)**: Tích lũy để nâng hạng hoặc đổi ưu đãi.
-- **Gợi ý công thức ngẫu nhiên**: Ví dụ: *Salad ức gà áp chảo*, *Cá hồi sốt chanh leo*. Bấm để xem chi tiết cách nấu và lưu vào kế hoạch.
-- **Mẹo sức khỏe nhanh**: Ví dụ: *Uống thêm 250ml nước lọc ngay bây giờ!*
 
 ---
 
@@ -65,7 +61,7 @@ Dành cho những ngày người dùng không muốn mất thời gian suy nghĩ
 
 ---
 
-## 4. Học Tập Dinh Dưỡng Có Thưởng (Micro-Learning & Quiz)
+## 4. Học Tập Dinh Dưỡng (Micro-Learning & Quiz)
 Giúp người dùng tiếp cận kiến thức dinh dưỡng dễ dàng và thú vị.
 
 1. **Nhận thẻ kiến thức gợi ý**:
@@ -75,7 +71,7 @@ Giúp người dùng tiếp cận kiến thức dinh dưỡng dễ dàng và th�
 3. **Trả lời câu hỏi trắc nghiệm (Quiz)**:
    - Cuối thẻ có 1 câu hỏi trắc nghiệm đơn giản.
    - Gửi đáp án: `POST /api/MicroLearning/cards/{id}/quiz/submit`.
-   - Trả lời đúng: Nhận ngay điểm thưởng thói quen (PointsReward) tương ứng của thẻ.
+   - Trả lời đúng: Nhận thông báo chúc mừng hoàn thành quiz thành công.
    - Trả lời sai: Nhận phản hồi giải thích đáp án đúng để học lại.
 
 ---

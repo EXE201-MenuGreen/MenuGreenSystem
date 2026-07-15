@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/local_preferences_provider.dart';
 import '../widgets/info_card.dart';
@@ -29,6 +30,8 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
   late final TextEditingController _portionUnitsController;
   late final TextEditingController _dislikedController;
   bool _initializing = true;
+  bool _isPro = false;
+  String _subscriptionPlanName = '';
 
   @override
   void initState() {
@@ -39,12 +42,29 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
     _budgetController = TextEditingController();
     _portionUnitsController = TextEditingController();
     _dislikedController = TextEditingController();
+    _checkSub();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<LocalPreferencesProvider>();
       await provider.load();
       if (!mounted) return;
       _hydrate(provider.profile);
     });
+  }
+
+  Future<void> _checkSub() async {
+    try {
+      final sub = await UserSubscriptionRepository().getCurrent();
+      if (sub != null && sub.isActive && sub.daysRemaining >= 0) {
+        final planName = sub.subscriptionPlanName.toLowerCase();
+        final hasPro = !planName.contains('free') && !planName.contains('cơ bản');
+        if (mounted) {
+          setState(() {
+            _isPro = hasPro;
+            _subscriptionPlanName = sub.subscriptionPlanName;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   void _hydrate(LocalPreferencesProfile? p) {
@@ -270,7 +290,33 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                         (e) => ChoiceChip(
                           label: Text(_eatingPatternLabel(e)),
                           selected: _eatingPattern == e,
-                          onSelected: (_) => setState(() => _eatingPattern = e),
+                          onSelected: (_) {
+                            if (_isPro) {
+                              final planLower = _subscriptionPlanName.toLowerCase();
+                              final isGymPlan = planLower.contains('gym');
+                              final isOfficePlan = planLower.contains('office');
+
+                              if (isGymPlan && e != 'gym') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Gói cước Pro Tháng/GYM hiện tại của bạn chỉ áp dụng cho chế độ Gym / PT.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              if (isOfficePlan && e != 'office') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Gói cước của bạn chỉ áp dụng cho chế độ Văn phòng.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+                            setState(() => _eatingPattern = e);
+                          },
                           selectedColor: AppColors.primary.withValues(
                             alpha: 0.2,
                           ),

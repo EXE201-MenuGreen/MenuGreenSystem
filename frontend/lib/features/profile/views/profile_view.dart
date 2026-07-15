@@ -13,6 +13,7 @@ import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
 import 'personal_info_screen.dart';
+import '../../vietnam_local/views/lucky_wheel_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
@@ -302,12 +303,52 @@ class _ProfileViewState extends State<ProfileView> {
                     'Chế độ Gym / PT',
                     'Cấu hình calo tự đổi theo ngày tập/nghỉ',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const GymGoalsScreen(),
-                        ),
-                      );
+                      final activeSub = _subscription != null &&
+                              _subscription!.isActive &&
+                              _subscription!.daysRemaining >= 0 &&
+                              _subscription!.subscriptionPlanName.isNotEmpty
+                          ? _subscription
+                          : null;
+                      final isPro = activeSub != null &&
+                          !activeSub.subscriptionPlanName.toLowerCase().contains('free') &&
+                          !activeSub.subscriptionPlanName.toLowerCase().contains('cơ bản');
+
+                      if (!isPro) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Yêu cầu nâng cấp'),
+                            content: const Text(
+                              'Chế độ Gym / PT là tính năng nâng cao dành riêng cho thành viên gói cước Pro. Bạn có muốn nâng cấp gói cước ngay bây giờ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Hủy'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const UpgradePlanScreen(),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Nâng cấp ngay'),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GymGoalsScreen(),
+                          ),
+                        );
+                      }
                     },
                   ),
                   _buildSettingItem(
@@ -319,6 +360,19 @@ class _ProfileViewState extends State<ProfileView> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const LocalPreferencesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    Icons.casino_outlined,
+                    'Vòng quay món ăn',
+                    'Quay ngẫu nhiên gợi ý món ăn hôm nay cho bạn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LuckyWheelScreen(),
                         ),
                       );
                     },
@@ -497,6 +551,19 @@ class _ProfileViewState extends State<ProfileView> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const LocalPreferencesScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildSettingItem(
+                        Icons.casino_outlined,
+                        'Vòng quay món ăn',
+                        'Quay ngẫu nhiên gợi ý món ăn hôm nay cho bạn',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LuckyWheelScreen(),
                             ),
                           );
                         },
