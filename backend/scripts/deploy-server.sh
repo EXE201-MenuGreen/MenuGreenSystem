@@ -164,6 +164,48 @@ doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen 
 # TODO: Remove sau khi fix xong lỗi
 printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\nSHOW_DETAILED_ERRORS=true\n' > "$APP_DIR/.env"
 
+# =================================================================
+# Materialize Firebase Admin SDK credentials JSON on disk.
+#
+# The JSON file holds a private_key, so we MUST NOT commit it to git.
+# Instead, we keep the full JSON body as a single multi-line Doppler
+# secret named FIREBASE_CREDENTIALS_JSON. On each deploy we read it
+# back and write it to $APP_DIR/firebase-adminsdk.json with mode 600,
+# then docker-compose.prod.yml mounts that path read-only into the
+# API container at /etc/secrets/firebase-adminsdk.json (the same path
+# FIREBASE_CREDENTIAL_PATH below points at).
+#
+# Why materialize as a file instead of letting FirebaseAdmin read from
+# an env var? Because the .NET SDK only accepts a file path
+# (GoogleCredential.FromFile). Streaming the JSON via env would require
+# changing C# code, which we want to avoid.
+#
+# Failure mode: if the Doppler secret is missing, the script aborts
+# before pulling a new image. The previous container is still running,
+# so traffic is unaffected. The next deploy attempt can fix the secret
+# without manual rollback.
+# =================================================================
+echo "=== Materialize Firebase credentials JSON ==="
+FIREBASE_JSON="$(grep '^FIREBASE_CREDENTIALS_JSON=' /tmp/doppler_raw.env | cut -d= -f2-)"
+if [ -z "$FIREBASE_JSON" ]; then
+  echo ">>> FATAL: FIREBASE_CREDENTIALS_JSON secret missing from Doppler (project=menugreen, config=prd)."
+  echo ">>> Add it via: doppler secrets set FIREBASE_CREDENTIALS_JSON=\$(cat firebase-adminsdk.json) --project menugreen --config prd"
+  echo ">>> (Use the JSON dump, NOT a file path.) Aborting deploy before pulling new image."
+  exit 1
+fi
+echo "$FIREBASE_JSON" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
+sudo chown root:root "$APP_DIR/firebase-adminsdk.json"
+sudo chmod 600 "$APP_DIR/firebase-adminsdk.json"
+# Sanity-check: the JSON must parse and contain a private_key — otherwise
+# FirebaseApp.Create() will throw at runtime and Google sign-in / FCM
+# silently break. Better to fail loudly here than during a user login.
+if ! sudo python3 -c "import json,sys; d=json.loads(open('$APP_DIR/firebase-adminsdk.json').read()); assert d.get('private_key','').startswith('-----BEGIN'), 'private_key missing'" 2>/dev/null; then
+  echo ">>> FATAL: $APP_DIR/firebase-adminsdk.json is missing or invalid (no private_key field)."
+  echo ">>> Aborting deploy before pulling new image."
+  exit 1
+fi
+echo "  ✓ Firebase credentials materialized (root:root, mode 600, valid JSON)"
+
 # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
 while IFS='=' read -r key raw_value; do
   [[ -z "$key" || "$key" =~ ^# ]] && continue
@@ -497,6 +539,19 @@ perform_rollback() {
   doppler secrets download --token "$DOPPLER_TOKEN" --no-file --project menugreen --config prd --format env > /tmp/doppler_rollback.env
 
   printf 'ASPNETCORE_ENVIRONMENT=Production\nASPNETCORE_URLS=http://+:5000\n' > "$APP_DIR/.env"
+
+  # Re-materialize Firebase JSON from Doppler (in case it changed since the
+  # failed deploy). Same validation as the main path so rollback doesn't
+  # come back up with a broken Firebase app.
+  FIREBASE_JSON_ROLLBACK="$(grep '^FIREBASE_CREDENTIALS_JSON=' /tmp/doppler_rollback.env | cut -d= -f2-)"
+  if [ -n "$FIREBASE_JSON_ROLLBACK" ]; then
+    echo "$FIREBASE_JSON_ROLLBACK" | sudo tee "$APP_DIR/firebase-adminsdk.json" > /dev/null
+    sudo chown root:root "$APP_DIR/firebase-adminsdk.json"
+    sudo chmod 600 "$APP_DIR/firebase-adminsdk.json"
+    echo ">>> Firebase credentials re-materialized for rollback"
+  else
+    echo ">>> WARNING: FIREBASE_CREDENTIALS_JSON missing — rollback container will run without Firebase (Google sign-in / FCM disabled)"
+  fi
 
   while IFS='=' read -r key raw_value; do
     [[ -z "$key" || "$key" =~ ^# ]] && continue

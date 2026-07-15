@@ -9,6 +9,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:5000
       - GIT_SHA=${GIT_SHA:-manual}
+      - Firebase__CredentialPath=${FIREBASE_CREDENTIAL_PATH:-/etc/secrets/firebase-adminsdk.json}
     ports:
       - "5000:5000"
     networks:
@@ -25,7 +26,14 @@ services:
         limits:
           memory: 800M
           cpus: '1.0'
-    volumes: []
+    volumes:
+      # Firebase Admin SDK credentials — read-only mount from the host.
+      # File is materialized at deploy time by deploy-server.sh from the
+      # Doppler secret FIREBASE_CREDENTIALS_JSON, so it's never stored in git.
+      # Without this mount, FirebaseAuth.VerifyIdTokenAsync (Google sign-in)
+      # and FirebaseMessaging.SendAsync (FCM push notifications) silently
+      # fail because FirebaseApp.DefaultInstance == null.
+      - /home/ubuntu/apps/menugreen/firebase-adminsdk.json:/etc/secrets/firebase-adminsdk.json:ro
 
 networks:
   menugreen-net:
