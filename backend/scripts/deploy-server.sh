@@ -245,37 +245,55 @@ sudo chmod 600 "$APP_DIR/firebase-adminsdk.json"
 # json.dumps(indent=2) so the JSON on disk is canonical and the PEM is
 # always human-readable. ANY failure aborts the deploy — much better than
 # having the container crash-loop into 30 health-check failures.
-sudo python3 - <<PYEOF || {
-  import json, sys
-  path = "$APP_DIR/firebase-adminsdk.json"
-  with open(path) as f:
-    data = json.load(f)
-  pk = data.get("private_key", "")
-  if "-----BEGIN" not in pk or "-----END" not in pk:
-    raise SystemExit("private_key is missing BEGIN/END markers")
-  # After json.load, every JSON \n has become a real \n in `pk`. Verify
-  # PEM markers are separated by real newlines (otherwise GoogleCredential
-  # will crash with the exact same ArgumentException we saw).
-  if not pk.startswith("-----BEGIN") or "-----BEGIN PRIVATE KEY-----" not in pk:
-    raise SystemExit("private_key does not start with BEGIN PRIVATE KEY")
-  # The PEM body must contain at least one real newline between BEGIN and END
-  begin_idx = pk.index("-----BEGIN PRIVATE KEY-----")
-  end_idx   = pk.index("-----END PRIVATE KEY-----")
-  body      = pk[begin_idx:end_idx]
-  if "\n" not in body:
-    raise SystemExit(
-      "private_key PEM has no real newlines between BEGIN and END — "
-      "Doppler likely escaped them as literal \\\\n; GoogleCredential "
-      "needs real \\\\n in the PEM body."
+#
+# IMPORTANT: We can't use `sudo python3 -` or `sudo python3 <<PYEOF` because
+# the `pk` global we declared on a previous line (the Doppler env-extraction
+# Python heredoc) bleeds into the script context and 'sudo python3 -' on some
+# sudo builds refuses to read stdin. Writing the script to /tmp and running
+# it directly is bulletproof.
+# Heredoc is UNQUOTED (note: bare PYSCRIPT, no single quotes). Quoting it
+# with 'PYSCRIPT' would prevent bash from expanding $APP_DIR, leaving the
+# literal string "$APP_DIR" in the Python script.
+sudo tee /tmp/firebase_pem_check.py > /dev/null <<PYSCRIPT
+import json, sys
+path = "$APP_DIR/firebase-adminsdk.json"
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception as e:
+    sys.stderr.write("failed to parse JSON: %s\n" % e)
+    sys.exit(2)
+pk = data.get("private_key", "")
+if "-----BEGIN" not in pk or "-----END" not in pk:
+    sys.stderr.write("FATAL: private_key is missing BEGIN/END markers\n")
+    sys.exit(3)
+if "-----BEGIN PRIVATE KEY-----" not in pk:
+    sys.stderr.write("FATAL: private_key does not contain '-----BEGIN PRIVATE KEY-----'\n")
+    sys.exit(4)
+# Verify real newlines sit between the BEGIN/END markers — otherwise
+# GoogleCredential will crash with the exact same ArgumentException.
+begin_idx = pk.index("-----BEGIN PRIVATE KEY-----")
+end_idx   = pk.index("-----END PRIVATE KEY-----")
+if begin_idx >= end_idx:
+    sys.stderr.write("FATAL: BEGIN marker must appear before END marker in private_key\n")
+    sys.exit(5)
+body = pk[begin_idx:end_idx]
+if "\n" not in body:
+    sys.stderr.write(
+        "FATAL: private_key PEM has no real newlines between BEGIN and END - "
+        "GoogleCredential needs real \\n in the PEM body, not literal \\\\n.\n"
     )
-  # Re-serialize canonically so the on-disk file is consistent across deploys.
-  with open(path, "w") as f:
+    sys.exit(6)
+# Re-serialize canonically so on-disk JSON is consistent and PEM is human-readable.
+with open(path, "w") as f:
     json.dump(data, f, indent=2)
-PYEOF
-  echo ">>> FATAL: $APP_DIR/firebase-adminsdk.json failed sanity check (private_key PEM malformed)."
+PYSCRIPT
+if ! sudo python3 /tmp/firebase_pem_check.py; then
+  echo ">>> FATAL: $APP_DIR/firebase-adminsdk.json failed sanity check (exit $?)"
   echo ">>> Aborting deploy before pulling new image."
   exit 1
-}
+fi
+rm -f /tmp/firebase_pem_check.py
 echo "  ✓ Firebase credentials materialized (root:root, mode 600, valid JSON, real-PEM private_key)"
 
 # Parse and add secrets - NOTE: Không skip DB_* keys để backup có thể đọc được
