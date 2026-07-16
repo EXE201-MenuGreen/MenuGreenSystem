@@ -22,7 +22,7 @@ on:
           - debug
 
 env:
-  FLUTTER_VERSION: "3.33.0"
+  FLUTTER_VERSION: "3.32.0"
 
 jobs:
   build-aab:
