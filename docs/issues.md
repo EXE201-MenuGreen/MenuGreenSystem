@@ -1182,6 +1182,136 @@ volumes:
 
 ---
 
+## [RESOLVED] AAB build fail sau khi bump NDK 27 → 28 — thiếu libapp.so
+
+**Date:** 2026-07-16
+**Status:** ✅ Resolved
+**Severity:** High
+
+### Description
+
+Khi bump `ndkVersion` từ `"27.0.12077973"` → `"28.2.13676358"` trong `frontend/android/app/build.gradle.kts` để fix warning "jni requires Android NDK 28.2.13676358", build `appbundle` ban đầu fail với:
+
+```
+Release app bundle failed to strip debug symbols from native libraries.
+libapp.so.sym or libapp.so.dbg not present when checking final appbundle for debug symbols.
+```
+
+Sau khi `flutter clean` + `flutter pub get` + thử restore workaround cũ, build thành công 64.2 MB NHƯNG AAB thiếu `libapp.so` (chỉ có `libflutter.so`, `libdartjni.so`, `libdatastore_shared_counter.so`) — `unzip -l` không thấy `libapp.so` ở `base/lib/<arch>/`. Đây là regression của issue đã resolved trước đó.
+
+### Root Cause
+
+NDK 28 thay đổi cơ chế merge native libs của AGP. Flutter Gradle Plugin vẫn generate `libapp.so` ở `build/app/intermediates/flutter/release/jniLibs/<arch>/libapp.so` nhưng `mergeReleaseNativeLibs` task của AGP không tự động pick up nữa (trước đây với NDK 27 thì có). Comment cũ trong `build.gradle.kts`:
+
+```kotlin
+// Flutter Gradle Plugin tự động đưa libapp.so vào APK,
+// không cần override jniLibs.srcDirs thủ công (gây xung đột task order).
+```
+
+→ Sai với NDK 28. Cần restore workaround từ issue cũ `[RESOLVED] Release APK/AAB Crash on Install`.
+
+### Environment
+
+- Flutter 3.44.0 / Dart 3.12.0
+- AGP 8.9.1, Gradle 8.11.1
+- NDK `28.2.13676358` (bumped từ `27.0.12077973`)
+- Java 17 (từ Android Studio JBR `C:/Program Files/Android/Android Studio/jbr`)
+
+### Logs
+
+```
+# Lần 1: build fail với strip error
+libapp.so.sym or libapp.so.dbg not present when checking final appbundle for debug symbols.
+
+# Lần 2: sau khi set org.gradle.java.home=JBR path, build thành công 40MB NHƯNG thiếu libapp.so
+unzip -l app-release.aab | grep "libapp.so"
+# → 0 results
+
+# Lần 3: restore jniLibs.srcDirs workaround
+sourceSets {
+    getByName("main") {
+        jniLibs.srcDirs(
+            "src/main/jniLibs",
+            "../../build/app/intermediates/flutter/release/jniLibs",
+        )
+    }
+}
+# → Build OK 64.2 MB, có libapp.so
+```
+
+### Fix Applied
+
+**1. Set Java 17 cho Gradle** (`gradle.properties`):
+
+```properties
+# Bật (trước đó bị comment)
+org.gradle.java.home=C:/Program Files/Android/Android Studio/jbr
+```
+
+Lý do: Java 8 (default trên PATH) không chạy được Gradle 8.x.
+
+**2. Bump NDK 27 → 28** (`app/build.gradle.kts`):
+
+```kotlin
+ndkVersion = "28.2.13676358"
+```
+
+Lý do: plugin `jni` yêu cầu NDK 28, AGP warning.
+
+**3. Restore `jniLibs.srcDirs` workaround** (`app/build.gradle.kts`) — quan trọng nhất:
+
+```kotlin
+defaultConfig {
+    applicationId = "com.menugreen.app"
+    minSdk = flutter.minSdkVersion
+    targetSdk = flutter.targetSdkVersion
+    versionCode = flutter.versionCode
+    versionName = flutter.versionName
+    // BỎ ndk {} block thừa, không override abiFilters
+}
+
+sourceSets {
+    getByName("main") {
+        jniLibs.srcDirs(
+            "src/main/jniLibs",
+            "../../build/app/intermediates/flutter/release/jniLibs",
+        )
+    }
+}
+```
+
+### Verification
+
+```
+# AAB sau fix
+unzip -l app-release.aab | grep "libapp.so"
+  base/lib/arm64-v8a/libapp.so        9.83 MB
+  base/lib/armeabi-v7a/libapp.so      10.89 MB
+  base/lib/x86_64/libapp.so           10.09 MB
+
+# APK cũng OK
+unzip -l app-release.apk | grep "libapp.so"
+  lib/arm64-v8a/libapp.so             9.83 MB
+  lib/x86_64/libapp.so                10.09 MB
+```
+
+### Files Changed
+
+- `frontend/android/gradle.properties` (bật `org.gradle.java.home`)
+- `frontend/android/app/build.gradle.kts` (bump NDK 28 + restore `jniLibs.srcDirs`)
+- `frontend/app-release-v4.aab` (build artifact mới, 65 MB, versionCode=6)
+- `frontend/build/app/outputs/flutter-apk/app-release.apk` (49.5 MB cho local test)
+
+### Status
+
+- [x] AAB build OK với `libapp.so` cho cả 3 architectures
+- [x] APK build OK cho local test
+- [ ] User upload AAB mới lên Play Console → tạo release `6 (1.0.0)`
+- [ ] Đợi Google review (1-3 ngày cho Closed testing)
+- [ ] Verify ghi chú phát hành đã update
+
+---
+
 ## Prevention Guidelines
 
 ### YAML Files

@@ -22,7 +22,7 @@ on:
           - debug
 
 env:
-  FLUTTER_VERSION: "3.32.0"
+  FLUTTER_VERSION: "3.44.0"
 
 jobs:
   build-aab:
@@ -56,10 +56,15 @@ jobs:
             ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
 
       # ===========================================================
-      # Setup Android SDK & Keystore
+      # Setup Android SDK & NDK & Keystore
       # ===========================================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
+
+      - name: Setup NDK 28
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358"
 
       - name: Create local.properties
         run: |

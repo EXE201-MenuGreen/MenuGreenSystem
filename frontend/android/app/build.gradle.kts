@@ -20,7 +20,7 @@ val hasReleaseSigningConfig =
 android {
     namespace = "com.menugreen.app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -40,24 +40,18 @@ android {
 
     defaultConfig {
         applicationId = "com.menugreen.app"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
-        // Without this, AGP's mergeReleaseNativeLibs step only includes libflutter.so
-        // and the resulting APK crashes on launch with:
-        //   "VM snapshot invalid and could not be inferred from settings."
-        ndk {
-            // no abiFilters override here - let --target-platform drive it
-        }
     }
 
-    // Flutter Gradle Plugin tự động đưa libapp.so vào APK,
-    // không cần override jniLibs.srcDirs thủ công (gây xung đột task order).
     sourceSets {
         getByName("main") {
-            jniLibs.srcDirs("src/main/jniLibs")
+            jniLibs.srcDirs(
+                "src/main/jniLibs",
+                "../../build/app/intermediates/flutter/release/jniLibs",
+            )
         }
     }
 
