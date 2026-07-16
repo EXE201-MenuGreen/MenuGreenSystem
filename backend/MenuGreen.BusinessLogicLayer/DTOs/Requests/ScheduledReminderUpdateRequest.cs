@@ -14,5 +14,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateTimeOffset? ScheduledAt { get; set; }
 
         public bool? IsEnabled { get; set; }
+
+        [Range(1, 1440)]
+        public int? RepeatIntervalMinutes { get; set; }
     }
 }

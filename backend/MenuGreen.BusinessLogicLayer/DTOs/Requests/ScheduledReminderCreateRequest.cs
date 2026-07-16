@@ -17,5 +17,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateTimeOffset ScheduledAt { get; set; }
 
         public string Type { get; set; } = "CUSTOM_REMINDER";
+
+        /// <summary>
+        /// Optional recurring cadence. Office presets use 120 minutes for water
+        /// and 60 minutes for a short movement break.
+        /// </summary>
+        [Range(1, 1440)]
+        public int? RepeatIntervalMinutes { get; set; }
     }
 }

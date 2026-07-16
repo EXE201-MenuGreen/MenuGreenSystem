@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
@@ -33,17 +34,31 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 
     public class AiWorkerCrawlerNormalizeResponse
     {
+        [JsonPropertyName("total_recipes")]
         public int TotalRecipes { get; set; }
+
+        [JsonPropertyName("total_ingredients")]
         public int TotalIngredients { get; set; }
+
+        [JsonPropertyName("normalized")]
         public JsonElement Normalized { get; set; }
     }
 
     public class AiWorkerCrawlerIngestResponse
     {
+        [JsonPropertyName("recipes_inserted")]
         public int RecipesInserted { get; set; }
+
+        [JsonPropertyName("recipes_updated")]
         public int RecipesUpdated { get; set; }
+
+        [JsonPropertyName("ingredients_inserted")]
         public int IngredientsInserted { get; set; }
+
+        [JsonPropertyName("recipe_links_inserted")]
         public int RecipeLinksInserted { get; set; }
+
+        [JsonPropertyName("skipped")]
         public int Skipped { get; set; }
     }
 

@@ -681,6 +681,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var weeklyBudget = latestBudget.BudgetVnd ?? 1500000;
+            var isOfficeUser = string.Equals((await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId))
+                .FirstOrDefault()?.EatingPattern?.Trim().Trim('"'), "office", StringComparison.OrdinalIgnoreCase);
 
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
             var healthProfile = healthProfiles.FirstOrDefault();
@@ -694,7 +696,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Title = $"Budget-friendly meal plan ({startDate:dd/MM} - {endDate:dd/MM})",
+                Title = isOfficeUser
+                    ? $"Cơm hộp văn phòng ({startDate:dd/MM} - {endDate:dd/MM})"
+                    : $"Budget-friendly meal plan ({startDate:dd/MM} - {endDate:dd/MM})",
                 PlanType = "weekly",
                 StartDate = startDate,
                 EndDate = endDate,
@@ -735,6 +739,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     
                     var candidateRecipes = allRecipes
                         .Where(r => r.MealType != null && r.MealType.Contains(mealType, StringComparison.OrdinalIgnoreCase))
+                        .Where(r => !isOfficeUser || (r.TotalTimeMin ?? r.CookTimeMin ?? 30) <= (latestBudget.TimeLimitMin ?? 45))
                         .OrderBy(r => Math.Abs((r.CookTimeMin ?? 30) - (latestBudget.TimeLimitMin ?? 45)))
                         .ThenBy(r => r.EstimatedPriceVnd ?? 100000)
                         .ToList();
@@ -784,6 +789,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.CompleteAsync();
             return await GetByIdAsync(mealPlanHeader.Id);
+        }
+
+        public async Task<GroceryListResponse> GetGroceryListAsync(Guid planId, Guid userId)
+        {
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId)
+                ?? throw new Exception("Meal plan not found.");
+            if (plan.UserId != userId) throw new Exception("Forbidden.");
+
+            var recipeIds = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId))
+                .Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).Distinct().ToList();
+            var ingredients = await _unitOfWork.RecipeIngredients.FindAsync(x => recipeIds.Contains(x.RecipeId));
+            var catalog = await _unitOfWork.Ingredients.GetAllAsync();
+            var catalogById = catalog.ToDictionary(x => x.Id);
+            var items = ingredients.GroupBy(x => new { x.IngredientId, Unit = x.Unit ?? "unit" })
+                .Select(group =>
+                {
+                    catalogById.TryGetValue(group.Key.IngredientId, out var ingredient);
+                    return new GroceryListItemResponse
+                    {
+                        IngredientId = group.Key.IngredientId,
+                        Name = ingredient?.NameVi ?? "Nguyên liệu",
+                        Quantity = group.Sum(x => x.Quantity ?? 0), Unit = group.Key.Unit,
+                        EstimatedPriceVnd = ingredient?.EstimatedPriceVnd ?? 0
+                    };
+                }).OrderBy(x => x.Name).ToList();
+            return new GroceryListResponse { MealPlanId = planId, Items = items, EstimatedTotalVnd = items.Sum(x => x.EstimatedPriceVnd) };
         }
 
         public async Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId)
