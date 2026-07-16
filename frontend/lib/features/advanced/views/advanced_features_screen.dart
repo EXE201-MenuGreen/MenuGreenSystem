@@ -5,35 +5,63 @@ import '../../meal_plan/repositories/meal_plan_repository.dart';
 import 'advanced_detail_screens.dart';
 
 class AdvancedFeaturesScreen extends StatelessWidget {
-  const AdvancedFeaturesScreen({super.key});
+  const AdvancedFeaturesScreen({
+    super.key,
+    this.gymerOnly = false,
+    this.initialIndex = 0,
+  });
+
+  final bool gymerOnly;
+  final int initialIndex;
+
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-    length: 5,
-    child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Dịch vụ & quản lý'),
-        bottom: const TabBar(
-          isScrollable: true,
-          tabs: [
-            Tab(text: 'PT Review'),
-            Tab(text: 'Ngân sách'),
-            Tab(text: 'Coach'),
-            Tab(text: 'Nguyên liệu'),
-            Tab(text: 'Người dùng'),
-          ],
+  Widget build(BuildContext context) {
+    final tabCount = gymerOnly ? 2 : 5;
+    final safeInitialIndex = initialIndex.clamp(0, tabCount - 1);
+    return DefaultTabController(
+      length: tabCount,
+      initialIndex: safeInitialIndex,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAF9),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            gymerOnly ? 'Đồng hành Gym / PT' : 'Dịch vụ & quản lý',
+            style: const TextStyle(
+              color: AppColors.textDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          bottom: TabBar(
+            isScrollable: true,
+            labelColor: AppColors.primary,
+            indicatorColor: AppColors.primary,
+            tabs: gymerOnly
+                ? const [Tab(text: 'PT Review'), Tab(text: 'Huấn luyện viên')]
+                : const [
+                    Tab(text: 'PT Review'),
+                    Tab(text: 'Ngân sách'),
+                    Tab(text: 'Coach'),
+                    Tab(text: 'Nguyên liệu'),
+                    Tab(text: 'Người dùng'),
+                  ],
+          ),
+        ),
+        body: TabBarView(
+          children: gymerOnly
+              ? const [_PtTab(), _CoachTab(gymerMode: true)]
+              : const [
+                  _PtTab(),
+                  _BudgetTab(),
+                  _CoachTab(),
+                  _IngredientTab(),
+                  _UserTab(),
+                ],
         ),
       ),
-      body: const TabBarView(
-        children: [
-          _PtTab(),
-          _BudgetTab(),
-          _CoachTab(),
-          _IngredientTab(),
-          _UserTab(),
-        ],
-      ),
-    ),
-  );
+    );
+  }
 }
 
 String _v(Map<String, dynamic> m, String key, [String fallback = '']) =>
@@ -253,16 +281,26 @@ class _BudgetTabState extends State<_BudgetTab> {
       if (!mounted) return;
       final items = (grocery['items'] as List? ?? const [])
           .whereType<Map>()
-          .map((item) => '${item['name'] ?? item['Name']}: ${item['quantity'] ?? item['Quantity']} ${item['unit'] ?? item['Unit']}')
+          .map(
+            (item) =>
+                '${item['name'] ?? item['Name']}: ${item['quantity'] ?? item['Quantity']} ${item['unit'] ?? item['Unit']}',
+          )
           .join('\n');
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(plan.title),
           content: SingleChildScrollView(
-            child: Text('Danh sách đi chợ\n\n${items.isEmpty ? 'Chưa có nguyên liệu từ recipe của kế hoạch.' : items}\n\nTổng giá ước tính: ${grocery['estimatedTotalVnd'] ?? grocery['EstimatedTotalVnd'] ?? 0}đ'),
+            child: Text(
+              'Danh sách đi chợ\n\n${items.isEmpty ? 'Chưa có nguyên liệu từ recipe của kế hoạch.' : items}\n\nTổng giá ước tính: ${grocery['estimatedTotalVnd'] ?? grocery['EstimatedTotalVnd'] ?? 0}đ',
+            ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng'),
+            ),
+          ],
         ),
       );
     } catch (e) {
@@ -304,9 +342,18 @@ class _BudgetTabState extends State<_BudgetTab> {
             FilledButton.icon(
               onPressed: generating ? null : generateLunchboxPlan,
               icon: generating
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.lunch_dining_outlined),
-              label: Text(generating ? 'Đang tạo...' : 'Tạo kế hoạch cơm hộp Office'),
+              label: Text(
+                generating ? 'Đang tạo...' : 'Tạo kế hoạch cơm hộp Office',
+              ),
             ),
             if (data != null)
               TextButton(
@@ -327,7 +374,10 @@ class _BudgetTabState extends State<_BudgetTab> {
 }
 
 class _CoachTab extends StatefulWidget {
-  const _CoachTab();
+  const _CoachTab({this.gymerMode = false});
+
+  final bool gymerMode;
+
   @override
   State<_CoachTab> createState() => _CoachTabState();
 }
@@ -423,37 +473,49 @@ class _CoachTabState extends State<_CoachTab> {
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.push(
-                        c,
-                        MaterialPageRoute(
-                          builder: (_) => const CoachRegisterScreen(),
+              if (!widget.gymerMode)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.push(
+                          c,
+                          MaterialPageRoute(
+                            builder: (_) => const CoachRegisterScreen(),
+                          ),
                         ),
+                        child: const Text('Đăng ký Coach'),
                       ),
-                      child: const Text('Đăng ký Coach'),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.push(
-                        c,
-                        MaterialPageRoute(
-                          builder: (_) => const CoachClientsScreen(),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.push(
+                          c,
+                          MaterialPageRoute(
+                            builder: (_) => const CoachClientsScreen(),
+                          ),
                         ),
+                        child: const Text('Học viên của tôi'),
                       ),
-                      child: const Text('Học viên của tôi'),
                     ),
-                  ),
-                ],
-              ),
-              const Text(
-                'Danh bạ coach',
+                  ],
+                ),
+              Text(
+                widget.gymerMode ? 'Huấn luyện viên phù hợp' : 'Danh bạ coach',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
+              if (widget.gymerMode) ...[
+                const SizedBox(height: 4),
+                const Text(
+                  'Bạn chủ động cấp hoặc thu hồi quyền xem dữ liệu sức khỏe bất cứ lúc nào.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               for (final r in rows)
                 Card(
                   child: ListTile(

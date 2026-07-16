@@ -19,6 +19,7 @@ import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../widgets/home_banner_carousel.dart';
 import '../widgets/home_calorie_section.dart';
+import '../widgets/gymer_package_card.dart';
 import '../widgets/quick_action_grid.dart';
 import '../widgets/recommended_meal_card.dart';
 import '../widgets/tip_card.dart';
@@ -295,6 +296,11 @@ class HomeViewState extends State<HomeView> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: HomeBannerCarousel(),
+              ),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: GymerPackageCard(),
               ),
               const SizedBox(height: 20),
               Padding(

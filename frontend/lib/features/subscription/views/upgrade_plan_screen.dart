@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../gymer/views/gymer_hub_screen.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../models/subscription_models.dart';
 import '../repositories/user_subscription_repository.dart';
@@ -59,7 +60,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     }
   }
 
-  Future<void> _subscribe(SubscriptionPlan plan) async {
+  Future<bool> _subscribe(SubscriptionPlan plan) async {
     if (!plan.isFree) {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -70,16 +71,17 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
         ),
       );
       if (mounted) await _loadData();
-      return;
+      return _hasGymAccess;
     }
 
     setState(() => _actionLoading = true);
     final result = await _repository.subscribe(subscriptionPlanId: plan.id);
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _actionLoading = false);
 
     _showResult(result.message, result.success);
     if (result.success) await _loadData();
+    return result.success;
   }
 
   Future<void> _renew() async {
@@ -116,6 +118,26 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       if (plan.id == planId) return plan;
     }
     return null;
+  }
+
+  SubscriptionPlan? get _gymPlan {
+    for (final plan in _plans) {
+      if (plan.featureGroup?.trim().toLowerCase() == 'gym') return plan;
+    }
+    return null;
+  }
+
+  List<SubscriptionPlan> get _regularPlans => _plans
+      .where((plan) => plan.featureGroup?.trim().toLowerCase() != 'gym')
+      .toList();
+
+  bool get _hasGymAccess {
+    final current = _current;
+    if (current == null || !current.isActive || current.daysRemaining < 0) {
+      return false;
+    }
+    final name = current.subscriptionPlanName.toLowerCase();
+    return name.contains('gym') || name.contains('pro');
   }
 
   Future<void> _cancel() async {
@@ -163,6 +185,42 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     Navigator.of(context).pop('officeActivated');
   }
 
+  Future<void> _openGymerPackage() async {
+    if (_hasGymAccess) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const GymerHubScreen()));
+      return;
+    }
+
+    final plan = _gymPlan;
+    if (plan == null) {
+      _showResult(
+        'Gói Gym/PT chưa được đồng bộ từ máy chủ. Vui lòng thử lại sau.',
+        false,
+      );
+      return;
+    }
+
+    setState(() => _actionLoading = true);
+    final profileResult = await _aiProfileRepository.upsert(
+      eatingPattern: 'gymer',
+    );
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    if (!profileResult.success) {
+      _showResult(profileResult.message, false);
+      return;
+    }
+
+    final activated = await _subscribe(plan);
+    if (!mounted || !activated) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const GymerHubScreen()));
+  }
+
   void _showResult(String message, bool success) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -196,7 +254,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -220,15 +280,22 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       onPress: () {},
                     ),
                     const SizedBox(height: 16),
+                    _GymerPackageCard(
+                      plan: _gymPlan,
+                      hasAccess: _hasGymAccess,
+                      busy: _actionLoading,
+                      onOpen: _openGymerPackage,
+                    ),
+                    const SizedBox(height: 12),
                     _OfficePackageCard(onOpen: _activateOfficeMode),
                     const SizedBox(height: 12),
-                    if (_plans.isEmpty)
+                    if (_regularPlans.isEmpty)
                       const Text(
                         'Chưa có gói nào khả dụng.',
                         style: TextStyle(color: AppColors.textSecondary),
                       )
                     else
-                      ..._plans.map(_buildPlanCard),
+                      ..._regularPlans.map(_buildPlanCard),
                     if (_current?.isActive == true) ...[
                       const SizedBox(height: 12),
                       OutlinedButton(
@@ -237,7 +304,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Gia hạn gói hiện tại'),
                       ),
@@ -303,12 +372,18 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           const SizedBox(height: 4),
           Text(
             'Trạng thái: ${current.status} • Còn ${current.daysRemaining} ngày',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
           if (current.endDate != null)
             Text(
               'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
             ),
         ],
       ),
@@ -323,7 +398,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: _PlanCard(
-        tag: plan.tierLabel.isNotEmpty ? plan.tierLabel : plan.featureGroup ?? 'Gói',
+        tag: plan.tierLabel.isNotEmpty
+            ? plan.tierLabel
+            : plan.featureGroup ?? 'Gói',
         name: plan.name,
         price: formatVnd(plan.priceVnd),
         period: formatDurationLabel(plan.durationDays),
@@ -396,6 +473,204 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 }
 
+class _GymerPackageCard extends StatelessWidget {
+  const _GymerPackageCard({
+    required this.plan,
+    required this.hasAccess,
+    required this.busy,
+    required this.onOpen,
+  });
+
+  final SubscriptionPlan? plan;
+  final bool hasAccess;
+  final bool busy;
+  final Future<void> Function() onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = plan?.priceVnd ?? 0;
+    const features = <({IconData icon, String label})>[
+      (icon: Icons.track_changes_rounded, label: 'Mục tiêu'),
+      (icon: Icons.rate_review_outlined, label: 'PT Review'),
+      (icon: Icons.sports_gymnastics_rounded, label: 'Coach'),
+      (icon: Icons.emoji_events_outlined, label: 'Lộ trình'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.fitness_center_rounded,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gói Gym / PT',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Không gian riêng cho mục tiêu thể hình',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _PlanTag(label: hasAccess ? 'ĐÃ MỞ' : 'GÓI RIÊNG'),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatVnd(price),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
+                ),
+              ),
+              if (price == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6, bottom: 3),
+                  child: Text(
+                    'vĩnh viễn',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              for (final feature in features)
+                Expanded(
+                  child: _GymerPackageFeature(
+                    icon: feature.icon,
+                    label: feature.label,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy || plan == null ? null : onOpen,
+              icon: busy
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      hasAccess
+                          ? Icons.arrow_forward_rounded
+                          : Icons.lock_open_rounded,
+                      size: 18,
+                    ),
+              label: Text(
+                plan == null
+                    ? 'Đang đồng bộ gói Gym/PT'
+                    : hasAccess
+                    ? 'Mở không gian Gym/PT'
+                    : price == 0
+                    ? 'Kích hoạt miễn phí'
+                    : 'Đăng ký gói Gym/PT',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GymerPackageFeature extends StatelessWidget {
+  const _GymerPackageFeature({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 19),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _OfficePackageCard extends StatelessWidget {
   const _OfficePackageCard({required this.onOpen});
 
@@ -422,16 +697,32 @@ class _OfficePackageCard extends StatelessWidget {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.business_center_outlined, color: Colors.white),
+                child: const Icon(
+                  Icons.business_center_outlined,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Gói Office', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                    Text(
+                      'Gói Office',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
                     SizedBox(height: 2),
-                    Text('Dành cho nhịp sống văn phòng', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(
+                      'Dành cho nhịp sống văn phòng',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -439,7 +730,14 @@ class _OfficePackageCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const Text('0đ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+          const Text(
+            '0đ',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
           const SizedBox(height: 12),
           const _OfficeFeature(text: 'Nhắc uống nước và vận động định kỳ'),
           const _OfficeFeature(text: 'Kế hoạch cơm hộp theo calo và ngân sách'),
@@ -454,7 +752,9 @@ class _OfficePackageCard extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -469,10 +769,20 @@ class _PlanTag extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 }
 
 class _OfficeFeature extends StatelessWidget {
@@ -480,15 +790,23 @@ class _OfficeFeature extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 7),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle, size: 17, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-          ],
+    padding: const EdgeInsets.only(bottom: 7),
+    child: Row(
+      children: [
+        const Icon(Icons.check_circle, size: 17, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _UpgradeHeroCard extends StatelessWidget {
@@ -651,8 +969,9 @@ class _PlanCard extends StatelessWidget {
                 backgroundColor: emphasizedCta
                     ? AppColors.primary
                     : AppColors.progressBackground.withValues(alpha: 0.25),
-                foregroundColor:
-                    emphasizedCta ? Colors.white : AppColors.textSecondary,
+                foregroundColor: emphasizedCta
+                    ? Colors.white
+                    : AppColors.textSecondary,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -684,7 +1003,11 @@ class _PlanCard extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.check, size: 14, color: AppColors.primary),
+                    child: const Icon(
+                      Icons.check,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

@@ -48,14 +48,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Subscribe", 0, request.Note ?? "Free plan", now));
 
-            var freeRoles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "free");
-            var freeRole = freeRoles.FirstOrDefault();
-            if (freeRole != null)
+            var targetRoleName = plan.FeatureGroup?.Trim().ToLowerInvariant() switch
+            {
+                "gym" => "Gymer",
+                "office" => "Office",
+                _ => "Free"
+            };
+            var targetRoles = await _unitOfWork.Roles.FindAsync(
+                r => r.Name.ToLower() == targetRoleName.ToLower());
+            var targetRole = targetRoles.FirstOrDefault();
+            if (targetRole != null)
             {
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user != null)
                 {
-                    user.RoleId = freeRole.Id;
+                    user.RoleId = targetRole.Id;
                     user.UpdatedAt = now;
                     _unitOfWork.Users.Update(user);
                 }

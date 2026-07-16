@@ -36,11 +36,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
     try {
       final sub = await _subRepo.getCurrent();
-      final hasAccess = sub != null &&
+      final planName = sub?.subscriptionPlanName.toLowerCase() ?? '';
+      final hasAccess =
+          sub != null &&
           sub.isActive &&
           sub.daysRemaining >= 0 &&
-          !sub.subscriptionPlanName.toLowerCase().contains('free') &&
-          !sub.subscriptionPlanName.toLowerCase().contains('cơ bản');
+          (planName.contains('gym') || planName.contains('pro'));
 
       setState(() {
         _hasProAccess = hasAccess;
@@ -86,69 +87,71 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       body: SafeArea(
         child: _subLoading
             ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
-                ),
+                child: CircularProgressIndicator(color: AppColors.primary),
               )
             : !_hasProAccess
-                ? const PremiumPaywallWidget(
-                    featureName: 'Chế độ Gym / PT',
-                    featureDescription: 'Tính năng tự động hiệu chỉnh dinh dưỡng và calo chuyên biệt dành riêng cho thành viên gói cước Pro.',
-                  )
-                : Consumer<GymGoalsProvider>(
-                    builder: (context, provider, _) {
-                      return RefreshIndicator(
-                        color: AppColors.primary,
-                        onRefresh: () async {
-                          await provider.loadProfile();
-                          await provider.loadPlan(top: 10);
-                        },
-                        child: ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(20),
-                          children: [
-                            InfoCard(
-                              icon: Icons.fitness_center,
-                              title: _goalLabel(provider.profile?.goalMode ?? 'maintain'),
-                              subtitle: _scheduleSummary(provider.profile),
-                              value: _calorieSummary(provider.profile),
-                              footnote:
-                                  'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
-                              trailing: TextButton(
-                                onPressed: () => _openEditor(context, provider.profile),
-                                child: const Text('Cấu hình'),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildRecalibrateCard(provider),
-                            const SizedBox(height: 24),
-                            const SectionHeader(
-                              title: 'Gợi ý thực đơn cho hôm nay',
-                              icon: Icons.restaurant_menu,
-                              subtitle: 'Dựa trên chế độ gym và calo mục tiêu',
-                            ),
-                            const SizedBox(height: 12),
-                            _buildPlanList(provider),
-                            if (provider.errorMessage != null) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.orange.shade200),
-                                ),
-                                child: Text(
-                                  provider.errorMessage!,
-                                  style: TextStyle(color: Colors.orange.shade900),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
+            ? const PremiumPaywallWidget(
+                featureName: 'Chế độ Gym / PT',
+                featureDescription:
+                    'Kích hoạt gói Gym/PT để dùng mục tiêu calo, protein và lịch tập chuyên biệt.',
+              )
+            : Consumer<GymGoalsProvider>(
+                builder: (context, provider, _) {
+                  return RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: () async {
+                      await provider.loadProfile();
+                      await provider.loadPlan(top: 10);
                     },
-                  ),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        InfoCard(
+                          icon: Icons.fitness_center,
+                          title: _goalLabel(
+                            provider.profile?.goalMode ?? 'maintain',
+                          ),
+                          subtitle: _scheduleSummary(provider.profile),
+                          value: _calorieSummary(provider.profile),
+                          footnote:
+                              'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
+                          trailing: TextButton(
+                            onPressed: () =>
+                                _openEditor(context, provider.profile),
+                            child: const Text('Cấu hình'),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildRecalibrateCard(provider),
+                        const SizedBox(height: 24),
+                        const SectionHeader(
+                          title: 'Gợi ý thực đơn cho hôm nay',
+                          icon: Icons.restaurant_menu,
+                          subtitle: 'Dựa trên chế độ gym và calo mục tiêu',
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPlanList(provider),
+                        if (provider.errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Text(
+                              provider.errorMessage!,
+                              style: TextStyle(color: Colors.orange.shade900),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
