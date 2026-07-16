@@ -631,23 +631,22 @@ class _QuizPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Text(card.quizQuestion!),
           const SizedBox(height: 8),
-          RadioGroup<int>(
-            groupValue: selectedOption,
-            onChanged: handleOptionChanged,
-            child: Column(
-              children: card.quizOptions
-                  .asMap()
-                  .entries
-                  .map(
-                    (entry) => RadioListTile<int>(
-                      contentPadding: EdgeInsets.zero,
-                      value: entry.key,
-                      enabled: !completed,
-                      title: Text(entry.value),
-                    ),
-                  )
-                  .toList(),
-            ),
+          Column(
+            children: card.quizOptions
+                .asMap()
+                .entries
+                .map(
+                  (entry) => RadioListTile<int>(
+                    contentPadding: EdgeInsets.zero,
+                    value: entry.key,
+                    groupValue: selectedOption,
+                    onChanged: completed
+                        ? null
+                        : (value) => handleOptionChanged(value),
+                    title: Text(entry.value),
+                  ),
+                )
+                .toList(),
           ),
           if (completed || feedback != null) ...[
             const SizedBox(height: 8),
