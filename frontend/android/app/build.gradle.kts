@@ -53,14 +53,11 @@ android {
         }
     }
 
-    // Include Flutter's AOT-compiled libapp.so into the APK packaging.
-    // Flutter writes it to build/app/intermediates/flutter/release/jniLibs/<abi>/libapp.so
+    // Flutter Gradle Plugin tự động đưa libapp.so vào APK,
+    // không cần override jniLibs.srcDirs thủ công (gây xung đột task order).
     sourceSets {
         getByName("main") {
-            jniLibs.srcDirs(
-                "src/main/jniLibs",
-                "../../build/app/intermediates/flutter/release/jniLibs",
-            )
+            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 
