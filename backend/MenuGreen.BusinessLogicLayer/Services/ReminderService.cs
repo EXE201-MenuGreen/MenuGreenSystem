@@ -144,7 +144,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 UserId = userId,
                 Title = request.Title,
                 Body = request.Body,
-                Type = request.Type ?? "CUSTOM_REMINDER",
+                Type = EncodeType(request.Type, request.RepeatIntervalMinutes),
                 IsRead = false,
                 CreatedAt = DateTimeOffset.UtcNow,
                 ScheduledAt = request.ScheduledAt,
@@ -190,6 +190,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     notification.Type = "DISABLED_" + (notification.Type ?? "CUSTOM_REMINDER");
                 }
+            }
+
+            if (request.RepeatIntervalMinutes.HasValue)
+            {
+                notification.Type = EncodeType(GetBaseType(notification.Type), request.RepeatIntervalMinutes);
             }
 
             _unitOfWork.Notifications.Update(notification);
@@ -248,13 +253,43 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 UserId = notification.UserId,
                 Title = notification.Title,
                 Body = notification.Body,
-                Type = notification.Type,
+                Type = GetBaseType(notification.Type),
                 IsRead = notification.IsRead,
                 CreatedAt = notification.CreatedAt,
                 ScheduledAt = notification.ScheduledAt,
                 SentAt = notification.SentAt,
-                IsEnabled = isEnabled
+                IsEnabled = isEnabled,
+                RepeatIntervalMinutes = GetRepeatInterval(notification.Type)
             };
+        }
+
+        internal static int? GetRepeatInterval(string? type)
+        {
+            var value = type?.Replace("DISABLED_", string.Empty, StringComparison.OrdinalIgnoreCase);
+            if (value == null || !value.StartsWith("RECURRING:", StringComparison.OrdinalIgnoreCase)) return null;
+            var parts = value.Split(':', 3);
+            return parts.Length == 3 && int.TryParse(parts[1], out var minutes) ? minutes : null;
+        }
+
+        internal static string GetBaseType(string? type)
+        {
+            var disabled = type?.StartsWith("DISABLED_", StringComparison.OrdinalIgnoreCase) == true;
+            var value = type?.Replace("DISABLED_", string.Empty, StringComparison.OrdinalIgnoreCase) ?? "CUSTOM_REMINDER";
+            if (value.StartsWith("RECURRING:", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = value.Split(':', 3);
+                value = parts.Length == 3 ? parts[2] : "CUSTOM_REMINDER";
+            }
+            return disabled ? "DISABLED_" + value : value;
+        }
+
+        internal static string EncodeType(string? type, int? repeatIntervalMinutes)
+        {
+            var baseType = GetBaseType(type);
+            var disabled = baseType.StartsWith("DISABLED_", StringComparison.OrdinalIgnoreCase);
+            if (disabled) baseType = baseType.Substring("DISABLED_".Length);
+            var encoded = repeatIntervalMinutes.HasValue ? $"RECURRING:{repeatIntervalMinutes.Value}:{baseType}" : baseType;
+            return disabled ? "DISABLED_" + encoded : encoded;
         }
 
         private async Task<Notification> GetOwnedReminderAsync(Guid userId, Guid reminderId)

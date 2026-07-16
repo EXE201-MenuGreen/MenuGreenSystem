@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../repositories/advanced_repository.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
 import 'advanced_detail_screens.dart';
 
 class AdvancedFeaturesScreen extends StatelessWidget {
@@ -197,8 +198,10 @@ class _BudgetTab extends StatefulWidget {
 
 class _BudgetTabState extends State<_BudgetTab> {
   final repo = AdvancedRepository();
+  final planRepo = MealPlanRepository();
   Map<String, dynamic>? data;
   bool loading = true;
+  bool generating = false;
   final amount = TextEditingController(), minutes = TextEditingController();
   @override
   void initState() {
@@ -238,6 +241,37 @@ class _BudgetTabState extends State<_BudgetTab> {
     }
   }
 
+  Future<void> generateLunchboxPlan() async {
+    if (data == null) {
+      _notice(context, 'Hãy lưu ngân sách trước khi tạo cơm hộp.');
+      return;
+    }
+    setState(() => generating = true);
+    try {
+      final plan = await planRepo.generateBudgetLunchboxPlan();
+      final grocery = await planRepo.getGroceryList(plan.id);
+      if (!mounted) return;
+      final items = (grocery['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => '${item['name'] ?? item['Name']}: ${item['quantity'] ?? item['Quantity']} ${item['unit'] ?? item['Unit']}')
+          .join('\n');
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(plan.title),
+          content: SingleChildScrollView(
+            child: Text('Danh sách đi chợ\n\n${items.isEmpty ? 'Chưa có nguyên liệu từ recipe của kế hoạch.' : items}\n\nTổng giá ước tính: ${grocery['estimatedTotalVnd'] ?? grocery['EstimatedTotalVnd'] ?? 0}đ'),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+        ),
+      );
+    } catch (e) {
+      if (mounted) _notice(context, e);
+    } finally {
+      if (mounted) setState(() => generating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext c) => loading
       ? const Center(child: CircularProgressIndicator())
@@ -265,6 +299,14 @@ class _BudgetTabState extends State<_BudgetTab> {
             FilledButton(
               onPressed: save,
               child: Text(data == null ? 'Tạo ngân sách' : 'Cập nhật'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: generating ? null : generateLunchboxPlan,
+              icon: generating
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.lunch_dining_outlined),
+              label: Text(generating ? 'Đang tạo...' : 'Tạo kế hoạch cơm hộp Office'),
             ),
             if (data != null)
               TextButton(

@@ -960,7 +960,7 @@ const FLOWS = {
     steps: [
       "Người dùng văn phòng Onboarding: mức vận động <b>Sedentary</b>, mục tiêu Giảm cân nhẹ → hệ thống đặt calo thâm hụt nhẹ (-300 kcal), tỷ lệ macro cân bằng 30/40/30.",
       "<b>Adaptive Reminders</b> kích hoạt: tự tính giờ ăn Sáng/Trưa/Tối từ lịch sử MealLog (<code>POST /api/Reminder/profile/recalculate</code>), gửi Push Notification nhắc ăn đúng giờ và nhắc đứng dậy vận động.",
-      "Lên thực đơn <b>lunchbox</b> mang đi làm: <code>POST /api/MealPlan</code> với ngân sách tối đa → lọc công thức phù hợp từ <b>Catalog DB</b>, sinh danh sách mua nguyên liệu tuần.",
+      "Lên thực đơn <b>lunchbox</b> mang đi làm: <code>POST /api/MealPlan/generate-by-budget</code> với ngân sách tối đa → lọc công thức phù hợp từ <b>Catalog DB</b>, sinh danh sách mua nguyên liệu tuần.",
       "Ghi nhật ký bữa ăn hàng ngày tại văn phòng, theo dõi Dashboard calo/macro để đảm bảo không vượt mức Target. Snooze nhắc nhở khi họp bận (<code>POST /api/Reminder/scheduled/{id}/snooze</code>)."
     ]
   },

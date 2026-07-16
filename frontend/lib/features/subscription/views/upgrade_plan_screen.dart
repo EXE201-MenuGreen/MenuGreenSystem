@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../models/subscription_models.dart';
 import '../repositories/user_subscription_repository.dart';
 import 'sepay_payment_screen.dart';
@@ -14,6 +15,7 @@ class UpgradePlanScreen extends StatefulWidget {
 
 class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   final _repository = UserSubscriptionRepository();
+  final _aiProfileRepository = UserAiProfileRepository();
 
   List<SubscriptionPlan> _plans = [];
   UserSubscription? _current;
@@ -151,6 +153,16 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     if (result.success) await _loadData();
   }
 
+  Future<void> _activateOfficeMode() async {
+    final result = await _aiProfileRepository.upsert(eatingPattern: 'office');
+    if (!mounted) return;
+    if (!result.success) {
+      _showResult(result.message, false);
+      return;
+    }
+    Navigator.of(context).pop('officeActivated');
+  }
+
   void _showResult(String message, bool success) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -208,6 +220,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       onPress: () {},
                     ),
                     const SizedBox(height: 16),
+                    _OfficePackageCard(onOpen: _activateOfficeMode),
+                    const SizedBox(height: 12),
                     if (_plans.isEmpty)
                       const Text(
                         'Chưa có gói nào khả dụng.',
@@ -380,6 +394,101 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       ),
     );
   }
+}
+
+class _OfficePackageCard extends StatelessWidget {
+  const _OfficePackageCard({required this.onOpen});
+
+  final Future<void> Function() onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3FAF7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFB8DCCB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.business_center_outlined, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Gói Office', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                    SizedBox(height: 2),
+                    Text('Dành cho nhịp sống văn phòng', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+              const _PlanTag(label: 'MIỄN PHÍ'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text('0đ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+          const SizedBox(height: 12),
+          const _OfficeFeature(text: 'Nhắc uống nước và vận động định kỳ'),
+          const _OfficeFeature(text: 'Kế hoạch cơm hộp theo calo và ngân sách'),
+          const _OfficeFeature(text: 'Danh sách đi chợ cho cả tuần'),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: const Text('Mở tính năng Office'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanTag extends StatelessWidget {
+  const _PlanTag({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+      );
+}
+
+class _OfficeFeature extends StatelessWidget {
+  const _OfficeFeature({required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, size: 17, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+          ],
+        ),
+      );
 }
 
 class _UpgradeHeroCard extends StatelessWidget {

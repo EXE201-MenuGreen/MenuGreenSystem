@@ -52,7 +52,7 @@ Người dùng văn phòng thường có nhu cầu tự chuẩn bị cơm trưa 
 3. **Mua sắm thông minh (Grocery List)**:
    - Hệ thống tự động gom các nguyên liệu cần mua thành danh sách tổng hợp để người dùng đi chợ một lần cho cả tuần.
 4. **Gợi ý thay thế nguyên liệu**:
-   - Nếu ở chợ thiếu nguyên liệu, người dùng sử dụng API `/api/IngredientSubstitution/substitutes` để tìm món thay thế có dưỡng chất tương đương.
+   - Nếu ở chợ thiếu nguyên liệu, người dùng sử dụng API `/api/Ingredient/{id}/substitutes` để tìm món thay thế có dưỡng chất tương đương.
 
 ---
 

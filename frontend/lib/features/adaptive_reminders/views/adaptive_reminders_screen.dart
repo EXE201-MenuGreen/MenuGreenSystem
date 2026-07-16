@@ -18,6 +18,7 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
   bool _loading = true;
   bool _savingProfile = false;
   bool _recalculating = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -26,7 +27,10 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final data = await Future.wait([_repository.getProfile(), _repository.getScheduled()]);
       if (!mounted) return;
@@ -100,6 +104,24 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     await _load();
   }
 
+  Future<void> _addOfficePreset({required bool water}) async {
+    try {
+      await _repository.create(
+        title: water ? 'Uống nước' : 'Vận động giãn cơ',
+        body: water ? 'Uống một cốc nước để duy trì tập trung.' : 'Đứng dậy và đi bộ hoặc giãn cơ 5 phút.',
+        scheduledAt: DateTime.now().add(Duration(hours: water ? 2 : 1)),
+        repeatIntervalMinutes: water ? 120 : 60,
+      );
+      if (mounted) _message('Đã bật nhắc nhở ${water ? 'uống nước mỗi 2 giờ' : 'vận động mỗi giờ'}.');
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _loadError = 'Không thể tải nhắc nhở. Vui lòng thử lại.');
+        _message(error.toString(), error: true);
+      }
+    }
+  }
+
   Future<void> _toggle(ScheduledReminder reminder, bool enabled) async {
     try {
       await _repository.update(reminder.id, isEnabled: enabled);
@@ -114,6 +136,7 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                     isEnabled: enabled,
                     type: item.type,
                     scheduledAt: item.scheduledAt,
+                    repeatIntervalMinutes: item.repeatIntervalMinutes,
                   )
                 else
                   item,
@@ -175,6 +198,27 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
         onRefresh: _load,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
+            : profile == null
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SizedBox(height: 80),
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    _loadError ?? 'Không thể tải dữ liệu nhắc nhở.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Thử lại'),
+                  ),
+                ],
+              )
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -185,7 +229,7 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                   _ProfileTimeTile(
                     icon: Icons.wb_sunny_outlined,
                     title: 'Bữa sáng',
-                    time: profile!.optimalBreakfastTime,
+                    time: profile.optimalBreakfastTime,
                     onTap: () => _pickProfileTime('breakfast'),
                   ),
                   _ProfileTimeTile(
@@ -224,8 +268,16 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                   const SizedBox(height: 28),
                   Row(
                     children: [
-                      const Expanded(child: Text('Lịch nhắc tùy chỉnh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('Lịch nhắc tùy chỉnh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
                       Text('${_reminders.length} lịch', style: const TextStyle(color: AppColors.textSecondary)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ActionChip(avatar: const Icon(Icons.water_drop_outlined, size: 18), label: const Text('Nước / 2 giờ'), onPressed: () => _addOfficePreset(water: true)),
+                      ActionChip(avatar: const Icon(Icons.directions_walk_outlined, size: 18), label: const Text('Giãn cơ / 1 giờ'), onPressed: () => _addOfficePreset(water: false)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -291,7 +343,7 @@ class _ReminderTile extends StatelessWidget {
           onTap: onTap,
           leading: const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
           title: Text(reminder.title),
-          subtitle: Text('${_dateTimeLabel(reminder.scheduledAt)}${reminder.body.isEmpty ? '' : '\n${reminder.body}'}'),
+          subtitle: Text('${_dateTimeLabel(reminder.scheduledAt)}${reminder.repeatIntervalMinutes == null ? '' : ' · Lặp mỗi ${reminder.repeatIntervalMinutes} phút'}${reminder.body.isEmpty ? '' : '\n${reminder.body}'}'),
           isThreeLine: reminder.body.isNotEmpty,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
