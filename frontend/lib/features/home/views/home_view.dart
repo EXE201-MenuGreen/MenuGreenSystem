@@ -302,7 +302,7 @@ class HomeViewState extends State<HomeView> {
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: GymerPackageCard(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: const QuickActionGrid(),

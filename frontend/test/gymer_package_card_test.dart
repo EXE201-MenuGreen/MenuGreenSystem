@@ -24,7 +24,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Gói Gymer'), findsOneWidget);
+    expect(find.text('GYMER VIP'), findsOneWidget);
     expect(find.text('0Đ'), findsOneWidget);
     expect(find.text('Mục tiêu'), findsOneWidget);
     expect(find.text('PT Review'), findsOneWidget);

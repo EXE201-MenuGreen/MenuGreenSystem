@@ -7,6 +7,10 @@ import '../../gymer/views/gymer_hub_screen.dart';
 class GymerPackageCard extends StatelessWidget {
   const GymerPackageCard({super.key});
 
+  static const _gold = Color(0xFFB8872D);
+  static const _goldDark = Color(0xFF795918);
+  static const _goldBorder = Color(0xFFE8D29A);
+
   void _open(BuildContext context, [GymerFeature? feature]) {
     Navigator.push(
       context,
@@ -40,16 +44,20 @@ class GymerPackageCard extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF7DB), Color(0xFFFFFCF2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _goldBorder),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: _gold.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -58,74 +66,67 @@ class GymerPackageCard extends StatelessWidget {
         children: [
           InkWell(
             onTap: () => _open(context),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: _gold,
+                    shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.fitness_center_rounded,
-                    color: AppColors.primary,
-                    size: 21,
+                    Icons.workspace_premium_rounded,
+                    size: 17,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 11),
+                const SizedBox(width: 9),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Gói Gymer',
-                        style: GoogleFonts.beVietnamPro(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      Text(
-                        'Mục tiêu thể hình và PT trong một nơi',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.beVietnamPro(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'GYMER VIP',
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.7,
+                      color: _goldDark,
+                    ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: _goldDark,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '0Đ',
                     style: GoogleFonts.beVietnamPro(
                       color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: _goldDark,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 11),
           Row(
             children: [
               for (final action in actions)
                 Expanded(
-                  child: _PackageAction(
+                  child: _VipAction(
                     icon: action.icon,
                     label: action.label,
                     onTap: () => _open(context, action.feature),
@@ -139,8 +140,8 @@ class GymerPackageCard extends StatelessWidget {
   }
 }
 
-class _PackageAction extends StatelessWidget {
-  const _PackageAction({
+class _VipAction extends StatelessWidget {
+  const _VipAction({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -159,24 +160,57 @@ class _PackageAction extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
         child: Column(
           children: [
-            Container(
-              width: 39,
-              height: 39,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
+            SizedBox(
+              width: 48,
+              height: 43,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: GymerPackageCard._goldBorder),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: GymerPackageCard._goldDark,
+                    ),
+                  ),
+                  Positioned(
+                    top: -3,
+                    right: 0,
+                    child: Container(
+                      width: 19,
+                      height: 19,
+                      decoration: BoxDecoration(
+                        color: GymerPackageCard._gold,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_rounded,
+                        size: 11,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: Icon(icon, size: 20, color: AppColors.primary),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 5),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.beVietnamPro(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                fontSize: 9.8,
+                fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
               ),
             ),
