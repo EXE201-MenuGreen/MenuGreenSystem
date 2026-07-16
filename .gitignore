@@ -557,3 +557,7 @@ frontend/android/app/GeneratedPluginRegistrant.java
 # Local helper scripts (keystore generators, screenshot tools, etc.)
 # Keep code in scripts/ and ci/ directories; ignore ad-hoc assets/
 /assets/
+
+# Build validation results
+frontend/build-validate-result.txt
+frontend/build-validate-result-*.txt
