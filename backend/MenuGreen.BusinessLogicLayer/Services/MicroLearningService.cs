@@ -37,6 +37,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await EnsureSeedDataAsync();
 
             var healthProfile = (await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId)).FirstOrDefault();
+            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == userId)).FirstOrDefault();
+            var isOfficeUser = string.Equals(aiProfile?.EatingPattern?.Trim().Trim('"'), "office", StringComparison.OrdinalIgnoreCase);
             var allergies = (await _unitOfWork.Allergies.FindAsync(a => a.UserId == userId && a.IsActive)).ToList();
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -71,6 +73,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // 2. Xác định các Category được đề xuất
             var targetCategories = new List<string> { "General", "Hydration" };
+            if (isOfficeUser) targetCategories.Add("Office");
             if (isProteinDeficient) targetCategories.Add("Protein");
             if (isFatExcess) targetCategories.Add("Sodium");
             if (hasMilkAllergy || hasSeafoodAllergy) targetCategories.Add("Allergy");
@@ -111,7 +114,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // - Ưu tiên thẻ chưa đọc
             // - Ưu tiên thẻ chưa hoàn thành quiz
             var sortedList = recommendedList
-                .OrderByDescending(c => c.Category == "Protein" || c.Category == "Sodium" || c.Category == "Allergy")
+                .OrderByDescending(c => isOfficeUser && c.Category == "Office")
+                .ThenByDescending(c => c.Category == "Protein" || c.Category == "Sodium" || c.Category == "Allergy")
                 .ThenBy(c => interactions.TryGetValue(c.Id, out var inter) && inter.IsRead ? 1 : 0)
                 .ThenBy(c => interactions.TryGetValue(c.Id, out var inter) && inter.IsQuizCompleted ? 1 : 0)
                 .Take(3)

@@ -412,7 +412,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                   width: double.infinity,
                   height: 180,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
               const SizedBox(height: 16),

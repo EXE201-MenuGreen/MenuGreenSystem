@@ -46,6 +46,7 @@ class ScheduledReminder {
     required this.isEnabled,
     this.type,
     this.scheduledAt,
+    this.repeatIntervalMinutes,
   });
 
   final String id;
@@ -54,6 +55,7 @@ class ScheduledReminder {
   final bool isEnabled;
   final String? type;
   final DateTime? scheduledAt;
+  final int? repeatIntervalMinutes;
 
   factory ScheduledReminder.fromJson(Map<String, dynamic> json) => ScheduledReminder(
         id: _text(json, 'id', ''),
@@ -62,6 +64,7 @@ class ScheduledReminder {
         isEnabled: json['isEnabled'] == true || json['IsEnabled'] == true,
         type: _nullable(json['type'] ?? json['Type']),
         scheduledAt: _date(json['scheduledAt'] ?? json['ScheduledAt']),
+        repeatIntervalMinutes: _int(json['repeatIntervalMinutes'] ?? json['RepeatIntervalMinutes']),
       );
 }
 
@@ -72,5 +75,7 @@ String? _nullable(dynamic value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty || text == 'null' ? null : text;
 }
+
+int? _int(dynamic value) => value is num ? value.toInt() : int.tryParse('${value ?? ''}');
 
 DateTime? _date(dynamic value) => value == null ? null : DateTime.tryParse(value.toString())?.toLocal();

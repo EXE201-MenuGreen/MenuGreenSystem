@@ -343,6 +343,15 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>Aggregate recipe ingredients into one shopping list for a lunchbox/weekly plan.</summary>
+        [HttpGet("{id:guid}/grocery-list")]
+        public async Task<IActionResult> GetGroceryList(Guid id)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _service.GetGroceryListAsync(id, userId)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
         /// <summary>
         /// Suggest cheaper alternative meals/recipes for items in the plan.
         /// </summary>

@@ -16,6 +16,7 @@ import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
+import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 
 enum QuickActionType {
   todayEat,
@@ -32,6 +33,7 @@ enum QuickActionType {
   ingredientSubstitution,
   savedTemplates,
   nutritionLearning,
+  officeReminders,
 }
 
 class QuickActionGrid extends StatelessWidget {
@@ -136,6 +138,13 @@ class QuickActionGrid extends StatelessWidget {
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),
+    _ActionItem(
+      type: QuickActionType.officeReminders,
+      icon: Icons.schedule_outlined,
+      label: 'Nhắc nhở\nvăn phòng',
+      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+      bgColor: Color(0xFFCCFBF1),
+    ),
   ];
 
   void _navigateTo(BuildContext context, QuickActionType type) {
@@ -182,6 +191,9 @@ class QuickActionGrid extends StatelessWidget {
         break;
       case QuickActionType.nutritionLearning:
         screen = const MicroLearningScreen();
+        break;
+      case QuickActionType.officeReminders:
+        screen = const AdaptiveRemindersScreen();
         break;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
