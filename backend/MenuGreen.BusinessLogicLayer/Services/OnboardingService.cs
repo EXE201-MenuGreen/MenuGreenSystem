@@ -82,23 +82,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         }
                     );
                 }
-                var officeRole = (await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "office")).FirstOrDefault();
-                if (officeRole == null)
-                {
-                    officeRole = new MenuGreen.DataAccessLayer.Entities.Role
-                    {
-                        Id = Guid.NewGuid(), Name = "Office", Description = "Office user role",
-                        CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-                    };
-                    await _unitOfWork.Roles.AddAsync(officeRole);
-                }
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
-                if (user != null)
-                {
-                    user.RoleId = officeRole.Id;
-                    user.UpdatedAt = DateTime.UtcNow;
-                    _unitOfWork.Users.Update(user);
-                }
                 await _unitOfWork.CompleteAsync();
             }
 
