@@ -348,7 +348,11 @@ class _SubstitutionEditorDialogState extends State<_SubstitutionEditorDialog> {
               title: const Text('Khớp macro'),
               value: _macroMatch,
               onChanged: (v) => setState(() => _macroMatch = v),
-              activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? AppColors.primary.withValues(alpha: 0.5)
+                    : null,
+              ),
             ),
           ],
         ),

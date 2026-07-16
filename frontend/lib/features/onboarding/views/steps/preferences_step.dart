@@ -87,10 +87,16 @@ class _PreferencesStepState extends State<PreferencesStep> {
                   ),
                   Switch(
                     value: _prefs[key]!,
-                    activeThumbColor: Colors.white,
-                    activeTrackColor: AppColors.primary,
-                    inactiveThumbColor: Colors.white,
-                    inactiveTrackColor: AppColors.progressBackground,
+                    trackColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? AppColors.primary
+                          : AppColors.progressBackground,
+                    ),
+                    thumbColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? Colors.white
+                          : Colors.white,
+                    ),
                     onChanged: (val) => setState(() => _prefs[key] = val),
                   )
                 ],

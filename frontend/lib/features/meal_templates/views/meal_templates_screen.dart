@@ -445,7 +445,7 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: mealType,
+                  value: mealType,
                   decoration: const InputDecoration(labelText: 'Nhóm bữa'),
                   items: _mealTypes
                       .map((type) => DropdownMenuItem(value: type, child: Text(_mealTypeLabel(type))))
@@ -803,14 +803,14 @@ class _TemplateItemPickerState extends State<_TemplateItemPicker> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              initialValue: _mealType,
+              value: _mealType,
               decoration: const InputDecoration(labelText: 'Nhóm bữa'),
               items: _mealTypes.map((type) => DropdownMenuItem(value: type, child: Text(_mealTypeLabel(type)))).toList(),
               onChanged: (value) => setState(() => _mealType = value ?? widget.initialMealType),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: _source,
+              value: _source,
               decoration: const InputDecoration(labelText: 'Loại mục'),
               items: const [
                 DropdownMenuItem(value: 'food', child: Text('Món ăn')),
@@ -848,7 +848,7 @@ class _TemplateItemPickerState extends State<_TemplateItemPicker> {
             else
               DropdownButtonFormField<String>(
                 key: ValueKey('$_source-${_catalogItems.length}-$_selectedId'),
-                initialValue: _selectedId,
+                value: _selectedId,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Món trong thực đơn'),
                 items: _catalogItems

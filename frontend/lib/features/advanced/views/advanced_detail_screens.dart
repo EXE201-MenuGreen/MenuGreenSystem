@@ -59,7 +59,7 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
                   ),
                 ),
                 DropdownButtonFormField<String>(
-                  initialValue: action,
+                  value: action,
                   items: const [
                     DropdownMenuItem(value: 'Replace', child: Text('Thay món')),
                     DropdownMenuItem(value: 'Add', child: Text('Thêm món')),

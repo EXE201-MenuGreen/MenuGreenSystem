@@ -610,7 +610,7 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: selectedUnit,
+                      value: selectedUnit,
                       decoration: const InputDecoration(labelText: 'Đơn vị'),
                       items: units
                           .map(
@@ -624,7 +624,7 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: selectedMeal,
+                value: selectedMeal,
                 decoration: const InputDecoration(labelText: 'Bữa ăn'),
                 items: meals.entries
                     .map(

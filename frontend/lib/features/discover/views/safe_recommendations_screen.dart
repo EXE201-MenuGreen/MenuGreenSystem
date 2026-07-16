@@ -203,8 +203,16 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
                   title: const Text('Loại món trùng dị ứng'),
                   subtitle: const Text('ExcludeUserAllergies — mặc định bật'),
                   value: _excludeAllergies,
-                  activeTrackColor: AppColors.primary.withValues(alpha: 0.4),
-                  activeThumbColor: AppColors.primary,
+                  trackColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : null,
+                  ),
+                  thumbColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? AppColors.primary
+                        : null,
+                  ),
                   onChanged: (v) {
                     setState(() => _excludeAllergies = v);
                     _loadTab(_tabController.index);

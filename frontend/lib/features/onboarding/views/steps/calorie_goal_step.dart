@@ -114,10 +114,9 @@ class _CalorieGoalStepState extends State<CalorieGoalStep> {
                     Expanded(
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: AppColors.primary,
-                          inactiveTrackColor: AppColors.progressBackground,
                           thumbColor: AppColors.primary,
                           trackHeight: 6,
+                          activeTickMarkColor: AppColors.primary,
                         ),
                         child: Slider(
                           value: _calories,

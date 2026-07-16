@@ -214,7 +214,11 @@ class _ConsentScreenState extends State<ConsentScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+            trackColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? AppColors.primary.withValues(alpha: 0.5)
+                  : null,
+            ),
           ),
         ],
       ),
