@@ -517,15 +517,20 @@ backend/nginx/ssl/*.pem
 backend/nginx/ssl/*.key
 
 # Android signing & API keys
+# ⚠️ CRITICAL: Keystore ở android/ (không phải android/app/)
+**/*.jks
+**/*.keystore
+**/android/local.properties
+**/android/.gradle/
+**/android/app/.cxx/
 frontend/android/app/keystore_pass.txt
-frontend/android/app/*.jks
-frontend/android/app/*.keystore
 frontend/android/app/google-services.json
 frontend/firebase/service-account*.json
 
 # Flutter build artifacts (do NOT push)
-frontend/app-release.aab
-frontend/app-debug.apk
+frontend/*.aab
+frontend/*.apk
+frontend/app-release-v*.aab
 frontend/build/app/outputs/**/*.aab
 frontend/build/app/outputs/**/*.apk
 frontend/build/
