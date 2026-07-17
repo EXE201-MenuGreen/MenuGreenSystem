@@ -16,10 +16,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             "Paid subscriptions must use SePay. Subscribe: POST /api/payments/sepay/create-order. Renew: POST /api/payments/sepay/create-renew-order.";
 
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationService _notificationService;
 
-        public UserSubscriptionService(IUnitOfWork unitOfWork)
+        public UserSubscriptionService(IUnitOfWork unitOfWork, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
+            _notificationService = notificationService;
         }
 
         public async Task<UserSubscriptionResponse> SubscribeAsync(Guid userId, SubscribeRequest request)
@@ -63,6 +65,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.CompleteAsync();
 
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = userId,
+                    Type = "subscription_activated",
+                    Title = "Kích hoạt gói dịch vụ",
+                    Body = $"Tài khoản của bạn đã đăng ký thành công gói {plan.Name}.",
+                    ScheduledAt = DateTimeOffset.UtcNow
+                });
+            }
+            catch
+            {
+                // Bỏ qua lỗi gửi thông báo để tránh ảnh hưởng đến luồng chính
+            }
+
             return await MapAsync(subscription);
         }
 
@@ -88,6 +106,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Renew", 0, request.Note ?? "Free plan renewal", now));
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = userId,
+                    Type = "subscription_renewed",
+                    Title = "Gia hạn gói dịch vụ",
+                    Body = $"Tài khoản của bạn đã gia hạn thành công gói {plan.Name}.",
+                    ScheduledAt = DateTimeOffset.UtcNow
+                });
+            }
+            catch
+            {
+                // Bỏ qua lỗi gửi thông báo để tránh ảnh hưởng đến luồng chính
+            }
 
             return await MapAsync(subscription);
         }
