@@ -47,6 +47,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.UserSubscriptions.AddAsync(subscription);
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Subscribe", 0, request.Note ?? "Free plan", now));
+
+            var freeRoles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "free");
+            var freeRole = freeRoles.FirstOrDefault();
+            if (freeRole != null)
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user != null)
+                {
+                    user.RoleId = freeRole.Id;
+                    user.UpdatedAt = now;
+                    _unitOfWork.Users.Update(user);
+                }
+            }
+
             await _unitOfWork.CompleteAsync();
 
             return await MapAsync(subscription);
@@ -90,6 +104,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.UserSubscriptions.Update(subscription);
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
+
+            var freeRoles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "free");
+            var freeRole = freeRoles.FirstOrDefault();
+            if (freeRole != null)
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user != null)
+                {
+                    user.RoleId = freeRole.Id;
+                    user.UpdatedAt = now;
+                    _unitOfWork.Users.Update(user);
+                }
+            }
+
             await _unitOfWork.CompleteAsync();
 
             return await MapAsync(subscription);
