@@ -52,11 +52,17 @@ class PremiumProgramRepository {
     required int weekNumber,
     required double weightKg,
     double? bodyFatPercent,
+    double? chestCm,
+    double? waistCm,
+    double? hipCm,
   }) async {
     final payload = <String, dynamic>{'weightKg': weightKg};
     if (bodyFatPercent != null) {
       payload['bodyFatPercent'] = bodyFatPercent;
     }
+    if (chestCm != null) payload['chestCm'] = chestCm;
+    if (waistCm != null) payload['waistCm'] = waistCm;
+    if (hipCm != null) payload['hipCm'] = hipCm;
     return _asMap(
       _body(
         await _api.postJson(
@@ -70,6 +76,12 @@ class PremiumProgramRepository {
   Future<Map<String, dynamic>> graduate() async {
     return _asMap(
       _body(await _api.postJson(ApiEndpoints.premiumProgramGraduate, const {})),
+    );
+  }
+
+  Future<Map<String, dynamic>> getReport(String userProgramId) async {
+    return _asMap(
+      _body(await _api.get(ApiEndpoints.premiumProgramReport(userProgramId))),
     );
   }
 

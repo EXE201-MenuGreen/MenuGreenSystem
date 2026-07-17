@@ -37,6 +37,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             healthProfile.HeightCm = request.HeightCm;
             healthProfile.WeightKg = request.WeightKg;
             healthProfile.BodyFatPercent = request.BodyFatPercent;
+            if (request.TargetWeightKg.HasValue)
+            {
+                healthProfile.TargetWeightKg = request.TargetWeightKg;
+            }
             healthProfile.ActivityLevel = request.ActivityLevel;
             healthProfile.Goal = request.Goal;
 
@@ -157,6 +161,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 HeightCm = healthProfile.HeightCm,
                 WeightKg = healthProfile.WeightKg,
                 BodyFatPercent = healthProfile.BodyFatPercent,
+                TargetWeightKg = healthProfile.TargetWeightKg,
                 ActivityLevel = healthProfile.ActivityLevel,
                 Goal = healthProfile.Goal,
                 Bmi = healthProfile.Bmi,
@@ -177,6 +182,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 HeightCm = healthProfile.HeightCm,
                 WeightKg = healthProfile.WeightKg,
                 BodyFatPercent = healthProfile.BodyFatPercent,
+                TargetWeightKg = healthProfile.TargetWeightKg,
                 ActivityLevel = healthProfile.ActivityLevel,
                 Goal = healthProfile.Goal,
                 Bmi = healthProfile.Bmi,

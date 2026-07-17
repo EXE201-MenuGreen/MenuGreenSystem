@@ -724,6 +724,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<int?>("TargetProteinG")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("TargetWeightKg")
+                        .HasColumnType("numeric(5,2)");
+
                     b.Property<int?>("TdeeKcal")
                         .HasColumnType("integer");
 
@@ -2129,11 +2132,23 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("BadgeName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal?>("ChestCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<DateTime?>("CheckInDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("HipCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<bool>("IsCheckedIn")
                         .HasColumnType("boolean");
@@ -2141,11 +2156,18 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<bool>("IsUnlocked")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("RewardPoints")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UnlockedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserProgramId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("WaistCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("WeekNumber")
                         .HasColumnType("integer");

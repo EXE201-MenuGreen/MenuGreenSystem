@@ -75,6 +75,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 "gain weight" or "gainweight" => 300,
                 "lose weight" or "loseweight" => -500,
                 "build muscle" or "buildmuscle" => 200,
+                "recomp" or "recomposition" => 0,
                 _ => 0
             });
         }
@@ -82,9 +83,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public static void ApplyMacroTargets(HealthProfile healthProfile)
         {
             var goal = healthProfile.Goal?.Trim().ToLower();
-            var proteinRatio = goal is "build muscle" or "buildmuscle" ? 0.35 : 0.30;
-            var fatRatio = goal is "build muscle" or "buildmuscle" ? 0.20 : 0.30;
-            var carbsRatio = goal is "build muscle" or "buildmuscle" ? 0.45 : 0.40;
+            var highProtein = goal is "build muscle" or "buildmuscle" or "recomp" or "recomposition";
+            var proteinRatio = highProtein ? 0.35 : 0.30;
+            var fatRatio = highProtein ? 0.20 : 0.30;
+            var carbsRatio = highProtein ? 0.45 : 0.40;
 
             var targetCalories = (double)(healthProfile.TargetCalories ?? 0);
             var proteinG = (targetCalories * proteinRatio) / 4;

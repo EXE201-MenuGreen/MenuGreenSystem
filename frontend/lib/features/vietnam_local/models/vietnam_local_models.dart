@@ -203,6 +203,8 @@ class GymGoalProfile {
     this.maxCalories,
     this.minProteinG,
     this.maxProteinG,
+    this.targetWeightKg,
+    this.targetBodyFatPercent,
     this.notes,
   });
 
@@ -216,6 +218,8 @@ class GymGoalProfile {
   final int? maxCalories;
   final int? minProteinG;
   final int? maxProteinG;
+  final double? targetWeightKg;
+  final double? targetBodyFatPercent;
   final String? notes;
 
   GymGoalProfile copyWith({
@@ -229,6 +233,8 @@ class GymGoalProfile {
     int? maxCalories,
     int? minProteinG,
     int? maxProteinG,
+    double? targetWeightKg,
+    double? targetBodyFatPercent,
     String? notes,
   }) {
     return GymGoalProfile(
@@ -245,6 +251,8 @@ class GymGoalProfile {
       maxCalories: maxCalories ?? this.maxCalories,
       minProteinG: minProteinG ?? this.minProteinG,
       maxProteinG: maxProteinG ?? this.maxProteinG,
+      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+      targetBodyFatPercent: targetBodyFatPercent ?? this.targetBodyFatPercent,
       notes: notes ?? this.notes,
     );
   }
@@ -261,6 +269,8 @@ class GymGoalProfile {
       maxCalories: _int(json, 'maxCalories'),
       minProteinG: _int(json, 'minProteinG'),
       maxProteinG: _int(json, 'maxProteinG'),
+      targetWeightKg: _double(json, 'targetWeightKg'),
+      targetBodyFatPercent: _double(json, 'targetBodyFatPercent'),
       notes: _string(json, 'notes'),
     );
   }
@@ -277,6 +287,8 @@ class GymGoalProfile {
       'maxCalories': maxCalories,
       'minProteinG': minProteinG,
       'maxProteinG': maxProteinG,
+      'targetWeightKg': targetWeightKg,
+      'targetBodyFatPercent': targetBodyFatPercent,
       'notes': notes,
     };
   }
@@ -928,7 +940,8 @@ class LuckyWheelFood {
   factory LuckyWheelFood.fromJson(Map<String, dynamic> json) {
     return LuckyWheelFood(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
-      name: _firstString(json, const [
+      name:
+          _firstString(json, const [
             'nameVi',
             'nameVI',
             'nameVN',
@@ -943,13 +956,15 @@ class LuckyWheelFood {
             'title',
           ]) ??
           '',
-      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      caloriesKcal:
+          _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
       imageUrl: _string(json, 'imageUrl') ?? _string(json, 'ImageUrl'),
       description: _string(json, 'description') ?? _string(json, 'Description'),
-      estimatedPriceVnd: _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd'),
+      estimatedPriceVnd:
+          _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd'),
     );
   }
 }

@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/widgets/premium_paywall_widget.dart';
+import '../../home/widgets/weight_log_sheet.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/gym_goals_provider.dart';
 import '../widgets/info_card.dart';
@@ -123,6 +124,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        _buildBodyTargetsCard(provider),
+                        const SizedBox(height: 16),
                         _buildRecalibrateCard(provider),
                         const SizedBox(height: 24),
                         const SectionHeader(
@@ -223,6 +226,44 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
             'Hiệu chỉnh ngay',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBodyTargetsCard(GymGoalsProvider provider) {
+    final profile = provider.profile;
+    final weight = profile?.targetWeightKg;
+    final bodyFat = profile?.targetBodyFatPercent;
+    final targetText = [
+      if (weight != null) '${weight.toStringAsFixed(1)} kg',
+      if (bodyFat != null) '${bodyFat.toStringAsFixed(1)}% mỡ',
+    ].join(' • ');
+
+    return InfoCard(
+      icon: Icons.monitor_weight_outlined,
+      title: 'Chỉ số cơ thể mục tiêu',
+      subtitle: targetText.isEmpty
+          ? 'Thiết lập cân nặng và tỷ lệ mỡ mục tiêu trong cấu hình gym.'
+          : targetText,
+      footnote:
+          'Ghi chỉ số định kỳ để hệ thống so sánh xu hướng và hiệu chỉnh mục tiêu.',
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            final saved = await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const WeightLogSheet(),
+            );
+            if (saved == true && mounted) {
+              await provider.recalibrate();
+            }
+          },
+          icon: const Icon(Icons.add_chart_outlined, size: 18),
+          label: const Text('Cập nhật cân nặng / % mỡ'),
         ),
       ),
     );
@@ -357,6 +398,8 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
   late final TextEditingController _maxCal;
   late final TextEditingController _minProtein;
   late final TextEditingController _maxProtein;
+  late final TextEditingController _targetWeight;
+  late final TextEditingController _targetBodyFat;
   late final TextEditingController _trainCount;
   late final TextEditingController _restCount;
   late final TextEditingController _notes;
@@ -390,6 +433,12 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     _maxProtein = TextEditingController(
       text: (init?.maxProteinG ?? 220).toString(),
     );
+    _targetWeight = TextEditingController(
+      text: init?.targetWeightKg?.toString() ?? '',
+    );
+    _targetBodyFat = TextEditingController(
+      text: init?.targetBodyFatPercent?.toString() ?? '',
+    );
     _trainCount = TextEditingController(
       text: (init?.trainingDaysPerWeek ?? 3).toString(),
     );
@@ -410,6 +459,8 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     _maxCal.dispose();
     _minProtein.dispose();
     _maxProtein.dispose();
+    _targetWeight.dispose();
+    _targetBodyFat.dispose();
     _trainCount.dispose();
     _restCount.dispose();
     _notes.dispose();
@@ -428,6 +479,12 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
       maxCalories: int.tryParse(_maxCal.text.trim()),
       minProteinG: int.tryParse(_minProtein.text.trim()),
       maxProteinG: int.tryParse(_maxProtein.text.trim()),
+      targetWeightKg: double.tryParse(
+        _targetWeight.text.trim().replaceAll(',', '.'),
+      ),
+      targetBodyFatPercent: double.tryParse(
+        _targetBodyFat.text.trim().replaceAll(',', '.'),
+      ),
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
     );
   }
@@ -570,6 +627,21 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildNumberField('Protein tối đa (g)', _maxProtein),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildNumberField(
+                      'Cân nặng mục tiêu (kg)',
+                      _targetWeight,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildNumberField('% mỡ mục tiêu', _targetBodyFat),
                   ),
                 ],
               ),

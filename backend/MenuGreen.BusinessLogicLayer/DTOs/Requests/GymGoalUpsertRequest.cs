@@ -18,6 +18,13 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int? MaxCalories { get; set; }
         public int? MinProteinG { get; set; }
         public int? MaxProteinG { get; set; }
+
+        [Range(30.0, 300.0, ErrorMessage = "Target weight must be between 30kg and 300kg.")]
+        public decimal? TargetWeightKg { get; set; }
+
+        [Range(1.0, 80.0, ErrorMessage = "Target body fat percentage must be between 1% and 80%.")]
+        public decimal? TargetBodyFatPercent { get; set; }
+
         public string? Notes { get; set; }
     }
 }

@@ -11,6 +11,7 @@ CREATE TABLE health_profiles (
     "HeightCm" numeric(5,2) NULL,
     "WeightKg" numeric(5,2) NULL,
     "BodyFatPercent" numeric(5,2) NULL,
+    "TargetWeightKg" numeric(5,2) NULL,
     "ActivityLevel" character varying(50) NULL,
     "Goal" character varying(50) NULL,
     "Bmi" numeric(5,2) NULL,

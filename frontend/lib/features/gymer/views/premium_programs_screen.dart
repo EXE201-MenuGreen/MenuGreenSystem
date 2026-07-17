@@ -25,6 +25,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   Map<String, dynamic>? get _activeProgram => _firstWithStatus('active');
   Map<String, dynamic>? get _paidProgram => _firstWithStatus('paid');
+  List<Map<String, dynamic>> get _completedPrograms => _enrollments
+      .where((item) => _value(item, 'status').toLowerCase() == 'completed')
+      .toList();
 
   @override
   void initState() {
@@ -135,6 +138,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   Future<void> _openCheckIn(Map<String, dynamic> active) async {
     final weight = TextEditingController();
     final bodyFat = TextEditingController();
+    final chest = TextEditingController();
+    final waist = TextEditingController();
+    final hip = TextEditingController();
     final week = _intValue(active, 'currentWeek', fallback: 1);
     final submitted = await showModalBottomSheet<bool>(
       context: context,
@@ -187,6 +193,16 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _measurementField(chest, 'Ngực (cm)')),
+                const SizedBox(width: 8),
+                Expanded(child: _measurementField(waist, 'Eo (cm)')),
+                const SizedBox(width: 8),
+                Expanded(child: _measurementField(hip, 'Hông (cm)')),
+              ],
+            ),
             const SizedBox(height: 18),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
@@ -204,6 +220,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     if (submitted != true || !mounted) {
       weight.dispose();
       bodyFat.dispose();
+      chest.dispose();
+      waist.dispose();
+      hip.dispose();
       return;
     }
 
@@ -211,8 +230,14 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       weight.text.trim().replaceAll(',', '.'),
     );
     final fatValue = double.tryParse(bodyFat.text.trim().replaceAll(',', '.'));
+    final chestValue = _parseDecimal(chest.text);
+    final waistValue = _parseDecimal(waist.text);
+    final hipValue = _parseDecimal(hip.text);
     weight.dispose();
     bodyFat.dispose();
+    chest.dispose();
+    waist.dispose();
+    hip.dispose();
     if (weightValue == null) {
       _showMessage('Vui lòng nhập cân nặng hợp lệ.', error: true);
       return;
@@ -224,9 +249,168 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         weekNumber: week,
         weightKg: weightValue,
         bodyFatPercent: fatValue,
+        chestCm: chestValue,
+        waistCm: waistValue,
+        hipCm: hipValue,
       );
       if (mounted) _showMessage('Đã lưu check-in tuần $week.');
       await _load();
+    } catch (error) {
+      if (mounted) _showMessage(_cleanError(error), error: true);
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
+  Widget _measurementField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  Future<void> _graduate(Map<String, dynamic> active) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hoàn thành lộ trình'),
+        content: const Text(
+          'Hệ thống sẽ chốt chỉ số cuối, tạo báo cáo phân tích và chứng nhận hoàn thành.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Để sau'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Tốt nghiệp'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+
+    setState(() => _actionLoading = true);
+    try {
+      final completed = await _repository.graduate();
+      await _load();
+      if (!mounted) return;
+      _showMessage('Chúc mừng bạn đã hoàn thành lộ trình!');
+      await _openReport(completed);
+    } catch (error) {
+      if (mounted) _showMessage(_cleanError(error), error: true);
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
+  Future<void> _openReport(Map<String, dynamic> enrollment) async {
+    setState(() => _actionLoading = true);
+    try {
+      final report = await _repository.getReport(_value(enrollment, 'id'));
+      if (!mounted) return;
+      final badges = _stringList(report, 'badges');
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: Colors.white,
+        builder: (context) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 48,
+                  color: Color(0xFFB7861D),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'CHỨNG NHẬN HOÀN THÀNH',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _value(report, 'programTitle'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _ReportRow(
+                  label: 'Thời lượng',
+                  value: '${_intValue(report, 'totalWeeks')} tuần',
+                ),
+                _ReportRow(
+                  label: 'Tuân thủ kế hoạch',
+                  value:
+                      '${_doubleValue(report, 'averageAdherenceRate').toStringAsFixed(1)}%',
+                ),
+                _ReportRow(
+                  label: 'Thay đổi cân nặng',
+                  value: '${_signedValue(report, 'weightChange')} kg',
+                ),
+                _ReportRow(
+                  label: 'Thay đổi % mỡ',
+                  value: '${_signedValue(report, 'bodyFatChange')}%',
+                ),
+                _ReportRow(
+                  label: 'Thay đổi vòng eo',
+                  value: '${_signedValue(report, 'waistChange')} cm',
+                ),
+                _ReportRow(
+                  label: 'Điểm thưởng',
+                  value: '${_intValue(report, 'totalRewardPoints')} điểm',
+                ),
+                if (badges.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: badges
+                        .map(
+                          (badge) => Chip(
+                            avatar: const Icon(
+                              Icons.emoji_events_rounded,
+                              size: 16,
+                              color: Color(0xFFB7861D),
+                            ),
+                            label: Text(badge),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                const Text(
+                  'Bản chứng nhận in được có sẵn qua API xuất chứng nhận của lộ trình.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     } catch (error) {
       if (mounted) _showMessage(_cleanError(error), error: true);
     } finally {
@@ -278,6 +462,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                   if (_activeProgram != null) ...[
                     const SizedBox(height: 14),
                     _buildActiveProgram(_activeProgram!),
+                  ],
+                  if (_completedPrograms.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    for (final completed in _completedPrograms)
+                      _buildCompletedProgram(completed),
                   ],
                   const SizedBox(height: 22),
                   Text(
@@ -402,6 +591,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     final canCheckIn =
         currentMilestone.isEmpty ||
         !_boolValue(currentMilestone.first, 'isCheckedIn');
+    final canGraduate = milestones.isNotEmpty && completed == milestones.length;
+    final rewardPoints = milestones.fold<int>(
+      0,
+      (total, item) => total + _intValue(item, 'rewardPoints'),
+    );
 
     return Container(
       padding: const EdgeInsets.all(17),
@@ -442,6 +636,13 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: _ActiveMetric(
+                  label: 'Điểm thưởng',
+                  value: '$rewardPoints',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ActiveMetric(
                   label: 'Đã check-in',
                   value: '$completed/${milestones.length}',
                 ),
@@ -470,6 +671,65 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                     : 'Tuần này đã hoàn tất',
               ),
             ),
+          ),
+          if (canGraduate) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _actionLoading ? null : () => _graduate(active),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white70),
+                ),
+                icon: const Icon(Icons.workspace_premium_outlined, size: 19),
+                label: const Text('Tốt nghiệp & nhận chứng nhận'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedProgram(Map<String, dynamic> completed) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2C16C)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.workspace_premium_rounded, color: Color(0xFFB7861D)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ĐÃ TỐT NGHIỆP',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF9A6B08),
+                  ),
+                ),
+                Text(
+                  _value(completed, 'programTitle'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _actionLoading ? null : () => _openReport(completed),
+            child: const Text('Báo cáo'),
           ),
         ],
       ),
@@ -814,6 +1074,37 @@ class _MessageCard extends StatelessWidget {
   }
 }
 
+class _ReportRow extends StatelessWidget {
+  const _ReportRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _value(Map<String, dynamic> data, String key, [String fallback = '']) {
   final pascal = key[0].toUpperCase() + key.substring(1);
   return (data[key] ?? data[pascal] ?? fallback).toString();
@@ -830,6 +1121,29 @@ bool _boolValue(Map<String, dynamic> data, String key) {
   final raw = data[key] ?? data[key[0].toUpperCase() + key.substring(1)];
   if (raw is bool) return raw;
   return raw?.toString().toLowerCase() == 'true';
+}
+
+double _doubleValue(Map<String, dynamic> data, String key) {
+  final raw = data[key] ?? data[key[0].toUpperCase() + key.substring(1)];
+  if (raw is num) return raw.toDouble();
+  return double.tryParse(raw?.toString() ?? '') ?? 0;
+}
+
+double? _parseDecimal(String value) {
+  final normalized = value.trim().replaceAll(',', '.');
+  if (normalized.isEmpty) return null;
+  return double.tryParse(normalized);
+}
+
+String _signedValue(Map<String, dynamic> data, String key) {
+  final value = _doubleValue(data, key);
+  return value > 0 ? '+${value.toStringAsFixed(1)}' : value.toStringAsFixed(1);
+}
+
+List<String> _stringList(Map<String, dynamic> data, String key) {
+  final raw = data[key] ?? data[key[0].toUpperCase() + key.substring(1)];
+  if (raw is! List) return const [];
+  return raw.map((item) => item.toString()).toList();
 }
 
 List<Map<String, dynamic>> _listValue(Map<String, dynamic> data, String key) {

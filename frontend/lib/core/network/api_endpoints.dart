@@ -210,6 +210,10 @@ class ApiEndpoints {
       '$baseUrl/PremiumPrograms/my-active/milestones/$weekNumber/checkin';
   static String get premiumProgramGraduate =>
       '$baseUrl/PremiumPrograms/my-active/graduate';
+  static String premiumProgramReport(String userProgramId) =>
+      '$baseUrl/PremiumPrograms/my-programs/$userProgramId/wrap-up-report';
+  static String premiumProgramCertificate(String userProgramId) =>
+      '$baseUrl/PremiumPrograms/my-programs/$userProgramId/certificate';
 
   static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
   static String get sepayCreateRenewOrder =>
@@ -265,6 +269,7 @@ class ApiEndpoints {
   // Gym/PT Goals (2.13)
   static String get gymGoalsMe => '$baseUrl/GymGoals/me';
   static String get gymGoals => '$baseUrl/GymGoals';
+  static String get gymGoalsSetup => '$baseUrl/GymGoals/setup';
   static String get gymGoalsPlan => '$baseUrl/GymGoals/plan';
   static String get gymGoalsRecalibrate => '$baseUrl/GymGoals/recalibrate';
   static String get gymGoalsAlerts => '$baseUrl/GymGoals/alerts';

@@ -55,6 +55,7 @@ namespace MenuGreen.API.Controllers
         /// Create or update goal mode, training schedule, and initial targets for user.
         /// </summary>
         [HttpPost]
+        [HttpPost("setup")]
         public async Task<IActionResult> CreateOrUpdate([FromBody] GymGoalUpsertRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -75,13 +76,15 @@ namespace MenuGreen.API.Controllers
                 maxCalories = request.MaxCalories,
                 minProteinG = request.MinProteinG,
                 maxProteinG = request.MaxProteinG,
+                targetWeightKg = request.TargetWeightKg,
+                targetBodyFatPercent = request.TargetBodyFatPercent,
                 notes = request.Notes
             };
 
             var preferencesJson = System.Text.Json.JsonSerializer.Serialize(preferencesData);
 
             // Sync HealthProfile TargetCalories if trainingDayTargetCalories is provided
-            if (request.TrainingDayTargetCalories.HasValue)
+            if (request.TrainingDayTargetCalories.HasValue || request.TargetWeightKg.HasValue)
             {
                 var health = await _healthProfileService.GetAsync(userId);
                 var updateHealthRequest = new UpdateHealthProfileRequest
@@ -89,9 +92,10 @@ namespace MenuGreen.API.Controllers
                     HeightCm = health.HeightCm ?? 170m,
                     WeightKg = health.WeightKg ?? 60m,
                     BodyFatPercent = health.BodyFatPercent,
+                    TargetWeightKg = request.TargetWeightKg,
                     ActivityLevel = health.ActivityLevel ?? "Light",
                     Goal = request.GoalMode,
-                    TargetCalories = request.TrainingDayTargetCalories.Value
+                    TargetCalories = request.TrainingDayTargetCalories ?? health.TargetCalories
                 };
                 await _healthProfileService.UpdateAsync(userId, updateHealthRequest);
             }
@@ -186,6 +190,28 @@ namespace MenuGreen.API.Controllers
             // Suggest new TargetCalories based on AI Profile GoalMode
             var profile = await _userAiProfileService.GetAsync(userId);
             var goalMode = profile?.EatingPattern ?? "maintain";
+            decimal? targetWeightKg = null;
+            decimal? targetBodyFatPercent = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(profile?.Preferences))
+                {
+                    using var preferences = System.Text.Json.JsonDocument.Parse(profile.Preferences);
+                    var root = preferences.RootElement;
+                    if (root.TryGetProperty("targetWeightKg", out var targetWeight) && targetWeight.TryGetDecimal(out var parsedWeight))
+                    {
+                        targetWeightKg = parsedWeight;
+                    }
+                    if (root.TryGetProperty("targetBodyFatPercent", out var targetFat) && targetFat.TryGetDecimal(out var parsedFat))
+                    {
+                        targetBodyFatPercent = parsedFat;
+                    }
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Keep recalibration available for legacy/non-JSON preference values.
+            }
 
             var health = await _healthProfileService.GetAsync(userId);
             int currentTargetCalories = health?.TargetCalories ?? 2000;
@@ -238,6 +264,20 @@ namespace MenuGreen.API.Controllers
                 }
             }
 
+            if (weightTrend?.LatestWeightKg is decimal latestWeight && targetWeightKg.HasValue)
+            {
+                var distance = latestWeight - targetWeightKg.Value;
+                reason += $" Current weight is {latestWeight:0.0} kg, {Math.Abs(distance):0.0} kg " +
+                    (distance > 0 ? "above" : distance < 0 ? "below" : "at") + " the target.";
+            }
+            var latestBodyFat = weightTrend?.WeightData.LastOrDefault(x => x.BodyFatPercent.HasValue)?.BodyFatPercent;
+            if (latestBodyFat.HasValue && targetBodyFatPercent.HasValue)
+            {
+                var distance = latestBodyFat.Value - targetBodyFatPercent.Value;
+                reason += $" Body fat is {latestBodyFat:0.0}%, {Math.Abs(distance):0.0} percentage points " +
+                    (distance > 0 ? "above" : distance < 0 ? "below" : "at") + " the target.";
+            }
+
             // Auto-apply suggested target calories to HealthProfile
             if (suggestedCalories != currentTargetCalories)
             {
@@ -246,6 +286,7 @@ namespace MenuGreen.API.Controllers
                     HeightCm = health?.HeightCm ?? 170m,
                     WeightKg = weightTrend?.LatestWeightKg ?? health?.WeightKg ?? 60m,
                     BodyFatPercent = health?.BodyFatPercent,
+                    TargetWeightKg = health?.TargetWeightKg,
                     ActivityLevel = health?.ActivityLevel ?? "Light",
                     Goal = health?.Goal ?? "Maintain",
                     TargetCalories = suggestedCalories
