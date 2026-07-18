@@ -11,9 +11,12 @@ import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../main/widgets/floating_ai_assistant_button.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import '../../discover/views/recommendation_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -32,13 +35,17 @@ class _MainScreenState extends State<MainScreen> {
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
   final _historyKey = GlobalKey<HistoryViewState>();
+  final _subscriptionRepository = UserSubscriptionRepository();
   DateTime? _lastHomeRefreshAt;
   DateTime? _lastHistoryRefreshAt;
+  Offset? _aiButtonOffset;
+  bool _hasAiVipAccess = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_initPushNotifications());
+    unawaited(_loadSubscriptionVisualState());
   }
 
   Future<void> _initPushNotifications() async {
@@ -48,6 +55,21 @@ class _MainScreenState extends State<MainScreen> {
       await provider.registerToken();
     } catch (e) {
       debugPrint('[MainScreen] Failed to init push notifications: $e');
+    }
+  }
+
+  Future<void> _loadSubscriptionVisualState() async {
+    try {
+      final subscriptions = await _subscriptionRepository.getActive();
+      if (!mounted) return;
+      setState(() {
+        _hasAiVipAccess = hasAiVipSubscriptionAccess(subscriptions);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasAiVipAccess = false;
+      });
     }
   }
 
@@ -94,6 +116,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _currentIndex = index);
     if (index == _homeTab) {
       _homeKey.currentState?.refreshSubscriptionAccess();
+      unawaited(_loadSubscriptionVisualState());
       _refreshHomeIfStale();
     } else if (index == _discoverTab) {
       _discoverKey.currentState?.refreshAllergyStatus();
@@ -104,18 +127,68 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const regularButtonSize = 64.0;
+    const vipButtonSize = 72.0;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(index: _currentIndex, children: _buildPages()),
-      floatingActionButton: _currentIndex == _homeTab
-          ? FloatingActionButton(
-              onPressed: () => _showAiMenu(context),
-              backgroundColor: AppColors.primary.withValues(alpha: 0.85),
-              shape: const CircleBorder(),
-              elevation: 4,
-              child: const Icon(Icons.auto_awesome, color: Colors.white),
-            )
-          : null,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final buttonSize = _hasAiVipAccess ? vipButtonSize : regularButtonSize;
+          final defaultOffset = Offset(
+            constraints.maxWidth - buttonSize - 18,
+            constraints.maxHeight - buttonSize - 26,
+          );
+          final effectiveOffset = _aiButtonOffset ?? defaultOffset;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: IndexedStack(index: _currentIndex, children: _buildPages()),
+              ),
+              if (_currentIndex == _homeTab)
+                Positioned(
+                  left: effectiveOffset.dx
+                      .clamp(
+                        12.0,
+                        constraints.maxWidth - buttonSize - 12,
+                      )
+                      .toDouble(),
+                  top: effectiveOffset.dy
+                      .clamp(
+                        12.0,
+                        constraints.maxHeight - buttonSize - 12,
+                      )
+                      .toDouble(),
+                  child: FloatingAiAssistantButton(
+                    isVip: _hasAiVipAccess,
+                    onTap: () => _showAiMenu(context),
+                    onPanUpdate: (details) {
+                      setState(() {
+                        final current = _aiButtonOffset ?? defaultOffset;
+                        final next = current + details.delta;
+                        _aiButtonOffset = Offset(
+                          next.dx
+                              .clamp(
+                                12.0,
+                                constraints.maxWidth - buttonSize - 12,
+                              )
+                              .toDouble(),
+                          next.dy
+                              .clamp(
+                                12.0,
+                                constraints.maxHeight - buttonSize - 12,
+                              )
+                              .toDouble(),
+                        );
+                      });
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _selectTab,
