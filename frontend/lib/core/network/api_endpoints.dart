@@ -102,6 +102,8 @@ class ApiEndpoints {
       '$baseUrl/user-meal-plans/from-daily-menu';
   static String userMealPlanCompleteItem(String itemId) =>
       '$baseUrl/user-meal-plans/items/$itemId/complete';
+  static String userMealPlanToggleItem(String itemId, bool isCompleted) =>
+      '$baseUrl/user-meal-plans/items/$itemId/toggle?isCompleted=$isCompleted';
 
   // MealPlan endpoints (Admin/Full CRUD)
   static String get mealPlans => '$baseUrl/MealPlan';

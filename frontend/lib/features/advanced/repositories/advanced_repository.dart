@@ -187,6 +187,31 @@ class AdvancedRepository {
     ),
   );
 
+  Future<Map<String, dynamic>?> clientMealPlan(String clientId, String dateString) async {
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan?date=$dateString',
+    );
+    if (response.statusCode == 404 || response.body.isEmpty || response.body == 'null') {
+      return null;
+    }
+    return _map(_body(response));
+  }
+
+  Future<List<Map<String, dynamic>>> clientSuggestions(String clientId, {int? targetCalories, int? top}) async {
+    final params = <String, String>{};
+    if (targetCalories != null) params['targetCalories'] = '$targetCalories';
+    if (top != null) params['top'] = '$top';
+    final uri = Uri.parse('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/suggestions')
+        .replace(queryParameters: params);
+    return _list(_body(await _api.get(uri.toString())));
+  }
+
+  Future<List<Map<String, dynamic>>> clientReviewRequests(String clientId) async => _list(
+    _body(
+      await _api.get('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/review-requests'),
+    ),
+  );
+
   Future<List<Map<String, dynamic>>> ingredients(
     String keyword,
     bool safe, {

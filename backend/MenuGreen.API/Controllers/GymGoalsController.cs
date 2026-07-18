@@ -63,25 +63,27 @@ namespace MenuGreen.API.Controllers
 
             var profile = await _userAiProfileService.GetAsync(userId);
             
-            // Serialize entire request to preferences to store fully and safely
-            var preferencesData = new
+            string preferencesJson = request.Preferences;
+            if (string.IsNullOrEmpty(preferencesJson))
             {
-                goalMode = request.GoalMode,
-                weeklyTrainingSchedule = request.WeeklyTrainingSchedule,
-                trainingDaysPerWeek = request.TrainingDaysPerWeek,
-                restDaysPerWeek = request.RestDaysPerWeek,
-                trainingDayTargetCalories = request.TrainingDayTargetCalories,
-                restDayTargetCalories = request.RestDayTargetCalories,
-                minCalories = request.MinCalories,
-                maxCalories = request.MaxCalories,
-                minProteinG = request.MinProteinG,
-                maxProteinG = request.MaxProteinG,
-                targetWeightKg = request.TargetWeightKg,
-                targetBodyFatPercent = request.TargetBodyFatPercent,
-                notes = request.Notes
-            };
-
-            var preferencesJson = System.Text.Json.JsonSerializer.Serialize(preferencesData);
+                var preferencesData = new
+                {
+                    goalMode = request.GoalMode,
+                    weeklyTrainingSchedule = request.WeeklyTrainingSchedule,
+                    trainingDaysPerWeek = request.TrainingDaysPerWeek,
+                    restDaysPerWeek = request.RestDaysPerWeek,
+                    trainingDayTargetCalories = request.TrainingDayTargetCalories,
+                    restDayTargetCalories = request.RestDayTargetCalories,
+                    minCalories = request.MinCalories,
+                    maxCalories = request.MaxCalories,
+                    minProteinG = request.MinProteinG,
+                    maxProteinG = request.MaxProteinG,
+                    targetWeightKg = request.TargetWeightKg,
+                    targetBodyFatPercent = request.TargetBodyFatPercent,
+                    notes = request.Notes
+                };
+                preferencesJson = System.Text.Json.JsonSerializer.Serialize(preferencesData);
+            }
 
             // Sync HealthProfile TargetCalories if trainingDayTargetCalories is provided
             if (request.TrainingDayTargetCalories.HasValue || request.TargetWeightKg.HasValue)
@@ -132,7 +134,7 @@ namespace MenuGreen.API.Controllers
                 var health = await _healthProfileService.GetAsync(userId);
                 targetCalories = health?.TargetCalories ?? 2000;
                 
-                // Adjust based on Gym Goal preferences (training day/rest day)
+                // Adjust based on Gym Goal preferences (Day -> Week -> Month override hierarchy)
                 var profile = await _userAiProfileService.GetAsync(userId);
                 if (profile != null && !string.IsNullOrEmpty(profile.Preferences))
                 {
@@ -142,26 +144,147 @@ namespace MenuGreen.API.Controllers
                         var root = doc.RootElement;
 
                         string schedule = root.TryGetProperty("weeklyTrainingSchedule", out var scheduleProp) ? (scheduleProp.GetString() ?? "") : "";
-                        var todayDay = DateTime.UtcNow.AddHours(7).DayOfWeek.ToString();
+                        var today = DateTime.UtcNow.AddHours(7);
+                        var todayDay = today.DayOfWeek.ToString();
                         bool isTrainingDay = schedule.Contains(todayDay, StringComparison.OrdinalIgnoreCase);
 
-                        if (isTrainingDay && root.TryGetProperty("trainingDayTargetCalories", out var trainCalProp) && trainCalProp.TryGetInt32(out var trainCal))
+                        var todayDateStr = today.ToString("yyyy-MM-dd");
+
+                        int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+                        var monday = today.AddDays(-1 * diff).Date;
+                        string weekStartStr = monday.ToString("yyyy-MM-dd");
+
+                        string monthStr = today.ToString("yyyy-MM");
+
+                        int? resolvedCalories = null;
+                        int? minCaloriesOverride = null;
+                        int? maxCaloriesOverride = null;
+                        bool foundConfig = false;
+
+                        // 1. Check dailyDetails
+                        if (root.TryGetProperty("dailyDetails", out var dailyDetailsProp) && dailyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
-                            targetCalories = trainCal;
-                        }
-                        else if (!isTrainingDay && root.TryGetProperty("restDayTargetCalories", out var restCalProp) && restCalProp.TryGetInt32(out var restCal))
-                        {
-                            targetCalories = restCal;
+                            foreach (var element in dailyDetailsProp.EnumerateArray())
+                            {
+                                if (element.TryGetProperty("dateString", out var dateStrProp) && dateStrProp.GetString() == todayDateStr)
+                                {
+                                    if (element.TryGetProperty("isTraining", out var isTrainProp))
+                                    {
+                                        isTrainingDay = isTrainProp.GetBoolean();
+                                    }
+                                    
+                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    {
+                                        resolvedCalories = customCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    {
+                                        minCaloriesOverride = minCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    {
+                                        maxCaloriesOverride = maxCalVal;
+                                    }
+
+                                    foundConfig = true;
+                                    break;
+                                }
+                            }
                         }
 
-                        // Apply safe guardrail
-                        if (root.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCal) && targetCalories < minCal)
+                        // 2. Check weeklyDetails
+                        if (!foundConfig && root.TryGetProperty("weeklyDetails", out var weeklyDetailsProp) && weeklyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
-                            targetCalories = minCal;
+                            foreach (var element in weeklyDetailsProp.EnumerateArray())
+                            {
+                                if (element.TryGetProperty("weekStartDateString", out var weekStartProp) && weekStartProp.GetString() == weekStartStr)
+                                {
+                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    {
+                                        resolvedCalories = customCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    {
+                                        minCaloriesOverride = minCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    {
+                                        maxCaloriesOverride = maxCalVal;
+                                    }
+
+                                    foundConfig = true;
+                                    break;
+                                }
+                            }
                         }
-                        if (root.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCal) && targetCalories > maxCal)
+
+                        // 3. Check monthlyDetails
+                        if (!foundConfig && root.TryGetProperty("monthlyDetails", out var monthlyDetailsProp) && monthlyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
-                            targetCalories = maxCal;
+                            foreach (var element in monthlyDetailsProp.EnumerateArray())
+                            {
+                                if (element.TryGetProperty("monthString", out var monthProp) && monthProp.GetString() == monthStr)
+                                {
+                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    {
+                                        resolvedCalories = customCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    {
+                                        minCaloriesOverride = minCalVal;
+                                    }
+                                    
+                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    {
+                                        maxCaloriesOverride = maxCalVal;
+                                    }
+
+                                    foundConfig = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // 4. Default weekly/rest day fallback
+                        if (resolvedCalories == null)
+                        {
+                            if (isTrainingDay && root.TryGetProperty("trainingDayTargetCalories", out var trainCalProp) && trainCalProp.TryGetInt32(out var trainCal))
+                            {
+                                resolvedCalories = trainCal;
+                            }
+                            else if (!isTrainingDay && root.TryGetProperty("restDayTargetCalories", out var restCalProp) && restCalProp.TryGetInt32(out var restCal))
+                            {
+                                resolvedCalories = restCal;
+                            }
+                        }
+
+                        if (resolvedCalories.HasValue)
+                        {
+                            targetCalories = resolvedCalories.Value;
+                        }
+
+                        // Apply global guardrails if not overridden
+                        if (minCaloriesOverride == null && root.TryGetProperty("minCalories", out var minCalPropGlobal) && minCalPropGlobal.TryGetInt32(out var minCalG))
+                        {
+                            minCaloriesOverride = minCalG;
+                        }
+                        if (maxCaloriesOverride == null && root.TryGetProperty("maxCalories", out var maxCalPropGlobal) && maxCalPropGlobal.TryGetInt32(out var maxCalG))
+                        {
+                            maxCaloriesOverride = maxCalG;
+                        }
+
+                        if (minCaloriesOverride.HasValue && targetCalories < minCaloriesOverride.Value)
+                        {
+                            targetCalories = minCaloriesOverride.Value;
+                        }
+                        if (maxCaloriesOverride.HasValue && targetCalories > maxCaloriesOverride.Value)
+                        {
+                            targetCalories = maxCaloriesOverride.Value;
                         }
                     }
                     catch { }

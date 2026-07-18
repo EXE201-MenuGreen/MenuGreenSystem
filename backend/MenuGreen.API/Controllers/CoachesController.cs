@@ -204,7 +204,7 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -227,7 +227,7 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -250,7 +250,7 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -274,7 +274,7 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -299,7 +299,7 @@ namespace MenuGreen.API.Controllers
                     {
                         if (c.ClientId == clientId) isConnected = true;
                     }
-                    if (!isConnected) return Forbid("You do not have access to this student's feedback.");
+                    if (!isConnected) return StatusCode(403, new { Message = "You do not have access to this student's feedback." });
                 }
 
                 var result = await _coachService.GetFeedbacksAsync(clientId);
@@ -327,7 +327,7 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -351,7 +351,73 @@ namespace MenuGreen.API.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("clients/{clientId:guid}/meal-plan")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientMealPlan(Guid clientId, [FromQuery] DateOnly date)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientMealPlanAsync(userId, clientId, date);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("clients/{clientId:guid}/suggestions")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientSuggestions(Guid clientId, [FromQuery] int targetCalories = 0, [FromQuery] int top = 10)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientSuggestionsAsync(userId, clientId, targetCalories, top);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("clients/{clientId:guid}/review-requests")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientReviewRequests(Guid clientId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientReviewRequestsAsync(userId, clientId);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
             }
             catch (Exception ex)
             {

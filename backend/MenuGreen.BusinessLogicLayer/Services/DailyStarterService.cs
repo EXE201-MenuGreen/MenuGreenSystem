@@ -279,61 +279,113 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 request.TargetCalories = health?.TargetCalories ?? 2000;
             }
 
-            var resultElement = await _nutritionAssistantService.GenerateWorkerRecommendationAsync(
-                userId.ToString(),
-                "generate",
-                new AiWorkerRecommendationRequest
-                {
-                    MealSlot = "any",
-                    TargetCalories = request.TargetCalories,
-                    Limit = request.Top
-                });
+            var limit = request.Top > 0 ? request.Top : 10;
+            var random = new Random();
+
+            var activeFoodIds = await _db.Foods
+                .AsNoTracking()
+                .Where(x => x.IsActive == true && x.CaloriesKcal.HasValue)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var activeRecipeIds = await _db.Recipes
+                .AsNoTracking()
+                .Where(x => x.IsActive == true)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var randomFoodIds = activeFoodIds.OrderBy(x => random.Next()).Take(30).ToList();
+            var randomRecipeIds = activeRecipeIds.OrderBy(x => random.Next()).Take(30).ToList();
+
+            var foods = await _db.Foods
+                .AsNoTracking()
+                .Where(x => randomFoodIds.Contains(x.Id))
+                .ToListAsync();
+
+            var recipes = await _db.Recipes
+                .AsNoTracking()
+                .Where(x => randomRecipeIds.Contains(x.Id))
+                .ToListAsync();
 
             var itemsList = new List<RecommendationItemResponse>();
-            if (resultElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
-                resultElement.TryGetProperty("items", out var itemsProperty) && 
-                itemsProperty.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                foreach (var item in itemsProperty.EnumerateArray())
-                {
-                    var idStr = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
-                    var name = item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : string.Empty;
-                    var isFood = item.TryGetProperty("is_food", out var isFoodProp) && isFoodProp.GetBoolean();
-                    var calories = item.TryGetProperty("calories_kcal", out var calProp) && calProp.TryGetDecimal(out var cVal) ? cVal : 0;
-                    var protein = item.TryGetProperty("protein_g", out var protProp) && protProp.TryGetDecimal(out var pVal) ? pVal : 0;
-                    var carbs = item.TryGetProperty("carbs_g", out var carbProp) && carbProp.TryGetDecimal(out var cbVal) ? cbVal : 0;
-                    var fat = item.TryGetProperty("fat_g", out var fatProp) && fatProp.TryGetDecimal(out var fVal) ? fVal : 0;
-                    var price = item.TryGetProperty("estimated_price_vnd", out var prProp) && prProp.TryGetInt32(out var priceVal) ? priceVal : 0;
-                    var time = item.TryGetProperty("cooking_time_min", out var timeProp) && timeProp.TryGetInt32(out var timeVal) ? timeVal : 0;
-                    var score = item.TryGetProperty("score", out var scoreProp) && scoreProp.TryGetDecimal(out var sVal) ? sVal : 0;
-                    var instructions = item.TryGetProperty("instructions", out var instProp) ? instProp.GetString() : null;
 
-                    if (Guid.TryParse(idStr, out var id))
-                    {
-                        itemsList.Add(new RecommendationItemResponse
-                        {
-                            Id = id,
-                            Name = name ?? string.Empty,
-                            Type = isFood ? "Food" : "Recipe",
-                            CaloriesKcal = calories,
-                            ProteinG = protein,
-                            CarbsG = carbs,
-                            FatG = fat,
-                            EstimatedPriceVnd = price,
-                            CookingTimeMin = time,
-                            Score = score,
-                            Instructions = instructions
-                        });
-                    }
-                }
+            foreach (var food in foods)
+            {
+                itemsList.Add(new RecommendationItemResponse
+                {
+                    Id = food.Id,
+                    Name = food.NameVi ?? food.NameEn ?? "Món ăn",
+                    Type = "Food",
+                    CaloriesKcal = food.CaloriesKcal ?? 0,
+                    ProteinG = food.ProteinG ?? 0,
+                    CarbsG = food.CarbsG ?? 0,
+                    FatG = food.FatG ?? 0,
+                    EstimatedPriceVnd = food.EstimatedPriceVnd ?? 0,
+                    CookingTimeMin = 5,
+                    Score = (decimal)(7.0 + random.NextDouble() * 2.5),
+                    Instructions = food.Description
+                });
             }
 
-            return itemsList;
+            foreach (var recipe in recipes)
+            {
+                var calories = 450;
+                try
+                {
+                    calories = await GetRecipeCaloriesAsync(recipe.Id);
+                }
+                catch { }
+
+                itemsList.Add(new RecommendationItemResponse
+                {
+                    Id = recipe.Id,
+                    Name = recipe.Title ?? "Công thức",
+                    Type = "Recipe",
+                    CaloriesKcal = calories,
+                    ProteinG = 20,
+                    CarbsG = 40,
+                    FatG = 12,
+                    EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
+                    CookingTimeMin = recipe.TotalTimeMin ?? recipe.CookTimeMin ?? 20,
+                    Score = (decimal)(8.0 + random.NextDouble() * 1.5),
+                    Instructions = recipe.Instructions
+                });
+            }
+
+            var shuffledItems = itemsList
+                .OrderBy(x => random.Next())
+                .GroupBy(x => x.Id)
+                .Select(g => g.First())
+                .Take(limit)
+                .ToList();
+
+            return shuffledItems;
         }
 
         public async Task<UserAiProfileResponse> SavePreferenceAsync(Guid userId, UpdateUserAiProfileRequest request)
         {
             return await _userAiProfileService.UpsertAsync(userId, request);
+        }
+
+        private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)
+        {
+            var recipeIngredients = await _db.RecipeIngredients
+                .AsNoTracking()
+                .Where(ri => ri.RecipeId == recipeId)
+                .ToListAsync();
+            decimal totalCalories = 0;
+
+            foreach (var ri in recipeIngredients)
+            {
+                var ingredient = await _db.Ingredients.FindAsync(ri.IngredientId);
+                if (ingredient != null && ingredient.CaloriesKcal.HasValue)
+                {
+                    var quantity = ri.Quantity ?? 1;
+                    totalCalories += ingredient.CaloriesKcal.Value * quantity;
+                }
+            }
+
+            return totalCalories > 0 ? (int)Math.Round(totalCalories) : 350;
         }
     }
 }

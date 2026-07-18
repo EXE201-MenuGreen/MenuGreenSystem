@@ -174,6 +174,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.PtReviewRequests.AddAsync(ptReviewRequest);
             await _unitOfWork.CompleteAsync();
 
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = userId,
+                    Type = "PT_REVIEW_SUBMITTED",
+                    Title = "Đã gửi lộ trình cho PT",
+                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi."
+                });
+            }
+            catch
+            {
+                // Silence notification failure
+            }
+
             var shareLink = $"https://menugreen.vn/shared-report/{token}";
 
             return new CreatePtReviewReportResponse

@@ -11,6 +11,12 @@ import '../models/vietnam_local_models.dart';
 import '../providers/gym_goals_provider.dart';
 import '../widgets/info_card.dart';
 import '../widgets/section_header.dart';
+import '../../notifications/providers/notification_provider.dart';
+import '../../notifications/views/notification_inbox_screen.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../meal_plan/models/meal_plan_models.dart';
+import '../../meal_plan/models/meal_plan_requests.dart';
+import '../../advanced/repositories/advanced_repository.dart';
 
 /// Gym/PT Goal workflow — `2.13 Gym/PT Goal-Based Workflow`.
 class GymGoalsScreen extends StatefulWidget {
@@ -24,6 +30,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   final _subRepo = UserSubscriptionRepository();
   bool _subLoading = true;
   bool _hasProAccess = false;
+  UserMealPlan? _todayPlan;
+  bool _loadingPlan = true;
 
   @override
   void initState() {
@@ -62,7 +70,38 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       await provider.loadProfile();
       if (!mounted) return;
       await provider.loadPlan(top: 10);
+      await _loadTodayPlan();
     });
+  }
+
+  Future<void> _loadTodayPlan() async {
+    if (!_hasProAccess) return;
+    setState(() {
+      _loadingPlan = true;
+    });
+    try {
+      final plan = await MealPlanRepository().getByDate(DateTime.now());
+      setState(() {
+        _todayPlan = plan;
+        _loadingPlan = false;
+      });
+    } catch (_) {
+      setState(() {
+        _loadingPlan = false;
+      });
+    }
+  }
+
+  Future<void> _loadTodayPlanQuietly() async {
+    if (!_hasProAccess) return;
+    try {
+      final plan = await MealPlanRepository().getByDate(DateTime.now());
+      if (mounted) {
+        setState(() {
+          _todayPlan = plan;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -80,6 +119,56 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
+        actions: [
+          Consumer<NotificationProvider>(
+            builder: (context, notifProvider, _) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_none_outlined,
+                      color: AppColors.textDark,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationInboxScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (notifProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${notifProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: _subLoading
@@ -99,6 +188,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     onRefresh: () async {
                       await provider.loadProfile();
                       await provider.loadPlan(top: 10);
+                      await _loadTodayPlan();
                     },
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -124,10 +214,25 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         const SizedBox(height: 16),
                         _buildRecalibrateCard(provider),
                         const SizedBox(height: 24),
-                        const SectionHeader(
-                          title: 'Gợi ý thực đơn cho hôm nay',
-                          icon: Icons.restaurant_menu,
-                          subtitle: 'Dựa trên chế độ gym và calo mục tiêu',
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: SectionHeader(
+                                title: 'Lộ trình ăn uống hôm nay',
+                                icon: Icons.restaurant_menu,
+                                subtitle: 'Phân loại chi tiết và đồng bộ nhật ký PT',
+                              ),
+                            ),
+                            if (_todayPlan != null && _todayPlan!.items.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: _clearTodayPlan,
+                                icon: const Icon(Icons.delete_sweep, color: Colors.red, size: 18),
+                                label: const Text(
+                                  'Xóa hết món',
+                                  style: TextStyle(color: Colors.red, fontSize: 13),
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         _buildPlanList(provider),
@@ -266,7 +371,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Widget _buildPlanList(GymGoalsProvider provider) {
-    if (provider.isLoading && provider.planSuggestions.isEmpty) {
+    if (_loadingPlan) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
@@ -274,79 +379,874 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    if (provider.planSuggestions.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.progressBackground),
-        ),
-        child: const Text(
-          'Chưa có gợi ý thực đơn. Hãy lưu cấu hình gym trước.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        for (final item in provider.planSuggestions)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
+    if (_todayPlan == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Banner prompting user to initialize plan
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'Chưa có lộ trình ăn uống hôm nay.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _initializePlanFromSuggestions(provider),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Icon(Icons.flash_on, size: 14),
+                  label: const Text(
+                    'Khởi tạo lộ trình',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Gợi ý thực đơn hôm nay từ AI:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (provider.planSuggestions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.progressBackground),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.type.toLowerCase().contains('recipe')
-                          ? Icons.menu_book
-                          : Icons.restaurant,
-                      color: AppColors.primary,
-                      size: 18,
+              child: const Text(
+                'Chưa có gợi ý thực đơn. Hãy lưu cấu hình gym trước.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final item in provider.planSuggestions)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.progressBackground),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              item.type.toLowerCase().contains('recipe')
+                                  ? Icons.menu_book
+                                  : Icons.restaurant,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name.isEmpty ? 'Món gợi ý' : item.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                  'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                  'Điểm ${item.score.toStringAsFixed(1)}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name.isEmpty ? 'Món gợi ý' : item.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                          'P ${item.proteinG.toStringAsFixed(0)}g • '
-                          'Điểm ${item.score.toStringAsFixed(1)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              ],
+            ),
+        ],
+      );
+    }
+
+    return _buildTodayMealPlan(provider);
+  }
+
+  Widget _buildTodayMealPlan(GymGoalsProvider provider) {
+    final slots = ['breakfast', 'lunch', 'dinner', 'snack'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final slot in slots) ...[
+          _buildMealSlot(slot),
+          const SizedBox(height: 16),
+        ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _sendToPt,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.send_rounded, size: 18),
+            label: const Text(
+              'Gửi lộ trình cho PT duyệt',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
               ),
             ),
           ),
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'Danh sách món ăn gợi ý hôm nay từ AI:',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (provider.planSuggestions.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.progressBackground),
+            ),
+            child: const Text(
+              'Chưa có gợi ý thực đơn. Hãy lưu cấu hình gym trước.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          Builder(
+            builder: (context) {
+              final addedIds = _todayPlan?.items
+                  .map((x) => (x.foodId ?? x.recipeId ?? '').trim().toLowerCase())
+                  .where((s) => s.isNotEmpty)
+                  .toSet() ?? {};
+              
+              debugPrint('GymGoals: _todayPlan items size = ${_todayPlan?.items.length}');
+              for (final x in _todayPlan?.items ?? []) {
+                debugPrint('GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}');
+              }
+              debugPrint('GymGoals: addedIds: $addedIds');
+              
+              final remainingSuggestions = provider.planSuggestions
+                  .where((x) => !addedIds.contains(x.id.trim().toLowerCase()))
+                  .toList();
+                  
+              debugPrint('GymGoals: remainingSuggestions size = ${remainingSuggestions.length}');
+
+              if (remainingSuggestions.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.progressBackground),
+                  ),
+                  child: const Text(
+                    'Đã thêm tất cả món gợi ý vào lộ trình hôm nay.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  for (final item in remainingSuggestions) ...[
+                    Builder(
+                      builder: (context) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.progressBackground),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    item.type.toLowerCase().contains('recipe')
+                                        ? Icons.menu_book
+                                        : Icons.restaurant,
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.name.isEmpty ? 'Món gợi ý' : item.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textDark,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                        'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                        'Điểm ${item.score.toStringAsFixed(1)}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                PopupMenuButton<String>(
+                                  icon: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.add, size: 14, color: AppColors.primary),
+                                        SizedBox(width: 2),
+                                        Text(
+                                          'Gán',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  onSelected: (mealType) => _addPlanItem(mealType, item),
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'breakfast',
+                                      child: Text('Bữa sáng'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'lunch',
+                                      child: Text('Bữa trưa'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'dinner',
+                                      child: Text('Bữa tối'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'snack',
+                                      child: Text('Bữa phụ / Ăn thêm'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
       ],
     );
+  }
+
+  Widget _buildMealSlot(String mealType) {
+    final items = _todayPlan?.items
+            .where((x) => x.mealType.toLowerCase() == mealType)
+            .toList() ??
+        [];
+    final color = _mealSlotColor(mealType);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.progressBackground),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header slot
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.05),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Icon(_mealSlotIcon(mealType), color: color, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  _mealSlotTitle(mealType),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: color,
+                  ),
+                ),
+                const Spacer(),
+                if (items.isNotEmpty)
+                  Text(
+                    '${items.fold<int>(0, (sum, item) => sum + item.targetCalories)} kcal',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Items list
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Text(
+                'Chưa có món ăn nào.',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final item in items)
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade100),
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      title: Text(
+                        item.displayName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${item.targetCalories} kcal',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
+                        onPressed: () => _deletePlanItem(item),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          // Add button
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: TextButton.icon(
+              onPressed: () => _showAddSuggestionSheet(mealType),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(double.infinity, 36),
+              ),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Thêm món từ gợi ý'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _mealSlotTitle(String mealType) {
+    switch (mealType) {
+      case 'breakfast':
+        return 'Bữa sáng';
+      case 'lunch':
+        return 'Bữa trưa';
+      case 'dinner':
+        return 'Bữa tối';
+      case 'snack':
+      default:
+        return 'Bữa phụ / Ăn thêm';
+    }
+  }
+
+  IconData _mealSlotIcon(String mealType) {
+    switch (mealType) {
+      case 'breakfast':
+        return Icons.light_mode_outlined;
+      case 'lunch':
+        return Icons.wb_sunny_outlined;
+      case 'dinner':
+        return Icons.nights_stay_outlined;
+      case 'snack':
+      default:
+        return Icons.coffee_outlined;
+    }
+  }
+
+  Color _mealSlotColor(String mealType) {
+    switch (mealType) {
+      case 'breakfast':
+        return const Color(0xFF2563EB);
+      case 'lunch':
+        return const Color(0xFFD97706);
+      case 'dinner':
+        return const Color(0xFF7C3AED);
+      case 'snack':
+      default:
+        return const Color(0xFF10B981);
+    }
+  }
+
+  Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
+    if (provider.planSuggestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng cấu hình gym để tải gợi ý trước.')),
+      );
+      return;
+    }
+    setState(() => _loadingPlan = true);
+    try {
+      final list = <Map<String, dynamic>>[];
+      final shuffled = List<LocalRecommendationItem>.from(provider.planSuggestions)..shuffle();
+      final usedIds = <String>{};
+      int assignedCount = 0;
+
+      for (final s in shuffled) {
+        if (assignedCount >= 4) break;
+
+        final idStr = s.id.toString();
+        if (usedIds.contains(idStr)) continue;
+        usedIds.add(idStr);
+
+        String mealType = 'breakfast';
+        if (assignedCount == 1) {
+          mealType = 'lunch';
+        } else if (assignedCount == 2) {
+          mealType = 'dinner';
+        } else if (assignedCount == 3) {
+          mealType = 'snack';
+        }
+
+        list.add({
+          'mealType': mealType,
+          'foodId': s.type.toLowerCase().contains('recipe') ? null : s.id.toString(),
+          'recipeId': s.type.toLowerCase().contains('recipe') ? s.id.toString() : null,
+          'targetCalories': s.caloriesKcal.round(),
+        });
+        
+        assignedCount++;
+      }
+
+      await MealPlanRepository().createFromDailyMenu(
+        plannedDate: DateTime.now(),
+        targetCalories: provider.profile?.trainingDayTargetCalories ?? 2000,
+        items: list,
+      );
+      await _loadTodayPlan();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Khởi tạo lộ trình thành công!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khởi tạo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPlan = false);
+    }
+  }
+
+  Future<void> _clearTodayPlan() async {
+    if (_todayPlan == null) return;
+    setState(() => _loadingPlan = true);
+    try {
+      final itemsToDelete = List<MealPlanItemModel>.from(_todayPlan!.items);
+      for (final item in itemsToDelete) {
+        await MealPlanRepository().deleteItem(_todayPlan!.id, item.id);
+      }
+      await _loadTodayPlan();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã làm sạch lộ trình ăn uống hôm nay.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi làm sạch lộ trình: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPlan = false);
+    }
+  }
+
+
+  Future<void> _togglePlanItem(MealPlanItemModel item, bool checked) async {
+    // Optimistically update the checked state locally
+    setState(() {
+      final idx = _todayPlan?.items.indexWhere((x) => x.id == item.id) ?? -1;
+      if (idx != -1) {
+        final current = _todayPlan!.items[idx];
+        _todayPlan!.items[idx] = MealPlanItemModel(
+          id: current.id,
+          mealType: current.mealType,
+          foodId: current.foodId,
+          recipeId: current.recipeId,
+          targetCalories: current.targetCalories,
+          isCompleted: checked,
+          foodName: current.foodName,
+          recipeName: current.recipeName,
+          mealLogId: current.mealLogId,
+          scheduledTime: current.scheduledTime,
+          sourceEntityType: current.sourceEntityType,
+        );
+      }
+    });
+
+    try {
+      await MealPlanRepository().toggleItem(item.id, checked);
+      await _loadTodayPlanQuietly();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              checked ? 'Đã ghi nhận vào Nhật ký ăn uống.' : 'Đã xóa khỏi Nhật ký ăn uống.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Revert local state if error occurs
+      setState(() {
+        final idx = _todayPlan?.items.indexWhere((x) => x.id == item.id) ?? -1;
+        if (idx != -1) {
+          final current = _todayPlan!.items[idx];
+          _todayPlan!.items[idx] = MealPlanItemModel(
+            id: current.id,
+            mealType: current.mealType,
+            foodId: current.foodId,
+            recipeId: current.recipeId,
+            targetCalories: current.targetCalories,
+            isCompleted: !checked,
+            foodName: current.foodName,
+            recipeName: current.recipeName,
+            mealLogId: current.mealLogId,
+            scheduledTime: current.scheduledTime,
+            sourceEntityType: current.sourceEntityType,
+          );
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi cập nhật: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePlanItem(MealPlanItemModel item) async {
+    if (_todayPlan == null) return;
+    
+    // Save original items list in case we need to revert
+    final originalItems = List<MealPlanItemModel>.from(_todayPlan!.items);
+    
+    // Optimistically remove item from UI immediately
+    setState(() {
+      _todayPlan!.items.removeWhere((x) => x.id == item.id);
+    });
+
+    try {
+      await MealPlanRepository().deleteItem(_todayPlan!.id, item.id);
+      await _loadTodayPlanQuietly();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xóa món ăn khỏi lộ trình.')),
+        );
+      }
+    } catch (e) {
+      // Revert UI to original state on failure
+      setState(() {
+        _todayPlan = UserMealPlan(
+          id: _todayPlan!.id,
+          title: _todayPlan!.title,
+          planType: _todayPlan!.planType,
+          startDate: _todayPlan!.startDate,
+          targetCalories: _todayPlan!.targetCalories,
+          items: originalItems,
+        );
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi xóa món: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _addPlanItem(String mealType, LocalRecommendationItem item) async {
+    if (_todayPlan == null) return;
+
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    final tempItem = MealPlanItemModel(
+      id: tempId,
+      mealType: mealType,
+      foodId: item.type.toLowerCase().contains('recipe') ? null : item.id,
+      recipeId: item.type.toLowerCase().contains('recipe') ? item.id : null,
+      targetCalories: item.caloriesKcal.round(),
+      isCompleted: false,
+      foodName: item.type.toLowerCase().contains('recipe') ? null : item.name,
+      recipeName: item.type.toLowerCase().contains('recipe') ? item.name : null,
+      sourceEntityType: item.type,
+    );
+
+    // Optimistically add item to UI immediately
+    setState(() {
+      _todayPlan!.items.add(tempItem);
+    });
+
+    try {
+      await MealPlanRepository().addItem(
+        _todayPlan!.id,
+        AddItemRequest(
+          mealType: mealType,
+          foodId: item.type.toLowerCase().contains('recipe') ? null : item.id.toString(),
+          recipeId: item.type.toLowerCase().contains('recipe') ? item.id.toString() : null,
+          targetCalories: item.caloriesKcal.round(),
+        ),
+      );
+      await _loadTodayPlanQuietly();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã thêm món ăn vào lộ trình.')),
+        );
+      }
+    } catch (e) {
+      // Revert UI to original state on failure
+      setState(() {
+        _todayPlan!.items.removeWhere((x) => x.id == tempId);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi thêm món: $e')),
+        );
+      }
+    }
+  }
+
+  void _showAddSuggestionSheet(String mealType) {
+    final provider = context.read<GymGoalsProvider>();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Thêm món gợi ý vào ${_mealSlotTitle(mealType)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: provider.planSuggestions.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Không có gợi ý. Hãy cấu hình gym trước.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: provider.planSuggestions.length,
+                        itemBuilder: (context, index) {
+                          final item = provider.planSuggestions[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ListTile(
+                              leading: Icon(
+                                item.type.toLowerCase().contains('recipe')
+                                    ? Icons.menu_book
+                                    : Icons.restaurant,
+                                color: AppColors.primary,
+                              ),
+                              title: Text(item.name),
+                              subtitle: Text('${item.caloriesKcal.round()} kcal • P ${item.proteinG.round()}g'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  await _addPlanItem(mealType, item);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _sendToPt() async {
+    setState(() => _loadingPlan = true);
+    try {
+      final coaches = await AdvancedRepository().myCoaches();
+      if (coaches.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bạn chưa liên kết với PT nào. Vui lòng kết nối với PT trước.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final today = DateTime.now();
+      final daysToMonday = today.weekday - 1;
+      final monday = today.subtract(Duration(days: daysToMonday));
+      final weekStartStr = '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+
+      await AdvancedRepository().createPtReport(weekStartStr, 7);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã gửi yêu cầu duyệt lộ trình thành công đến PT!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi gửi PT: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPlan = false);
+    }
   }
 
   Future<void> _openEditor(
@@ -376,29 +1276,26 @@ class GymGoalsEditorScreen extends StatefulWidget {
 }
 
 class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
-  static const _days = <String>[
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-
   late final Set<String> _selectedDays;
+  late final List<GymDayDetail> _dailyDetails;
+  late final List<GymWeeklyDetail> _weeklyDetails;
+  late final List<GymMonthlyDetail> _monthlyDetails;
   late String _goalMode;
-  late final TextEditingController _trainCal;
-  late final TextEditingController _restCal;
-  late final TextEditingController _minCal;
-  late final TextEditingController _maxCal;
-  late final TextEditingController _minProtein;
-  late final TextEditingController _maxProtein;
+
   late final TextEditingController _targetWeight;
   late final TextEditingController _targetBodyFat;
-  late final TextEditingController _trainCount;
-  late final TextEditingController _restCount;
-  late final TextEditingController _notes;
+  late final TextEditingController _generalNotes;
+
+  late final TextEditingController _calController;
+  late final TextEditingController _minCalController;
+  late final TextEditingController _maxCalController;
+  late final TextEditingController _minProteinController;
+  late final TextEditingController _maxProteinController;
+  late final TextEditingController _notesController;
+
+  int _activeTab = 0;
+  DateTime _selectedDate = DateTime.now();
+  bool _isDayTraining = false;
   bool _initializing = true;
 
   @override
@@ -410,38 +1307,28 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet();
+    _dailyDetails = List<GymDayDetail>.from(init?.dailyDetails ?? []);
+    _weeklyDetails = List<GymWeeklyDetail>.from(init?.weeklyDetails ?? []);
+    _monthlyDetails = List<GymMonthlyDetail>.from(init?.monthlyDetails ?? []);
     _goalMode = init?.goalMode ?? 'maintain';
-    _trainCal = TextEditingController(
-      text: (init?.trainingDayTargetCalories ?? '').toString(),
-    );
-    _restCal = TextEditingController(
-      text: (init?.restDayTargetCalories ?? '').toString(),
-    );
-    _minCal = TextEditingController(
-      text: (init?.minCalories ?? 1200).toString(),
-    );
-    _maxCal = TextEditingController(
-      text: (init?.maxCalories ?? 3500).toString(),
-    );
-    _minProtein = TextEditingController(
-      text: (init?.minProteinG ?? 80).toString(),
-    );
-    _maxProtein = TextEditingController(
-      text: (init?.maxProteinG ?? 220).toString(),
-    );
+
     _targetWeight = TextEditingController(
       text: init?.targetWeightKg?.toString() ?? '',
     );
     _targetBodyFat = TextEditingController(
       text: init?.targetBodyFatPercent?.toString() ?? '',
     );
-    _trainCount = TextEditingController(
-      text: (init?.trainingDaysPerWeek ?? 3).toString(),
-    );
-    _restCount = TextEditingController(
-      text: (init?.restDaysPerWeek ?? 4).toString(),
-    );
-    _notes = TextEditingController(text: init?.notes ?? '');
+    _generalNotes = TextEditingController(text: init?.notes ?? '');
+
+    _calController = TextEditingController();
+    _minCalController = TextEditingController();
+    _maxCalController = TextEditingController();
+    _minProteinController = TextEditingController();
+    _maxProteinController = TextEditingController();
+    _notesController = TextEditingController();
+
+    _loadSelectedConfig();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _initializing = false);
     });
@@ -449,39 +1336,337 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
 
   @override
   void dispose() {
-    _trainCal.dispose();
-    _restCal.dispose();
-    _minCal.dispose();
-    _maxCal.dispose();
-    _minProtein.dispose();
-    _maxProtein.dispose();
     _targetWeight.dispose();
     _targetBodyFat.dispose();
-    _trainCount.dispose();
-    _restCount.dispose();
-    _notes.dispose();
+    _generalNotes.dispose();
+    _calController.dispose();
+    _minCalController.dispose();
+    _maxCalController.dispose();
+    _minProteinController.dispose();
+    _maxProteinController.dispose();
+    _notesController.dispose();
     super.dispose();
+  }
+
+  String _formatDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _formatDisplayDate(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$d/$m';
+  }
+
+  String _formatMonth(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    return '$y-$m';
+  }
+
+  String _formatDisplayDateFull(DateTime date) {
+    final y = date.year.toString();
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$d/$m/$y';
+  }
+
+  String _formatDisplayWeek(DateTime date) {
+    final mon = _getMonday(date);
+    final sun = mon.add(const Duration(days: 6));
+    return 'Tuần từ ${_formatDisplayDate(mon)} đến ${_formatDisplayDate(sun)}';
+  }
+
+  String _formatDisplayMonthFull(DateTime date) {
+    return 'Tháng ${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  DateTime _getMonday(DateTime date) {
+    return date.subtract(Duration(days: date.weekday - 1));
+  }
+
+  String _getDayName(DateTime date) {
+    const names = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    return names[date.weekday] ?? 'Monday';
+  }
+
+  void _loadSelectedConfig() {
+    if (_activeTab == 0) {
+      final dateStr = _formatDate(_selectedDate);
+      final index = _dailyDetails.indexWhere((e) => e.dateString == dateStr);
+      if (index >= 0) {
+        final d = _dailyDetails[index];
+        _isDayTraining = d.isTraining;
+        _calController.text = d.customCalories?.toString() ?? '';
+        _minCalController.text = d.minCalories?.toString() ?? '';
+        _maxCalController.text = d.maxCalories?.toString() ?? '';
+        _minProteinController.text = d.minProteinG?.toString() ?? '';
+        _maxProteinController.text = d.maxProteinG?.toString() ?? '';
+        _notesController.text = d.customNotes ?? '';
+      } else {
+        _isDayTraining = false;
+        _calController.clear();
+        _minCalController.clear();
+        _maxCalController.clear();
+        _minProteinController.clear();
+        _maxProteinController.clear();
+        _notesController.clear();
+      }
+    } else if (_activeTab == 1) {
+      final weekStartStr = _formatDate(_getMonday(_selectedDate));
+      final index = _weeklyDetails.indexWhere((e) => e.weekStartDateString == weekStartStr);
+      if (index >= 0) {
+        final w = _weeklyDetails[index];
+        _calController.text = w.customCalories?.toString() ?? '';
+        _minCalController.text = w.minCalories?.toString() ?? '';
+        _maxCalController.text = w.maxCalories?.toString() ?? '';
+        _minProteinController.text = w.minProteinG?.toString() ?? '';
+        _maxProteinController.text = w.maxProteinG?.toString() ?? '';
+        _notesController.text = w.customNotes ?? '';
+      } else {
+        _calController.clear();
+        _minCalController.clear();
+        _maxCalController.clear();
+        _minProteinController.clear();
+        _maxProteinController.clear();
+        _notesController.clear();
+      }
+    } else {
+      final monthStr = _formatMonth(_selectedDate);
+      final index = _monthlyDetails.indexWhere((e) => e.monthString == monthStr);
+      if (index >= 0) {
+        final m = _monthlyDetails[index];
+        _calController.text = m.customCalories?.toString() ?? '';
+        _minCalController.text = m.minCalories?.toString() ?? '';
+        _maxCalController.text = m.maxCalories?.toString() ?? '';
+        _minProteinController.text = m.minProteinG?.toString() ?? '';
+        _maxProteinController.text = m.maxProteinG?.toString() ?? '';
+        _notesController.text = m.customNotes ?? '';
+      } else {
+        _calController.clear();
+        _minCalController.clear();
+        _maxCalController.clear();
+        _minProteinController.clear();
+        _maxProteinController.clear();
+        _notesController.clear();
+      }
+    }
+  }
+
+  void _saveSelectedConfig() {
+    final customCal = int.tryParse(_calController.text.trim());
+    final minCal = int.tryParse(_minCalController.text.trim());
+    final maxCal = int.tryParse(_maxCalController.text.trim());
+    final minProt = int.tryParse(_minProteinController.text.trim());
+    final maxProt = int.tryParse(_maxProteinController.text.trim());
+    final notes = _notesController.text.trim();
+
+    if (_activeTab == 0) {
+      final dateStr = _formatDate(_selectedDate);
+      final index = _dailyDetails.indexWhere((e) => e.dateString == dateStr);
+      final hasData = customCal != null || minCal != null || maxCal != null || minProt != null || maxProt != null || notes.isNotEmpty;
+
+      final updated = GymDayDetail(
+        dayOfWeek: _getDayName(_selectedDate),
+        dateString: dateStr,
+        isTraining: _isDayTraining,
+        customCalories: customCal,
+        minCalories: minCal,
+        maxCalories: maxCal,
+        minProteinG: minProt,
+        maxProteinG: maxProt,
+        customNotes: notes.isEmpty ? null : notes,
+      );
+
+      if (index >= 0) {
+        _dailyDetails[index] = updated;
+      } else if (hasData) {
+        _dailyDetails.add(updated);
+      }
+    } else if (_activeTab == 1) {
+      final weekStartStr = _formatDate(_getMonday(_selectedDate));
+      final index = _weeklyDetails.indexWhere((e) => e.weekStartDateString == weekStartStr);
+      final hasData = customCal != null || minCal != null || maxCal != null || minProt != null || maxProt != null || notes.isNotEmpty;
+
+      final updated = GymWeeklyDetail(
+        weekStartDateString: weekStartStr,
+        customCalories: customCal,
+        minCalories: minCal,
+        maxCalories: maxCal,
+        minProteinG: minProt,
+        maxProteinG: maxProt,
+        customNotes: notes.isEmpty ? null : notes,
+      );
+
+      if (index >= 0) {
+        if (hasData) {
+          _weeklyDetails[index] = updated;
+        } else {
+          _weeklyDetails.removeAt(index);
+        }
+      } else if (hasData) {
+        _weeklyDetails.add(updated);
+      }
+    } else {
+      final monthStr = _formatMonth(_selectedDate);
+      final index = _monthlyDetails.indexWhere((e) => e.monthString == monthStr);
+      final hasData = customCal != null || minCal != null || maxCal != null || minProt != null || maxProt != null || notes.isNotEmpty;
+
+      final updated = GymMonthlyDetail(
+        monthString: monthStr,
+        customCalories: customCal,
+        minCalories: minCal,
+        maxCalories: maxCal,
+        minProteinG: minProt,
+        maxProteinG: maxProt,
+        customNotes: notes.isEmpty ? null : notes,
+      );
+
+      if (index >= 0) {
+        if (hasData) {
+          _monthlyDetails[index] = updated;
+        } else {
+          _monthlyDetails.removeAt(index);
+        }
+      } else if (hasData) {
+        _monthlyDetails.add(updated);
+      }
+    }
+  }
+
+  void _clearSelectedConfig() {
+    setState(() {
+      if (_activeTab == 0) {
+        final dateStr = _formatDate(_selectedDate);
+        _dailyDetails.removeWhere((e) => e.dateString == dateStr);
+      } else if (_activeTab == 1) {
+        final weekStartStr = _formatDate(_getMonday(_selectedDate));
+        _weeklyDetails.removeWhere((e) => e.weekStartDateString == weekStartStr);
+      } else {
+        final monthStr = _formatMonth(_selectedDate);
+        _monthlyDetails.removeWhere((e) => e.monthString == monthStr);
+      }
+      _loadSelectedConfig();
+    });
+  }
+
+  bool _hasCurrentOverride() {
+    if (_activeTab == 0) {
+      final dateStr = _formatDate(_selectedDate);
+      return _dailyDetails.any((e) => e.dateString == dateStr);
+    } else if (_activeTab == 1) {
+      final weekStartStr = _formatDate(_getMonday(_selectedDate));
+      return _weeklyDetails.any((e) => e.weekStartDateString == weekStartStr);
+    } else {
+      final monthStr = _formatMonth(_selectedDate);
+      return _monthlyDetails.any((e) => e.monthString == monthStr);
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    _saveSelectedConfig();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _loadSelectedConfig();
+      });
+    }
+  }
+
+  Future<void> _selectWeek(BuildContext context) async {
+    _saveSelectedConfig();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      helpText: 'CHỌN MỘT NGÀY TRONG TUẦN',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _loadSelectedConfig();
+      });
+    }
+  }
+
+  Future<void> _selectMonth(BuildContext context) async {
+    _saveSelectedConfig();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      helpText: 'CHỌN MỘT NGÀY TRONG THÁNG',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _loadSelectedConfig();
+      });
+    }
   }
 
   GymGoalProfile _build() {
     return GymGoalProfile(
       goalMode: _goalMode,
       weeklyTrainingSchedule: _selectedDays.join(','),
-      trainingDaysPerWeek: int.tryParse(_trainCount.text.trim()),
-      restDaysPerWeek: int.tryParse(_restCount.text.trim()),
-      trainingDayTargetCalories: int.tryParse(_trainCal.text.trim()),
-      restDayTargetCalories: int.tryParse(_restCal.text.trim()),
-      minCalories: int.tryParse(_minCal.text.trim()),
-      maxCalories: int.tryParse(_maxCal.text.trim()),
-      minProteinG: int.tryParse(_minProtein.text.trim()),
-      maxProteinG: int.tryParse(_maxProtein.text.trim()),
-      targetWeightKg: double.tryParse(
-        _targetWeight.text.trim().replaceAll(',', '.'),
-      ),
-      targetBodyFatPercent: double.tryParse(
-        _targetBodyFat.text.trim().replaceAll(',', '.'),
-      ),
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      targetWeightKg: double.tryParse(_targetWeight.text.trim().replaceAll(',', '.')),
+      targetBodyFatPercent: double.tryParse(_targetBodyFat.text.trim().replaceAll(',', '.')),
+      notes: _generalNotes.text.trim().isEmpty ? null : _generalNotes.text.trim(),
+      dailyDetails: _dailyDetails,
+      weeklyDetails: _weeklyDetails,
+      monthlyDetails: _monthlyDetails,
     );
   }
 
@@ -494,6 +1679,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         ),
       );
     }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -509,7 +1695,10 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         iconTheme: const IconThemeData(color: AppColors.textDark),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop<GymGoalProfile?>(context, _build()),
+            onPressed: () {
+              _saveSelectedConfig();
+              Navigator.pop<GymGoalProfile?>(context, _build());
+            },
             child: const Text(
               'Lưu',
               style: TextStyle(
@@ -549,112 +1738,159 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                     )
                     .toList(),
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Lịch tập trong tuần',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _buildTabButton(0, 'Ngày'),
+                    _buildTabButton(1, 'Tuần'),
+                    _buildTabButton(2, 'Tháng'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_activeTab == 0)
+                _buildSelectorTile(
+                  label: 'Chọn ngày cấu hình',
+                  value: _formatDisplayDateFull(_selectedDate),
+                  onTap: () => _selectDate(context),
+                )
+              else if (_activeTab == 1)
+                _buildSelectorTile(
+                  label: 'Chọn tuần cấu hình',
+                  value: _formatDisplayWeek(_selectedDate),
+                  onTap: () => _selectWeek(context),
+                )
+              else
+                _buildSelectorTile(
+                  label: 'Chọn tháng cấu hình',
+                  value: _formatDisplayMonthFull(_selectedDate),
+                  onTap: () => _selectMonth(context),
+                ),
+              const SizedBox(height: 20),
+              Text(
+                _activeTab == 0
+                    ? 'Cấu hình chi tiết ngày ${_formatDisplayDateFull(_selectedDate)}'
+                    : _activeTab == 1
+                        ? 'Cấu hình chi tiết tuần'
+                        : 'Cấu hình chi tiết tháng',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                   color: AppColors.textDark,
                 ),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: _days
-                    .map(
-                      (e) => FilterChip(
-                        label: Text(_dayLabel(e)),
-                        selected: _selectedDays.contains(e),
-                        onSelected: (selected) => setState(() {
-                          if (selected) {
-                            _selectedDays.add(e);
-                          } else {
-                            _selectedDays.remove(e);
-                          }
-                        }),
-                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildNumberField('Ngày tập/tuần', _trainCount),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildNumberField('Ngày nghỉ/tuần', _restCount),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildNumberField('Calo ngày tập', _trainCal),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildNumberField('Calo ngày nghỉ', _restCal),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _buildNumberField('Calo tối thiểu', _minCal)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildNumberField('Calo tối đa', _maxCal)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildNumberField(
-                      'Protein tối thiểu (g)',
-                      _minProtein,
+              const SizedBox(height: 12),
+              if (_activeTab == 0) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Chế độ hoạt động:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildNumberField('Protein tối đa (g)', _maxProtein),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Nghỉ ngơi'),
+                          selected: !_isDayTraining,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _isDayTraining = false);
+                            }
+                          },
+                          selectedColor: Colors.grey.shade300,
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('Tập luyện'),
+                          selected: _isDayTraining,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _isDayTraining = true);
+                            }
+                          },
+                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+              _buildStepperField(label: 'Calo mục tiêu (kcal)', controller: _calController, step: 50, minValue: 0),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: _buildNumberField(
-                      'Cân nặng mục tiêu (kg)',
-                      _targetWeight,
-                    ),
-                  ),
+                  Expanded(child: _buildStepperField(label: 'Calo tối thiểu', controller: _minCalController, step: 50, minValue: 0)),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildNumberField('% mỡ mục tiêu', _targetBodyFat),
-                  ),
+                  Expanded(child: _buildStepperField(label: 'Calo tối đa', controller: _maxCalController, step: 50, minValue: 0)),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _buildStepperField(label: 'Protein tối thiểu (g)', controller: _minProteinController, step: 5, minValue: 0)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStepperField(label: 'Protein tối đa (g)', controller: _maxProteinController, step: 5, minValue: 0)),
+                ],
+              ),
+              const SizedBox(height: 12),
               TextField(
-                controller: _notes,
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú cho cấp độ này',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+              if (_hasCurrentOverride()) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: _clearSelectedConfig,
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    label: const Text(
+                      'Xóa cấu hình ngày/tuần/tháng này',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 12),
+              const Text(
+                'Mục tiêu chung',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _buildDoubleStepperField(label: 'Cân nặng mục tiêu (kg)', controller: _targetWeight, step: 0.5, minValue: 0.0)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildDoubleStepperField(label: '% mỡ mục tiêu', controller: _targetBodyFat, step: 0.5, minValue: 0.0)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _generalNotes,
                 minLines: 2,
                 maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Ghi chú',
-                  filled: true,
-                  fillColor: AppColors.progressBackground.withValues(
-                    alpha: 0.3,
-                  ),
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú chung',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
                   ),
                 ),
               ),
@@ -665,32 +1901,213 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     );
   }
 
-  Widget _buildNumberField(String label, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+  Widget _buildTabButton(int index, String label) {
+    final active = _activeTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_activeTab != index) {
+            setState(() {
+              _saveSelectedConfig();
+              _activeTab = index;
+              _loadSelectedConfig();
+            });
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? Colors.white : AppColors.textDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSelectorTile({
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.progressBackground.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down, color: AppColors.textDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepperField({
+    required String label,
+    required TextEditingController controller,
+    required int step,
+    int? minValue,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.progressBackground.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 18, color: AppColors.primary),
+                onPressed: () {
+                  final val = int.tryParse(controller.text.trim()) ?? 0;
+                  final newVal = val - step;
+                  if (minValue == null || newVal >= minValue) {
+                    controller.text = newVal.toString();
+                  }
+                },
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                onPressed: () {
+                  final val = int.tryParse(controller.text.trim()) ?? 0;
+                  final newVal = val + step;
+                  controller.text = newVal.toString();
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDoubleStepperField({
+    required String label,
+    required TextEditingController controller,
+    required double step,
+    double? minValue,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.progressBackground.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 18, color: AppColors.primary),
+                onPressed: () {
+                  final val = double.tryParse(controller.text.trim().replaceAll(',', '.')) ?? 0.0;
+                  final newVal = val - step;
+                  if (minValue == null || newVal >= minValue) {
+                    controller.text = newVal.toStringAsFixed(1);
+                  }
+                },
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                onPressed: () {
+                  final val = double.tryParse(controller.text.trim().replaceAll(',', '.')) ?? 0.0;
+                  final newVal = val + step;
+                  controller.text = newVal.toStringAsFixed(1);
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   String _label(String mode) {
     switch (mode) {
       case 'cut':
-        return 'Cut';
+        return 'Siết cơ';
       case 'bulk':
-        return 'Bulk';
+        return 'Xả cơ';
       case 'recomp':
-        return 'Recomp';
+        return 'Giảm mỡ tăng cơ';
       default:
-        return 'Maintain';
+        return 'Giữ cân';
     }
   }
 

@@ -37,18 +37,25 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
         {
             _logger.LogInformation("SepayReconciliationBackgroundService started. Running every {Interval}.", _interval);
 
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    await ReconcilePaymentsAsync(stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during SePay payment reconciliation.");
-                }
+                    try
+                    {
+                        await ReconcilePaymentsAsync(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred during SePay payment reconciliation.");
+                    }
 
-                await Task.Delay(_interval, stoppingToken);
+                    await Task.Delay(_interval, stoppingToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown, ignore
             }
 
             _logger.LogInformation("SepayReconciliationBackgroundService stopped.");

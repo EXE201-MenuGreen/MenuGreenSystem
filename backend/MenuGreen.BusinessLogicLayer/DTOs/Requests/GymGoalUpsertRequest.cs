@@ -7,7 +7,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [Required]
         public string GoalMode { get; set; } = string.Empty; // cut | bulk | maintain | recomp
 
-        [Required]
         public string WeeklyTrainingSchedule { get; set; } = string.Empty;
 
         public int? TrainingDaysPerWeek { get; set; }
@@ -25,6 +24,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [Range(1.0, 80.0, ErrorMessage = "Target body fat percentage must be between 1% and 80%.")]
         public decimal? TargetBodyFatPercent { get; set; }
 
+        public string? Preferences { get; set; }
         public string? Notes { get; set; }
     }
 }

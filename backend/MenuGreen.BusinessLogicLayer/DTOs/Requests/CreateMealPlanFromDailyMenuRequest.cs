@@ -12,7 +12,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int? TargetCalories { get; set; }
 
         [Required]
-        [MinLength(1)]
         public List<DailyMenuPlanItemRequest> Items { get; set; } = new();
     }
 

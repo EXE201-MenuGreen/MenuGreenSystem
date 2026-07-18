@@ -14,11 +14,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
+        private readonly IMealPlanService _mealPlanService;
+        private readonly IDailyStarterService _dailyStarterService;
+        private readonly IPtReviewService _ptReviewService;
 
-        public CoachService(IUnitOfWork unitOfWork, INotificationService notificationService)
+        public CoachService(
+            IUnitOfWork unitOfWork, 
+            INotificationService notificationService,
+            IMealPlanService mealPlanService,
+            IDailyStarterService dailyStarterService,
+            IPtReviewService ptReviewService)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
+            _mealPlanService = mealPlanService;
+            _dailyStarterService = dailyStarterService;
+            _ptReviewService = ptReviewService;
         }
 
         public async Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice)
@@ -223,6 +234,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Connection request not found.");
 
             connection.Status = approve ? "Connected" : "Rejected";
+            if (approve)
+            {
+                connection.IsAccessGranted = true;
+            }
             connection.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.CoachConnections.Update(connection);
             await _unitOfWork.CompleteAsync();
@@ -733,6 +748,35 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return streak;
+        }
+
+        public async Task<MealPlanResponse?> GetClientMealPlanAsync(Guid coachId, Guid clientId, DateOnly date)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+            return await _mealPlanService.GetByDateAsync(clientId, date);
+        }
+
+        public async Task<object> GetClientSuggestionsAsync(Guid coachId, Guid clientId, int targetCalories = 0, int top = 10)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+            
+            if (targetCalories == 0)
+            {
+                var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault();
+                targetCalories = health?.TargetCalories ?? 2000;
+            }
+
+            return await _dailyStarterService.GetRecommendationsAsync(clientId, new RecommendationRequest
+            {
+                TargetCalories = targetCalories > 0 ? targetCalories : null,
+                Top = top
+            });
+        }
+
+        public async Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+            return await _ptReviewService.GetMyRequestsAsync(clientId);
         }
     }
 }
