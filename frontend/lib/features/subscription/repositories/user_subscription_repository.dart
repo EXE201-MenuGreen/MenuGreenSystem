@@ -6,7 +6,7 @@ import '../models/subscription_models.dart';
 
 class UserSubscriptionRepository {
   UserSubscriptionRepository({ApiClient? apiClient})
-      : _api = apiClient ?? ApiClient();
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
 
@@ -36,6 +36,26 @@ class UserSubscriptionRepository {
       return UserSubscription.fromJson(decoded);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<List<UserSubscription>> getActive() async {
+    try {
+      final response = await _api.get(ApiEndpoints.subscriptionActive);
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        final current = await getCurrent();
+        return current == null ? [] : [current];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(UserSubscription.fromJson)
+          .toList();
+    } catch (_) {
+      final current = await getCurrent();
+      return current == null ? [] : [current];
     }
   }
 
@@ -89,7 +109,7 @@ class UserSubscriptionRepository {
   }
 
   Future<({bool success, UserSubscription? data, String message})>
-      _parseSubscriptionAction(dynamic response) async {
+  _parseSubscriptionAction(dynamic response) async {
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {

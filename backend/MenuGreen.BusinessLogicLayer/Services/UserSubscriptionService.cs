@@ -141,6 +141,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return current == null ? null : await MapAsync(current);
         }
 
+        public async Task<IEnumerable<UserSubscriptionResponse>> GetActiveAsync(Guid userId)
+        {
+            var now = DateTime.UtcNow;
+            var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(
+                x => x.UserId == userId &&
+                     x.Status == "Active" &&
+                     x.StartDate <= now &&
+                     x.EndDate >= now);
+
+            var result = new List<UserSubscriptionResponse>();
+            foreach (var subscription in subscriptions.OrderByDescending(x => x.CreatedAt))
+            {
+                result.Add(await MapAsync(subscription));
+            }
+            return result;
+        }
+
         public async Task<UserSubscriptionResponse> GetByIdAsync(Guid userId, Guid subscriptionId)
         {
             var subscription = await GetOwnedSubscriptionAsync(userId, subscriptionId);
@@ -203,6 +220,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 UserId = subscription.UserId,
                 SubscriptionPlanId = subscription.SubscriptionPlanId,
                 SubscriptionPlanName = plan?.Name ?? string.Empty,
+                FeatureGroup = plan?.FeatureGroup,
                 Status = subscription.Status,
                 StartDate = subscription.StartDate,
                 EndDate = subscription.EndDate,

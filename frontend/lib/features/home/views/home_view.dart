@@ -12,6 +12,8 @@ import '../../meal_plan/views/meal_plan_today_screen.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/views/notification_inbox_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
@@ -41,11 +43,13 @@ class HomeViewState extends State<HomeView> {
   final _mealPlanRepository = MealPlanRepository();
   final _notificationProvider = NotificationProvider();
   final _dailyStarterRepo = DailyStarterRepository();
+  final _subscriptionRepository = UserSubscriptionRepository();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
   MealPlanAdherence? _mealPlanAdherence;
   bool _refreshing = false;
+  bool _hasGymerAccess = false;
   List<RecommendedMealItem> _recommendedMeals = [];
   List<TipItem> _tips = [];
 
@@ -66,6 +70,7 @@ class HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     refreshHeader();
+    refreshSubscriptionAccess();
     _loadTodaySummary();
     _loadMealPlanAdherence();
     _loadRecommendations();
@@ -93,6 +98,14 @@ class HomeViewState extends State<HomeView> {
       _avatarUrl = (rawAvatar != null && rawAvatar.isNotEmpty)
           ? rawAvatar
           : null;
+    });
+  }
+
+  Future<void> refreshSubscriptionAccess() async {
+    final subscriptions = await _subscriptionRepository.getActive();
+    if (!mounted) return;
+    setState(() {
+      _hasGymerAccess = hasGymerSubscriptionAccess(subscriptions);
     });
   }
 
@@ -278,6 +291,7 @@ class HomeViewState extends State<HomeView> {
       child: RefreshIndicator(
         onRefresh: () async {
           await refreshHeader();
+          await refreshSubscriptionAccess();
           await _loadTodaySummary(userInitiated: true);
           await _loadMealPlanAdherence();
           await _loadRecommendations();
@@ -297,12 +311,15 @@ class HomeViewState extends State<HomeView> {
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: HomeBannerCarousel(),
               ),
-              const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: GymerPackageCard(),
-              ),
-              const SizedBox(height: 10),
+              if (_hasGymerAccess) ...[
+                const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: GymerPackageCard(),
+                ),
+                const SizedBox(height: 10),
+              ] else
+                const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: const QuickActionGrid(),

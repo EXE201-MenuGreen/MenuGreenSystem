@@ -194,6 +194,7 @@ class ApiEndpoints {
   static String get subscriptionRenew => '$baseUrl/UserSubscription/renew';
   static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
   static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
+  static String get subscriptionActive => '$baseUrl/UserSubscription/me/active';
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 

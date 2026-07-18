@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../advanced/views/advanced_features_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
 import '../../vietnam_local/views/gym_goals_screen.dart';
 import 'premium_programs_screen.dart';
@@ -33,16 +34,11 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
   }
 
   Future<void> _loadAccess() async {
-    final subscription = await _subscriptionRepository.getCurrent();
+    final subscriptions = await _subscriptionRepository.getActive();
     if (!mounted) return;
 
-    final planName = subscription?.subscriptionPlanName.toLowerCase() ?? '';
     setState(() {
-      _hasAccess =
-          subscription != null &&
-          subscription.isActive &&
-          subscription.daysRemaining >= 0 &&
-          (planName.contains('gym') || planName.contains('pro'));
+      _hasAccess = hasGymerSubscriptionAccess(subscriptions);
       _loading = false;
     });
 

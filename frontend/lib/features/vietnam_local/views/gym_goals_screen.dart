@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
 import '../../subscription/widgets/premium_paywall_widget.dart';
 import '../../home/widgets/weight_log_sheet.dart';
 import '../models/vietnam_local_models.dart';
@@ -36,13 +37,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     });
 
     try {
-      final sub = await _subRepo.getCurrent();
-      final planName = sub?.subscriptionPlanName.toLowerCase() ?? '';
-      final hasAccess =
-          sub != null &&
-          sub.isActive &&
-          sub.daysRemaining >= 0 &&
-          (planName.contains('gym') || planName.contains('pro'));
+      final subscriptions = await _subRepo.getActive();
+      final hasAccess = hasGymerSubscriptionAccess(subscriptions);
 
       setState(() {
         _hasProAccess = hasAccess;

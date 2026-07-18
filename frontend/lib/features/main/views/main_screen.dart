@@ -93,6 +93,7 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() => _currentIndex = index);
     if (index == _homeTab) {
+      _homeKey.currentState?.refreshSubscriptionAccess();
       _refreshHomeIfStale();
     } else if (index == _discoverTab) {
       _discoverKey.currentState?.refreshAllergyStatus();
@@ -156,10 +157,7 @@ class _MainScreenState extends State<MainScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    Colors.grey.shade100,
-                    Colors.grey.shade200,
-                  ],
+                  colors: [Colors.grey.shade100, Colors.grey.shade200],
                   center: const Alignment(-0.3, -0.3),
                   radius: 0.75,
                 ),
@@ -200,11 +198,7 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
               alignment: Alignment.center,
-              child: const Icon(
-                Icons.home,
-                size: 26,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.home, size: 26, color: Colors.white),
             ),
             label: 'Trang chủ',
           ),
@@ -280,20 +274,18 @@ class _MainScreenState extends State<MainScreen> {
               const SizedBox(height: 8),
               Text(
                 'Chọn tính năng thông minh của trợ lý dinh dưỡng',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              
+
               // 1. Quét nguyên liệu
               _buildAiMenuItem(
                 context: context,
                 icon: Icons.qr_code_scanner_rounded,
                 title: 'Quét nguyên liệu',
-                subtitle: 'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
+                subtitle:
+                    'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
                 iconGradient: const [Color(0xFF2D5A45), Color(0xFF1B4332)],
                 onTap: () {
                   Navigator.pop(context);
@@ -306,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              
+
               // 2. Gợi ý cá nhân hóa
               _buildAiMenuItem(
                 context: context,
@@ -325,7 +317,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              
+
               // 3. Trò chuyện AI
               _buildAiMenuItem(
                 context: context,
@@ -339,7 +331,8 @@ class _MainScreenState extends State<MainScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChangeNotifierProvider(
-                        create: (_) => AiAssistantProvider()..loadConversations(),
+                        create: (_) =>
+                            AiAssistantProvider()..loadConversations(),
                         child: const AiConversationListScreen(),
                       ),
                     ),
