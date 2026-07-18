@@ -10,14 +10,16 @@ class ScanResultSheet extends StatelessWidget {
     super.key,
     required this.response,
     required this.onLogIngredient,
-    required this.onLogSuggestedDish,
+    required this.onViewSuggestedDish,
     required this.scrollController,
+    this.officeMode = false,
   });
 
   final CvInferenceResponse response;
   final void Function(CvIngredientItem) onLogIngredient;
-  final void Function(CvSuggestedDish) onLogSuggestedDish;
+  final void Function(CvSuggestedDish) onViewSuggestedDish;
   final ScrollController scrollController;
+  final bool officeMode;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,7 @@ class ScanResultSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Phân tích thành công',
+                        'Kết quả nhận diện',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -83,7 +85,7 @@ class ScanResultSheet extends StatelessWidget {
                 // Section 1: Raw Ingredients
                 if (response.nguyenLieuThoQuetDuoc != null &&
                     response.nguyenLieuThoQuetDuoc!.isNotEmpty) ...[
-                  const ScanSectionHeader(title: 'Nguyên liệu thô quét được'),
+                  const ScanSectionHeader(title: 'Nguyên liệu nhận diện'),
                   const SizedBox(height: 12),
                   ...response.nguyenLieuThoQuetDuoc!.map((ing) => IngredientTile(
                         item: ing,
@@ -95,11 +97,15 @@ class ScanResultSheet extends StatelessWidget {
                 // Section 2: Suggested Dishes
                 if (response.danhSachMonAnGoiY != null &&
                     response.danhSachMonAnGoiY!.isNotEmpty) ...[
-                  const ScanSectionHeader(title: 'Thực đơn gợi ý chế biến'),
+                  ScanSectionHeader(
+                    title: officeMode
+                        ? 'Món phù hợp cho bữa trưa'
+                        : 'Món phù hợp từ nguyên liệu',
+                  ),
                   const SizedBox(height: 12),
                   ...response.danhSachMonAnGoiY!.map((dish) => SuggestedDishCard(
                         dish: dish,
-                        onLog: () => onLogSuggestedDish(dish),
+                        onView: () => onViewSuggestedDish(dish),
                       )),
                 ],
               ],

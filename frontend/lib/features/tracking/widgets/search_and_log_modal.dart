@@ -10,6 +10,7 @@ class SearchAndLogModal extends StatefulWidget {
     required this.defaultGrams,
     required this.isRecipe,
     required this.onSuccess,
+    this.initialMealType = 'breakfast',
   });
 
   final NutritionTrackingRepository repository;
@@ -17,6 +18,7 @@ class SearchAndLogModal extends StatefulWidget {
   final double defaultGrams;
   final bool isRecipe;
   final VoidCallback onSuccess;
+  final String initialMealType;
 
   @override
   State<SearchAndLogModal> createState() => _SearchAndLogModalState();
@@ -26,12 +28,13 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
   bool _searching = true;
   List<CatalogItem> _searchResults = [];
   CatalogItem? _selectedItem;
-  String _mealType = 'breakfast';
+  late String _mealType;
   final _gramsController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _mealType = widget.initialMealType;
     _gramsController.text = widget.defaultGrams.toStringAsFixed(0);
     _searchDatabaseItem();
   }
@@ -103,7 +106,9 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.isRecipe ? 'Ghi nhận Công thức' : 'Ghi nhận Nguyên liệu'),
+      title: Text(
+        widget.isRecipe ? 'Xác nhận món ăn' : 'Xác nhận nguyên liệu',
+      ),
       content: _searching
           ? const SizedBox(
               height: 120,
@@ -116,18 +121,20 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Đang tìm đối chiếu cho: "${widget.keyword}" trong Cơ sở dữ liệu...',
+                    'Chọn dữ liệu phù hợp với “${widget.keyword}” để lưu đúng chỉ số dinh dưỡng.',
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   if (_searchResults.isEmpty)
                     const Text(
-                      '⚠️ Không tìm thấy thực phẩm trùng khớp trong danh mục cơ sở dữ liệu. Bạn hãy thử chọn một món ăn/nguyên liệu khác.',
+                      'Không tìm thấy món hoặc nguyên liệu phù hợp trong dữ liệu hệ thống.',
                       style: TextStyle(color: Colors.redAccent, fontSize: 13),
                     )
                   else
                     InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Món ăn khớp trong danh mục'),
+                      decoration: const InputDecoration(
+                        labelText: 'Món được chọn',
+                      ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<CatalogItem>(
                           value: _selectedItem,
@@ -146,7 +153,7 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                     ),
                   const SizedBox(height: 12),
                   InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Loại bữa ăn'),
+                    decoration: const InputDecoration(labelText: 'Bữa ăn'),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _mealType,
@@ -169,7 +176,7 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: widget.isRecipe
-                          ? 'Khẩu phần ăn (100 = 1 phần)'
+                          ? 'Khối lượng khẩu phần (gram)'
                           : 'Khối lượng (gram)',
                     ),
                   ),
@@ -185,7 +192,10 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
           ElevatedButton(
             onPressed: _logMeal,
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Ghi nhận', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Thêm vào bữa ăn',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
       ],
     );

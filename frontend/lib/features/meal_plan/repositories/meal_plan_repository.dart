@@ -369,6 +369,18 @@ class MealPlanRepository {
     return decoded;
   }
 
+  Future<Map<String, dynamic>> getBudgetStatus(String planId) async {
+    final response = await _api.get(ApiEndpoints.mealPlanBudgetStatus(planId));
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    return decoded;
+  }
+
   // ==================== Helpers ====================
 
   String _messageFromResponse(dynamic response) {

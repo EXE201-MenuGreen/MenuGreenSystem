@@ -8,6 +8,19 @@ class UserAiProfileRepository {
 
   final ApiClient _api;
 
+  Future<bool> isOfficeMode() async {
+    try {
+      final response = await _api.get(ApiEndpoints.userAiProfileMe);
+      if (response.statusCode != 200 || response.body.isEmpty) return false;
+      final data = jsonDecode(response.body);
+      if (data is! Map) return false;
+      final raw = (data['eatingPattern'] ?? data['EatingPattern'] ?? '').toString();
+      return raw.replaceAll('"', '').trim().toLowerCase() == 'office';
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<({bool success, String message})> upsert({
     String? eatingPattern,
     String? preferencesJson,
