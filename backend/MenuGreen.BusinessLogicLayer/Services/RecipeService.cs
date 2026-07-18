@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
@@ -173,18 +174,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var qty = item.Quantity ?? 0;
                 var ingredient = item.Ingredient;
                 if (ingredient == null) continue;
-                calories += (ingredient.CaloriesKcal ?? 0) * qty;
-                protein += (ingredient.ProteinG ?? 0) * qty;
-                carbs += (ingredient.CarbsG ?? 0) * qty;
-                fat += (ingredient.FatG ?? 0) * qty;
+                var ratio = NutritionMath.IngredientNutritionRatio(qty, item.Unit ?? ingredient.UnitDefault);
+                calories += (ingredient.CaloriesKcal ?? 0) * ratio;
+                protein += (ingredient.ProteinG ?? 0) * ratio;
+                carbs += (ingredient.CarbsG ?? 0) * ratio;
+                fat += (ingredient.FatG ?? 0) * ratio;
             }
+
+            var servings = Math.Max(1, recipe.Servings ?? 1);
 
             return new RecipeNutritionResponse
             {
-                CaloriesKcal = calories,
-                ProteinG = protein,
-                CarbsG = carbs,
-                FatG = fat,
+                CaloriesKcal = calories / servings,
+                ProteinG = protein / servings,
+                CarbsG = carbs / servings,
+                FatG = fat / servings,
                 FiberG = fiber
             };
         }

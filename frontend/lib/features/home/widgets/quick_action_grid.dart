@@ -16,7 +16,7 @@ import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
-import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
+import '../../office/views/office_workspace_screen.dart';
 
 enum QuickActionType {
   todayEat,
@@ -33,11 +33,13 @@ enum QuickActionType {
   ingredientSubstitution,
   savedTemplates,
   nutritionLearning,
-  officeReminders,
+  officeWorkspace,
 }
 
 class QuickActionGrid extends StatelessWidget {
-  const QuickActionGrid({super.key});
+  const QuickActionGrid({super.key, this.isOfficeMode = false});
+
+  final bool isOfficeMode;
 
   static const _actions = <_ActionItem>[
     _ActionItem(
@@ -139,11 +141,11 @@ class QuickActionGrid extends StatelessWidget {
       bgColor: Color(0xFFDBEAFE),
     ),
     _ActionItem(
-      type: QuickActionType.officeReminders,
-      icon: Icons.schedule_outlined,
-      label: 'Nhắc nhở\nvăn phòng',
-      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
-      bgColor: Color(0xFFCCFBF1),
+      type: QuickActionType.officeWorkspace,
+      icon: Icons.business_center_outlined,
+      label: 'Không gian\nOffice',
+      gradientColors: [Color(0xFF166534), Color(0xFF4ADE80)],
+      bgColor: Color(0xFFDCFCE7),
     ),
   ];
 
@@ -192,8 +194,8 @@ class QuickActionGrid extends StatelessWidget {
       case QuickActionType.nutritionLearning:
         screen = const MicroLearningScreen();
         break;
-      case QuickActionType.officeReminders:
-        screen = const AdaptiveRemindersScreen();
+      case QuickActionType.officeWorkspace:
+        screen = const OfficeWorkspaceScreen();
         break;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -211,6 +213,9 @@ class QuickActionGrid extends StatelessWidget {
   }
 
   void _showAllFeaturesSheet(BuildContext context) {
+    final visibleActions = _actions
+        .where((action) => action.type != QuickActionType.officeWorkspace || isOfficeMode)
+        .toList();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -256,9 +261,9 @@ class QuickActionGrid extends StatelessWidget {
                         crossAxisSpacing: 16,
                         childAspectRatio: 0.82,
                       ),
-                      itemCount: _actions.length,
+                      itemCount: visibleActions.length,
                       itemBuilder: (gridContext, index) {
-                        final action = _actions[index];
+                        final action = visibleActions[index];
                         return _QuickActionItem(
                           action: action,
                           onTap: () {

@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "709315528907-ks7s3n9i16tkqc747h843fjovn4et4b4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.app",
+            "certificate_hash": "ce85cc9395ac7852f3973df862efaa2afbac4709"
+          }
+        },
+        {
           "client_id": "709315528907-pi8j6d61ig4ads1ifqni8uhcmpudma2h.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

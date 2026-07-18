@@ -160,6 +160,7 @@ class DuplicatePlanRequest {
 
 class AddItemRequest {
   final String mealType;
+  final DateTime? plannedDate;
   final DateTime? scheduledTime;
   final String? foodId;
   final String? recipeId;
@@ -168,6 +169,7 @@ class AddItemRequest {
 
   AddItemRequest({
     required this.mealType,
+    this.plannedDate,
     this.scheduledTime,
     this.foodId,
     this.recipeId,
@@ -178,12 +180,21 @@ class AddItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null) 'scheduledTime': scheduledTime!.toIso8601String(),
+      if (plannedDate != null) 'plannedDate': _dateOnly(plannedDate!),
+      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
     };
+  }
+
+  static String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _timeOnly(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:00';
   }
 
   CreateItemRequest toCreateItemRequest() {
