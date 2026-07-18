@@ -170,6 +170,38 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Check in the current week of the user's active Premium program.
+        /// This canonical route follows the Gymer workflow; the week-specific route remains for backward compatibility.
+        /// </summary>
+        [HttpPost("checkin")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> CheckInCurrentWeek([FromBody] ProgramCheckInRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var active = await _premiumProgramService.GetMyActiveProgramAsync(userId);
+                if (active == null)
+                {
+                    return BadRequest(new { Message = "You do not have any active Premium program." });
+                }
+
+                var result = await _premiumProgramService.CheckInWeekAsync(
+                    userId,
+                    active.CurrentWeek,
+                    request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         /// <summary>Get user weight/body fat change trend in program.</summary>
         [HttpGet("my-active/progress-trend")]
         [Authorize]

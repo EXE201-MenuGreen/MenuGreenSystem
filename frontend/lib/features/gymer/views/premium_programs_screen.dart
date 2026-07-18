@@ -246,7 +246,6 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     setState(() => _actionLoading = true);
     try {
       await _repository.checkIn(
-        weekNumber: week,
         weightKg: weightValue,
         bodyFatPercent: fatValue,
         chestCm: chestValue,

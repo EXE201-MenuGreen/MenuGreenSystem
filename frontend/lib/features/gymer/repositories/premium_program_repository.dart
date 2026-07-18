@@ -49,7 +49,6 @@ class PremiumProgramRepository {
   }
 
   Future<Map<String, dynamic>> checkIn({
-    required int weekNumber,
     required double weightKg,
     double? bodyFatPercent,
     double? chestCm,
@@ -64,12 +63,7 @@ class PremiumProgramRepository {
     if (waistCm != null) payload['waistCm'] = waistCm;
     if (hipCm != null) payload['hipCm'] = hipCm;
     return _asMap(
-      _body(
-        await _api.postJson(
-          ApiEndpoints.premiumProgramCheckIn(weekNumber),
-          payload,
-        ),
-      ),
+      _body(await _api.postJson(ApiEndpoints.premiumProgramCheckIn, payload)),
     );
   }
 

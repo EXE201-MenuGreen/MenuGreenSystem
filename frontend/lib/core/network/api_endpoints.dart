@@ -207,7 +207,8 @@ class ApiEndpoints {
   static String get myActivePremiumProgram =>
       '$baseUrl/PremiumPrograms/my-active';
   static String get myPremiumPrograms => '$baseUrl/PremiumPrograms/my-programs';
-  static String premiumProgramCheckIn(int weekNumber) =>
+  static String get premiumProgramCheckIn => '$baseUrl/PremiumPrograms/checkin';
+  static String premiumProgramWeekCheckIn(int weekNumber) =>
       '$baseUrl/PremiumPrograms/my-active/milestones/$weekNumber/checkin';
   static String get premiumProgramGraduate =>
       '$baseUrl/PremiumPrograms/my-active/graduate';

@@ -51,6 +51,7 @@ Hoàn thiện các mục 1–5 của `docs/workflow/gymer_workflow.md`, nối g�
 
 - Có catalog chương trình, checkout SePay, activation, enrollment history, milestone tuần, progress trend, graduation và wrap-up report.
 - Check-in tuần lưu cân nặng, % mỡ, vòng ngực, vòng eo và vòng hông; đồng thời ghi weight log dùng chung.
+- `POST /api/PremiumPrograms/checkin` tự xác định tuần hiện tại của chương trình active đúng theo workflow; route cũ có week number vẫn được giữ để tương thích client cũ.
 - Mỗi check-in mở khóa milestone/meal plan tuần tiếp theo.
 - Backend kiểm tra 7 nutrition snapshot gần nhất; nếu cả 7 ngày đạt 90–110% calorie target và đủ protein target thì cấp huy hiệu cùng `100` điểm.
 - Báo cáo tổng kết gồm thay đổi cân nặng, % mỡ, vòng ngực/eo/hông, tỷ lệ tuân thủ, huy hiệu, điểm thưởng và trend theo tuần.
