@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "709315528907-ks7s3n9i16tkqc747h843fjovn4et4b4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.app",
+            "certificate_hash": "ce85cc9395ac7852f3973df862efaa2afbac4709"
+          }
+        },
+        {
           "client_id": "709315528907-pi8j6d61ig4ads1ifqni8uhcmpudma2h.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -29,6 +37,35 @@
             "certificate_hash": "5c49ce3772978b2cddae1396f670e066bb923125"
           }
         },
+        {
+          "client_id": "709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuRO9XaVnsEfdsadYxOoTUIp4G21-8qWs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709315528907:android:9e96e7b08f99b84554b34e",
+        "android_client_info": {
+          "package_name": "com.menugreen.food"
+        }
+      },
+      "oauth_client": [
         {
           "client_id": "709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com",
           "client_type": 3
