@@ -1182,6 +1182,53 @@ volumes:
 
 ---
 
+## [PENDING] Role rename Free → User + add Coach — partial change (SQL only)
+
+**Date:** 2026-07-19
+**Status:** Pending — backend C# + Flutter not yet updated
+**Severity:** Medium
+
+### Description
+
+User yêu cầu đổi role `Free` thành `User` và thêm role `Coach`. Hiện tại chỉ cập nhật `backend/database/01_roles.sql`, các lớp service phía backend (và có thể Flutter) vẫn đang tham chiếu chuỗi `"Free"` cứng → khi áp seed mới, các flow lọc theo role Free sẽ không match user nào.
+
+### Root Cause
+
+Đổi tên role ở tầng DB seed mà chưa đồng bộ tầng code:
+
+- `backend/MenuGreen.BusinessLogicLayer/Services/SepayPaymentService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/AnalyticsService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/AiAssistantService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/SubscriptionPlanService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/UserSubscriptionService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/BackgroundJobs/SubscriptionExpirationBackgroundService.cs`
+- `backend/database/02_users.sql` (FK seed về role Free)
+
+Ngoài ra cần kiểm tra Flutter (`ApiMessageTranslator`, role label mapping, quick action filter, etc.) để hiển thị `User` / `Coach` đúng và không hiển thị `Free` cũ.
+
+### Environment
+
+- DB seed: `backend/database/01_roles.sql`
+- Backend services: `MenuGreen.BusinessLogicLayer`
+- Frontend (chưa khảo sát): `frontend/lib`
+
+### Changes Applied
+
+- `01_roles.sql`: đổi `('...0001', 'Free', ...)` → `('...0001', 'User', 'Standard registered user', ...)`.
+- `01_roles.sql`: thêm `('00000000-0000-0000-0000-000000000008', 'Coach', 'Personal trainer / nutrition coach', ...)`.
+- Giữ nguyên Id `...0001` (không phá FK cũ).
+
+### Attempts
+
+- [ ] Tìm & thay `"Free"` → `"User"` trong 6 file C# ở trên.
+- [ ] Cập nhật `02_users.sql` nếu seed có user cứng gắn role Free.
+- [ ] Kiểm tra `coach_profiles.sql` (42) và `coach_connections.sql` (43) — đã có schema cho Coach chưa, có cần FK sang `roles.Id` mới `...0008` không.
+- [ ] Khảo sát Flutter: `lib/core/i18n/api_message_translator.dart`, các màn hình liên quan role (home, profile, subscription) để map nhãn `User` / `Coach`.
+- [ ] Viết migration EF Core nếu DB production đang chạy — `UPDATE roles SET "Name"='User', "Description"='Standard registered user' WHERE "Id"='00000000-0000-0000-0000-000000000001'; INSERT INTO roles ... Coach ...`.
+- [ ] Test lại flow: đăng ký user mới → role mặc định là gì (cần xem `AuthService` / seed default), filter analytics, downgrade subscription.
+
+---
+
 ## Prevention Guidelines
 
 ### YAML Files

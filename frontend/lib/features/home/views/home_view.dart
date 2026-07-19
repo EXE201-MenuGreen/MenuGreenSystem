@@ -17,8 +17,6 @@ import '../../tracking/utils/nutrition_warning_utils.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
-import '../../onboarding/repositories/user_ai_profile_repository.dart';
-import '../../office/widgets/office_home_panel.dart';
 import '../widgets/home_banner_carousel.dart';
 import '../widgets/home_calorie_section.dart';
 import '../widgets/quick_action_grid.dart';
@@ -42,7 +40,6 @@ class HomeViewState extends State<HomeView> {
   final _mealPlanRepository = MealPlanRepository();
   final _notificationProvider = NotificationProvider();
   final _dailyStarterRepo = DailyStarterRepository();
-  final _aiProfileRepository = UserAiProfileRepository();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
@@ -50,7 +47,6 @@ class HomeViewState extends State<HomeView> {
   bool _refreshing = false;
   List<RecommendedMealItem> _recommendedMeals = [];
   List<TipItem> _tips = [];
-  bool _isOfficeMode = false;
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -73,13 +69,7 @@ class HomeViewState extends State<HomeView> {
     _loadMealPlanAdherence();
     _loadRecommendations();
     _loadTips();
-    _loadOfficeMode();
     _notificationProvider.loadUnreadCount();
-  }
-
-  Future<void> _loadOfficeMode() async {
-    final isOffice = await _aiProfileRepository.isOfficeMode();
-    if (mounted) setState(() => _isOfficeMode = isOffice);
   }
 
   Future<void> refreshHeader() async {
@@ -103,7 +93,6 @@ class HomeViewState extends State<HomeView> {
           ? rawAvatar
           : null;
     });
-    unawaited(_loadOfficeMode());
   }
 
   Future<void> reloadSummary() async {
@@ -291,7 +280,6 @@ class HomeViewState extends State<HomeView> {
           await _loadTodaySummary(userInitiated: true);
           await _loadMealPlanAdherence();
           await _loadRecommendations();
-          await _loadOfficeMode();
         },
         color: AppColors.primary,
         child: SingleChildScrollView(
@@ -309,16 +297,9 @@ class HomeViewState extends State<HomeView> {
                 child: HomeBannerCarousel(),
               ),
               const SizedBox(height: 20),
-              if (_isOfficeMode) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: OfficeHomePanel(),
-                ),
-                const SizedBox(height: 20),
-              ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: QuickActionGrid(isOfficeMode: _isOfficeMode),
+                child: const QuickActionGrid(),
               ),
               const SizedBox(height: 20),
               Padding(
@@ -966,5 +947,3 @@ class _IconButtonWithBadge extends StatelessWidget {
     );
   }
 }
-
-

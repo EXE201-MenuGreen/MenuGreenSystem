@@ -38,7 +38,8 @@ VALUES
 ('453681f7-f489-47ed-842c-bc3ffd220423', '00000000-0000-0000-0000-000000000001', 'phanhuyhoàng@gmail.com', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL),
 ('396f9dff-6c2a-422f-b0cc-8eb451168ed3', '00000000-0000-0000-0000-000000000001', 'đỗmỹlinh@gmail.com', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL),
 ('5dc50160-db9e-447a-ba33-9026d8800ab5', '00000000-0000-0000-0000-000000000001', 'bùiquốcanh@gmail.com', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL),
-('212ea8ea-749e-44a1-92d2-636bd617cbc8', '00000000-0000-0000-0000-000000000001', 'ngôkhánhvy@gmail.com', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL)
+('212ea8ea-749e-44a1-92d2-636bd617cbc8', '00000000-0000-0000-0000-000000000001', 'ngôkhánhvy@gmail.com', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL),
+('cccccccc-cccc-cccc-cccc-cccccccccc01', '00000000-0000-0000-0000-000000000008', 'coach@menugreen.app', '$2b$12$zcokeEBiEkl4iukyN0j6nev0lINFlC8ol8dje1O/JfY2yOHM0arey', true, true, now() - interval '1 day', now() - interval '30 days', now() - interval '30 days', NULL)
 ON CONFLICT DO NOTHING;
 
 COMMIT;
