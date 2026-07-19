@@ -288,7 +288,7 @@ class _ProfileViewState extends State<ProfileView> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const OfficeWorkspaceScreen(),
+                          builder: (_) => const AdvancedFeaturesScreen(),
                         ),
                       ),
                     ),
