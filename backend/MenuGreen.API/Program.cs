@@ -83,7 +83,7 @@ builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHand
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office", "Coach"));
+    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "User", "Casual", "Gymer", "Office", "Coach"));
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
     options.AddPolicy("GymerOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")));
     options.AddPolicy("CoachAccessOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")));
