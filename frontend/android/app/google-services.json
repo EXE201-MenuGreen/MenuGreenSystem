@@ -67,6 +67,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "709315528907-8b8eqpetu91l34fcvmkm8483fnoe04b5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.food",
+            "certificate_hash": "b5f3e1ae5301dbc8ccc5b120f05722a8667ed446"
+          }
+        },
+        {
+          "client_id": "709315528907-aio1lafol0jv1qb546u9u4kihc22co5o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.food",
+            "certificate_hash": "875672f3641509cecc61923a10aa83670bb89858"
+          }
+        },
+        {
           "client_id": "709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com",
           "client_type": 3
         }
