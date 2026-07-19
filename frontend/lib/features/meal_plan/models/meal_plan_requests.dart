@@ -1,6 +1,74 @@
 /// Request DTOs cho Meal Plan API
 library;
 
+class OfficeScanIngredientRequest {
+  const OfficeScanIngredientRequest({
+    required this.name,
+    required this.quantity,
+    this.unit = 'g',
+    this.isAvailable = true,
+  });
+
+  final String name;
+  final double quantity;
+  final String unit;
+  final bool isAvailable;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'quantity': quantity,
+    'unit': unit,
+    'isAvailable': isAvailable,
+  };
+}
+
+class OfficeScanMealRequest {
+  const OfficeScanMealRequest({
+    required this.customName,
+    required this.mealType,
+    required this.plannedDate,
+    required this.quantityG,
+    required this.caloriesKcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+    required this.ingredients,
+    this.replaceExisting = false,
+    this.loggedAt,
+  });
+
+  final String customName;
+  final String mealType;
+  final DateTime plannedDate;
+  final double quantityG;
+  final double caloriesKcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final List<OfficeScanIngredientRequest> ingredients;
+  final bool replaceExisting;
+  final DateTime? loggedAt;
+
+  Map<String, dynamic> toJson() => {
+    'customName': customName,
+    'mealType': mealType,
+    'plannedDate': _dateOnly(plannedDate),
+    'scheduledTime': '12:00:00',
+    'quantityG': quantityG,
+    'caloriesKcal': caloriesKcal,
+    'proteinG': proteinG,
+    'carbsG': carbsG,
+    'fatG': fatG,
+    'replaceExisting': replaceExisting,
+    'loggedAt': (loggedAt ?? DateTime.now()).toUtc().toIso8601String(),
+    'ingredients': ingredients.map((item) => item.toJson()).toList(),
+  };
+
+  static String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
 class CreatePlanRequest {
   final String title;
   final String planType;
@@ -128,7 +196,8 @@ class CreateItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null) 'scheduledTime': scheduledTime!.toIso8601String(),
+      if (scheduledTime != null)
+        'scheduledTime': scheduledTime!.toIso8601String(),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
@@ -141,10 +210,7 @@ class DuplicatePlanRequest {
   final DateTime newStartDate;
   final DateTime? newEndDate;
 
-  DuplicatePlanRequest({
-    required this.newStartDate,
-    this.newEndDate,
-  });
+  DuplicatePlanRequest({required this.newStartDate, this.newEndDate});
 
   Map<String, dynamic> toJson() {
     return {
@@ -213,10 +279,7 @@ class ConvertToLogRequest {
   final DateTime loggedAt;
   final double? quantityG;
 
-  ConvertToLogRequest({
-    required this.loggedAt,
-    this.quantityG,
-  });
+  ConvertToLogRequest({required this.loggedAt, this.quantityG});
 
   Map<String, dynamic> toJson() {
     return {

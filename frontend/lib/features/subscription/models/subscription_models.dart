@@ -76,6 +76,20 @@ class UserSubscription {
   }
 
   bool get isActive => status.toLowerCase() == 'active';
+
+  bool get isCurrentlyActive {
+    if (!isActive) return false;
+    final expiration = endDate;
+    return expiration == null || expiration.isAfter(DateTime.now());
+  }
+
+  int realtimeDaysRemaining([DateTime? currentTime]) {
+    final expiration = endDate;
+    if (expiration == null) return 0;
+    final remaining = expiration.difference(currentTime ?? DateTime.now());
+    if (remaining <= Duration.zero) return 0;
+    return (remaining.inSeconds / Duration.secondsPerDay).ceil();
+  }
 }
 
 class SubscriptionTransaction {
@@ -169,6 +183,26 @@ String formatSubscriptionDate(DateTime? date) {
   final month = local.month.toString().padLeft(2, '0');
   final year = local.year.toString();
   return '$day/$month/$year';
+}
+
+String formatSubscriptionRemaining(DateTime? endDate, [DateTime? currentTime]) {
+  if (endDate == null) return 'Không giới hạn';
+
+  final remaining = endDate.difference(currentTime ?? DateTime.now());
+  if (remaining <= Duration.zero) return 'Đã hết hạn';
+
+  final totalMinutes = (remaining.inSeconds / Duration.secondsPerMinute).ceil();
+  if (totalMinutes < 60) return 'Còn $totalMinutes phút';
+
+  final totalHours = (remaining.inMinutes / Duration.minutesPerHour).ceil();
+  if (totalHours < 24) {
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(Duration.minutesPerHour);
+    return minutes == 0 ? 'Còn $hours giờ' : 'Còn $hours giờ $minutes phút';
+  }
+
+  final days = (remaining.inSeconds / Duration.secondsPerDay).ceil();
+  return 'Còn $days ngày';
 }
 
 String formatDurationLabel(int durationDays) {

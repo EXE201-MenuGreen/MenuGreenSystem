@@ -64,6 +64,8 @@ class ApiEndpoints {
   static String recipeById(String id) => '$baseUrl/Recipe/$id';
   static String recipeIngredients(String id) =>
       '$baseUrl/Recipe/$id/ingredients';
+  static String mealPlanScanMeals(String planId) =>
+      '$baseUrl/MealPlan/$planId/scan-meals';
   static String get ingredientSearch => '$baseUrl/Ingredient/search';
   static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
   static String ingredientRecipes(String id) =>
@@ -108,10 +110,14 @@ class ApiEndpoints {
   static String get mealPlansCreateEmpty => '$baseUrl/MealPlan/empty';
   static String get mealPlansCreateWithItems => '$baseUrl/MealPlan';
   static String mealPlanById(String id) => '$baseUrl/MealPlan/$id';
-  static String get mealPlanGenerateByBudget => '$baseUrl/MealPlan/generate-by-budget';
-  static String mealPlanGroceryList(String id) => '${mealPlanById(id)}/grocery-list';
+  static String get mealPlanGenerateByBudget =>
+      '$baseUrl/MealPlan/generate-by-budget';
+  static String mealPlanGroceryList(String id) =>
+      '${mealPlanById(id)}/grocery-list';
   static String mealPlanBudgetStatus(String id) =>
       '${mealPlanById(id)}/budget-status';
+  static String mealPlanAlternatives(String planId, String itemId) =>
+      '${mealPlanById(planId)}/alternatives/$itemId';
   static String mealPlanItems(String planId) =>
       '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>
@@ -199,9 +205,12 @@ class ApiEndpoints {
 
   // Premium Programs endpoints
   static String get premiumPrograms => '$baseUrl/PremiumPrograms';
-  static String premiumProgramCheckout(String id) => '$baseUrl/PremiumPrograms/$id/checkout';
-  static String premiumProgramActivate(String id) => '$baseUrl/PremiumPrograms/$id/activate';
-  static String get myActivePremiumProgram => '$baseUrl/PremiumPrograms/my-active';
+  static String premiumProgramCheckout(String id) =>
+      '$baseUrl/PremiumPrograms/$id/checkout';
+  static String premiumProgramActivate(String id) =>
+      '$baseUrl/PremiumPrograms/$id/activate';
+  static String get myActivePremiumProgram =>
+      '$baseUrl/PremiumPrograms/my-active';
 
   static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
   static String get sepayCreateRenewOrder =>
@@ -258,11 +267,9 @@ class ApiEndpoints {
   static String get gymGoalsMe => '$baseUrl/GymGoals/me';
   static String get gymGoals => '$baseUrl/GymGoals';
   static String get gymGoalsPlan => '$baseUrl/GymGoals/plan';
-  static String get gymGoalsRecalibrate =>
-      '$baseUrl/GymGoals/recalibrate';
+  static String get gymGoalsRecalibrate => '$baseUrl/GymGoals/recalibrate';
   static String get gymGoalsAlerts => '$baseUrl/GymGoals/alerts';
-  static String get gymGoalsCoachReport =>
-      '$baseUrl/GymGoals/coach-report';
+  static String get gymGoalsCoachReport => '$baseUrl/GymGoals/coach-report';
 
   // Food Capture (2.14)
   static String get foodCaptureQuickTemplate =>
@@ -283,8 +290,7 @@ class ApiEndpoints {
   static String get safetyReportIssue => '$baseUrl/Safety/report-issue';
 
   // Local Preferences (2.11) — alias trên UserAiProfile
-  static String get localPreferences =>
-      '$baseUrl/Nutrition/local-preferences';
+  static String get localPreferences => '$baseUrl/Nutrition/local-preferences';
   static String get localRecommendationsBudgetAware =>
       '$baseUrl/Nutrition/recommendations/budget-aware';
   static String get localRecommendationsLocalFriendly =>

@@ -15,6 +15,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
         public string? SourceType { get; set; }
+        public string? CustomName { get; set; }
         public string? Notes { get; set; }
         public DateTime? LoggedAt { get; set; }
         public Guid? MealPlanItemId { get; set; }

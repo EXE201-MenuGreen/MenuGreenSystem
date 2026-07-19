@@ -552,3 +552,10 @@ frontend/android/app/GeneratedPluginRegistrant.java
 # Local helper scripts (keystore generators, screenshot tools, etc.)
 # Keep code in scripts/ and ci/ directories; ignore ad-hoc assets/
 /assets/
+
+# Rule running Agent
+.agents
+AGENT_BACKEND.md
+AGENTS_FRONTEND.md
+
+# Local Entity Framework migrations

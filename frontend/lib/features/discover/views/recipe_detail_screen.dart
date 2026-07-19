@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -62,6 +64,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildBody(RecipeItem recipe) {
+    final instructionSteps = recipe.instructions == null
+        ? const <String>[]
+        : _instructionSteps(recipe.instructions!);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -132,7 +137,38 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           const Text('Nguyên liệu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           if (recipe.ingredients.isEmpty)
-            const Text('Chưa có danh sách nguyên liệu.')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                ),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Colors.deepOrange,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Công thức chưa có định lượng nguyên liệu chi tiết. '
+                      'Bạn vẫn có thể thực hiện theo các bước bên dưới.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
           else
             ...recipe.ingredients.map(
               (i) => Padding(
@@ -151,11 +187,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 ),
               ),
             ),
-          if (recipe.instructions != null && recipe.instructions!.isNotEmpty) ...[
+          if (instructionSteps.isNotEmpty) ...[
             const SizedBox(height: 24),
-            const Text('Hướng dẫn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(recipe.instructions!, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+            const Text(
+              'Hướng dẫn nấu',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${instructionSteps.length} bước thực hiện',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...instructionSteps.asMap().entries.map(
+              (entry) => _instructionStepCard(
+                number: entry.key + 1,
+                instruction: entry.value,
+                isLast: entry.key == instructionSteps.length - 1,
+              ),
+            ),
           ],
           const SizedBox(height: 24),
           SizedBox(
@@ -224,6 +277,108 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return item.notes != null && item.notes!.trim().isNotEmpty
         ? '$name — $amount (${item.notes!.trim()})'
         : '$name — $amount';
+  }
+
+  List<String> _instructionSteps(String rawInstructions) {
+    final raw = rawInstructions.trim();
+    if (raw.isEmpty) return const [];
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        final steps = decoded
+            .map((value) => value.toString().trim())
+            .where((value) => value.isNotEmpty)
+            .map(_removeStepPrefix)
+            .toList();
+        if (steps.isNotEmpty) return steps;
+      }
+    } catch (_) {
+      // Some legacy recipes store instructions as plain text.
+    }
+
+    final byLine = raw
+        .split(RegExp(r'[\r\n]+'))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    if (byLine.length > 1) return byLine.map(_removeStepPrefix).toList();
+
+    final matches = RegExp(
+      r'(?:Bước|Buoc)\s*\d+\s*[:.)-]?\s*(.*?)(?=(?:Bước|Buoc)\s*\d+\s*[:.)-]?|$)',
+      caseSensitive: false,
+      dotAll: true,
+    ).allMatches(raw);
+    final extracted = matches
+        .map((match) => (match.group(1) ?? '').trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    return extracted.isNotEmpty ? extracted : [raw];
+  }
+
+  String _removeStepPrefix(String value) {
+    return value
+        .replaceFirst(
+          RegExp(
+            r'^(?:Bước|Buoc)\s*\d+\s*[:.)-]?\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+  }
+
+  Widget _instructionStepCard({
+    required int number,
+    required String instruction,
+    required bool isLast,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.16),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$number',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                instruction,
+                style: const TextStyle(
+                  color: AppColors.textDark,
+                  height: 1.45,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   bool _hasMetadata(RecipeItem recipe) {

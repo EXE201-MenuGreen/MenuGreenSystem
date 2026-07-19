@@ -22,13 +22,15 @@ class IngredientScanScreen extends StatefulWidget {
   State<IngredientScanScreen> createState() => _IngredientScanScreenState();
 }
 
-class _IngredientScanScreenState extends State<IngredientScanScreen> with SingleTickerProviderStateMixin {
+class _IngredientScanScreenState extends State<IngredientScanScreen>
+    with SingleTickerProviderStateMixin {
   final _picker = ImagePicker();
   final _repository = NutritionTrackingRepository();
   final _mealPlanRepository = MealPlanRepository();
   final _mealTemplateRepository = MealTemplateRepository();
   bool _loading = false;
   String _loadingStep = '';
+  int _loadingElapsedSeconds = 0;
   Timer? _stepTimer;
   Uint8List? _selectedImageBytes;
 
@@ -57,33 +59,37 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
   }
 
   void _startLoadingSteps() {
-    final steps = [
-      'Đang kết nối tới máy chủ...',
-      'Đang tải hình ảnh lên hệ thống...',
-      'Đang chạy mô hình AI nhận dạng nguyên liệu...',
-      'Đang tính toán khối lượng ước tính...',
-      'Đang đối chiếu hồ sơ dị ứng của bạn...',
-      'Đang hoàn tất phân tích dinh dưỡng...',
-    ];
-    int currentStep = 0;
     setState(() {
       _loading = true;
-      _loadingStep = steps[0];
+      _loadingElapsedSeconds = 0;
+      _loadingStep = 'Đang chuẩn bị hình ảnh...';
     });
 
     _stepTimer?.cancel();
-    _stepTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
-      currentStep++;
-      if (currentStep < steps.length) {
-        if (mounted) {
-          setState(() {
-            _loadingStep = steps[currentStep];
-          });
-        }
-      } else {
-        timer.cancel();
-      }
+    _stepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      final elapsed = timer.tick;
+      setState(() {
+        _loadingElapsedSeconds = elapsed;
+        _loadingStep = switch (elapsed) {
+          < 4 => 'Đang chuẩn bị và tải hình ảnh...',
+          < 12 => 'AI đang nhận diện các nguyên liệu...',
+          < 30 => 'Đang kết hợp nguyên liệu để tìm món phù hợp...',
+          < 55 => 'Đang tính toán khẩu phần và dinh dưỡng...',
+          _ => 'AI đang hoàn tất kết quả, vui lòng chờ thêm...',
+        };
+      });
     });
+  }
+
+  void _stopLoading() {
+    _stepTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _loadingElapsedSeconds = 0;
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -108,9 +114,8 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
         mimeType: _imageMimeType(image),
       );
 
-      _stepTimer?.cancel();
       if (!mounted) return;
-      setState(() => _loading = false);
+      _stopLoading();
 
       if (result == null) {
         _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
@@ -119,20 +124,25 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
 
       _showResultBottomSheet(result);
     } catch (e) {
-      _stepTimer?.cancel();
       if (mounted) {
-        setState(() => _loading = false);
-        _showErrorSnackBar('Đã xảy ra lỗi khi kết nối tới AI Service.');
+        _stopLoading();
+        final message = e
+            .toString()
+            .replaceFirst('Bad state: ', '')
+            .replaceFirst('FormatException: ', '')
+            .replaceFirst('Exception: ', '');
+        _showErrorSnackBar(
+          message.isEmpty
+              ? 'Không thể hoàn tất phân tích. Vui lòng thử lại.'
+              : message,
+        );
       }
     }
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
@@ -193,9 +203,20 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
     return _showSearchAndLogDialog(
       context: context,
       keyword: dish.tenMonAn,
-      defaultGrams: (ingredientWeight > 0 ? ingredientWeight : 100) *
-          portionMultiplier,
+      defaultGrams:
+          (ingredientWeight > 0 ? ingredientWeight : 100) * portionMultiplier,
       isRecipe: true,
+      fallbackNutrition: dish.thongTinDinhDuongMonAn,
+      fallbackNutritionMultiplier: portionMultiplier,
+      submitter: widget.officeMode
+          ? (mealType, quantityG, _) => _saveScannedDishToOffice(
+              dish,
+              mealType: mealType,
+              quantityG: quantityG,
+              baseDishWeight: ingredientWeight > 0 ? ingredientWeight : 100,
+            )
+          : null,
+      syncsOfficePlan: widget.officeMode,
     );
   }
 
@@ -204,6 +225,10 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
     required String keyword,
     required double defaultGrams,
     required bool isRecipe,
+    CvNutritionInfo? fallbackNutrition,
+    double fallbackNutritionMultiplier = 1,
+    MealLogSubmitter? submitter,
+    bool syncsOfficePlan = false,
   }) async {
     final logged = await showDialog<bool>(
       context: context,
@@ -213,6 +238,10 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
         keyword: keyword,
         defaultGrams: defaultGrams,
         isRecipe: isRecipe,
+        fallbackNutrition: fallbackNutrition,
+        fallbackNutritionMultiplier: fallbackNutritionMultiplier,
+        submitter: submitter,
+        syncsOfficePlan: syncsOfficePlan,
         initialMealType: widget.officeMode ? 'lunch' : 'breakfast',
         onSuccess: () {
           if (!context.mounted) return;
@@ -231,6 +260,55 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
       ),
     );
     return logged ?? false;
+  }
+
+  Future<bool?> _saveScannedDishToOffice(
+    CvSuggestedDish dish, {
+    required String mealType,
+    required double quantityG,
+    required double baseDishWeight,
+  }) async {
+    final today = _dateOnly(DateTime.now());
+    final plan = await _officePlanFor(today);
+    MealPlanItemDetail? existingMeal;
+    for (final item in plan.items) {
+      if ((item.mealType ?? '').toLowerCase() == mealType.toLowerCase() &&
+          item.plannedDate != null &&
+          DateUtils.isSameDay(item.plannedDate, today)) {
+        existingMeal = item;
+        break;
+      }
+    }
+
+    if (existingMeal != null) {
+      final replace = await _confirmReplaceLunch(existingMeal, dish);
+      if (!replace) return null;
+    }
+
+    final scale = quantityG / baseDishWeight;
+    await _mealPlanRepository.saveOfficeScanMeal(
+      plan.id,
+      OfficeScanMealRequest(
+        customName: dish.tenMonAn,
+        mealType: mealType,
+        plannedDate: today,
+        quantityG: quantityG,
+        caloriesKcal: dish.thongTinDinhDuongMonAn.tongCalories * scale,
+        proteinG: dish.thongTinDinhDuongMonAn.proteinG * scale,
+        carbsG: dish.thongTinDinhDuongMonAn.carbsG * scale,
+        fatG: dish.thongTinDinhDuongMonAn.fatG * scale,
+        replaceExisting: existingMeal != null,
+        ingredients: dish.nguyenLieuSuDung
+            .map(
+              (ingredient) => OfficeScanIngredientRequest(
+                name: ingredient.ten,
+                quantity: ingredient.khoiLuongG * scale,
+              ),
+            )
+            .toList(),
+      ),
+    );
+    return true;
   }
 
   Future<CatalogItem?> _chooseRecipeMatch(CvSuggestedDish dish) async {
@@ -310,9 +388,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
           12,
         ),
         recipeId: recipe.id,
-        targetCalories: (dish.thongTinDinhDuongMonAn.tongCalories *
-                portionMultiplier)
-            .round(),
+        targetCalories:
+            (dish.thongTinDinhDuongMonAn.tongCalories * portionMultiplier)
+                .round(),
         quantityG: _dishWeight(dish, portionMultiplier),
       );
 
@@ -341,9 +419,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
       );
       return true;
     } catch (error) {
-      _showErrorSnackBar(
-        error.toString().replaceFirst('Exception: ', ''),
-      );
+      _showErrorSnackBar(error.toString().replaceFirst('Exception: ', ''));
       return false;
     }
   }
@@ -351,25 +427,26 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
   Future<MealPlanDetail> _officePlanFor(DateTime date) async {
     final plans = await _mealPlanRepository.getPlans(isActive: true);
     for (final summary in plans) {
-      final isOfficePlan = summary.title.toLowerCase().contains('cơm hộp') ||
+      final isOfficePlan =
+          summary.title.toLowerCase().contains('cơm hộp') ||
           summary.title.toLowerCase().contains('office');
-      final startsBefore = summary.startDate == null ||
+      final startsBefore =
+          summary.startDate == null ||
           !date.isBefore(_dateOnly(summary.startDate!));
-      final endsAfter = summary.endDate == null ||
-          !date.isAfter(_dateOnly(summary.endDate!));
+      final endsAfter =
+          summary.endDate == null || !date.isAfter(_dateOnly(summary.endDate!));
       if (!isOfficePlan || !startsBefore || !endsAfter) continue;
       final detail = await _mealPlanRepository.getPlanDetail(summary.id);
       if (detail != null) return detail;
     }
 
-    final weekStart = _dateOnly(date).subtract(
-      Duration(days: date.weekday - DateTime.monday),
-    );
+    final weekStart = _dateOnly(
+      date,
+    ).subtract(Duration(days: date.weekday - DateTime.monday));
     final weekEnd = weekStart.add(const Duration(days: 6));
     return _mealPlanRepository.createEmptyPlan(
       CreateEmptyPlanRequest(
-        title:
-            'Kế hoạch cơm hộp Office ${weekStart.day}/${weekStart.month}',
+        title: 'Kế hoạch cơm hộp Office ${weekStart.day}/${weekStart.month}',
         planType: 'weekly',
         startDate: weekStart,
         endDate: weekEnd,
@@ -450,9 +527,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
       );
       return true;
     } catch (error) {
-      _showErrorSnackBar(
-        error.toString().replaceFirst('Exception: ', ''),
-      );
+      _showErrorSnackBar(error.toString().replaceFirst('Exception: ', ''));
       return false;
     }
   }
@@ -551,7 +626,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                             color: Colors.white.withValues(alpha: 0.4),
                             fontSize: 14,
                           ),
-                        )
+                        ),
                       ],
                     )
                   : const SizedBox.shrink(),
@@ -575,13 +650,16 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                           ? Colors.transparent
                           : Colors.black,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF4ADE80), width: 2),
+                      border: Border.all(
+                        color: const Color(0xFF4ADE80),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFF22C55E).withValues(alpha: 0.3),
                           blurRadius: 15,
                           spreadRadius: 2,
-                        )
+                        ),
                       ],
                     ),
                     child: _selectedImageBytes == null
@@ -607,10 +685,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                           color: const Color(0xFF4ADE80),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF4ADE80).withValues(alpha: 0.8),
+                              color: const Color(
+                                0xFF4ADE80,
+                              ).withValues(alpha: 0.8),
                               blurRadius: 8,
                               spreadRadius: 1,
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -618,10 +698,30 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                   ),
 
                   // Corners of the box (Corner brackets)
-                  const ScanCornerBracket(top: -2, left: -2, isTop: true, isLeft: true),
-                  const ScanCornerBracket(top: -2, right: -2, isTop: true, isLeft: false),
-                  const ScanCornerBracket(bottom: -2, left: -2, isTop: false, isLeft: true),
-                  const ScanCornerBracket(bottom: -2, right: -2, isTop: false, isLeft: false),
+                  const ScanCornerBracket(
+                    top: -2,
+                    left: -2,
+                    isTop: true,
+                    isLeft: true,
+                  ),
+                  const ScanCornerBracket(
+                    top: -2,
+                    right: -2,
+                    isTop: true,
+                    isLeft: false,
+                  ),
+                  const ScanCornerBracket(
+                    bottom: -2,
+                    left: -2,
+                    isTop: false,
+                    isLeft: true,
+                  ),
+                  const ScanCornerBracket(
+                    bottom: -2,
+                    right: -2,
+                    isTop: false,
+                    isLeft: false,
+                  ),
 
                   // Floating Tooltips (bouncing tags)
                   const Positioned(
@@ -655,7 +755,11 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                       color: Colors.black.withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.chevron_left, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
                 Text(
@@ -674,8 +778,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                     color: Colors.black.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.flash_on, color: Colors.white, size: 20),
-                )
+                  child: const Icon(
+                    Icons.flash_on,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
           ),
@@ -686,7 +794,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.only(top: 80, bottom: 48, left: 32, right: 32),
+              padding: const EdgeInsets.only(
+                top: 80,
+                bottom: 48,
+                left: 32,
+                right: 32,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -733,13 +846,16 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.primary, width: 4),
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 4,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 15,
                                 offset: const Offset(0, 5),
-                              )
+                              ),
                             ],
                           ),
                           child: Center(
@@ -750,7 +866,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   width: 2,
                                 ),
                               ),
@@ -766,7 +884,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                         onTap: () => Navigator.pop(context),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -783,11 +901,39 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(
-                          color: Color(0xFF4ADE80),
-                          strokeWidth: 3,
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF4ADE80,
+                            ).withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF4ADE80),
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
+                        Text(
+                          widget.officeMode
+                              ? 'Đang gợi ý món Office'
+                              : 'Đang phân tích món ăn',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         Text(
                           _loadingStep,
                           textAlign: TextAlign.center,
@@ -796,6 +942,33 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: const LinearProgressIndicator(
+                            minHeight: 5,
+                            color: Color(0xFF4ADE80),
+                            backgroundColor: Color(0x33FFFFFF),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Đã chờ $_loadingElapsedSeconds giây · Thường mất 20–60 giây',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Vui lòng giữ màn hình này trong khi AI xử lý.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 12,
                           ),
                         ),
                       ],

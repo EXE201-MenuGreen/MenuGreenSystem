@@ -172,7 +172,12 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
                             if (subscription != null)
                             {
                                 var plan = await unitOfWork.SubscriptionPlans.GetByIdAsync(subscription.SubscriptionPlanId);
-                                var durationDays = plan?.DurationDays ?? 30;
+                                var durationDays = plan?.DurationDays is > 0
+                                    ? plan.DurationDays.Value
+                                    : string.Equals(plan?.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                                      string.Equals(plan?.Name, "Office", StringComparison.OrdinalIgnoreCase)
+                                        ? 1
+                                        : 30;
 
                                 subscription.Status = "Active";
                                 subscription.StartDate = DateTime.UtcNow;
