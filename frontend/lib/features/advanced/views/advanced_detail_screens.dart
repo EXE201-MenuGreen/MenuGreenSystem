@@ -804,6 +804,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   final reviewCalorie = TextEditingController();
   final reviewProtein = TextEditingController();
 
+  // Route Approval feedback fields
+  final routeComment = TextEditingController();
+  final routeCalorie = TextEditingController();
+  final routeProtein = TextEditingController();
+
   DateTime _selectedDate = DateTime.now();
   int _suggestionPage = 0;
 
@@ -981,6 +986,141 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     }
   }
 
+  Future<void> submitRouteApproval(String token) async {
+    final commentVal = routeComment.text.trim();
+    final calVal = int.tryParse(routeCalorie.text);
+    final proVal = int.tryParse(routeProtein.text);
+
+    if (commentVal.isEmpty) {
+      showError(context, 'Vui lòng nhập nhận xét/ý kiến cho lộ trình');
+      return;
+    }
+
+    try {
+      setState(() => loading = true);
+      await repo.submitPtReview(token, {
+        'comment': commentVal,
+        'suggestedCalorieTarget': calVal,
+        'suggestedProteinTarget': proVal,
+        'suggestedChanges': <dynamic>[],
+      });
+      
+      routeComment.clear();
+      routeCalorie.clear();
+      routeProtein.clear();
+      
+      await load();
+      if (mounted) {
+        Navigator.pop(context); // Close review dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã duyệt lộ trình của học viên thành công!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  void _showRouteApprovalDialog(Map<String, dynamic> req) {
+    routeComment.clear();
+    routeCalorie.text = '${valueOf(profile ?? {}, 'trainingDayTargetCalories', '2000')}';
+    routeProtein.text = '${valueOf(profile ?? {}, 'minProteinG', '120')}';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Duyệt Lộ trình Dinh dưỡng'),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '1. Lộ trình từ Gymer',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('• Chế độ mục tiêu: ${valueOf(profile ?? {}, 'goal', 'Chưa đặt')}'),
+                      const SizedBox(height: 4),
+                      Text('• Calo ngày tập: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal'),
+                      const SizedBox(height: 4),
+                      Text('• Calo ngày nghỉ: ${valueOf(profile ?? {}, 'restDayTargetCalories', '-')} kcal'),
+                      const SizedBox(height: 4),
+                      Text('• Protein tối thiểu: ${valueOf(profile ?? {}, 'minProteinG', '-')} g'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '2. Ý kiến & Điều chỉnh của PT',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: routeComment,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhận xét/Ý kiến đóng góp',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: routeCalorie,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Calo đề xuất',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: routeProtein,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Protein đề xuất (g)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => submitRouteApproval(valueOf(req, 'reviewToken')),
+            child: const Text('Duyệt lộ trình'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReviewDialog(Map<String, dynamic> req) {
     reviewComment.clear();
     reviewCalorie.text = '${valueOf(profile ?? {}, 'trainingDayTargetCalories', '2000')}';
@@ -1019,13 +1159,97 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('• Ngày bắt đầu tuần: ${valueOf(req, 'weekStartDate')}'),
-                      const SizedBox(height: 4),
-                      Text('• Trạng thái yêu cầu: ${valueOf(req, 'status')}'),
-                      const SizedBox(height: 4),
-                      Text('• Cân nặng trung bình: ${valueOf(reportData, 'averageWeight', '-')} kg'),
-                      const SizedBox(height: 4),
-                      Text('• Calo tiêu thụ trung bình: ${valueOf(reportData, 'averageCalories', '-')} kcal'),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Ngày bắt đầu tuần:', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+                          Text(valueOf(req, 'weekStartDate'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Trạng thái yêu cầu:', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+                          Text(valueOf(req, 'status'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Cân nặng TB (tự động):', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+                          Text('${valueOf(reportData, 'averageWeight', '-')} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Calo TB (tự động):', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+                          Text('${valueOf(reportData, 'averageCalories', '-')} kcal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      if (valueOf(reportData, 'checkInWeight').isNotEmpty ||
+                          valueOf(reportData, 'trainingDaysCount').isNotEmpty ||
+                          valueOf(reportData, 'bodyFeeling').isNotEmpty ||
+                          valueOf(reportData, 'studentNote').isNotEmpty) ...[
+                        const Divider(height: 16),
+                        const Text(
+                          'Chỉ số Gymer tự check-in:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.green),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Cân nặng thực tế:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
+                            Text('${valueOf(reportData, 'checkInWeight', '-')} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tỷ lệ mỡ cơ thể:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
+                            Text(valueOf(reportData, 'checkInBodyFat').isNotEmpty ? '${valueOf(reportData, 'checkInBodyFat')}%' : '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Số buổi đã tập:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
+                            Text(valueOf(reportData, 'trainingDaysCount').isNotEmpty ? '${valueOf(reportData, 'trainingDaysCount')} buổi' : '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Cảm nhận thể trạng:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
+                            Text(valueOf(reportData, 'bodyFeeling', '-'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          ],
+                        ),
+                        if (valueOf(reportData, 'studentNote').isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text('Ghi chú/Lời nhắn:', style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Text(
+                              valueOf(reportData, 'studentNote'),
+                              style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -1234,7 +1458,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final totalItems = itemsList.length;
 
     final pendingReqs = reviewRequests
-        .where((r) => valueOf(r, 'status').toLowerCase() == 'pending')
+        .where((r) => valueOf(r, 'status').toLowerCase() == 'pending' && 
+                      (valueOf(r, 'requestType').isEmpty || valueOf(r, 'requestType').toLowerCase() == 'routeapproval'))
         .toList();
     final hasPendingReview = pendingReqs.isNotEmpty;
 
@@ -1365,7 +1590,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         },
         onApprove: (req) async {
           Navigator.pop(ctx);
-          _showReviewDialog(req);
+          _showRouteApprovalDialog(req);
         },
       ),
     );
@@ -1656,7 +1881,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   }
 
   Widget _buildReviewRequestsSection(Color primaryColor) {
-    if (reviewRequests.isEmpty) {
+    final reports = reviewRequests
+        .where((r) => valueOf(r, 'requestType').isEmpty || valueOf(r, 'requestType').toLowerCase() == 'weeklyreport')
+        .toList();
+
+    if (reports.isEmpty) {
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: const Padding(
@@ -1675,8 +1904,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       );
     }
 
-    final pendingReqs = reviewRequests.where((r) => valueOf(r, 'status').toLowerCase() == 'pending').toList();
-    final reqToDisplay = pendingReqs.isNotEmpty ? pendingReqs.first : reviewRequests.first;
+    final pendingReqs = reports.where((r) => valueOf(r, 'status').toLowerCase() == 'pending').toList();
+    final reqToDisplay = pendingReqs.isNotEmpty ? pendingReqs.first : reports.first;
     
     final status = valueOf(reqToDisplay, 'status');
     final isPending = status.toLowerCase() == 'pending';
@@ -2236,7 +2465,8 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
     final paged = remaining.skip(_page * _perPage).take(_perPage).toList();
 
     final pendingReqs = widget.reviewRequests
-        .where((r) => _v(r, 'status').toLowerCase() == 'pending')
+        .where((r) => _v(r, 'status').toLowerCase() == 'pending' && 
+                      (_v(r, 'requestType').isEmpty || _v(r, 'requestType').toLowerCase() == 'routeapproval'))
         .toList();
 
     final meals = {

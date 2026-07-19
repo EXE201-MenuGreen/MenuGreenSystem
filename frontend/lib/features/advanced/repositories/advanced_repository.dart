@@ -26,12 +26,24 @@ class AdvancedRepository {
   );
   Future<Map<String, dynamic>> createPtReport(
     String weekStart,
-    int expiry,
-  ) async => _map(
+    int expiry, {
+    String requestType = 'WeeklyReport',
+    String? studentNote,
+    double? checkInWeight,
+    double? checkInBodyFat,
+    int? trainingDaysCount,
+    String? bodyFeeling,
+  }) async => _map(
     _body(
       await _api.postJson('${ApiEndpoints.baseUrl}/PtReview/reports', {
         'weekStartDate': weekStart,
         'expirationDays': expiry,
+        'requestType': requestType,
+        'studentNote': studentNote,
+        'checkInWeight': checkInWeight,
+        'checkInBodyFat': checkInBodyFat,
+        'trainingDaysCount': trainingDaysCount,
+        'bodyFeeling': bodyFeeling,
       }),
     ),
   );

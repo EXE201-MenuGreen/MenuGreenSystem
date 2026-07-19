@@ -6,6 +6,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../subscription/models/sepay_models.dart';
 import '../../subscription/models/subscription_models.dart';
 import '../repositories/premium_program_repository.dart';
+import '../../advanced/repositories/advanced_repository.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
 
 class PremiumProgramsScreen extends StatefulWidget {
   const PremiumProgramsScreen({super.key});
@@ -19,9 +21,19 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   List<Map<String, dynamic>> _programs = const [];
   List<Map<String, dynamic>> _enrollments = const [];
+  Map<String, dynamic>? _customApprovedRoute;
   bool _loading = true;
   bool _actionLoading = false;
   String? _error;
+
+  String _viewMode = 'week'; // 'day', 'week', 'month'
+  int _selectedDayIndex = 0; // 0 to 6 (Monday to Sunday)
+  DateTime _currentDay = DateTime.now();
+  DateTime _currentWeekStart = DateTime.now();
+  DateTime _currentMonth = DateTime.now();
+  List<Map<String, dynamic>> _weeklyMeals = [];
+  List<Map<String, dynamic>> _singleDayMeals = [];
+  bool _loadingMealsData = false;
 
   Map<String, dynamic>? get _activeProgram => _firstWithStatus('active');
   Map<String, dynamic>? get _paidProgram => _firstWithStatus('paid');
@@ -44,19 +56,163 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       final results = await Future.wait([
         _repository.getPrograms(),
         _repository.getMyPrograms(),
+        AdvancedRepository().ptRequests(),
       ]);
       if (!mounted) return;
+
+      final reqs = results[2] as List<dynamic>;
+      // Find if there is an active/reviewed/applied RouteApproval request
+      final activeReq = reqs.firstWhere(
+        (r) {
+          final status = (r['status'] ?? '').toString().toLowerCase();
+          final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+          return (status == 'reviewed' || status == 'applied') &&
+                 (reqType.isEmpty || reqType == 'routeapproval');
+        },
+        orElse: () => <String, dynamic>{},
+      );
+
+      Map<String, dynamic>? routeDetail;
+      if (activeReq.isNotEmpty) {
+        routeDetail = await AdvancedRepository().ptResult(activeReq['reportId'].toString());
+      }
+
+      if (routeDetail != null) {
+        final weekStart = (routeDetail['weekStartDate'] ?? '').toString();
+        final parsedStartDate = DateTime.tryParse(weekStart) ?? DateTime.now();
+        _currentWeekStart = parsedStartDate;
+        
+        // If today is within this week, set _currentDay to today, otherwise set to Monday
+        final today = DateTime.now();
+        final weekEnd = parsedStartDate.add(const Duration(days: 6));
+        if (today.isAfter(parsedStartDate.subtract(const Duration(days: 1))) && today.isBefore(weekEnd.add(const Duration(days: 1)))) {
+          _currentDay = today;
+        } else {
+          _currentDay = parsedStartDate;
+        }
+        _currentMonth = parsedStartDate;
+      }
+
       setState(() {
-        _programs = results[0];
-        _enrollments = results[1];
+        _programs = List<Map<String, dynamic>>.from(results[0] as Iterable);
+        _enrollments = List<Map<String, dynamic>>.from(results[1] as Iterable);
+        _customApprovedRoute = routeDetail;
         _loading = false;
       });
+
+      if (_customApprovedRoute != null) {
+        _loadMealsData();
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = _cleanError(error);
       });
+    }
+  }
+
+  Future<void> _loadMealsData() async {
+    setState(() {
+      _loadingMealsData = true;
+    });
+    try {
+      if (_viewMode == 'day') {
+        final plan = await MealPlanRepository().getByDate(_currentDay);
+        final list = <Map<String, dynamic>>[];
+        if (plan != null) {
+          for (final item in plan.items) {
+            list.add({
+              'mealType': item.mealType,
+              'foodName': item.displayName,
+              'calories': item.targetCalories,
+              'proteinG': 0,
+              'carbsG': 0,
+              'fatG': 0,
+            });
+          }
+        }
+        if (!mounted) return;
+        setState(() {
+          _singleDayMeals = list;
+          _loadingMealsData = false;
+        });
+      } else if (_viewMode == 'week') {
+        final futures = List.generate(7, (i) {
+          final date = _currentWeekStart.add(Duration(days: i));
+          return MealPlanRepository().getByDate(date);
+        });
+        final results = await Future.wait(futures);
+        if (!mounted) return;
+
+        final list = <Map<String, dynamic>>[];
+        for (int i = 0; i < 7; i++) {
+          final date = _currentWeekStart.add(Duration(days: i));
+          final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          
+          final plan = results[i];
+          final itemsList = <Map<String, dynamic>>[];
+          if (plan != null) {
+            for (final item in plan.items) {
+              itemsList.add({
+                'mealType': item.mealType,
+                'foodName': item.displayName,
+                'calories': item.targetCalories,
+                'proteinG': 0,
+                'carbsG': 0,
+                'fatG': 0,
+              });
+            }
+          }
+          list.add({
+            'date': dateStr,
+            'dayOfWeek': _getDayOfWeekString(date.weekday),
+            'meals': itemsList,
+          });
+        }
+        setState(() {
+          _weeklyMeals = list;
+          _loadingMealsData = false;
+        });
+      } else if (_viewMode == 'month') {
+        final plan = await MealPlanRepository().getByDate(_currentDay);
+        final list = <Map<String, dynamic>>[];
+        if (plan != null) {
+          for (final item in plan.items) {
+            list.add({
+              'mealType': item.mealType,
+              'foodName': item.displayName,
+              'calories': item.targetCalories,
+              'proteinG': 0,
+              'carbsG': 0,
+              'fatG': 0,
+            });
+          }
+        }
+        if (!mounted) return;
+        setState(() {
+          _singleDayMeals = list;
+          _loadingMealsData = false;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingMealsData = false;
+      });
+    }
+  }
+
+  String _getDayOfWeekString(int weekday) {
+    switch (weekday) {
+      case 1: return 'Thứ Hai';
+      case 2: return 'Thứ Ba';
+      case 3: return 'Thứ Tư';
+      case 4: return 'Thứ Năm';
+      case 5: return 'Thứ Sáu';
+      case 6: return 'Thứ Bảy';
+      case 7: return 'Chủ Nhật';
+      default: return '';
     }
   }
 
@@ -450,44 +606,17 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 children: [
                   _buildIntro(),
+                  if (_customApprovedRoute != null) ...[
+                    const SizedBox(height: 14),
+                    _buildCustomApprovedRoute(_customApprovedRoute!),
+                  ] else ...[
+                    const SizedBox(height: 14),
+                    const _MessageCard(message: 'Chưa có lộ trình cá nhân nào được duyệt từ PT.'),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 14),
                     _MessageCard(message: _error!),
                   ],
-                  if (_paidProgram != null) ...[
-                    const SizedBox(height: 14),
-                    _buildPaidProgram(_paidProgram!),
-                  ],
-                  if (_activeProgram != null) ...[
-                    const SizedBox(height: 14),
-                    _buildActiveProgram(_activeProgram!),
-                  ],
-                  if (_completedPrograms.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    for (final completed in _completedPrograms)
-                      _buildCompletedProgram(completed),
-                  ],
-                  const SizedBox(height: 22),
-                  Text(
-                    'Chương trình phù hợp',
-                    style: GoogleFonts.beVietnamPro(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_programs.isEmpty)
-                    const _MessageCard(
-                      message: 'Chưa có chương trình nào đang mở đăng ký.',
-                    )
-                  else
-                    for (final program in _programs)
-                      _ProgramCard(
-                        program: program,
-                        busy: _actionLoading,
-                        onCheckout: () => _checkout(program),
-                      ),
                 ],
               ),
             ),
@@ -757,6 +886,697 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildCustomApprovedRoute(Map<String, dynamic> route) {
+    final weekStart = _value(route, 'weekStartDate');
+    final comment = _value(route, 'ptComment');
+    final calories = route['suggestedCalorieTarget'] ?? '-';
+    final protein = route['suggestedProteinTarget'] ?? '-';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.green.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.shade50.withValues(alpha: 0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user, color: Colors.green, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Lộ trình cá nhân đã duyệt',
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Áp dụng cho tuần khởi đầu từ $weekStart',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green.shade800,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (comment.isNotEmpty) ...[
+                  Text(
+                    'Nhận xét từ PT:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Text(
+                      comment,
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Calo đề xuất',
+                        '$calories kcal',
+                        Colors.orange.shade50,
+                        Colors.orange.shade800,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Protein đề xuất',
+                        '$protein g',
+                        Colors.blue.shade50,
+                        Colors.blue.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Toggle mode selector (Day, Week, Month)
+                Center(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildViewModeButton('day', 'Ngày'),
+                        _buildViewModeButton('week', 'Tuần'),
+                        _buildViewModeButton('month', 'Tháng'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (_viewMode == 'day') ...[
+                  _buildDayViewPicker(),
+                ] else if (_viewMode == 'week') ...[
+                  _buildWeekView(),
+                ] else if (_viewMode == 'month') ...[
+                  _buildMonthView(),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeButton(String mode, String label) {
+    final isSelected = _viewMode == mode;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _viewMode = mode;
+        });
+        _loadMealsData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12.5,
+            color: isSelected ? AppColors.primary : Colors.grey.shade600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayViewPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                setState(() {
+                  _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+                  _currentDay = _currentWeekStart;
+                });
+                _loadMealsData();
+              },
+            ),
+            Text(
+              'Tuần ${_formatDateOnly(_currentWeekStart)} - ${_formatDateOnly(_currentWeekStart.add(const Duration(days: 6)))}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                setState(() {
+                  _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+                  _currentDay = _currentWeekStart;
+                });
+                _loadMealsData();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (int i = 0; i < 7; i++) ...[
+                (() {
+                  final date = _currentWeekStart.add(Duration(days: i));
+                  final isSelected = date.year == _currentDay.year &&
+                      date.month == _currentDay.month &&
+                      date.day == _currentDay.day;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      showCheckmark: false,
+                      label: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Text(
+                          '${_getDayOfWeekLabel(date.weekday)}\n${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppColors.primary,
+                      backgroundColor: Colors.grey.shade100,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _currentDay = date;
+                          });
+                          _loadMealsData();
+                        }
+                      },
+                    ),
+                  );
+                })(),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_loadingMealsData)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          )
+        else
+          _buildDayMealsList(_singleDayMeals),
+      ],
+    );
+  }
+
+  Widget _buildWeekView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                setState(() {
+                  _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+                });
+                _loadMealsData();
+              },
+            ),
+            Text(
+              'Tuần ${_formatDateOnly(_currentWeekStart)} - ${_formatDateOnly(_currentWeekStart.add(const Duration(days: 6)))}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                setState(() {
+                  _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+                });
+                _loadMealsData();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_loadingMealsData)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          )
+        else if (_weeklyMeals.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                'Không có thông tin món ăn nào được ghi nhận.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ),
+          )
+        else
+          for (final day in _weeklyMeals) ...[
+            _buildDayMealsDropdown(day),
+            const SizedBox(height: 8),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildMonthView() {
+    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final daysInMonth = lastDayOfMonth.day;
+    final startOffset = firstDayOfMonth.weekday - 1; 
+
+    final weekDaysLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                setState(() {
+                  _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1, 1);
+                  _currentDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+                });
+                _loadMealsData();
+              },
+            ),
+            Text(
+              'Tháng ${_currentMonth.month}/${_currentMonth.year}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                setState(() {
+                  _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 1);
+                  _currentDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+                });
+                _loadMealsData();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            for (final label in weekDaysLabels)
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+          ),
+          itemCount: startOffset + daysInMonth,
+          itemBuilder: (ctx, index) {
+            if (index < startOffset) {
+              return const SizedBox.shrink();
+            }
+            final dayNumber = index - startOffset + 1;
+            final date = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
+            final isSelected = date.year == _currentDay.year &&
+                date.month == _currentDay.month &&
+                date.day == _currentDay.day;
+
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _currentDay = date;
+                });
+                _loadMealsData();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isSelected
+                      ? null
+                      : Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  '$dayNumber',
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12.5,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Thực đơn chi tiết ngày ${_currentDay.day.toString().padLeft(2, '0')}/${_currentDay.month.toString().padLeft(2, '0')}/${_currentDay.year}:',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        if (_loadingMealsData)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          )
+        else
+          _buildDayMealsList(_singleDayMeals),
+      ],
+    );
+  }
+
+  Widget _buildDayMealsList(List<Map<String, dynamic>> mealsList) {
+    if (mealsList.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: Text(
+            'Không có bữa ăn nào trong ngày này.',
+            style: TextStyle(color: Colors.grey, fontSize: 12.5, fontStyle: FontStyle.italic),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          for (final meal in mealsList) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _translateMealType(_value(meal, 'mealType')),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _value(meal, 'foodName'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${meal['calories']} kcal',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (meal != mealsList.last) const Divider(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(String label, String value, Color bgColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: textColor.withAlpha(200),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayMealsDropdown(Map<String, dynamic> dayData) {
+    final dayOfWeek = _value(dayData, 'dayOfWeek');
+    final dateStr = _value(dayData, 'date');
+    final mealsList = dayData['meals'] as List? ?? [];
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        backgroundColor: Colors.grey.shade50,
+        collapsedBackgroundColor: Colors.grey.shade50,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        title: Text(
+          '$dayOfWeek ($dateStr)',
+          style: GoogleFonts.beVietnamPro(
+            fontWeight: FontWeight.w700,
+            fontSize: 13.5,
+            color: AppColors.textDark,
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (mealsList.isEmpty)
+                  const Text(
+                    'Không có bữa ăn nào.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  )
+                else
+                  for (final meal in mealsList) ...[
+                    if (meal is Map) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _translateMealType(_value(meal as Map<String, dynamic>, 'mealType')),
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _value(meal, 'foodName'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${meal['calories']} kcal',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (meal != mealsList.last) const Divider(height: 8),
+                    ],
+                  ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getDayOfWeekLabel(int weekday) {
+    switch (weekday) {
+      case 1: return 'T2';
+      case 2: return 'T3';
+      case 3: return 'T4';
+      case 4: return 'T5';
+      case 5: return 'T6';
+      case 6: return 'T7';
+      case 7: return 'CN';
+      default: return '';
+    }
+  }
+
+  String _formatDateOnly(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+  }
+
+  String _translateMealType(String type) {
+    switch (type.toLowerCase()) {
+      case 'breakfast':
+        return 'Sáng';
+      case 'lunch':
+        return 'Trưa';
+      case 'dinner':
+        return 'Tối';
+      case 'snack':
+        return 'Phụ';
+      default:
+        return type;
+    }
   }
 
   void _showMessage(String message, {bool error = false}) {

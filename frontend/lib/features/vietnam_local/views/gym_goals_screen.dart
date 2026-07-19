@@ -33,6 +33,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
   bool _isSentToPt = false;
+  Map<String, dynamic>? _activeRouteReq;
   int _suggestionPage = 0;
   int _activeSuggestionPage = 0;
 
@@ -117,12 +118,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final weekStartStr = '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
 
       final reqs = await AdvancedRepository().ptRequests();
-      // Find if there is a request for the current week that is NOT Rejected
+      // Find if there is an active RouteApproval request for the current week (pending or reviewed)
       final activeReq = reqs.firstWhere(
         (r) {
           final weekStart = (r['weekStartDate'] ?? '').toString();
           final status = (r['status'] ?? '').toString().toLowerCase();
-          return weekStart.startsWith(weekStartStr) && status != 'rejected';
+          final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+          return weekStart.startsWith(weekStartStr) && 
+                 (status == 'pending' || status == 'reviewed') && 
+                 (reqType.isEmpty || reqType == 'routeapproval');
         },
         orElse: () => <String, dynamic>{},
       );
@@ -130,6 +134,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         setState(() {
           _isSentToPt = activeReq.isNotEmpty;
+          _activeRouteReq = activeReq.isNotEmpty ? activeReq : null;
         });
       }
     } catch (e) {
@@ -621,32 +626,102 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           const SizedBox(height: 16),
         ],
         const SizedBox(height: 8),
-        if (_isSentToPt)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade200),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.lock_clock, color: Colors.amber.shade700, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Lộ trình đã được gửi cho PT duyệt và đã bị khóa chỉnh sửa.',
-                    style: TextStyle(
-                      color: Colors.amber.shade900,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+        if (_isSentToPt) ...[
+          if (_activeRouteReq != null && _activeRouteReq!['status']?.toString().toLowerCase() == 'reviewed')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Lộ trình đã được PT duyệt!',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if ((_activeRouteReq!['ptComment'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Nhận xét từ PT: ${_activeRouteReq!['ptComment']}',
+                      style: TextStyle(color: Colors.grey.shade800, fontSize: 13, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        setState(() => _loadingPlan = true);
+                        try {
+                          await AdvancedRepository().ptAction(_activeRouteReq!['reportId'].toString(), 'apply');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Đã áp dụng lộ trình dinh dưỡng thành công!')),
+                            );
+                          }
+                          _loadGymData();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Lỗi áp dụng lộ trình: $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _loadingPlan = false);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Áp dụng lộ trình mới'),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_clock, color: Colors.amber.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Lộ trình đã được gửi cho PT duyệt và đã bị khóa chỉnh sửa.',
+                      style: TextStyle(
+                        color: Colors.amber.shade900,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )
+        ]
         else
           SizedBox(
             width: double.infinity,
@@ -1394,7 +1469,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final monday = today.subtract(Duration(days: daysToMonday));
       final weekStartStr = '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
 
-      await AdvancedRepository().createPtReport(weekStartStr, 7);
+      await AdvancedRepository().createPtReport(weekStartStr, 7, requestType: 'RouteApproval');
       await _checkPtRequestStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
