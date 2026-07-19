@@ -804,6 +804,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   final reviewCalorie = TextEditingController();
   final reviewProtein = TextEditingController();
 
+  DateTime _selectedDate = DateTime.now();
+  int _suggestionPage = 0;
+
   Map<String, dynamic>? profile;
   List<Map<String, dynamic>> nutrition = [];
   List<Map<String, dynamic>> feedbacks = [], weights = [];
@@ -824,13 +827,13 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
 
   Future<void> load() async {
     try {
-      final todayStr = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+      final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
       final results = await Future.wait([
         repo.clientProfile(id),
         repo.clientNutrition(id),
         repo.clientWeight(id),
         repo.feedback(id),
-        repo.clientMealPlan(id, todayStr),
+        repo.clientMealPlan(id, dateStr),
         repo.clientSuggestions(id),
         repo.clientReviewRequests(id),
       ]);
@@ -916,6 +919,59 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         Navigator.pop(context); // Close review dialog
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã gửi đánh giá tuần thành công!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _deleteMealPlanItem(Map<String, dynamic> itemToDelete) async {
+    if (mealPlan == null) return;
+    try {
+      setState(() => loading = true);
+      final items = <Map<String, dynamic>>[];
+      if (mealPlan!['items'] is List) {
+        for (final item in mealPlan!['items'] as List) {
+          final itemFoodId = valueOf(item, 'foodId');
+          final itemRecipeId = valueOf(item, 'recipeId');
+          final targetFoodId = valueOf(itemToDelete, 'foodId');
+          final targetRecipeId = valueOf(itemToDelete, 'recipeId');
+          final itemMealType = valueOf(item, 'mealType');
+          final targetMealType = valueOf(itemToDelete, 'mealType');
+          
+          if (itemMealType.toLowerCase() == targetMealType.toLowerCase() &&
+              (itemFoodId.isNotEmpty && itemFoodId == targetFoodId ||
+               itemRecipeId.isNotEmpty && itemRecipeId == targetRecipeId)) {
+            continue;
+          }
+          
+          items.add({
+            'mealType': valueOf(item, 'mealType'),
+            'foodId': itemFoodId.isEmpty ? null : itemFoodId,
+            'recipeId': itemRecipeId.isEmpty ? null : itemRecipeId,
+            'targetCalories': double.tryParse(valueOf(item, 'targetCalories'))?.round() ?? 200,
+            'plannedDate': valueOf(item, 'plannedDate').isEmpty ? null : valueOf(item, 'plannedDate'),
+            'scheduledTime': valueOf(item, 'scheduledTime').isEmpty ? null : valueOf(item, 'scheduledTime'),
+            'isCompleted': valueOf(item, 'isCompleted').toString().toLowerCase() == 'true',
+          });
+        }
+      }
+
+      await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
+        'title': valueOf(mealPlan!, 'title'),
+        'planType': 'CoachAdjusted',
+        'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
+        'isActive': true,
+        'items': items,
+      });
+
+      await load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xóa món ăn khỏi thực đơn của học viên!')),
         );
       }
     } catch (e) {
@@ -1031,71 +1087,292 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     );
   }
 
+  Widget _buildMealPlanHeaderSection(Color primaryColor) {
+    final dateStr = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.calendar_month, color: primaryColor),
+                const SizedBox(width: 10),
+                Text(
+                  'Ngày xem: $dateStr',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _selectedDate = picked;
+                    loading = true;
+                  });
+                  await load();
+                }
+              },
+              icon: const Icon(Icons.edit_calendar, size: 16),
+              label: const Text('Chọn ngày'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(valueOf(widget.client, 'fullName')),
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(valueOf(widget.client, 'fullName')),
+          bottom: TabBar(
+            indicatorColor: primaryColor,
+            labelColor: primaryColor,
+            unselectedLabelColor: Colors.grey,
+            tabs: const [
+              Tab(icon: Icon(Icons.person), text: 'Hồ sơ cá nhân'),
+              Tab(icon: Icon(Icons.restaurant), text: 'Lộ trình & Gợi ý'),
+            ],
+          ),
+        ),
+        body: loading
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
+                children: [
+                  // Tab 1: Hồ sơ cá nhân
+                  RefreshIndicator(
+                    onRefresh: load,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.person, color: Colors.blueAccent),
-                            SizedBox(width: 8),
-                            Text('Hồ sơ sức khỏe của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                          ],
+                        Card(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.person, color: Colors.blueAccent),
+                                    SizedBox(width: 8),
+                                    Text('Hồ sơ sức khỏe của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ],
+                                ),
+                                const Divider(),
+                                Text(
+                                  '• Chiều cao: ${valueOf(profile ?? {}, 'heightCm', '-')} cm  '
+                                  '• Cân nặng: ${valueOf(profile ?? {}, 'weightKg', '-')} kg\n'
+                                  '• BMI: ${valueOf(profile ?? {}, 'bmi', '-')}  '
+                                  '• Mục tiêu: ${valueOf(profile ?? {}, 'goal', '-')}\n'
+                                  '• Calo mục tiêu: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal\n'
+                                  '• Dị ứng: ${valueOf(profile ?? {}, 'allergies', 'Không có')}',
+                                  style: TextStyle(color: Colors.grey.shade800, height: 1.5, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        const Divider(),
-                        Text(
-                          '• Chiều cao: ${valueOf(profile ?? {}, 'heightCm', '-')} cm  '
-                          '• Cân nặng: ${valueOf(profile ?? {}, 'weightKg', '-')} kg\n'
-                          '• BMI: ${valueOf(profile ?? {}, 'bmi', '-')}  '
-                          '• Mục tiêu: ${valueOf(profile ?? {}, 'goal', '-')}\n'
-                          '• Calo mục tiêu: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal\n'
-                          '• Dị ứng: ${valueOf(profile ?? {}, 'allergies', 'Không có')}',
-                          style: TextStyle(color: Colors.grey.shade800, height: 1.5, fontSize: 13),
-                        ),
+                        const SizedBox(height: 16),
+                        _buildReviewRequestsSection(primaryColor),
+                        const SizedBox(height: 16),
+                        _buildTrendsSection(),
+                        const SizedBox(height: 16),
+                        _buildTargetsAdjustmentSection(primaryColor),
+                        const SizedBox(height: 16),
+                        _buildChatBoardSection(primaryColor),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                _buildMealPlanSection(primaryColor),
-                const SizedBox(height: 16),
-
-                _buildAiSuggestionsSection(primaryColor),
-                const SizedBox(height: 16),
-
-                _buildReviewRequestsSection(primaryColor),
-                const SizedBox(height: 16),
-
-                _buildTrendsSection(),
-                const SizedBox(height: 16),
-
-                _buildTargetsAdjustmentSection(primaryColor),
-                const SizedBox(height: 16),
-
-                _buildChatBoardSection(primaryColor),
-              ],
-            ),
+                  
+                  // Tab 2: Lộ trình & Gợi ý
+                  RefreshIndicator(
+                    onRefresh: load,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _buildMealPlanHeaderSection(primaryColor),
+                        const SizedBox(height: 16),
+                        _buildDayReviewCard(primaryColor),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
+  Widget _buildDayReviewCard(Color primaryColor) {
+    final dateStr = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+    final itemsList = mealPlan != null && mealPlan!['items'] is List
+        ? mealPlan!['items'] as List
+        : <dynamic>[];
+    final totalCal = itemsList.fold<double>(
+      0,
+      (sum, x) => sum + (double.tryParse(valueOf(x, 'targetCalories')) ?? 0),
+    );
+    final totalItems = itemsList.length;
+
+    final pendingReqs = reviewRequests
+        .where((r) => valueOf(r, 'status').toLowerCase() == 'pending')
+        .toList();
+    final hasPendingReview = pendingReqs.isNotEmpty;
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showDayReviewSheet(primaryColor),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.rate_review_rounded, color: primaryColor, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Đánh giá ngày $dateStr',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      totalItems == 0
+                          ? 'Chưa có món ăn nào trong ngày này'
+                          : '$totalItems món · ${totalCal.round()} kcal tổng cộng',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    if (hasPendingReview) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: const Text(
+                          '⚡ Có yêu cầu duyệt đang chờ',
+                          style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDayReviewSheet(Color primaryColor) {
+    final dateLabel = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DayReviewSheet(
+        primaryColor: primaryColor,
+        dateLabel: dateLabel,
+        selectedDate: _selectedDate,
+        mealPlan: mealPlan,
+        aiSuggestions: aiSuggestions,
+        reviewRequests: reviewRequests,
+        onDeleteItem: _deleteMealPlanItem,
+        onAssignItem: (item, mealType) async {
+          if (mealPlan == null) {
+            showError(context, 'Học viên chưa có Meal Plan nào để gán.');
+            return;
+          }
+          setState(() => loading = true);
+          try {
+            final items = <Map<String, dynamic>>[];
+            if (mealPlan!['items'] is List) {
+              for (final existing in mealPlan!['items'] as List) {
+                items.add({
+                  'mealType': valueOf(existing, 'mealType'),
+                  'foodId': valueOf(existing, 'foodId').isEmpty ? null : valueOf(existing, 'foodId'),
+                  'recipeId': valueOf(existing, 'recipeId').isEmpty ? null : valueOf(existing, 'recipeId'),
+                  'targetCalories': double.tryParse(valueOf(existing, 'targetCalories'))?.round() ?? 200,
+                  'plannedDate': valueOf(existing, 'plannedDate').isEmpty ? null : valueOf(existing, 'plannedDate'),
+                  'scheduledTime': valueOf(existing, 'scheduledTime').isEmpty ? null : valueOf(existing, 'scheduledTime'),
+                  'isCompleted': valueOf(existing, 'isCompleted').toString().toLowerCase() == 'true',
+                });
+              }
+            }
+            final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+            items.add({
+              'mealType': mealType,
+              'foodId': valueOf(item, 'type').toLowerCase().contains('recipe') ? null : valueOf(item, 'id'),
+              'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe') ? valueOf(item, 'id') : null,
+              'targetCalories': double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ?? 200,
+              'plannedDate': dateStr,
+              'isCompleted': false,
+            });
+            await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
+              'title': valueOf(mealPlan!, 'title'),
+              'planType': 'CoachAdjusted',
+              'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
+              'isActive': true,
+              'items': items,
+            });
+            final nav = Navigator.of(ctx);
+            await load();
+            if (mounted) {
+              nav.pop();
+              _showDayReviewSheet(primaryColor);
+            }
+          } catch (e) {
+            if (mounted) showError(context, e);
+          } finally {
+            if (mounted) setState(() => loading = false);
+          }
+        },
+        onApprove: (req) async {
+          Navigator.pop(ctx);
+          _showReviewDialog(req);
+        },
+      ),
+    );
+  }
+
+  // _buildMealPlanSection and _buildAiSuggestionsSection moved into _DayReviewSheet
+  // ignore: unused_element
   Widget _buildMealPlanSection(Color primaryColor) {
     final itemsList = mealPlan != null && mealPlan!['items'] is List
         ? mealPlan!['items'] as List
@@ -1119,14 +1396,14 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.calendar_today, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Lộ trình ăn uống hôm nay của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text('Lộ trình ăn uống của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ],
             ),
             const Divider(),
             if (mealPlan == null || itemsList.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Học viên chưa lên thực đơn hôm nay.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text('Học viên chưa lên thực đơn cho ngày này.', style: TextStyle(color: Colors.grey, fontSize: 13)),
               )
             else
               ...meals.entries.map((m) {
@@ -1167,6 +1444,13 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                                     '${valueOf(item, 'targetCalories')} kcal',
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                    onPressed: () => _deleteMealPlanItem(item),
+                                  ),
                                 ],
                               ),
                             )),
@@ -1180,7 +1464,35 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildAiSuggestionsSection(Color primaryColor) {
+    final addedIds = mealPlan != null && mealPlan!['items'] is List
+        ? (mealPlan!['items'] as List)
+            .map((x) => (valueOf(x, 'foodId').isEmpty ? valueOf(x, 'recipeId') : valueOf(x, 'foodId')).trim().toLowerCase())
+            .where((s) => s.isNotEmpty)
+            .toSet()
+        : <String>{};
+
+    final remainingSuggestions = aiSuggestions
+        .where((x) => !addedIds.contains(valueOf(x, 'id').trim().toLowerCase()))
+        .toList();
+
+    const itemsPerPage = 5;
+    final totalSuggestions = remainingSuggestions.length;
+    final totalPages = (totalSuggestions / itemsPerPage).ceil();
+
+    if (_suggestionPage >= totalPages && totalPages > 0) {
+      _suggestionPage = totalPages - 1;
+    }
+    if (_suggestionPage < 0) {
+      _suggestionPage = 0;
+    }
+
+    final pagedSuggestions = remainingSuggestions
+        .skip(_suggestionPage * itemsPerPage)
+        .take(itemsPerPage)
+        .toList();
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
@@ -1196,7 +1508,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               ],
             ),
             const Divider(),
-            if (aiSuggestions.isEmpty)
+            if (pagedSuggestions.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Text('Không có món gợi ý phù hợp.', style: TextStyle(color: Colors.grey, fontSize: 13)),
@@ -1204,7 +1516,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
             else
               Column(
                 children: [
-                  for (final item in aiSuggestions.take(4))
+                  for (final item in pagedSuggestions)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
@@ -1221,76 +1533,122 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  valueOf(item, 'name'),
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  Text(
+                                    valueOf(item, 'name'),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${double.tryParse(valueOf(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal • P ${double.tryParse(valueOf(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            PopupMenuButton<String>(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                Text(
-                                  '${double.tryParse(valueOf(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal • P ${double.tryParse(valueOf(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                child: Text(
+                                  'Gợi ý gán',
+                                  style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: FontWeight.bold),
                                 ),
+                              ),
+                              onSelected: (mealType) async {
+                                if (mealPlan == null) {
+                                  showError(context, 'Học viên chưa có Meal Plan nào khởi tạo để gán.');
+                                  return;
+                                }
+                                try {
+                                  setState(() => loading = true);
+                                  final items = <Map<String, dynamic>>[];
+                                  
+                                  // Copy existing items
+                                  if (mealPlan!['items'] is List) {
+                                    for (final existing in mealPlan!['items'] as List) {
+                                      items.add({
+                                        'mealType': valueOf(existing, 'mealType'),
+                                        'foodId': valueOf(existing, 'foodId').isEmpty ? null : valueOf(existing, 'foodId'),
+                                        'recipeId': valueOf(existing, 'recipeId').isEmpty ? null : valueOf(existing, 'recipeId'),
+                                        'targetCalories': double.tryParse(valueOf(existing, 'targetCalories'))?.round() ?? 200,
+                                        'plannedDate': valueOf(existing, 'plannedDate').isEmpty ? null : valueOf(existing, 'plannedDate'),
+                                        'scheduledTime': valueOf(existing, 'scheduledTime').isEmpty ? null : valueOf(existing, 'scheduledTime'),
+                                        'isCompleted': valueOf(existing, 'isCompleted').toString().toLowerCase() == 'true',
+                                      });
+                                    }
+                                  }
+
+                                  // Add the new suggested item
+                                  final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+                                  items.add({
+                                    'mealType': mealType,
+                                    'foodId': valueOf(item, 'type').toLowerCase().contains('recipe') ? null : valueOf(item, 'id'),
+                                    'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe') ? valueOf(item, 'id') : null,
+                                    'targetCalories': double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ?? 200,
+                                    'plannedDate': dateStr,
+                                    'isCompleted': false
+                                  });
+
+                                  await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
+                                    'title': valueOf(mealPlan!, 'title'),
+                                    'planType': 'CoachAdjusted',
+                                    'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
+                                    'isActive': true,
+                                    'items': items,
+                                  });
+                                  await load();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Đã gán và đề xuất món ăn thành công!')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) showError(context, e);
+                                } finally {
+                                  if (mounted) setState(() => loading = false);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                                const PopupMenuItem(value: 'lunch', child: Text('Bữa trưa')),
+                                const PopupMenuItem(value: 'dinner', child: Text('Bữa tối')),
+                                const PopupMenuItem(value: 'snack', child: Text('Bữa phụ')),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          PopupMenuButton<String>(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Gợi ý gán',
-                                style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            onSelected: (mealType) async {
-                              if (mealPlan == null) {
-                                showError(context, 'Học viên chưa có Meal Plan nào khởi tạo để gán.');
-                                return;
-                              }
-                              try {
-                                await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
-                                  'title': valueOf(mealPlan!, 'title'),
-                                  'planType': 'CoachAdjusted',
-                                  'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
-                                  'isActive': true,
-                                  'items': [
-                                    {
-                                      'mealType': mealType,
-                                      'foodId': valueOf(item, 'type').toLowerCase().contains('recipe') ? null : valueOf(item, 'id'),
-                                      'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe') ? valueOf(item, 'id') : null,
-                                      'targetCalories': double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ?? 200,
-                                      'plannedDate': "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}",
-                                      'isCompleted': false
-                                    }
-                                  ]
-                                });
-                                await load();
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Đã gán và đề xuất món ăn thành công!')),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) showError(context, e);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
-                              const PopupMenuItem(value: 'lunch', child: Text('Bữa trưa')),
-                              const PopupMenuItem(value: 'dinner', child: Text('Bữa tối')),
-                              const PopupMenuItem(value: 'snack', child: Text('Bữa phụ')),
-                            ],
-                          ),
-                        ],
-                      ),
-                    )
+                          ],
+                        ),
+                      )
+                  ],
+                ),
+            if (totalPages > 1) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, size: 16),
+                    onPressed: _suggestionPage > 0
+                        ? () => setState(() => _suggestionPage--)
+                        : null,
+                  ),
+                  Text(
+                    'Trang ${_suggestionPage + 1} / $totalPages',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onPressed: _suggestionPage < totalPages - 1
+                        ? () => setState(() => _suggestionPage++)
+                        : null,
+                  ),
                 ],
               ),
+            ],
           ],
         ),
       ),
@@ -1298,71 +1656,62 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   }
 
   Widget _buildReviewRequestsSection(Color primaryColor) {
+    if (reviewRequests.isEmpty) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.assignment, color: Colors.orangeAccent),
+              SizedBox(width: 12),
+              Text(
+                'Chưa có yêu cầu đánh giá nào',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final pendingReqs = reviewRequests.where((r) => valueOf(r, 'status').toLowerCase() == 'pending').toList();
+    final reqToDisplay = pendingReqs.isNotEmpty ? pendingReqs.first : reviewRequests.first;
+    
+    final status = valueOf(reqToDisplay, 'status');
+    final isPending = status.toLowerCase() == 'pending';
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.assignment, color: Colors.orangeAccent),
-                SizedBox(width: 8),
-                Text('Yêu cầu đánh giá tuần của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              ],
-            ),
-            const Divider(),
-            if (reviewRequests.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Chưa có yêu cầu đánh giá nào.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              )
-            else
-              ...reviewRequests.map((req) {
-                final status = valueOf(req, 'status');
-                final isPending = status.toLowerCase() == 'pending';
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tuần ngày: ${valueOf(req, 'weekStartDate')}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Trạng thái: $status',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isPending ? Colors.orange : Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isPending)
-                        FilledButton(
-                          onPressed: () => _showReviewDialog(req),
-                          style: FilledButton.styleFrom(backgroundColor: primaryColor),
-                          child: const Text('Đánh giá', style: TextStyle(fontSize: 12)),
-                        )
-                    ],
-                  ),
-                );
-              }),
-          ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: isPending ? () => _showReviewDialog(reqToDisplay) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Icon(Icons.assignment, color: Colors.orangeAccent, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPending ? '⚡ Yêu cầu đánh giá tuần mới' : 'Yêu cầu đánh giá tuần',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tuần ngày: ${valueOf(reqToDisplay, 'weekStartDate')} • Trạng thái: $status',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              if (isPending)
+                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orangeAccent),
+            ],
+          ),
         ),
       ),
     );
@@ -1823,4 +2172,338 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
       ],
     ),
   );
+}
+// ─────────────────────────────────────────
+// _DayReviewSheet – bottom sheet opened when PT taps the review card
+// ─────────────────────────────────────────
+class _DayReviewSheet extends StatefulWidget {
+  final Color primaryColor;
+  final String dateLabel;
+  final DateTime selectedDate;
+  final Map<String, dynamic>? mealPlan;
+  final List<Map<String, dynamic>> aiSuggestions;
+  final List<Map<String, dynamic>> reviewRequests;
+  final Future<void> Function(Map<String, dynamic> item) onDeleteItem;
+  final Future<void> Function(Map<String, dynamic> item, String mealType) onAssignItem;
+  final Future<void> Function(Map<String, dynamic> req) onApprove;
+
+  const _DayReviewSheet({
+    required this.primaryColor,
+    required this.dateLabel,
+    required this.selectedDate,
+    required this.mealPlan,
+    required this.aiSuggestions,
+    required this.reviewRequests,
+    required this.onDeleteItem,
+    required this.onAssignItem,
+    required this.onApprove,
+  });
+
+  @override
+  State<_DayReviewSheet> createState() => _DayReviewSheetState();
+}
+
+class _DayReviewSheetState extends State<_DayReviewSheet> {
+  int _page = 0;
+  bool _working = false;
+  static const _perPage = 5;
+
+  String _v(dynamic data, String key) {
+    if (data is! Map<String, dynamic>) return '';
+    return valueOf(data, key);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = widget.primaryColor;
+    final itemsList = widget.mealPlan != null && widget.mealPlan!['items'] is List
+        ? widget.mealPlan!['items'] as List
+        : <dynamic>[];
+
+    // Build AI suggestions, removing already-added ones
+    final addedIds = itemsList
+        .map((x) => (
+              _v(x, 'foodId').isEmpty ? _v(x, 'recipeId') : _v(x, 'foodId')
+            ).trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    final remaining = widget.aiSuggestions
+        .where((x) => !addedIds.contains(_v(x, 'id').trim().toLowerCase()))
+        .toList();
+    final totalPages = (remaining.length / _perPage).ceil().clamp(1, 9999);
+    if (_page >= totalPages) _page = totalPages - 1;
+    if (_page < 0) _page = 0;
+    final paged = remaining.skip(_page * _perPage).take(_perPage).toList();
+
+    final pendingReqs = widget.reviewRequests
+        .where((r) => _v(r, 'status').toLowerCase() == 'pending')
+        .toList();
+
+    final meals = {
+      'breakfast': 'Bữa sáng',
+      'lunch': 'Bữa trưa',
+      'dinner': 'Bữa tối',
+      'snack': 'Bữa phụ / Ăn thêm',
+    };
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.93,
+      minChildSize: 0.5,
+      maxChildSize: 0.97,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            // Title bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.rate_review_rounded, color: primary, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Đánh giá ngày ${widget.dateLabel}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Scrollable content
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // ── Meal Plan Section ──
+                  _sectionHeader(Icons.restaurant_menu, 'Lộ trình ăn uống', primary),
+                  const SizedBox(height: 8),
+                  if (itemsList.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'Học viên chưa có món ăn nào trong ngày này.',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  else
+                    ...meals.entries.map((m) {
+                      final mealItems = itemsList
+                          .where((x) => _v(x as Map<String, dynamic>, 'mealType').toLowerCase() == m.key)
+                          .toList();
+                      if (mealItems.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              m.value,
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primary),
+                            ),
+                          ),
+                          ...mealItems.map((item) => Card(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                child: ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: primary.withValues(alpha: 0.12),
+                                    child: Icon(Icons.restaurant, color: primary, size: 16),
+                                  ),
+                                  title: Text(
+                                    _v(item as Map<String, dynamic>, 'foodName').isNotEmpty
+                                        ? _v(item, 'foodName')
+                                        : _v(item, 'recipeName'),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text(
+                                    '${_v(item, 'targetCalories')} kcal · ${_v(item, 'plannedDate')}',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                    onPressed: _working
+                                        ? null
+                                        : () async {
+                                            setState(() => _working = true);
+                                            await widget.onDeleteItem(item);
+                                            if (mounted) setState(() => _working = false);
+                                          },
+                                  ),
+                                ),
+                              )),
+                        ],
+                      );
+                    }),
+                  const SizedBox(height: 20),
+
+                  // ── AI Suggestions Section ──
+                  _sectionHeader(Icons.psychology, 'Gợi ý từ AI', Colors.deepPurple),
+                  const SizedBox(height: 8),
+                  if (paged.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: Text(
+                          'Không còn món gợi ý phù hợp.',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  else
+                    ...paged.map((item) => Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _v(item, 'type').toLowerCase().contains('recipe')
+                                      ? Icons.menu_book
+                                      : Icons.restaurant,
+                                  size: 18,
+                                  color: Colors.deepPurple,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _v(item, 'name'),
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        '${double.tryParse(_v(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal · P${double.tryParse(_v(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                PopupMenuButton<String>(
+                                  enabled: !_working,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: widget.primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Gán vào',
+                                      style: TextStyle(fontSize: 11, color: widget.primaryColor, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  onSelected: (mealType) async {
+                                    setState(() => _working = true);
+                                    await widget.onAssignItem(item, mealType);
+                                    if (mounted) setState(() => _working = false);
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                                    const PopupMenuItem(value: 'lunch', child: Text('Bữa trưa')),
+                                    const PopupMenuItem(value: 'dinner', child: Text('Bữa tối')),
+                                    const PopupMenuItem(value: 'snack', child: Text('Bữa phụ')),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        )),
+                  // Pagination
+                  if (totalPages > 1) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, size: 16),
+                          onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                        ),
+                        Text('Trang ${_page + 1} / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                          onPressed: _page < totalPages - 1 ? () => setState(() => _page++) : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+
+            // ── Bottom action bar ──
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: pendingReqs.isEmpty
+                    ? SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: null,
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: const Text('Không có yêu cầu duyệt'),
+                        ),
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _working
+                              ? null
+                              : () => widget.onApprove(pendingReqs.first),
+                          icon: const Icon(Icons.check_circle),
+                          label: Text('Duyệt lộ trình (${pendingReqs.length} yêu cầu)'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Colors.green,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(IconData icon, String title, Color color) => Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 6),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+          const SizedBox(width: 8),
+          Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
+        ],
+      );
 }

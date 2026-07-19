@@ -282,17 +282,54 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var limit = request.Top > 0 ? request.Top : 10;
             var random = new Random();
 
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var previousPlanIds = await _db.MealPlanHeaders
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.IsActive && x.StartDate < today)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var excludedFoodIds = new List<Guid>();
+            var excludedRecipeIds = new List<Guid>();
+
+            if (previousPlanIds.Count > 0)
+            {
+                var usedItems = await _db.MealPlanItems
+                    .AsNoTracking()
+                    .Where(x => previousPlanIds.Contains(x.MealPlanId))
+                    .Select(x => new { x.FoodId, x.RecipeId })
+                    .ToListAsync();
+
+                excludedFoodIds = usedItems.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).Distinct().ToList();
+                excludedRecipeIds = usedItems.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).Distinct().ToList();
+            }
+
             var activeFoodIds = await _db.Foods
                 .AsNoTracking()
-                .Where(x => x.IsActive == true && x.CaloriesKcal.HasValue)
+                .Where(x => x.IsActive == true && x.CaloriesKcal.HasValue && !excludedFoodIds.Contains(x.Id))
                 .Select(x => x.Id)
                 .ToListAsync();
 
             var activeRecipeIds = await _db.Recipes
                 .AsNoTracking()
-                .Where(x => x.IsActive == true)
+                .Where(x => x.IsActive == true && !excludedRecipeIds.Contains(x.Id))
                 .Select(x => x.Id)
                 .ToListAsync();
+
+            if (activeFoodIds.Count + activeRecipeIds.Count < limit)
+            {
+                activeFoodIds = await _db.Foods
+                    .AsNoTracking()
+                    .Where(x => x.IsActive == true && x.CaloriesKcal.HasValue)
+                    .Select(x => x.Id)
+                    .ToListAsync();
+
+                activeRecipeIds = await _db.Recipes
+                    .AsNoTracking()
+                    .Where(x => x.IsActive == true)
+                    .Select(x => x.Id)
+                    .ToListAsync();
+            }
 
             var randomFoodIds = activeFoodIds.OrderBy(x => random.Next()).Take(30).ToList();
             var randomRecipeIds = activeRecipeIds.OrderBy(x => random.Next()).Take(30).ToList();

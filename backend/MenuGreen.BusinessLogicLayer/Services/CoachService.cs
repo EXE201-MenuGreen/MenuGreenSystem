@@ -589,9 +589,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _unitOfWork.MealPlanHeaders.Update(plan);
 
-            // An empty item list means header-only adjustment. This prevents a
-            // Coach from accidentally deleting the student's complete plan.
-            if (request.Items.Count > 0)
+            // A null Items list means header-only adjustment.
+            if (request.Items != null)
             {
                 var existingItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id);
                 _unitOfWork.MealPlanItems.RemoveRange(existingItems);

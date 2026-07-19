@@ -32,7 +32,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   bool _hasProAccess = false;
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
+  bool _isSentToPt = false;
   int _suggestionPage = 0;
+  int _activeSuggestionPage = 0;
 
   @override
   void initState() {
@@ -72,6 +74,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (!mounted) return;
       await provider.loadPlan(top: 10);
       await _loadTodayPlan();
+      await _checkPtRequestStatus();
     });
   }
 
@@ -103,6 +106,35 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _checkPtRequestStatus() async {
+    if (!_hasProAccess) return;
+    try {
+      final today = DateTime.now();
+      final daysToMonday = today.weekday - 1;
+      final monday = today.subtract(Duration(days: daysToMonday));
+      final weekStartStr = '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+
+      final reqs = await AdvancedRepository().ptRequests();
+      // Find if there is a request for the current week that is NOT Rejected
+      final activeReq = reqs.firstWhere(
+        (r) {
+          final weekStart = (r['weekStartDate'] ?? '').toString();
+          final status = (r['status'] ?? '').toString().toLowerCase();
+          return weekStart.startsWith(weekStartStr) && status != 'rejected';
+        },
+        orElse: () => <String, dynamic>{},
+      );
+
+      if (mounted) {
+        setState(() {
+          _isSentToPt = activeReq.isNotEmpty;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking PT request status: $e');
+    }
   }
 
   @override
@@ -291,6 +323,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     return 'Tập: ${train ?? '—'} kcal • Nghỉ: ${rest ?? '—'} kcal';
   }
 
+  bool _hasGoalConfig(GymGoalProfile? p) {
+    if (p == null) return false;
+    return p.trainingDayTargetCalories != null ||
+        p.restDayTargetCalories != null ||
+        p.dailyDetails.isNotEmpty ||
+        p.weeklyDetails.isNotEmpty ||
+        p.monthlyDetails.isNotEmpty;
+  }
+
   Widget _buildRecalibrateCard(GymGoalsProvider provider) {
     final last = provider.lastRecalibration;
     return InfoCard(
@@ -433,9 +474,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           ),
-          if (provider.profile != null &&
-              (provider.profile!.trainingDayTargetCalories != null ||
-                  provider.profile!.restDayTargetCalories != null)) ...[
+          if (_hasGoalConfig(provider.profile)) ...[
             const SizedBox(height: 20),
             const Text(
               'Gợi ý thực đơn hôm nay từ AI:',
@@ -582,31 +621,56 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           const SizedBox(height: 16),
         ],
         const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _sendToPt,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        if (_isSentToPt)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
             ),
-            icon: const Icon(Icons.send_rounded, size: 18),
-            label: const Text(
-              'Gửi lộ trình cho PT duyệt',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
+            child: Row(
+              children: [
+                Icon(Icons.lock_clock, color: Colors.amber.shade700, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Lộ trình đã được gửi cho PT duyệt và đã bị khóa chỉnh sửa.',
+                    style: TextStyle(
+                      color: Colors.amber.shade900,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _sendToPt,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.send_rounded, size: 18),
+              label: const Text(
+                'Gửi lộ trình cho PT duyệt',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),
-        ),
-        if (provider.profile != null &&
-            (provider.profile!.trainingDayTargetCalories != null ||
-                provider.profile!.restDayTargetCalories != null)) ...[
+        if (_hasGoalConfig(provider.profile)) ...[
           const SizedBox(height: 32),
           const Text(
             'Danh sách món ăn gợi ý hôm nay từ AI:',
@@ -673,9 +737,21 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 );
               }
 
+              const itemsPerPage = 5;
+              final totalItems = remainingSuggestions.length;
+              final totalPages = (totalItems / itemsPerPage).ceil();
+
+              if (_activeSuggestionPage >= totalPages) {
+                _activeSuggestionPage = (totalPages - 1).clamp(0, totalItems).toInt();
+              }
+
+              final startIndex = _activeSuggestionPage * itemsPerPage;
+              final endIndex = (startIndex + itemsPerPage).clamp(0, totalItems);
+              final currentPageItems = totalItems == 0 ? [] : remainingSuggestions.sublist(startIndex, endIndex);
+
               return Column(
                 children: [
-                  for (final item in remainingSuggestions) ...[
+                  for (final item in currentPageItems) ...[
                     Builder(
                       builder: (context) {
                         return Padding(
@@ -738,10 +814,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                PopupMenuButton<String>(
-                                  icon: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                    decoration: BoxDecoration(
+                                if (!_isSentToPt)
+                                  PopupMenuButton<String>(
+                                    icon: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      decoration: BoxDecoration(
                                       color: AppColors.primary.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -786,6 +863,33 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                           ),
                         );
                       },
+                    ),
+                  ],
+                  if (totalPages > 1) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          onPressed: _activeSuggestionPage > 0
+                              ? () => setState(() => _activeSuggestionPage--)
+                              : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text(
+                          'Trang ${_activeSuggestionPage + 1} / $totalPages',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _activeSuggestionPage < totalPages - 1
+                              ? () => setState(() => _activeSuggestionPage++)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -893,18 +997,18 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         '${item.targetCalories} kcal',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
-                        onPressed: () => _deletePlanItem(item),
-                      ),
+                      trailing: _isSentToPt
+                          ? null
+                          : IconButton(
+                              icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
+                              onPressed: () => _deletePlanItem(item),
+                            ),
                     ),
                   ),
               ],
             ),
           // Add button
-          if (provider.profile != null &&
-              (provider.profile!.trainingDayTargetCalories != null ||
-                  provider.profile!.restDayTargetCalories != null))
+          if (_hasGoalConfig(provider.profile) && !_isSentToPt)
             Padding(
               padding: const EdgeInsets.all(8),
               child: TextButton.icon(
@@ -965,10 +1069,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
-    if (provider.profile == null ||
-        provider.profile!.trainingDayTargetCalories == null ||
-        provider.profile!.restDayTargetCalories == null ||
-        provider.planSuggestions.isEmpty) {
+    if (!_hasGoalConfig(provider.profile) || provider.planSuggestions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Bạn chưa cấu hình mục tiêu Gym / PT. Vui lòng thiết lập trước.'),
@@ -1294,6 +1395,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final weekStartStr = '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
 
       await AdvancedRepository().createPtReport(weekStartStr, 7);
+      await _checkPtRequestStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã gửi yêu cầu duyệt lộ trình thành công đến PT!')),
