@@ -64,6 +64,7 @@ class AiAssistantProvider extends ChangeNotifier {
   Future<void> loadMessages(String conversationId) async {
     _isLoadingMessages = true;
     _error = null;
+    _messages = [];
     notifyListeners();
     try {
       _messages = await _repository.getMessages(conversationId);
@@ -82,9 +83,21 @@ class AiAssistantProvider extends ChangeNotifier {
   ) async {
     _isSending = true;
     _error = null;
+    
+    // Add user's message locally first to make UI responsive
+    final userMessage = AiMessage(
+      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: conversationId,
+      role: 'user',
+      content: message,
+      createdAt: DateTime.now(),
+    );
+    _messages = [..._messages, userMessage];
     notifyListeners();
+    
     try {
       final aiMessage = await _repository.sendMessage(conversationId, message);
+      // Replace the local messages list with updated AI response appended
       _messages = [..._messages, aiMessage];
       _error = null;
       return aiMessage;

@@ -115,6 +115,9 @@ class AdvancedRepository {
   Future<void> connect(String id) async => _body(
     await _api.postJson('${ApiEndpoints.baseUrl}/Coaches/connect/$id', {}),
   );
+  Future<void> disconnect(String id) async => _body(
+    await _api.postJson('${ApiEndpoints.baseUrl}/Coaches/disconnect/$id', {}),
+  );
   Future<void> access(String id, bool grant) async => _body(
     await _api.postJson(
       '${ApiEndpoints.baseUrl}/Coaches/${grant ? 'grant' : 'revoke'}-access/$id',

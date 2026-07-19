@@ -17,6 +17,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<MyCoachResponse>> GetMyCoachesAsync(Guid clientId);
         Task<bool> GrantAccessAsync(Guid clientId, Guid coachId);
         Task<bool> RevokeAccessAsync(Guid clientId, Guid coachId);
+        Task<bool> DisconnectCoachAsync(Guid clientId, Guid coachId);
         Task<object> GetClientProfileAsync(Guid coachId, Guid clientId);
         Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(Guid coachId, Guid clientId, int days);
         Task<IEnumerable<ClientWeightTrendResponse>> GetClientWeightTrendAsync(Guid coachId, Guid clientId);

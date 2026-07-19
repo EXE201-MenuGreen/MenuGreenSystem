@@ -385,6 +385,7 @@ class _CoachTab extends StatefulWidget {
 class _CoachTabState extends State<_CoachTab> {
   final repo = AdvancedRepository();
   List<Map<String, dynamic>> rows = [];
+  List<Map<String, dynamic>> connectedCoaches = [];
   bool loading = true;
   @override
   void initState() {
@@ -394,6 +395,7 @@ class _CoachTabState extends State<_CoachTab> {
 
   Future<void> load() async {
     try {
+      connectedCoaches = await repo.myCoaches();
       rows = await repo.coaches();
     } catch (e) {
       if (mounted) _notice(context, e);
@@ -516,31 +518,133 @@ class _CoachTabState extends State<_CoachTab> {
                 ),
                 const SizedBox(height: 10),
               ],
-              for (final r in rows)
-                Card(
-                  child: ListTile(
-                    onTap: () => showCoach(r),
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.fitness_center),
+              if (connectedCoaches.isNotEmpty)
+                for (final r in connectedCoaches)
+                  Card(
+                    child: ListTile(
+                      onTap: () => showCoach(r),
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.fitness_center),
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _v(r, 'fullName'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _v(r, 'connectionStatus').toLowerCase() == 'connected'
+                                  ? Colors.green.shade100
+                                  : Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _v(r, 'connectionStatus').toLowerCase() == 'connected'
+                                  ? 'Đã kết nối'
+                                  : 'Đang chờ duyệt',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _v(r, 'connectionStatus').toLowerCase() == 'connected'
+                                    ? Colors.green.shade800
+                                    : Colors.orange.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${_v(r, 'specialty')} • ${_v(r, 'experienceYears')} năm\n${_v(r, 'priceVnd')} VND',
+                      ),
+                      isThreeLine: true,
+                      trailing: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        onPressed: () async {
+                          final isConnected = _v(r, 'connectionStatus').toLowerCase() == 'connected';
+                          final titleText = isConnected ? 'Hủy kết nối' : 'Hủy yêu cầu';
+                          final contentText = isConnected
+                              ? 'Bạn có chắc muốn hủy kết nối với huấn luyện viên này?'
+                              : 'Bạn có chắc muốn rút lại yêu cầu kết nối với huấn luyện viên này?';
+                          
+                          final confirm = await showDialog<bool>(
+                            context: c,
+                            builder: (dialogContext) => AlertDialog(
+                              title: Text(titleText),
+                              content: Text(contentText),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext, false),
+                                  child: const Text('Bỏ qua'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext, true),
+                                  child: Text(
+                                    titleText,
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true) {
+                            try {
+                              await repo.disconnect(_v(r, 'id'));
+                              if (c.mounted) {
+                                _notice(c, isConnected ? 'Đã hủy kết nối' : 'Đã hủy yêu cầu');
+                                load();
+                              }
+                            } catch (e) {
+                              if (c.mounted) _notice(c, e);
+                            }
+                          }
+                        },
+                        child: Text(
+                          _v(r, 'connectionStatus').toLowerCase() == 'connected'
+                              ? 'Hủy kết nối'
+                              : 'Hủy yêu cầu',
+                        ),
+                      ),
                     ),
-                    title: Text(_v(r, 'fullName')),
-                    subtitle: Text(
-                      '${_v(r, 'specialty')} • ${_v(r, 'experienceYears')} năm\n${_v(r, 'priceVnd')} VND',
-                    ),
-                    isThreeLine: true,
-                    trailing: FilledButton(
-                      onPressed: () async {
-                        try {
-                          await repo.connect(_v(r, 'id'));
-                          if (c.mounted) _notice(c, 'Đã gửi yêu cầu kết nối');
-                        } catch (e) {
-                          if (c.mounted) _notice(c, e);
-                        }
-                      },
-                      child: const Text('Kết nối'),
+                  )
+              else
+                for (final r in rows)
+                  Card(
+                    child: ListTile(
+                      onTap: () => showCoach(r),
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.fitness_center),
+                      ),
+                      title: Text(_v(r, 'fullName')),
+                      subtitle: Text(
+                        '${_v(r, 'specialty')} • ${_v(r, 'experienceYears')} năm\n${_v(r, 'priceVnd')} VND',
+                      ),
+                      isThreeLine: true,
+                      trailing: FilledButton(
+                        onPressed: () async {
+                          try {
+                            await repo.connect(_v(r, 'id'));
+                            if (c.mounted) {
+                              _notice(c, 'Đã gửi yêu cầu kết nối');
+                              load();
+                            }
+                          } catch (e) {
+                            if (c.mounted) _notice(c, e);
+                          }
+                        },
+                        child: const Text('Kết nối'),
+                      ),
                     ),
                   ),
-                ),
             ],
           ),
         );

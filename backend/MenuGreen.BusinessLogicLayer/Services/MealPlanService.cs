@@ -1100,7 +1100,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var plan = await FindDailyPlanAsync(userId, date);
             if (plan == null) return null;
-            return await MapAsync(plan);
+            var response = await MapAsync(plan);
+            if (response.Items != null)
+            {
+                response.Items = response.Items.Where(x => x.PlannedDate == null || x.PlannedDate == date).ToList();
+            }
+            return response;
         }
 
         public async Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date)
@@ -1119,7 +1124,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 };
             }
 
-            var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id)).ToList();
+            var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id && (x.PlannedDate == null || x.PlannedDate == date))).ToList();
             var itemIds = items.Select(x => x.Id).ToHashSet();
             var logs = (await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId
@@ -1323,11 +1328,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
                 x.UserId == userId
-                && x.PlanType == "DAILY"
-                && x.StartDate == date
-                && x.IsActive);
+                && x.IsActive
+                && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
+                    ? x.StartDate == date
+                    : (x.StartDate <= date && x.EndDate >= date)));
 
-            return plans.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).FirstOrDefault();
+            return plans.OrderByDescending(x => (x.PlanType == null || x.PlanType.ToUpper() == "DAILY") ? 1 : 0)
+                        .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                        .FirstOrDefault();
         }
 
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)

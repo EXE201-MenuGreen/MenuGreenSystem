@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/ai_assistant_models.dart';
 import '../providers/ai_assistant_provider.dart';
+import '../../discover/repositories/food_discovery_repository.dart';
+import '../../discover/models/food_models.dart';
+import '../../meal_plan/providers/meal_plan_provider.dart';
+import '../../meal_plan/models/meal_plan_requests.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key, required this.conversation});
@@ -19,14 +23,30 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
+  List<FoodItem> _availableFoods = [];
+
   @override
   void initState() {
     super.initState();
-    final provider = context.read<AiAssistantProvider>();
-    if (provider.messages.isEmpty) {
-      provider.loadMessages(widget.conversation.id);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // Load messages in a post-frame callback to avoid triggering synchronous builds during layout phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AiAssistantProvider>().loadMessages(widget.conversation.id);
+        _loadAvailableFoods();
+        _scrollToBottom();
+      }
+    });
+  }
+
+  Future<void> _loadAvailableFoods() async {
+    try {
+      final foods = await FoodDiscoveryRepository().searchFoods();
+      if (mounted) {
+        setState(() {
+          _availableFoods = foods;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -93,10 +113,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildMessageList(AiAssistantProvider provider) {
-    if (provider.isLoadingMessages && provider.messages.isEmpty) {
+    // Filter messages for current conversation to avoid brief flash of old messages
+    final currentMessages = provider.messages.where((m) => m.conversationId == widget.conversation.id).toList();
+
+    if (provider.isLoadingMessages && currentMessages.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (provider.messages.isEmpty) {
+    if (currentMessages.isEmpty) {
       return const Center(
         child: Text(
           'Bắt đầu trò chuyện với trợ lý AI để nhận gợi ý dinh dưỡng.',
@@ -108,13 +131,14 @@ class _AiChatScreenState extends State<AiChatScreen> {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: provider.messages.length,
+      itemCount: currentMessages.length,
       itemBuilder: (context, index) {
-        final message = provider.messages[index];
+        final message = currentMessages[index];
         final isUser = message.role.toLowerCase() == 'user';
         return _MessageBubble(
           message: message,
           isUser: isUser,
+          availableFoods: _availableFoods,
           onFeedback: (isPositive) async {
             await provider.sendFeedback(
               widget.conversation.id,
@@ -196,18 +220,31 @@ class _MessageBubble extends StatelessWidget {
     required this.isUser,
     required this.onFeedback,
     required this.onRegenerate,
+    this.availableFoods = const [],
   });
 
   final AiMessage message;
   final bool isUser;
   final ValueChanged<bool> onFeedback;
   final VoidCallback onRegenerate;
+  final List<FoodItem> availableFoods;
 
   @override
   Widget build(BuildContext context) {
     final bubbleColor = isUser ? AppColors.primary : Colors.grey.shade200;
     final textColor = isUser ? Colors.white : AppColors.textDark;
     final time = _formatTime(message.createdAt);
+
+    final matchedFoods = <FoodItem>[];
+    if (!isUser && availableFoods.isNotEmpty) {
+      final contentLower = message.content.toLowerCase();
+      for (final food in availableFoods) {
+        if (food.nameVi.trim().isNotEmpty &&
+            contentLower.contains(food.nameVi.toLowerCase().trim())) {
+          matchedFoods.add(food);
+        }
+      }
+    }
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -226,6 +263,34 @@ class _MessageBubble extends StatelessWidget {
               message.content,
               style: TextStyle(color: textColor, height: 1.3),
             ),
+            if (matchedFoods.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: Colors.grey),
+              const SizedBox(height: 6),
+              const Text(
+                'Món ăn gợi ý phát hiện được:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: matchedFoods.map((food) {
+                  return ActionChip(
+                    avatar: const Icon(Icons.add, size: 14, color: Colors.white),
+                    backgroundColor: AppColors.primary,
+                    labelStyle: const TextStyle(color: Colors.white, fontSize: 11),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    label: Text('${food.nameVi} (${food.caloriesKcal?.round() ?? 0} kcal)'),
+                    onPressed: () => _showAddMealPlanDialog(context, food),
+                  );
+                }).toList(),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               time,
@@ -239,6 +304,106 @@ class _MessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showAddMealPlanDialog(BuildContext context, FoodItem food) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Thêm "${food.nameVi}" vào bữa ăn nào?',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: Text(MealType.breakfast.emoji, style: const TextStyle(fontSize: 20)),
+                title: Text(MealType.breakfast.labelVi),
+                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.breakfast.value),
+              ),
+              ListTile(
+                leading: Text(MealType.lunch.emoji, style: const TextStyle(fontSize: 20)),
+                title: Text(MealType.lunch.labelVi),
+                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.lunch.value),
+              ),
+              ListTile(
+                leading: Text(MealType.dinner.emoji, style: const TextStyle(fontSize: 20)),
+                title: Text(MealType.dinner.labelVi),
+                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.dinner.value),
+              ),
+              ListTile(
+                leading: Text(MealType.snack.emoji, style: const TextStyle(fontSize: 20)),
+                title: Text(MealType.snack.labelVi),
+                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.snack.value),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _addFoodToMealPlan(
+    BuildContext context,
+    BuildContext sheetContext,
+    FoodItem food,
+    String mealType,
+  ) async {
+    Navigator.pop(sheetContext); // Close bottom sheet
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đang thêm ${food.nameVi} vào thực đơn...')),
+    );
+
+    try {
+      final mealPlanProvider = context.read<MealPlanProvider>();
+      final request = AddItemRequest(
+        mealType: mealType,
+        foodId: food.id,
+        recipeId: null,
+        targetCalories: food.caloriesKcal?.round() ?? 0,
+      );
+      
+      final result = await mealPlanProvider.addRecommendationToTodayPlan(request);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        if (result != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.green,
+              content: Text('Đã thêm ${food.nameVi} vào thực đơn thành công!'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.redAccent,
+              content: Text('Có lỗi xảy ra khi thêm món ăn vào thực đơn.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Lỗi: ${e.toString()}'),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildAssistantActions(BuildContext context) {

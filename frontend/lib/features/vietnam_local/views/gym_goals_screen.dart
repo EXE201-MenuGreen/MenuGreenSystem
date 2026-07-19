@@ -32,6 +32,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   bool _hasProAccess = false;
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
+  int _suggestionPage = 0;
 
   @override
   void initState() {
@@ -379,7 +380,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    if (_todayPlan == null) {
+    if (_todayPlan == null || _todayPlan!.items.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -432,90 +433,138 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Gợi ý thực đơn hôm nay từ AI:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+          if (provider.profile != null &&
+              (provider.profile!.trainingDayTargetCalories != null ||
+                  provider.profile!.restDayTargetCalories != null)) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Gợi ý thực đơn hôm nay từ AI:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          if (provider.planSuggestions.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.progressBackground),
-              ),
-              child: const Text(
-                'Chưa có gợi ý thực đơn. Hãy lưu cấu hình gym trước.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            )
-          else
-            Column(
-              children: [
-                for (final item in provider.planSuggestions)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.progressBackground),
+            const SizedBox(height: 10),
+            if (provider.planSuggestions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.progressBackground),
+                ),
+                child: const Text(
+                  'Chưa có gợi ý thực đơn.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              )
+            else
+              Builder(
+              builder: (context) {
+                final suggestions = provider.planSuggestions;
+                const itemsPerPage = 5;
+                final totalItems = suggestions.length;
+                final totalPages = (totalItems / itemsPerPage).ceil();
+
+                if (_suggestionPage >= totalPages) {
+                  _suggestionPage = (totalPages - 1).clamp(0, totalItems).toInt();
+                }
+
+                final startIndex = _suggestionPage * itemsPerPage;
+                final endIndex = (startIndex + itemsPerPage).clamp(0, totalItems);
+                final currentPageItems = totalItems == 0 ? [] : suggestions.sublist(startIndex, endIndex);
+
+                return Column(
+                  children: [
+                    for (final item in currentPageItems)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.progressBackground),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  item.type.toLowerCase().contains('recipe')
+                                      ? Icons.menu_book
+                                      : Icons.restaurant,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name.isEmpty ? 'Món gợi ý' : item.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                      'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                      'Điểm ${item.score.toStringAsFixed(1)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Row(
+                    if (totalPages > 1) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              item.type.toLowerCase().contains('recipe')
-                                  ? Icons.menu_book
-                                  : Icons.restaurant,
-                              color: AppColors.primary,
-                              size: 18,
+                          IconButton(
+                            onPressed: _suggestionPage > 0
+                                ? () => setState(() => _suggestionPage--)
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text(
+                            'Trang ${_suggestionPage + 1} / $totalPages',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name.isEmpty ? 'Món gợi ý' : item.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textDark,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                  'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                  'Điểm ${item.score.toStringAsFixed(1)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          IconButton(
+                            onPressed: _suggestionPage < totalPages - 1
+                                ? () => setState(() => _suggestionPage++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-              ],
+                    ],
+                  ],
+                );
+              }
             ),
+          ],
         ],
       );
     }
@@ -529,7 +578,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final slot in slots) ...[
-          _buildMealSlot(slot),
+          _buildMealSlot(slot, provider),
           const SizedBox(height: 16),
         ],
         const SizedBox(height: 8),
@@ -555,39 +604,42 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 32),
-        const Text(
-          'Danh sách món ăn gợi ý hôm nay từ AI:',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (provider.planSuggestions.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.progressBackground),
+        if (provider.profile != null &&
+            (provider.profile!.trainingDayTargetCalories != null ||
+                provider.profile!.restDayTargetCalories != null)) ...[
+          const SizedBox(height: 32),
+          const Text(
+            'Danh sách món ăn gợi ý hôm nay từ AI:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
-            child: const Text(
-              'Chưa có gợi ý thực đơn. Hãy lưu cấu hình gym trước.',
-              style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
             ),
-          )
-        else
-          Builder(
+          ),
+          const SizedBox(height: 16),
+          if (provider.planSuggestions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.progressBackground),
+              ),
+              child: const Text(
+                'Chưa có gợi ý thực đơn.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Builder(
             builder: (context) {
               final addedIds = _todayPlan?.items
                   .map((x) => (x.foodId ?? x.recipeId ?? '').trim().toLowerCase())
@@ -740,11 +792,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               );
             },
           ),
+        ],
       ],
     );
   }
 
-  Widget _buildMealSlot(String mealType) {
+  Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
     final items = _todayPlan?.items
             .where((x) => x.mealType.toLowerCase() == mealType)
             .toList() ??
@@ -849,18 +902,21 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           // Add button
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: TextButton.icon(
-              onPressed: () => _showAddSuggestionSheet(mealType),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                minimumSize: const Size(double.infinity, 36),
+          if (provider.profile != null &&
+              (provider.profile!.trainingDayTargetCalories != null ||
+                  provider.profile!.restDayTargetCalories != null))
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: TextButton.icon(
+                onPressed: () => _showAddSuggestionSheet(mealType),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  minimumSize: const Size(double.infinity, 36),
+                ),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Thêm món từ gợi ý'),
               ),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Thêm món từ gợi ý'),
             ),
-          ),
         ],
       ),
     );
@@ -909,9 +965,14 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
-    if (provider.planSuggestions.isEmpty) {
+    if (provider.profile == null ||
+        provider.profile!.trainingDayTargetCalories == null ||
+        provider.profile!.restDayTargetCalories == null ||
+        provider.planSuggestions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng cấu hình gym để tải gợi ý trước.')),
+        const SnackBar(
+          content: Text('Bạn chưa cấu hình mục tiêu Gym / PT. Vui lòng thiết lập trước.'),
+        ),
       );
       return;
     }

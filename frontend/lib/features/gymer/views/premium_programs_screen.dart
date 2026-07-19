@@ -623,6 +623,30 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               fontWeight: FontWeight.w800,
             ),
           ),
+          Builder(
+            builder: (context) {
+              final startDateStr = _value(active, 'startDate');
+              if (startDateStr.isEmpty) return const SizedBox.shrink();
+              final parsedDate = DateTime.tryParse(startDateStr);
+              if (parsedDate == null) return const SizedBox.shrink();
+              final endDate = parsedDate.add(Duration(days: milestones.length * 7));
+              
+              String format(DateTime d) =>
+                  '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+              
+              return Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                  'Thời gian: ${format(parsedDate)} - ${format(endDate)} (${milestones.length} tuần)',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 12),
           Row(
             children: [

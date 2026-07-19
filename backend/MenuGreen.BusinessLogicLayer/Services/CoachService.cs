@@ -374,6 +374,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return true;
         }
 
+        public async Task<bool> DisconnectCoachAsync(Guid clientId, Guid coachId)
+        {
+            var coachProf = await _unitOfWork.CoachProfiles.GetByIdAsync(coachId);
+            var coachUserId = coachProf != null ? coachProf.UserId : coachId;
+
+            var connection = (await _unitOfWork.CoachConnections.FindAsync(
+                c => c.ClientId == clientId && c.CoachId == coachUserId)).FirstOrDefault()
+                ?? throw new Exception("Connection with this coach not found.");
+
+            _unitOfWork.CoachConnections.Remove(connection);
+            await _unitOfWork.CompleteAsync();
+
+            return true;
+        }
+
         private async Task EnsureAccessAllowedAsync(Guid coachId, Guid clientId)
         {
             var connection = (await _unitOfWork.CoachConnections.FindAsync(

@@ -170,7 +170,6 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>Student revokes Coach health data access.</summary>
         [HttpPost("revoke-access/{coachId:guid}")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -182,6 +181,25 @@ namespace MenuGreen.API.Controllers
             {
                 var result = await _coachService.RevokeAccessAsync(userId, coachId);
                 return Ok(new { Success = result, Message = "Coach data access revoked." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Student disconnects from Coach (removes connection).</summary>
+        [HttpPost("disconnect/{coachId:guid}")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> DisconnectCoach(Guid coachId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.DisconnectCoachAsync(userId, coachId);
+                return Ok(new { Success = result, Message = "Successfully disconnected from Coach." });
             }
             catch (Exception ex)
             {
