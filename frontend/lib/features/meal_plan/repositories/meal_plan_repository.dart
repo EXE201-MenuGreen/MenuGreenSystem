@@ -90,6 +90,21 @@ class MealPlanRepository {
     }
   }
 
+  Future<UserMealPlan?> toggleItem(String itemId, bool isCompleted) async {
+    try {
+      final response = await _api.postJson(
+        ApiEndpoints.userMealPlanToggleItem(itemId, isCompleted),
+        {},
+      );
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        throw Exception(_messageFromResponse(response));
+      }
+      return await getByDate(DateTime.now());
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // ==================== Full Meal Plan CRUD ====================
 
   /// Lấy danh sách tất cả meal plans

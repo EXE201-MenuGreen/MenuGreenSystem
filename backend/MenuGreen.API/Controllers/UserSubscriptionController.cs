@@ -105,6 +105,16 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Get every currently active subscription so feature access does not depend on the newest plan only.
+        /// </summary>
+        [HttpGet("me/active")]
+        public async Task<IActionResult> GetActive()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetActiveAsync(userId));
+        }
+
+        /// <summary>
         /// View details of a specific subscription by ID.
         /// </summary>
         [HttpGet("{id:guid}")]

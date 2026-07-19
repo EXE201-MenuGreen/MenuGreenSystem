@@ -12,6 +12,10 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasKey(x => x.Id);
             builder.Property(x => x.WeightKg).HasPrecision(18, 2);
             builder.Property(x => x.BodyFatPercent).HasPrecision(18, 2);
+            builder.Property(x => x.ChestCm).HasPrecision(18, 2);
+            builder.Property(x => x.WaistCm).HasPrecision(18, 2);
+            builder.Property(x => x.HipCm).HasPrecision(18, 2);
+            builder.Property(x => x.BadgeName).HasMaxLength(100);
 
             builder.HasOne(x => x.UserPremiumProgram)
                 .WithMany(u => u.UserProgramMilestones)

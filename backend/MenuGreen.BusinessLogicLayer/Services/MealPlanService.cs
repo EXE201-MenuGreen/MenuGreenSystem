@@ -502,7 +502,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private void ValidateItems(IEnumerable<MealPlanItemUpsertRequest> items)
         {
-            if (items == null || !items.Any()) throw new Exception("Meal plan must contain at least one item.");
+            if (items == null) throw new Exception("Meal plan items cannot be null.");
             foreach (var item in items) ValidateItem(item);
         }
 
@@ -1100,7 +1100,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var plan = await FindDailyPlanAsync(userId, date);
             if (plan == null) return null;
-            return await MapAsync(plan);
+            var response = await MapAsync(plan);
+            if (response.Items != null)
+            {
+                response.Items = response.Items.Where(x => x.PlannedDate == null || x.PlannedDate == date).ToList();
+            }
+            return response;
         }
 
         public async Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date)
@@ -1119,7 +1124,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 };
             }
 
-            var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id)).ToList();
+            var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id && (x.PlannedDate == null || x.PlannedDate == date))).ToList();
             var itemIds = items.Select(x => x.Id).ToHashSet();
             var logs = (await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId
@@ -1265,6 +1270,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             foreach (var item in items)
             {
+                if (item.FoodId.HasValue)
+                {
+                    var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
+                    if (food == null)
+                    {
+                        var dummyFood = new Food
+                        {
+                            Id = item.FoodId.Value,
+                            NameVi = "Món ăn gợi ý (AI)",
+                            CaloriesKcal = item.TargetCalories,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await _unitOfWork.Foods.AddAsync(dummyFood);
+                        await _unitOfWork.CompleteAsync();
+                    }
+                }
+
+                if (item.RecipeId.HasValue)
+                {
+                    var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+                    if (recipe == null)
+                    {
+                        var dummyRecipe = new Recipe
+                        {
+                            Id = item.RecipeId.Value,
+                            Title = "Công thức gợi ý (AI)",
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await _unitOfWork.Recipes.AddAsync(dummyRecipe);
+                        await _unitOfWork.CompleteAsync();
+                    }
+                }
+
                 var planItem = new MealPlanItem
                 {
                     Id = Guid.NewGuid(),
@@ -1288,11 +1328,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
                 x.UserId == userId
-                && x.PlanType == "DAILY"
-                && x.StartDate == date
-                && x.IsActive);
+                && x.IsActive
+                && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
+                    ? x.StartDate == date
+                    : (x.StartDate <= date && x.EndDate >= date)));
 
-            return plans.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).FirstOrDefault();
+            return plans.OrderByDescending(x => (x.PlanType == null || x.PlanType.ToUpper() == "DAILY") ? 1 : 0)
+                        .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                        .FirstOrDefault();
         }
 
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)
@@ -1325,6 +1368,79 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 "bữa phụ" or "bua phu" => "snack",
                 _ => normalized.Length > 0 ? normalized : "snack"
             };
+        }
+
+        public async Task<CompleteMealPlanItemResponse> ToggleItemAsync(Guid userId, Guid itemId, bool isCompleted)
+        {
+            var item = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId)
+                ?? throw new Exception("Meal plan item not found.");
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(item.MealPlanId)
+                ?? throw new Exception("Meal plan not found.");
+
+            if (plan.UserId != userId) throw new Exception("Forbidden.");
+
+            var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == itemId);
+            var existingLog = existingLogs.FirstOrDefault();
+
+            if (isCompleted)
+            {
+                item.IsCompleted = true;
+                _unitOfWork.MealPlanItems.Update(item);
+
+                Guid? mealLogId = null;
+                MealLogResponse? mealLogRes = null;
+
+                if (existingLog == null)
+                {
+                    if (!item.FoodId.HasValue && !item.RecipeId.HasValue)
+                    {
+                        throw new Exception("Meal plan item must have FoodId or RecipeId.");
+                    }
+
+                    var mealLogRequest = new MealLogUpsertRequest
+                    {
+                        FoodId = item.FoodId,
+                        RecipeId = item.RecipeId,
+                        MealType = item.MealType ?? "snack",
+                        QuantityG = 100m,
+                        Notes = "Logged from meal plan.",
+                        LoggedAt = DateTime.UtcNow,
+                        MealPlanItemId = item.Id
+                    };
+                    mealLogRes = await _nutritionTracking.CreateMealLogAsync(userId, mealLogRequest);
+                    mealLogId = mealLogRes.Id;
+                }
+                else
+                {
+                    mealLogId = existingLog.Id;
+                    mealLogRes = await _nutritionTracking.GetMealLogAsync(userId, existingLog.Id);
+                }
+
+                await _unitOfWork.CompleteAsync();
+                return new CompleteMealPlanItemResponse
+                {
+                    Item = await MapItemAsync(item, mealLogId),
+                    MealLog = mealLogRes
+                };
+            }
+            else
+            {
+                item.IsCompleted = false;
+                _unitOfWork.MealPlanItems.Update(item);
+
+                if (existingLog != null)
+                {
+                    await _nutritionTracking.DeleteMealLogAsync(userId, existingLog.Id);
+                }
+
+                await _unitOfWork.CompleteAsync();
+                return new CompleteMealPlanItemResponse
+                {
+                    Item = await MapItemAsync(item, null),
+                    MealLog = null
+                };
+            }
         }
 
         private async Task<MealPlanItemResponse> MapItemAsync(MealPlanItem item, Guid? mealLogId)

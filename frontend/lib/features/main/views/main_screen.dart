@@ -11,9 +11,12 @@ import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../main/widgets/floating_ai_assistant_button.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import '../../discover/views/recommendation_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -32,13 +35,17 @@ class _MainScreenState extends State<MainScreen> {
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
   final _historyKey = GlobalKey<HistoryViewState>();
+  final _subscriptionRepository = UserSubscriptionRepository();
   DateTime? _lastHomeRefreshAt;
   DateTime? _lastHistoryRefreshAt;
+  Offset? _aiButtonOffset;
+  bool _hasAiVipAccess = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_initPushNotifications());
+    unawaited(_loadSubscriptionVisualState());
   }
 
   Future<void> _initPushNotifications() async {
@@ -48,6 +55,21 @@ class _MainScreenState extends State<MainScreen> {
       await provider.registerToken();
     } catch (e) {
       debugPrint('[MainScreen] Failed to init push notifications: $e');
+    }
+  }
+
+  Future<void> _loadSubscriptionVisualState() async {
+    try {
+      final subscriptions = await _subscriptionRepository.getActive();
+      if (!mounted) return;
+      setState(() {
+        _hasAiVipAccess = hasAiVipSubscriptionAccess(subscriptions);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasAiVipAccess = false;
+      });
     }
   }
 
@@ -93,6 +115,8 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() => _currentIndex = index);
     if (index == _homeTab) {
+      _homeKey.currentState?.refreshSubscriptionAccess();
+      unawaited(_loadSubscriptionVisualState());
       _refreshHomeIfStale();
     } else if (index == _discoverTab) {
       _discoverKey.currentState?.refreshAllergyStatus();
@@ -103,18 +127,68 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const regularButtonSize = 64.0;
+    const vipButtonSize = 72.0;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(index: _currentIndex, children: _buildPages()),
-      floatingActionButton: _currentIndex == _homeTab
-          ? FloatingActionButton(
-              onPressed: () => _showAiMenu(context),
-              backgroundColor: AppColors.primary.withValues(alpha: 0.85),
-              shape: const CircleBorder(),
-              elevation: 4,
-              child: const Icon(Icons.auto_awesome, color: Colors.white),
-            )
-          : null,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final buttonSize = _hasAiVipAccess ? vipButtonSize : regularButtonSize;
+          final defaultOffset = Offset(
+            constraints.maxWidth - buttonSize - 18,
+            constraints.maxHeight - buttonSize - 26,
+          );
+          final effectiveOffset = _aiButtonOffset ?? defaultOffset;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: IndexedStack(index: _currentIndex, children: _buildPages()),
+              ),
+              if (_currentIndex == _homeTab)
+                Positioned(
+                  left: effectiveOffset.dx
+                      .clamp(
+                        12.0,
+                        constraints.maxWidth - buttonSize - 12,
+                      )
+                      .toDouble(),
+                  top: effectiveOffset.dy
+                      .clamp(
+                        12.0,
+                        constraints.maxHeight - buttonSize - 12,
+                      )
+                      .toDouble(),
+                  child: FloatingAiAssistantButton(
+                    isVip: _hasAiVipAccess,
+                    onTap: () => _showAiMenu(context),
+                    onPanUpdate: (details) {
+                      setState(() {
+                        final current = _aiButtonOffset ?? defaultOffset;
+                        final next = current + details.delta;
+                        _aiButtonOffset = Offset(
+                          next.dx
+                              .clamp(
+                                12.0,
+                                constraints.maxWidth - buttonSize - 12,
+                              )
+                              .toDouble(),
+                          next.dy
+                              .clamp(
+                                12.0,
+                                constraints.maxHeight - buttonSize - 12,
+                              )
+                              .toDouble(),
+                        );
+                      });
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _selectTab,
@@ -156,10 +230,7 @@ class _MainScreenState extends State<MainScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    Colors.grey.shade100,
-                    Colors.grey.shade200,
-                  ],
+                  colors: [Colors.grey.shade100, Colors.grey.shade200],
                   center: const Alignment(-0.3, -0.3),
                   radius: 0.75,
                 ),
@@ -200,11 +271,7 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
               alignment: Alignment.center,
-              child: const Icon(
-                Icons.home,
-                size: 26,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.home, size: 26, color: Colors.white),
             ),
             label: 'Trang chủ',
           ),
@@ -280,20 +347,18 @@ class _MainScreenState extends State<MainScreen> {
               const SizedBox(height: 8),
               Text(
                 'Chọn tính năng thông minh của trợ lý dinh dưỡng',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              
+
               // 1. Quét nguyên liệu
               _buildAiMenuItem(
                 context: context,
                 icon: Icons.qr_code_scanner_rounded,
                 title: 'Quét nguyên liệu',
-                subtitle: 'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
+                subtitle:
+                    'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
                 iconGradient: const [Color(0xFF2D5A45), Color(0xFF1B4332)],
                 onTap: () {
                   Navigator.pop(context);
@@ -306,7 +371,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              
+
               // 2. Gợi ý cá nhân hóa
               _buildAiMenuItem(
                 context: context,
@@ -325,7 +390,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              
+
               // 3. Trò chuyện AI
               _buildAiMenuItem(
                 context: context,
@@ -339,7 +404,8 @@ class _MainScreenState extends State<MainScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChangeNotifierProvider(
-                        create: (_) => AiAssistantProvider()..loadConversations(),
+                        create: (_) =>
+                            AiAssistantProvider()..loadConversations(),
                         child: const AiConversationListScreen(),
                       ),
                     ),

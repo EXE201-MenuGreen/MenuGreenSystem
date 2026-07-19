@@ -344,19 +344,27 @@ class MealPlanProvider extends ChangeNotifier {
     }
   }
 
-  /// Thêm recommendation item vào kế hoạch hôm nay
-  /// Nếu chưa có plan hôm nay thì tạo mới với item này
   Future<MealPlanItemDetail?> addRecommendationToTodayPlan(AddItemRequest request) async {
     _isLoadingDetail = true;
     notifyListeners();
 
     try {
       final today = DateTime.now();
-      final existingPlan = await _repository.getByDate(today);
+      
+      // Load current plans to find an active one
+      _plans = await _repository.getPlans();
+      
+      MealPlanListItem? activePlan;
+      if (_plans.isNotEmpty) {
+        activePlan = _plans.firstWhere(
+          (p) => p.isActive,
+          orElse: () => _plans.first,
+        );
+      }
 
-      if (existingPlan != null && existingPlan.id.isNotEmpty) {
-        final item = await _repository.addItem(existingPlan.id, request);
-        await loadPlanDetail(existingPlan.id);
+      if (activePlan != null) {
+        final item = await _repository.addItem(activePlan.id, request);
+        await loadPlanDetail(activePlan.id);
         await loadTodayDashboard();
         return item;
       }

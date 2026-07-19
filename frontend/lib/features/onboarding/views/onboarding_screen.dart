@@ -35,6 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   double? _heightCm;
   double? _weightKg;
   double? _bodyFatPercent;
+  double? _targetWeightKg;
   String _activityLevel = 'sedentary';
   String _goal = 'maintain weight';
   int? _targetCalories;
@@ -65,6 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required double heightCm,
     required double weightKg,
     double? bodyFatPercent,
+    double? targetWeightKg,
     required String activityLevel,
     required String goal,
   }) async {
@@ -75,9 +77,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'DateOfBirth': dateOfBirth.toIso8601String().split('T').first,
     };
 
-    final profileResult = await _profileRepository.updateMyProfile(profilePayload);
+    final profileResult = await _profileRepository.updateMyProfile(
+      profilePayload,
+    );
     if (profileResult == null) {
-      _showMessage('Không lưu được hồ sơ cá nhân. Vui lòng thử lại.', isError: true);
+      _showMessage(
+        'Không lưu được hồ sơ cá nhân. Vui lòng thử lại.',
+        isError: true,
+      );
       return;
     }
 
@@ -85,6 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       heightCm: heightCm,
       weightKg: weightKg,
       bodyFatPercent: bodyFatPercent,
+      targetWeightKg: targetWeightKg,
       activityLevel: activityLevel,
       goal: goal,
     );
@@ -93,8 +101,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
-    final target = healthResult.data?['targetCalories'] ?? healthResult.data?['TargetCalories'];
-    final parsedTarget = target is num ? target.toInt() : int.tryParse('$target');
+    final target =
+        healthResult.data?['targetCalories'] ??
+        healthResult.data?['TargetCalories'];
+    final parsedTarget = target is num
+        ? target.toInt()
+        : int.tryParse('$target');
 
     setState(() {
       _fullName = fullName;
@@ -103,6 +115,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _heightCm = heightCm;
       _weightKg = weightKg;
       _bodyFatPercent = bodyFatPercent;
+      _targetWeightKg = targetWeightKg;
       _activityLevel = activityLevel;
       _goal = goal;
       _targetCalories = parsedTarget ?? 2500;
@@ -112,7 +125,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handleUserTypeNext(String eatingPattern) async {
-    final result = await _userAiProfileRepository.upsert(eatingPattern: eatingPattern);
+    final result = await _userAiProfileRepository.upsert(
+      eatingPattern: eatingPattern,
+    );
     if (!result.success) {
       _showMessage(result.message, isError: true);
       return;
@@ -122,7 +137,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _handlePreferencesNext(List<String> selectedPrefs) async {
     final result = await _userAiProfileRepository.upsert(
-      preferencesJson: UserAiProfileRepository.buildPreferencesJson(selectedPrefs),
+      preferencesJson: UserAiProfileRepository.buildPreferencesJson(
+        selectedPrefs,
+      ),
     );
     if (!result.success) {
       _showMessage(result.message, isError: true);
@@ -147,6 +164,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         heightCm: _heightCm!,
         weightKg: _weightKg!,
         bodyFatPercent: _bodyFatPercent,
+        targetWeightKg: _targetWeightKg,
         activityLevel: _activityLevel,
         goal: _goal,
         targetCalories: targetCalories,
@@ -165,9 +183,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       final completion =
-          completeResult.data?['completion'] ?? completeResult.data?['Completion'];
-      final isCompleted = completion is Map &&
-          (completion['isCompleted'] == true || completion['IsCompleted'] == true);
+          completeResult.data?['completion'] ??
+          completeResult.data?['Completion'];
+      final isCompleted =
+          completion is Map &&
+          (completion['isCompleted'] == true ||
+              completion['IsCompleted'] == true);
 
       if (!isCompleted) {
         final missing = completion is Map
@@ -176,10 +197,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final hint = missing is List && missing.isNotEmpty
             ? ' Còn thiếu: ${missing.join(', ')}.'
             : '';
-        _showMessage(
-          'Chưa đủ dữ liệu thiết lập.$hint',
-          isError: true,
-        );
+        _showMessage('Chưa đủ dữ liệu thiết lập.$hint', isError: true);
         _jumpToMissingStep(missing);
         return;
       }
@@ -241,96 +259,103 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (!didPop && _currentIndex > 0) _previousPage();
       },
       child: Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+        resizeToAvoidBottomInset: true,
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: _currentIndex > 0
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-                onPressed: _previousPage,
-              )
-            : null,
-        automaticallyImplyLeading: _currentIndex > 0,
-        centerTitle: true,
-        title: Text(
-          _titles[_currentIndex],
-          style: const TextStyle(
-            color: AppColors.textDark,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: _currentIndex > 0
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                  onPressed: _previousPage,
+                )
+              : null,
+          automaticallyImplyLeading: _currentIndex > 0,
+          centerTitle: true,
+          title: Text(
+            _titles[_currentIndex],
+            style: const TextStyle(
+              color: AppColors.textDark,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (_currentIndex > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'BƯỚC ${_currentIndex + 1}/$_stepCount',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (_currentIndex > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 8.0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'BƯỚC ${_currentIndex + 1}/$_stepCount',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: (_currentIndex + 1) / _stepCount,
+                        backgroundColor: AppColors.progressBackground,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (index) =>
+                      setState(() => _currentIndex = index),
+                  children: [
+                    BasicInfoStep(
+                      onNext: _handleBasicInfoNext,
+                      initialFullName: _fullName,
+                      initialGender: _gender,
+                      initialDateOfBirth: _dateOfBirth,
+                      initialHeightCm: _heightCm,
+                      initialWeightKg: _weightKg,
+                      initialBodyFatPercent: _bodyFatPercent,
+                      initialTargetWeightKg: _targetWeightKg,
+                      initialActivityLevel: _activityLevel,
+                      initialGoal: _goal,
                     ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: (_currentIndex + 1) / _stepCount,
-                      backgroundColor: AppColors.progressBackground,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                      minHeight: 4,
-                      borderRadius: BorderRadius.circular(2),
+                    UserTypeStep(onNext: _handleUserTypeNext),
+                    PreferencesStep(onNext: _handlePreferencesNext),
+                    AllergiesStep(
+                      onNext: _nextPage,
+                      userAiProfileRepository: _userAiProfileRepository,
+                    ),
+                    CalorieGoalStep(
+                      onFinish: _handleFinish,
+                      isSubmitting: _finishing,
+                      initialCalories: _targetCalories ?? 2500,
+                      heightCm: _heightCm,
+                      weightKg: _weightKg,
+                      activityLevel: _activityLevel,
+                      goal: _goal,
                     ),
                   ],
                 ),
               ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (index) => setState(() => _currentIndex = index),
-                children: [
-                  BasicInfoStep(
-                    onNext: _handleBasicInfoNext,
-                    initialFullName: _fullName,
-                    initialGender: _gender,
-                    initialDateOfBirth: _dateOfBirth,
-                    initialHeightCm: _heightCm,
-                    initialWeightKg: _weightKg,
-                    initialBodyFatPercent: _bodyFatPercent,
-                    initialActivityLevel: _activityLevel,
-                    initialGoal: _goal,
-                  ),
-                  UserTypeStep(onNext: _handleUserTypeNext),
-                  PreferencesStep(onNext: _handlePreferencesNext),
-                  AllergiesStep(
-                    onNext: _nextPage,
-                    userAiProfileRepository: _userAiProfileRepository,
-                  ),
-                  CalorieGoalStep(
-                    onFinish: _handleFinish,
-                    isSubmitting: _finishing,
-                    initialCalories: _targetCalories ?? 2500,
-                    heightCm: _heightCm,
-                    weightKg: _weightKg,
-                    activityLevel: _activityLevel,
-                    goal: _goal,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

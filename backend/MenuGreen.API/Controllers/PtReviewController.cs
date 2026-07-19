@@ -81,6 +81,7 @@ namespace MenuGreen.API.Controllers
         /// PT submits review and menu/calorie adjustment suggestions via token (no login required).
         /// </summary>
         [HttpPost("shared-reports/{token}/submit")]
+        [HttpPost("shared-reports/{token}/feedback")]
         [AllowAnonymous]
         public async Task<IActionResult> SubmitReview(string token, [FromBody] PtSubmitReviewRequest request)
         {
@@ -118,6 +119,7 @@ namespace MenuGreen.API.Controllers
         /// Student approves and applies PT suggestions to their menu/goals.
         /// </summary>
         [HttpPost("requests/{requestId}/apply")]
+        [HttpPost("reports/{requestId}/apply")]
         [Authorize]
         public async Task<IActionResult> ApplyReview(Guid requestId)
         {

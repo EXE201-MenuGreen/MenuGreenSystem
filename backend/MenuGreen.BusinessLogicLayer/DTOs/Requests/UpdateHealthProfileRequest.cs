@@ -12,6 +12,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         public decimal? BodyFatPercent { get; set; }
 
+        [Range(30.0, 300.0)]
+        public decimal? TargetWeightKg { get; set; }
+
         [Required]
         public string ActivityLevel { get; set; } = string.Empty;
 

@@ -41,5 +41,6 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request);
         Task<CompleteMealPlanItemResponse> CompleteItemAsync(Guid userId, Guid itemId, CompleteMealPlanItemRequest request);
         Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date);
+        Task<CompleteMealPlanItemResponse> ToggleItemAsync(Guid userId, Guid itemId, bool isCompleted);
     }
 }

@@ -39,6 +39,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public bool IsCheckedIn { get; set; }
         public decimal? WeightKg { get; set; }
         public decimal? BodyFatPercent { get; set; }
+        public decimal? ChestCm { get; set; }
+        public decimal? WaistCm { get; set; }
+        public decimal? HipCm { get; set; }
+        public int RewardPoints { get; set; }
+        public string? BadgeName { get; set; }
         public DateTime? CheckInDate { get; set; }
         public DateTime? UnlockedAt { get; set; }
     }
@@ -56,7 +61,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal? StartBodyFat { get; set; }
         public decimal? EndBodyFat { get; set; }
         public decimal? BodyFatChange { get; set; }
+        public decimal? ChestChange { get; set; }
+        public decimal? WaistChange { get; set; }
+        public decimal? HipChange { get; set; }
         public double AverageAdherenceRate { get; set; }
+        public int TotalRewardPoints { get; set; }
+        public List<string> Badges { get; set; } = new();
         public List<MilestoneWeightProgress> ProgressTrend { get; set; } = new();
     }
 
@@ -79,6 +89,15 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         [Range(1.0, 80.0, ErrorMessage = "Body fat percentage must be between 1% and 80%.")]
         public decimal? BodyFatPercent { get; set; }
+
+        [Range(30.0, 250.0, ErrorMessage = "Chest measurement must be between 30cm and 250cm.")]
+        public decimal? ChestCm { get; set; }
+
+        [Range(30.0, 250.0, ErrorMessage = "Waist measurement must be between 30cm and 250cm.")]
+        public decimal? WaistCm { get; set; }
+
+        [Range(30.0, 250.0, ErrorMessage = "Hip measurement must be between 30cm and 250cm.")]
+        public decimal? HipCm { get; set; }
     }
 
     public class ProgramActivationRequest

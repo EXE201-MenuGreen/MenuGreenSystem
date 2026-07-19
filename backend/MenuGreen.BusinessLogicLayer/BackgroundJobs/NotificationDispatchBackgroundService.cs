@@ -27,18 +27,25 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
             _logger.LogInformation("NotificationDispatchBackgroundService started. Dispatching every {Interval}.",
                 _interval);
 
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    await DispatchAsync(stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in NotificationDispatchBackgroundService dispatch loop.");
-                }
+                    try
+                    {
+                        await DispatchAsync(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in NotificationDispatchBackgroundService dispatch loop.");
+                    }
 
-                await Task.Delay(_interval, stoppingToken);
+                    await Task.Delay(_interval, stoppingToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown, ignore
             }
 
             _logger.LogInformation("NotificationDispatchBackgroundService stopped.");

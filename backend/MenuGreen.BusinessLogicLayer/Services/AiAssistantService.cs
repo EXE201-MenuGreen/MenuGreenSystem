@@ -904,6 +904,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .OrderByDescending(x => x.SnapshotDate)
                 .FirstOrDefaultAsync();
 
+            var availableFoods = await _db.Foods.AsNoTracking()
+                .Where(x => x.IsActive != false)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.NameVi,
+                    x.CaloriesKcal,
+                    x.ProteinG,
+                    x.CarbsG,
+                    x.FatG,
+                    x.Category
+                })
+                .ToListAsync();
+
             return new
             {
                 profile = profile == null ? null : new
@@ -937,6 +951,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     recentNutrition.TotalFatG,
                     recentNutrition.GoalCompletionPercent,
                 },
+                availableFoods = availableFoods
             };
         }
 
@@ -1008,7 +1023,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             history.Insert(0, new WorkerConversationMessage
             {
                 Role = "system",
-                Content = "MenuGreen user context. Use it only when relevant. "
+                Content = "You are MenuGreen AI Nutrition Coach. When recommending dishes, food items, or creating daily/weekly meal plans for the user, you MUST select and recommend from the 'availableFoods' list provided in the user context. Do not make up food names that are not in 'availableFoods'. Available foods list represents actual dishes the user can log or cook. MenuGreen user context: "
                     + JsonSerializer.Serialize(context, JsonOptions),
             });
 
@@ -1096,7 +1111,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var msgLower = userMessage.ToLowerInvariant();
             string reply = "Chào bạn! Tôi là Trợ lý Dinh dưỡng AI của MenuGreen. Cấu hình AI Worker hiện chưa sẵn sàng, dưới đây là tư vấn tự động:\n\n";
 
-            if (msgLower.Contains("giảm cân") || msgLower.Contains("weight loss"))
+            if (msgLower.Contains("calo") || msgLower.Contains("kcal") || msgLower.Contains("ăn gì") || msgLower.Contains("món ăn") || msgLower.Contains("thực đơn"))
+            {
+                reply += "Dưới đây là gợi ý thực đơn cụ thể dựa trên các món ăn thực tế có sẵn trên hệ thống MenuGreen:\n\n"
+                    + "- **Bữa sáng**: Cháo yến mạch trứng gà (250 kcal) và Sinh tố chuối bơ đậu phộng (450 kcal)\n"
+                    + "- **Bữa trưa**: Cơm gạo lứt (111 kcal), Ức gà áp chảo (165 kcal) và Salad bơ ức gà (320 kcal)\n"
+                    + "- **Bữa tối**: Cá hồi áp chảo sốt chanh (350 kcal), Khoai lang hấp (86 kcal) và Bò áp chảo bông cải xanh (290 kcal)\n"
+                    + "- **Bữa phụ**: Salad cá hồi bơ (380 kcal)\n\n"
+                    + "Tổng năng lượng nạp vào khoảng 2402 kcal (phù hợp với mục tiêu ~2500 kcal của bạn). Bạn có thể thêm trực tiếp từng món ăn trên vào thực đơn hôm nay của mình bằng các nút bấm xuất hiện ngay dưới đây.";
+            }
+            else if (msgLower.Contains("giảm cân") || msgLower.Contains("weight loss"))
             {
                 reply += "Để giảm cân an toàn và bền vững, bạn nên:\n1. Kiểm soát thâm hụt calo (TDEE - 300 đến 500 kcal).\n2. Ăn nhiều rau xanh, ức gà, cá hồi và hạn chế thức ăn nhanh.\n3. Kết hợp luyện tập thể thao đều đặn và uống đủ nước.";
             }

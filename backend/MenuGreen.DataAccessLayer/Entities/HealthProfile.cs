@@ -9,6 +9,7 @@ namespace MenuGreen.DataAccessLayer.Entities
         public decimal? HeightCm { get; set; }
         public decimal? WeightKg { get; set; }
         public decimal? BodyFatPercent { get; set; }
+        public decimal? TargetWeightKg { get; set; }
 
         public string? ActivityLevel { get; set; }
         public string? Goal { get; set; }

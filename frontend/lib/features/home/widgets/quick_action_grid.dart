@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
+import '../../gymer/views/gymer_hub_screen.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
 import '../../micro_learning/views/micro_learning_screen.dart';
@@ -11,7 +12,6 @@ import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../../vietnam_local/views/food_capture_screen.dart';
-import '../../vietnam_local/views/gym_goals_screen.dart';
 import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/safety_hub_screen.dart';
@@ -106,7 +106,7 @@ class QuickActionGrid extends StatelessWidget {
     _ActionItem(
       type: QuickActionType.gymMode,
       icon: Icons.fitness_center,
-      label: 'Chế độ\nGym/PT',
+      label: 'Gói\nGym/PT',
       gradientColors: [Color(0xFFDC2626), Color(0xFFF87171)],
       bgColor: Color(0xFFFEE2E2),
     ),
@@ -163,7 +163,7 @@ class QuickActionGrid extends StatelessWidget {
         screen = const PlannedVsActualScreen();
         break;
       case QuickActionType.gymMode:
-        screen = const GymGoalsScreen();
+        screen = const GymerHubScreen();
         break;
       case QuickActionType.vietPreferences:
         screen = const LocalPreferencesScreen();
