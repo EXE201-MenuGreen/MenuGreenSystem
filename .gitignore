@@ -20,7 +20,7 @@ backend/db_backups/
 backend/MenuGreen.API/firebase-adminsdk.json
 
 # Google Cloud service-account credentials (local only)
-backend/MenuGreen.API/menugreen-*.json
+menugreen-*.json
 
 # User-specific files
 *.rsuser
