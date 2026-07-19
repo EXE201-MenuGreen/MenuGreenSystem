@@ -39,6 +39,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
 
             await _unitOfWork.BudgetRequests.AddAsync(entity);
+            await InvalidateGeneratedBudgetPlansAsync(userId);
             await _unitOfWork.CompleteAsync();
 
             return MapToResponse(entity);
@@ -52,10 +53,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Budget request not found.");
             }
 
+            var targetChanged = entity.BudgetVnd != request.BudgetVnd
+                || entity.TimeLimitMin != request.TimeLimitMin;
+
             entity.BudgetVnd = request.BudgetVnd;
             entity.TimeLimitMin = request.TimeLimitMin;
 
             _unitOfWork.BudgetRequests.Update(entity);
+            if (targetChanged)
+            {
+                await InvalidateGeneratedBudgetPlansAsync(userId);
+            }
             await _unitOfWork.CompleteAsync();
 
             return MapToResponse(entity);
@@ -84,6 +92,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Result = budget.Result,
                 CreatedAt = budget.CreatedAt ?? DateTimeOffset.UtcNow
             };
+        }
+
+        private async Task InvalidateGeneratedBudgetPlansAsync(Guid userId)
+        {
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId
+                && x.IsActive
+                && (x.GeneratedBy == "AI_BUDGET_AWARE"
+                    || x.GeneratedBy == "BUDGET_AWARE_V2"));
+
+            var now = DateTime.UtcNow;
+            foreach (var plan in plans)
+            {
+                plan.IsActive = false;
+                plan.UpdatedAt = now;
+                _unitOfWork.MealPlanHeaders.Update(plan);
+            }
         }
     }
 }

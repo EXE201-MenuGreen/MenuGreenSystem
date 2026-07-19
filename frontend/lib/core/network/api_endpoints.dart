@@ -110,6 +110,8 @@ class ApiEndpoints {
   static String mealPlanById(String id) => '$baseUrl/MealPlan/$id';
   static String get mealPlanGenerateByBudget => '$baseUrl/MealPlan/generate-by-budget';
   static String mealPlanGroceryList(String id) => '${mealPlanById(id)}/grocery-list';
+  static String mealPlanBudgetStatus(String id) =>
+      '${mealPlanById(id)}/budget-status';
   static String mealPlanItems(String planId) =>
       '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>

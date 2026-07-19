@@ -27,9 +27,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return;
             }
 
-            throw new InvalidOperationException(
-                "Micro-learning cards are empty. Please run the seed script at backend/database/49_micro_learning_cards.sql before starting the app."
-            );
+            // Content is managed by database seed/Admin CRUD, never embedded in runtime code.
+            // An empty catalog is a valid state and the API will return an empty list.
+            return;
         }
 
         public async Task<IEnumerable<MicroLearningCardResponse>> GetRecommendedCardsAsync(Guid userId)

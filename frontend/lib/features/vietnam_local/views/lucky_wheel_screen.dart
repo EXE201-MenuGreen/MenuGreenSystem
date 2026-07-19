@@ -136,7 +136,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen> with SingleTickerPr
                           height: 140,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             height: 140,
                             color: Colors.grey.shade800,
                             child: const Icon(Icons.fastfood, color: Colors.white54, size: 40),
