@@ -1,4 +1,4 @@
-package com.menugreen.app
+package com.menugreen.food
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -966,5 +966,3 @@ class _IconButtonWithBadge extends StatelessWidget {
     );
   }
 }
-
-

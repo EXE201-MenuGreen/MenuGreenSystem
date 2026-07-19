@@ -114,8 +114,6 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/generate-by-budget';
   static String mealPlanGroceryList(String id) =>
       '${mealPlanById(id)}/grocery-list';
-  static String mealPlanBudgetStatus(String id) =>
-      '${mealPlanById(id)}/budget-status';
   static String mealPlanAlternatives(String planId, String itemId) =>
       '${mealPlanById(planId)}/alternatives/$itemId';
   static String mealPlanItems(String planId) =>
@@ -130,6 +128,8 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/$planId/commit';
   static String mealPlanDuplicate(String planId) =>
       '$baseUrl/MealPlan/$planId/duplicate';
+  static String mealPlanBudgetStatus(String planId) =>
+      '$baseUrl/MealPlan/$planId/budget-status';
   static String get mealPlanDashboard => '$baseUrl/MealPlan/dashboard';
   static String get mealPlanCompare => '$baseUrl/MealPlan/compare';
   static String get mealPlanStreaks => '$baseUrl/MealPlan/streaks';

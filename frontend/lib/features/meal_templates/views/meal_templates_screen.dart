@@ -123,7 +123,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Dùng mẫu bữa ăn này'),
+                    child: const Text('Ghi thực đơn này'),
                   ),
                 ),
               ],
@@ -193,9 +193,9 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mẫu bữa ăn')),
+      appBar: AppBar(title: const Text('Thực đơn đã lưu')),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Tạo mẫu bữa ăn',
+        tooltip: 'Tạo thực đơn',
         onPressed: () => _openEditor(),
         child: const Icon(Icons.add),
       ),
@@ -207,7 +207,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
                 ? ListView(
                     children: const [
                       SizedBox(height: 180),
-                      Center(child: Text('Chưa có mẫu bữa ăn nào.')),
+                      Center(child: Text('Chưa có thực đơn nào được lưu.')),
                     ],
                   )
                 : ListView.separated(
@@ -226,7 +226,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                tooltip: 'Dùng mẫu bữa ăn',
+                                tooltip: 'Ghi thực đơn',
                                 onPressed: () => _logTemplate(template),
                                 icon: const Icon(Icons.add_task_outlined),
                               ),

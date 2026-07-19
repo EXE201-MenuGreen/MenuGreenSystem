@@ -106,7 +106,7 @@ builder.Services.AddAuthorization(options =>
             )
     );
     options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
-    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "Admin"));
+    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "User", "Gymer", "Office", "Coach", "Admin"));
 });
 
 
