@@ -14,6 +14,7 @@ class HealthProfileValues {
     'maintain weight': 'Duy trì vóc dáng',
     'gain weight': 'Tăng cân',
     'build muscle': 'Tăng cơ',
+    'recomposition': 'Tái cấu trúc cơ thể',
   };
 
   static const Map<String, String> genderLabels = {
@@ -40,7 +41,9 @@ class HealthProfileValues {
         return 'very active';
       case 'sedentary':
       default:
-        return v.isEmpty ? 'sedentary' : (activityLabels.containsKey(v) ? v : 'sedentary');
+        return v.isEmpty
+            ? 'sedentary'
+            : (activityLabels.containsKey(v) ? v : 'sedentary');
     }
   }
 
@@ -57,11 +60,16 @@ class HealthProfileValues {
       case 'buildmuscle':
       case 'build muscle':
         return 'build muscle';
+      case 'recomp':
+      case 'recomposition':
+        return 'recomposition';
       case 'maintain':
       case 'maintain weight':
         return 'maintain weight';
       default:
-        return v.isEmpty ? 'maintain weight' : (goalLabels.containsKey(v) ? v : 'maintain weight');
+        return v.isEmpty
+            ? 'maintain weight'
+            : (goalLabels.containsKey(v) ? v : 'maintain weight');
     }
   }
 
@@ -91,7 +99,9 @@ class HealthProfileValues {
 
   static double? _positiveNum(dynamic value) {
     if (value == null) return null;
-    final n = value is num ? value.toDouble() : double.tryParse(value.toString());
+    final n = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString());
     if (n == null || n <= 0) return null;
     return n;
   }

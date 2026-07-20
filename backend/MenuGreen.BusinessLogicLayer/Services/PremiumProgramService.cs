@@ -276,8 +276,35 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Update milestone
             milestone.WeightKg = request.WeightKg;
             milestone.BodyFatPercent = request.BodyFatPercent;
+            milestone.ChestCm = request.ChestCm;
+            milestone.WaistCm = request.WaistCm;
+            milestone.HipCm = request.HipCm;
             milestone.IsCheckedIn = true;
             milestone.CheckInDate = DateTime.UtcNow;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var streakStart = today.AddDays(-6);
+            var snapshots = (await _unitOfWork.NutritionSnapshots.FindAsync(
+                x => x.UserId == userId && x.SnapshotDate >= streakStart && x.SnapshotDate <= today))
+                .Where(x => x.SnapshotDate.HasValue)
+                .GroupBy(x => x.SnapshotDate!.Value)
+                .Select(x => x.OrderByDescending(s => s.TotalCalories).First())
+                .ToList();
+            var health = await _unitOfWork.HealthProfiles.GetByIdAsync(userId);
+            var calorieTarget = health?.TargetCalories ?? program.TargetCaloriesDaily;
+            var proteinTarget = health?.TargetProteinG ?? 0;
+            var completedSevenDayTarget = calorieTarget > 0 && proteinTarget > 0 &&
+                snapshots.Count == 7 && snapshots.All(x =>
+                    x.TotalCalories.HasValue &&
+                    x.TotalCalories.Value >= calorieTarget * 0.9m &&
+                    x.TotalCalories.Value <= calorieTarget * 1.1m &&
+                    x.TotalProteinG.HasValue &&
+                    x.TotalProteinG.Value >= proteinTarget);
+            if (completedSevenDayTarget)
+            {
+                milestone.RewardPoints = 100;
+                milestone.BadgeName = "Kỷ luật dinh dưỡng 7 ngày";
+            }
             _unitOfWork.UserProgramMilestones.Update(milestone);
 
             // Log user weight and body fat to WeightLogs
@@ -389,6 +416,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var endFat = milestones.LastOrDefault(m => m.IsCheckedIn)?.BodyFatPercent;
             var fatChange = (startFat.HasValue && endFat.HasValue) ? (endFat.Value - startFat.Value) : (decimal?)null;
 
+            static decimal? Change(decimal? start, decimal? end) =>
+                start.HasValue && end.HasValue ? end.Value - start.Value : null;
+            var firstCheckIn = milestones.FirstOrDefault(m => m.IsCheckedIn);
+            var lastCheckIn = milestones.LastOrDefault(m => m.IsCheckedIn);
+
             // Compliance rate calculation
             var mealPlanHeaders = await _unitOfWork.MealPlanHeaders.FindAsync(
                 h => h.UserId == userId && h.GeneratedBy == "PREMIUM_PROGRAM");
@@ -422,7 +454,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 StartBodyFat = startFat,
                 EndBodyFat = endFat,
                 BodyFatChange = fatChange,
+                ChestChange = Change(firstCheckIn?.ChestCm, lastCheckIn?.ChestCm),
+                WaistChange = Change(firstCheckIn?.WaistCm, lastCheckIn?.WaistCm),
+                HipChange = Change(firstCheckIn?.HipCm, lastCheckIn?.HipCm),
                 AverageAdherenceRate = adherence,
+                TotalRewardPoints = milestones.Sum(m => m.RewardPoints),
+                Badges = milestones
+                    .Where(m => !string.IsNullOrWhiteSpace(m.BadgeName))
+                    .Select(m => m.BadgeName!)
+                    .Distinct()
+                    .ToList(),
                 ProgressTrend = milestones.Select(m => new MilestoneWeightProgress
                 {
                     WeekNumber = m.WeekNumber,
@@ -588,6 +629,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     IsCheckedIn = m.IsCheckedIn,
                     WeightKg = m.WeightKg,
                     BodyFatPercent = m.BodyFatPercent,
+                    ChestCm = m.ChestCm,
+                    WaistCm = m.WaistCm,
+                    HipCm = m.HipCm,
+                    RewardPoints = m.RewardPoints,
+                    BadgeName = m.BadgeName,
                     CheckInDate = m.CheckInDate,
                     UnlockedAt = m.UnlockedAt
                 }).ToList()

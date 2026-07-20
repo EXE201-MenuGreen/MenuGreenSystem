@@ -40,6 +40,7 @@ class UserSubscription {
   final String userId;
   final String subscriptionPlanId;
   final String subscriptionPlanName;
+  final String? featureGroup;
   final String status;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -52,6 +53,7 @@ class UserSubscription {
     required this.userId,
     required this.subscriptionPlanId,
     required this.subscriptionPlanName,
+    this.featureGroup,
     required this.status,
     this.startDate,
     this.endDate,
@@ -64,8 +66,17 @@ class UserSubscription {
     return UserSubscription(
       id: _pickString(json, 'id', 'Id'),
       userId: _pickString(json, 'userId', 'UserId'),
-      subscriptionPlanId: _pickString(json, 'subscriptionPlanId', 'SubscriptionPlanId'),
-      subscriptionPlanName: _pickString(json, 'subscriptionPlanName', 'SubscriptionPlanName'),
+      subscriptionPlanId: _pickString(
+        json,
+        'subscriptionPlanId',
+        'SubscriptionPlanId',
+      ),
+      subscriptionPlanName: _pickString(
+        json,
+        'subscriptionPlanName',
+        'SubscriptionPlanName',
+      ),
+      featureGroup: _pickNullableString(json, 'featureGroup', 'FeatureGroup'),
       status: _pickString(json, 'status', 'Status'),
       startDate: _pickDate(json, 'startDate', 'StartDate'),
       endDate: _pickDate(json, 'endDate', 'EndDate'),
@@ -117,7 +128,11 @@ class SubscriptionTransaction {
     return SubscriptionTransaction(
       id: _pickString(json, 'id', 'Id'),
       userId: _pickString(json, 'userId', 'UserId'),
-      userSubscriptionId: _pickString(json, 'userSubscriptionId', 'UserSubscriptionId'),
+      userSubscriptionId: _pickString(
+        json,
+        'userSubscriptionId',
+        'UserSubscriptionId',
+      ),
       transactionType: _pickString(json, 'transactionType', 'TransactionType'),
       amount: _pickInt(json, 'amount', 'Amount'),
       status: _pickString(json, 'status', 'Status'),
@@ -131,7 +146,11 @@ String _pickString(Map<String, dynamic> json, String camel, String pascal) {
   return (json[camel] ?? json[pascal])?.toString() ?? '';
 }
 
-String? _pickNullableString(Map<String, dynamic> json, String camel, String pascal) {
+String? _pickNullableString(
+  Map<String, dynamic> json,
+  String camel,
+  String pascal,
+) {
   final value = json[camel] ?? json[pascal];
   if (value == null) return null;
   final text = value.toString();

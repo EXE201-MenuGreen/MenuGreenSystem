@@ -27,5 +27,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public object? ReportData { get; set; } // Parsed from ReportDataJson
         public DateTime? ReviewedAt { get; set; }
         public DateTime? ActionedAt { get; set; }
+        public string ReviewToken { get; set; } = string.Empty;
+        public string RequestType { get; set; } = "WeeklyReport";
+        public decimal? CheckInWeight { get; set; }
+        public decimal? CheckInBodyFat { get; set; }
+        public int? TrainingDaysCount { get; set; }
+        public string? BodyFeeling { get; set; }
+        public string? StudentNote { get; set; }
     }
 }

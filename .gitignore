@@ -19,6 +19,9 @@ backend/db_backups/
 **/firebase-adminsdk*.json
 backend/MenuGreen.API/firebase-adminsdk.json
 
+# Google Cloud service-account credentials (local only)
+menugreen-*.json
+
 # User-specific files
 *.rsuser
 *.suo
@@ -558,4 +561,10 @@ frontend/android/app/GeneratedPluginRegistrant.java
 AGENT_BACKEND.md
 AGENTS_FRONTEND.md
 
-# Local Entity Framework migrations
+# Local Entity Framework migration files
+backend/MenuGreen.DataAccessLayer/Migrations/*.cs
+
+# Local custom exclusions
+.vscode/launch.json
+**/menugreen-*-firebase-adminsdk-*.json
+frontend/android/app/debug.keystore

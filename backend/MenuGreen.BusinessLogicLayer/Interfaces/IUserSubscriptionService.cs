@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<UserSubscriptionResponse> RenewAsync(Guid userId, RenewSubscriptionRequest request);
         Task<UserSubscriptionResponse> CancelAsync(Guid userId, CancelSubscriptionRequest request);
         Task<UserSubscriptionResponse?> GetCurrentAsync(Guid userId);
+        Task<IEnumerable<UserSubscriptionResponse>> GetActiveAsync(Guid userId);
         Task<UserSubscriptionResponse> GetByIdAsync(Guid userId, Guid subscriptionId);
         Task<IEnumerable<SubscriptionTransactionResponse>> GetHistoryAsync(Guid userId);
     }

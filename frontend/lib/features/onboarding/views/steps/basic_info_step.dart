@@ -16,6 +16,7 @@ class BasicInfoStep extends StatefulWidget {
     this.initialHeightCm,
     this.initialWeightKg,
     this.initialBodyFatPercent,
+    this.initialTargetWeightKg,
     this.initialActivityLevel,
     this.initialGoal,
   });
@@ -27,15 +28,18 @@ class BasicInfoStep extends StatefulWidget {
     required double heightCm,
     required double weightKg,
     double? bodyFatPercent,
+    double? targetWeightKg,
     required String activityLevel,
     required String goal,
-  }) onNext;
+  })
+  onNext;
   final String? initialFullName;
   final String? initialGender;
   final DateTime? initialDateOfBirth;
   final double? initialHeightCm;
   final double? initialWeightKg;
   final double? initialBodyFatPercent;
+  final double? initialTargetWeightKg;
   final String? initialActivityLevel;
   final String? initialGoal;
 
@@ -48,6 +52,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   final _bodyFatController = TextEditingController();
+  final _targetWeightController = TextEditingController();
   String? _gender;
   DateTime? _dateOfBirth;
   String _activityLevel = 'sedentary';
@@ -70,10 +75,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       _weightController.text = widget.initialWeightKg!.toStringAsFixed(0);
     }
     if (widget.initialBodyFatPercent != null) {
-      _bodyFatController.text = widget.initialBodyFatPercent!.toStringAsFixed(1);
+      _bodyFatController.text = widget.initialBodyFatPercent!.toStringAsFixed(
+        1,
+      );
+    }
+    if (widget.initialTargetWeightKg != null) {
+      _targetWeightController.text = widget.initialTargetWeightKg!
+          .toStringAsFixed(1);
     }
     if (widget.initialActivityLevel != null) {
-      _activityLevel = HealthProfileValues.normalizeActivity(widget.initialActivityLevel);
+      _activityLevel = HealthProfileValues.normalizeActivity(
+        widget.initialActivityLevel,
+      );
     }
     if (widget.initialGoal != null) {
       _goal = HealthProfileValues.normalizeGoal(widget.initialGoal);
@@ -86,6 +99,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     _heightController.dispose();
     _weightController.dispose();
     _bodyFatController.dispose();
+    _targetWeightController.dispose();
     super.dispose();
   }
 
@@ -96,7 +110,8 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       final now = DateTime.now();
       final picked = await showSafeDatePicker(
         context: context,
-        initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+        initialDate:
+            _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
         firstDate: DateTime(1920),
         lastDate: now,
         helpText: 'Chọn ngày sinh',
@@ -127,8 +142,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     final heightCm = double.tryParse(_heightController.text.trim());
     final weightKg = double.tryParse(_weightController.text.trim());
     final bodyFatText = _bodyFatController.text.trim();
-    final bodyFatPercent =
-        bodyFatText.isEmpty ? null : double.tryParse(bodyFatText);
+    final bodyFatPercent = bodyFatText.isEmpty
+        ? null
+        : double.tryParse(bodyFatText);
+    final targetWeightText = _targetWeightController.text.trim();
+    final targetWeightKg = targetWeightText.isEmpty
+        ? null
+        : double.tryParse(targetWeightText);
 
     if (heightCm == null || heightCm <= 0) {
       _showError('Chiều cao không hợp lệ');
@@ -138,8 +158,16 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       _showError('Cân nặng không hợp lệ');
       return;
     }
-    if (bodyFatText.isNotEmpty && (bodyFatPercent == null || bodyFatPercent < 0)) {
+    if (bodyFatText.isNotEmpty &&
+        (bodyFatPercent == null || bodyFatPercent < 0)) {
       _showError('Tỷ lệ mỡ không hợp lệ');
+      return;
+    }
+    if (targetWeightText.isNotEmpty &&
+        (targetWeightKg == null ||
+            targetWeightKg < 30 ||
+            targetWeightKg > 300)) {
+      _showError('Cân nặng mục tiêu phải từ 30 đến 300 kg');
       return;
     }
 
@@ -151,6 +179,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       heightCm: heightCm,
       weightKg: weightKg,
       bodyFatPercent: bodyFatPercent,
+      targetWeightKg: targetWeightKg,
       activityLevel: _activityLevel,
       goal: _goal,
     );
@@ -184,10 +213,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 16),
-          const Text(
-            'Thông tin cơ bản',
-            style: AppTextStyles.heading1,
-          ),
+          const Text('Thông tin cơ bản', style: AppTextStyles.heading1),
           const SizedBox(height: 12),
           const Text(
             'Nhập hồ sơ và thông số để MenuGreen tính nhu cầu dinh dưỡng cho bạn.',
@@ -226,6 +252,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 24),
+          CustomTextField(
+            controller: _targetWeightController,
+            label: 'Cân nặng mục tiêu (kg) - tùy chọn',
+            hintText: 'Ví dụ: 70',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 24),
           _buildActivityDropdown(),
           const SizedBox(height: 24),
           _buildGoalDropdown(),
@@ -246,7 +279,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       children: [
         const Text(
           'Giới tính',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -260,12 +297,23 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: _gender,
-              hint: const Text('Chọn giới tính', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+              hint: const Text(
+                'Chọn giới tính',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              ),
               items: HealthProfileValues.genderLabels.entries
-                  .map((e) => DropdownMenuItem<String>(
-                        value: e.key,
-                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                      ))
+                  .map(
+                    (e) => DropdownMenuItem<String>(
+                      value: e.key,
+                      child: Text(
+                        e.value,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: _setGender,
             ),
@@ -281,7 +329,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       children: [
         const Text(
           'Ngày sinh',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -291,13 +343,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.progressBackground, width: 1.5),
+              border: Border.all(
+                color: AppColors.progressBackground,
+                width: 1.5,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               _dateOfBirthLabel(),
               style: TextStyle(
-                color: _dateOfBirth == null ? AppColors.textSecondary : AppColors.textDark,
+                color: _dateOfBirth == null
+                    ? AppColors.textSecondary
+                    : AppColors.textDark,
                 fontSize: 14,
               ),
             ),
@@ -313,7 +370,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       children: [
         const Text(
           'Mức độ hoạt động',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -328,10 +389,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               isExpanded: true,
               value: _activityLevel,
               items: HealthProfileValues.activityLabels.entries
-                  .map((e) => DropdownMenuItem<String>(
-                        value: e.key,
-                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                      ))
+                  .map(
+                    (e) => DropdownMenuItem<String>(
+                      value: e.key,
+                      child: Text(
+                        e.value,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) {
                 if (val != null) _setActivityLevel(val);
@@ -349,7 +418,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
       children: [
         const Text(
           'Mục tiêu',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -364,10 +437,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               isExpanded: true,
               value: _goal,
               items: HealthProfileValues.goalLabels.entries
-                  .map((e) => DropdownMenuItem<String>(
-                        value: e.key,
-                        child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
-                      ))
+                  .map(
+                    (e) => DropdownMenuItem<String>(
+                      value: e.key,
+                      child: Text(
+                        e.value,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) {
                 if (val != null) _setGoal(val);

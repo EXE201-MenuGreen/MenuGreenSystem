@@ -91,7 +91,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IsPremium = isPremium,
                 
                 CurrentWeightKg = healthProfile?.WeightKg,
-                TargetWeightKg = null, // HealthProfile doesn't have TargetWeight field
+                TargetWeightKg = healthProfile?.TargetWeightKg,
                 HeightCm = healthProfile?.HeightCm,
                 BMI = bmi,
                 TargetCalories = targetCalories,

@@ -32,9 +32,13 @@ class _AiConversationListScreenState extends State<AiConversationListScreen> {
   }
 
   void _openChat(AiConversation conversation) {
+    final provider = context.read<AiAssistantProvider>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AiChatScreen(conversation: conversation),
+        builder: (_) => ChangeNotifierProvider.value(
+          value: provider,
+          child: AiChatScreen(conversation: conversation),
+        ),
       ),
     );
   }

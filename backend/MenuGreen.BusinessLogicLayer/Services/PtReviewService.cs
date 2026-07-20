@@ -143,7 +143,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var snapshot = new WeeklyReportSnapshot
             {
+                RequestType = request.RequestType ?? "WeeklyReport",
                 WeekStartDate = weekStartDate,
+                StudentNote = request.StudentNote ?? string.Empty,
+                CheckInWeight = request.CheckInWeight,
+                CheckInBodyFat = request.CheckInBodyFat,
+                TrainingDaysCount = request.TrainingDaysCount,
+                BodyFeeling = request.BodyFeeling ?? string.Empty,
                 StudentHealthProfile = healthProfileSnapshot,
                 NutritionSummary = summary,
                 AdherenceScore = score,
@@ -173,6 +179,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.PtReviewRequests.AddAsync(ptReviewRequest);
             await _unitOfWork.CompleteAsync();
+
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = userId,
+                    Type = "PT_REVIEW_SUBMITTED",
+                    Title = "Đã gửi lộ trình cho PT",
+                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi."
+                });
+            }
+            catch
+            {
+                // Silence notification failure
+            }
 
             var shareLink = $"https://menugreen.vn/shared-report/{token}";
 
@@ -227,7 +248,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = request.ReviewedAt,
-                ActionedAt = request.ActionedAt
+                ActionedAt = request.ActionedAt,
+                ReviewToken = request.ReviewToken,
+                RequestType = reportData?.RequestType ?? ""
             };
         }
 
@@ -250,6 +273,45 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     }) ?? new List<PtSuggestedChangeDto>();
                 }
 
+                string requestType = "";
+                decimal? checkInWeight = null;
+                decimal? checkInBodyFat = null;
+                int? trainingDaysCount = null;
+                string? bodyFeeling = null;
+                string? studentNote = null;
+                try
+                {
+                    if (!string.IsNullOrEmpty(req.ReportDataJson))
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(req.ReportDataJson);
+                        if (doc.RootElement.TryGetProperty("requestType", out var prop))
+                        {
+                            requestType = prop.GetString() ?? "";
+                        }
+                        if (doc.RootElement.TryGetProperty("checkInWeight", out var wProp) && wProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            checkInWeight = wProp.GetDecimal();
+                        }
+                        if (doc.RootElement.TryGetProperty("checkInBodyFat", out var bfProp) && bfProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            checkInBodyFat = bfProp.GetDecimal();
+                        }
+                        if (doc.RootElement.TryGetProperty("trainingDaysCount", out var tdProp) && tdProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            trainingDaysCount = tdProp.GetInt32();
+                        }
+                        if (doc.RootElement.TryGetProperty("bodyFeeling", out var fProp) && fProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            bodyFeeling = fProp.GetString();
+                        }
+                        if (doc.RootElement.TryGetProperty("studentNote", out var nProp) && nProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            studentNote = nProp.GetString();
+                        }
+                    }
+                }
+                catch {}
+
                 list.Add(new PtReviewRequestDetailResponse
                 {
                     ReportId = req.Id,
@@ -264,7 +326,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     SuggestedChanges = suggestedChanges,
                     ReportData = null, // Skip heavy report details in list view
                     ReviewedAt = req.ReviewedAt,
-                    ActionedAt = req.ActionedAt
+                    ActionedAt = req.ActionedAt,
+                    ReviewToken = req.ReviewToken,
+                    RequestType = requestType,
+                    CheckInWeight = checkInWeight,
+                    CheckInBodyFat = checkInBodyFat,
+                    TrainingDaysCount = trainingDaysCount,
+                    BodyFeeling = bodyFeeling,
+                    StudentNote = studentNote
                 });
             }
 
@@ -302,12 +371,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Send notification to student
             try
             {
+                string requestType = "";
+                try
+                {
+                    if (!string.IsNullOrEmpty(requestEntity.ReportDataJson))
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(requestEntity.ReportDataJson);
+                        if (doc.RootElement.TryGetProperty("requestType", out var prop))
+                        {
+                            requestType = prop.GetString() ?? "";
+                        }
+                    }
+                }
+                catch {}
+
+                bool isRouteApproval = requestType.Equals("RouteApproval", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(requestType);
+
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = requestEntity.UserId,
-                    Type = "PT_REVIEW",
-                    Title = "Feedback from your coach",
-                    Body = "Your PT has sent feedback for your weekly report. Check it out and update your nutrition plan!"
+                    Type = isRouteApproval ? "PT_ROUTE_APPROVAL" : "PT_REVIEW",
+                    Title = isRouteApproval ? "Lộ trình dinh dưỡng đã được duyệt" : "Feedback from your coach",
+                    Body = isRouteApproval 
+                        ? "PT đã duyệt lộ trình dinh dưỡng của bạn. Hãy kiểm tra và áp dụng mục tiêu mới!" 
+                        : "Your PT has sent feedback for your weekly report. Check it out and update your nutrition plan!"
                 });
             }
             catch
@@ -358,7 +445,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = requestEntity.ReviewedAt,
-                ActionedAt = requestEntity.ActionedAt
+                ActionedAt = requestEntity.ActionedAt,
+                CheckInWeight = reportData?.CheckInWeight,
+                CheckInBodyFat = reportData?.CheckInBodyFat,
+                TrainingDaysCount = reportData?.TrainingDaysCount,
+                BodyFeeling = reportData?.BodyFeeling,
+                StudentNote = reportData?.StudentNote
             };
         }
 
@@ -406,8 +498,50 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _unitOfWork.HealthProfiles.Update(healthProfile);
             }
 
-            // 2. Apply suggested meal alterations to next week's plan
-            var nextWeekStartDate = requestEntity.WeekStartDate.AddDays(7);
+            // Sync targets to UserAiProfile.Preferences JSON so frontend reflects changes
+            var aiProfiles = await _unitOfWork.UserAiProfiles.FindAsync(up => up.UserId == userId);
+            var aiProfile = aiProfiles.FirstOrDefault();
+            if (aiProfile != null && !string.IsNullOrEmpty(aiProfile.Preferences))
+            {
+                try
+                {
+                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var prefs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(aiProfile.Preferences, options) ?? new();
+                    
+                    if (requestEntity.SuggestedCalorieTarget.HasValue)
+                    {
+                        prefs["trainingDayTargetCalories"] = requestEntity.SuggestedCalorieTarget.Value;
+                    }
+                    if (requestEntity.SuggestedProteinTarget.HasValue)
+                    {
+                        prefs["minProteinG"] = requestEntity.SuggestedProteinTarget.Value;
+                    }
+                    
+                    aiProfile.Preferences = System.Text.Json.JsonSerializer.Serialize(prefs);
+                    aiProfile.UpdatedAt = DateTime.UtcNow;
+                    _unitOfWork.UserAiProfiles.Update(aiProfile);
+                }
+                catch {}
+            }
+
+            // 2. Apply suggested meal alterations to next week's plan (or current week if route approval)
+            string requestType = "";
+            try
+            {
+                if (!string.IsNullOrEmpty(requestEntity.ReportDataJson))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(requestEntity.ReportDataJson);
+                    if (doc.RootElement.TryGetProperty("requestType", out var prop))
+                    {
+                        requestType = prop.GetString() ?? "";
+                    }
+                }
+            }
+            catch {}
+
+            bool isRouteApproval = requestType.Equals("RouteApproval", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(requestType);
+            var targetStartDate = isRouteApproval ? requestEntity.WeekStartDate : requestEntity.WeekStartDate.AddDays(7);
+
             var suggestedChanges = new List<PtSuggestedChangeDto>();
             if (!string.IsNullOrEmpty(requestEntity.SuggestedChangesJson))
             {
@@ -419,7 +553,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             foreach (var change in suggestedChanges)
             {
-                var targetDate = GetTargetDate(nextWeekStartDate, change.DayOfWeek);
+                var targetDate = GetTargetDate(targetStartDate, change.DayOfWeek);
                 if (!targetDate.HasValue) continue;
 
                 var dailyPlans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
@@ -637,7 +771,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
     // Support models inside the snapshot
     public class WeeklyReportSnapshot
     {
+        public string RequestType { get; set; } = "WeeklyReport";
         public DateOnly WeekStartDate { get; set; }
+        public string StudentNote { get; set; } = string.Empty;
+        public decimal? CheckInWeight { get; set; }
+        public decimal? CheckInBodyFat { get; set; }
+        public int? TrainingDaysCount { get; set; }
+        public string BodyFeeling { get; set; } = string.Empty;
         public HealthProfileSnapshot StudentHealthProfile { get; set; } = new();
         public PlannedVsActualSummaryResponse NutritionSummary { get; set; } = new();
         public AdherenceScoreResponse AdherenceScore { get; set; } = new();

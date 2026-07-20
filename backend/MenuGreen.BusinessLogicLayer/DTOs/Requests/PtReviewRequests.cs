@@ -10,6 +10,14 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateOnly WeekStartDate { get; set; }
 
         public int ExpirationDays { get; set; } = 7;
+
+        public string? RequestType { get; set; }
+
+        public string? StudentNote { get; set; }
+        public decimal? CheckInWeight { get; set; }
+        public decimal? CheckInBodyFat { get; set; }
+        public int? TrainingDaysCount { get; set; }
+        public string? BodyFeeling { get; set; }
     }
 
     public class PtSubmitReviewRequest

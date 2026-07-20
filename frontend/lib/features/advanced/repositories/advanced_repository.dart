@@ -26,12 +26,24 @@ class AdvancedRepository {
   );
   Future<Map<String, dynamic>> createPtReport(
     String weekStart,
-    int expiry,
-  ) async => _map(
+    int expiry, {
+    String requestType = 'WeeklyReport',
+    String? studentNote,
+    double? checkInWeight,
+    double? checkInBodyFat,
+    int? trainingDaysCount,
+    String? bodyFeeling,
+  }) async => _map(
     _body(
       await _api.postJson('${ApiEndpoints.baseUrl}/PtReview/reports', {
         'weekStartDate': weekStart,
         'expirationDays': expiry,
+        'requestType': requestType,
+        'studentNote': studentNote,
+        'checkInWeight': checkInWeight,
+        'checkInBodyFat': checkInBodyFat,
+        'trainingDaysCount': trainingDaysCount,
+        'bodyFeeling': bodyFeeling,
       }),
     ),
   );
@@ -115,6 +127,9 @@ class AdvancedRepository {
   Future<void> connect(String id) async => _body(
     await _api.postJson('${ApiEndpoints.baseUrl}/Coaches/connect/$id', {}),
   );
+  Future<void> disconnect(String id) async => _body(
+    await _api.postJson('${ApiEndpoints.baseUrl}/Coaches/disconnect/$id', {}),
+  );
   Future<void> access(String id, bool grant) async => _body(
     await _api.postJson(
       '${ApiEndpoints.baseUrl}/Coaches/${grant ? 'grant' : 'revoke'}-access/$id',
@@ -184,6 +199,31 @@ class AdvancedRepository {
     await _api.putJson(
       '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan/$planId',
       body,
+    ),
+  );
+
+  Future<Map<String, dynamic>?> clientMealPlan(String clientId, String dateString) async {
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan?date=$dateString',
+    );
+    if (response.statusCode == 404 || response.body.isEmpty || response.body == 'null') {
+      return null;
+    }
+    return _map(_body(response));
+  }
+
+  Future<List<Map<String, dynamic>>> clientSuggestions(String clientId, {int? targetCalories, int? top}) async {
+    final params = <String, String>{};
+    if (targetCalories != null) params['targetCalories'] = '$targetCalories';
+    if (top != null) params['top'] = '$top';
+    final uri = Uri.parse('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/suggestions')
+        .replace(queryParameters: params);
+    return _list(_body(await _api.get(uri.toString())));
+  }
+
+  Future<List<Map<String, dynamic>>> clientReviewRequests(String clientId) async => _list(
+    _body(
+      await _api.get('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/review-requests'),
     ),
   );
 

@@ -104,6 +104,8 @@ class ApiEndpoints {
       '$baseUrl/user-meal-plans/from-daily-menu';
   static String userMealPlanCompleteItem(String itemId) =>
       '$baseUrl/user-meal-plans/items/$itemId/complete';
+  static String userMealPlanToggleItem(String itemId, bool isCompleted) =>
+      '$baseUrl/user-meal-plans/items/$itemId/toggle?isCompleted=$isCompleted';
 
   // MealPlan endpoints (Admin/Full CRUD)
   static String get mealPlans => '$baseUrl/MealPlan';
@@ -200,6 +202,7 @@ class ApiEndpoints {
   static String get subscriptionRenew => '$baseUrl/UserSubscription/renew';
   static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
   static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
+  static String get subscriptionActive => '$baseUrl/UserSubscription/me/active';
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 
@@ -211,6 +214,16 @@ class ApiEndpoints {
       '$baseUrl/PremiumPrograms/$id/activate';
   static String get myActivePremiumProgram =>
       '$baseUrl/PremiumPrograms/my-active';
+  static String get myPremiumPrograms => '$baseUrl/PremiumPrograms/my-programs';
+  static String get premiumProgramCheckIn => '$baseUrl/PremiumPrograms/checkin';
+  static String premiumProgramWeekCheckIn(int weekNumber) =>
+      '$baseUrl/PremiumPrograms/my-active/milestones/$weekNumber/checkin';
+  static String get premiumProgramGraduate =>
+      '$baseUrl/PremiumPrograms/my-active/graduate';
+  static String premiumProgramReport(String userProgramId) =>
+      '$baseUrl/PremiumPrograms/my-programs/$userProgramId/wrap-up-report';
+  static String premiumProgramCertificate(String userProgramId) =>
+      '$baseUrl/PremiumPrograms/my-programs/$userProgramId/certificate';
 
   static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
   static String get sepayCreateRenewOrder =>
@@ -266,6 +279,7 @@ class ApiEndpoints {
   // Gym/PT Goals (2.13)
   static String get gymGoalsMe => '$baseUrl/GymGoals/me';
   static String get gymGoals => '$baseUrl/GymGoals';
+  static String get gymGoalsSetup => '$baseUrl/GymGoals/setup';
   static String get gymGoalsPlan => '$baseUrl/GymGoals/plan';
   static String get gymGoalsRecalibrate => '$baseUrl/GymGoals/recalibrate';
   static String get gymGoalsAlerts => '$baseUrl/GymGoals/alerts';

@@ -189,6 +189,243 @@ class AllergenProfileItem {
   }
 }
 
+@immutable
+class GymDayDetail {
+  const GymDayDetail({
+    required this.dayOfWeek,
+    required this.dateString,
+    required this.isTraining,
+    this.customCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.minProteinG,
+    this.maxProteinG,
+    this.customNotes,
+  });
+
+  final String dayOfWeek;      // e.g. "Monday"
+  final String dateString;     // e.g. "2026-07-13"
+  final bool isTraining;
+  final int? customCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final int? minProteinG;
+  final int? maxProteinG;
+  final String? customNotes;
+
+  factory GymDayDetail.fromJson(Map<String, dynamic> json) {
+    return GymDayDetail(
+      dayOfWeek: json['dayOfWeek']?.toString() ?? '',
+      dateString: json['dateString']?.toString() ?? '',
+      isTraining: json['isTraining'] == true,
+      customCalories: json['customCalories'] is int 
+          ? json['customCalories'] as int 
+          : int.tryParse(json['customCalories']?.toString() ?? ''),
+      minCalories: json['minCalories'] is int 
+          ? json['minCalories'] as int 
+          : int.tryParse(json['minCalories']?.toString() ?? ''),
+      maxCalories: json['maxCalories'] is int 
+          ? json['maxCalories'] as int 
+          : int.tryParse(json['maxCalories']?.toString() ?? ''),
+      minProteinG: json['minProteinG'] is int 
+          ? json['minProteinG'] as int 
+          : int.tryParse(json['minProteinG']?.toString() ?? ''),
+      maxProteinG: json['maxProteinG'] is int 
+          ? json['maxProteinG'] as int 
+          : int.tryParse(json['maxProteinG']?.toString() ?? ''),
+      customNotes: json['customNotes']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dayOfWeek': dayOfWeek,
+      'dateString': dateString,
+      'isTraining': isTraining,
+      if (customCalories != null) 'customCalories': customCalories,
+      if (minCalories != null) 'minCalories': minCalories,
+      if (maxCalories != null) 'maxCalories': maxCalories,
+      if (minProteinG != null) 'minProteinG': minProteinG,
+      if (maxProteinG != null) 'maxProteinG': maxProteinG,
+      if (customNotes != null) 'customNotes': customNotes,
+    };
+  }
+
+  GymDayDetail copyWith({
+    String? dayOfWeek,
+    String? dateString,
+    bool? isTraining,
+    int? Function()? customCalories,
+    int? Function()? minCalories,
+    int? Function()? maxCalories,
+    int? Function()? minProteinG,
+    int? Function()? maxProteinG,
+    String? Function()? customNotes,
+  }) {
+    return GymDayDetail(
+      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+      dateString: dateString ?? this.dateString,
+      isTraining: isTraining ?? this.isTraining,
+      customCalories: customCalories != null ? customCalories() : this.customCalories,
+      minCalories: minCalories != null ? minCalories() : this.minCalories,
+      maxCalories: maxCalories != null ? maxCalories() : this.maxCalories,
+      minProteinG: minProteinG != null ? minProteinG() : this.minProteinG,
+      maxProteinG: maxProteinG != null ? maxProteinG() : this.maxProteinG,
+      customNotes: customNotes != null ? customNotes() : this.customNotes,
+    );
+  }
+}
+
+@immutable
+class GymWeeklyDetail {
+  const GymWeeklyDetail({
+    required this.weekStartDateString,
+    this.customCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.minProteinG,
+    this.maxProteinG,
+    this.customNotes,
+  });
+
+  final String weekStartDateString; // "yyyy-MM-dd"
+  final int? customCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final int? minProteinG;
+  final int? maxProteinG;
+  final String? customNotes;
+
+  factory GymWeeklyDetail.fromJson(Map<String, dynamic> json) {
+    return GymWeeklyDetail(
+      weekStartDateString: json['weekStartDateString']?.toString() ?? '',
+      customCalories: json['customCalories'] is int 
+          ? json['customCalories'] as int 
+          : int.tryParse(json['customCalories']?.toString() ?? ''),
+      minCalories: json['minCalories'] is int 
+          ? json['minCalories'] as int 
+          : int.tryParse(json['minCalories']?.toString() ?? ''),
+      maxCalories: json['maxCalories'] is int 
+          ? json['maxCalories'] as int 
+          : int.tryParse(json['maxCalories']?.toString() ?? ''),
+      minProteinG: json['minProteinG'] is int 
+          ? json['minProteinG'] as int 
+          : int.tryParse(json['minProteinG']?.toString() ?? ''),
+      maxProteinG: json['maxProteinG'] is int 
+          ? json['maxProteinG'] as int 
+          : int.tryParse(json['maxProteinG']?.toString() ?? ''),
+      customNotes: json['customNotes']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'weekStartDateString': weekStartDateString,
+      if (customCalories != null) 'customCalories': customCalories,
+      if (minCalories != null) 'minCalories': minCalories,
+      if (maxCalories != null) 'maxCalories': maxCalories,
+      if (minProteinG != null) 'minProteinG': minProteinG,
+      if (maxProteinG != null) 'maxProteinG': maxProteinG,
+      if (customNotes != null) 'customNotes': customNotes,
+    };
+  }
+
+  GymWeeklyDetail copyWith({
+    String? weekStartDateString,
+    int? Function()? customCalories,
+    int? Function()? minCalories,
+    int? Function()? maxCalories,
+    int? Function()? minProteinG,
+    int? Function()? maxProteinG,
+    String? Function()? customNotes,
+  }) {
+    return GymWeeklyDetail(
+      weekStartDateString: weekStartDateString ?? this.weekStartDateString,
+      customCalories: customCalories != null ? customCalories() : this.customCalories,
+      minCalories: minCalories != null ? minCalories() : this.minCalories,
+      maxCalories: maxCalories != null ? maxCalories() : this.maxCalories,
+      minProteinG: minProteinG != null ? minProteinG() : this.minProteinG,
+      maxProteinG: maxProteinG != null ? maxProteinG() : this.maxProteinG,
+      customNotes: customNotes != null ? customNotes() : this.customNotes,
+    );
+  }
+}
+
+@immutable
+class GymMonthlyDetail {
+  const GymMonthlyDetail({
+    required this.monthString,
+    this.customCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.minProteinG,
+    this.maxProteinG,
+    this.customNotes,
+  });
+
+  final String monthString; // "yyyy-MM"
+  final int? customCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final int? minProteinG;
+  final int? maxProteinG;
+  final String? customNotes;
+
+  factory GymMonthlyDetail.fromJson(Map<String, dynamic> json) {
+    return GymMonthlyDetail(
+      monthString: json['monthString']?.toString() ?? '',
+      customCalories: json['customCalories'] is int 
+          ? json['customCalories'] as int 
+          : int.tryParse(json['customCalories']?.toString() ?? ''),
+      minCalories: json['minCalories'] is int 
+          ? json['minCalories'] as int 
+          : int.tryParse(json['minCalories']?.toString() ?? ''),
+      maxCalories: json['maxCalories'] is int 
+          ? json['maxCalories'] as int 
+          : int.tryParse(json['maxCalories']?.toString() ?? ''),
+      minProteinG: json['minProteinG'] is int 
+          ? json['minProteinG'] as int 
+          : int.tryParse(json['minProteinG']?.toString() ?? ''),
+      maxProteinG: json['maxProteinG'] is int 
+          ? json['maxProteinG'] as int 
+          : int.tryParse(json['maxProteinG']?.toString() ?? ''),
+      customNotes: json['customNotes']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'monthString': monthString,
+      if (customCalories != null) 'customCalories': customCalories,
+      if (minCalories != null) 'minCalories': minCalories,
+      if (maxCalories != null) 'maxCalories': maxCalories,
+      if (minProteinG != null) 'minProteinG': minProteinG,
+      if (maxProteinG != null) 'maxProteinG': maxProteinG,
+      if (customNotes != null) 'customNotes': customNotes,
+    };
+  }
+
+  GymMonthlyDetail copyWith({
+    String? monthString,
+    int? Function()? customCalories,
+    int? Function()? minCalories,
+    int? Function()? maxCalories,
+    int? Function()? minProteinG,
+    int? Function()? maxProteinG,
+    String? Function()? customNotes,
+  }) {
+    return GymMonthlyDetail(
+      monthString: monthString ?? this.monthString,
+      customCalories: customCalories != null ? customCalories() : this.customCalories,
+      minCalories: minCalories != null ? minCalories() : this.minCalories,
+      maxCalories: maxCalories != null ? maxCalories() : this.maxCalories,
+      minProteinG: minProteinG != null ? minProteinG() : this.minProteinG,
+      maxProteinG: maxProteinG != null ? maxProteinG() : this.maxProteinG,
+      customNotes: customNotes != null ? customNotes() : this.customNotes,
+    );
+  }
+}
+
 /// Gym/PT goal profile (decoded from UserAiProfileResponse.Preferences JSON).
 @immutable
 class GymGoalProfile {
@@ -203,7 +440,12 @@ class GymGoalProfile {
     this.maxCalories,
     this.minProteinG,
     this.maxProteinG,
+    this.targetWeightKg,
+    this.targetBodyFatPercent,
     this.notes,
+    this.dailyDetails = const [],
+    this.weeklyDetails = const [],
+    this.monthlyDetails = const [],
   });
 
   final String goalMode; // cut | bulk | maintain | recomp
@@ -216,7 +458,12 @@ class GymGoalProfile {
   final int? maxCalories;
   final int? minProteinG;
   final int? maxProteinG;
+  final double? targetWeightKg;
+  final double? targetBodyFatPercent;
   final String? notes;
+  final List<GymDayDetail> dailyDetails;
+  final List<GymWeeklyDetail> weeklyDetails;
+  final List<GymMonthlyDetail> monthlyDetails;
 
   GymGoalProfile copyWith({
     String? goalMode,
@@ -229,7 +476,12 @@ class GymGoalProfile {
     int? maxCalories,
     int? minProteinG,
     int? maxProteinG,
+    double? targetWeightKg,
+    double? targetBodyFatPercent,
     String? notes,
+    List<GymDayDetail>? dailyDetails,
+    List<GymWeeklyDetail>? weeklyDetails,
+    List<GymMonthlyDetail>? monthlyDetails,
   }) {
     return GymGoalProfile(
       goalMode: goalMode ?? this.goalMode,
@@ -245,11 +497,34 @@ class GymGoalProfile {
       maxCalories: maxCalories ?? this.maxCalories,
       minProteinG: minProteinG ?? this.minProteinG,
       maxProteinG: maxProteinG ?? this.maxProteinG,
+      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+      targetBodyFatPercent: targetBodyFatPercent ?? this.targetBodyFatPercent,
       notes: notes ?? this.notes,
+      dailyDetails: dailyDetails ?? this.dailyDetails,
+      weeklyDetails: weeklyDetails ?? this.weeklyDetails,
+      monthlyDetails: monthlyDetails ?? this.monthlyDetails,
     );
   }
 
   factory GymGoalProfile.fromJson(Map<String, dynamic> json) {
+    var detailsList = <GymDayDetail>[];
+    if (json['dailyDetails'] is List) {
+      detailsList = (json['dailyDetails'] as List)
+          .map((e) => GymDayDetail.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    var weeksList = <GymWeeklyDetail>[];
+    if (json['weeklyDetails'] is List) {
+      weeksList = (json['weeklyDetails'] as List)
+          .map((e) => GymWeeklyDetail.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    var monthsList = <GymMonthlyDetail>[];
+    if (json['monthlyDetails'] is List) {
+      monthsList = (json['monthlyDetails'] as List)
+          .map((e) => GymMonthlyDetail.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
     return GymGoalProfile(
       goalMode: _string(json, 'goalMode') ?? 'maintain',
       weeklyTrainingSchedule: _string(json, 'weeklyTrainingSchedule') ?? '',
@@ -261,7 +536,12 @@ class GymGoalProfile {
       maxCalories: _int(json, 'maxCalories'),
       minProteinG: _int(json, 'minProteinG'),
       maxProteinG: _int(json, 'maxProteinG'),
+      targetWeightKg: _double(json, 'targetWeightKg'),
+      targetBodyFatPercent: _double(json, 'targetBodyFatPercent'),
       notes: _string(json, 'notes'),
+      dailyDetails: detailsList,
+      weeklyDetails: weeksList,
+      monthlyDetails: monthsList,
     );
   }
 
@@ -277,7 +557,12 @@ class GymGoalProfile {
       'maxCalories': maxCalories,
       'minProteinG': minProteinG,
       'maxProteinG': maxProteinG,
+      'targetWeightKg': targetWeightKg,
+      'targetBodyFatPercent': targetBodyFatPercent,
       'notes': notes,
+      'dailyDetails': dailyDetails.map((e) => e.toJson()).toList(),
+      'weeklyDetails': weeklyDetails.map((e) => e.toJson()).toList(),
+      'monthlyDetails': monthlyDetails.map((e) => e.toJson()).toList(),
     };
   }
 }
@@ -928,7 +1213,8 @@ class LuckyWheelFood {
   factory LuckyWheelFood.fromJson(Map<String, dynamic> json) {
     return LuckyWheelFood(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
-      name: _firstString(json, const [
+      name:
+          _firstString(json, const [
             'nameVi',
             'nameVI',
             'nameVN',
@@ -943,13 +1229,15 @@ class LuckyWheelFood {
             'title',
           ]) ??
           '',
-      caloriesKcal: _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
+      caloriesKcal:
+          _double(json, 'caloriesKcal') ?? _double(json, 'CaloriesKcal') ?? 0,
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
       imageUrl: _string(json, 'imageUrl') ?? _string(json, 'ImageUrl'),
       description: _string(json, 'description') ?? _string(json, 'Description'),
-      estimatedPriceVnd: _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd'),
+      estimatedPriceVnd:
+          _int(json, 'estimatedPriceVnd') ?? _int(json, 'EstimatedPriceVnd'),
     );
   }
 }

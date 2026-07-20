@@ -9,8 +9,10 @@ import '../../../core/services/notification_handler.dart';
 import '../../../main.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../main/views/main_screen.dart';
+import '../../main/views/pt_main_screen.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../onboarding/views/onboarding_screen.dart';
+import '../../profile/repositories/profile_repository.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -94,7 +96,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (hasValidSession) {
       try {
         final complete = await OnboardingGate().isOnboardingComplete();
-        destination = complete ? const MainScreen() : const OnboardingScreen();
+        if (complete) {
+          // Check role — Coach gets PT workspace
+          try {
+            final profile = await ProfileRepository().getMyProfile()
+                .timeout(const Duration(seconds: 8));
+            final role = (profile?['role'] ?? '').toString().toLowerCase();
+            destination = role == 'coach' ? const PtMainScreen() : const MainScreen();
+          } catch (_) {
+            destination = const MainScreen();
+          }
+        } else {
+          destination = const OnboardingScreen();
+        }
       } catch (e) {
         debugPrint('[Splash] OnboardingGate error: $e - going to MainScreen');
         destination = const MainScreen();
