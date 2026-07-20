@@ -1,5 +1,7 @@
 using System;
+using System.Net;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -168,6 +170,38 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Check in the current week of the user's active Premium program.
+        /// This canonical route follows the Gymer workflow; the week-specific route remains for backward compatibility.
+        /// </summary>
+        [HttpPost("checkin")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> CheckInCurrentWeek([FromBody] ProgramCheckInRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var active = await _premiumProgramService.GetMyActiveProgramAsync(userId);
+                if (active == null)
+                {
+                    return BadRequest(new { Message = "You do not have any active Premium program." });
+                }
+
+                var result = await _premiumProgramService.CheckInWeekAsync(
+                    userId,
+                    active.CurrentWeek,
+                    request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         /// <summary>Get user weight/body fat change trend in program.</summary>
         [HttpGet("my-active/progress-trend")]
         [Authorize]
@@ -220,6 +254,58 @@ namespace MenuGreen.API.Controllers
                 if (active == null) return BadRequest(new { Message = "You do not have an active Premium program to get report from." });
                 var result = await _premiumProgramService.GetMyProgramReportAsync(userId, active.Id);
                 return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Get report for an enrollment, including completed programs.</summary>
+        [HttpGet("my-programs/{userProgramId}/wrap-up-report")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetMyProgramReport(Guid userProgramId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                return Ok(await _premiumProgramService.GetMyProgramReportAsync(userId, userProgramId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Export a printable completion certificate as an HTML file.</summary>
+        [HttpGet("my-programs/{userProgramId}/certificate")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> ExportCertificate(Guid userProgramId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var report = await _premiumProgramService.GetMyProgramReportAsync(userId, userProgramId);
+                if (!string.Equals(report.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { Message = "You need to graduate before exporting the certificate." });
+                }
+
+                var title = WebUtility.HtmlEncode(report.ProgramTitle);
+                var html = $$"""
+                    <!doctype html>
+                    <html lang="vi"><head><meta charset="utf-8"><title>Chứng nhận hoàn thành</title>
+                    <style>body{font-family:Arial,sans-serif;background:#f7faf8;padding:48px}.certificate{max-width:820px;margin:auto;padding:56px;border:8px double #b88a25;background:#fff;text-align:center}h1{color:#176b4d}.gold{color:#9a6b08;font-weight:700}table{margin:28px auto;border-collapse:collapse}td{padding:7px 16px;border-bottom:1px solid #ddd}</style></head>
+                    <body><section class="certificate"><div class="gold">MENUGREEN GYMER</div><h1>CHỨNG NHẬN HOÀN THÀNH</h1>
+                    <p>Đã hoàn thành lộ trình</p><h2>{{title}}</h2><p>{{report.TotalWeeks}} tuần</p>
+                    <table><tr><td>Mức độ tuân thủ</td><td>{{report.AverageAdherenceRate:0.##}}%</td></tr><tr><td>Điểm thưởng</td><td>{{report.TotalRewardPoints}}</td></tr><tr><td>Thay đổi cân nặng</td><td>{{report.WeightChange:0.##}} kg</td></tr><tr><td>Thay đổi % mỡ</td><td>{{report.BodyFatChange:0.##}}%</td></tr></table>
+                    <p>Cấp ngày {{DateTime.UtcNow:dd/MM/yyyy}}</p></section></body></html>
+                    """;
+                return File(Encoding.UTF8.GetBytes(html), "text/html; charset=utf-8", $"gymer-certificate-{userProgramId:N}.html");
             }
             catch (Exception ex)
             {

@@ -19,6 +19,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> EnsureInitialSnapshotAsync(Guid userId, DateOnly? date = null)
         {
+            // Guard: skip if user doesn't exist (e.g. Coach accounts without HealthProfile)
+            var userExists = await _db.Users.AsNoTracking().AnyAsync(u => u.Id == userId);
+            if (!userExists) return false;
+
             var snapshotDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
             var exists = await _db.NutritionSnapshots.AsNoTracking()
                 .AnyAsync(x => x.UserId == userId && x.SnapshotDate == snapshotDate);
@@ -50,6 +54,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task SyncDailySnapshotAsync(Guid userId, DateOnly date)
         {
+            // Guard: skip if user doesn't exist (e.g. Coach accounts, deleted users)
+            var userExists = await _db.Users.AsNoTracking().AnyAsync(u => u.Id == userId);
+            if (!userExists) return;
             var logs = await _db.MealLogs.AsNoTracking()
                 .Where(x => x.UserId == userId && x.LoggedAt.HasValue
                     && DateOnly.FromDateTime(x.LoggedAt.Value) == date)

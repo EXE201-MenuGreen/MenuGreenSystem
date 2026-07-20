@@ -21,6 +21,9 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.BodyFatPercent)
                 .HasColumnType("numeric(5,2)");
 
+            builder.Property(x => x.TargetWeightKg)
+                .HasColumnType("numeric(5,2)");
+
             builder.Property(x => x.ActivityLevel)
                 .HasMaxLength(50);
 

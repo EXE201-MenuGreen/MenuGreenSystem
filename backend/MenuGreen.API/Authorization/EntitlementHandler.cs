@@ -39,8 +39,7 @@ namespace MenuGreen.API.Authorization
             var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(
                 s => s.UserId == userId && s.Status == "Active" && s.EndDate > now);
 
-            var activeSub = subscriptions.FirstOrDefault();
-            if (activeSub != null)
+            foreach (var activeSub in subscriptions)
             {
                 var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(activeSub.SubscriptionPlanId);
                 if (plan != null && !string.IsNullOrEmpty(plan.FeatureGroup))
@@ -50,7 +49,7 @@ namespace MenuGreen.API.Authorization
 
                     if (requirement.RequiredEntitlement == "gym_features" || requirement.RequiredEntitlement == "coach_access")
                     {
-                        if (planName.Contains("gym") || featureGroup == "pro")
+                        if (planName.Contains("gym") || featureGroup is "gym" or "pro")
                         {
                             context.Succeed(requirement);
                             return;

@@ -1,11 +1,20 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/services/realtime_notification_service.dart';
 import '../models/notification_models.dart';
 import '../repositories/notification_repository.dart';
 
 class NotificationProvider extends ChangeNotifier {
+  NotificationProvider() {
+    _initRealtime();
+  }
+
   final NotificationRepository _repository = NotificationRepository();
-  final bool _disposed = false;
+  late final RealtimeNotificationService _realtimeService;
+  StreamSubscription? _notifSub;
+  StreamSubscription? _countSub;
+  bool _disposed = false;
 
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
@@ -23,6 +32,26 @@ class NotificationProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get error => _error;
   bool get hasUnread => _unreadCount > 0;
+
+  void _initRealtime() {
+    _realtimeService = RealtimeNotificationService();
+    _notifSub = _realtimeService.notifications.listen((notification) {
+      if (_disposed) return;
+      if (!_notifications.any((n) => n.id == notification.id)) {
+        _notifications.insert(0, notification);
+        _unreadCount++;
+        notifyListeners();
+      }
+    });
+
+    _countSub = _realtimeService.unreadCounts.listen((count) {
+      if (_disposed) return;
+      _unreadCount = count;
+      notifyListeners();
+    });
+
+    _realtimeService.start();
+  }
 
   Future<void> loadNotifications({bool refresh = false}) async {
     if (_isLoading) return;
@@ -157,5 +186,14 @@ class NotificationProvider extends ChangeNotifier {
   void refresh() {
     loadNotifications(refresh: true);
     loadUnreadCount();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _notifSub?.cancel();
+    _countSub?.cancel();
+    _realtimeService.dispose();
+    super.dispose();
   }
 }

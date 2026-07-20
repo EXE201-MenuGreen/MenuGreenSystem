@@ -81,6 +81,20 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        [HttpPost("items/{itemId:guid}/toggle")]
+        public async Task<IActionResult> ToggleItem(Guid itemId, [FromQuery] bool isCompleted)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.ToggleItemAsync(userId, itemId, isCompleted));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
 
 
         private bool TryGetUserId(out Guid userId)

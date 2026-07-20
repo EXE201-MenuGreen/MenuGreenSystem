@@ -17,6 +17,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<MyCoachResponse>> GetMyCoachesAsync(Guid clientId);
         Task<bool> GrantAccessAsync(Guid clientId, Guid coachId);
         Task<bool> RevokeAccessAsync(Guid clientId, Guid coachId);
+        Task<bool> DisconnectCoachAsync(Guid clientId, Guid coachId);
         Task<object> GetClientProfileAsync(Guid coachId, Guid clientId);
         Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(Guid coachId, Guid clientId, int days);
         Task<IEnumerable<ClientWeightTrendResponse>> GetClientWeightTrendAsync(Guid coachId, Guid clientId);
@@ -24,5 +25,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<CoachFeedbackResponse>> GetFeedbacksAsync(Guid userId);
         Task<MealPlanResponse> AdjustClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId, MealPlanUpsertRequest request);
         Task<HealthProfileResponse> AdjustClientHealthTargetsAsync(Guid coachId, Guid clientId, ClientHealthTargetsAdjustRequest request);
+
+        // New client queries
+        Task<MealPlanResponse?> GetClientMealPlanAsync(Guid coachId, Guid clientId, DateOnly date);
+        Task<object> GetClientSuggestionsAsync(Guid coachId, Guid clientId, int targetCalories = 0, int top = 10);
+        Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId);
     }
 }

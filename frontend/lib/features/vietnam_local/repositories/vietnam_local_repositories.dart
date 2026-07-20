@@ -295,11 +295,13 @@ class GymGoalsRepository {
       'maxCalories': profile.maxCalories,
       'minProteinG': profile.minProteinG,
       'maxProteinG': profile.maxProteinG,
+      'targetWeightKg': profile.targetWeightKg,
+      'targetBodyFatPercent': profile.targetBodyFatPercent,
       'notes': profile.notes,
       'Preferences': preferences,
     };
     final result = await _http._exec(
-      () => _api.postJson(ApiEndpoints.gymGoals, payload),
+      () => _api.postJson(ApiEndpoints.gymGoalsSetup, payload),
     );
     return ApiResult<GymGoalProfile>(
       success: result.success,
@@ -1065,7 +1067,8 @@ class IngredientSubstitutionPreferencesRepository {
 }
 
 class LuckyWheelRepository {
-  LuckyWheelRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  LuckyWheelRepository({ApiClient? apiClient})
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
   final _VietnamLocalApi _http = _VietnamLocalApi();
@@ -1087,8 +1090,7 @@ class LuckyWheelRepository {
               ? raw['items'] as List
               : (raw is Map<String, dynamic> && raw['data'] is List
                     ? raw['data'] as List
-                    : <dynamic>[])
-          );
+                    : <dynamic>[]));
     final data = list
         .whereType<Map>()
         .map((e) => LuckyWheelFood.fromJson(e.cast<String, dynamic>()))
@@ -1096,7 +1098,10 @@ class LuckyWheelRepository {
     return ApiResult<List<LuckyWheelFood>>(success: true, data: data);
   }
 
-  Future<ApiResult<String>> applySelection(String foodId, String mealType) async {
+  Future<ApiResult<String>> applySelection(
+    String foodId,
+    String mealType,
+  ) async {
     final result = await _http._exec(
       () => _api.postJson(ApiEndpoints.luckyWheelApply, {
         'foodId': foodId,

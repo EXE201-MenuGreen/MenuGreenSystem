@@ -5,7 +5,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 
 class HealthProfileRepository {
-  HealthProfileRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  HealthProfileRepository({ApiClient? apiClient})
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
 
@@ -20,10 +21,12 @@ class HealthProfileRepository {
     }
   }
 
-  Future<({bool success, String message, Map<String, dynamic>? data})> updateMyHealthProfile({
+  Future<({bool success, String message, Map<String, dynamic>? data})>
+  updateMyHealthProfile({
     required double heightCm,
     required double weightKg,
     double? bodyFatPercent,
+    double? targetWeightKg,
     required String activityLevel,
     required String goal,
     int? targetCalories,
@@ -33,15 +36,21 @@ class HealthProfileRepository {
         'heightCm': heightCm,
         'weightKg': weightKg,
         'bodyFatPercent': bodyFatPercent,
+        'targetWeightKg': targetWeightKg,
         'activityLevel': HealthProfileValues.normalizeActivity(activityLevel),
         'goal': HealthProfileValues.normalizeGoal(goal),
       };
       if (targetCalories != null) payload['targetCalories'] = targetCalories;
 
-      final response = await _api.putJson(ApiEndpoints.healthProfileMe, payload);
+      final response = await _api.putJson(
+        ApiEndpoints.healthProfileMe,
+        payload,
+      );
 
       if (response.statusCode == 200) {
-        final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        final decoded = response.body.isNotEmpty
+            ? jsonDecode(response.body)
+            : null;
         return (
           success: true,
           message: 'Lưu hồ sơ sức khỏe thành công',

@@ -17,7 +17,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int? TargetCalories { get; set; }
         public string? GeneratedBy { get; set; }
         public bool IsActive { get; set; } = true;
-        public List<MealPlanItemUpsertRequest> Items { get; set; } = new();
+        public List<MealPlanItemUpsertRequest>? Items { get; set; }
     }
 
     /// DTO to create an empty plan (user creates plan first, adds items later).

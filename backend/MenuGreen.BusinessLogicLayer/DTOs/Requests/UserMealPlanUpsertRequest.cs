@@ -13,7 +13,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public int? TargetCalories { get; set; }
 
         [Required]
-        [MinLength(1)]
         public List<MealPlanItemUpsertRequest> Items { get; set; } = new();
     }
 }
