@@ -3,11 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase_bootstrap.dart';
+import 'firebase_runtime_config.dart';
 import 'firebase_storage_service.dart';
-
-/// Web client ID from google-services.json (client_type 3) — used for idToken on Android.
-const _kGoogleWebClientId =
-    '709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com';
 
 class FirebaseGoogleAuthService {
   FirebaseGoogleAuthService({
@@ -17,7 +14,9 @@ class FirebaseGoogleAuthService {
         _googleSignIn = googleSignIn ??
             GoogleSignIn(
               scopes: const ['email', 'profile'],
-              serverClientId: _kGoogleWebClientId,
+              serverClientId: FirebaseRuntimeConfig.hasGoogleWebClientId
+                  ? FirebaseRuntimeConfig.googleWebClientId
+                  : null,
             );
 
   final FirebaseAuth? _authOverride;
@@ -31,16 +30,23 @@ class FirebaseGoogleAuthService {
     await FirebaseBootstrap.initialize();
     if (!FirebaseBootstrap.isInitialized) {
       throw Exception(
-        'Firebase chưa khởi tạo. Kiểm tra mạng hoặc cấu hình google-services.json.',
+        'Firebase chua khoi tao. Kiem tra mang hoac cau hinh google-services.json.',
       );
     }
 
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {
-      throw Exception('Đăng nhập Google đã bị hủy.');
+      throw Exception('Dang nhap Google da bi huy.');
     }
 
     final googleAuth = await googleUser.authentication;
+    if (googleAuth.idToken == null || googleAuth.idToken!.isEmpty) {
+      throw Exception(
+        'Khong lay duoc Google ID token. Cau hinh '
+        'FIREBASE_GOOGLE_WEB_CLIENT_ID cho dung Firebase project.',
+      );
+    }
+
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
@@ -49,7 +55,7 @@ class FirebaseGoogleAuthService {
     final userCredential = await _auth.signInWithCredential(credential);
     final idToken = await userCredential.user?.getIdToken(true);
     if (idToken == null || idToken.isEmpty) {
-      throw Exception('Không lấy được Firebase ID token.');
+      throw Exception('Khong lay duoc Firebase ID token.');
     }
     return idToken;
   }

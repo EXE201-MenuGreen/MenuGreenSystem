@@ -24,7 +24,9 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 
 var builder = WebApplication.CreateBuilder(args);
 
-var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
+var firebaseCredentialPath =
+    builder.Configuration["Firebase:CredentialPath"]
+    ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIAL_PATH");
 if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 {
     var fullPath = Path.IsPathRooted(firebaseCredentialPath)
