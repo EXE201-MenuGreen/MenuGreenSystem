@@ -23,6 +23,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUserAiProfileService _userAiProfileService;
         private readonly IRecommendationService _recommendationService;
         private readonly INutritionAssistantService _nutritionAssistantService;
+        private readonly INutritionTrackingService _nutritionTrackingService;
 
         public DailyStarterService(
             IUnitOfWork unitOfWork,
@@ -33,7 +34,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IHealthProfileService healthProfileService,
             IUserAiProfileService userAiProfileService,
             IRecommendationService recommendationService,
-            INutritionAssistantService nutritionAssistantService)
+            INutritionAssistantService nutritionAssistantService,
+            INutritionTrackingService nutritionTrackingService)
         {
             _unitOfWork = unitOfWork;
             _db = db;
@@ -44,6 +46,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _userAiProfileService = userAiProfileService;
             _recommendationService = recommendationService;
             _nutritionAssistantService = nutritionAssistantService;
+            _nutritionTrackingService = nutritionTrackingService;
         }
 
         public async Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId)
@@ -62,11 +65,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == userId);
             var health = healthProfiles.FirstOrDefault();
 
-            var todayDateTime = DateTime.UtcNow.Date;
-            var hasLogged = await _db.MealLogs.AnyAsync(m => m.UserId == userId && m.LoggedAt.HasValue && m.LoggedAt.Value.Date == todayDateTime);
+            var (startUtc, endUtc) = GetVietnamDayWindowUtc();
+            var todayLogs = await _db.MealLogs
+                .AsNoTracking()
+                .Where(m => m.UserId == userId && m.LoggedAt.HasValue && m.LoggedAt.Value >= startUtc && m.LoggedAt.Value < endUtc)
+                .ToListAsync();
+            var hasLogged = todayLogs.Count > 0;
 
             var isOnboardingComplete = health != null && health.HeightCm.HasValue && health.WeightKg.HasValue;
             var targetCalories = health?.TargetCalories ?? 2000;
+            var consumedCalories = todayLogs.Sum(x => x.CaloriesKcal ?? 0);
 
             return new DailyStarterTodayResponse
             {
@@ -74,29 +82,79 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Quote = quote,
                 Author = author,
                 CaloriesTarget = targetCalories,
+                CaloriesConsumed = consumedCalories,
+                CaloriesRemaining = Math.Max(0, targetCalories - consumedCalories),
                 IsOnboardingComplete = isOnboardingComplete,
                 HasLoggedToday = hasLogged,
                 CurrentWeightKg = health?.WeightKg
             };
         }
 
-        public async Task<IEnumerable<FoodResponse>> GetFeaturedMealsAsync()
+        public async Task<IEnumerable<FoodResponse>> GetFeaturedMealsAsync(Guid userId)
         {
-            var foods = await _db.Foods.AsNoTracking().Where(f => f.IsActive != false).Take(5).ToListAsync();
+            var foods = await _db.Foods
+                .AsNoTracking()
+                .Where(f => f.IsActive != false)
+                .ToListAsync();
             var foodIds = foods.Select(f => f.Id).ToList();
             var foodAllergenMap = await _allergenMatchingService.GetFoodAllergenKeysAsync(foodIds);
+            var userKeys = await _allergenMatchingService.GetUserAllergenKeysAsync(userId);
+            var aiProfile = await _userAiProfileService.GetAsync(userId);
+            var budget = aiProfile?.BudgetPerMealVnd ?? int.MaxValue;
+            var preferredRegion = aiProfile?.VietnamRegion?.Trim();
+            var caloriesRemaining = await GetCaloriesRemainingAsync(userId);
+            var mealCalorieTarget = Math.Max(200m, Math.Min(caloriesRemaining, caloriesRemaining * 0.35m));
 
-            return foods.Select(f =>
-            {
-                foodAllergenMap.TryGetValue(f.Id, out var keys);
-                keys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                return MapFoodToResponse(f, keys, new HashSet<string>());
-            }).ToList();
+            return foods
+                .Select(f =>
+                {
+                    foodAllergenMap.TryGetValue(f.Id, out var keys);
+                    keys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var isSafe = !userKeys.Any(keys.Contains);
+                    var regionScore = !string.IsNullOrWhiteSpace(preferredRegion) &&
+                                      !string.IsNullOrWhiteSpace(f.Region) &&
+                                      f.Region.Contains(preferredRegion, StringComparison.OrdinalIgnoreCase)
+                        ? 1
+                        : 0;
+                    var withinBudget = !f.EstimatedPriceVnd.HasValue || f.EstimatedPriceVnd.Value <= budget ? 1 : 0;
+                    var calorieDistance = Math.Abs((f.CaloriesKcal ?? 0) - mealCalorieTarget);
+                    return new { Food = f, Keys = keys, IsSafe = isSafe, RegionScore = regionScore, WithinBudget = withinBudget, CalorieDistance = calorieDistance };
+                })
+                .Where(x => x.IsSafe)
+                .OrderByDescending(x => x.WithinBudget)
+                .ThenByDescending(x => x.RegionScore)
+                .ThenBy(x => x.CalorieDistance)
+                .ThenBy(x => x.Food.NameVi)
+                .Take(3)
+                .Select(x => MapFoodToResponse(x.Food, x.Keys, userKeys))
+                .ToList();
         }
 
         public async Task SelectMealPlanAsync(Guid userId, DailyStarterSelectMealRequest request)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (request.Meals.Count == 0)
+            {
+                throw new InvalidOperationException("Vui lòng chọn ít nhất một món ăn.");
+            }
+
+            var requestedFoodIds = request.Meals.Select(x => x.FoodId).Distinct().ToList();
+            var activeFoods = await _db.Foods
+                .AsNoTracking()
+                .Where(x => requestedFoodIds.Contains(x.Id) && x.IsActive != false)
+                .ToListAsync();
+            if (activeFoods.Count != requestedFoodIds.Count)
+            {
+                throw new InvalidOperationException("Một hoặc nhiều món ăn không còn khả dụng.");
+            }
+
+            var foodAllergens = await _allergenMatchingService.GetFoodAllergenKeysAsync(requestedFoodIds);
+            var userAllergens = await _allergenMatchingService.GetUserAllergenKeysAsync(userId);
+            if (requestedFoodIds.Any(id => foodAllergens.TryGetValue(id, out var keys) && userAllergens.Any(keys.Contains)))
+            {
+                throw new InvalidOperationException("Không thể áp dụng món có thành phần dị ứng vào kế hoạch.");
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
             
             // Tìm target calories từ HealthProfile để kế hoạch có calorie mục tiêu đúng đắn
             var health = await _healthProfileService.GetAsync(userId);
@@ -107,7 +165,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = x.MealType,
                 FoodId = x.FoodId,
                 RecipeId = null,
-                ScheduledTime = new TimeOnly(8, 0),
+                ScheduledTime = GetScheduledTime(x.MealType),
                 TargetCalories = null
             }).ToList();
 
@@ -130,22 +188,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
             else if (now.Hour >= 15 && now.Hour < 21) suggestedMealType = "Dinner";
             else suggestedMealType = "Snack";
 
-            var foods = await _db.Foods.AsNoTracking().Where(f => f.IsActive != false).Take(5).ToListAsync();
-            var foodIds = foods.Select(f => f.Id).ToList();
-            var foodAllergenMap = await _allergenMatchingService.GetFoodAllergenKeysAsync(foodIds);
-            var userKeys = await _allergenMatchingService.GetUserAllergenKeysAsync(userId);
-
-            var suggestedFoods = foods.Select(f =>
+            var suggestedFoods = (await GetFeaturedMealsAsync(userId)).ToList();
+            var selectedFood = suggestedFoods.FirstOrDefault();
+            if (selectedFood == null)
             {
-                foodAllergenMap.TryGetValue(f.Id, out var keys);
-                keys ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                return MapFoodToResponse(f, keys, userKeys);
-            }).ToList();
+                throw new InvalidOperationException("Chưa có món an toàn phù hợp để ghi nhận nhanh.");
+            }
+
+            var food = await _db.Foods.AsNoTracking().FirstAsync(x => x.Id == selectedFood.Id);
+            var mealLog = await _nutritionTrackingService.CreateMealLogAsync(userId, new MealLogUpsertRequest
+            {
+                FoodId = food.Id,
+                MealType = suggestedMealType,
+                QuantityG = food.DefaultServingG ?? 100,
+                LoggedAt = DateTime.UtcNow,
+                Notes = "Ghi nhận nhanh từ Daily Starter"
+            });
 
             return new DailyStarterStartLogResponse
             {
                 SuggestedMealType = suggestedMealType,
-                SuggestedFoods = suggestedFoods
+                SuggestedFoods = suggestedFoods,
+                LoggedMealId = mealLog.Id,
+                LoggedFood = selectedFood
             };
         }
 
@@ -242,6 +307,44 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
+        private async Task<decimal> GetCaloriesRemainingAsync(Guid userId)
+        {
+            var health = await _healthProfileService.GetAsync(userId);
+            var target = health?.TargetCalories ?? 2000;
+            var (startUtc, endUtc) = GetVietnamDayWindowUtc();
+            var consumed = await _db.MealLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.LoggedAt.HasValue && x.LoggedAt.Value >= startUtc && x.LoggedAt.Value < endUtc)
+                .SumAsync(x => x.CaloriesKcal ?? 0);
+            return Math.Max(0, target - consumed);
+        }
+
+        private static (DateTime StartUtc, DateTime EndUtc) GetVietnamDayWindowUtc()
+        {
+            var vietnamNow = DateTime.UtcNow.AddHours(7);
+            var vietnamMidnightAsUtc = new DateTime(
+                vietnamNow.Year,
+                vietnamNow.Month,
+                vietnamNow.Day,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+            var startUtc = vietnamMidnightAsUtc.AddHours(-7);
+            return (startUtc, startUtc.AddDays(1));
+        }
+
+        private static TimeOnly GetScheduledTime(string mealType)
+        {
+            return mealType.Trim().ToLowerInvariant() switch
+            {
+                "breakfast" => new TimeOnly(8, 0),
+                "lunch" => new TimeOnly(12, 0),
+                "dinner" => new TimeOnly(19, 0),
+                _ => new TimeOnly(15, 30)
+            };
+        }
+
         private static FoodResponse MapFoodToResponse(Food f, HashSet<string> foodKeys, HashSet<string> userKeys)
         {
             var dto = new FoodResponse
@@ -260,6 +363,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 DefaultServingG = f.DefaultServingG,
                 ImageUrl = f.ImageUrl,
                 IsActive = f.IsActive,
+                Region = f.Region,
                 AllergenKeys = foodKeys.OrderBy(k => k).ToList(),
                 AllergenLabelsVi = AllergenCatalog.ToDisplayNamesVi(foodKeys).ToList()
             };

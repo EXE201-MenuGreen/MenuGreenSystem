@@ -331,15 +331,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
             subscription.UpdatedAt = now;
             _unitOfWork.UserSubscriptions.Update(subscription);
 
-            // Update user role based on AI profile EatingPattern segment
+            // The purchased package is authoritative. EatingPattern is only a
+            // compatibility fallback for legacy plans without FeatureGroup.
             var aiProfiles = await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == subscription.UserId);
             var aiProfile = aiProfiles.FirstOrDefault();
-            var targetRoleName = "Casual";
-            if (aiProfile != null && !string.IsNullOrEmpty(aiProfile.EatingPattern))
+            var targetRoleName = plan.FeatureGroup?.Trim().ToLowerInvariant() switch
+            {
+                "gym" => "Gymer",
+                "office" => "Office",
+                "casual" => "Casual",
+                "pro" => "Casual",
+                _ => "Casual"
+            };
+            if (string.IsNullOrWhiteSpace(plan.FeatureGroup) && aiProfile != null && !string.IsNullOrEmpty(aiProfile.EatingPattern))
             {
                 var pattern = aiProfile.EatingPattern.Trim().ToLowerInvariant().Replace("\"", "");
                 if (pattern == "office") targetRoleName = "Office";
-                else if (pattern == "gymer") targetRoleName = "Gymer";
+                else if (pattern is "gym" or "gymer") targetRoleName = "Gymer";
                 else if (pattern == "casual") targetRoleName = "Casual";
             }
 

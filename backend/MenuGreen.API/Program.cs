@@ -88,7 +88,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("GymerOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")));
     options.AddPolicy("CoachAccessOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")));
     options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
-    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "User", "Gymer", "Office", "Coach", "Admin"));
+    options.AddPolicy("CasualOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")));
 });
 
 // Configure CORS - Allow frontend domains
