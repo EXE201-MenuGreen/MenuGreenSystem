@@ -31,12 +31,51 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
   }
 
   Future<void> _applyFeatured(DailyStarterFood food) async {
+    final suggestedType = _guessMealType();
+    
+    final selectedType = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Chọn buổi ăn cho món này',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.wb_sunny_outlined, color: Colors.orange),
+              title: Text('Bữa sáng${suggestedType == 'Breakfast' ? ' (Gợi ý)' : ''}'),
+              onTap: () => Navigator.pop(ctx, 'Breakfast'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.wb_sunny, color: Colors.amber),
+              title: Text('Bữa trưa${suggestedType == 'Lunch' ? ' (Gợi ý)' : ''}'),
+              onTap: () => Navigator.pop(ctx, 'Lunch'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.nightlight_round, color: Colors.indigo),
+              title: Text('Bữa tối${suggestedType == 'Dinner' ? ' (Gợi ý)' : ''}'),
+              onTap: () => Navigator.pop(ctx, 'Dinner'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.local_pizza_outlined, color: Colors.green),
+              title: Text('Bữa phụ${suggestedType == 'Snack' ? ' (Gợi ý)' : ''}'),
+              onTap: () => Navigator.pop(ctx, 'Snack'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selectedType == null || !mounted) return;
+
     final provider = context.read<DailyStarterProvider>();
     final result = await provider.selectMeal({
       'meals': [
         {
           'foodId': food.id,
-          'mealType': _guessMealType(),
+          'mealType': selectedType,
         },
       ],
     });

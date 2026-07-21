@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -68,7 +68,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     DefaultServingG = table.Column<int>(type: "integer", nullable: true),
                     ImageUrl = table.Column<string>(type: "text", nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Region = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -601,6 +602,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     HeightCm = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     WeightKg = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     BodyFatPercent = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
+                    TargetWeightKg = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     ActivityLevel = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Goal = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Bmi = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
@@ -1282,6 +1284,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     IsCheckedIn = table.Column<bool>(type: "boolean", nullable: false),
                     WeightKg = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
                     BodyFatPercent = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    ChestCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    WaistCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    HipCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    RewardPoints = table.Column<int>(type: "integer", nullable: false),
+                    BadgeName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     CheckInDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     UnlockedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)

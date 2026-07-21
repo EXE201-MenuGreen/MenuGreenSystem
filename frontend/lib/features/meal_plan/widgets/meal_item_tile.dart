@@ -187,6 +187,23 @@ class MealItemTile extends StatelessWidget {
                             decoration: item.isDone ? TextDecoration.lineThrough : null,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '•',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'P: ${item.proteinG ?? 0}g  C: ${item.carbsG ?? 0}g  F: ${item.fatG ?? 0}g',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary.withValues(alpha: 0.8),
+                            decoration: item.isDone ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
                         if (item.scheduledTime != null) ...[
                           const SizedBox(width: 8),
                           Icon(
@@ -218,31 +235,6 @@ class MealItemTile extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator() {
-    if (item.isDone) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 14),
-            SizedBox(width: 4),
-            Text(
-              'Đã ăn',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.green,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -252,23 +244,16 @@ class MealItemTile extends StatelessWidget {
               HapticFeedback.lightImpact();
               onLog?.call();
             },
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check,
-                color: AppColors.primary,
-                size: 16,
-              ),
+            icon: Icon(
+              item.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: item.isDone ? Colors.green : Colors.grey.shade400,
+              size: 26,
             ),
-            tooltip: 'Hoàn thành',
+            tooltip: item.isDone ? 'Đánh dấu chưa ăn' : 'Đánh dấu đã ăn',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-        if (onEdit != null || onSwap != null) ...[
+        if (!item.isDone && (onEdit != null || onSwap != null)) ...[
           const SizedBox(width: 4),
           PopupMenuButton<String>(
             onSelected: (value) {

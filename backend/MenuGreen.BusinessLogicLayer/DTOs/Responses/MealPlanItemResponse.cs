@@ -19,5 +19,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? SourceEntityType { get; set; }
         public string? Status { get; set; }
         public int? EstimatedPriceVnd { get; set; }
+        public int? ProteinG { get; set; }
+        public int? CarbsG { get; set; }
+        public int? FatG { get; set; }
     }
 }

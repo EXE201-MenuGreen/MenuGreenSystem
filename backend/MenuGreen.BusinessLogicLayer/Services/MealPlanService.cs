@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class MealPlanService : IMealPlanService
     {
+        private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INutritionTrackingService _nutritionTracking;
 
@@ -21,9 +22,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _nutritionTracking = nutritionTracking;
         }
 
-        public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null)
+        public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null)
         {
-            var plans = await _unitOfWork.MealPlanHeaders.GetAllAsync();
+            var plans = userId.HasValue && userId.Value != Guid.Empty
+                ? await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId.Value)
+                : await _unitOfWork.MealPlanHeaders.GetAllAsync();
             if (isActive.HasValue)
             {
                 plans = plans.Where(x => x.IsActive == isActive.Value);
@@ -45,9 +48,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return results;
         }
 
-        public async Task<MealPlanResponse> GetByIdAsync(Guid id)
+        public async Task<MealPlanResponse> GetByIdAsync(Guid id, Guid? userId = null)
         {
-            var entity = await GetMealPlanAsync(id);
+            var entity = await GetMealPlanAsync(id, userId);
             return await MapAsync(entity);
         }
 
@@ -74,7 +77,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
 
             await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
-            return await GetByIdAsync(entity.Id);
+            return await GetByIdAsync(entity.Id, userId);
         }
 
         public async Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null)
@@ -96,12 +99,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.MealPlanHeaders.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(entity.Id);
+            return await GetByIdAsync(entity.Id, userId);
         }
 
         public async Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null)
         {
-            var entity = await GetMealPlanAsync(id);
+            var entity = await GetMealPlanAsync(id, userId);
 
             entity.Title = request.Title;
             entity.PlanType = request.PlanType;
@@ -125,12 +128,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
             }
 
-            return await GetByIdAsync(entity.Id);
+            return await GetByIdAsync(entity.Id, userId);
         }
 
         public async Task DeleteAsync(Guid id, Guid? userId = null)
         {
-            var entity = await GetMealPlanAsync(id);
+            var entity = await GetMealPlanAsync(id, userId);
             entity.IsActive = false;
             _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
@@ -138,17 +141,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealPlanResponse> UpdateStatusAsync(Guid id, MealPlanStatusRequest request, Guid? userId = null)
         {
-            var entity = await GetMealPlanAsync(id);
+            var entity = await GetMealPlanAsync(id, userId);
             entity.IsActive = request.IsActive;
             entity.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(id);
+            return await GetByIdAsync(id, userId);
         }
 
         public async Task<MealPlanDistributionResponse> DistributeAsync(Guid id, string targetAudience, string? notes = null, Guid? userId = null)
         {
-            var entity = await GetMealPlanAsync(id);
+            var entity = await GetMealPlanAsync(id, userId);
             entity.GeneratedBy = entity.GeneratedBy ?? "ADMIN";
             entity.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.MealPlanHeaders.Update(entity);
@@ -167,7 +170,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> AddItemAsync(Guid planId, MealPlanItemUpsertRequest request, Guid? userId = null)
         {
             ValidateItem(request);
-            var plan = await GetMealPlanAsync(planId);
+            var plan = await GetMealPlanAsync(planId, userId);
 
             var item = new MealPlanItem
             {
@@ -185,13 +188,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(planId);
+            return await GetByIdAsync(planId, userId);
         }
 
         public async Task<MealPlanResponse> UpdateItemAsync(Guid planId, Guid itemId, MealPlanItemUpsertRequest request, Guid? userId = null)
         {
             ValidateItem(request);
-            var item = await GetPlanItemAsync(planId, itemId);
+            var item = await GetPlanItemAsync(planId, itemId, userId);
             item.MealType = request.MealType;
             item.FoodId = request.FoodId;
             item.RecipeId = request.RecipeId;
@@ -201,28 +204,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.IsCompleted = request.IsCompleted;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(planId);
+            return await GetByIdAsync(planId, userId);
         }
 
         public async Task DeleteItemAsync(Guid planId, Guid itemId, Guid? userId = null)
         {
-            var item = await GetPlanItemAsync(planId, itemId);
+            var item = await GetPlanItemAsync(planId, itemId, userId);
             _unitOfWork.MealPlanItems.Remove(item);
             await _unitOfWork.CompleteAsync();
         }
 
         public async Task<MealPlanResponse> UpdateItemStatusAsync(Guid planId, Guid itemId, MealPlanStatusRequest request, Guid? userId = null)
         {
-            var item = await GetPlanItemAsync(planId, itemId);
+            var item = await GetPlanItemAsync(planId, itemId, userId);
             item.IsCompleted = request.IsActive;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(planId);
+            return await GetByIdAsync(planId, userId);
         }
 
         public async Task<MealLogResponse> ConvertItemToLogAsync(Guid planId, Guid itemId, MealPlanConvertToLogRequest request, Guid? userId = null)
         {
-            var item = await GetPlanItemAsync(planId, itemId);
+            var item = await GetPlanItemAsync(planId, itemId, userId);
+            var ownerId = userId ?? Guid.Empty;
+            var existingLog = (await _unitOfWork.MealLogs.FindAsync(
+                    x => x.MealPlanItemId == itemId && x.UserId == ownerId))
+                .OrderByDescending(x => x.LoggedAt)
+                .FirstOrDefault();
+
+            if (existingLog != null)
+            {
+                item.IsCompleted = true;
+                _unitOfWork.MealPlanItems.Update(item);
+                await _unitOfWork.CompleteAsync();
+                return await _nutritionTracking.GetMealLogAsync(ownerId, existingLog.Id);
+            }
 
             var mealLogRequest = new MealLogUpsertRequest
             {
@@ -231,11 +247,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = item.MealType ?? "snack",
                 QuantityG = 100,
                 Notes = request.Notes ?? "Logged from meal plan.",
-                LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
+                LoggedAt = request.LoggedAt ?? ResolveMealLogUtc(item),
                 MealPlanItemId = item.Id
             };
 
-            var mealLog = await _nutritionTracking.CreateMealLogAsync(userId ?? Guid.Empty, mealLogRequest);
+            var mealLog = await _nutritionTracking.CreateMealLogAsync(ownerId, mealLogRequest);
             item.IsCompleted = true;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
@@ -245,17 +261,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealPlanResponse> CommitAsync(Guid planId, MealPlanCommitRequest request, Guid? userId = null)
         {
-            var plan = await GetMealPlanAsync(planId);
+            var plan = await GetMealPlanAsync(planId, userId);
             plan.IsActive = false;
             plan.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.MealPlanHeaders.Update(plan);
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(planId);
+            return await GetByIdAsync(planId, userId);
         }
 
         public async Task<MealPlanResponse> DuplicateAsync(Guid planId, MealPlanDuplicateRequest request, Guid? userId = null)
         {
-            var source = await GetMealPlanAsync(planId);
+            var source = await GetMealPlanAsync(planId, userId);
             var items = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == source.Id);
             var newPlan = new MealPlanHeader
             {
@@ -292,42 +308,96 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 });
             }
             await _unitOfWork.CompleteAsync();
-            return await GetByIdAsync(newPlan.Id);
+            return await GetByIdAsync(newPlan.Id, userId);
         }
 
         public async Task<MealPlanDashboardResponse> GetDashboardAsync(DateOnly date, Guid? userId = null)
         {
-            var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.PlannedDate == date);
-            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == date);
-            var itemList = planItems.ToList();
-            var logList = logs.ToList();
-            var actualByItem = logList
+            // Planned dates are Vietnam calendar dates, while meal logs are stored in UTC.
+            var startDateTime = date
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var endDateTime = date
+                .AddDays(1)
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours)
+                .AddTicks(-1);
+
+            List<MealPlanItem> itemList;
+            List<MealLog> logList;
+
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                var headers = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId.Value);
+                var headerIds = headers.Select(h => h.Id).ToList();
+
+                if (headerIds.Any())
+                {
+                    var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.PlannedDate == date && headerIds.Contains(x.MealPlanId));
+                    itemList = planItems.ToList();
+                }
+                else
+                {
+                    itemList = new List<MealPlanItem>();
+                }
+
+                var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId.Value && x.LoggedAt.HasValue && x.LoggedAt.Value >= startDateTime && x.LoggedAt.Value <= endDateTime);
+                logList = logs.ToList();
+            }
+            else
+            {
+                var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.PlannedDate == date);
+                itemList = planItems.ToList();
+
+                var logs = await _unitOfWork.MealLogs.FindAsync(x => x.LoggedAt.HasValue && x.LoggedAt.Value >= startDateTime && x.LoggedAt.Value <= endDateTime);
+                logList = logs.ToList();
+            }
+
+            var actualItemIds = logList
                 .Where(x => x.MealPlanItemId.HasValue)
-                .ToDictionary(x => x.MealPlanItemId!.Value, x => x.Id);
+                .Select(x => x.MealPlanItemId!.Value)
+                .ToHashSet();
 
             foreach (var item in itemList)
             {
-                if (actualByItem.ContainsKey(item.Id))
+                if (actualItemIds.Contains(item.Id))
                 {
                     item.IsCompleted = true;
                 }
             }
 
+            var mappedItems = new List<MealPlanItemResponse>();
+            foreach (var item in itemList)
+            {
+                mappedItems.Add(await MapItemAsync(item));
+            }
+
             return new MealPlanDashboardResponse
             {
                 Date = date,
-                TotalPlannedCalories = itemList.Sum(x => x.TargetCalories ?? 0),
+                TotalPlannedCalories = mappedItems.Sum(x => x.TargetCalories ?? 0),
                 TotalActualCalories = (int)logList.Sum(x => x.CaloriesKcal ?? 0),
+                PlannedProtein = mappedItems.Sum(x => x.ProteinG ?? 0),
+                ActualProtein = (int)Math.Round(logList.Sum(x => x.ProteinG ?? 0)),
+                PlannedCarbs = mappedItems.Sum(x => x.CarbsG ?? 0),
+                ActualCarbs = (int)Math.Round(logList.Sum(x => x.CarbsG ?? 0)),
+                PlannedFat = mappedItems.Sum(x => x.FatG ?? 0),
+                ActualFat = (int)Math.Round(logList.Sum(x => x.FatG ?? 0)),
                 PlannedItemsCount = itemList.Count,
                 CompletedItemsCount = itemList.Count(x => x.IsCompleted),
                 SkippedItemsCount = itemList.Count(x => !x.IsCompleted && x.PlannedDate.HasValue && x.PlannedDate.Value <= date),
-                Items = itemList.Select(MapItem).ToList(),
+                Items = mappedItems,
                 ActualLogs = logList.Select(MapLog).ToList()
             };
         }
 
         public async Task<MealPlanCompareResponse> GetCompareAsync(DateOnly from, DateOnly to, Guid? userId = null)
         {
+            if (from > to)
+            {
+                throw new ArgumentException("The start date must be before or equal to the end date.");
+            }
+
             var days = new List<MealPlanDashboardResponse>();
             var cursor = from;
             while (cursor <= to)
@@ -338,16 +408,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var plannedItems = days.Sum(x => x.PlannedItemsCount);
             var completedItems = days.Sum(x => x.CompletedItemsCount);
+            var plannedCalories = days.Sum(x => x.TotalPlannedCalories);
+            var actualCalories = days.Sum(x => x.TotalActualCalories);
+            var plannedProtein = days.Sum(x => x.Items.Sum(item => item.ProteinG ?? 0));
+            var actualProtein = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.ProteinG ?? 0)));
+            var plannedCarbs = days.Sum(x => x.Items.Sum(item => item.CarbsG ?? 0));
+            var actualCarbs = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.CarbsG ?? 0)));
+            var plannedFat = days.Sum(x => x.Items.Sum(item => item.FatG ?? 0));
+            var actualFat = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.FatG ?? 0)));
+
+            var weeklyData = days
+                .Select((day, index) => new { Day = day, WeekNumber = (index / 7) + 1 })
+                .GroupBy(x => x.WeekNumber)
+                .Select(group =>
+                {
+                    var weekPlannedCalories = group.Sum(x => x.Day.TotalPlannedCalories);
+                    var weekActualCalories = group.Sum(x => x.Day.TotalActualCalories);
+                    return new MealPlanWeekCompareResponse
+                    {
+                        WeekNumber = group.Key,
+                        PlannedCalories = weekPlannedCalories,
+                        ActualCalories = weekActualCalories,
+                        Percent = CalculateRatio(weekActualCalories, weekPlannedCalories)
+                    };
+                })
+                .ToList();
 
             return new MealPlanCompareResponse
             {
                 From = from,
                 To = to,
-                PlannedCalories = days.Sum(x => x.TotalPlannedCalories),
-                ActualCalories = days.Sum(x => x.TotalActualCalories),
+                PlannedCalories = plannedCalories,
+                ActualCalories = actualCalories,
+                CaloriePercent = CalculateRatio(actualCalories, plannedCalories),
+                PlannedProtein = plannedProtein,
+                ActualProtein = actualProtein,
+                ProteinPercent = CalculateRatio(actualProtein, plannedProtein),
+                PlannedCarbs = plannedCarbs,
+                ActualCarbs = actualCarbs,
+                CarbsPercent = CalculateRatio(actualCarbs, plannedCarbs),
+                PlannedFat = plannedFat,
+                ActualFat = actualFat,
+                FatPercent = CalculateRatio(actualFat, plannedFat),
                 PlannedItemsCount = plannedItems,
                 ActualLogsCount = days.Sum(x => x.ActualLogs.Count),
                 CompletionRate = plannedItems == 0 ? 0 : Math.Round((decimal)completedItems / plannedItems * 100m, 2),
+                SkippedItemsCount = days.Sum(x => x.SkippedItemsCount),
+                CompletedDays = days.Count(x => x.PlannedItemsCount > 0 && x.CompletedItemsCount == x.PlannedItemsCount),
+                TotalDays = days.Count(x => x.PlannedItemsCount > 0),
+                WeeklyData = weeklyData,
                 Days = days
             };
         }
@@ -364,29 +473,53 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 };
             }
 
+            var todayDate = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
             var mealLogs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId.Value);
             var loggedDates = mealLogs
                 .Where(x => x.LoggedAt.HasValue)
-                .Select(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .Select(x => ToVietnamDate(x.LoggedAt!.Value))
+                .Where(x => x <= todayDate)
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
 
+            var plans = (await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId.Value)).ToList();
+            var planIds = plans.Select(x => x.Id).ToList();
+            var planItems = planIds.Count == 0
+                ? new List<MealPlanItem>()
+                : (await _unitOfWork.MealPlanItems.FindAsync(x => planIds.Contains(x.MealPlanId))).ToList();
+
+            var trackedDates = loggedDates
+                .Concat(planItems
+                    .Where(x => x.IsCompleted && x.PlannedDate.HasValue && x.PlannedDate.Value <= todayDate)
+                    .Select(x => x.PlannedDate!.Value))
+                .Distinct()
+                .ToHashSet();
+
+            var activePlanIds = plans.Where(x => x.IsActive).Select(x => x.Id).ToHashSet();
+            var hasPlanForToday = plans.Any(x => x.IsActive && x.StartDate == todayDate)
+                || planItems.Any(x => activePlanIds.Contains(x.MealPlanId) && x.PlannedDate == todayDate);
+            if (hasPlanForToday)
+            {
+                trackedDates.Add(todayDate);
+            }
+
+            var orderedTrackedDates = trackedDates.OrderBy(x => x).ToList();
+
             int currentStreak = 0;
             int bestStreak = 0;
 
-            if (loggedDates.Any())
+            if (orderedTrackedDates.Any())
             {
                 // Calculate current streak
-                var today = DateOnly.FromDateTime(DateTime.UtcNow);
-                var yesterday = today.AddDays(-1);
+                var yesterday = todayDate.AddDays(-1);
 
-                if (loggedDates.Last() == today || loggedDates.Last() == yesterday)
+                if (orderedTrackedDates.Last() == todayDate || orderedTrackedDates.Last() == yesterday)
                 {
                     currentStreak = 1;
-                    for (int i = loggedDates.Count - 2; i >= 0; i--)
+                    for (int i = orderedTrackedDates.Count - 2; i >= 0; i--)
                     {
-                        if (loggedDates[i + 1].DayNumber - loggedDates[i].DayNumber == 1)
+                        if (orderedTrackedDates[i + 1].DayNumber - orderedTrackedDates[i].DayNumber == 1)
                         {
                             currentStreak++;
                         }
@@ -401,7 +534,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 int currentRunning = 0;
                 DateOnly? prevDate = null;
 
-                foreach (var date in loggedDates)
+                foreach (var date in orderedTrackedDates)
                 {
                     if (prevDate == null)
                     {
@@ -433,15 +566,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             // Calculate weekly adherence rate
-            var sevenDaysAgo = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-6);
-            var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var sevenDaysAgo = todayDate.AddDays(-6);
+            var recentPlanItems = planItems
+                .Where(x => x.PlannedDate >= sevenDaysAgo && x.PlannedDate <= todayDate)
+                .ToList();
 
-            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == userId.Value && x.IsActive);
-            var planIds = plans.Select(x => x.Id).ToList();
-            var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => planIds.Contains(x.MealPlanId) && x.PlannedDate >= sevenDaysAgo && x.PlannedDate <= todayDate);
-
-            var totalItems = planItems.Count();
-            var completedItems = planItems.Count(x => x.IsCompleted);
+            var totalItems = recentPlanItems.Count;
+            var completedItems = recentPlanItems.Count(x => x.IsCompleted);
 
             decimal weeklyAdherenceRate = 0;
             if (totalItems > 0)
@@ -450,18 +581,33 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
             else
             {
-                // Fallback to meal logging consistency
-                var loggedDaysLast7 = loggedDates
+                // Fallback to daily planning/logging consistency.
+                var trackedDaysLast7 = orderedTrackedDates
                     .Count(x => x >= sevenDaysAgo && x <= todayDate);
-                weeklyAdherenceRate = Math.Round((decimal)loggedDaysLast7 / 7 * 100, 2);
+                weeklyAdherenceRate = Math.Round((decimal)trackedDaysLast7 / 7 * 100, 2);
             }
 
             return new MealPlanStreakResponse
             {
                 CurrentStreakDays = currentStreak,
                 BestStreakDays = bestStreak,
+                LastTrackedDate = orderedTrackedDates.Count > 0 ? orderedTrackedDates[^1] : null,
+                TotalTrackedDays = orderedTrackedDates.Count,
                 WeeklyAdherenceRate = weeklyAdherenceRate
             };
+        }
+
+        private static decimal CalculateRatio(int actual, int planned)
+        {
+            return planned <= 0 ? 0 : Math.Round((decimal)actual / planned, 4);
+        }
+
+        private static DateOnly ToVietnamDate(DateTime utcDateTime)
+        {
+            var normalizedUtc = utcDateTime.Kind == DateTimeKind.Utc
+                ? utcDateTime
+                : DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
+            return DateOnly.FromDateTime(normalizedUtc.AddHours(VietnamUtcOffsetHours));
         }
 
         private async Task ReplaceItemsAsync(Guid mealPlanId, IEnumerable<MealPlanItemUpsertRequest> items, DateOnly? defaultDate)
@@ -486,15 +632,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
-        private async Task<MealPlanHeader> GetMealPlanAsync(Guid id)
+        private async Task<MealPlanHeader> GetMealPlanAsync(Guid id, Guid? userId = null)
         {
             var entity = await _unitOfWork.MealPlanHeaders.GetByIdAsync(id);
             if (entity == null) throw new Exception("Meal plan not found.");
+            if (userId.HasValue && userId.Value != Guid.Empty && entity.UserId != userId.Value)
+            {
+                throw new Exception("Forbidden.");
+            }
             return entity;
         }
 
-        private async Task<MealPlanItem> GetPlanItemAsync(Guid planId, Guid itemId)
+        private async Task<MealPlanItem> GetPlanItemAsync(Guid planId, Guid itemId, Guid? userId = null)
         {
+            _ = await GetMealPlanAsync(planId, userId);
             var item = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId);
             if (item == null || item.MealPlanId != planId) throw new Exception("Meal plan item not found.");
             return item;
@@ -525,12 +676,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var mappedItem = await MapItemAsync(item);
                 responseItems.Add(mappedItem);
 
-                var macros = await GetItemMacrosAsync(item);
-                totalProtein += macros.protein;
-                totalCarbs += macros.carbs;
-                totalFat += macros.fat;
-                totalCalories += macros.calories;
+                if (item.IsCompleted)
+                {
+                    var macros = await GetItemMacrosAsync(item);
+                    totalProtein += macros.protein;
+                    totalCarbs += macros.carbs;
+                    totalFat += macros.fat;
+                    totalCalories += macros.calories;
+                }
             }
+
+            var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == entity.UserId);
+            var healthProfile = healthProfiles.FirstOrDefault();
+
+            var durationDays = 1;
+            if (entity.StartDate.HasValue && entity.EndDate.HasValue)
+            {
+                durationDays = entity.EndDate.Value.DayNumber - entity.StartDate.Value.DayNumber + 1;
+            }
+
+            var targetProtein = healthProfile != null ? (healthProfile.TargetProteinG ?? 120) * durationDays : 120 * durationDays;
+            var targetCarbs = healthProfile != null ? (healthProfile.TargetCarbsG ?? 250) * durationDays : 250 * durationDays;
+            var targetFat = healthProfile != null ? (healthProfile.TargetFatG ?? 60) * durationDays : 60 * durationDays;
 
             return new MealPlanResponse
             {
@@ -546,6 +713,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TotalProteinG = (int)Math.Round(totalProtein),
                 TotalCarbsG = (int)Math.Round(totalCarbs),
                 TotalFatG = (int)Math.Round(totalFat),
+                TargetProteinG = targetProtein,
+                TargetCarbsG = targetCarbs,
+                TargetFatG = targetFat,
                 Items = responseItems
             };
         }
@@ -609,6 +779,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
+            var macros = await GetItemMacrosAsync(x);
 
             return new MealPlanItemResponse
             {
@@ -619,13 +790,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = x.RecipeId,
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
-                TargetCalories = x.TargetCalories,
+                TargetCalories = x.TargetCalories ?? (int)Math.Round(macros.calories),
                 IsCompleted = x.IsCompleted,
                 FoodName = food?.NameVi,
                 RecipeName = recipe?.Title,
                 SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
                 Status = x.IsCompleted ? "done" : "planned",
-                EstimatedPriceVnd = price
+                EstimatedPriceVnd = price,
+                ProteinG = (int)Math.Round(macros.protein),
+                CarbsG = (int)Math.Round(macros.carbs),
+                FatG = (int)Math.Round(macros.fat)
             };
         }
 
@@ -645,7 +819,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodName = x.Food?.NameVi,
                 RecipeName = x.Recipe?.Title,
                 SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
-                Status = x.IsCompleted ? "done" : "planned"
+                Status = x.IsCompleted ? "done" : "planned",
+                ProteinG = x.Food != null ? (int?)Math.Round(x.Food.ProteinG ?? 0) : null,
+                CarbsG = x.Food != null ? (int?)Math.Round(x.Food.CarbsG ?? 0) : null,
+                FatG = x.Food != null ? (int?)Math.Round(x.Food.FatG ?? 0) : null
             };
         }
 
@@ -819,7 +996,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId)
         {
-            var plan = await GetMealPlanAsync(planId);
+            var plan = await GetMealPlanAsync(planId, userId);
             var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId);
             
             var totalPlannedCost = 0;
@@ -856,7 +1033,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<MealPlanItemResponse>> GetAlternativesAsync(Guid planId, Guid itemId, Guid userId)
         {
-            var currentItem = await GetPlanItemAsync(planId, itemId);
+            var currentItem = await GetPlanItemAsync(planId, itemId, userId);
             var currentCal = currentItem.TargetCalories ?? 500;
             var currentPrice = 0;
 
@@ -1223,8 +1400,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (plan.UserId != userId) throw new Exception("Forbidden.");
 
-            var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == itemId);
-            var existingLog = existingLogs.FirstOrDefault();
+            var existingLogs = await _unitOfWork.MealLogs.FindAsync(
+                x => x.MealPlanItemId == itemId && x.UserId == userId);
+            var existingLog = existingLogs
+                .OrderByDescending(x => x.LoggedAt)
+                .FirstOrDefault();
             if (existingLog != null)
             {
                 item.IsCompleted = true;
@@ -1250,7 +1430,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = item.MealType ?? "snack",
                 QuantityG = quantity,
                 Notes = "Logged from meal plan.",
-                LoggedAt = DateTime.UtcNow,
+                LoggedAt = ResolveMealLogUtc(item),
                 MealPlanItemId = item.Id
             };
 
@@ -1370,6 +1550,33 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
+        private static DateTime ResolveMealLogUtc(MealPlanItem item)
+        {
+            var nowUtc = DateTime.UtcNow;
+            if (!item.PlannedDate.HasValue)
+            {
+                return nowUtc;
+            }
+
+            var todayInVietnam = DateOnly.FromDateTime(nowUtc.AddHours(VietnamUtcOffsetHours));
+            var plannedDate = item.PlannedDate.Value;
+            if (plannedDate > todayInVietnam)
+            {
+                throw new InvalidOperationException("A future meal cannot be marked as eaten.");
+            }
+
+            if (plannedDate == todayInVietnam)
+            {
+                return nowUtc;
+            }
+
+            // Use noon in Vietnam for a historical correction. This keeps the
+            // log unambiguously inside the intended local calendar date.
+            return plannedDate
+                .ToDateTime(new TimeOnly(12, 0), DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+        }
+
         public async Task<CompleteMealPlanItemResponse> ToggleItemAsync(Guid userId, Guid itemId, bool isCompleted)
         {
             var item = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId)
@@ -1380,7 +1587,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (plan.UserId != userId) throw new Exception("Forbidden.");
 
-            var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == itemId);
+            var existingLogs = (await _unitOfWork.MealLogs.FindAsync(
+                    x => x.MealPlanItemId == itemId && x.UserId == userId))
+                .OrderByDescending(x => x.LoggedAt)
+                .ToList();
             var existingLog = existingLogs.FirstOrDefault();
 
             if (isCompleted)
@@ -1405,7 +1615,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         MealType = item.MealType ?? "snack",
                         QuantityG = 100m,
                         Notes = "Logged from meal plan.",
-                        LoggedAt = DateTime.UtcNow,
+                        LoggedAt = ResolveMealLogUtc(item),
                         MealPlanItemId = item.Id
                     };
                     mealLogRes = await _nutritionTracking.CreateMealLogAsync(userId, mealLogRequest);
@@ -1429,9 +1639,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 item.IsCompleted = false;
                 _unitOfWork.MealPlanItems.Update(item);
 
-                if (existingLog != null)
+                foreach (var log in existingLogs)
                 {
-                    await _nutritionTracking.DeleteMealLogAsync(userId, existingLog.Id);
+                    await _nutritionTracking.DeleteMealLogAsync(userId, log.Id);
                 }
 
                 await _unitOfWork.CompleteAsync();
@@ -1457,6 +1667,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
+            var macros = await GetItemMacrosAsync(item);
 
             return new MealPlanItemResponse
             {
@@ -1467,14 +1678,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = item.RecipeId,
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
-                TargetCalories = item.TargetCalories,
+                TargetCalories = item.TargetCalories ?? (int)Math.Round(macros.calories),
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,
                 RecipeName = recipe?.Title,
                 SourceEntityType = item.FoodId.HasValue ? "Food" : item.RecipeId.HasValue ? "Recipe" : null,
                 Status = item.IsCompleted ? "done" : "planned",
-                EstimatedPriceVnd = price
+                EstimatedPriceVnd = price,
+                ProteinG = (int)Math.Round(macros.protein),
+                CarbsG = (int)Math.Round(macros.carbs),
+                FatG = (int)Math.Round(macros.fat)
             };
         }
     }

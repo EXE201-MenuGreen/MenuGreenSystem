@@ -8,8 +8,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
 {
     public interface IMealPlanService
     {
-        Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null);
-        Task<MealPlanResponse> GetByIdAsync(Guid id);
+        Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null);
+        Task<MealPlanResponse> GetByIdAsync(Guid id, Guid? userId = null);
         Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null);

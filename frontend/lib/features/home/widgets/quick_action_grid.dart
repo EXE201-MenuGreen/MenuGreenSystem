@@ -169,7 +169,7 @@ class QuickActionGrid extends StatelessWidget {
         screen = const LocalPreferencesScreen();
         break;
       case QuickActionType.searchFood:
-        screen = const DiscoverView();
+        screen = const DiscoverView(isStandalone: true);
         break;
       case QuickActionType.favorites:
         screen = const FavoritesScreen();

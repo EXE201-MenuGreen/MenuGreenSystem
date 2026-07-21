@@ -28,7 +28,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
         {
-            return Ok(await _service.GetAllAsync(isActive));
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetAllAsync(isActive, userId));
         }
 
         /// <summary>
@@ -37,9 +38,10 @@ namespace MenuGreen.API.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
             try
             {
-                return Ok(await _service.GetByIdAsync(id));
+                return Ok(await _service.GetByIdAsync(id, userId));
             }
             catch (Exception ex)
             {

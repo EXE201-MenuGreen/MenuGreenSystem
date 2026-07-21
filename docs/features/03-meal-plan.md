@@ -37,9 +37,10 @@ Nguồn: HealthcareOnTime (calorie distribution) + PMC 2024 (meal timing meta-an
 
 ### 2.2 Streak Logic
 
-- Streak tăng khi user log ít nhất 1 bữa/ngày.
-- Reset = 0 nếu bỏ log 2 ngày liên tiếp (kiểm tra ngày cuối là hôm nay hoặc hôm qua).
-- Công thức: đếm ngày log liên tiếp giảm dần.
+- Hôm nay được tính khi user có kế hoạch cho hôm nay hoặc đã log/hoàn thành ít nhất 1 bữa.
+- Với ngày đã qua, streak chỉ tính ngày đã log hoặc hoàn thành ít nhất 1 món trong kế hoạch.
+- Reset = 0 nếu không có hoạt động hợp lệ trong hôm nay và hôm qua.
+- Ngày được quy đổi theo múi giờ Việt Nam (UTC+7) trước khi đếm chuỗi liên tiếp.
 
 ### 2.3 Quick Actions
 

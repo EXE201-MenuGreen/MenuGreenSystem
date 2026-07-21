@@ -9,7 +9,7 @@ import '../../subscription/views/upgrade_plan_screen.dart';
 import '../../vietnam_local/views/gym_goals_screen.dart';
 import 'premium_programs_screen.dart';
 
-enum GymerFeature { goals, ptReview, coaches, programs }
+enum GymerFeature { goals, companion, programs }
 
 class GymerHubScreen extends StatefulWidget {
   const GymerHubScreen({super.key, this.openFeature});
@@ -62,13 +62,9 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
 
     final Widget screen = switch (feature) {
       GymerFeature.goals => const GymGoalsScreen(),
-      GymerFeature.ptReview => const AdvancedFeaturesScreen(
+      GymerFeature.companion => const AdvancedFeaturesScreen(
         gymerOnly: true,
         initialIndex: 0,
-      ),
-      GymerFeature.coaches => const AdvancedFeaturesScreen(
-        gymerOnly: true,
-        initialIndex: 1,
       ),
       GymerFeature.programs => const PremiumProgramsScreen(),
     };
@@ -108,7 +104,7 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                   _buildHero(),
                   const SizedBox(height: 22),
                   Text(
-                    '4 công cụ dành cho Gymer',
+                    '3 công cụ dành cho Gymer',
                     style: GoogleFonts.beVietnamPro(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -140,16 +136,10 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                         onTap: () => _openFeature(GymerFeature.goals),
                       ),
                       _GymerFeatureTile(
-                        icon: Icons.rate_review_outlined,
-                        title: 'PT Review',
-                        subtitle: 'Gửi tuần ăn cho PT đánh giá',
-                        onTap: () => _openFeature(GymerFeature.ptReview),
-                      ),
-                      _GymerFeatureTile(
-                        icon: Icons.sports_gymnastics_rounded,
-                        title: 'Huấn luyện viên',
-                        subtitle: 'Kết nối và quản lý quyền xem',
-                        onTap: () => _openFeature(GymerFeature.coaches),
+                        icon: Icons.people_alt_outlined,
+                        title: 'HLV & PT Review',
+                        subtitle: 'Kết nối HLV và gửi báo cáo cho PT',
+                        onTap: () => _openFeature(GymerFeature.companion),
                       ),
                       _GymerFeatureTile(
                         icon: Icons.emoji_events_outlined,

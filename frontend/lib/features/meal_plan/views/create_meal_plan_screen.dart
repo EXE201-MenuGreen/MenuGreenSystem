@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../discover/models/food_models.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
+import '../../onboarding/repositories/health_profile_repository.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
@@ -35,9 +36,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
   int _targetCalories = 2000;
-  int _proteinPercent = 25;
-  int _carbsPercent = 40;
-  int _fatPercent = 35;
+  int _targetProteinG = 120;
+  int _targetCarbsG = 200;
+  int _targetFatG = 60;
   bool _isLoading = false;
 
   // Step 3: Selected meals
@@ -55,7 +56,32 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
     if (_isEditMode) {
       _loadExistingPlan();
+    } else {
+      _loadUserTargetCalories();
     }
+  }
+
+  Future<void> _loadUserTargetCalories() async {
+    try {
+      final data = await HealthProfileRepository().getMyHealthProfile();
+      if (data != null) {
+        setState(() {
+          if (data['targetCalories'] != null) {
+            _targetCalories = (data['targetCalories'] as num).toInt();
+            _caloriesController.text = _targetCalories.toString();
+          }
+          if (data['targetProteinG'] != null) {
+            _targetProteinG = (data['targetProteinG'] as num).toInt();
+          }
+          if (data['targetCarbsG'] != null) {
+            _targetCarbsG = (data['targetCarbsG'] as num).toInt();
+          }
+          if (data['targetFatG'] != null) {
+            _targetFatG = (data['targetFatG'] as num).toInt();
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _loadExistingPlan() {
@@ -65,19 +91,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     _selectedPlanType = PlanType.fromString(plan.planType);
     _startDate = plan.startDate ?? DateTime.now();
     _endDate = plan.endDate;
+    _normalizeDatesForPlanType();
     _targetCalories = plan.targetCalories ?? 2000;
     _caloriesController.text = _targetCalories.toString();
-
-    if (plan.targetCalories != null && plan.targetCalories! > 0) {
-      final totalCal = plan.targetCalories!;
-      _proteinPercent = _calculatePercent(plan.targetProtein ?? 0, totalCal, 4);
-      _carbsPercent = _calculatePercent(plan.targetCarbs ?? 0, totalCal, 4);
-      _fatPercent = 100 - _proteinPercent - _carbsPercent;
-
-      if (_fatPercent < 10) _fatPercent = 35;
-      if (_proteinPercent < 10) _proteinPercent = 25;
-      if (_carbsPercent < 10) _carbsPercent = 40;
-    }
+    _targetProteinG = plan.targetProtein ?? 120;
+    _targetCarbsG = plan.targetCarbs ?? 200;
+    _targetFatG = plan.targetFat ?? 60;
 
     // Load existing items
     for (final item in plan.items) {
@@ -93,11 +112,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     }
   }
 
-  int _calculatePercent(int grams, int totalCalories, int caloriesPerGram) {
-    if (totalCalories == 0) return 25;
-    final calories = grams * caloriesPerGram;
-    return ((calories / totalCalories) * 100).round();
-  }
 
   @override
   void dispose() {
@@ -122,7 +136,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildStep1BasicInfo(),
-          _buildStep2Nutrition(),
           _buildStep3SelectMeals(),
           _buildStep4Confirm(),
         ],
@@ -131,12 +144,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   }
 
   Widget _buildStepIndicator() {
-    const labels = ['Thông tin', 'Dinh dưỡng', 'Chọn món', 'Xác nhận'];
+    const labels = ['Thông tin', 'Chọn món', 'Xác nhận'];
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(4, (index) {
+          children: List.generate(3, (index) {
             final isActive = index <= _currentStep;
             return Row(
               children: [
@@ -158,7 +171,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     ),
                   ),
                 ),
-                if (index < 3)
+                if (index < 2)
                   Container(
                     width: 30,
                     height: 2,
@@ -233,28 +246,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _selectDate(isStart: true),
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(_formatDate(_startDate)),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text('đến'),
-              ),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _selectDate(isStart: false),
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(_endDate != null ? _formatDate(_endDate!) : 'Chọn'),
-                ),
-              ),
-            ],
-          ),
+          _buildPlanPeriodPicker(),
           const SizedBox(height: 32),
 
           SizedBox(
@@ -273,91 +265,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     );
   }
 
-  // ==================== STEP 2: Nutrition ====================
 
-  Widget _buildStep2Nutrition() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mục tiêu calories',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _caloriesController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              suffixText: 'kcal',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _targetCalories = int.tryParse(value) ?? 2000;
-              });
-            },
-          ),
-          const SizedBox(height: 24),
-
-          const Text(
-            'Tỷ lệ Macros',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-
-          _buildMacroSlider('Protein', _proteinPercent, Colors.blue, (value) {
-            setState(() {
-              _proteinPercent = value;
-              _balanceMacros('protein', value);
-            });
-          }),
-          const SizedBox(height: 16),
-          _buildMacroSlider('Carbs', _carbsPercent, Colors.orange, (value) {
-            setState(() {
-              _carbsPercent = value;
-              _balanceMacros('carbs', value);
-            });
-          }),
-          const SizedBox(height: 16),
-          _buildMacroSlider('Fat', _fatPercent, Colors.purple, (value) {
-            setState(() {
-              _fatPercent = value;
-              _balanceMacros('fat', value);
-            });
-          }),
-
-          const SizedBox(height: 32),
-
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => _goToStep(0),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Quay lại'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _goToStep(2),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Tiếp theo'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   // ==================== STEP 3: Select Meals ====================
 
@@ -395,7 +303,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
   Widget _buildMealTab(MealType mealType) {
     final meals = _selectedMeals[mealType] ?? [];
-    final mealTarget = mealType.getCaloriesTarget(_targetCalories);
 
     return Column(
       children: [
@@ -411,11 +318,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                '${_calculateMealCalories(meals)} / $mealTarget kcal',
-                style: TextStyle(
-                  color: _calculateMealCalories(meals) > mealTarget
-                      ? Colors.red
-                      : AppColors.textSecondary,
+                '${_calculateMealCalories(meals)} kcal',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -501,7 +406,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => _goToStep(1),
+              onPressed: () => _goToStep(0),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
@@ -512,7 +417,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: () => _goToStep(3),
+              onPressed: () => _goToStep(2),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -533,7 +438,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       isScrollControlled: true,
       builder: (context) => _FoodPickerSheet(
         mealType: mealType,
-        targetCalories: mealType.getCaloriesTarget(_targetCalories),
       ),
     );
 
@@ -551,9 +455,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   // ==================== STEP 4: Confirm ====================
 
   Widget _buildStep4Confirm() {
-    final proteinG = (_targetCalories * _proteinPercent / 100 / 4).round();
-    final carbsG = (_targetCalories * _carbsPercent / 100 / 4).round();
-    final fatG = (_targetCalories * _fatPercent / 100 / 9).round();
     final totalSelectedMeals = _selectedMeals.values.fold<int>(0, (sum, list) => sum + list.length);
 
     return SingleChildScrollView(
@@ -575,7 +476,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   const SizedBox(height: 12),
                   _buildSummaryRow('Tên', _titleController.text.isEmpty ? 'Kế hoạch mới' : _titleController.text),
                   _buildSummaryRow('Loại', _planTypeLabel(_selectedPlanType)),
-                  _buildSummaryRow('Thời gian', '${_formatDate(_startDate)} - ${_endDate != null ? _formatDate(_endDate!) : "..."}'),
+                  _buildSummaryRow('Thời gian', _periodSummary),
                   _buildSummaryRow('Số món ăn', '$totalSelectedMeals món'),
                 ],
               ),
@@ -596,9 +497,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildSummaryRow('Calories', '$_targetCalories kcal/ngày'),
-                  _buildSummaryRow('Protein', '$proteinG g ($_proteinPercent%)'),
-                  _buildSummaryRow('Carbs', '$carbsG g ($_carbsPercent%)'),
-                  _buildSummaryRow('Fat', '$fatG g ($_fatPercent%)'),
+                  _buildSummaryRow('Protein', '$_targetProteinG g'),
+                  _buildSummaryRow('Carbs', '$_targetCarbsG g'),
+                  _buildSummaryRow('Fat', '$_targetFatG g'),
                 ],
               ),
             ),
@@ -653,7 +554,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _goToStep(2),
+                  onPressed: () => _goToStep(1),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -698,28 +599,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     );
   }
 
-  Widget _buildMacroSlider(String label, int value, Color color, Function(int) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-            Text('$value%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-        Slider(
-          value: value.toDouble(),
-          min: 10,
-          max: 50,
-          divisions: 8,
-          activeColor: color,
-          onChanged: (v) => onChanged(v.round()),
-        ),
-      ],
-    );
-  }
+
 
   String _planTypeLabel(PlanType type) {
     switch (type) {
@@ -736,7 +616,122 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  String get _periodSummary {
+    if (_selectedPlanType == PlanType.daily) {
+      return _formatDate(_startDate);
+    }
+
+    final endDate = _endDate;
+    return endDate == null
+        ? '${_formatDate(_startDate)} - Chưa chọn ngày kết thúc'
+        : '${_formatDate(_startDate)} - ${_formatDate(endDate)}';
+  }
+
+  Widget _buildPlanPeriodPicker() {
+    switch (_selectedPlanType) {
+      case PlanType.daily:
+        return _buildDateField(
+          label: 'Ngày áp dụng',
+          date: _startDate,
+          onTap: () => _selectDate(isStart: true),
+        );
+      case PlanType.weekly:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildDateField(
+                    label: 'Ngày bắt đầu',
+                    date: _startDate,
+                    onTap: () => _selectDate(isStart: true),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildDateField(
+                    label: 'Ngày kết thúc',
+                    date: _endDate,
+                    readOnly: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Kế hoạch tuần tự động kéo dài 7 ngày.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        );
+      case PlanType.custom:
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildDateField(
+                label: 'Từ ngày',
+                date: _startDate,
+                onTap: () => _selectDate(isStart: true),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDateField(
+                label: 'Đến ngày',
+                date: _endDate,
+                onTap: () => _selectDate(isStart: false),
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildDateField({
+    required String label,
+    required DateTime? date,
+    VoidCallback? onTap,
+    bool readOnly = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: readOnly ? null : onTap,
+            icon: Icon(
+              readOnly ? Icons.lock_outline : Icons.calendar_today_outlined,
+              size: 18,
+            ),
+            label: Text(date == null ? 'Chọn ngày' : _formatDate(date)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+              alignment: Alignment.centerLeft,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _updateDates() {
+    _normalizeDatesForPlanType(resetCustomEnd: true);
+  }
+
+  void _normalizeDatesForPlanType({bool resetCustomEnd = false}) {
     switch (_selectedPlanType) {
       case PlanType.daily:
         _endDate = _startDate;
@@ -745,47 +740,61 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         _endDate = _startDate.add(const Duration(days: 6));
         break;
       case PlanType.custom:
-        _endDate = null;
+        if (resetCustomEnd || _endDate == null || _endDate!.isBefore(_startDate)) {
+          _endDate = _startDate;
+        }
         break;
     }
   }
 
-  void _balanceMacros(String changed, int newValue) {
-    final total = _proteinPercent + _carbsPercent + _fatPercent;
-    if (total > 100) {
-      final excess = total - 100;
-      if (changed == 'protein' && _carbsPercent >= excess) {
-        _carbsPercent -= excess;
-      } else if (changed == 'carbs' && _proteinPercent >= excess) {
-        _proteinPercent -= excess;
-      } else if (changed == 'fat') {
-        if (_proteinPercent >= excess) {
-          _proteinPercent -= excess;
-        } else {
-          _carbsPercent -= (excess - _proteinPercent);
-          _proteinPercent = 0;
-        }
-      }
-    }
-  }
-
   Future<void> _selectDate({required bool isStart}) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final firstDate = isStart || _selectedPlanType != PlanType.custom
+        ? today.subtract(const Duration(days: 365))
+        : DateUtils.dateOnly(_startDate);
+    final lastDate = today.add(const Duration(days: 730));
+    var initialDate = DateUtils.dateOnly(
+      isStart ? _startDate : (_endDate ?? _startDate),
+    );
+    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+
     final date = await showDatePicker(
       context: context,
-      initialDate: isStart ? _startDate : (_endDate ?? _startDate),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (date != null) {
       setState(() {
         if (isStart) {
-          _startDate = date;
-          _updateDates();
+          _startDate = DateUtils.dateOnly(date);
+          _normalizeDatesForPlanType();
         } else {
-          _endDate = date;
+          _endDate = DateUtils.dateOnly(date);
         }
       });
     }
+  }
+
+  String? _periodValidationMessage() {
+    final endDate = _endDate;
+    if (endDate == null) return 'Vui lòng chọn ngày kết thúc';
+    if (endDate.isBefore(_startDate)) {
+      return 'Ngày kết thúc không được trước ngày bắt đầu';
+    }
+    if (_selectedPlanType == PlanType.daily &&
+        !DateUtils.isSameDay(_startDate, endDate)) {
+      return 'Kế hoạch theo ngày chỉ áp dụng trong một ngày';
+    }
+    if (_selectedPlanType == PlanType.weekly &&
+        !DateUtils.isSameDay(
+          endDate,
+          _startDate.add(const Duration(days: 6)),
+        )) {
+      return 'Kế hoạch theo tuần phải kéo dài đúng 7 ngày';
+    }
+    return null;
   }
 
   void _goToStep(int step) {
@@ -799,13 +808,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         );
         return;
       }
-
-      if (_currentStep == 1) {
-        final calories = int.tryParse(_caloriesController.text) ?? 0;
-        if (calories < 500 || calories > 10000) {
+      if (_currentStep == 0) {
+        _normalizeDatesForPlanType();
+        final periodError = _periodValidationMessage();
+        if (periodError != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Calories phải từ 500 đến 10,000 kcal'),
+            SnackBar(
+              content: Text(periodError),
               backgroundColor: Colors.orange,
             ),
           );
@@ -825,6 +834,15 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   // ==================== Submit Logic ====================
 
   Future<void> _createPlan() async {
+    _normalizeDatesForPlanType();
+    final periodError = _periodValidationMessage();
+    if (periodError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(periodError), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -937,6 +955,15 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   }
 
   Future<void> _updatePlan() async {
+    _normalizeDatesForPlanType();
+    final periodError = _periodValidationMessage();
+    if (periodError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(periodError), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -1014,11 +1041,9 @@ class _SelectedFood {
 
 class _FoodPickerSheet extends StatefulWidget {
   final MealType mealType;
-  final int targetCalories;
 
   const _FoodPickerSheet({
     required this.mealType,
-    required this.targetCalories,
   });
 
   @override
@@ -1117,11 +1142,6 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> with SingleTickerPro
                     'Chọn món cho ${widget.mealType.emoji} ${widget.mealType.labelVi}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Mục tiêu: ~${widget.targetCalories} kcal',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _searchController,
@@ -1200,15 +1220,13 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> with SingleTickerPro
           return const SizedBox.shrink();
         }
 
-        final isOverTarget = calories > widget.targetCalories * 1.5;
-
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: isOverTarget ? Colors.red.shade100 : AppColors.primary.withValues(alpha: 0.1),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Icon(
                 item is FoodItem ? Icons.restaurant : Icons.menu_book,
-                color: isOverTarget ? Colors.red : AppColors.primary,
+                color: AppColors.primary,
               ),
             ),
             title: Text(name),

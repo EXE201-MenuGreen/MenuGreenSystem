@@ -29,6 +29,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<CreatePtReviewReportResponse> CreateReportAsync(Guid userId, CreatePtReviewReportRequest request)
         {
+            // 0. Check connection with PT
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.ClientId == userId && c.Status == "Connected");
+            if (!connections.Any())
+            {
+                throw new Exception("Bạn chưa Đăng ký kết nối với PT");
+            }
+
             var weekStartDate = request.WeekStartDate;
             var weekEndDate = weekStartDate.AddDays(6);
 

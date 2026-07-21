@@ -38,6 +38,11 @@ class DailyStarterProvider extends ChangeNotifier {
       _featured = featuredResult.data!;
     }
 
+    final personalizationResult = await _repo.getPersonalization();
+    if (personalizationResult.success) {
+      _personalization = personalizationResult.data;
+    }
+
     _isLoading = false;
     if (!todayResult.success && !featuredResult.success) {
       _errorMessage = todayResult.translatedMessage.isNotEmpty

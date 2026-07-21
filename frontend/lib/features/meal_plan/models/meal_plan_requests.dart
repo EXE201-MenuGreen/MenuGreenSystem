@@ -128,7 +128,8 @@ class CreateItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null) 'scheduledTime': scheduledTime!.toIso8601String(),
+      if (scheduledTime != null)
+        'scheduledTime': scheduledTime!.toIso8601String(),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
@@ -141,10 +142,7 @@ class DuplicatePlanRequest {
   final DateTime newStartDate;
   final DateTime? newEndDate;
 
-  DuplicatePlanRequest({
-    required this.newStartDate,
-    this.newEndDate,
-  });
+  DuplicatePlanRequest({required this.newStartDate, this.newEndDate});
 
   Map<String, dynamic> toJson() {
     return {
@@ -178,7 +176,8 @@ class AddItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null) 'scheduledTime': scheduledTime!.toIso8601String(),
+      if (scheduledTime != null)
+        'scheduledTime': scheduledTime!.toIso8601String(),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
@@ -199,17 +198,14 @@ class AddItemRequest {
 }
 
 class ConvertToLogRequest {
-  final DateTime loggedAt;
+  final DateTime? loggedAt;
   final double? quantityG;
 
-  ConvertToLogRequest({
-    required this.loggedAt,
-    this.quantityG,
-  });
+  ConvertToLogRequest({this.loggedAt, this.quantityG});
 
   Map<String, dynamic> toJson() {
     return {
-      'loggedAt': loggedAt.toIso8601String(),
+      if (loggedAt != null) 'loggedAt': loggedAt!.toIso8601String(),
       if (quantityG != null) 'quantityG': quantityG,
     };
   }

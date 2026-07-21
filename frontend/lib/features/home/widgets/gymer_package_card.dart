@@ -10,7 +10,6 @@ class GymerPackageCard extends StatelessWidget {
   static const _premiumGold = Color(0xFFD4A62A);
   static const _targetColor = Color(0xFF1B4332);
   static const _reviewColor = Color(0xFF0077B6);
-  static const _coachColor = Color(0xFF0F766E);
   static const _programColor = Color(0xFF059669);
 
   void _open(BuildContext context, [GymerFeature? feature]) {
@@ -31,16 +30,10 @@ class GymerPackageCard extends StatelessWidget {
             feature: GymerFeature.goals,
           ),
           (
-            icon: Icons.rate_review_outlined,
-            label: 'PT Review',
+            icon: Icons.people_alt_outlined,
+            label: 'HLV & PT',
             color: _reviewColor,
-            feature: GymerFeature.ptReview,
-          ),
-          (
-            icon: Icons.sports_gymnastics_rounded,
-            label: 'Coach',
-            color: _coachColor,
-            feature: GymerFeature.coaches,
+            feature: GymerFeature.companion,
           ),
           (
             icon: Icons.emoji_events_outlined,
