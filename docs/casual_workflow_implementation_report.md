@@ -1,73 +1,87 @@
-# Báo cáo triển khai Casual Workflow
+# Báo cáo hoàn thiện Casual Workflow
 
-## Phạm vi
+Ngày cập nhật: **22/07/2026**
 
-Hoàn thiện các mục 1–4 của `docs/workflow/casual_workflow.md`, đóng ba nhóm tính năng Casual đang rời rạc thành một gói subscription có entitlement riêng và một khu vực riêng trong Flutter, tương đương cách triển khai gói Gym/PT.
+Tài liệu nguồn: [`docs/workflow/casual_workflow.md`](workflow/casual_workflow.md)
 
-## Luồng đã triển khai
+Trạng thái kiểm chứng: **95% hoàn thành**
 
-1. Người dùng đăng ký bằng Email + OTP hoặc Google Sign-In, hoàn thành hồ sơ sức khỏe, dị ứng, sở thích và chọn nhóm **Người dùng phổ thông**. Onboarding lưu segment chuẩn là `casual`.
-2. Người dùng mở **Gói dịch vụ**, kích hoạt **Gói Casual** bằng subscription hiện có. Gói seed đang để `0đ` và không thời hạn để có thể thay đổi giá sau này. Khi thanh toán gói trả phí qua SePay, backend ưu tiên `FeatureGroup` của gói để gán đúng role `Casual`.
-3. Sau khi gói hoạt động, Trang chủ hiển thị thẻ **CASUAL PLUS** với ba lối vào riêng: **Vòng quay**, **1 chạm** và **Kiến thức**. Các quick action cũ đi qua Casual Hub/paywall nên không còn mở thẳng API trả phí.
-4. **Vòng quay món ăn** tải tối đa 10 món không trùng, ưu tiên ngân sách, vùng miền và sở thích; món khớp dị ứng bị loại trước khi trả về. Backend kiểm tra lại trạng thái món, loại bữa và dị ứng khi người dùng chọn **Ăn món này**.
-5. **Khởi động 1 chạm** trả câu truyền cảm hứng, calo mục tiêu, calo đã dùng và calo còn lại theo ngày Việt Nam. Ba món nổi bật được xếp hạng theo calo còn lại, ngân sách, vùng miền và độ an toàn dị ứng.
-6. Người dùng có thể thêm món nổi bật vào kế hoạch hôm nay. Backend kiểm tra món còn hoạt động, loại bữa hợp lệ và dị ứng trước khi tạo kế hoạch, đồng thời đặt đúng giờ sáng/trưa/tối/bữa phụ.
-7. Nút **Ghi nhận nhanh theo khung giờ** tự nhận diện bữa sáng/trưa/tối/phụ, chọn món an toàn phù hợp nhất và tạo `MealLog` thật bằng khẩu phần mặc định chỉ với một lần chạm.
-8. **Góc dinh dưỡng** giữ luồng đọc, đánh dấu đã đọc, lưu/bỏ lưu thẻ. Gợi ý dùng dữ liệu ba ngày gần nhất, hồ sơ sức khỏe và dị ứng; bổ sung phát hiện thiếu chất xơ cùng thẻ kiến thức Fiber không kèm quiz.
+## 1. Kết luận
 
-## Thay đổi backend
+Casual Workflow đã có đầy đủ luồng nghiệp vụ chính từ đăng ký, onboarding, kích hoạt quyền truy cập đến ba nhóm tính năng **Vòng quay món ăn**, **Khởi động 1 chạm** và **Micro-Learning**. Backend, Flutter và database đã được nối thành một luồng thống nhất; frontend không còn bypass subscription.
 
-### Gói Casual và phân quyền
+Tiến độ được tính trên 20 hạng mục có thể kiểm chứng:
 
-- Seed plan **Gói Casual** với `FeatureGroup = "casual"`, giá `0`, ID cố định `10000000-0000-0000-0000-000000000005`.
-- Migration: `20260721103000_AddCasualSubscriptionPlan.cs`.
-- SQL triển khai thủ công tương ứng: `database/58_casual_subscription_plan.sql`.
-- Policy `CasualOnly` dùng entitlement `casual_features`; chấp nhận gói `casual` hoặc `pro`, không còn dựa vào danh sách role mở rộng.
-- `LuckyWheelController`, `DailyStarterController` và `MicroLearningController` cùng dùng policy Casual.
-- `UserSubscriptionService` và `SepayPaymentService` ánh xạ gói Casual/Pro sang role `Casual`; luồng SePay lấy `FeatureGroup` của gói làm nguồn chính xác thay cho segment hồ sơ.
+- **18 hạng mục hoàn thành đầy đủ**.
+- **2 hạng mục hoàn thành một phần**: test backend tự động và kiểm thử thanh toán Casual trả phí trên staging.
+- Điểm quy đổi: `(18 + 2 × 0,5) / 20 = 95%`.
 
-### Lucky Wheel
+## 2. Ma trận đối chiếu yêu cầu
 
-- Lọc dị ứng trước khi random, không fallback sang món không an toàn.
-- Trả tối đa 10 món riêng biệt từ nhóm ứng viên được chấm điểm theo ngân sách, vùng và sở thích.
-- Kiểm tra lại `FoodId`, trạng thái món, `MealType` và dị ứng ở endpoint apply.
-- Lưu món vào kế hoạch ngày Việt Nam và đặt giờ theo loại bữa.
+| # | Yêu cầu trong workflow | Trạng thái | Bằng chứng triển khai |
+|---:|---|---|---|
+| 1 | Đăng ký Email + OTP | ✅ Hoàn thành | `AuthController`, `AuthService.RegisterAsync`, `VerifyOtpAsync` |
+| 2 | Google Sign-In | ✅ Hoàn thành | `AuthController`, `AuthService.LoginWithGoogleAsync` |
+| 3 | Tài khoản mới ở tầng miễn phí | ✅ Hoàn thành | Role kỹ thuật mặc định là `User`, tương ứng tầng truy cập miễn phí |
+| 4 | Nhân trắc học, mục tiêu và mức vận động | ✅ Hoàn thành | Onboarding Flutter, `HealthProfileService` |
+| 5 | Dị ứng và sở thích ẩm thực | ✅ Hoàn thành | `AllergyService`, hồ sơ AI và các bước onboarding |
+| 6 | Chọn nhóm Casual / Simple Eater | ✅ Hoàn thành | `user_type_step.dart`, giá trị chuẩn hóa `casual` |
+| 7 | Gói Casual, entitlement và role Casual | ✅ Hoàn thành | `EntitlementHandler`, policy `CasualOnly`, `UserSubscriptionService` |
+| 8 | Thanh toán/kích hoạt và ánh xạ SePay | 🟡 Hoàn thành một phần | Luồng SePay và role mapping đã có; plan seed hiện là `0đ` nên mặc định kích hoạt trực tiếp, chưa kiểm thử một giao dịch Casual trả phí trên staging |
+| 9 | Lấy tối đa 10 món không trùng cho vòng quay | ✅ Hoàn thành | `LuckyWheelService.GetWheelFoodsAsync`, `Take(10)` |
+| 10 | Cá nhân hóa theo dị ứng, ngân sách, vùng và sở thích | ✅ Hoàn thành | `LuckyWheelService`, `IAllergenMatchingService` |
+| 11 | Hiệu ứng quay và hiển thị dinh dưỡng/giá | ✅ Hoàn thành | `lucky_wheel_screen.dart` |
+| 12 | Áp dụng món vào kế hoạch hôm nay hoặc quay lại | ✅ Hoàn thành | `POST /api/LuckyWheel/apply`, `ApplyWheelSelectionAsync` |
+| 13 | Dashboard hôm nay, quote và calo còn lại | ✅ Hoàn thành | `GET /api/DailyStarter/today`, `CaloriesConsumed`, `CaloriesRemaining` |
+| 14 | Ba món nổi bật phù hợp | ✅ Hoàn thành | `GET /api/DailyStarter/featured-meals`, xếp hạng và `Take(3)` |
+| 15 | Chọn món vào kế hoạch hôm nay | ✅ Hoàn thành | `POST /api/DailyStarter/select-meal`, UI Daily Starter |
+| 16 | Ghi nhật ký một chạm theo khung giờ | ✅ Hoàn thành | `POST /api/DailyStarter/start-log`, tạo `MealLog` thật |
+| 17 | Gợi ý thẻ kiến thức theo lịch sử ăn uống | ✅ Hoàn thành | `GET /api/MicroLearning/cards/recommended`, phân tích 3 ngày gần nhất |
+| 18 | Đọc tiêu đề, tóm tắt và Quick Tips | ✅ Hoàn thành | Micro-Learning detail UI và DTO thẻ kiến thức |
+| 19 | Đánh dấu đã đọc, lưu và bỏ lưu | ✅ Hoàn thành | `cards/{id}/action`, `cards/saved`, UI bookmark |
+| 20 | Test tự động và kiểm thử tích hợp | 🟡 Hoàn thành một phần | Flutter có test entitlement/card; backend build và local integration chạy tốt nhưng chưa có test service/controller Casual chuyên biệt |
 
-### Daily Starter
+## 3. Kiến trúc đã hoàn thiện
 
-- `GET /api/DailyStarter/today` dùng cửa sổ ngày Việt Nam và trả thêm `CaloriesConsumed`, `CaloriesRemaining`.
-- `GET /api/DailyStarter/featured-meals` được cá nhân hóa theo user, chỉ trả ba món an toàn.
-- `POST /api/DailyStarter/select-meal` giới hạn 1–4 món, kiểm tra dữ liệu và dị ứng trước khi tạo kế hoạch.
-- `POST /api/DailyStarter/start-log` tạo nhật ký thật qua `INutritionTrackingService` và trả `LoggedMealId`, `LoggedFood`.
+### Quyền truy cập và gói cước
 
-### Micro-Learning
+- Policy `CasualOnly` yêu cầu entitlement `casual_features`.
+- Gói có `FeatureGroup = casual` hoặc `pro` được cấp quyền Casual.
+- `LuckyWheelController`, `DailyStarterController` và `MicroLearningController` cùng dùng policy này.
+- Flutter kiểm tra subscription thật bằng `hasCasualSubscriptionAccess`; không còn cờ bypass.
+- `CasualHubScreen` là cửa ngõ chung, điều hướng người chưa có quyền tới màn Gói dịch vụ.
 
-- Phân tích protein, fat, dị ứng và chất xơ từ lịch sử ăn uống ba ngày gần nhất.
-- Bổ sung category **Fiber** và thẻ **Bổ sung chất xơ mỗi ngày**.
-- Thẻ Fiber tập trung vào nội dung đọc/mẹo nhanh, không yêu cầu quiz, đúng phạm vi Casual Workflow hiện tại.
+### Database
 
-## Thay đổi Flutter
+- ID cố định của gói Casual: `10000000-0000-0000-0000-000000000005`.
+- `backend/database/06_subscription_plans.sql` đã được đồng bộ để seed database mới có gói Casual.
+- `backend/database/58_casual_subscription_plan.sql` là script idempotent cho database đang tồn tại; script này đồng thời bổ sung thẻ kiến thức Fiber.
+- Workspace hiện dùng migration hợp nhất `20260721173149_Init`; dữ liệu nghiệp vụ được nạp qua bộ seed SQL.
 
-- Thêm `CasualHubScreen` làm cửa ngõ/paywall cho ba tính năng Casual.
-- Thêm `CasualPackageCard` trên Trang chủ khi user có entitlement.
-- Thêm kiểm tra `hasCasualSubscriptionAccess`, hỗ trợ đồng thời nhiều subscription.
-- Màn **Gói dịch vụ** có card Casual riêng, kích hoạt segment `casual`, subscribe/SePay và mở Casual Hub sau khi thành công.
-- Quick action **Hôm nay ăn gì?**, **Góc dinh dưỡng** và hai lối vào Lucky Wheel trong hồ sơ đều đi qua Casual Hub.
-- Daily Starter hiển thị calo còn lại và có nút ghi nhật ký một chạm.
-- Sửa mapping món gợi ý trên Trang chủ vốn ép model thành `Map` sai kiểu khiến danh sách bị bỏ qua âm thầm.
+### Flutter
 
-## Kiểm thử
+- Trang chủ chỉ hiện `CasualPackageCard` khi tài khoản có entitlement thật.
+- Ba lối vào: **Vòng quay**, **1 chạm**, **Kiến thức**.
+- Thẻ Casual và Gymer dùng chung `HomePackageCard`, nên nền, viền, shadow, header, badge, divider và action spacing cùng một hệ thống UI.
+- Các quick action cũ được đưa qua Casual Hub thay vì mở thẳng tính năng trả phí.
 
-- `dotnet build MenuGreen.sln --no-restore`: thành công, không có lỗi; còn ba cảnh báo nullable cũ ngoài phạm vi Casual.
-- Flutter analyze cho 13 file thay đổi: không có issue.
-- Flutter tests:
-  - active Casual/Pro mở Casual dashboard;
-  - gói hủy hoặc gói không liên quan không mở Casual dashboard;
-  - card Casual hiển thị đủ ba action và không overflow ở chiều rộng 360 px;
-  - test card Gym hiện có vẫn chạy qua.
+## 4. Kết quả kiểm tra
 
-## Lưu ý triển khai
+| Kiểm tra | Kết quả |
+|---|---|
+| `dotnet build MenuGreen.sln --no-restore` trong `backend` | ✅ Thành công, 0 warning, 0 error |
+| Flutter analyze 16 file liên quan Casual/subscription/home | ✅ Không có issue |
+| `subscription_access_test.dart` | ✅ 4 case pass |
+| `casual_package_card_test.dart` | ✅ Pass |
+| `gymer_package_card_test.dart` | ✅ Pass |
+| Frontend emulator → local API | ✅ Kết nối trực tiếp `10.0.2.2:5000` và backend nhận truy vấn database |
 
-1. Chạy EF migration hoặc `database/58_casual_subscription_plan.sql` trước khi phát hành app mới.
-2. Giá seed hiện là `0đ`; có thể cập nhật bằng API quản lý SubscriptionPlan mà không cần sửa app.
-3. User cũ chưa có subscription Casual sẽ được chuyển đến màn Gói dịch vụ khi mở một tính năng Casual.
+## 5. Phần còn lại để đạt 100%
+
+1. Thêm unit/integration test backend cho:
+   - lọc dị ứng và giới hạn 10 món của Lucky Wheel;
+   - ba món nổi bật, chọn món và start-log của Daily Starter;
+   - xếp hạng thẻ Micro-Learning và hành vi save/unsave.
+2. Cấu hình một mức giá Casual khác `0đ` trên staging và chạy end-to-end SePay: tạo QR, webhook xác nhận, kích hoạt subscription, cấp role và kiểm tra entitlement.
+
+Hai mục này là tăng độ tin cậy phát hành; chúng không chặn việc sử dụng các luồng Casual hiện có ở local.
