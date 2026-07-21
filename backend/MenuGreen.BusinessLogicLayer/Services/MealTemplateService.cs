@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -103,7 +104,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             foreach (var item in items.OrderBy(x => x.SortOrder))
             {
-                var nutrition = await CalculateNutritionAsync(item.FoodId, item.RecipeId, item.QuantityG);
+                var nutrition = (
+                    item.CaloriesKcal,
+                    item.ProteinG,
+                    item.CarbsG,
+                    item.FatG);
                 totalCalories += nutrition.CaloriesKcal;
                 totalProtein += nutrition.ProteinG;
                 totalCarbs += nutrition.CarbsG;
@@ -113,8 +118,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
+                    CustomName = item.CustomName,
                     MealType = mealType,
                     QuantityG = item.QuantityG,
+                    CaloriesKcal = nutrition.CaloriesKcal,
+                    ProteinG = nutrition.ProteinG,
+                    CarbsG = nutrition.CarbsG,
+                    FatG = nutrition.FatG,
                     Notes = item.Notes,
                     LoggedAt = loggedAt
                 });
@@ -171,7 +181,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     MealTemplateId = clone.Id,
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
+                    CustomName = item.CustomName,
+                    SourceType = item.SourceType,
                     QuantityG = item.QuantityG,
+                    CaloriesKcal = item.CaloriesKcal,
+                    ProteinG = item.ProteinG,
+                    CarbsG = item.CarbsG,
+                    FatG = item.FatG,
+                    IngredientSnapshotJson = JsonSerializer.Serialize(item.Ingredients),
                     Notes = item.Notes,
                     SortOrder = item.SortOrder,
                     CreatedAt = DateTime.UtcNow
@@ -197,9 +214,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             foreach (var item in request.Items)
             {
-                if (!item.FoodId.HasValue && !item.RecipeId.HasValue)
+                var hasCatalogReference = item.FoodId.HasValue || item.RecipeId.HasValue;
+                var isAiScan = string.Equals(
+                    item.SourceType,
+                    "AiScan",
+                    StringComparison.OrdinalIgnoreCase);
+                var hasAiSnapshot = isAiScan &&
+                    !string.IsNullOrWhiteSpace(item.CustomName) &&
+                    item.CaloriesKcal.HasValue;
+
+                if (!hasCatalogReference && !hasAiSnapshot)
                 {
-                    throw new Exception("Each template item must have either FoodId or RecipeId.");
+                    throw new Exception(
+                        "Each template item must reference Food/Recipe or contain an AI scan snapshot.");
                 }
             }
         }
@@ -214,7 +241,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     MealTemplateId = mealTemplateId,
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
+                    CustomName = item.CustomName?.Trim(),
+                    SourceType = item.SourceType,
                     QuantityG = item.QuantityG,
+                    CaloriesKcal = item.CaloriesKcal,
+                    ProteinG = item.ProteinG,
+                    CarbsG = item.CarbsG,
+                    FatG = item.FatG,
+                    IngredientSnapshotJson = JsonSerializer.Serialize(item.Ingredients),
                     Notes = item.Notes,
                     SortOrder = item.SortOrder,
                     CreatedAt = DateTime.UtcNow
@@ -239,14 +273,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             foreach (var item in items.OrderBy(x => x.SortOrder))
             {
-                var nutrition = await CalculateNutritionAsync(item.FoodId, item.RecipeId, item.QuantityG);
+                var nutrition = await CalculateNutritionAsync(
+                    item.FoodId,
+                    item.RecipeId,
+                    item.QuantityG,
+                    item.CaloriesKcal,
+                    item.ProteinG,
+                    item.CarbsG,
+                    item.FatG);
                 result.Add(new MealTemplateItemResponse
                 {
                     Id = item.Id,
                     MealTemplateId = item.MealTemplateId,
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
+                    CustomName = item.CustomName,
+                    SourceType = item.SourceType,
                     QuantityG = item.QuantityG,
+                    Ingredients = DeserializeIngredients(item.IngredientSnapshotJson),
                     Notes = item.Notes,
                     SortOrder = item.SortOrder,
                     CaloriesKcal = nutrition.CaloriesKcal,
@@ -259,7 +303,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return result;
         }
 
-        private async Task<(decimal CaloriesKcal, decimal ProteinG, decimal CarbsG, decimal FatG)> CalculateNutritionAsync(Guid? foodId, Guid? recipeId, decimal quantityG)
+        private async Task<(decimal CaloriesKcal, decimal ProteinG, decimal CarbsG, decimal FatG)> CalculateNutritionAsync(
+            Guid? foodId,
+            Guid? recipeId,
+            decimal quantityG,
+            decimal? customCalories = null,
+            decimal? customProtein = null,
+            decimal? customCarbs = null,
+            decimal? customFat = null)
         {
             if (foodId.HasValue)
             {
@@ -285,7 +336,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return ScaleNutrition(estimatedCalories, estimatedProtein, estimatedCarbs, estimatedFat, 100, quantityG);
             }
 
-            return (0, 0, 0, 0);
+            return (
+                customCalories ?? 0,
+                customProtein ?? 0,
+                customCarbs ?? 0,
+                customFat ?? 0);
+        }
+
+        private static List<OfficeScanIngredientRequest> DeserializeIngredients(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new();
+            try
+            {
+                return JsonSerializer.Deserialize<List<OfficeScanIngredientRequest>>(json) ?? new();
+            }
+            catch (JsonException)
+            {
+                return new();
+            }
         }
 
         private static (decimal CaloriesKcal, decimal ProteinG, decimal CarbsG, decimal FatG) ScaleNutrition(decimal? calories, decimal? protein, decimal? carbs, decimal? fat, int? defaultServingG, decimal quantityG)
@@ -328,7 +396,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealTemplateId = template.Id,
                 FoodId = mealLog.FoodId,
                 RecipeId = mealLog.RecipeId,
+                CustomName = mealLog.CustomName,
+                SourceType = mealLog.SourceType,
                 QuantityG = mealLog.QuantityG ?? 100,
+                CaloriesKcal = mealLog.CaloriesKcal,
+                ProteinG = mealLog.ProteinG,
+                CarbsG = mealLog.CarbsG,
+                FatG = mealLog.FatG,
                 Notes = mealLog.Notes,
                 SortOrder = 1,
                 CreatedAt = DateTime.UtcNow

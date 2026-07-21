@@ -264,6 +264,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 x.MealPlanId == planId && x.PlannedDate == request.PlannedDate);
             var item = items.FirstOrDefault(x => NormalizeMealType(x.MealType ?? string.Empty) == mealType);
             var replacedExisting = item != null;
+            var isNewItem = item == null;
 
             if (item != null && !request.ReplaceExisting &&
                 !string.Equals(item.SourceType, "AiScan", StringComparison.OrdinalIgnoreCase))
@@ -296,10 +297,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.CustomName = request.CustomName.Trim();
             item.IngredientSnapshotJson = JsonSerializer.Serialize(request.Ingredients);
             item.IsCompleted = true;
-            _unitOfWork.MealPlanItems.Update(item);
+            if (!isNewItem)
+            {
+                _unitOfWork.MealPlanItems.Update(item);
+            }
 
             var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == item.Id);
             var mealLog = existingLogs.FirstOrDefault();
+            var isNewMealLog = mealLog == null;
             if (mealLog == null)
             {
                 mealLog = new MealLog
@@ -324,7 +329,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             mealLog.Notes = "Được ghi nhận từ AI scan và đồng bộ với kế hoạch Office.";
             mealLog.LoggedAt = (request.LoggedAt ?? DateTime.UtcNow).ToUniversalTime();
             mealLog.IsFromMealPlan = true;
-            _unitOfWork.MealLogs.Update(mealLog);
+            if (!isNewMealLog)
+            {
+                _unitOfWork.MealLogs.Update(mealLog);
+            }
 
             plan.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.MealPlanHeaders.Update(plan);

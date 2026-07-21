@@ -35,6 +35,8 @@ class _SuggestedDishDetailSheetState
 
   double _portionMultiplier = 1;
   String? _runningAction;
+  String? _actionFeedback;
+  bool _feedbackIsError = false;
 
   CvSuggestedDish get dish => widget.dish;
 
@@ -43,20 +45,30 @@ class _SuggestedDishDetailSheetState
     SuggestedDishAction callback,
   ) async {
     if (_runningAction != null) return;
-    setState(() => _runningAction = action);
+    setState(() {
+      _runningAction = action;
+      _actionFeedback = null;
+      _feedbackIsError = false;
+    });
     try {
       final completed = await callback(dish, _portionMultiplier);
-      if (completed && mounted) Navigator.pop(context, true);
+      if (!mounted) return;
+      if (completed) {
+        Navigator.pop(context, action);
+      } else {
+        setState(() {
+          _actionFeedback = 'Thao tác chưa được thực hiện.';
+          _feedbackIsError = false;
+        });
+      }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              error.toString().replaceFirst('Exception: ', ''),
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() {
+          _actionFeedback = error
+              .toString()
+              .replaceFirst('Exception: ', '');
+          _feedbackIsError = true;
+        });
       }
     } finally {
       if (mounted) setState(() => _runningAction = null);
@@ -373,6 +385,38 @@ class _SuggestedDishDetailSheetState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_actionFeedback != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_feedbackIsError ? Colors.redAccent : AppColors.primary)
+                    .withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _feedbackIsError
+                        ? Icons.error_outline
+                        : Icons.info_outline,
+                    size: 18,
+                    color: _feedbackIsError
+                        ? Colors.redAccent
+                        : AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _actionFeedback!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(

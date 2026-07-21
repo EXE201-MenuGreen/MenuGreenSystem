@@ -6,6 +6,7 @@ import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/meal_template_models.dart';
 import '../repositories/meal_template_repository.dart';
+import 'meal_template_ai_dish_detail_screen.dart';
 
 part 'meal_template_editor_part.dart';
 part 'meal_template_widgets_part.dart';

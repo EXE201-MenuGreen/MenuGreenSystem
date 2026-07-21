@@ -2,12 +2,31 @@ class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
 
-  /// Ghi đè khi dev local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api`
+  /// Backend local mặc định cho Android Emulator.
+  static const String localBaseUrl = 'http://10.0.2.2:5000/api';
+
+  /// Chọn môi trường bằng `--dart-define=APP_ENV=development`.
+  /// Nếu không truyền, ứng dụng luôn dùng production để release an toàn.
+  static const String environmentName = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: 'production',
+  );
+
+  /// Ghi đè URL cho emulator/thiết bị khác khi cần.
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  static bool get isLocalEnvironment {
+    final environment = environmentName.trim().toLowerCase();
+    return environment == 'local' ||
+        environment == 'development' ||
+        environment == 'dev';
+  }
+
   static String get baseUrl {
-    if (_envBaseUrl.isNotEmpty) return _normalizeBaseUrl(_envBaseUrl);
-    return productionBaseUrl;
+    if (_envBaseUrl.trim().isNotEmpty) {
+      return _normalizeBaseUrl(_envBaseUrl);
+    }
+    return isLocalEnvironment ? localBaseUrl : productionBaseUrl;
   }
 
   static String _normalizeBaseUrl(String url) {

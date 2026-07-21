@@ -177,8 +177,8 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     );
   }
 
-  void _showSuggestedDish(CvSuggestedDish dish) {
-    showModalBottomSheet<bool>(
+  Future<void> _showSuggestedDish(CvSuggestedDish dish) async {
+    final completedAction = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -190,6 +190,21 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         onSaveMealTemplate: _saveDishAsMealTemplate,
       ),
     );
+
+    if (!mounted || completedAction == null) return;
+    final message = switch (completedAction) {
+      'today' when widget.officeMode =>
+        'Đã thêm món vào kế hoạch cơm hộp Office hôm nay.',
+      'plan' => 'Đã cập nhật kế hoạch cơm hộp Office.',
+      'template' => 'Đã lưu món vào Mẫu bữa ăn.',
+      _ => null,
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.primary),
+      );
   }
 
   Future<bool> _useDishToday(
@@ -200,6 +215,25 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       0,
       (total, ingredient) => total + ingredient.khoiLuongG,
     );
+
+    if (widget.officeMode) {
+      try {
+        final baseDishWeight = ingredientWeight > 0
+            ? ingredientWeight
+            : 100.0;
+        final saved = await _saveScannedDishToOffice(
+          dish,
+          mealType: 'lunch',
+          quantityG: baseDishWeight * portionMultiplier,
+          baseDishWeight: baseDishWeight,
+        );
+
+        return saved ?? false;
+      } catch (error) {
+        throw Exception(error.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+
     return _showSearchAndLogDialog(
       context: context,
       keyword: dish.tenMonAn,
@@ -208,15 +242,6 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       isRecipe: true,
       fallbackNutrition: dish.thongTinDinhDuongMonAn,
       fallbackNutritionMultiplier: portionMultiplier,
-      submitter: widget.officeMode
-          ? (mealType, quantityG, _) => _saveScannedDishToOffice(
-              dish,
-              mealType: mealType,
-              quantityG: quantityG,
-              baseDishWeight: ingredientWeight > 0 ? ingredientWeight : 100,
-            )
-          : null,
-      syncsOfficePlan: widget.officeMode,
     );
   }
 
@@ -406,21 +431,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         await _mealPlanRepository.addItem(plan.id, request);
       }
 
-      if (!mounted) return true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            existingLunch == null
-                ? 'Đã thêm món vào kế hoạch cơm hộp.'
-                : 'Đã thay bữa trưa trong kế hoạch.',
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
       return true;
     } catch (error) {
-      _showErrorSnackBar(error.toString().replaceFirst('Exception: ', ''));
-      return false;
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -499,36 +512,49 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
   ) async {
     final mealType = await _chooseTemplateMealType();
     if (mealType == null) return false;
-    final recipe = await _chooseRecipeMatch(dish);
-    if (recipe == null) return false;
     final mealLabel = _mealTypeLabel(mealType);
+    final baseWeight = dish.nguyenLieuSuDung.fold<double>(
+      0,
+      (total, ingredient) => total + ingredient.khoiLuongG,
+    );
+    final quantityG = (baseWeight > 0 ? baseWeight : 100) * portionMultiplier;
+    final nutrition = dish.thongTinDinhDuongMonAn;
     try {
       await _mealTemplateRepository.create({
         'title': '$mealLabel - ${dish.tenMonAn}',
-        'description': 'Mẫu bữa ăn được tạo từ kết quả quét nguyên liệu.',
+        'description': dish.moTaNgan.isEmpty
+            ? 'Món được lưu từ kết quả quét nguyên liệu.'
+            : dish.moTaNgan,
         'mealType': mealType,
         'isActive': true,
         'items': [
           {
-            'recipeId': recipe.id,
+            'customName': dish.tenMonAn,
+            'sourceType': 'AiScan',
             'mealType': mealType,
-            'quantityG': _dishWeight(dish, portionMultiplier),
+            'quantityG': quantityG,
+            'caloriesKcal': nutrition.tongCalories * portionMultiplier,
+            'proteinG': nutrition.proteinG * portionMultiplier,
+            'carbsG': nutrition.carbsG * portionMultiplier,
+            'fatG': nutrition.fatG * portionMultiplier,
+            'ingredients': dish.nguyenLieuSuDung
+                .map(
+                  (ingredient) => {
+                    'name': ingredient.ten,
+                    'quantity': ingredient.khoiLuongG * portionMultiplier,
+                    'unit': 'g',
+                    'isAvailable': true,
+                  },
+                )
+                .toList(),
             'notes': 'Gợi ý từ quét nguyên liệu',
             'sortOrder': 0,
           },
         ],
       });
-      if (!mounted) return true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã lưu món vào Mẫu bữa ăn.'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
       return true;
     } catch (error) {
-      _showErrorSnackBar(error.toString().replaceFirst('Exception: ', ''));
-      return false;
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
     }
   }
 

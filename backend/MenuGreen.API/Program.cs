@@ -24,6 +24,15 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Windows Event Log requires elevated permissions on some development machines.
+// Keep local logging on console/debug so a denied Event Log write cannot stop API startup.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
+
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
 if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 {
