@@ -5,7 +5,7 @@ on:
   workflow_run:
     workflows: ["Backend CI - Build & Push"]
     types: [completed]
-    branches: [main, Tuan, Tuanx]  # Added Tuan so pushing to Tuan also auto-deploys nginx
+    branches: [main, Tuan, Tuanx, develop]
   # Manual trigger
   workflow_dispatch:
     inputs:
