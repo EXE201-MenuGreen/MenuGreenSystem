@@ -34,10 +34,7 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
     final provider = context.read<DailyStarterProvider>();
     final result = await provider.selectMeal({
       'meals': [
-        {
-          'foodId': food.id,
-          'mealType': _guessMealType(),
-        },
+        {'foodId': food.id, 'mealType': _guessMealType()},
       ],
     });
     if (!mounted) return;
@@ -95,6 +92,8 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   _buildHero(provider),
+                  const SizedBox(height: 12),
+                  _buildQuickLogButton(provider),
                   const SizedBox(height: 20),
                   const SectionHeader(
                     title: 'Bữa nhanh gợi ý',
@@ -106,7 +105,8 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                   const SizedBox(height: 24),
                   const SectionHeader(
                     title: 'Hồ sơ cá nhân hóa',
-                    subtitle: 'Cập nhật chiều cao, cân nặng và sở thích ăn uống',
+                    subtitle:
+                        'Cập nhật chiều cao, cân nặng và sở thích ăn uống',
                     icon: Icons.tune,
                   ),
                   const SizedBox(height: 12),
@@ -144,13 +144,18 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
           ? welcome
           : 'MenuGreen chào bạn!',
       subtitle: today == null
-          ? (loading ? 'Đang tải thông tin hôm nay...' : 'Hôm nay ăn gì? chọn nhanh cho bạn.')
-          : 'Mục tiêu hôm nay: ${today.caloriesTarget.toStringAsFixed(0)} kcal'
-              '${today.hasLoggedToday ? ' • Đã ghi nhật ký' : ' • Chưa ghi nhật ký'}',
+          ? (loading
+                ? 'Đang tải thông tin hôm nay...'
+                : 'Hôm nay ăn gì? chọn nhanh cho bạn.')
+          : 'Còn ${today.caloriesRemaining.toStringAsFixed(0)} / ${today.caloriesTarget.toStringAsFixed(0)} kcal'
+                '${today.hasLoggedToday ? ' • Đã ghi nhật ký' : ' • Chưa ghi nhật ký'}',
       trailing: today?.quote.trim().isNotEmpty == true
           ? Tooltip(
               message: today!.quote,
-              child: const Icon(Icons.lightbulb_outline, color: AppColors.primary),
+              child: const Icon(
+                Icons.lightbulb_outline,
+                color: AppColors.primary,
+              ),
             )
           : null,
       child: today?.quote.trim().isNotEmpty == true
@@ -166,11 +171,68 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
     );
   }
 
+  Widget _buildQuickLogButton(DailyStarterProvider provider) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: provider.isQuickLogging
+            ? null
+            : () async {
+                final result = await provider.quickLog();
+                if (!mounted) return;
+                final food = result?.loggedFood;
+                if (result == null || food == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        provider.errorMessage ??
+                            'Không thể ghi nhận nhanh lúc này.',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Đã ghi ${food.name} vào nhật ký hôm nay.'),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              },
+        icon: provider.isQuickLogging
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.flash_on_rounded),
+        label: Text(
+          provider.isQuickLogging
+              ? 'Đang ghi nhận...'
+              : 'Ghi nhận nhanh theo khung giờ',
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeaturedList(DailyStarterProvider provider) {
     if (provider.isLoading && provider.featured.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
     if (provider.featured.isEmpty) {
@@ -212,7 +274,10 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                           color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.restaurant, color: AppColors.primary),
+                        child: const Icon(
+                          Icons.restaurant,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -270,12 +335,12 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
       subtitle: p == null
           ? 'Đang tải...'
           : 'Mục tiêu calo: ${p.targetCalories?.toStringAsFixed(0) ?? '—'} kcal'
-              ' • ${p.dietaryPreference ?? 'chưa thiết lập'}',
+                ' • ${p.dietaryPreference ?? 'chưa thiết lập'}',
       value: p == null ? null : '${p.allergenKeys.length} dị ứng',
       footnote: p == null
           ? null
           : 'Chiều cao ${p.heightCm?.toStringAsFixed(0) ?? '—'} cm • '
-              'Cân nặng ${p.weightKg?.toStringAsFixed(1) ?? '—'} kg',
+                'Cân nặng ${p.weightKg?.toStringAsFixed(1) ?? '—'} kg',
       trailing: TextButton(
         onPressed: loading
             ? null

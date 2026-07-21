@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../subscription/models/subscription_models.dart';
@@ -13,13 +14,11 @@ import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
 import 'personal_info_screen.dart';
-import '../../vietnam_local/views/lucky_wheel_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../advanced/views/advanced_features_screen.dart';
-import '../../advanced/views/advanced_detail_screens.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -119,9 +118,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (!mounted) return;
     if (result == 'officeActivated') {
       setState(() => _officeModeActivated = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã mở chế độ Office.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã mở chế độ Office.')));
     }
     await _fetchData();
   }
@@ -459,7 +458,9 @@ class _ProfileViewState extends State<ProfileView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const LuckyWheelScreen(),
+                          builder: (_) => const CasualHubScreen(
+                            openFeature: CasualFeature.luckyWheel,
+                          ),
                         ),
                       );
                     },
@@ -650,7 +651,9 @@ class _ProfileViewState extends State<ProfileView> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const LuckyWheelScreen(),
+                              builder: (_) => const CasualHubScreen(
+                                openFeature: CasualFeature.luckyWheel,
+                              ),
                             ),
                           );
                         },
@@ -781,21 +784,20 @@ class _ProfileViewState extends State<ProfileView> {
             subscription.subscriptionPlanName.isNotEmpty
         ? subscription
         : null;
-    final planName =
-        _officeModeActivated
+    final planName = _officeModeActivated
         ? 'Office'
         : activeSubscription?.subscriptionPlanName ??
-        subscription?.subscriptionPlanName ??
-        (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
+              subscription?.subscriptionPlanName ??
+              (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
     final isPro =
         _officeModeActivated ||
         activeSubscription != null &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'free',
-        ) &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'cơ bản',
-        );
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'free',
+            ) &&
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'cơ bản',
+            );
 
     return Container(
       padding: const EdgeInsets.all(20),

@@ -20,6 +20,7 @@ import '../../tracking/widgets/meal_log_sheet.dart';
 import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../widgets/home_banner_carousel.dart';
+import '../widgets/casual_package_card.dart';
 import '../widgets/home_calorie_section.dart';
 import '../widgets/gymer_package_card.dart';
 import '../widgets/quick_action_grid.dart';
@@ -50,6 +51,7 @@ class HomeViewState extends State<HomeView> {
   MealPlanAdherence? _mealPlanAdherence;
   bool _refreshing = false;
   bool _hasGymerAccess = false;
+  bool _hasCasualAccess = false;
   List<RecommendedMealItem> _recommendedMeals = [];
   List<TipItem> _tips = [];
 
@@ -106,6 +108,7 @@ class HomeViewState extends State<HomeView> {
     if (!mounted) return;
     setState(() {
       _hasGymerAccess = hasGymerSubscriptionAccess(subscriptions);
+      _hasCasualAccess = hasCasualSubscriptionAccess(subscriptions);
     });
   }
 
@@ -171,17 +174,17 @@ class HomeViewState extends State<HomeView> {
       if (!mounted) return;
       if (result.success && result.data != null) {
         final data = result.data!;
-        final List<dynamic> rawList = data;
         setState(() {
-          _recommendedMeals = rawList.map((m) {
-            final map = Map<String, dynamic>.from(m as Map);
-            final mealType = _normalizeMealType(
-              map['mealType']?.toString() ?? '',
-            );
+          _recommendedMeals = data.map((meal) {
+            final map = <String, dynamic>{
+              'foodId': meal.id,
+              'name': meal.name,
+              'caloriesKcal': meal.caloriesKcal,
+            };
             return RecommendedMealItem(
-              title: map['name']?.toString() ?? 'Món ăn',
-              subtitle: mealType,
-              calories: (map['calories'] ?? map['caloriesKcal'] ?? 0).toInt(),
+              title: meal.name.isEmpty ? 'Món ăn' : meal.name,
+              subtitle: 'Gợi ý theo calo còn lại',
+              calories: meal.caloriesKcal.toInt(),
               color: AppColors.primary,
               bgColor: const Color(0xFFE8F5E9),
               data: map,
@@ -192,15 +195,6 @@ class HomeViewState extends State<HomeView> {
     } catch (_) {
       // silently fail
     }
-  }
-
-  String _normalizeMealType(String type) {
-    final lower = type.toLowerCase();
-    if (lower.contains('breakfast')) return 'Bữa sáng';
-    if (lower.contains('lunch')) return 'Bữa trưa';
-    if (lower.contains('dinner')) return 'Bữa tối';
-    if (lower.contains('snack')) return 'Ăn vặt';
-    return 'Bữa phụ';
   }
 
   void _loadTips() {
@@ -311,8 +305,15 @@ class HomeViewState extends State<HomeView> {
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: HomeBannerCarousel(),
               ),
-              if (_hasGymerAccess) ...[
+              if (_hasCasualAccess) ...[
                 const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: CasualPackageCard(),
+                ),
+              ],
+              if (_hasGymerAccess) ...[
+                const SizedBox(height: 12),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: GymerPackageCard(),
