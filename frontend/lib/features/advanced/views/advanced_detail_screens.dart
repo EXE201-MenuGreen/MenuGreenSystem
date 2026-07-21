@@ -1025,8 +1025,12 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
 
   void _showRouteApprovalDialog(Map<String, dynamic> req) {
     routeComment.clear();
-    routeCalorie.text = '${valueOf(profile ?? {}, 'trainingDayTargetCalories', '2000')}';
-    routeProtein.text = '${valueOf(profile ?? {}, 'minProteinG', '120')}';
+    routeCalorie.text = valueOf(
+      profile ?? {},
+      'trainingDayTargetCalories',
+      '2000',
+    );
+    routeProtein.text = valueOf(profile ?? {}, 'minProteinG', '120');
     
     showDialog(
       context: context,
@@ -1123,8 +1127,12 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
 
   void _showReviewDialog(Map<String, dynamic> req) {
     reviewComment.clear();
-    reviewCalorie.text = '${valueOf(profile ?? {}, 'trainingDayTargetCalories', '2000')}';
-    reviewProtein.text = '${valueOf(profile ?? {}, 'minProteinG', '120')}';
+    reviewCalorie.text = valueOf(
+      profile ?? {},
+      'trainingDayTargetCalories',
+      '2000',
+    );
+    reviewProtein.text = valueOf(profile ?? {}, 'minProteinG', '120');
     
     final reportDataJson = valueOf(req, 'reportDataJson');
     Map<String, dynamic> reportData = {};
@@ -1569,6 +1577,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               'plannedDate': dateStr,
               'isCompleted': false,
             });
+            final nav = Navigator.of(ctx);
             await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
               'title': valueOf(mealPlan!, 'title'),
               'planType': 'CoachAdjusted',
@@ -1576,7 +1585,6 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               'isActive': true,
               'items': items,
             });
-            final nav = Navigator.of(ctx);
             await load();
             if (mounted) {
               nav.pop();
@@ -1661,7 +1669,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      '${valueOf(item, 'foodName').isNotEmpty ? valueOf(item, 'foodName') : valueOf(item, 'recipeName')}',
+                                      valueOf(item, 'foodName').isNotEmpty
+                                          ? valueOf(item, 'foodName')
+                                          : valueOf(item, 'recipeName'),
                                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                                     ),
                                   ),

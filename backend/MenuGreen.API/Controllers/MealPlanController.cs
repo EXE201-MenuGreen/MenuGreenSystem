@@ -245,6 +245,28 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Save an AI-scanned meal as both an Office plan item and an actual meal log.
+        /// </summary>
+        [HttpPost("{planId:guid}/scan-meals")]
+        public async Task<IActionResult> SaveScanMeal(Guid planId, [FromBody] OfficeScanMealRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.SaveOfficeScanMealAsync(planId, request, userId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Commit today's meal plan for dashboard and reporting.
         /// </summary>
         [HttpPost("{planId:guid}/commit")]

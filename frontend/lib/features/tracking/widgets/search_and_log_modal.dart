@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../repositories/nutrition_tracking_repository.dart';
 
+typedef MealLogSubmitter =
+    Future<bool?> Function(
+      String mealType,
+      double quantityG,
+      CatalogItem? selectedItem,
+    );
+
 class SearchAndLogModal extends StatefulWidget {
   const SearchAndLogModal({
     super.key,
@@ -11,6 +18,10 @@ class SearchAndLogModal extends StatefulWidget {
     required this.isRecipe,
     required this.onSuccess,
     this.initialMealType = 'breakfast',
+    this.fallbackNutrition,
+    this.fallbackNutritionMultiplier = 1,
+    this.submitter,
+    this.syncsOfficePlan = false,
   });
 
   final NutritionTrackingRepository repository;
@@ -19,6 +30,10 @@ class SearchAndLogModal extends StatefulWidget {
   final bool isRecipe;
   final VoidCallback onSuccess;
   final String initialMealType;
+  final CvNutritionInfo? fallbackNutrition;
+  final double fallbackNutritionMultiplier;
+  final MealLogSubmitter? submitter;
+  final bool syncsOfficePlan;
 
   @override
   State<SearchAndLogModal> createState() => _SearchAndLogModalState();
@@ -68,22 +83,50 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
   }
 
   Future<void> _logMeal() async {
-    if (_selectedItem == null) return;
+    final selectedItem = _selectedItem;
+    final fallbackNutrition = widget.fallbackNutrition;
+    if (selectedItem == null && fallbackNutrition == null) return;
     final qty = double.tryParse(_gramsController.text.trim()) ?? 0;
     if (qty <= 0) return;
 
     setState(() => _searching = true);
 
     try {
-      final ok = await widget.repository.createMealLog(
-        foodId: widget.isRecipe ? null : _selectedItem!.id,
-        recipeId: widget.isRecipe ? _selectedItem!.id : null,
-        mealType: _mealType,
-        quantityG: qty,
-        loggedAt: DateTime.now(),
-      );
+      final ok = widget.submitter != null
+          ? await widget.submitter!(_mealType, qty, selectedItem)
+          : await widget.repository.createMealLog(
+              foodId: widget.isRecipe ? null : selectedItem?.id,
+              recipeId: widget.isRecipe ? selectedItem?.id : null,
+              mealType: _mealType,
+              quantityG: qty,
+              notes: selectedItem == null
+                  ? 'Ước tính từ AI scan: ${widget.keyword}'
+                  : null,
+              customName: selectedItem == null ? widget.keyword : null,
+              loggedAt: DateTime.now(),
+              caloriesKcal: selectedItem == null
+                  ? fallbackNutrition!.tongCalories *
+                        widget.fallbackNutritionMultiplier
+                  : null,
+              proteinG: selectedItem == null
+                  ? fallbackNutrition!.proteinG *
+                        widget.fallbackNutritionMultiplier
+                  : null,
+              carbsG: selectedItem == null
+                  ? fallbackNutrition!.carbsG *
+                        widget.fallbackNutritionMultiplier
+                  : null,
+              fatG: selectedItem == null
+                  ? fallbackNutrition!.fatG * widget.fallbackNutritionMultiplier
+                  : null,
+            );
 
       if (!mounted) return;
+
+      if (ok == null) {
+        setState(() => _searching = false);
+        return;
+      }
 
       if (ok) {
         widget.onSuccess();
@@ -91,7 +134,9 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
         setState(() => _searching = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không ghi được nhật ký bữa ăn. Vui lòng kiểm tra lại.'),
+            content: Text(
+              'Không ghi được nhật ký bữa ăn. Vui lòng kiểm tra lại.',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -106,9 +151,7 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(
-        widget.isRecipe ? 'Xác nhận món ăn' : 'Xác nhận nguyên liệu',
-      ),
+      title: Text(widget.isRecipe ? 'Xác nhận món ăn' : 'Xác nhận nguyên liệu'),
       content: _searching
           ? const SizedBox(
               height: 120,
@@ -122,13 +165,23 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                 children: [
                   Text(
                     'Chọn dữ liệu phù hợp với “${widget.keyword}” để lưu đúng chỉ số dinh dưỡng.',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   if (_searchResults.isEmpty)
-                    const Text(
-                      'Không tìm thấy món hoặc nguyên liệu phù hợp trong dữ liệu hệ thống.',
-                      style: TextStyle(color: Colors.redAccent, fontSize: 13),
+                    Text(
+                      widget.fallbackNutrition != null
+                          ? 'Chưa có món khớp trong dữ liệu hệ thống. Bạn vẫn có thể lưu bằng chỉ số dinh dưỡng do AI ước tính.'
+                          : 'Không tìm thấy món hoặc nguyên liệu phù hợp trong dữ liệu hệ thống.',
+                      style: TextStyle(
+                        color: widget.fallbackNutrition != null
+                            ? AppColors.textSecondary
+                            : Colors.redAccent,
+                        fontSize: 13,
+                      ),
                     )
                   else
                     InputDecorator(
@@ -143,15 +196,42 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                               .map(
                                 (item) => DropdownMenuItem(
                                   value: item,
-                                  child: Text(item.name, overflow: TextOverflow.ellipsis),
+                                  child: Text(
+                                    item.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
-                          onChanged: (item) => setState(() => _selectedItem = item),
+                          onChanged: (item) =>
+                              setState(() => _selectedItem = item),
                         ),
                       ),
                     ),
                   const SizedBox(height: 12),
+                  if (widget.syncsOfficePlan) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.sync, size: 18, color: AppColors.primary),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Món này sẽ được ghi vào Nhật ký và cập nhật kế hoạch Office hôm nay.',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   InputDecorator(
                     decoration: const InputDecoration(labelText: 'Bữa ăn'),
                     child: DropdownButtonHideUnderline(
@@ -159,10 +239,22 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                         value: _mealType,
                         isExpanded: true,
                         items: const [
-                          DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
-                          DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
-                          DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
-                          DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
+                          DropdownMenuItem(
+                            value: 'breakfast',
+                            child: Text('Bữa sáng'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'lunch',
+                            child: Text('Bữa trưa'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'dinner',
+                            child: Text('Bữa tối'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'snack',
+                            child: Text('Bữa phụ'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) setState(() => _mealType = value);
@@ -188,13 +280,18 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Hủy'),
         ),
-        if (!_searching && _selectedItem != null)
+        if (!_searching &&
+            (_selectedItem != null || widget.fallbackNutrition != null))
           ElevatedButton(
             onPressed: _logMeal,
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text(
-              'Thêm vào bữa ăn',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              widget.syncsOfficePlan
+                  ? 'Xác nhận và cập nhật'
+                  : _selectedItem == null
+                  ? 'Xác nhận món ăn'
+                  : 'Thêm vào bữa ăn',
+              style: const TextStyle(color: Colors.white),
             ),
           ),
       ],

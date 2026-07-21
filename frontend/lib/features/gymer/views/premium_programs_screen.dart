@@ -19,6 +19,8 @@ class PremiumProgramsScreen extends StatefulWidget {
 class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   final _repository = PremiumProgramRepository();
 
+  // Retained for the legacy catalogue widgets below.
+  // ignore: unused_field
   List<Map<String, dynamic>> _programs = const [];
   List<Map<String, dynamic>> _enrollments = const [];
   Map<String, dynamic>? _customApprovedRoute;
@@ -27,7 +29,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   String? _error;
 
   String _viewMode = 'week'; // 'day', 'week', 'month'
-  int _selectedDayIndex = 0; // 0 to 6 (Monday to Sunday)
+  // Retained for the legacy day-view selector.
+  // ignore: unused_field
+  final int _selectedDayIndex = 0; // 0 to 6 (Monday to Sunday)
   DateTime _currentDay = DateTime.now();
   DateTime _currentWeekStart = DateTime.now();
   DateTime _currentMonth = DateTime.now();
@@ -35,8 +39,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   List<Map<String, dynamic>> _singleDayMeals = [];
   bool _loadingMealsData = false;
 
+  // ignore: unused_element
   Map<String, dynamic>? get _activeProgram => _firstWithStatus('active');
+  // ignore: unused_element
   Map<String, dynamic>? get _paidProgram => _firstWithStatus('paid');
+  // ignore: unused_element
   List<Map<String, dynamic>> get _completedPrograms => _enrollments
       .where((item) => _value(item, 'status').toLowerCase() == 'completed')
       .toList();
@@ -223,6 +230,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     return null;
   }
 
+  // Retained for the legacy paid-program card.
+  // ignore: unused_element
   Future<void> _checkout(Map<String, dynamic> program) async {
     final accepted = await showDialog<bool>(
       context: context,
@@ -665,6 +674,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildPaidProgram(Map<String, dynamic> program) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -707,6 +717,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildActiveProgram(Map<String, dynamic> active) {
     final milestones = _listValue(active, 'milestones');
     final currentWeek = _intValue(active, 'currentWeek', fallback: 1);
@@ -844,6 +855,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCompletedProgram(Map<String, dynamic> completed) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1589,6 +1601,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   }
 }
 
+// Retained for the legacy premium-program catalogue.
+// ignore: unused_element
 class _ProgramCard extends StatelessWidget {
   const _ProgramCard({
     required this.program,

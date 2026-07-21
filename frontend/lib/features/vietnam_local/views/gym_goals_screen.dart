@@ -1231,8 +1231,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) setState(() => _loadingPlan = false);
     }
   }
-
-
+  // Retained for the legacy checklist interaction.
+  // ignore: unused_element
   Future<void> _togglePlanItem(MealPlanItemModel item, bool checked) async {
     // Optimistically update the checked state locally
     setState(() {
@@ -2349,6 +2349,8 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     }
   }
 
+  // Retained for the legacy weekly schedule labels.
+  // ignore: unused_element
   String _dayLabel(String day) {
     const labels = {
       'Monday': 'T2',

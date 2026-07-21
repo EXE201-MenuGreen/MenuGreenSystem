@@ -18,6 +18,7 @@ CREATE TABLE meal_logs (
     "CarbsG" numeric NULL,
     "FatG" numeric NULL,
     "SourceType" text NULL,
+    "CustomName" character varying(200) NULL,
     "Notes" text NULL,
     "LoggedAt" timestamp with time zone NULL,
     "MealPlanItemId" uuid NULL,

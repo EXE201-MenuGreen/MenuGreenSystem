@@ -44,7 +44,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(currentSubscription.SubscriptionPlanId);
                 subscriptionPlanName = plan?.Name ?? "Unknown";
-                daysRemaining = Math.Max(0, (currentSubscription.EndDate - DateTime.UtcNow).Days);
+                var remaining = currentSubscription.EndDate - DateTime.UtcNow;
+                daysRemaining = remaining <= TimeSpan.Zero
+                    ? 0
+                    : (int)Math.Ceiling(remaining.TotalDays);
                 isPremium = (plan?.PriceVnd ?? 0) > 0;
             }
 
