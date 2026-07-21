@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
@@ -427,11 +429,19 @@ class _TodayTab extends StatelessWidget {
 
   void _openItemDetail(BuildContext context, MealPlanItemDetail item) {
     if (item.foodId != null) {
-      // Navigate to food detail
-      // TODO: Implement food detail navigation
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: item.foodId!),
+        ),
+      );
     } else if (item.recipeId != null) {
-      // Navigate to recipe detail
-      // TODO: Implement recipe detail navigation
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+        ),
+      );
     }
   }
 
@@ -525,6 +535,16 @@ class _TodayTab extends StatelessWidget {
                   : 'Đã hoàn thành "${item.displayName}"',
             ),
             duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              provider.error != null && provider.error!.isNotEmpty
+                  ? provider.error!
+                  : 'Không thể cập nhật',
+            ),
           ),
         );
       }

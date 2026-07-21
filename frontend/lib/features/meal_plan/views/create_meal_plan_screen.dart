@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../discover/models/food_models.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../../onboarding/repositories/health_profile_repository.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
@@ -343,6 +345,16 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     ),
                     title: Text(meal.name),
                     subtitle: Text('${meal.calories} kcal'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => meal.isFood
+                              ? FoodDetailScreen(foodId: meal.id)
+                              : RecipeDetailScreen(recipeId: meal.id),
+                        ),
+                      );
+                    },
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () {
@@ -529,14 +541,45 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                             '${type.emoji} ${type.labelVi}',
                             style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
-                          ...meals.map((m) => Padding(
-                            padding: const EdgeInsets.only(left: 16, top: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('• ${m.name}'),
-                                Text('${m.calories} kcal'),
-                              ],
+                          ...meals.map((m) => InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => m.isFood
+                                      ? FoodDetailScreen(foodId: m.id)
+                                      : RecipeDetailScreen(recipeId: m.id),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '• ${m.name}',
+                                      style: const TextStyle(
+                                        decoration: TextDecoration.underline,
+                                        decorationStyle: TextDecorationStyle.dashed,
+                                        decorationColor: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${m.calories} kcal',
+                                    style: const TextStyle(color: AppColors.textSecondary),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    size: 14,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ],
+                              ),
                             ),
                           )),
                           const SizedBox(height: 8),
@@ -1222,6 +1265,17 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> with SingleTickerPro
 
         return Card(
           child: ListTile(
+            onTap: () {
+              final bool isFood = item is FoodItem;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => isFood
+                      ? FoodDetailScreen(foodId: id)
+                      : RecipeDetailScreen(recipeId: id),
+                ),
+              );
+            },
             leading: CircleAvatar(
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Icon(

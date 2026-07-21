@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../repositories/meal_plan_repository.dart';
@@ -384,7 +385,7 @@ class MealPlanProvider extends ChangeNotifier {
       await _refreshAfterCompletionChange(planId: planId);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = ApiMessageTranslator.translate(e.toString());
       notifyListeners();
       return false;
     } finally {
@@ -420,7 +421,7 @@ class MealPlanProvider extends ChangeNotifier {
 
     await _refreshAfterCompletionChange(planId: planId);
     if (firstError != null) {
-      _error = firstError.toString();
+      _error = ApiMessageTranslator.translate(firstError.toString());
       notifyListeners();
     }
     return completedCount;

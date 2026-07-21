@@ -69,6 +69,12 @@ class ApiMessageTranslator {
         'Đã cập nhật đồng ý và lưu vào hồ sơ AI.',
     'Recalibration data collected and target calories updated successfully.':
         'Đã thu thập dữ liệu và cập nhật calo mục tiêu.',
+    'A future meal cannot be marked as eaten.':
+        'Bữa ăn trong tương lai không thể đánh dấu là đã ăn.',
+    'A future meal item cannot be marked as eaten.':
+        'Không thể đánh dấu đã ăn cho bữa ăn trong tương lai.',
+    'Cannot mark a future meal as eaten.':
+        'Không thể đánh dấu đã ăn cho bữa ăn trong tương lai.',
   };
 
   static final _macroExceeds = RegExp(
@@ -87,11 +93,29 @@ class ApiMessageTranslator {
   /// Dịch một message; giữ nguyên nếu đã là tiếng Việt hoặc rỗng.
   static String translate(String? message) {
     if (message == null) return '';
-    final trimmed = message.trim();
+    var trimmed = message.trim();
     if (trimmed.isEmpty) return trimmed;
+
+    // Strip exception prefixes
+    if (trimmed.startsWith('Exception: ')) {
+      trimmed = trimmed.substring('Exception: '.length).trim();
+    }
+    if (trimmed.startsWith('System.Exception: ')) {
+      trimmed = trimmed.substring('System.Exception: '.length).trim();
+    }
+    if (trimmed.startsWith('System.InvalidOperationException: ')) {
+      trimmed = trimmed.substring('System.InvalidOperationException: '.length).trim();
+    }
+    if (trimmed.startsWith('InvalidOperationException: ')) {
+      trimmed = trimmed.substring('InvalidOperationException: '.length).trim();
+    }
+    if (trimmed.startsWith('Bad Request: ')) {
+      trimmed = trimmed.substring('Bad Request: '.length).trim();
+    }
+
     if (_looksVietnamese(trimmed)) return trimmed;
 
-    final exact = _exact[trimmed];
+    final exact = _exact[trimmed] ?? _exact['$trimmed.'];
     if (exact != null) return exact;
 
     final exceeds = _macroExceeds.firstMatch(trimmed);

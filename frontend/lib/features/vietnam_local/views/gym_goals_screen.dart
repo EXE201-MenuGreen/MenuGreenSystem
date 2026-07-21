@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/utils/subscription_access.dart';
 import '../../subscription/widgets/premium_paywall_widget.dart';
@@ -832,7 +834,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Container(
-                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
@@ -845,95 +846,115 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                 ),
                               ],
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    item.type.toLowerCase().contains('recipe')
-                                        ? Icons.menu_book
-                                        : Icons.restaurant,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  final bool isFood = !item.type.toLowerCase().contains('recipe');
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => isFood
+                                          ? FoodDetailScreen(foodId: item.id)
+                                          : RecipeDetailScreen(recipeId: item.id),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        item.name.isEmpty ? 'Món gợi ý' : item.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textDark,
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(10),
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                        child: Icon(
+                                          item.type.toLowerCase().contains('recipe')
+                                              ? Icons.menu_book
+                                              : Icons.restaurant,
+                                          color: AppColors.primary,
+                                          size: 18,
+                                        ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                        'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                        'Điểm ${item.score.toStringAsFixed(1)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.name.isEmpty ? 'Món gợi ý' : item.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textDark,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                              'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                              'Điểm ${item.score.toStringAsFixed(1)}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (!_isSentToPt)
+                                        PopupMenuButton<String>(
+                                          icon: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                            decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.add, size: 14, color: AppColors.primary),
+                                              SizedBox(width: 2),
+                                              Text(
+                                                'Gán',
+                                                style: TextStyle(
+                                                  color: AppColors.primary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        onSelected: (mealType) => _addPlanItem(mealType, item),
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
+                                            value: 'breakfast',
+                                            child: Text('Bữa sáng'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'lunch',
+                                            child: Text('Bữa trưa'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'dinner',
+                                            child: Text('Bữa tối'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'snack',
+                                            child: Text('Bữa phụ / Ăn thêm'),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                if (!_isSentToPt)
-                                  PopupMenuButton<String>(
-                                    icon: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                      decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.add, size: 14, color: AppColors.primary),
-                                        SizedBox(width: 2),
-                                        Text(
-                                          'Gán',
-                                          style: TextStyle(
-                                            color: AppColors.primary,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  onSelected: (mealType) => _addPlanItem(mealType, item),
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'breakfast',
-                                      child: Text('Bữa sáng'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'lunch',
-                                      child: Text('Bữa trưa'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'dinner',
-                                      child: Text('Bữa tối'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'snack',
-                                      child: Text('Bữa phụ / Ăn thêm'),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         );
@@ -1072,6 +1093,23 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         '${item.targetCalories} kcal',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
+                      onTap: () {
+                        if (item.isFood && item.foodId != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FoodDetailScreen(foodId: item.foodId!),
+                            ),
+                          );
+                        } else if (item.recipeId != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+                            ),
+                          );
+                        }
+                      },
                       trailing: _isSentToPt
                           ? null
                           : IconButton(
