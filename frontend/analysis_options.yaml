@@ -9,6 +9,14 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Legacy split-file copies. The active implementation currently lives in
+    # meal_templates_screen.dart and does not declare these files as `part`.
+    - lib/features/meal_templates/views/meal_template_editor_part.dart
+    - lib/features/meal_templates/views/meal_template_picker_part.dart
+    - lib/features/meal_templates/views/meal_template_widgets_part.dart
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

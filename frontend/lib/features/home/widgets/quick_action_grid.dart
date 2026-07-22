@@ -134,8 +134,8 @@ class QuickActionGrid extends StatelessWidget {
     ),
     _ActionItem(
       type: QuickActionType.nutritionLearning,
-      icon: Icons.menu_book_outlined,
-      label: 'Góc\ndinh dưỡng',
+      icon: Icons.psychology_outlined,
+      label: 'Góc\nCảm xúc',
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),

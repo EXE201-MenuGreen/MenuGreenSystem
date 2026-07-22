@@ -73,7 +73,7 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Hôm nay ăn gì?',
+          'Khởi động 1 chạm',
           style: TextStyle(
             color: AppColors.textDark,
             fontWeight: FontWeight.bold,
@@ -333,7 +333,9 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
       icon: Icons.manage_search,
       title: 'Sở thích ăn uống',
       subtitle: p == null
-          ? 'Đang tải...'
+          ? (loading
+                ? 'Đang tải...'
+                : 'Bấm Cập nhật để thiết lập sở thích ăn uống')
           : 'Mục tiêu calo: ${p.targetCalories?.toStringAsFixed(0) ?? '—'} kcal'
                 ' • ${p.dietaryPreference ?? 'chưa thiết lập'}',
       value: p == null ? null : '${p.allergenKeys.length} dị ứng',

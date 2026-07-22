@@ -32,7 +32,7 @@ void main() {
     );
     expect(find.text('Vòng quay'), findsOneWidget);
     expect(find.text('1 chạm'), findsOneWidget);
-    expect(find.text('Kiến thức'), findsOneWidget);
+    expect(find.text('Cảm xúc'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

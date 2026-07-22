@@ -426,7 +426,8 @@ class _MyCoachesScreenState extends State<MyCoachesScreen> {
   );
 }
 
-class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTickerProviderStateMixin {
+class _CoachClientsScreenState extends State<CoachClientsScreen>
+    with SingleTickerProviderStateMixin {
   final repo = AdvancedRepository();
   List<Map<String, dynamic>> rows = [];
   bool loading = true;
@@ -458,7 +459,7 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
       'time': '2 giờ trước',
       'clientName': 'Lê Hoàng C',
       'isRead': true,
-    }
+    },
   ];
 
   @override
@@ -504,7 +505,11 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không tìm thấy học viên $clientName hoặc chưa được chấp nhận kết nối.')),
+        SnackBar(
+          content: Text(
+            'Không tìm thấy học viên $clientName hoặc chưa được chấp nhận kết nối.',
+          ),
+        ),
       );
     }
   }
@@ -535,143 +540,184 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null
-              ? Center(child: Text(error!))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Tab 1: Clients List & Quick stats
-                    RefreshIndicator(
-                      onRefresh: load,
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
+          ? Center(child: Text(error!))
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 1: Clients List & Quick stats
+                RefreshIndicator(
+                  onRefresh: load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              _buildStatCard('Tổng học viên', '${rows.where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'connected').length}', Colors.blue),
-                              const SizedBox(width: 12),
-                              _buildStatCard('Chờ duyệt', '${rows.where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'pending').length}', Colors.orange),
-                              const SizedBox(width: 12),
-                              _buildStatCard('Tuân thủ calo', '85%', Colors.green),
-                            ],
+                          _buildStatCard(
+                            'Tổng học viên',
+                            '${rows.where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'connected').length}',
+                            Colors.blue,
                           ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Danh sách học viên',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                          const SizedBox(width: 12),
+                          _buildStatCard(
+                            'Chờ duyệt',
+                            '${rows.where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'pending').length}',
+                            Colors.orange,
                           ),
-                          const SizedBox(height: 10),
-                          if (rows.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 40),
-                              child: Center(child: Text('Chưa có học viên nào liên kết.')),
-                            )
-                          else
-                            ...rows.map((row) => _buildClientListItem(row, primaryColor)),
+                          const SizedBox(width: 12),
+                          _buildStatCard('Tuân thủ calo', '85%', Colors.green),
                         ],
                       ),
-                    ),
-
-                    // Tab 2: Notifications Deep-linking
-                    ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        const Text(
-                          'Thông báo học tập & tập luyện',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Danh sách học viên',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
-                        const SizedBox(height: 12),
-                        ...mockNotifications.map((noti) => Card(
-                              elevation: valueOf(noti, 'isRead') == 'true' ? 0.5 : 2,
-                              margin: const EdgeInsets.only(bottom: 10),
-                              color: valueOf(noti, 'isRead') == 'true' ? Colors.white : primaryColor.withValues(alpha: 0.05),
-                              child: ListTile(
-                                leading: Icon(
-                                  noti['title'] == 'Đăng ký liên kết'
-                                      ? Icons.person_add
-                                      : Icons.assignment_turned_in,
-                                  color: primaryColor,
-                                ),
-                                title: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      valueOf(noti, 'title'),
-                                      style: TextStyle(
-                                        fontWeight: valueOf(noti, 'isRead') == 'true' ? FontWeight.normal : FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      valueOf(noti, 'time'),
-                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                                    ),
-                                  ],
-                                ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(valueOf(noti, 'body')),
-                                ),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 12),
-                                onTap: () => _handleNotificationTap(noti),
-                              ),
-                            )),
-                      ],
-                    ),
-
-                    // Tab 3: Analytics / Health adherence columns
-                    ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        const Text(
-                          'Biểu đồ mức độ tuân thủ thực đơn tuần này',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          height: 200,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      const SizedBox(height: 10),
+                      if (rows.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(
+                            child: Text('Chưa có học viên nào liên kết.'),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        )
+                      else
+                        ...rows.map(
+                          (row) => _buildClientListItem(row, primaryColor),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Tab 2: Notifications Deep-linking
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const Text(
+                      'Thông báo học tập & tập luyện',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...mockNotifications.map(
+                      (noti) => Card(
+                        elevation: valueOf(noti, 'isRead') == 'true' ? 0.5 : 2,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        color: valueOf(noti, 'isRead') == 'true'
+                            ? Colors.white
+                            : primaryColor.withValues(alpha: 0.05),
+                        child: ListTile(
+                          leading: Icon(
+                            noti['title'] == 'Đăng ký liên kết'
+                                ? Icons.person_add
+                                : Icons.assignment_turned_in,
+                            color: primaryColor,
+                          ),
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildChartBar('T.Hai', 90, primaryColor),
-                              _buildChartBar('T.Ba', 75, primaryColor),
-                              _buildChartBar('T.Tư', 85, primaryColor),
-                              _buildChartBar('T.Năm', 95, primaryColor),
-                              _buildChartBar('T.Sáu', 60, Colors.redAccent),
-                              _buildChartBar('T.Bảy', 80, primaryColor),
-                              _buildChartBar('C.Nhật', 88, primaryColor),
+                              Text(
+                                valueOf(noti, 'title'),
+                                style: TextStyle(
+                                  fontWeight: valueOf(noti, 'isRead') == 'true'
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                valueOf(noti, 'time'),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Nhận xét chung của hệ thống',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tuần này tỉ lệ tuân thủ calo của học viên đạt trung bình 82.5%, tăng 4% so với tuần trước. Thứ Sáu có xu hướng tuân thủ thấp nhất do các hoạt động cuối tuần. Hãy khuyến khích học viên lưu ý thực đơn Thứ Sáu.',
-                                  style: TextStyle(color: Colors.grey.shade700, height: 1.4, fontSize: 13),
-                                ),
-                              ],
-                            ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(valueOf(noti, 'body')),
                           ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 12,
+                          ),
+                          onTap: () => _handleNotificationTap(noti),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
+
+                // Tab 3: Analytics / Health adherence columns
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const Text(
+                      'Biểu đồ mức độ tuân thủ thực đơn tuần này',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      height: 200,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _buildChartBar('T.Hai', 90, primaryColor),
+                          _buildChartBar('T.Ba', 75, primaryColor),
+                          _buildChartBar('T.Tư', 85, primaryColor),
+                          _buildChartBar('T.Năm', 95, primaryColor),
+                          _buildChartBar('T.Sáu', 60, Colors.redAccent),
+                          _buildChartBar('T.Bảy', 80, primaryColor),
+                          _buildChartBar('C.Nhật', 88, primaryColor),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Nhận xét chung của hệ thống',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tuần này tỉ lệ tuân thủ calo của học viên đạt trung bình 82.5%, tăng 4% so với tuần trước. Thứ Sáu có xu hướng tuân thủ thấp nhất do các hoạt động cuối tuần. Hãy khuyến khích học viên lưu ý thực đơn Thứ Sáu.',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                height: 1.4,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
@@ -686,9 +732,23 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
         ),
         child: Column(
           children: [
-            Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -699,7 +759,10 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Text('$percentage%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(
+          '$percentage%',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 6),
         Container(
           height: percentage * 1.3,
@@ -730,7 +793,9 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
         leading: CircleAvatar(
           backgroundColor: primaryColor.withValues(alpha: 0.1),
           child: Text(
-            valueOf(row, 'fullName').isNotEmpty ? valueOf(row, 'fullName')[0].toUpperCase() : 'U',
+            valueOf(row, 'fullName').isNotEmpty
+                ? valueOf(row, 'fullName')[0].toUpperCase()
+                : 'U',
             style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
           ),
         ),
@@ -741,7 +806,9 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            isPending ? 'Đang chờ bạn duyệt kết nối' : 'Đang kết nối • ${valueOf(row, 'email')}',
+            isPending
+                ? 'Đang chờ bạn duyệt kết nối'
+                : 'Đang kết nối • ${valueOf(row, 'email')}',
             style: TextStyle(
               fontSize: 12,
               color: isPending ? Colors.orange.shade700 : Colors.grey.shade600,
@@ -754,7 +821,10 @@ class _CoachClientsScreenState extends State<CoachClientsScreen> with SingleTick
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                    icon: const Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.green,
+                    ),
                     onPressed: () async {
                       await repo.approveClient(valueOf(row, 'clientId'), true);
                       await load();
@@ -798,7 +868,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   final protein = TextEditingController();
   final carbs = TextEditingController();
   final fat = TextEditingController();
-  
+
   // Weekly Review feedback fields
   final reviewComment = TextEditingController();
   final reviewCalorie = TextEditingController();
@@ -815,7 +885,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   Map<String, dynamic>? profile;
   List<Map<String, dynamic>> nutrition = [];
   List<Map<String, dynamic>> feedbacks = [], weights = [];
-  
+
   // New variables to hold client meal plan, AI suggestions, and review requests
   Map<String, dynamic>? mealPlan;
   List<Map<String, dynamic>> aiSuggestions = [];
@@ -832,7 +902,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
 
   Future<void> load() async {
     try {
-      final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+      final dateStr =
+          "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
       final results = await Future.wait([
         repo.clientProfile(id),
         repo.clientNutrition(id),
@@ -914,11 +985,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         'suggestedProteinTarget': proVal,
         'suggestedChanges': <dynamic>[],
       });
-      
+
       reviewComment.clear();
       reviewCalorie.clear();
       reviewProtein.clear();
-      
+
       await load();
       if (mounted) {
         Navigator.pop(context); // Close review dialog
@@ -946,21 +1017,28 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
           final targetRecipeId = valueOf(itemToDelete, 'recipeId');
           final itemMealType = valueOf(item, 'mealType');
           final targetMealType = valueOf(itemToDelete, 'mealType');
-          
+
           if (itemMealType.toLowerCase() == targetMealType.toLowerCase() &&
               (itemFoodId.isNotEmpty && itemFoodId == targetFoodId ||
-               itemRecipeId.isNotEmpty && itemRecipeId == targetRecipeId)) {
+                  itemRecipeId.isNotEmpty && itemRecipeId == targetRecipeId)) {
             continue;
           }
-          
+
           items.add({
             'mealType': valueOf(item, 'mealType'),
             'foodId': itemFoodId.isEmpty ? null : itemFoodId,
             'recipeId': itemRecipeId.isEmpty ? null : itemRecipeId,
-            'targetCalories': double.tryParse(valueOf(item, 'targetCalories'))?.round() ?? 200,
-            'plannedDate': valueOf(item, 'plannedDate').isEmpty ? null : valueOf(item, 'plannedDate'),
-            'scheduledTime': valueOf(item, 'scheduledTime').isEmpty ? null : valueOf(item, 'scheduledTime'),
-            'isCompleted': valueOf(item, 'isCompleted').toString().toLowerCase() == 'true',
+            'targetCalories':
+                double.tryParse(valueOf(item, 'targetCalories'))?.round() ??
+                200,
+            'plannedDate': valueOf(item, 'plannedDate').isEmpty
+                ? null
+                : valueOf(item, 'plannedDate'),
+            'scheduledTime': valueOf(item, 'scheduledTime').isEmpty
+                ? null
+                : valueOf(item, 'scheduledTime'),
+            'isCompleted':
+                valueOf(item, 'isCompleted').toString().toLowerCase() == 'true',
           });
         }
       }
@@ -976,7 +1054,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       await load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa món ăn khỏi thực đơn của học viên!')),
+          const SnackBar(
+            content: Text('Đã xóa món ăn khỏi thực đơn của học viên!'),
+          ),
         );
       }
     } catch (e) {
@@ -1004,16 +1084,18 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         'suggestedProteinTarget': proVal,
         'suggestedChanges': <dynamic>[],
       });
-      
+
       routeComment.clear();
       routeCalorie.clear();
       routeProtein.clear();
-      
+
       await load();
       if (mounted) {
         Navigator.pop(context); // Close review dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã duyệt lộ trình của học viên thành công!')),
+          const SnackBar(
+            content: Text('Đã duyệt lộ trình của học viên thành công!'),
+          ),
         );
       }
     } catch (e) {
@@ -1031,7 +1113,6 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       '2000',
     );
     routeProtein.text = valueOf(profile ?? {}, 'minProteinG', '120');
-    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1045,7 +1126,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 const Text(
                   '1. Lộ trình từ Gymer',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -1057,20 +1142,32 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('• Chế độ mục tiêu: ${valueOf(profile ?? {}, 'goal', 'Chưa đặt')}'),
+                      Text(
+                        '• Chế độ mục tiêu: ${valueOf(profile ?? {}, 'goal', 'Chưa đặt')}',
+                      ),
                       const SizedBox(height: 4),
-                      Text('• Calo ngày tập: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal'),
+                      Text(
+                        '• Calo ngày tập: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal',
+                      ),
                       const SizedBox(height: 4),
-                      Text('• Calo ngày nghỉ: ${valueOf(profile ?? {}, 'restDayTargetCalories', '-')} kcal'),
+                      Text(
+                        '• Calo ngày nghỉ: ${valueOf(profile ?? {}, 'restDayTargetCalories', '-')} kcal',
+                      ),
                       const SizedBox(height: 4),
-                      Text('• Protein tối thiểu: ${valueOf(profile ?? {}, 'minProteinG', '-')} g'),
+                      Text(
+                        '• Protein tối thiểu: ${valueOf(profile ?? {}, 'minProteinG', '-')} g',
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   '2. Ý kiến & Điều chỉnh của PT',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1133,7 +1230,6 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       '2000',
     );
     reviewProtein.text = valueOf(profile ?? {}, 'minProteinG', '120');
-    
     final reportDataJson = valueOf(req, 'reportDataJson');
     Map<String, dynamic> reportData = {};
     try {
@@ -1155,7 +1251,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 const Text(
                   '1. Báo cáo từ Gymer',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -1170,32 +1270,80 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Ngày bắt đầu tuần:', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
-                          Text(valueOf(req, 'weekStartDate'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          const Text(
+                            'Ngày bắt đầu tuần:',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          Text(
+                            valueOf(req, 'weekStartDate'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Trạng thái yêu cầu:', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
-                          Text(valueOf(req, 'status'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          const Text(
+                            'Trạng thái yêu cầu:',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          Text(
+                            valueOf(req, 'status'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Cân nặng TB (tự động):', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
-                          Text('${valueOf(reportData, 'averageWeight', '-')} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          const Text(
+                            'Cân nặng TB (tự động):',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          Text(
+                            '${valueOf(reportData, 'averageWeight', '-')} kg',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Calo TB (tự động):', style: TextStyle(color: Colors.black54, fontSize: 12.5)),
-                          Text('${valueOf(reportData, 'averageCalories', '-')} kcal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          const Text(
+                            'Calo TB (tự động):',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          Text(
+                            '${valueOf(reportData, 'averageCalories', '-')} kcal',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
                         ],
                       ),
                       if (valueOf(reportData, 'checkInWeight').isNotEmpty ||
@@ -1205,43 +1353,109 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                         const Divider(height: 16),
                         const Text(
                           'Chỉ số Gymer tự check-in:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.green),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            color: Colors.green,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Cân nặng thực tế:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
-                            Text('${valueOf(reportData, 'checkInWeight', '-')} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                            const Text(
+                              'Cân nặng thực tế:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            Text(
+                              '${valueOf(reportData, 'checkInWeight', '-')} kg',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Tỷ lệ mỡ cơ thể:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
-                            Text(valueOf(reportData, 'checkInBodyFat').isNotEmpty ? '${valueOf(reportData, 'checkInBodyFat')}%' : '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                            const Text(
+                              'Tỷ lệ mỡ cơ thể:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            Text(
+                              valueOf(reportData, 'checkInBodyFat').isNotEmpty
+                                  ? '${valueOf(reportData, 'checkInBodyFat')}%'
+                                  : '-',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Số buổi đã tập:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
-                            Text(valueOf(reportData, 'trainingDaysCount').isNotEmpty ? '${valueOf(reportData, 'trainingDaysCount')} buổi' : '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                            const Text(
+                              'Số buổi đã tập:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            Text(
+                              valueOf(
+                                    reportData,
+                                    'trainingDaysCount',
+                                  ).isNotEmpty
+                                  ? '${valueOf(reportData, 'trainingDaysCount')} buổi'
+                                  : '-',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Cảm nhận thể trạng:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
-                            Text(valueOf(reportData, 'bodyFeeling', '-'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                            const Text(
+                              'Cảm nhận thể trạng:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            Text(
+                              valueOf(reportData, 'bodyFeeling', '-'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
+                            ),
                           ],
                         ),
                         if (valueOf(reportData, 'studentNote').isNotEmpty) ...[
                           const SizedBox(height: 10),
-                          const Text('Ghi chú/Lời nhắn:', style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w500)),
+                          const Text(
+                            'Ghi chú/Lời nhắn:',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Container(
                             width: double.infinity,
@@ -1253,7 +1467,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                             ),
                             child: Text(
                               valueOf(reportData, 'studentNote'),
-                              style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12.5),
+                              style: const TextStyle(
+                                fontStyle: FontStyle.italic,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
                         ],
@@ -1264,7 +1481,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                 const SizedBox(height: 16),
                 const Text(
                   '2. Đề xuất & Nhận xét của PT',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1320,7 +1541,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   }
 
   Widget _buildMealPlanHeaderSection(Color primaryColor) {
-    final dateStr = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+    final dateStr =
+        "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
@@ -1397,7 +1619,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       padding: const EdgeInsets.all(16),
                       children: [
                         Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -1405,9 +1629,18 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                               children: [
                                 const Row(
                                   children: [
-                                    Icon(Icons.person, color: Colors.blueAccent),
+                                    Icon(
+                                      Icons.person,
+                                      color: Colors.blueAccent,
+                                    ),
                                     SizedBox(width: 8),
-                                    Text('Hồ sơ sức khỏe của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    Text(
+                                      'Hồ sơ sức khỏe của học viên',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const Divider(),
@@ -1418,7 +1651,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                                   '• Mục tiêu: ${valueOf(profile ?? {}, 'goal', '-')}\n'
                                   '• Calo mục tiêu: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal\n'
                                   '• Dị ứng: ${valueOf(profile ?? {}, 'allergies', 'Không có')}',
-                                  style: TextStyle(color: Colors.grey.shade800, height: 1.5, fontSize: 13),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade800,
+                                    height: 1.5,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1435,7 +1672,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // Tab 2: Lộ trình & Gợi ý
                   RefreshIndicator(
                     onRefresh: load,
@@ -1455,7 +1692,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   }
 
   Widget _buildDayReviewCard(Color primaryColor) {
-    final dateStr = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+    final dateStr =
+        "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
     final itemsList = mealPlan != null && mealPlan!['items'] is List
         ? mealPlan!['items'] as List
         : <dynamic>[];
@@ -1466,8 +1704,12 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final totalItems = itemsList.length;
 
     final pendingReqs = reviewRequests
-        .where((r) => valueOf(r, 'status').toLowerCase() == 'pending' && 
-                      (valueOf(r, 'requestType').isEmpty || valueOf(r, 'requestType').toLowerCase() == 'routeapproval'))
+        .where(
+          (r) =>
+              valueOf(r, 'status').toLowerCase() == 'pending' &&
+              (valueOf(r, 'requestType').isEmpty ||
+                  valueOf(r, 'requestType').toLowerCase() == 'routeapproval'),
+        )
         .toList();
     final hasPendingReview = pendingReqs.isNotEmpty;
 
@@ -1488,7 +1730,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   color: primaryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.rate_review_rounded, color: primaryColor, size: 26),
+                child: Icon(
+                  Icons.rate_review_rounded,
+                  color: primaryColor,
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1497,19 +1743,28 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   children: [
                     Text(
                       'Đánh giá ngày $dateStr',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       totalItems == 0
                           ? 'Chưa có món ăn nào trong ngày này'
                           : '$totalItems món · ${totalCal.round()} kcal tổng cộng',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                     if (hasPendingReview) ...[
                       const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(6),
@@ -1517,7 +1772,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                         ),
                         child: const Text(
                           '⚡ Có yêu cầu duyệt đang chờ',
-                          style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -1533,7 +1792,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   }
 
   void _showDayReviewSheet(Color primaryColor) {
-    final dateLabel = "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
+    final dateLabel =
+        "${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}";
 
     showModalBottomSheet(
       context: context,
@@ -1559,21 +1819,45 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               for (final existing in mealPlan!['items'] as List) {
                 items.add({
                   'mealType': valueOf(existing, 'mealType'),
-                  'foodId': valueOf(existing, 'foodId').isEmpty ? null : valueOf(existing, 'foodId'),
-                  'recipeId': valueOf(existing, 'recipeId').isEmpty ? null : valueOf(existing, 'recipeId'),
-                  'targetCalories': double.tryParse(valueOf(existing, 'targetCalories'))?.round() ?? 200,
-                  'plannedDate': valueOf(existing, 'plannedDate').isEmpty ? null : valueOf(existing, 'plannedDate'),
-                  'scheduledTime': valueOf(existing, 'scheduledTime').isEmpty ? null : valueOf(existing, 'scheduledTime'),
-                  'isCompleted': valueOf(existing, 'isCompleted').toString().toLowerCase() == 'true',
+                  'foodId': valueOf(existing, 'foodId').isEmpty
+                      ? null
+                      : valueOf(existing, 'foodId'),
+                  'recipeId': valueOf(existing, 'recipeId').isEmpty
+                      ? null
+                      : valueOf(existing, 'recipeId'),
+                  'targetCalories':
+                      double.tryParse(
+                        valueOf(existing, 'targetCalories'),
+                      )?.round() ??
+                      200,
+                  'plannedDate': valueOf(existing, 'plannedDate').isEmpty
+                      ? null
+                      : valueOf(existing, 'plannedDate'),
+                  'scheduledTime': valueOf(existing, 'scheduledTime').isEmpty
+                      ? null
+                      : valueOf(existing, 'scheduledTime'),
+                  'isCompleted':
+                      valueOf(
+                        existing,
+                        'isCompleted',
+                      ).toString().toLowerCase() ==
+                      'true',
                 });
               }
             }
-            final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+            final dateStr =
+                "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
             items.add({
               'mealType': mealType,
-              'foodId': valueOf(item, 'type').toLowerCase().contains('recipe') ? null : valueOf(item, 'id'),
-              'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe') ? valueOf(item, 'id') : null,
-              'targetCalories': double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ?? 200,
+              'foodId': valueOf(item, 'type').toLowerCase().contains('recipe')
+                  ? null
+                  : valueOf(item, 'id'),
+              'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe')
+                  ? valueOf(item, 'id')
+                  : null,
+              'targetCalories':
+                  double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ??
+                  200,
               'plannedDate': dateStr,
               'isCompleted': false,
             });
@@ -1581,7 +1865,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
             await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
               'title': valueOf(mealPlan!, 'title'),
               'planType': 'CoachAdjusted',
-              'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
+              'targetCalories': int.tryParse(
+                valueOf(mealPlan!, 'targetCalories'),
+              ),
               'isActive': true,
               'items': items,
             });
@@ -1615,7 +1901,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       'breakfast': 'Bữa sáng',
       'lunch': 'Bữa trưa',
       'dinner': 'Bữa tối',
-      'snack': 'Bữa phụ / Ăn thêm'
+      'snack': 'Bữa phụ / Ăn thêm',
     };
 
     return Card(
@@ -1629,20 +1915,30 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.calendar_today, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Lộ trình ăn uống của học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Lộ trình ăn uống của học viên',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ],
             ),
             const Divider(),
             if (mealPlan == null || itemsList.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Học viên chưa lên thực đơn cho ngày này.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text(
+                  'Học viên chưa lên thực đơn cho ngày này.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               )
             else
               ...meals.entries.map((m) {
                 final mealType = m.key;
                 final mealTitle = m.value;
-                final mealItems = itemsList.where((x) => valueOf(x, 'mealType').toLowerCase() == mealType).toList();
+                final mealItems = itemsList
+                    .where(
+                      (x) => valueOf(x, 'mealType').toLowerCase() == mealType,
+                    )
+                    .toList();
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -1651,44 +1947,69 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                     children: [
                       Text(
                         mealTitle,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryColor),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: primaryColor,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       if (mealItems.isEmpty)
-                        const Text('  • Chưa có món ăn', style: TextStyle(color: Colors.grey, fontSize: 12))
+                        const Text(
+                          '  • Chưa có món ăn',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        )
                       else
-                        ...mealItems.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                        ...mealItems.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 2,
+                              horizontal: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor,
+                                    shape: BoxShape.circle,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      valueOf(item, 'foodName').isNotEmpty
-                                          ? valueOf(item, 'foodName')
-                                          : valueOf(item, 'recipeName'),
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    valueOf(item, 'foodName').isNotEmpty
+                                        ? valueOf(item, 'foodName')
+                                        : valueOf(item, 'recipeName'),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  Text(
-                                    '${valueOf(item, 'targetCalories')} kcal',
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                Text(
+                                  '${valueOf(item, 'targetCalories')} kcal',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
                                   ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                    onPressed: () => _deleteMealPlanItem(item),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 18,
                                   ),
-                                ],
-                              ),
-                            )),
+                                  onPressed: () => _deleteMealPlanItem(item),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 );
@@ -1703,9 +2024,16 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   Widget _buildAiSuggestionsSection(Color primaryColor) {
     final addedIds = mealPlan != null && mealPlan!['items'] is List
         ? (mealPlan!['items'] as List)
-            .map((x) => (valueOf(x, 'foodId').isEmpty ? valueOf(x, 'recipeId') : valueOf(x, 'foodId')).trim().toLowerCase())
-            .where((s) => s.isNotEmpty)
-            .toSet()
+              .map(
+                (x) =>
+                    (valueOf(x, 'foodId').isEmpty
+                            ? valueOf(x, 'recipeId')
+                            : valueOf(x, 'foodId'))
+                        .trim()
+                        .toLowerCase(),
+              )
+              .where((s) => s.isNotEmpty)
+              .toSet()
         : <String>{};
 
     final remainingSuggestions = aiSuggestions
@@ -1739,14 +2067,20 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.psychology, color: Colors.deepPurple),
                 SizedBox(width: 8),
-                Text('Món gợi ý thông minh từ AI cho học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Món gợi ý thông minh từ AI cho học viên',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ],
             ),
             const Divider(),
             if (pagedSuggestions.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Không có món gợi ý phù hợp.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text(
+                  'Không có món gợi ý phù hợp.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               )
             else
               Column(
@@ -1757,7 +2091,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            valueOf(item, 'type').toLowerCase().contains('recipe')
+                            valueOf(
+                                  item,
+                                  'type',
+                                ).toLowerCase().contains('recipe')
                                 ? Icons.menu_book
                                 : Icons.restaurant,
                             size: 16,
@@ -1768,98 +2105,181 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                  Text(
-                                    valueOf(item, 'name'),
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                Text(
+                                  valueOf(item, 'name'),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  Text(
-                                    '${double.tryParse(valueOf(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal • P ${double.tryParse(valueOf(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${double.tryParse(valueOf(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal • P ${double.tryParse(valueOf(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            PopupMenuButton<String>(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(
-                                  'Gợi ý gán',
-                                  style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              onSelected: (mealType) async {
-                                if (mealPlan == null) {
-                                  showError(context, 'Học viên chưa có Meal Plan nào khởi tạo để gán.');
-                                  return;
-                                }
-                                try {
-                                  setState(() => loading = true);
-                                  final items = <Map<String, dynamic>>[];
-                                  
-                                  // Copy existing items
-                                  if (mealPlan!['items'] is List) {
-                                    for (final existing in mealPlan!['items'] as List) {
-                                      items.add({
-                                        'mealType': valueOf(existing, 'mealType'),
-                                        'foodId': valueOf(existing, 'foodId').isEmpty ? null : valueOf(existing, 'foodId'),
-                                        'recipeId': valueOf(existing, 'recipeId').isEmpty ? null : valueOf(existing, 'recipeId'),
-                                        'targetCalories': double.tryParse(valueOf(existing, 'targetCalories'))?.round() ?? 200,
-                                        'plannedDate': valueOf(existing, 'plannedDate').isEmpty ? null : valueOf(existing, 'plannedDate'),
-                                        'scheduledTime': valueOf(existing, 'scheduledTime').isEmpty ? null : valueOf(existing, 'scheduledTime'),
-                                        'isCompleted': valueOf(existing, 'isCompleted').toString().toLowerCase() == 'true',
-                                      });
-                                    }
-                                  }
-
-                                  // Add the new suggested item
-                                  final dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
-                                  items.add({
-                                    'mealType': mealType,
-                                    'foodId': valueOf(item, 'type').toLowerCase().contains('recipe') ? null : valueOf(item, 'id'),
-                                    'recipeId': valueOf(item, 'type').toLowerCase().contains('recipe') ? valueOf(item, 'id') : null,
-                                    'targetCalories': double.tryParse(valueOf(item, 'caloriesKcal'))?.round() ?? 200,
-                                    'plannedDate': dateStr,
-                                    'isCompleted': false
-                                  });
-
-                                  await repo.adjustMealPlan(id, valueOf(mealPlan!, 'id'), {
-                                    'title': valueOf(mealPlan!, 'title'),
-                                    'planType': 'CoachAdjusted',
-                                    'targetCalories': int.tryParse(valueOf(mealPlan!, 'targetCalories')),
-                                    'isActive': true,
-                                    'items': items,
-                                  });
-                                  await load();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Đã gán và đề xuất món ăn thành công!')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (mounted) showError(context, e);
-                                } finally {
-                                  if (mounted) setState(() => loading = false);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
-                                const PopupMenuItem(value: 'lunch', child: Text('Bữa trưa')),
-                                const PopupMenuItem(value: 'dinner', child: Text('Bữa tối')),
-                                const PopupMenuItem(value: 'snack', child: Text('Bữa phụ')),
                               ],
                             ),
-                          ],
-                        ),
-                      )
-                  ],
-                ),
+                          ),
+                          const SizedBox(width: 6),
+                          PopupMenuButton<String>(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Gợi ý gán',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            onSelected: (mealType) async {
+                              if (mealPlan == null) {
+                                showError(
+                                  context,
+                                  'Học viên chưa có Meal Plan nào khởi tạo để gán.',
+                                );
+                                return;
+                              }
+                              try {
+                                setState(() => loading = true);
+                                final items = <Map<String, dynamic>>[];
+
+                                // Copy existing items
+                                if (mealPlan!['items'] is List) {
+                                  for (final existing
+                                      in mealPlan!['items'] as List) {
+                                    items.add({
+                                      'mealType': valueOf(existing, 'mealType'),
+                                      'foodId':
+                                          valueOf(existing, 'foodId').isEmpty
+                                          ? null
+                                          : valueOf(existing, 'foodId'),
+                                      'recipeId':
+                                          valueOf(existing, 'recipeId').isEmpty
+                                          ? null
+                                          : valueOf(existing, 'recipeId'),
+                                      'targetCalories':
+                                          double.tryParse(
+                                            valueOf(existing, 'targetCalories'),
+                                          )?.round() ??
+                                          200,
+                                      'plannedDate':
+                                          valueOf(
+                                            existing,
+                                            'plannedDate',
+                                          ).isEmpty
+                                          ? null
+                                          : valueOf(existing, 'plannedDate'),
+                                      'scheduledTime':
+                                          valueOf(
+                                            existing,
+                                            'scheduledTime',
+                                          ).isEmpty
+                                          ? null
+                                          : valueOf(existing, 'scheduledTime'),
+                                      'isCompleted':
+                                          valueOf(
+                                            existing,
+                                            'isCompleted',
+                                          ).toString().toLowerCase() ==
+                                          'true',
+                                    });
+                                  }
+                                }
+
+                                // Add the new suggested item
+                                final dateStr =
+                                    "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+                                items.add({
+                                  'mealType': mealType,
+                                  'foodId':
+                                      valueOf(
+                                        item,
+                                        'type',
+                                      ).toLowerCase().contains('recipe')
+                                      ? null
+                                      : valueOf(item, 'id'),
+                                  'recipeId':
+                                      valueOf(
+                                        item,
+                                        'type',
+                                      ).toLowerCase().contains('recipe')
+                                      ? valueOf(item, 'id')
+                                      : null,
+                                  'targetCalories':
+                                      double.tryParse(
+                                        valueOf(item, 'caloriesKcal'),
+                                      )?.round() ??
+                                      200,
+                                  'plannedDate': dateStr,
+                                  'isCompleted': false,
+                                });
+
+                                await repo.adjustMealPlan(
+                                  id,
+                                  valueOf(mealPlan!, 'id'),
+                                  {
+                                    'title': valueOf(mealPlan!, 'title'),
+                                    'planType': 'CoachAdjusted',
+                                    'targetCalories': int.tryParse(
+                                      valueOf(mealPlan!, 'targetCalories'),
+                                    ),
+                                    'isActive': true,
+                                    'items': items,
+                                  },
+                                );
+                                await load();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Đã gán và đề xuất món ăn thành công!',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) showError(context, e);
+                              } finally {
+                                if (mounted) setState(() => loading = false);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'breakfast',
+                                child: Text('Bữa sáng'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'lunch',
+                                child: Text('Bữa trưa'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'dinner',
+                                child: Text('Bữa tối'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'snack',
+                                child: Text('Bữa phụ'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             if (totalPages > 1) ...[
               const SizedBox(height: 12),
               Row(
@@ -1873,7 +2293,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   ),
                   Text(
                     'Trang ${_suggestionPage + 1} / $totalPages',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -1892,7 +2315,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
 
   Widget _buildReviewRequestsSection(Color primaryColor) {
     final reports = reviewRequests
-        .where((r) => valueOf(r, 'requestType').isEmpty || valueOf(r, 'requestType').toLowerCase() == 'weeklyreport')
+        .where(
+          (r) =>
+              valueOf(r, 'requestType').isEmpty ||
+              valueOf(r, 'requestType').toLowerCase() == 'weeklyreport',
+        )
         .toList();
 
     if (reports.isEmpty) {
@@ -1906,7 +2333,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               SizedBox(width: 12),
               Text(
                 'Chưa có yêu cầu đánh giá nào',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
             ],
           ),
@@ -1914,9 +2344,13 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       );
     }
 
-    final pendingReqs = reports.where((r) => valueOf(r, 'status').toLowerCase() == 'pending').toList();
-    final reqToDisplay = pendingReqs.isNotEmpty ? pendingReqs.first : reports.first;
-    
+    final pendingReqs = reports
+        .where((r) => valueOf(r, 'status').toLowerCase() == 'pending')
+        .toList();
+    final reqToDisplay = pendingReqs.isNotEmpty
+        ? pendingReqs.first
+        : reports.first;
+
     final status = valueOf(reqToDisplay, 'status');
     final isPending = status.toLowerCase() == 'pending';
 
@@ -1929,26 +2363,42 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.assignment, color: Colors.orangeAccent, size: 28),
+              const Icon(
+                Icons.assignment,
+                color: Colors.orangeAccent,
+                size: 28,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isPending ? '⚡ Yêu cầu đánh giá tuần mới' : 'Yêu cầu đánh giá tuần',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      isPending
+                          ? '⚡ Yêu cầu đánh giá tuần mới'
+                          : 'Yêu cầu đánh giá tuần',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Tuần ngày: ${valueOf(reqToDisplay, 'weekStartDate')} • Trạng thái: $status',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (isPending)
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orangeAccent),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.orangeAccent,
+                ),
             ],
           ),
         ),
@@ -1968,21 +2418,33 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.trending_up, color: Colors.purpleAccent),
                 SizedBox(width: 8),
-                Text('Dinh dưỡng & Cân nặng gần đây', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Dinh dưỡng & Cân nặng gần đây',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ],
             ),
             const Divider(),
             if (nutrition.isEmpty && weights.isEmpty)
-              const Text('Chưa có dữ liệu xu hướng sức khỏe.', style: TextStyle(color: Colors.grey, fontSize: 13))
+              const Text(
+                'Chưa có dữ liệu xu hướng sức khỏe.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              )
             else ...[
               if (nutrition.isNotEmpty) ...[
-                const Text('Dinh dưỡng 7 ngày qua:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Text(
+                  'Dinh dưỡng 7 ngày qua:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
                 const SizedBox(height: 4),
                 for (final day in nutrition.take(3))
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(valueOf(day, 'date'), style: const TextStyle(fontSize: 12)),
+                    title: Text(
+                      valueOf(day, 'date'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     subtitle: Text(
                       'Hấp thu calo: ${valueOf(day, 'actualCalories')}/${valueOf(day, 'targetCalories')} kcal  '
                       '• Protein: ${valueOf(day, 'actualProtein')}/${valueOf(day, 'targetProtein')} g',
@@ -1992,18 +2454,30 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               ],
               if (weights.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                const Text('Cân nặng gần đây:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Text(
+                  'Cân nặng gần đây:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
                 const SizedBox(height: 4),
                 for (final point in weights.take(2))
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.monitor_weight, size: 16),
-                    title: Text('${valueOf(point, 'weightKg')} kg', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    subtitle: Text('Đo ngày: ${valueOf(point, 'recordedAt')} • Mỡ cơ thể: ${valueOf(point, 'bodyFatPercent')}%', style: const TextStyle(fontSize: 11)),
+                    title: Text(
+                      '${valueOf(point, 'weightKg')} kg',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Đo ngày: ${valueOf(point, 'recordedAt')} • Mỡ cơ thể: ${valueOf(point, 'bodyFatPercent')}%',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
               ],
-            ]
+            ],
           ],
         ),
       ),
@@ -2022,7 +2496,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.edit_road, color: Colors.redAccent),
                 SizedBox(width: 8),
-                Text('Điều chỉnh chỉ số Calo/Macros trực tiếp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Điều chỉnh chỉ số Calo/Macros trực tiếp',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ],
             ),
             const Divider(),
@@ -2032,7 +2509,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: TextField(
                     controller: cal,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Calo', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                    decoration: const InputDecoration(
+                      labelText: 'Calo',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2040,7 +2520,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: TextField(
                     controller: protein,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Protein', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                    decoration: const InputDecoration(
+                      labelText: 'Protein',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2048,7 +2531,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: TextField(
                     controller: carbs,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Carbs', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                    decoration: const InputDecoration(
+                      labelText: 'Carbs',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2056,7 +2542,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   child: TextField(
                     controller: fat,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Fat', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                    decoration: const InputDecoration(
+                      labelText: 'Fat',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
                 ),
               ],
@@ -2066,7 +2555,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               onPressed: targets,
               icon: const Icon(Icons.save, size: 14),
               label: const Text('Lưu thay đổi mục tiêu'),
-              style: FilledButton.styleFrom(backgroundColor: primaryColor, minimumSize: const Size(double.infinity, 38)),
+              style: FilledButton.styleFrom(
+                backgroundColor: primaryColor,
+                minimumSize: const Size(double.infinity, 38),
+              ),
             ),
           ],
         ),
@@ -2086,50 +2578,73 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
               children: [
                 Icon(Icons.chat_bubble_outline, color: Colors.blueAccent),
                 SizedBox(width: 8),
-                Text('Khung trao đổi nhanh với học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Khung trao đổi nhanh với học viên',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ],
             ),
             const Divider(),
             if (feedbacks.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Chưa có tin nhắn nào trao đổi.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text(
+                  'Chưa có tin nhắn nào trao đổi.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               )
             else
               Container(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: ListView(
                   shrinkWrap: true,
-                  children: feedbacks.map((f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(valueOf(f, 'content'), style: const TextStyle(fontSize: 13)),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    valueOf(f, 'coachName').isNotEmpty ? valueOf(f, 'coachName') : 'PT/Coach',
-                                    style: TextStyle(fontSize: 10, color: primaryColor, fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    valueOf(f, 'createdAt'),
-                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            ],
+                  children: feedbacks
+                      .map(
+                        (f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  valueOf(f, 'content'),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      valueOf(f, 'coachName').isNotEmpty
+                                          ? valueOf(f, 'coachName')
+                                          : 'PT/Coach',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      valueOf(f, 'createdAt'),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      )).toList(),
+                      )
+                      .toList(),
                 ),
               ),
             const SizedBox(height: 12),
@@ -2141,7 +2656,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                     decoration: const InputDecoration(
                       hintText: 'Nhập tin nhắn/lời khuyên...',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
@@ -2412,6 +2930,7 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
     ),
   );
 }
+
 // ─────────────────────────────────────────
 // _DayReviewSheet – bottom sheet opened when PT taps the review card
 // ─────────────────────────────────────────
@@ -2423,7 +2942,8 @@ class _DayReviewSheet extends StatefulWidget {
   final List<Map<String, dynamic>> aiSuggestions;
   final List<Map<String, dynamic>> reviewRequests;
   final Future<void> Function(Map<String, dynamic> item) onDeleteItem;
-  final Future<void> Function(Map<String, dynamic> item, String mealType) onAssignItem;
+  final Future<void> Function(Map<String, dynamic> item, String mealType)
+  onAssignItem;
   final Future<void> Function(Map<String, dynamic> req) onApprove;
 
   const _DayReviewSheet({
@@ -2455,15 +2975,18 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
   @override
   Widget build(BuildContext context) {
     final primary = widget.primaryColor;
-    final itemsList = widget.mealPlan != null && widget.mealPlan!['items'] is List
+    final itemsList =
+        widget.mealPlan != null && widget.mealPlan!['items'] is List
         ? widget.mealPlan!['items'] as List
         : <dynamic>[];
 
     // Build AI suggestions, removing already-added ones
     final addedIds = itemsList
-        .map((x) => (
-              _v(x, 'foodId').isEmpty ? _v(x, 'recipeId') : _v(x, 'foodId')
-            ).trim().toLowerCase())
+        .map(
+          (x) => (_v(x, 'foodId').isEmpty ? _v(x, 'recipeId') : _v(x, 'foodId'))
+              .trim()
+              .toLowerCase(),
+        )
         .where((s) => s.isNotEmpty)
         .toSet();
     final remaining = widget.aiSuggestions
@@ -2475,8 +2998,12 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
     final paged = remaining.skip(_page * _perPage).take(_perPage).toList();
 
     final pendingReqs = widget.reviewRequests
-        .where((r) => _v(r, 'status').toLowerCase() == 'pending' && 
-                      (_v(r, 'requestType').isEmpty || _v(r, 'requestType').toLowerCase() == 'routeapproval'))
+        .where(
+          (r) =>
+              _v(r, 'status').toLowerCase() == 'pending' &&
+              (_v(r, 'requestType').isEmpty ||
+                  _v(r, 'requestType').toLowerCase() == 'routeapproval'),
+        )
         .toList();
 
     final meals = {
@@ -2517,7 +3044,10 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                   Expanded(
                     child: Text(
                       'Đánh giá ngày ${widget.dateLabel}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -2535,7 +3065,11 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   // ── Meal Plan Section ──
-                  _sectionHeader(Icons.restaurant_menu, 'Lộ trình ăn uống', primary),
+                  _sectionHeader(
+                    Icons.restaurant_menu,
+                    'Lộ trình ăn uống',
+                    primary,
+                  ),
                   const SizedBox(height: 8),
                   if (itemsList.isEmpty)
                     Padding(
@@ -2543,14 +3077,24 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                       child: Center(
                         child: Text(
                           'Học viên chưa có món ăn nào trong ngày này.',
-                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     )
                   else
                     ...meals.entries.map((m) {
                       final mealItems = itemsList
-                          .where((x) => _v(x as Map<String, dynamic>, 'mealType').toLowerCase() == m.key)
+                          .where(
+                            (x) =>
+                                _v(
+                                  x as Map<String, dynamic>,
+                                  'mealType',
+                                ).toLowerCase() ==
+                                m.key,
+                          )
                           .toList();
                       if (mealItems.isEmpty) return const SizedBox.shrink();
                       return Column(
@@ -2560,48 +3104,78 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
                               m.value,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primary),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: primary,
+                              ),
                             ),
                           ),
-                          ...mealItems.map((item) => Card(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                child: ListTile(
-                                  dense: true,
-                                  leading: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: primary.withValues(alpha: 0.12),
-                                    child: Icon(Icons.restaurant, color: primary, size: 16),
+                          ...mealItems.map(
+                            (item) => Card(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: ListTile(
+                                dense: true,
+                                leading: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: primary.withValues(
+                                    alpha: 0.12,
                                   ),
-                                  title: Text(
-                                    _v(item as Map<String, dynamic>, 'foodName').isNotEmpty
-                                        ? _v(item, 'foodName')
-                                        : _v(item, 'recipeName'),
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                  subtitle: Text(
-                                    '${_v(item, 'targetCalories')} kcal · ${_v(item, 'plannedDate')}',
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                    onPressed: _working
-                                        ? null
-                                        : () async {
-                                            setState(() => _working = true);
-                                            await widget.onDeleteItem(item);
-                                            if (mounted) setState(() => _working = false);
-                                          },
+                                  child: Icon(
+                                    Icons.restaurant,
+                                    color: primary,
+                                    size: 16,
                                   ),
                                 ),
-                              )),
+                                title: Text(
+                                  _v(
+                                        item as Map<String, dynamic>,
+                                        'foodName',
+                                      ).isNotEmpty
+                                      ? _v(item, 'foodName')
+                                      : _v(item, 'recipeName'),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${_v(item, 'targetCalories')} kcal · ${_v(item, 'plannedDate')}',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  onPressed: _working
+                                      ? null
+                                      : () async {
+                                          setState(() => _working = true);
+                                          await widget.onDeleteItem(item);
+                                          if (mounted) {
+                                            setState(() => _working = false);
+                                          }
+                                        },
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     }),
                   const SizedBox(height: 20),
 
                   // ── AI Suggestions Section ──
-                  _sectionHeader(Icons.psychology, 'Gợi ý từ AI', Colors.deepPurple),
+                  _sectionHeader(
+                    Icons.psychology,
+                    'Gợi ý từ AI',
+                    Colors.deepPurple,
+                  ),
                   const SizedBox(height: 8),
                   if (paged.isEmpty)
                     Padding(
@@ -2609,73 +3183,113 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                       child: Center(
                         child: Text(
                           'Không còn món gợi ý phù hợp.',
-                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     )
                   else
-                    ...paged.map((item) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _v(item, 'type').toLowerCase().contains('recipe')
-                                      ? Icons.menu_book
-                                      : Icons.restaurant,
-                                  size: 18,
-                                  color: Colors.deepPurple,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _v(item, 'name'),
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                    ...paged.map(
+                      (item) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _v(
+                                      item,
+                                      'type',
+                                    ).toLowerCase().contains('recipe')
+                                    ? Icons.menu_book
+                                    : Icons.restaurant,
+                                size: 18,
+                                color: Colors.deepPurple,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _v(item, 'name'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      Text(
-                                        '${double.tryParse(_v(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal · P${double.tryParse(_v(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
-                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '${double.tryParse(_v(item, 'caloriesKcal'))?.toStringAsFixed(0) ?? '0'} kcal · P${double.tryParse(_v(item, 'proteinG'))?.toStringAsFixed(0) ?? '0'}g',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                PopupMenuButton<String>(
-                                  enabled: !_working,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: widget.primaryColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Text(
-                                      'Gán vào',
-                                      style: TextStyle(fontSize: 11, color: widget.primaryColor, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  onSelected: (mealType) async {
-                                    setState(() => _working = true);
-                                    await widget.onAssignItem(item, mealType);
-                                    if (mounted) setState(() => _working = false);
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
-                                    const PopupMenuItem(value: 'lunch', child: Text('Bữa trưa')),
-                                    const PopupMenuItem(value: 'dinner', child: Text('Bữa tối')),
-                                    const PopupMenuItem(value: 'snack', child: Text('Bữa phụ')),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 6),
+                              PopupMenuButton<String>(
+                                enabled: !_working,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: widget.primaryColor.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'Gán vào',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: widget.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                onSelected: (mealType) async {
+                                  setState(() => _working = true);
+                                  await widget.onAssignItem(item, mealType);
+                                  if (mounted) setState(() => _working = false);
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'breakfast',
+                                    child: Text('Bữa sáng'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'lunch',
+                                    child: Text('Bữa trưa'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'dinner',
+                                    child: Text('Bữa tối'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'snack',
+                                    child: Text('Bữa phụ'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        )),
+                        ),
+                      ),
+                    ),
                   // Pagination
                   if (totalPages > 1) ...[
                     const SizedBox(height: 8),
@@ -2684,12 +3298,22 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.arrow_back_ios, size: 16),
-                          onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                          onPressed: _page > 0
+                              ? () => setState(() => _page--)
+                              : null,
                         ),
-                        Text('Trang ${_page + 1} / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Trang ${_page + 1} / $totalPages',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onPressed: _page < totalPages - 1 ? () => setState(() => _page++) : null,
+                          onPressed: _page < totalPages - 1
+                              ? () => setState(() => _page++)
+                              : null,
                         ),
                       ],
                     ),
@@ -2722,7 +3346,9 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                               ? null
                               : () => widget.onApprove(pendingReqs.first),
                           icon: const Icon(Icons.check_circle),
-                          label: Text('Duyệt lộ trình (${pendingReqs.length} yêu cầu)'),
+                          label: Text(
+                            'Duyệt lộ trình (${pendingReqs.length} yêu cầu)',
+                          ),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             backgroundColor: Colors.green,
@@ -2738,12 +3364,19 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
   }
 
   Widget _sectionHeader(IconData icon, String title, Color color) => Row(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 6),
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
-          const SizedBox(width: 8),
-          Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
-        ],
-      );
+    children: [
+      Icon(icon, color: color, size: 18),
+      const SizedBox(width: 6),
+      Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          color: color,
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
+    ],
+  );
 }

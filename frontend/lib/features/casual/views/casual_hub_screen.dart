@@ -133,10 +133,10 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                   ),
                   const SizedBox(height: 12),
                   _CasualFeatureTile(
-                    icon: Icons.auto_stories_rounded,
-                    title: 'Góc dinh dưỡng',
+                    icon: Icons.psychology_rounded,
+                    title: 'Góc Cảm Xúc & Thèm Ăn',
                     subtitle:
-                        'Thẻ kiến thức phù hợp với lịch sử ăn uống, có thể lưu để đọc sau.',
+                        'Gợi ý món ăn giải cứu tức thì theo tâm trạng (Stress, Buồn ngủ, Thèm ngọt...).',
                     onTap: () => _openFeature(CasualFeature.microLearning),
                   ),
                   if (!_hasAccess) ...[

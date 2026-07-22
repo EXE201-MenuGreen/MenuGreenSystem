@@ -37,8 +37,8 @@ class CasualPackageCard extends StatelessWidget {
           onTap: () => _open(context, CasualFeature.dailyStarter),
         ),
         HomePackageAction(
-          icon: Icons.menu_book_outlined,
-          label: 'Kiến thức',
+          icon: Icons.psychology_outlined,
+          label: 'Cảm xúc',
           onTap: () => _open(context, CasualFeature.microLearning),
         ),
       ],
