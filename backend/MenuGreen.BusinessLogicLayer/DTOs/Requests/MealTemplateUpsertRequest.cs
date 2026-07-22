@@ -19,10 +19,25 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
+        [MaxLength(200)]
+        public string? CustomName { get; set; }
+        [MaxLength(50)]
+        public string? SourceType { get; set; }
         public string? MealType { get; set; }
 
         [Range(0.01, double.MaxValue)]
         public decimal QuantityG { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal? CaloriesKcal { get; set; }
+        [Range(0, double.MaxValue)]
+        public decimal? ProteinG { get; set; }
+        [Range(0, double.MaxValue)]
+        public decimal? CarbsG { get; set; }
+        [Range(0, double.MaxValue)]
+        public decimal? FatG { get; set; }
+
+        public List<OfficeScanIngredientRequest> Ingredients { get; set; } = new();
 
         public string? Notes { get; set; }
         public int SortOrder { get; set; }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../advanced/repositories/advanced_repository.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/models/meal_plan_responses.dart';
+import '../../meal_plan/models/meal_plan_requests.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../widgets/office_grocery_section.dart';
 import '../widgets/office_meal_roadmap.dart';
@@ -38,6 +40,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   bool _loadingPlan = true;
   bool _generating = false;
   bool _savingBudget = false;
+  String? _replacingItemId;
 
   @override
   void initState() {
@@ -209,6 +212,204 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     }
   }
 
+  Future<void> _replaceMeal(MealPlanItemDetail item) async {
+    final plan = _plan;
+    if (plan == null || _replacingItemId != null) return;
+
+    setState(() => _replacingItemId = item.id);
+    try {
+      final alternatives = await _mealPlanRepository.getAlternatives(
+        plan.id,
+        item.id,
+      );
+      if (!mounted) return;
+      if (alternatives.isEmpty) {
+        _notice(
+          'Chưa có món khác phù hợp với loại bữa và thời gian nấu.',
+        );
+        return;
+      }
+
+      final plannedCost = _number(_budgetStatus, 'plannedCost');
+      final budgetLimit = _number(_budgetStatus, 'budgetLimit');
+      int? projectedCost(MealPlanItemDetail alternative) {
+        if (plannedCost == null) return null;
+        return plannedCost -
+            (item.estimatedPriceVnd ?? 0) +
+            (alternative.estimatedPriceVnd ?? 0);
+      }
+
+      bool exceedsBudget(MealPlanItemDetail alternative) {
+        final projected = projectedCost(alternative);
+        return projected != null &&
+            budgetLimit != null &&
+            projected > budgetLimit;
+      }
+
+      bool worsensBudget(MealPlanItemDetail alternative) {
+        final projected = projectedCost(alternative);
+        return exceedsBudget(alternative) &&
+            projected != null &&
+            plannedCost != null &&
+            projected > plannedCost;
+      }
+
+      final selected = await showModalBottomSheet<MealPlanItemDetail>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (context) => SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Chọn món thay thế',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Thay “${item.displayName}” bằng món phù hợp khác.',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                    itemCount: alternatives.length,
+                    separatorBuilder: (_, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final alternative = alternatives[index];
+                      final isOverBudget = exceedsBudget(alternative);
+                      final isCheaper = projectedCost(alternative) != null &&
+                          plannedCost != null &&
+                          projectedCost(alternative)! < plannedCost;
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.restaurant_menu_outlined),
+                        ),
+                        title: Text(
+                          alternative.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${alternative.targetCalories ?? 0} kcal · '
+                                    '${_currency(alternative.estimatedPriceVnd)}',
+                              ),
+                              if (isOverBudget)
+                                TextSpan(
+                                  text: isCheaper
+                                      ? '\nGiảm chi phí nhưng kế hoạch vẫn vượt ngân sách'
+                                      : '\nVượt mục tiêu ngân sách',
+                                  style: TextStyle(
+                                    color: Colors.deepOrange,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, alternative),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+
+      if (worsensBudget(selected)) {
+        final shouldContinue = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Món này vượt ngân sách'),
+            content: Text(
+              'Nếu đổi sang ${selected.displayName}, chi phí dự kiến sẽ là '
+              '${_currency(projectedCost(selected))} / ${_currency(budgetLimit)}. '
+              'Bạn vẫn muốn đổi món?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Chọn món khác'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Vẫn đổi món'),
+              ),
+            ],
+          ),
+        );
+        if (shouldContinue != true || !mounted) return;
+      }
+
+      final updatedPlan = await _mealPlanRepository.replaceItem(
+        plan.id,
+        item.id,
+        AddItemRequest(
+          mealType: item.mealType ?? 'lunch',
+          plannedDate: item.plannedDate,
+          scheduledTime: item.scheduledTime,
+          foodId: selected.foodId,
+          recipeId: selected.recipeId,
+          targetCalories: selected.targetCalories,
+        ),
+      );
+      final results = await Future.wait([
+        _mealPlanRepository.getGroceryList(updatedPlan.id),
+        _mealPlanRepository.getBudgetStatus(updatedPlan.id),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _plan = updatedPlan;
+        _groceryList = results[0];
+        _budgetStatus = results[1];
+      });
+      _notice('Đã đổi sang ${selected.displayName}.');
+    } catch (error) {
+      _notice(error);
+    } finally {
+      if (mounted) setState(() => _replacingItemId = null);
+    }
+  }
+
+  void _openMealRecipe(MealPlanItemDetail item) {
+    final recipeId = item.recipeId;
+    if (recipeId == null || recipeId.isEmpty) {
+      _notice('Món này chưa được liên kết với công thức nấu.');
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecipeDetailScreen(recipeId: recipeId),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -296,7 +497,12 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                   else ...[
                     OfficePlanOverview(plan: _plan!),
                     const SizedBox(height: 12),
-                    OfficeMealRoadmapSection(plan: _plan!),
+                    OfficeMealRoadmapSection(
+                      plan: _plan!,
+                      onReplaceMeal: _replaceMeal,
+                      onOpenMeal: _openMealRecipe,
+                      replacingItemId: _replacingItemId,
+                    ),
                   ],
                 ],
               ),

@@ -11,7 +11,15 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.ToTable("meal_template_items");
             builder.HasKey(x => x.Id);
 
+            builder.Property(x => x.CustomName).HasMaxLength(200);
+            builder.Property(x => x.SourceType).HasMaxLength(50);
             builder.Property(x => x.QuantityG).HasPrecision(18, 2);
+            builder.Property(x => x.CaloriesKcal).HasPrecision(18, 2);
+            builder.Property(x => x.ProteinG).HasPrecision(18, 2);
+            builder.Property(x => x.CarbsG).HasPrecision(18, 2);
+            builder.Property(x => x.FatG).HasPrecision(18, 2);
+            builder.Property(x => x.IngredientSnapshotJson)
+                .HasColumnType("jsonb");
             builder.Property(x => x.Notes).HasMaxLength(1000);
             builder.Property(x => x.CreatedAt).HasColumnType("timestamp with time zone");
 

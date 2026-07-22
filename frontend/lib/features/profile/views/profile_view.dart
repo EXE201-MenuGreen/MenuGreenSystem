@@ -354,7 +354,7 @@ class _ProfileViewState extends State<ProfileView> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AdvancedFeaturesScreen(),
+                          builder: (_) => const OfficeWorkspaceScreen(),
                         ),
                       ),
                     ),
@@ -390,8 +390,7 @@ class _ProfileViewState extends State<ProfileView> {
                     'Cấu hình calo tự đổi theo ngày tập/nghỉ',
                     onTap: () {
                       final activeSub = _subscription != null &&
-                              _subscription!.isActive &&
-                              _subscription!.daysRemaining >= 0 &&
+                              _subscription!.isCurrentlyActive &&
                               _subscription!.subscriptionPlanName.isNotEmpty
                           ? _subscription
                           : null;
@@ -779,8 +778,7 @@ class _ProfileViewState extends State<ProfileView> {
     final subscription = _subscription;
     final activeSubscription =
         subscription != null &&
-            subscription.isActive &&
-            subscription.daysRemaining >= 0 &&
+            subscription.isCurrentlyActive &&
             subscription.subscriptionPlanName.isNotEmpty
         ? subscription
         : null;
@@ -854,11 +852,20 @@ class _ProfileViewState extends State<ProfileView> {
           if (activeSubscription != null &&
               isPro &&
               activeSubscription.endDate != null)
-            Text(
-              'Hết hạn: ${formatSubscriptionDate(activeSubscription.endDate)} • Còn ${activeSubscription.daysRemaining} ngày',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
+            StreamBuilder<int>(
+              stream: Stream<int>.periodic(
+                const Duration(minutes: 1),
+                (tick) => tick,
+              ),
+              builder: (context, snapshot) => Text(
+                'Bắt đầu: ${formatSubscriptionDate(activeSubscription.startDate)}'
+                ' • Hết hạn: ${formatSubscriptionDate(activeSubscription.endDate)}\n'
+                '${formatSubscriptionRemaining(activeSubscription.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             )
           else if (subscription != null)

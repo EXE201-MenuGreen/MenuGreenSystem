@@ -6,8 +6,17 @@ import '../../meal_plan/models/meal_plan_responses.dart';
 part 'office_roadmap_day.dart';
 
 class OfficeMealRoadmapSection extends StatelessWidget {
-  const OfficeMealRoadmapSection({super.key, required this.plan});
+  const OfficeMealRoadmapSection({
+    super.key,
+    required this.plan,
+    required this.onReplaceMeal,
+    required this.onOpenMeal,
+    this.replacingItemId,
+  });
   final MealPlanDetail plan;
+  final ValueChanged<MealPlanItemDetail> onReplaceMeal;
+  final ValueChanged<MealPlanItemDetail> onOpenMeal;
+  final String? replacingItemId;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +44,12 @@ class OfficeMealRoadmapSection extends StatelessWidget {
           style: TextStyle(color: Colors.black54, height: 1.4),
         ),
         const SizedBox(height: 12),
-        _OfficeMealRoadmap(days: days),
+        _OfficeMealRoadmap(
+          days: days,
+          onReplaceMeal: onReplaceMeal,
+          onOpenMeal: onOpenMeal,
+          replacingItemId: replacingItemId,
+        ),
       ],
     );
   }
@@ -63,6 +77,9 @@ class _OfficePlanDay {
   final DateTime date;
   final List<MealPlanItemDetail> meals;
 
+  int get totalCalories =>
+      meals.fold(0, (total, meal) => total + (meal.targetCalories ?? 0));
+
   MealPlanItemDetail? meal(String type) {
     for (final item in meals) {
       if ((item.mealType ?? '').toLowerCase() == type) return item;
@@ -72,13 +89,21 @@ class _OfficePlanDay {
 }
 
 class _OfficeMealRoadmap extends StatelessWidget {
-  const _OfficeMealRoadmap({required this.days});
+  const _OfficeMealRoadmap({
+    required this.days,
+    required this.onReplaceMeal,
+    required this.onOpenMeal,
+    this.replacingItemId,
+  });
 
-  static const double _dayExtent = 300;
-  static const double _nodeSize = 78;
+  static const double _dayExtent = 310;
+  static const double _nodeSize = 88;
   static const List<double> _nodePositions = [0.18, 0.5, 0.82, 0.5];
 
   final List<_OfficePlanDay> days;
+  final ValueChanged<MealPlanItemDetail> onReplaceMeal;
+  final ValueChanged<MealPlanItemDetail> onOpenMeal;
+  final String? replacingItemId;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +131,9 @@ class _OfficeMealRoadmap extends StatelessWidget {
                   nodeLeft: width * _nodePositions[index % _nodePositions.length] -
                       (_nodeSize / 2),
                   nodeSize: _nodeSize,
+                  onReplaceMeal: onReplaceMeal,
+                  onOpenMeal: onOpenMeal,
+                  replacingItemId: replacingItemId,
                 ),
             ],
           ),
@@ -129,7 +157,7 @@ class _RoadmapPathPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (nodeCount < 2) return;
-    const nodeCenterY = 42.0;
+    const nodeCenterY = 47.0;
     final path = Path();
     var previousX = size.width * positions.first;
     var previousY = nodeCenterY;

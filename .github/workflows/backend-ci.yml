@@ -127,3 +127,33 @@ jobs:
           sbom: false
           build-args: |
             GIT_SHA=${{ github.sha }}
+
+  # ===========================================================================
+  # Job 3: Trigger CD Workflow
+  # ===========================================================================
+  trigger-deploy:
+    name: Trigger CD Workflow
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: github.event_name == 'push' && !contains(github.event.head_commit.message, '#skipdeploy')
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Trigger CD workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Trigger CD workflow using workflow_dispatch event
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'backend-cd.yml',
+              ref: context.ref,
+              inputs: {
+                environment: context.ref === 'refs/heads/main' ? 'production' : 'staging'
+              }
+            });
+            console.log('CD workflow triggered successfully');

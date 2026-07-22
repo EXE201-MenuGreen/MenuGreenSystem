@@ -16,7 +16,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 @"INSERT INTO subscription_plans
                     (""Id"", ""Name"", ""Description"", ""DurationDays"", ""PriceVnd"", ""FeatureGroup"", ""IsActive"")
                   VALUES
-                    ('10000000-0000-0000-0000-000000000004',
+                    ('10000000-0000-0000-0000-000000000005',
                      'Gói Gym/PT',
                      E'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
                      NULL,
@@ -31,7 +31,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
         {
             migrationBuilder.Sql(
                 @"DELETE FROM subscription_plans p
-                  WHERE p.""Id"" = '10000000-0000-0000-0000-000000000004'
+                  WHERE p.""Id"" = '10000000-0000-0000-0000-000000000005'
                     AND NOT EXISTS (
                         SELECT 1
                         FROM user_subscriptions s

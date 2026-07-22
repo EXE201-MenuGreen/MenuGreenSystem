@@ -33,7 +33,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = ResolveDurationDays(plan);
             var subscription = new UserSubscription
             {
                 Id = Guid.NewGuid(),
@@ -103,7 +103,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = ResolveDurationDays(plan);
             
             var baseDate = subscription.EndDate > now ? subscription.EndDate : now;
             subscription.EndDate = baseDate.AddDays(durationDays);
@@ -262,8 +262,40 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = subscription.EndDate,
                 CancelledAt = subscription.CancelledAt,
                 RenewedAt = subscription.RenewedAt,
-                DaysRemaining = Math.Max(0, (subscription.EndDate - DateTime.UtcNow).Days)
+                DaysRemaining = CalculateDaysRemaining(subscription.EndDate, DateTime.UtcNow)
             };
+        }
+
+        private static int ResolveDurationDays(SubscriptionPlan plan)
+        {
+            if (plan.DurationDays is > 0)
+            {
+                return plan.DurationDays.Value;
+            }
+
+            // Office is a one-day trial: activation at 20/07 10:00 expires at
+            // 21/07 10:00. Never fall back to the legacy 100-year duration.
+            if (string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+
+            // Existing Basic/free lifetime plans still use the non-nullable EndDate
+            // column. Keep their current representation until the schema supports
+            // subscriptions without an expiration date.
+            return 36500;
+        }
+
+        private static int CalculateDaysRemaining(DateTime endDate, DateTime now)
+        {
+            var remaining = endDate - now;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return 0;
+            }
+
+            return (int)Math.Ceiling(remaining.TotalDays);
         }
 
         private static SubscriptionTransactionResponse MapTransaction(SubscriptionTransaction transaction)

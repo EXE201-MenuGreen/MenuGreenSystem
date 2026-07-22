@@ -24,6 +24,15 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Windows Event Log requires elevated permissions on some development machines.
+// Keep local logging on console/debug so a denied Event Log write cannot stop API startup.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
+
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
 if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 {
@@ -78,18 +87,37 @@ builder
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure authorization policies for role-based and entitlement-based access control.
-builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, MenuGreen.API.Authorization.EntitlementHandler>();
+builder.Services.AddScoped<
+    Microsoft.AspNetCore.Authorization.IAuthorizationHandler,
+    MenuGreen.API.Authorization.EntitlementHandler
+>();
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "User", "Casual", "Gymer", "Office", "Coach"));
+    options.AddPolicy(
+        "UserOnly",
+        policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office", "Coach")
+    );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
-    options.AddPolicy("GymerOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")));
-    options.AddPolicy("CoachAccessOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")));
+    options.AddPolicy(
+        "GymerOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")
+            )
+    );
+    options.AddPolicy(
+        "CoachAccessOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")
+            )
+    );
     options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
     options.AddPolicy("CasualOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")));
 });
+
 
 // Configure CORS - Allow frontend domains
 var isDevelopment = builder.Environment.IsDevelopment();

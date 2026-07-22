@@ -13,7 +13,7 @@ INSERT INTO subscription_plans (
     "IsActive"
 )
 VALUES (
-    '10000000-0000-0000-0000-000000000004',
+    '10000000-0000-0000-0000-000000000005',
     'Gói Gym/PT',
     E'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
     NULL,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 {
@@ -23,7 +24,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public Guid MealTemplateId { get; set; }
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
+        public string? CustomName { get; set; }
+        public string? SourceType { get; set; }
         public decimal QuantityG { get; set; }
+        public List<OfficeScanIngredientRequest> Ingredients { get; set; } = new();
         public string? Notes { get; set; }
         public int SortOrder { get; set; }
         public decimal CaloriesKcal { get; set; }

@@ -1,12 +1,7 @@
 name: Backend CD - Deploy
 
 on:
-  # Trigger khi CI push hoàn thành (chỉ khi push, không phải pull_request)
-  workflow_run:
-    workflows: ["Backend CI - Build & Push"]
-    types: [completed]
-    branches: [main, develop]
-  # Manual trigger
+  # Trigger bằng tay khi cần
   workflow_dispatch:
     inputs:
       environment:
@@ -27,17 +22,6 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    # Skip nếu:
-    # - CI fail hoặc cancelled
-    # - Commit message chứa #skipdeploy
-    # - CI trigger từ pull_request (chỉ deploy khi push)
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow.conclusion != 'failure' &&
-       github.event.workflow.conclusion != 'cancelled' &&
-       !contains(github.event.workflow_run.head_commit.message, '#skipdeploy') &&
-       github.event.workflow_run.event == 'push')
 
     steps:
       - name: Checkout

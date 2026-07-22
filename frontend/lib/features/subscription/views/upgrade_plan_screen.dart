@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/token_storage.dart';
+import '../../auth/views/login_screen.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
@@ -133,7 +135,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       if (plan.featureGroup?.trim().toLowerCase() == 'gym') return plan;
     }
     return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000004',
+      id: '10000000-0000-0000-0000-000000000005',
       name: 'Gói Gym/PT',
       description:
           'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
@@ -164,7 +166,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
   List<SubscriptionPlan> get _regularPlans => _plans.where((plan) {
     final group = plan.featureGroup?.trim().toLowerCase();
-    return group != 'gym' && group != 'casual';
+    return group != 'gym' && group != 'casual' && group != 'office';
   }).toList();
 
   bool get _hasGymAccess => hasGymerSubscriptionAccess(_active);
@@ -207,13 +209,59 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Future<void> _activateOfficeMode() async {
-    final result = await _aiProfileRepository.upsert(eatingPattern: 'office');
-    if (!mounted) return;
-    if (!result.success) {
-      _showResult(result.message, false);
+    if (_actionLoading) return;
+
+    SubscriptionPlan? officePlan;
+    for (final plan in _plans) {
+      if (plan.featureGroup?.trim().toLowerCase() == 'office') {
+        officePlan = plan;
+        break;
+      }
+    }
+    if (officePlan == null) {
+      _showResult('Gói Office chưa được cấu hình trên hệ thống.', false);
       return;
     }
-    Navigator.of(context).pop('officeActivated');
+    if (!officePlan.isFree) {
+      await _subscribe(officePlan);
+      return;
+    }
+
+    setState(() => _actionLoading = true);
+    try {
+      final alreadyActive = _current?.isActive == true &&
+          _current?.subscriptionPlanId == officePlan.id;
+      if (!alreadyActive) {
+        final subscriptionResult = await _repository.subscribe(
+          subscriptionPlanId: officePlan.id,
+          note: 'Activate Office package',
+        );
+        if (!mounted) return;
+        if (!subscriptionResult.success) {
+          _showResult(subscriptionResult.message, false);
+          return;
+        }
+      }
+
+      final result = await _aiProfileRepository.upsert(eatingPattern: 'office');
+      if (!mounted) return;
+      if (result.requiresLogin) {
+        await TokenStorage().clear();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
+        return;
+      }
+      if (!result.success) {
+        _showResult(result.message, false);
+        return;
+      }
+      Navigator.of(context).pop('officeActivated');
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
   }
 
   Future<void> _openGymerPackage() async {
@@ -361,7 +409,10 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       onOpen: _openGymerPackage,
                     ),
                     const SizedBox(height: 12),
-                    _OfficePackageCard(onOpen: _activateOfficeMode),
+                    _OfficePackageCard(
+                      onOpen: _actionLoading ? null : _activateOfficeMode,
+                      loading: _actionLoading,
+                    ),
                     const SizedBox(height: 12),
                     if (_regularPlans.isEmpty)
                       const Text(
@@ -444,11 +495,18 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Trạng thái: ${current.status} • Còn ${current.daysRemaining} ngày',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
+          StreamBuilder<int>(
+            stream: Stream<int>.periodic(
+              const Duration(minutes: 1),
+              (tick) => tick,
+            ),
+            builder: (context, snapshot) => Text(
+              'Trạng thái: ${current.status} • '
+              '${formatSubscriptionRemaining(current.endDate)}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
             ),
           ),
           if (current.endDate != null)
@@ -902,9 +960,10 @@ class _GymerPackageFeature extends StatelessWidget {
 }
 
 class _OfficePackageCard extends StatelessWidget {
-  const _OfficePackageCard({required this.onOpen});
+  const _OfficePackageCard({required this.onOpen, required this.loading});
 
-  final Future<void> Function() onOpen;
+  final Future<void> Function()? onOpen;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -976,9 +1035,18 @@ class _OfficePackageCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onOpen,
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: const Text('Mở tính năng Office'),
+              onPressed: onOpen == null ? null : () => onOpen!(),
+              icon: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(loading ? 'Đang mở Office...' : 'Mở tính năng Office'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 13),
