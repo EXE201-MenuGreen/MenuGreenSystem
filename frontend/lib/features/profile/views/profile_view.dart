@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../subscription/models/subscription_models.dart';
@@ -13,7 +14,6 @@ import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
 import 'personal_info_screen.dart';
-import '../../vietnam_local/views/lucky_wheel_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
@@ -457,7 +457,9 @@ class _ProfileViewState extends State<ProfileView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const LuckyWheelScreen(),
+                          builder: (_) => const CasualHubScreen(
+                            openFeature: CasualFeature.luckyWheel,
+                          ),
                         ),
                       );
                     },
@@ -648,7 +650,9 @@ class _ProfileViewState extends State<ProfileView> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const LuckyWheelScreen(),
+                              builder: (_) => const CasualHubScreen(
+                                openFeature: CasualFeature.luckyWheel,
+                              ),
                             ),
                           );
                         },

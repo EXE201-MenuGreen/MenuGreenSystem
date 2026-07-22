@@ -26,4 +26,20 @@ VALUES
 ('10000000-0000-0000-0000-000000000005', 'Gói Gym/PT', E'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần', NULL, 0, 'gym', true)
 ON CONFLICT DO NOTHING;
 
+-- Keep the full seed usable on its own; script 58 remains the idempotent
+-- production patch for databases that were seeded before Casual existed.
+INSERT INTO subscription_plans (
+    "Id", "Name", "Description", "DurationDays", "PriceVnd", "FeatureGroup", "IsActive"
+)
+VALUES (
+    '10000000-0000-0000-0000-000000000005',
+    'Gói Casual',
+    E'Vòng quay 10 món ăn cá nhân hóa và an toàn\nKhởi động thực đơn, ghi nhật ký nhanh trong một chạm\nThẻ kiến thức dinh dưỡng theo lịch sử ăn uống',
+    NULL,
+    0,
+    'casual',
+    true
+)
+ON CONFLICT DO NOTHING;
+
 COMMIT;

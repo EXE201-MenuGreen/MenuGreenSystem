@@ -16,9 +16,11 @@ class DailyStarterProvider extends ChangeNotifier {
   List<DailyStarterFood> _featured = const [];
   DailyStarterPersonalization? _personalization;
   bool _isPersonalizationLoading = false;
+  bool _isQuickLogging = false;
 
   bool get isLoading => _isLoading;
   bool get isPersonalizationLoading => _isPersonalizationLoading;
+  bool get isQuickLogging => _isQuickLogging;
   String? get errorMessage => _errorMessage;
   DailyStarterToday? get today => _today;
   List<DailyStarterFood> get featured => _featured;
@@ -98,6 +100,26 @@ class DailyStarterProvider extends ChangeNotifier {
     }
     _errorMessage = null;
     notifyListeners();
+    return result.data;
+  }
+
+  Future<DailyStarterStartLog?> quickLog() async {
+    if (_isQuickLogging) return null;
+    _isQuickLogging = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _repo.startLog();
+    _isQuickLogging = false;
+    if (!result.success || result.data == null) {
+      _errorMessage = result.translatedMessage;
+      notifyListeners();
+      return null;
+    }
+
+    _errorMessage = null;
+    notifyListeners();
+    await loadAll();
     return result.data;
   }
 

@@ -1,5 +1,20 @@
 import '../models/subscription_models.dart';
 
+bool hasCasualSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
+  final now = DateTime.now();
+  return subscriptions.any((subscription) {
+    if (!subscription.isActive) return false;
+    final endDate = subscription.endDate;
+    if (endDate != null && endDate.isBefore(now)) return false;
+
+    final featureGroup = subscription.featureGroup?.trim().toLowerCase() ?? '';
+    if (featureGroup == 'casual' || featureGroup == 'pro') return true;
+
+    final planName = subscription.subscriptionPlanName.toLowerCase();
+    return planName.contains('casual') || planName.contains('pro');
+  });
+}
+
 bool hasGymerSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
   final now = DateTime.now();
   return subscriptions.any((subscription) {

@@ -13,7 +13,6 @@ namespace MenuGreen.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     [Authorize(Policy = "UserOnly")]
     public class MicroLearningController : ControllerBase
     {

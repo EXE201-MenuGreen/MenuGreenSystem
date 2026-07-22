@@ -1,85 +1,240 @@
-# 🥗 MenuGreen — Luồng Nghiệp Vụ Người Dùng Phổ Thông (Casual User Workflow)
+# MenuGreen — Luồng người dùng Casual theo hệ thống hiện tại
 
-Tài liệu này chi tiết hành trình của **Người dùng phổ thông (Casual User)** - những người chưa có kế hoạch ăn uống cụ thể hoặc hay băn khoăn *"Hôm nay ăn gì?"*. Luồng nghiệp vụ tập trung vào các tính năng gợi ý nhanh, tự động hóa và game hóa (Gamification) để tăng tương tác.
+Ngày đối chiếu source: **22/07/2026**
 
----
+## 1. Phạm vi
 
-## 1. Đăng ký & Onboarding cho nhóm Casual
-1. **Đăng ký tài khoản**: Đăng ký qua Email + OTP hoặc Google Sign-In nhanh. Vai trò mặc định ban đầu là `Free`.
-2. **Onboarding**:
-   - Nhập thông tin nhân trắc học (tuổi, chiều cao, cân nặng).
-   - Chọn mục tiêu sức khỏe cơ bản (ví dụ: Giữ cân, Giảm cân lành mạnh).
-   - Chọn mức độ hoạt động thể chất (thường là Vận động nhẹ hoặc Vừa).
-   - Thiết lập các nhóm chất gây dị ứng và sở thích ẩm thực.
-   - Chọn nhóm hành vi: **Casual / Simple Eater** (Nhóm Ăn uống đơn giản).
-3. **Nâng cấp gói cước**: Người dùng mua gói cước Casual/Pro thông qua quét mã QR SePay tự động. Hệ thống nâng cấp vai trò người dùng thành `Casual`.
+Casual là nhóm người dùng muốn chọn món nhanh, ghi nhận bữa ăn đơn giản và nhận nội dung hỗ trợ theo dữ liệu cá nhân. Gói Casual hiện cung cấp ba lối vào chính:
 
-## 2. Vòng Quay Món Ăn (Food Lucky Wheel Flow)
-Giúp người dùng Casual nhanh chóng quyết định "Hôm nay ăn gì" bằng cách lựa chọn ngẫu nhiên từ danh sách 10 món ăn được gợi ý cá nhân hóa và an toàn.
+1. **Vòng quay món ăn**.
+2. **Khởi động 1 chạm**.
+3. **Góc Cảm xúc & Thèm ăn**, kết hợp gợi ý món theo tâm trạng với Micro-Learning.
+
+Các tính năng dùng chung như tìm món, cân nặng, ăn ngoài, yêu thích hoặc kế hoạch ăn không thuộc riêng Casual Hub và được mô tả ở workflow chung.
+
+## 2. Đăng ký, onboarding và quyền truy cập
+
+### 2.1 Tạo tài khoản
+
+Người dùng có thể đăng ký bằng Email + OTP hoặc Google Sign-In. Tài khoản mới thuộc tầng truy cập thông thường; role kỹ thuật có thể là `User`/`Free` tùy dữ liệu hệ thống.
+
+### 2.2 Onboarding
+
+Người dùng nhập hoặc lựa chọn:
+
+- Chiều cao, cân nặng và thông tin sức khỏe cơ bản.
+- Mục tiêu dinh dưỡng.
+- Mức vận động.
+- Dị ứng.
+- Sở thích ăn uống.
+- Nhóm hành vi `casual` tại bước chọn loại người dùng.
+
+Việc chọn `casual` trong hồ sơ cá nhân hóa không tự cấp quyền trả phí. Quyền được xác định từ subscription còn hiệu lực.
+
+### 2.3 Kích hoạt gói
+
+Gói Casual hiện được thiết kế với `FeatureGroup = casual` và giá `0đ`. Khi người dùng chưa có quyền:
+
+1. `CasualHubScreen` hiển thị trạng thái chưa mở.
+2. Người dùng chọn một công cụ hoặc nút **Kích hoạt gói Casual 0đ**.
+3. Ứng dụng mở `UpgradePlanScreen`.
+4. Sau khi kích hoạt, frontend tải lại danh sách subscription active.
+5. `hasCasualSubscriptionAccess` chấp nhận gói `casual` hoặc `pro` còn hiệu lực.
+
+Backend bảo vệ ba controller bằng policy `CasualOnly`. Policy này yêu cầu entitlement `casual_features`, được cấp khi subscription active có tên chứa `casual` hoặc `FeatureGroup` là `casual`/`pro`.
+
+> Lưu ý hiện trạng: seed Casual đang trùng ID với Gym/PT. Chi tiết được ghi trong `docs/casual_workflow_implementation_report.md`; luồng kích hoạt chưa được coi là ổn định cho đến khi sửa collision này.
+
+## 3. Điểm truy cập trên Flutter
+
+- Trang Home chỉ hiển thị `CasualPackageCard` khi `_hasCasualAccess = true`.
+- Card có ba action: **Vòng quay**, **1 chạm**, **Cảm xúc**.
+- `CasualHubScreen` luôn kiểm tra lại subscription qua API trước khi mở công cụ.
+- Người chưa có quyền được chuyển tới màn nâng cấp thay vì mở thẳng tính năng.
+- Quick action “Hôm nay ăn gì?” và “Góc dinh dưỡng/Cảm xúc” cũng đi qua Casual Hub.
+
+## 4. Vòng quay món ăn
+
+### 4.1 Tải danh sách
+
+```http
+GET /api/LuckyWheel/foods
+```
+
+Backend thực hiện:
+
+1. Đọc ngân sách, vùng Việt Nam và từ khóa yêu thích trong AI profile.
+2. Đọc allergen key của người dùng.
+3. Lấy các món đang active.
+4. Loại món có allergen trùng với người dùng.
+5. Chấm điểm theo ngân sách, vùng và từ khóa yêu thích.
+6. Lấy 30 ứng viên có điểm cao nhất.
+7. Xáo trộn và trả tối đa 10 món.
+
+Frontend hiển thị vòng quay, hình ảnh, calo, macro, giá dự kiến và thông tin an toàn dị ứng từ response.
+
+### 4.2 Quay và áp dụng món
+
+Người dùng quay trên thiết bị. Khi chấp nhận món, người dùng chọn loại bữa và gọi:
+
+```http
+POST /api/LuckyWheel/apply
+```
+
+Payload:
+
+```json
+{
+  "foodId": "uuid",
+  "mealType": "Breakfast | Lunch | Dinner | Snack"
+}
+```
+
+Backend kiểm tra lại món còn active, loại bữa hợp lệ và an toàn dị ứng. Sau đó backend tìm hoặc tạo meal plan `DAILY` của ngày hiện tại theo UTC+7 và thêm món vào kế hoạch.
 
 ```mermaid
 sequenceDiagram
-    actor U as Người dùng (Casual)
-    participant App as Flutter App
-    participant BE as LuckyWheel API
-    
-    U->>App: Truy cập màn hình Vòng Quay Món Ăn
-    App->>BE: GET /api/LuckyWheel/foods (Lấy 10 món ăn cá nhân hóa)
-    Note over BE: Loại bỏ dị ứng & Lọc theo ngân sách, sở thích, vùng miền
-    BE-->>App: Trả về danh sách 10 món ăn (không trùng lặp)
-    
-    U->>App: Nhấn nút "Quay ngẫu nhiên"
-    App->>App: Chạy hiệu ứng vòng quay và dừng lại ở món trúng
-    App->>U: Hiển thị thông tin món ăn (Calo, Macro, Giá)
-    
-    alt Người dùng đồng ý ăn món này
-        U->>App: Bấm nút "Ăn món này"
-        App->>BE: POST /api/LuckyWheel/apply (Lưu vào thực đơn ngày hôm nay)
-        BE-->>App: Xác nhận thành công
-        App->>U: Quay lại màn hình chính & hiển thị món ăn trong thực đơn
-    else Muốn quay lại
-        U->>App: Bấm nút "Quay lại" hoặc đóng hộp thoại
-    end
+    actor U as Casual user
+    participant App as Flutter
+    participant API as LuckyWheel API
+    participant DB as Database
+
+    U->>App: Mở Vòng quay
+    App->>API: GET /api/LuckyWheel/foods
+    API->>DB: Đọc profile, dị ứng và món active
+    API-->>App: Tối đa 10 món an toàn
+    U->>App: Quay và chọn món
+    App->>API: POST /api/LuckyWheel/apply
+    API->>DB: Kiểm tra lại và thêm vào DAILY plan
+    API-->>App: Thành công hoặc lỗi nghiệp vụ
 ```
 
----
+## 5. Khởi động 1 chạm
 
-## 3. Khởi Động Hàng Ngày 1 Chạm (Daily Starter Flow)
-Dành cho những ngày người dùng không muốn mất thời gian suy nghĩ thực đơn phức tạp.
+Khi mở `DailyStarterScreen`, provider tải:
 
-1. **Xem Dashboard hôm nay**: 
-   - Hệ thống hiển thị câu trích dẫn truyền cảm hứng (Dynamic Quote), lượng calo cần nạp.
-   - Gọi API: `GET /api/DailyStarter/today`.
-2. **Khởi động nhanh thực đơn**:
-   - Hệ thống hiển thị danh sách 3 thực đơn tiêu biểu (Featured Meals) phù hợp với calo còn lại trong ngày.
-   - Gọi API: `GET /api/DailyStarter/featured-meals`.
-   - Người dùng bấm **Chọn thực đơn này** -> Hệ thống tự động áp dụng thực đơn mẫu vào kế hoạch ăn uống hôm nay.
-   - Gọi API: `POST /api/DailyStarter/select-meal`.
-3. **Ghi nhật ký ăn uống nhanh (Start Log Flow)**:
-   - Thay vì tìm từng món, người dùng bấm "Ghi nhận nhanh" -> Hệ thống tự động nhận diện khung giờ hiện tại (Sáng/Trưa/Tối) để đề xuất đĩa ăn phù hợp nhất và lưu nhanh chỉ bằng 1 lần chạm.
-   - Gọi API: `POST /api/DailyStarter/start-log`.
+```http
+GET /api/DailyStarter/today
+GET /api/DailyStarter/featured-meals
+```
 
----
+Hai request hiện được thực hiện tuần tự trong `DailyStarterProvider.loadAll()`.
 
-## 4. Học Tập Dinh Dưỡng (Micro-Learning & Quiz)
-Giúp người dùng tiếp cận kiến thức dinh dưỡng dễ dàng và thú vị.
+### 5.1 Tổng quan hôm nay
 
-1. **Nhận thẻ kiến thức gợi ý**:
-   - Hệ thống phân tích lịch sử ăn uống của người dùng để đưa ra thẻ kiến thức phù hợp (ví dụ: thiếu xơ -> đề xuất thẻ "Lợi ích của chất xơ").
-   - Gọi API: `GET /api/MicroLearning/cards/recommended`.
-2. **Đọc kiến thức**: Xem tiêu đề, tóm tắt và mẹo nhanh (Quick Tips). Có thể lưu lại để đọc sau.
-3. **Trả lời câu hỏi trắc nghiệm (Quiz)**:
-   - Cuối thẻ có 1 câu hỏi trắc nghiệm đơn giản.
-   - Gửi đáp án: `POST /api/MicroLearning/cards/{id}/quiz/submit`.
-   - Trả lời đúng: Nhận thông báo chúc mừng hoàn thành quiz thành công.
-   - Trả lời sai: Nhận phản hồi giải thích đáp án đúng để học lại.
+`GET /today` trả thông điệp chào mừng, quote/banner, mục tiêu calo, lượng đã dùng, lượng còn lại và trạng thái onboarding.
 
----
+### 5.2 Ba món nổi bật
 
-## 5. Nhật Ký Dinh Dưỡng & Chụp Ảnh Quét AI (Food Capture)
-1. **Tìm kiếm Catalog**: Tìm nhanh các món ăn Việt Nam truyền thống trong cơ sở dữ liệu có sẵn.
-2. **Food Capture (Quét ảnh AI)**:
-   - Người dùng chụp ảnh đĩa ăn thực tế.
-   - Hệ thống nhận diện thực phẩm, ước lượng khối lượng (gram), calo và tỷ lệ dinh dưỡng.
-   - Cảnh báo dị ứng nếu món ăn chứa thành phần nằm trong danh sách dị ứng của người dùng.
-   - Lưu vào nhật ký ăn uống (`MealLog`).
+`GET /featured-meals` xếp hạng món theo mức phù hợp với người dùng rồi trả tối đa ba món. Người dùng có thể mở chi tiết hoặc chọn món:
+
+```http
+POST /api/DailyStarter/select-meal
+```
+
+Món được thêm vào kế hoạch của ngày hiện tại theo loại bữa được gửi lên.
+
+### 5.3 Ghi nhanh theo khung giờ
+
+```http
+POST /api/DailyStarter/start-log
+```
+
+Backend xác định loại bữa từ thời gian hệ thống, lấy món nổi bật phù hợp và tạo meal log thật. Sau khi thành công, frontend tải lại dữ liệu Daily Starter.
+
+### 5.4 Cá nhân hóa
+
+Người dùng có thể xem và cập nhật đồng thời một phần dữ liệu sức khỏe, AI profile và dị ứng qua:
+
+```http
+GET /api/DailyStarter/personalization
+PUT /api/DailyStarter/personalization
+```
+
+Ngoài ra controller còn có endpoint recommendations và lưu sở thích ban đầu.
+
+> Lưu ý hiện trạng: backend đang không build vì `DailyStarterService` tham chiếu thuộc tính `Food.Name` không tồn tại. Do đó luồng Daily Starter có code nhưng chưa thể xác nhận chạy từ build hiện tại.
+
+## 6. Góc Cảm xúc & Thèm ăn và Micro-Learning
+
+Action **Cảm xúc** mở `MicroLearningScreen`, hiện có hai lớp hoạt động.
+
+### 6.1 Gợi ý món theo tâm trạng
+
+Frontend có các trạng thái được khai báo sẵn như:
+
+- Căng thẳng.
+- Buồn ngủ/uể oải.
+- Thèm ngọt.
+- Mệt mỏi sau tập.
+
+Mỗi trạng thái chứa insight và danh sách món “giải cứu” được lưu cục bộ trong app. Chọn món mở meal log sheet để người dùng ghi nhận. Phần mood/rescue này hiện chưa gọi API gợi ý động.
+
+### 6.2 Thẻ Micro-Learning từ backend
+
+Frontend đồng thời gọi:
+
+```http
+GET /api/MicroLearning/cards/recommended
+GET /api/MicroLearning/categories
+```
+
+Backend phân tích ba ngày gần nhất, health profile, dị ứng và eating pattern để ưu tiên category phù hợp. Hệ thống trả tối đa ba thẻ, bỏ qua thẻ đã dismiss và ưu tiên thẻ chưa đọc/chưa làm quiz.
+
+Người dùng có thể:
+
+- Xem chi tiết, summary, tips và quiz.
+- Đánh dấu đọc, lưu, bỏ lưu hoặc dismiss.
+- Xem danh sách đã lưu.
+- Gửi đáp án quiz và nhận điểm nếu đúng.
+
+API liên quan:
+
+```http
+GET  /api/MicroLearning/cards/{id}
+GET  /api/MicroLearning/cards/saved
+POST /api/MicroLearning/cards/{id}/action
+POST /api/MicroLearning/cards/{id}/quiz/submit
+```
+
+## 7. Trạng thái lỗi và fallback
+
+- Không có entitlement: mở màn nâng cấp, không mở công cụ Casual.
+- Subscription API lỗi: Casual Hub không tự cấp quyền; người dùng ở trạng thái chưa mở.
+- API Daily Starter lỗi: provider hiển thị thông báo khi cả dữ liệu today và featured đều thất bại.
+- Không có card Micro-Learning: giao diện hiển thị danh sách trống; runtime không tự seed nội dung.
+- Món vòng quay hết hiệu lực hoặc có dị ứng khi apply: backend trả lỗi và không thêm món.
+- Catalog có ít hơn 10 món hợp lệ: vòng quay nhận ít hơn 10 món.
+
+## 8. Ranh giới nghiệp vụ
+
+- Chọn hành vi Casual trong onboarding khác với quyền subscription Casual.
+- Mood rescue hiện là nội dung local, còn Micro-Learning card là dữ liệu backend.
+- `CasualPackageCard` là khu vực đã kích hoạt; người chưa có quyền chủ yếu vào qua Casual Hub/paywall.
+- Office và Gym/PT là entitlement độc lập, không thuộc workflow này.
+- Gói `pro` hiện được chấp nhận cho Casual entitlement.
+
+## 9. Tệp nguồn chính
+
+### Frontend
+
+- `frontend/lib/features/casual/views/casual_hub_screen.dart`
+- `frontend/lib/features/home/widgets/casual_package_card.dart`
+- `frontend/lib/features/subscription/utils/subscription_access.dart`
+- `frontend/lib/features/vietnam_local/views/lucky_wheel_screen.dart`
+- `frontend/lib/features/vietnam_local/views/daily_starter_screen.dart`
+- `frontend/lib/features/vietnam_local/providers/daily_starter_provider.dart`
+- `frontend/lib/features/micro_learning/views/micro_learning_screen.dart`
+
+### Backend
+
+- `backend/MenuGreen.API/Authorization/EntitlementHandler.cs`
+- `backend/MenuGreen.API/Controllers/LuckyWheelController.cs`
+- `backend/MenuGreen.API/Controllers/DailyStarterController.cs`
+- `backend/MenuGreen.API/Controllers/MicroLearningController.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/LuckyWheelService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/DailyStarterService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/MicroLearningService.cs`
+- `backend/database/06_subscription_plans.sql`
+- `backend/database/58_casual_subscription_plan.sql`
+

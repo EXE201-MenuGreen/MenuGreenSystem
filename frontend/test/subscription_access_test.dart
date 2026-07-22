@@ -44,4 +44,27 @@ void main() {
 
     expect(hasGymerSubscriptionAccess(plans), isFalse);
   });
+
+  test('Casual dashboard opens for an active casual or pro plan', () {
+    final plans = [
+      subscription(id: 'office', name: 'Gói Office', featureGroup: 'office'),
+      subscription(id: 'casual', name: 'Gói Casual', featureGroup: 'casual'),
+    ];
+
+    expect(hasCasualSubscriptionAccess(plans), isTrue);
+  });
+
+  test('Casual dashboard rejects cancelled and unrelated plans', () {
+    final plans = [
+      subscription(id: 'gym', name: 'Gói Gym/PT', featureGroup: 'gym'),
+      subscription(
+        id: 'casual',
+        name: 'Gói Casual',
+        featureGroup: 'casual',
+        status: 'Cancelled',
+      ),
+    ];
+
+    expect(hasCasualSubscriptionAccess(plans), isFalse);
+  });
 }

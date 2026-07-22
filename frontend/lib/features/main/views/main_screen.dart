@@ -10,7 +10,7 @@ import '../../discover/views/discover_view.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
-import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
 import '../../main/widgets/floating_ai_assistant_button.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import '../../discover/views/recommendation_screen.dart';
@@ -74,7 +74,7 @@ class _MainScreenState extends State<MainScreen> {
 
   List<Widget> _buildPages() => [
     DiscoverView(key: _discoverKey),
-    const MealPlanScreen(),
+    const SmartMealPlanRouterScreen(),
     HomeView(
       key: _homeKey,
       onNavigateToTab: _selectTab,
