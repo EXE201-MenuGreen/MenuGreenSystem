@@ -1586,6 +1586,84 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return (await GetByDateAsync(userId, request.PlannedDate))!;
         }
 
+        public async Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId)
+        {
+            var mealLog = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId)
+                ?? throw new Exception("Meal log not found.");
+            if (mealLog.UserId != userId) throw new Exception("Forbidden.");
+
+            // The operation is idempotent, so a retry cannot create duplicate plan items.
+            if (mealLog.MealPlanItemId.HasValue) return;
+
+            var plannedDate = DateOnly.FromDateTime(mealLog.LoggedAt ?? DateTime.UtcNow);
+            var plan = await FindDailyPlanAsync(userId, plannedDate);
+            if (plan == null)
+            {
+                plan = new MealPlanHeader
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = $"Daily plan {plannedDate:yyyy-MM-dd}",
+                    PlanType = "DAILY",
+                    StartDate = plannedDate,
+                    EndDate = plannedDate,
+                    GeneratedBy = "USER",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanHeaders.AddAsync(plan);
+            }
+
+            var normalizedMealType = NormalizeMealType(mealLog.MealType ?? "snack");
+            var planItems = await _unitOfWork.MealPlanItems.FindAsync(x =>
+                x.MealPlanId == plan.Id && x.MealType == normalizedMealType && !x.IsCompleted);
+            var planItem = planItems.FirstOrDefault(x =>
+                x.FoodId == mealLog.FoodId && x.RecipeId == mealLog.RecipeId &&
+                (x.FoodId.HasValue || x.RecipeId.HasValue));
+
+            if (planItem == null && !string.IsNullOrWhiteSpace(mealLog.CustomName))
+            {
+                planItem = planItems.FirstOrDefault(x =>
+                    string.Equals(x.CustomName, mealLog.CustomName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (planItem == null)
+            {
+                planItem = new MealPlanItem
+                {
+                    Id = Guid.NewGuid(),
+                    MealPlanId = plan.Id,
+                    MealType = normalizedMealType,
+                    FoodId = mealLog.FoodId,
+                    RecipeId = mealLog.RecipeId,
+                    PlannedDate = plannedDate,
+                    TargetCalories = mealLog.CaloriesKcal.HasValue
+                        ? (int)Math.Round(mealLog.CaloriesKcal.Value)
+                        : null,
+                    QuantityG = mealLog.QuantityG,
+                    ProteinG = mealLog.ProteinG,
+                    CarbsG = mealLog.CarbsG,
+                    FatG = mealLog.FatG,
+                    SourceType = "ACTUAL_LOG",
+                    CustomName = mealLog.CustomName,
+                    IsCompleted = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanItems.AddAsync(planItem);
+            }
+            else
+            {
+                planItem.IsCompleted = true;
+                _unitOfWork.MealPlanItems.Update(planItem);
+            }
+
+            mealLog.MealPlanItemId = planItem.Id;
+            mealLog.IsFromMealPlan = true;
+            _unitOfWork.MealLogs.Update(mealLog);
+            await _unitOfWork.CompleteAsync();
+        }
+
         public async Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request)
         {
             var items = request.Items.Select(x => new MealPlanItemUpsertRequest

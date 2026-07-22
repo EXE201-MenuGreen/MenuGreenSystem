@@ -26,6 +26,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateTime? LoggedAt { get; set; }
         public Guid? MealPlanItemId { get; set; }
 
+        /// <summary>
+        /// When recording an actual meal, also add or match it in the daily
+        /// meal plan and mark that plan item as completed.
+        /// </summary>
+        public bool AddToMealPlan { get; set; } = true;
+
         [Range(0, double.MaxValue, ErrorMessage = "Calories must be positive.")]
         public decimal? CaloriesKcal { get; set; }
 

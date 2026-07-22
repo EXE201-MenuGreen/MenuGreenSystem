@@ -580,6 +580,10 @@ class HomeViewState extends State<HomeView> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Đã ghi nhật ký bữa ăn.')));
+    ).showSnackBar(
+      const SnackBar(
+        content: Text('Đã lưu bữa ăn vào Kế hoạch ăn uống và Lịch sử.'),
+      ),
+    );
   }
 }

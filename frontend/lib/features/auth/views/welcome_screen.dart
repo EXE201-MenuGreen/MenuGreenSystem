@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/outline_button.dart';
+import '../../../core/widgets/primary_button.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -17,9 +18,9 @@ class WelcomeScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'MenuGreen',
-          style: TextStyle(
+          style: GoogleFonts.beVietnamPro(
             color: AppColors.textDark,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -33,72 +34,89 @@ class WelcomeScreen extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // Header Image Section
-          SizedBox(
-            width: double.infinity,
-            height: MediaQuery.of(context).size.height * 0.45,
-            child: Image.asset(
-              'assets/images/salad_bowl.png',
-              fit: BoxFit.cover,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 1. Header Image Section (Flexibly scaled, non-scrollable)
+            Expanded(
+              flex: 4,
+              child: SizedBox(
+                width: double.infinity,
+                child: Image.asset(
+                  'assets/images/salad_bowl.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-          ),
-          
-          // Content Section
-          Expanded(
-            child: SingleChildScrollView(
+
+            // 2. Main Content Section (Fixed 100% inside viewport, zero scrolling)
+            Expanded(
+              flex: 5,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const Text(
-                      'Ăn ngon hơn, sống\nkhỏe hơn mỗi\nngày',
+                    // Two-line Title: Line 1 = Ăn ngon hơn,, Line 2 = Sống khỏe mỗi ngày
+                    Text(
+                      'Ăn ngon hơn,\nSống khỏe mỗi ngày',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.heading1,
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                        height: 1.25,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Hàng ngàn công thức nấu ăn lành mạnh phù\nhợp với riêng bạn',
+
+                    Text(
+                      'Hàng ngàn công thức nấu ăn lành mạnh\nphù hợp với riêng bạn',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.subtitle,
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 13.5,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
                     ),
-                    const SizedBox(height: 32),
-                    PrimaryButton(
-                      text: 'Đăng ký',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                        );
-                      },
+
+                    Column(
+                      children: [
+                        PrimaryButton(
+                          text: 'Đăng ký',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        CustomOutlineButton(
+                          text: 'Đăng nhập',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    CustomOutlineButton(
-                      text: 'Đăng nhập',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(
+                      children: [
+                        const Icon(
                           Icons.energy_savings_leaf_outlined,
                           color: AppColors.textLight,
                           size: 16,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'Khám phá lối sống lành mạnh',
-                          style: TextStyle(
+                          style: GoogleFonts.beVietnamPro(
                             color: AppColors.textLight,
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -107,8 +125,8 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
