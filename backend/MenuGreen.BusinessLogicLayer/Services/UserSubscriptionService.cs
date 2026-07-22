@@ -54,6 +54,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 "gym" => "Gymer",
                 "office" => "Office",
+                "casual" => "Casual",
+                "pro" => "Casual",
                 _ => "Free"
             };
             var targetRoles = await _unitOfWork.Roles.FindAsync(

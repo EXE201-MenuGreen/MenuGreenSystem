@@ -48,7 +48,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet("featured-meals")]
         public async Task<IActionResult> GetFeaturedMeals()
         {
-            return Ok(await _service.GetFeaturedMealsAsync());
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetFeaturedMealsAsync(userId));
         }
 
         /// <summary>
@@ -60,8 +61,15 @@ namespace MenuGreen.API.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (!TryGetUserId(out var userId)) return Unauthorized();
             
-            await _service.SelectMealPlanAsync(userId, request);
-            return Ok(new { Message = "Menu template applied to today's plan successfully." });
+            try
+            {
+                await _service.SelectMealPlanAsync(userId, request);
+                return Ok(new { Message = "Menu template applied to today's plan successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>
@@ -71,7 +79,14 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> StartLog()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.StartLogFlowAsync(userId));
+            try
+            {
+                return Ok(await _service.StartLogFlowAsync(userId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>

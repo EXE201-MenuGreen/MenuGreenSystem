@@ -63,6 +63,14 @@ namespace MenuGreen.API.Authorization
                             return;
                         }
                     }
+                    else if (requirement.RequiredEntitlement == "casual_features")
+                    {
+                        if (planName.Contains("casual") || featureGroup is "casual" or "pro")
+                        {
+                            context.Succeed(requirement);
+                            return;
+                        }
+                    }
                 }
             }
         }

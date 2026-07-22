@@ -13,7 +13,7 @@ namespace MenuGreen.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Policy = "CasualOnly")]
     public class MicroLearningController : ControllerBase
     {
         private readonly IMicroLearningService _service;

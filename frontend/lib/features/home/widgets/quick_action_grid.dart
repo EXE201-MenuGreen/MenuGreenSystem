@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../casual/views/casual_hub_screen.dart';
 import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
-import '../../micro_learning/views/micro_learning_screen.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
-import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../../vietnam_local/views/food_capture_screen.dart';
 import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
@@ -135,8 +134,8 @@ class QuickActionGrid extends StatelessWidget {
     ),
     _ActionItem(
       type: QuickActionType.nutritionLearning,
-      icon: Icons.menu_book_outlined,
-      label: 'Góc\ndinh dưỡng',
+      icon: Icons.psychology_outlined,
+      label: 'Góc\nCảm xúc',
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),
@@ -153,7 +152,7 @@ class QuickActionGrid extends StatelessWidget {
     Widget screen;
     switch (type) {
       case QuickActionType.todayEat:
-        screen = const DailyStarterScreen();
+        screen = const CasualHubScreen(openFeature: CasualFeature.dailyStarter);
         break;
       case QuickActionType.eatOut:
         screen = const FoodCaptureScreen();
@@ -192,7 +191,9 @@ class QuickActionGrid extends StatelessWidget {
         screen = const MealTemplatesScreen();
         break;
       case QuickActionType.nutritionLearning:
-        screen = const MicroLearningScreen();
+        screen = const CasualHubScreen(
+          openFeature: CasualFeature.microLearning,
+        );
         break;
       case QuickActionType.officeWorkspace:
         screen = const OfficeWorkspaceScreen();
@@ -255,12 +256,13 @@ class QuickActionGrid extends StatelessWidget {
                   Expanded(
                     child: GridView.builder(
                       controller: scrollController,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.82,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 0.82,
+                          ),
                       itemCount: visibleActions.length,
                       itemBuilder: (gridContext, index) {
                         final action = visibleActions[index];
@@ -320,7 +322,10 @@ class QuickActionGrid extends StatelessWidget {
                       type: QuickActionType.calcCalo,
                       icon: Icons.apps_rounded,
                       label: 'Khác',
-                      gradientColors: [AppColors.primary, AppColors.primaryLight],
+                      gradientColors: [
+                        AppColors.primary,
+                        AppColors.primaryLight,
+                      ],
                       bgColor: Colors.white,
                     ),
                     onTap: () => _showAllFeaturesSheet(context),
@@ -357,11 +362,7 @@ class _QuickActionItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              action.icon,
-              color: action.gradientColors.first,
-              size: 32,
-            ),
+            Icon(action.icon, color: action.gradientColors.first, size: 32),
             const SizedBox(height: 8),
             Text(
               action.label,

@@ -50,7 +50,13 @@ class MealLogItem {
     final customName = (json['customName'] ?? json['CustomName'])
         ?.toString()
         .trim();
-    final resolvedName = (displayName != null && displayName.isNotEmpty)
+    final notes = (json['notes'] ?? json['Notes'])?.toString().trim();
+
+    final isValidDisplayName = displayName != null &&
+        displayName.isNotEmpty &&
+        displayName.toLowerCase() != 'logged item';
+
+    final resolvedName = isValidDisplayName
         ? displayName
         : (foodName != null && foodName.isNotEmpty)
         ? foodName
@@ -58,6 +64,8 @@ class MealLogItem {
         ? recipeTitle
         : (customName != null && customName.isNotEmpty)
         ? customName
+        : (notes != null && notes.isNotEmpty)
+        ? notes
         : 'Món đã ghi';
 
     return MealLogItem(
