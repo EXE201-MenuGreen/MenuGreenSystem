@@ -957,6 +957,74 @@ unzip -l app-release.apk | grep "\.so"
 
 ---
 
+## [PENDING] EF Core Migration Conflict — foods table already exists
+
+**Date:** 2026-07-20
+**Status:** Pending
+**Severity:** High
+
+### Description
+
+`dotnet ef database update` (PM> update-database) bị lỗi khi chạy migration `20260629084940_InitialCreate`:
+
+```
+Npgsql.PostgresException (0x80004005): 42P07: relation "foods" already exists
+```
+
+Migration cố tạo bảng `foods` nhưng bảng đã tồn tại trong database.
+
+### Root Cause
+
+1. Bảng `foods` được tạo bằng **script SQL thủ công** (`backend/database/01_foods_seed.sql`) — không phải qua EF Core migration.
+2. Bảng đã tồn tại nhưng record trong `__EFMigrationsHistory` cho migration `InitialCreate` **chưa có** (hoặc đã bị xoá).
+3. EF Core không biết bảng đã tồn tại → cố tạo lại → conflict.
+
+### Environment
+
+- PostgreSQL database (local hoặc production)
+- EF Core 9.0 / Npgsql
+- Migration: `20260629084940_InitialCreate`
+
+### Logs
+
+```
+CREATE TABLE foods (
+    "Id" uuid NOT NULL,
+    "NameVi" text NOT NULL,
+    ...
+    CONSTRAINT "PK_foods" PRIMARY KEY ("Id")
+);
+Npgsql.PostgresException (0x80004005): 42P07: relation "foods" already exists
+```
+
+### Solution
+
+**Cách 1 (Recommended):** Insert record vào `__EFMigrationsHistory` để đánh dấu migration đã applied:
+
+```sql
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20260629084940_InitialCreate', '9.0.0');
+```
+
+Sau đó chạy lại:
+```bash
+dotnet ef database update
+```
+
+**Cách 2:** Dùng EF Core tool để mark migration as applied:
+
+```bash
+dotnet ef database update 20260629084940_InitialCreate --no-build
+```
+
+### Attempts
+
+- [ ] Chạy SQL insert vào `__EFMigrationsHistory`
+- [ ] Verify `dotnet ef database update` không còn lỗi
+- [ ] Verify các migration tiếp theo áp dụng đúng
+
+---
+
 ## Template for New Issues
 
 ```markdown
