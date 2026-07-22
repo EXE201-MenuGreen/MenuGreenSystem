@@ -13,6 +13,7 @@ class HomeHeader extends StatelessWidget {
     this.avatarUrl,
     required this.notificationProvider,
     required this.onSearchTap,
+    required this.onMapTap,
     required this.onNotificationTap,
   });
 
@@ -21,6 +22,7 @@ class HomeHeader extends StatelessWidget {
   final String? avatarUrl;
   final NotificationProvider notificationProvider;
   final VoidCallback onSearchTap;
+  final VoidCallback onMapTap;
   final VoidCallback onNotificationTap;
 
   @override
@@ -99,6 +101,8 @@ class HomeHeader extends StatelessWidget {
           badge: 0,
           onTap: onSearchTap,
         ),
+        const SizedBox(width: 8),
+        IconButtonWithBadge(icon: Icons.map_rounded, badge: 0, onTap: onMapTap),
         const SizedBox(width: 8),
         ListenableBuilder(
           listenable: notificationProvider,

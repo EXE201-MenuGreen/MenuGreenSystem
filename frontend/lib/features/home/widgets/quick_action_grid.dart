@@ -3,13 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../casual/views/casual_hub_screen.dart';
+import '../../discover/views/discover_view.dart';
 import '../../discover/views/favorites_screen.dart';
+import '../../discover/views/food_map_screen.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
-import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
-import 'home_search_sheet.dart';
 import '../../vietnam_local/views/food_capture_screen.dart';
 import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
@@ -91,8 +91,8 @@ class QuickActionGrid extends StatelessWidget {
     ),
     _ActionItem(
       type: QuickActionType.searchFood,
-      icon: Icons.search,
-      label: 'Tìm\nmón',
+      icon: Icons.map_rounded,
+      label: 'Bản đồ\nmón ăn',
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),
@@ -179,13 +179,13 @@ class QuickActionGrid extends StatelessWidget {
         screen = const LocalPreferencesScreen();
         break;
       case QuickActionType.searchFood:
-        HomeSearchSheet.show(context);
-        return;
+        screen = const FoodMapScreen();
+        break;
       case QuickActionType.favorites:
         screen = const FavoritesScreen();
         break;
       case QuickActionType.calcCalo:
-        screen = const IngredientScanScreen();
+        screen = const DiscoverView();
         break;
       case QuickActionType.weightLog:
         _openWeightLog(context);

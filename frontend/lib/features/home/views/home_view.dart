@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
 import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/food_map_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/models/meal_plan_models.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
@@ -336,9 +337,7 @@ class HomeViewState extends State<HomeView> {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: HomeBannerCarousel(
-                  onBannerTap: _handleBannerTap,
-                ),
+                child: HomeBannerCarousel(onBannerTap: _handleBannerTap),
               ),
               const SizedBox(height: 20),
               if (_featureAccess.hasOffice) ...[
@@ -509,12 +508,16 @@ class HomeViewState extends State<HomeView> {
       avatarUrl: _avatarUrl,
       notificationProvider: _notificationProvider,
       onSearchTap: () => HomeSearchSheet.show(context),
+      onMapTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FoodMapScreen()),
+        );
+      },
       onNotificationTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const NotificationInboxScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
         ).then((_) => _notificationProvider.loadUnreadCount());
       },
     );
@@ -550,9 +553,7 @@ class HomeViewState extends State<HomeView> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const PlannedVsActualScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const PlannedVsActualScreen()),
             );
           },
         ),

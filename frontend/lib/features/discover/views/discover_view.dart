@@ -12,6 +12,7 @@ import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
 import 'favorites_screen.dart';
 import 'food_detail_screen.dart';
+import 'food_map_screen.dart';
 import 'ingredient_detail_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'recommendation_screen.dart';
@@ -402,6 +403,23 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                               _scheduleReload();
                             }
                           : null,
+                    ),
+                    ActionChip(
+                      avatar: const Icon(
+                        Icons.map_rounded,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      label: const Text('Bản đồ món 🗺️'),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FoodMapScreen(initialKeyword: _keyword),
+                          ),
+                        );
+                      },
                     ),
                     ActionChip(
                       avatar: Icon(
