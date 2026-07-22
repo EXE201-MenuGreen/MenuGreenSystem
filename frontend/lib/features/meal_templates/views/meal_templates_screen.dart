@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../discover/views/food_detail_screen.dart';
-import '../../discover/views/recipe_detail_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/meal_template_models.dart';
 import '../repositories/meal_template_repository.dart';
@@ -35,7 +33,9 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
     try {
       final templates = await _repository.getAll();
       if (mounted) {
-        setState(() => _templates = templates.where((item) => item.isActive).toList());
+        setState(
+          () => _templates = templates.where((item) => item.isActive).toList(),
+        );
       }
     } catch (error) {
       if (mounted) _showMessage(error.toString(), error: true);
@@ -47,7 +47,9 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
   Future<void> _openEditor([MealTemplate? template]) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => MealTemplateEditorScreen(template: template)),
+      MaterialPageRoute(
+        builder: (_) => MealTemplateEditorScreen(template: template),
+      ),
     );
     if (changed == true) await _load();
   }
@@ -86,7 +88,10 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
               children: [
                 Text(
                   template.title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
@@ -111,7 +116,9 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
                 ),
                 const SizedBox(height: 8),
                 ..._mealTypes.map((type) {
-                  final items = detail.items.where((item) => _itemMealType(item, template) == type).toList();
+                  final items = detail.items
+                      .where((item) => _itemMealType(item, template) == type)
+                      .toList();
                   if (items.isEmpty) return const SizedBox.shrink();
                   return _LogMealTypeSection(
                     mealType: type,
@@ -141,13 +148,18 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
 
     final itemQuantities = <Map<String, dynamic>>[];
     for (final item in detail.items) {
-      final quantity = double.tryParse(quantityControllers[item.id]!.text.trim());
+      final quantity = double.tryParse(
+        quantityControllers[item.id]!.text.trim(),
+      );
       if (quantity == null || quantity <= 0) {
         _disposeControllers(quantityControllers.values);
         if (mounted) _showMessage('Khối lượng phải lớn hơn 0.', error: true);
         return;
       }
-      itemQuantities.add({'mealTemplateItemId': item.id, 'quantityG': quantity});
+      itemQuantities.add({
+        'mealTemplateItemId': item.id,
+        'quantityG': quantity,
+      });
     }
     _disposeControllers(quantityControllers.values);
 
@@ -156,7 +168,13 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
       await _repository.log(
         template.id,
         mealType: template.mealType ?? 'Snack',
-        loggedAt: DateTime(date.year, date.month, date.day, now.hour, now.minute),
+        loggedAt: DateTime(
+          date.year,
+          date.month,
+          date.day,
+          now.hour,
+          now.minute,
+        ),
         itemQuantities: itemQuantities,
       );
       if (mounted) _showMessage('Đã ghi thực đơn "${template.title}".');
@@ -205,46 +223,62 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _templates.isEmpty
-                ? ListView(
-                    children: const [
-                      SizedBox(height: 180),
-                      Center(child: Text('Chưa có thực đơn nào được lưu.')),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _templates.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final template = _templates[index];
-                      return Card(
-                        child: ListTile(
-                          onTap: () => _openEditor(template),
-                          leading: const Icon(Icons.bookmark_outline, color: AppColors.primary),
-                          title: Text(template.title),
-                          subtitle: Text('${_templateTypeLabel(template)} • Đã dùng ${template.usageCount} lần'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Ghi thực đơn',
-                                onPressed: () => _logTemplate(template),
-                                icon: const Icon(Icons.add_task_outlined),
+            ? ListView(
+                children: const [
+                  SizedBox(height: 180),
+                  Center(child: Text('Chưa có thực đơn nào được lưu.')),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _templates.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final template = _templates[index];
+                  return Card(
+                    child: ListTile(
+                      onTap: () => _openEditor(template),
+                      leading: const Icon(
+                        Icons.bookmark_outline,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(template.title),
+                      subtitle: Text(
+                        '${_templateTypeLabel(template)} • Đã dùng ${template.usageCount} lần',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Ghi thực đơn',
+                            onPressed: () => _logTemplate(template),
+                            icon: const Icon(Icons.add_task_outlined),
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected: (action) =>
+                                _handleAction(action, template),
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Chỉnh sửa'),
                               ),
-                              PopupMenuButton<String>(
-                                onSelected: (action) => _handleAction(action, template),
-                                itemBuilder: (context) => const [
-                                  PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-                                  PopupMenuItem(value: 'duplicate', child: Text('Nhân bản')),
-                                  PopupMenuItem(value: 'delete', child: Text('Xóa')),
-                                ],
+                              PopupMenuItem(
+                                value: 'duplicate',
+                                child: Text('Nhân bản'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Xóa'),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
