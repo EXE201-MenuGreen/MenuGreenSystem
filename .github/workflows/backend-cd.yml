@@ -30,13 +30,11 @@ jobs:
     # Skip nếu:
     # - CI fail hoặc cancelled
     # - Commit message chứa #skipdeploy
-    # - CI trigger từ pull_request (chỉ deploy khi push)
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow.conclusion == 'success' &&
-       !contains(github.event.workflow_run.head_commit.message, '#skipdeploy') &&
-       github.event.workflow_run.event == 'push')
+       !contains(github.event.workflow_run.head_commit.message, '#skipdeploy'))
 
     steps:
       - name: Checkout
