@@ -9,19 +9,29 @@ class ReminderRepository {
 
   final ApiClient _api;
 
-  Future<ReminderProfile> getProfile() async =>
-      ReminderProfile.fromJson(await _object(_api.get(ApiEndpoints.reminderProfile)));
+  Future<ReminderProfile> getProfile() async => ReminderProfile.fromJson(
+    await _object(_api.get(ApiEndpoints.reminderProfile)),
+  );
 
   Future<ReminderProfile> updateProfile(ReminderProfile profile) async =>
-      ReminderProfile.fromJson(await _object(_api.putJson(ApiEndpoints.reminderProfile, profile.toJson())));
+      ReminderProfile.fromJson(
+        await _object(
+          _api.putJson(ApiEndpoints.reminderProfile, profile.toJson()),
+        ),
+      );
 
-  Future<ReminderProfile> recalculateProfile() async => ReminderProfile.fromJson(
-        await _object(_api.postJson(ApiEndpoints.reminderProfileRecalculate, const {})),
+  Future<ReminderProfile> recalculateProfile() async =>
+      ReminderProfile.fromJson(
+        await _object(
+          _api.postJson(ApiEndpoints.reminderProfileRecalculate, const {}),
+        ),
       );
 
   Future<List<ScheduledReminder>> getScheduled() async {
     final response = await _api.get(ApiEndpoints.scheduledReminders);
-    if (response.statusCode != 200 || response.body.isEmpty) throw Exception(_message(response));
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      throw Exception(_message(response));
+    }
     final data = jsonDecode(response.body);
     if (data is! List) return const [];
     return data
@@ -35,14 +45,17 @@ class ReminderRepository {
     required String body,
     required DateTime scheduledAt,
     int? repeatIntervalMinutes,
-  }) async =>
-      ScheduledReminder.fromJson(await _object(_api.postJson(ApiEndpoints.scheduledReminders, {
+  }) async => ScheduledReminder.fromJson(
+    await _object(
+      _api.postJson(ApiEndpoints.scheduledReminders, {
         'title': title,
         'body': body,
         'scheduledAt': scheduledAt.toUtc().toIso8601String(),
         'type': 'CUSTOM_REMINDER',
         'repeatIntervalMinutes': ?repeatIntervalMinutes,
-      })));
+      }),
+    ),
+  );
 
   Future<ScheduledReminder> update(
     String id, {
@@ -50,18 +63,24 @@ class ReminderRepository {
     String? body,
     DateTime? scheduledAt,
     bool? isEnabled,
-  }) async =>
-      ScheduledReminder.fromJson(await _object(_api.patchJson(ApiEndpoints.scheduledReminderById(id), {
+  }) async => ScheduledReminder.fromJson(
+    await _object(
+      _api.patchJson(ApiEndpoints.scheduledReminderById(id), {
         'title': ?title,
         'body': ?body,
         'scheduledAt': ?scheduledAt?.toUtc().toIso8601String(),
         'isEnabled': ?isEnabled,
-      })));
+      }),
+    ),
+  );
 
   Future<ScheduledReminder> snooze(String id, int minutes) async {
-    final uri = Uri.parse(ApiEndpoints.scheduledReminderSnooze(id))
-        .replace(queryParameters: {'minutes': '$minutes'});
-    return ScheduledReminder.fromJson(await _object(_api.postJson(uri.toString(), const {})));
+    final uri = Uri.parse(
+      ApiEndpoints.scheduledReminderSnooze(id),
+    ).replace(queryParameters: {'minutes': '$minutes'});
+    return ScheduledReminder.fromJson(
+      await _object(_api.postJson(uri.toString(), const {})),
+    );
   }
 
   Future<void> delete(String id) async {
@@ -71,19 +90,54 @@ class ReminderRepository {
 
   Future<Map<String, dynamic>> _object(Future<dynamic> request) async {
     final response = await request;
-    if ((response.statusCode != 200 && response.statusCode != 201) || response.body.isEmpty) {
+    if ((response.statusCode != 200 && response.statusCode != 201) ||
+        response.body.isEmpty) {
       throw Exception(_message(response));
     }
     final data = jsonDecode(response.body);
-    if (data is! Map<String, dynamic>) throw Exception('Phản hồi không hợp lệ.');
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Phản hồi không hợp lệ.');
+    }
     return data;
   }
 
   String _message(dynamic response) {
     try {
       final data = jsonDecode(response.body);
-      if (data is Map) return (data['message'] ?? data['Message'] ?? 'Không thể thực hiện thao tác.').toString();
+      if (data is Map) {
+        final message = data['message'] ?? data['Message'];
+        if (message != null) return _friendlyMessage(message.toString());
+
+        final errors = data['errors'] ?? data['Errors'];
+        if (errors is Map) {
+          for (final value in errors.values) {
+            if (value is List && value.isNotEmpty) {
+              return _friendlyMessage(value.first.toString());
+            }
+            if (value != null && value.toString().trim().isNotEmpty) {
+              return _friendlyMessage(value.toString());
+            }
+          }
+        }
+      }
     } catch (_) {}
     return 'Không thể thực hiện thao tác.';
+  }
+
+  String _friendlyMessage(String message) {
+    final normalized = message.trim().toLowerCase();
+    if (normalized.contains('reminder time must be in the future')) {
+      return 'Thời gian nhắc đã qua. Vui lòng chọn ngày và giờ trong tương lai.';
+    }
+    if (normalized.contains('snooze duration must be between')) {
+      return 'Thời gian nhắc lại phải từ 1 phút đến 24 giờ.';
+    }
+    if (normalized.contains('reminder not found')) {
+      return 'Nhắc nhở này không còn tồn tại. Vui lòng tải lại danh sách.';
+    }
+    if (normalized == 'forbidden.' || normalized.contains('forbidden')) {
+      return 'Bạn không có quyền thay đổi nhắc nhở này.';
+    }
+    return message;
   }
 }

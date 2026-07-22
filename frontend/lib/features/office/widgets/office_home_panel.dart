@@ -63,20 +63,28 @@ class OfficeHomePanel extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 82,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: actions.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final action = actions[index];
-                  return _OfficeAction(
-                    icon: action.icon,
-                    label: action.label,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => action.screen),
-                    ),
+              height: 76,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final itemWidth = constraints.maxWidth / 4;
+
+                  return ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: actions.length,
+                    itemBuilder: (context, index) {
+                      final action = actions[index];
+                      return SizedBox(
+                        width: itemWidth,
+                        child: _OfficeAction(
+                          icon: action.icon,
+                          label: action.label,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => action.screen),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -88,32 +96,27 @@ class OfficeHomePanel extends StatelessWidget {
 }
 
 class _OfficeAction extends StatelessWidget {
-  const _OfficeAction({required this.icon, required this.label, required this.onTap});
+  const _OfficeAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 72,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 23),
-              ),
-              const SizedBox(height: 6),
+              Icon(icon, color: AppColors.primary, size: 27),
+              const SizedBox(height: 8),
               Text(
                 label,
                 maxLines: 1,
