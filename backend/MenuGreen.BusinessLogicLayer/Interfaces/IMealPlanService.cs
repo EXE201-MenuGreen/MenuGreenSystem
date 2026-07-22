@@ -21,6 +21,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task DeleteItemAsync(Guid planId, Guid itemId, Guid? userId = null);
         Task<MealPlanResponse> UpdateItemStatusAsync(Guid planId, Guid itemId, MealPlanStatusRequest request, Guid? userId = null);
         Task<MealLogResponse> ConvertItemToLogAsync(Guid planId, Guid itemId, MealPlanConvertToLogRequest request, Guid? userId = null);
+        Task<OfficeScanMealResponse> SaveOfficeScanMealAsync(Guid planId, OfficeScanMealRequest request, Guid userId);
         Task<MealPlanResponse> CommitAsync(Guid planId, MealPlanCommitRequest request, Guid? userId = null);
         Task<MealPlanResponse> DuplicateAsync(Guid planId, MealPlanDuplicateRequest request, Guid? userId = null);
         Task<MealPlanDashboardResponse> GetDashboardAsync(DateOnly date, Guid? userId = null);

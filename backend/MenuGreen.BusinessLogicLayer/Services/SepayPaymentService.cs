@@ -311,7 +311,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Subscription plan not found.");
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = plan.DurationDays is > 0
+                ? plan.DurationDays.Value
+                : string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase)
+                    ? 1
+                    : 36500;
             var isRenewal = subscription.Status == "Active";
 
             if (isRenewal)

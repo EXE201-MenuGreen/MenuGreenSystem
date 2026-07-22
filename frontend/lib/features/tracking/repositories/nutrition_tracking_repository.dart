@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http_parser/http_parser.dart';
 
 import '../../../core/middleware/query_middleware.dart';
+import '../../../core/middleware/error_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/nutrition_models.dart';
@@ -10,7 +11,8 @@ import '../models/nutrition_models.dart';
 export '../models/nutrition_models.dart';
 
 class NutritionTrackingRepository {
-  NutritionTrackingRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  NutritionTrackingRepository({ApiClient? apiClient})
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
 
@@ -49,6 +51,11 @@ class NutritionTrackingRepository {
     required double quantityG,
     String? notes,
     DateTime? loggedAt,
+    double? caloriesKcal,
+    double? proteinG,
+    double? carbsG,
+    double? fatG,
+    String? customName,
   }) async {
     final response = await _api.postJson(
       ApiEndpoints.nutritionMealLogs,
@@ -59,6 +66,11 @@ class NutritionTrackingRepository {
         quantityG: quantityG,
         notes: notes,
         loggedAt: loggedAt,
+        caloriesKcal: caloriesKcal,
+        proteinG: proteinG,
+        carbsG: carbsG,
+        fatG: fatG,
+        customName: customName,
       ),
     );
     return response.statusCode == 200;
@@ -88,7 +100,9 @@ class NutritionTrackingRepository {
   }
 
   Future<bool> deleteMealLog(String mealLogId) async {
-    final response = await _api.delete(ApiEndpoints.nutritionMealLogById(mealLogId));
+    final response = await _api.delete(
+      ApiEndpoints.nutritionMealLogById(mealLogId),
+    );
     return response.statusCode == 200;
   }
 
@@ -126,7 +140,9 @@ class NutritionTrackingRepository {
   }
 
   Future<bool> deleteWeightLog(String weightLogId) async {
-    final response = await _api.delete(ApiEndpoints.nutritionWeightLogById(weightLogId));
+    final response = await _api.delete(
+      ApiEndpoints.nutritionWeightLogById(weightLogId),
+    );
     return response.statusCode == 200;
   }
 
@@ -167,6 +183,11 @@ class NutritionTrackingRepository {
     required double quantityG,
     String? notes,
     DateTime? loggedAt,
+    double? caloriesKcal,
+    double? proteinG,
+    double? carbsG,
+    double? fatG,
+    String? customName,
   }) {
     return {
       'foodId': foodId,
@@ -175,6 +196,11 @@ class NutritionTrackingRepository {
       'quantityG': quantityG,
       'notes': notes,
       'loggedAt': loggedAt?.toUtc().toIso8601String(),
+      'caloriesKcal': caloriesKcal,
+      'proteinG': proteinG,
+      'carbsG': carbsG,
+      'fatG': fatG,
+      'customName': customName,
     };
   }
 
@@ -208,10 +234,20 @@ class NutritionTrackingRepository {
       'image',
       filename,
       fileContentType: MediaType.parse(mimeType),
+      // Backend submits a CV job and polls the AI worker for up to 60 seconds.
+      // This request must not inherit the 20-second timeout used by normal APIs.
+      timeout: const Duration(seconds: 90),
     );
-    if (response.statusCode != 200 || response.body.isEmpty) return null;
+    if (response.statusCode != 200) {
+      throw StateError(ApiErrorMiddleware.messageForResponse(response));
+    }
+    if (response.body.isEmpty) {
+      throw const FormatException('Máy chủ không trả về kết quả phân tích.');
+    }
     final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) return null;
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Kết quả phân tích không đúng định dạng.');
+    }
     return CvInferenceResponse.fromJson(decoded);
   }
 }

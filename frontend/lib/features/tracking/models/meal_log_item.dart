@@ -10,6 +10,7 @@ class MealLogItem {
     this.recipeId,
     this.notes,
     this.sourceType,
+    this.customName,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class MealLogItem {
   final String? recipeId;
   final String? notes;
   final String? sourceType;
+  final String? customName;
 
   bool get isRecipe =>
       (recipeId != null && recipeId!.isNotEmpty) ||
@@ -45,25 +47,33 @@ class MealLogItem {
     final foodName = json['foodName']?.toString().trim();
     final recipeTitle = json['recipeTitle']?.toString().trim();
     final displayName = json['displayName']?.toString().trim();
+    final customName = (json['customName'] ?? json['CustomName'])
+        ?.toString()
+        .trim();
     final resolvedName = (displayName != null && displayName.isNotEmpty)
         ? displayName
         : (foodName != null && foodName.isNotEmpty)
-            ? foodName
-            : (recipeTitle != null && recipeTitle.isNotEmpty)
-                ? recipeTitle
-                : 'Món đã ghi';
+        ? foodName
+        : (recipeTitle != null && recipeTitle.isNotEmpty)
+        ? recipeTitle
+        : (customName != null && customName.isNotEmpty)
+        ? customName
+        : 'Món đã ghi';
 
     return MealLogItem(
       id: (json['id'] ?? '').toString(),
       mealType: (json['mealType'] ?? 'snack').toString(),
       quantityG: _asDouble(json['quantityG']),
       caloriesKcal: _asDouble(json['caloriesKcal']),
-      loggedAt: loggedAtRaw == null ? null : DateTime.tryParse(loggedAtRaw)?.toLocal(),
+      loggedAt: loggedAtRaw == null
+          ? null
+          : DateTime.tryParse(loggedAtRaw)?.toLocal(),
       displayName: resolvedName,
       foodId: _parseOptionalId(json['foodId'] ?? json['FoodId']),
       recipeId: _parseOptionalId(json['recipeId'] ?? json['RecipeId']),
       notes: json['notes']?.toString(),
       sourceType: json['sourceType']?.toString(),
+      customName: customName,
     );
   }
 }

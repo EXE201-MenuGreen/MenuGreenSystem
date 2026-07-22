@@ -23,46 +23,41 @@ class IngredientTile extends StatelessWidget {
         border: Border.all(color: Colors.grey[100]!),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.restaurant, size: 18, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Text(
-                item.tenNguyenLieu,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.textDark,
-                ),
+          const Icon(Icons.restaurant, size: 18, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              item.tenNguyenLieu,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: AppColors.textDark,
               ),
-            ],
+            ),
           ),
-          Row(
-            children: [
-              Text(
-                '${item.khoiLuongUocTinhG.toStringAsFixed(0)} g',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onLog,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add, size: 16, color: AppColors.primary),
-                ),
-              )
-            ],
-          )
+          const SizedBox(width: 8),
+          Text(
+            '${item.khoiLuongUocTinhG.toStringAsFixed(0)} g',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: onLog,
+            tooltip: 'Thêm nguyên liệu',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            ),
+            icon: const Icon(Icons.add, size: 16, color: AppColors.primary),
+          ),
         ],
       ),
     );

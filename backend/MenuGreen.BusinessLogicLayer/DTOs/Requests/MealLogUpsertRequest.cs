@@ -21,6 +21,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public string? Unit { get; set; }
 
         public string? Notes { get; set; }
+        [MaxLength(200)]
+        public string? CustomName { get; set; }
         public DateTime? LoggedAt { get; set; }
         public Guid? MealPlanItemId { get; set; }
 

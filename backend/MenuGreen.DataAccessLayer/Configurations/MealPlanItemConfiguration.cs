@@ -20,6 +20,15 @@ namespace MenuGreen.DataAccessLayer.Configurations
 
             builder.Property(x => x.ScheduledTime);
 
+            builder.Property(x => x.SourceType)
+                .HasMaxLength(30);
+
+            builder.Property(x => x.CustomName)
+                .HasMaxLength(200);
+
+            builder.Property(x => x.IngredientSnapshotJson)
+                .HasColumnType("jsonb");
+
             builder.Property(x => x.CreatedAt)
                 .HasColumnType("timestamp with time zone");
 

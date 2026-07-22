@@ -52,10 +52,17 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
             return MealTemplateDraftItem(
               foodId: item.foodId,
               recipeId: item.recipeId,
+              customName: item.customName,
+              sourceType: item.sourceType,
               mealType: item.mealType ?? template.mealType ?? 'Snack',
               label: label,
               quantityG: item.quantityG,
               notes: item.notes,
+              caloriesKcal: item.caloriesKcal,
+              proteinG: item.proteinG,
+              carbsG: item.carbsG,
+              fatG: item.fatG,
+              ingredients: item.ingredients,
             );
           }));
       });
@@ -162,93 +169,12 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
 
   Future<void> _editItem(int index) async {
     final original = _items[index];
-    final quantityController = TextEditingController(text: original.quantityG.toStringAsFixed(0));
-    final notesController = TextEditingController(text: original.notes ?? '');
-    var mealType = original.mealType;
-
     final updated = await showModalBottomSheet<MealTemplateDraftItem>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  original.label,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openSelectedItemDetail(original),
-                    icon: const Icon(Icons.info_outline),
-                    label: Text(
-                      original.recipeId != null && original.recipeId!.isNotEmpty
-                          ? 'Xem chi tiết công thức'
-                          : 'Xem chi tiết món ăn',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: mealType,
-                  decoration: const InputDecoration(labelText: 'Nhóm bữa'),
-                  items: _mealTypes
-                      .map((type) => DropdownMenuItem(value: type, child: Text(_mealTypeLabel(type))))
-                      .toList(),
-                  onChanged: (value) => setModalState(() => mealType = value ?? original.mealType),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Khối lượng (gram)'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: notesController,
-                  decoration: const InputDecoration(labelText: 'Ghi chú'),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      final quantity = double.tryParse(quantityController.text.trim());
-                      if (quantity == null || quantity <= 0) return;
-                      Navigator.pop(
-                        context,
-                        MealTemplateDraftItem(
-                          foodId: original.foodId,
-                          recipeId: original.recipeId,
-                          mealType: mealType,
-                          label: original.label,
-                          quantityG: quantity,
-                          notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-                        ),
-                      );
-                    },
-                    child: const Text('Cập nhật món'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      builder: (context) => _EditTemplateItemSheet(original: original),
     );
 
-    quantityController.dispose();
-    notesController.dispose();
     if (updated != null && mounted) setState(() => _items[index] = updated);
   }
 
@@ -363,6 +289,153 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
             child: Text(_saving ? 'Đang lưu...' : 'Lưu thực đơn'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditTemplateItemSheet extends StatefulWidget {
+  const _EditTemplateItemSheet({required this.original});
+
+  final MealTemplateDraftItem original;
+
+  @override
+  State<_EditTemplateItemSheet> createState() => _EditTemplateItemSheetState();
+}
+
+class _EditTemplateItemSheetState extends State<_EditTemplateItemSheet> {
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+  late String _mealType;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(
+      text: widget.original.quantityG.toStringAsFixed(0),
+    );
+    _notesController = TextEditingController(text: widget.original.notes ?? '');
+    _mealType = widget.original.mealType;
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _onSubmit() {
+    final quantity = double.tryParse(_quantityController.text.trim());
+    if (quantity == null || quantity <= 0) return;
+    final original = widget.original;
+    final scale = original.quantityG > 0 ? quantity / original.quantityG : 1.0;
+    double? scaled(double? value) => value == null ? null : value * scale;
+
+    Navigator.pop(
+      context,
+      MealTemplateDraftItem(
+        foodId: original.foodId,
+        recipeId: original.recipeId,
+        customName: original.customName,
+        sourceType: original.sourceType,
+        mealType: _mealType,
+        label: original.label,
+        quantityG: quantity,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        caloriesKcal: scaled(original.caloriesKcal),
+        proteinG: scaled(original.proteinG),
+        carbsG: scaled(original.carbsG),
+        fatG: scaled(original.fatG),
+        ingredients: original.ingredients
+            .map(
+              (item) => MealTemplateIngredient(
+                name: item.name,
+                quantity: item.quantity * scale,
+                unit: item.unit,
+                isAvailable: item.isAvailable,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final original = widget.original;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              original.label,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (original.ingredients.isNotEmpty)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AiScanDishDetailScreen(
+                          dishName: original.label,
+                          ingredients: original.ingredients,
+                          quantityG: original.quantityG,
+                          caloriesKcal: original.caloriesKcal ?? 0,
+                          proteinG: original.proteinG ?? 0,
+                          carbsG: original.carbsG ?? 0,
+                          fatG: original.fatG ?? 0,
+                          sourceType: original.sourceType,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.list_alt_outlined),
+                  label: const Text('Xem chi tiết nguyên liệu'),
+                ),
+              ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _mealType,
+              decoration: const InputDecoration(labelText: 'Nhóm bữa'),
+              items: _mealTypes
+                  .map((type) => DropdownMenuItem(value: type, child: Text(_mealTypeLabel(type))))
+                  .toList(),
+              onChanged: (value) => setState(() => _mealType = value ?? original.mealType),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Khối lượng (gram)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesController,
+              decoration: const InputDecoration(labelText: 'Ghi chú'),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _onSubmit,
+                child: const Text('Cập nhật món'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

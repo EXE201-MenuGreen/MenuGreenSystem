@@ -21,7 +21,7 @@ class UserAiProfileRepository {
     }
   }
 
-  Future<({bool success, String message})> upsert({
+  Future<({bool success, String message, bool requiresLogin})> upsert({
     String? eatingPattern,
     String? preferencesJson,
     bool? allergiesAcknowledged,
@@ -38,11 +38,37 @@ class UserAiProfileRepository {
 
       final response = await _api.putJson(ApiEndpoints.userAiProfileMe, body);
       if (response.statusCode == 200) {
-        return (success: true, message: 'Đã lưu sở thích');
+        return (
+          success: true,
+          message: 'Đã lưu sở thích',
+          requiresLogin: false,
+        );
       }
-      return (success: false, message: _errorMessage(response.body));
+      if (response.statusCode == 401) {
+        return (
+          success: false,
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          requiresLogin: true,
+        );
+      }
+      if (response.statusCode == 403) {
+        return (
+          success: false,
+          message: 'Tài khoản không có quyền cập nhật hồ sơ Office.',
+          requiresLogin: false,
+        );
+      }
+      return (
+        success: false,
+        message: _errorMessage(response.body),
+        requiresLogin: false,
+      );
     } catch (_) {
-      return (success: false, message: 'Không thể kết nối đến máy chủ');
+      return (
+        success: false,
+        message: 'Không thể kết nối đến máy chủ',
+        requiresLogin: false,
+      );
     }
   }
 
