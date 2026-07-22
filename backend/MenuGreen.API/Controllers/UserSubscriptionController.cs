@@ -19,13 +19,16 @@ namespace MenuGreen.API.Controllers
     {
         private readonly IUserSubscriptionService _service;
         private readonly ISubscriptionPlanService _planService;
+        private readonly IFeatureAccessService _featureAccessService;
 
         public UserSubscriptionController(
             IUserSubscriptionService service,
-            ISubscriptionPlanService planService)
+            ISubscriptionPlanService planService,
+            IFeatureAccessService featureAccessService)
         {
             _service = service;
             _planService = planService;
+            _featureAccessService = featureAccessService;
         }
 
         /// <summary>
@@ -112,6 +115,16 @@ namespace MenuGreen.API.Controllers
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             return Ok(await _service.GetActiveAsync(userId));
+        }
+
+        /// <summary>
+        /// Get the merged feature access for the current user. Free access is always present.
+        /// </summary>
+        [HttpGet("me/entitlements")]
+        public async Task<IActionResult> GetEntitlements()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _featureAccessService.GetAsync(userId));
         }
 
         /// <summary>

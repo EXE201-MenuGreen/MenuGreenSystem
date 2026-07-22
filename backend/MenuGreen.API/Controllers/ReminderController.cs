@@ -38,6 +38,7 @@ namespace MenuGreen.API.Controllers
         /// Auto-analyze meal log history to recalculate optimal meal time windows.
         /// </summary>
         [HttpPost("profile/recalculate")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> RecalculateProfile()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -48,6 +49,7 @@ namespace MenuGreen.API.Controllers
         /// Manually update optimal meal time windows in user reminder profile.
         /// </summary>
         [HttpPut("profile")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> UpdateProfile([FromBody] ReminderProfileUpdateRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -76,6 +78,7 @@ namespace MenuGreen.API.Controllers
         /// Create a new custom reminder scheduled to be sent at specified time.
         /// </summary>
         [HttpPost("scheduled")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> CreateReminder([FromBody] ScheduledReminderCreateRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -94,6 +97,7 @@ namespace MenuGreen.API.Controllers
         /// Update scheduled reminder information, time, or enabled/disabled status.
         /// </summary>
         [HttpPatch("scheduled/{id:guid}")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> UpdateReminder(Guid id, [FromBody] ScheduledReminderUpdateRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -130,6 +134,7 @@ namespace MenuGreen.API.Controllers
         /// Snooze reminder notification for specified minutes (default 15 minutes).
         /// </summary>
         [HttpPost("scheduled/{id:guid}/snooze")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> SnoozeReminder(Guid id, [FromQuery] int minutes = 15)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();

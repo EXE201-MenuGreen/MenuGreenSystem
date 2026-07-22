@@ -101,6 +101,34 @@ builder.Services.AddAuthorization(options =>
     );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
     options.AddPolicy(
+        "FreeFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("free_features")
+            )
+    );
+    options.AddPolicy(
+        "CasualFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")
+            )
+    );
+    options.AddPolicy(
+        "OfficeFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+            )
+    );
+    options.AddPolicy(
+        "AiFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("ai_features")
+            )
+    );
+    options.AddPolicy(
         "GymerOnly",
         policy =>
             policy.Requirements.Add(
@@ -114,8 +142,20 @@ builder.Services.AddAuthorization(options =>
                 new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")
             )
     );
-    options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
-    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "User", "Gymer", "Office", "Coach", "Admin"));
+    options.AddPolicy(
+        "OfficeOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+            )
+    );
+    options.AddPolicy(
+        "CasualOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")
+            )
+    );
 });
 
 
@@ -599,3 +639,5 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
         writer.WriteStringValue(value.ToString(DateFormat));
     }
 }
+
+public partial class Program { }

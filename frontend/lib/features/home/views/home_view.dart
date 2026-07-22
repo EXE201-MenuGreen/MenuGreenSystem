@@ -13,13 +13,13 @@ import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/views/notification_inbox_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
-import '../../subscription/utils/subscription_access.dart';
+import '../../subscription/models/subscription_models.dart';
+import '../../subscription/views/upgrade_plan_screen.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../../tracking/utils/nutrition_warning_utils.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../../vietnam_local/views/daily_starter_screen.dart';
-import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../../office/widgets/office_home_panel.dart';
 import '../widgets/home_banner_carousel.dart';
 import '../widgets/home_calorie_section.dart';
@@ -45,17 +45,15 @@ class HomeViewState extends State<HomeView> {
   final _mealPlanRepository = MealPlanRepository();
   final _notificationProvider = NotificationProvider();
   final _dailyStarterRepo = DailyStarterRepository();
-  final _aiProfileRepository = UserAiProfileRepository();
   final _subscriptionRepository = UserSubscriptionRepository();
   String _userName = 'MinMin';
   String? _avatarUrl;
   MealDaySummary? _todaySummary;
   MealPlanAdherence? _mealPlanAdherence;
   bool _refreshing = false;
-  bool _hasGymerAccess = false;
+  FeatureAccess _featureAccess = FeatureAccess.free;
   List<RecommendedMealItem> _recommendedMeals = [];
   List<TipItem> _tips = [];
-  bool _isOfficeMode = false;
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -77,15 +75,8 @@ class HomeViewState extends State<HomeView> {
     refreshSubscriptionAccess();
     _loadTodaySummary();
     _loadMealPlanAdherence();
-    _loadRecommendations();
     _loadTips();
-    _loadOfficeMode();
     _notificationProvider.loadUnreadCount();
-  }
-
-  Future<void> _loadOfficeMode() async {
-    final isOffice = await _aiProfileRepository.isOfficeMode();
-    if (mounted) setState(() => _isOfficeMode = isOffice);
   }
 
   Future<void> refreshHeader() async {
@@ -109,15 +100,16 @@ class HomeViewState extends State<HomeView> {
           ? rawAvatar
           : null;
     });
-    unawaited(_loadOfficeMode());
   }
 
   Future<void> refreshSubscriptionAccess() async {
-    final subscriptions = await _subscriptionRepository.getActive();
+    final access = await _subscriptionRepository.getFeatureAccess();
     if (!mounted) return;
     setState(() {
-      _hasGymerAccess = hasGymerSubscriptionAccess(subscriptions);
+      _featureAccess = access;
+      if (!access.hasCasual) _recommendedMeals = [];
     });
+    if (access.hasCasual) await _loadRecommendations();
   }
 
   Future<void> reloadSummary() async {
@@ -305,8 +297,6 @@ class HomeViewState extends State<HomeView> {
           await refreshSubscriptionAccess();
           await _loadTodaySummary(userInitiated: true);
           await _loadMealPlanAdherence();
-          await _loadRecommendations();
-          await _loadOfficeMode();
         },
         color: AppColors.primary,
         child: SingleChildScrollView(
@@ -324,14 +314,14 @@ class HomeViewState extends State<HomeView> {
                 child: HomeBannerCarousel(),
               ),
               const SizedBox(height: 20),
-              if (_isOfficeMode) ...[
+              if (_featureAccess.hasOffice) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: OfficeHomePanel(),
                 ),
                 const SizedBox(height: 20),
               ],
-              if (_hasGymerAccess) ...[
+              if (_featureAccess.hasGym) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: GymerPackageCard(),
@@ -340,7 +330,7 @@ class HomeViewState extends State<HomeView> {
               ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: QuickActionGrid(isOfficeMode: _isOfficeMode),
+                child: QuickActionGrid(access: _featureAccess),
               ),
               const SizedBox(height: 20),
               Padding(
@@ -348,22 +338,24 @@ class HomeViewState extends State<HomeView> {
                 child: _buildTodaySection(),
               ),
               const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: RecommendedMealSection(
-                  items: _recommendedMeals,
-                  onItemTap: _onRecommendedMealTap,
-                  onViewAll: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DailyStarterScreen(),
-                      ),
-                    );
-                  },
+              if (_featureAccess.hasCasual) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: RecommendedMealSection(
+                    items: _recommendedMeals,
+                    onItemTap: _onRecommendedMealTap,
+                    onViewAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DailyStarterScreen(),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
+              ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TipsSection(
@@ -375,10 +367,102 @@ class HomeViewState extends State<HomeView> {
                   },
                 ),
               ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildPackageDiscovery(),
+              ),
               const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPackageDiscovery() {
+    final packages = <({String title, String description, bool enabled})>[
+      (
+        title: 'Casual',
+        description: 'Chọn món nhanh, Daily Starter và ghi nhận một chạm.',
+        enabled: _featureAccess.hasCasual,
+      ),
+      (
+        title: 'Office',
+        description: 'Kế hoạch 7 ngày, ngân sách và danh sách đi chợ.',
+        enabled: _featureAccess.hasOffice,
+      ),
+      (
+        title: 'Gym/PT',
+        description: 'Mục tiêu ngày tập, PT Review, Coach và lộ trình dài hạn.',
+        enabled: _featureAccess.hasGym,
+      ),
+    ].where((item) => !item.enabled).toList();
+
+    if (packages.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAF9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Khám phá gói chuyên biệt',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text('Các công cụ Free của bạn vẫn luôn được giữ nguyên.'),
+          const SizedBox(height: 14),
+          ...packages.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UpgradePlanScreen(),
+                        ),
+                      ).then((_) => refreshSubscriptionAccess());
+                    },
+                    child: const Text('Tìm hiểu'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
