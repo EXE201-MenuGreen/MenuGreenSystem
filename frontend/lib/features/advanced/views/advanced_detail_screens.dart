@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../repositories/advanced_repository.dart';
+import '../../notifications/repositories/notification_repository.dart';
+import '../../notifications/models/notification_models.dart';
 
 String valueOf(Map<String, dynamic> data, String key, [String fallback = '']) =>
     (data[key] ?? data[key[0].toUpperCase() + key.substring(1)] ?? fallback)
@@ -429,38 +431,13 @@ class _MyCoachesScreenState extends State<MyCoachesScreen> {
 class _CoachClientsScreenState extends State<CoachClientsScreen>
     with SingleTickerProviderStateMixin {
   final repo = AdvancedRepository();
+  final _notificationRepo = NotificationRepository();
   List<Map<String, dynamic>> rows = [];
+  List<AppNotification> _notifications = [];
   bool loading = true;
   String? error;
+  String _adherenceText = '—';
   late TabController _tabController;
-
-  // Mock Notifications for PT/Coach
-  final List<Map<String, dynamic>> mockNotifications = [
-    {
-      'id': 'noti_1',
-      'title': 'Yêu cầu đánh giá mới',
-      'body': 'Học viên Nguyễn Văn A vừa gửi yêu cầu đánh giá tuần mới.',
-      'time': '10 phút trước',
-      'clientName': 'Nguyễn Văn A',
-      'isRead': false,
-    },
-    {
-      'id': 'noti_2',
-      'title': 'Đăng ký liên kết',
-      'body': 'Học viên Trần Thị B muốn liên kết với bạn làm PT.',
-      'time': '1 giờ trước',
-      'clientName': 'Trần Thị B',
-      'isRead': false,
-    },
-    {
-      'id': 'noti_3',
-      'title': 'Cập nhật cân nặng',
-      'body': 'Học viên Lê Hoàng C vừa cập nhật cân nặng mới (72 kg).',
-      'time': '2 giờ trước',
-      'clientName': 'Lê Hoàng C',
-      'isRead': true,
-    },
-  ];
 
   @override
   void initState() {
@@ -477,7 +454,13 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
 
   Future<void> load() async {
     try {
-      rows = await repo.clients();
+      final results = await Future.wait([
+        repo.clients(),
+        _notificationRepo.getNotifications(pageSize: 20),
+      ]);
+      rows = results[0] as List<Map<String, dynamic>>;
+      _notifications = results[1] as List<AppNotification>;
+      _adherenceText = await _computeAdherence();
       error = null;
     } catch (e) {
       error = e.toString();
@@ -485,31 +468,70 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
     if (mounted) setState(() => loading = false);
   }
 
-  void _handleNotificationTap(Map<String, dynamic> noti) {
-    final clientName = valueOf(noti, 'clientName');
-    final match = rows.firstWhere(
-      (r) => valueOf(r, 'fullName').toLowerCase() == clientName.toLowerCase(),
+  Future<String> _computeAdherence() async {
+    try {
+      final connected = rows
+          .where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'connected')
+          .toList();
+      if (connected.isEmpty) return '—';
+      double total = 0;
+      int count = 0;
+      for (final client in connected) {
+        final id = valueOf(client, 'userId');
+        if (id.isEmpty) continue;
+        try {
+          final nutrition = await repo.clientNutrition(id);
+          for (final day in nutrition) {
+            final target = (day['targetCalories'] ?? day['TargetCalories'] ?? 0);
+            final actual = (day['totalCalories'] ?? day['TotalCalories'] ?? 0);
+            if (target is num && target > 0 && actual is num) {
+              total += (actual / target).clamp(0.0, 1.5);
+              count++;
+            }
+          }
+        } catch (_) {
+          // Skip clients with inaccessible data
+        }
+      }
+      if (count == 0) return '—';
+      final percent = ((total / count) * 100).round();
+      return '$percent%';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final diff = DateTime.now().difference(dateTime);
+    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  }
+
+  void _handleNotificationTap(AppNotification noti) {
+    // Mark as read via API
+    _notificationRepo.markAsRead(noti.id);
+
+    // Try to deep-link to a client if the notification body mentions one
+    final matchingClient = rows.firstWhere(
+      (r) => noti.body.toLowerCase().contains(
+        valueOf(r, 'fullName').toLowerCase(),
+      ),
       orElse: () => <String, dynamic>{},
     );
 
-    setState(() {
-      noti['isRead'] = true;
-    });
-
-    if (match.isNotEmpty) {
+    if (matchingClient.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CoachClientDetailScreen(client: match),
+          builder: (_) => CoachClientDetailScreen(client: matchingClient),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Không tìm thấy học viên $clientName hoặc chưa được chấp nhận kết nối.',
-          ),
-        ),
+        SnackBar(content: Text(noti.body)),
       );
     }
   }
@@ -564,7 +586,7 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
                             Colors.orange,
                           ),
                           const SizedBox(width: 12),
-                          _buildStatCard('Tuân thủ calo', '85%', Colors.green),
+                          _buildStatCard('Tuân thủ calo', _adherenceText, Colors.green),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -592,65 +614,91 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
                   ),
                 ),
 
-                // Tab 2: Notifications Deep-linking
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    const Text(
-                      'Thông báo học tập & tập luyện',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...mockNotifications.map(
-                      (noti) => Card(
-                        elevation: valueOf(noti, 'isRead') == 'true' ? 0.5 : 2,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        color: valueOf(noti, 'isRead') == 'true'
-                            ? Colors.white
-                            : primaryColor.withValues(alpha: 0.05),
-                        child: ListTile(
-                          leading: Icon(
-                            noti['title'] == 'Đăng ký liên kết'
-                                ? Icons.person_add
-                                : Icons.assignment_turned_in,
-                            color: primaryColor,
-                          ),
-                          title: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                valueOf(noti, 'title'),
-                                style: TextStyle(
-                                  fontWeight: valueOf(noti, 'isRead') == 'true'
-                                      ? FontWeight.normal
-                                      : FontWeight.bold,
+                // Tab 2: Notifications from API
+                RefreshIndicator(
+                  onRefresh: load,
+                  child: _notifications.isEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: const [
+                            SizedBox(height: 80),
+                            Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.notifications_off_outlined,
+                                      size: 48, color: Colors.grey),
+                                  SizedBox(height: 12),
+                                  Text('Chưa có thông báo nào',
+                                      style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            const Text(
+                              'Thông báo học tập & tập luyện',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ..._notifications.map(
+                              (noti) => Card(
+                                elevation: noti.isRead ? 0.5 : 2,
+                                margin: const EdgeInsets.only(bottom: 10),
+                                color: noti.isRead
+                                    ? Colors.white
+                                    : primaryColor.withValues(alpha: 0.05),
+                                child: ListTile(
+                                  leading: Icon(
+                                    noti.type == NotificationType.system
+                                        ? Icons.person_add
+                                        : Icons.assignment_turned_in,
+                                    color: primaryColor,
+                                  ),
+                                  title: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          noti.title,
+                                          style: TextStyle(
+                                            fontWeight: noti.isRead
+                                                ? FontWeight.normal
+                                                : FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _formatTimeAgo(noti.createdAt),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(noti.body),
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 12,
+                                  ),
+                                  onTap: () => _handleNotificationTap(noti),
                                 ),
                               ),
-                              Text(
-                                valueOf(noti, 'time'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(valueOf(noti, 'body')),
-                          ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 12,
-                          ),
-                          onTap: () => _handleNotificationTap(noti),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ],
                 ),
 
                 // Tab 3: Analytics / Health adherence columns

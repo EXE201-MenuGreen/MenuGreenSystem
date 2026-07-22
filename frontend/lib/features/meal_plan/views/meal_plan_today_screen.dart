@@ -195,31 +195,114 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
     final busy = _completingItemId == item.id;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
         onTap: () => _openItem(item),
-        title: Text(mealTypeLabelVi(item.mealType),
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        subtitle: Text(item.displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text('${item.targetCalories} kcal'),
-            const SizedBox(height: 4),
-            if (item.isCompleted)
-              const Text('Đã ăn', style: TextStyle(color: AppColors.primary, fontSize: 12))
-            else
-              TextButton(
-                onPressed: busy ? null : () => _completeItem(item),
-                child: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Đã ăn'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mealTypeLabelVi(item.mealType),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '~${item.targetCalories} kcal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-          ],
+              const SizedBox(width: 12),
+              if (item.isCompleted)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Đã ăn',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: busy ? null : () => _completeItem(item),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: busy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded, size: 16),
+                  label: const Text(
+                    'Đã ăn',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

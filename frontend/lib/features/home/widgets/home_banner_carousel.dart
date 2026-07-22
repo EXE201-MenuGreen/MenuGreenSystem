@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
 class HomeBannerCarousel extends StatefulWidget {
-  const HomeBannerCarousel({super.key});
+  const HomeBannerCarousel({super.key, this.onBannerTap});
+
+  /// Called when a banner is tapped. The [index] identifies which banner.
+  final void Function(int index)? onBannerTap;
 
   @override
   State<HomeBannerCarousel> createState() => _HomeBannerCarouselState();
@@ -75,7 +78,10 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
             controller: _pageController,
             onPageChanged: (page) => setState(() => _currentPage = page),
             itemCount: _banners.length,
-            itemBuilder: (context, index) => _buildBanner(_banners[index]),
+            itemBuilder: (context, index) => GestureDetector(
+              onTap: () => widget.onBannerTap?.call(index),
+              child: _buildBanner(_banners[index]),
+            ),
           ),
         ),
         const SizedBox(height: 10),

@@ -4,12 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../../discover/views/favorites_screen.dart';
-import '../../discover/views/discover_view.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
-import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
+import 'home_search_sheet.dart';
 import '../../vietnam_local/views/food_capture_screen.dart';
 import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
@@ -51,7 +51,7 @@ class QuickActionGrid extends StatelessWidget {
     _ActionItem(
       type: QuickActionType.mealPlan,
       icon: Icons.calendar_today,
-      label: 'Kế hoạch\năn',
+      label: 'Kế hoạch\năn uống',
       gradientColors: [Color(0xFF0077B6), Color(0xFF00B4D8)],
       bgColor: Color(0xFFE3F2FD),
     ),
@@ -82,20 +82,6 @@ class QuickActionGrid extends StatelessWidget {
       label: 'Thay thế\nnguyên liệu',
       gradientColors: [Color(0xFF65A30D), Color(0xFFA3E635)],
       bgColor: Color(0xFFECFCCB),
-    ),
-    _ActionItem(
-      type: QuickActionType.planVsActual,
-      icon: Icons.insights,
-      label: 'Kế hoạch\nvs Thực tế',
-      gradientColors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
-      bgColor: Color(0xFFEDE9FE),
-    ),
-    _ActionItem(
-      type: QuickActionType.savedTemplates,
-      icon: Icons.bookmark_outline,
-      label: 'Thực đơn\nđã lưu',
-      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
-      bgColor: Color(0xFFCCFBF1),
     ),
     _ActionItem(
       type: QuickActionType.eatOut,
@@ -158,7 +144,7 @@ class QuickActionGrid extends StatelessWidget {
         screen = const FoodCaptureScreen();
         break;
       case QuickActionType.mealPlan:
-        screen = const MealPlanScreen();
+        screen = const SmartMealPlanRouterScreen();
         break;
       case QuickActionType.planVsActual:
         screen = const PlannedVsActualScreen();
@@ -170,8 +156,8 @@ class QuickActionGrid extends StatelessWidget {
         screen = const LocalPreferencesScreen();
         break;
       case QuickActionType.searchFood:
-        screen = const DiscoverView();
-        break;
+        HomeSearchSheet.show(context);
+        return;
       case QuickActionType.favorites:
         screen = const FavoritesScreen();
         break;
