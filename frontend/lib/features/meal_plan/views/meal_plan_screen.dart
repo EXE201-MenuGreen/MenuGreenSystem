@@ -14,6 +14,8 @@ import 'meal_plan_detail_screen.dart';
 import 'create_meal_plan_screen.dart';
 import 'meal_plan_stats_screen.dart';
 import 'meal_plan_calendar_screen.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 
 /// Filter enum for history tab
 enum PlanFilter { all, active, completed }
@@ -374,12 +376,26 @@ class _TodayTab extends StatelessWidget {
   }
 
   void _openItemDetail(BuildContext context, MealPlanItemDetail item) {
-    if (item.foodId != null) {
-      // Navigate to food detail
-      // TODO: Implement food detail navigation
-    } else if (item.recipeId != null) {
-      // Navigate to recipe detail
-      // TODO: Implement recipe detail navigation
+    if (item.foodId != null && item.foodId!.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: item.foodId!),
+        ),
+      );
+    } else if (item.recipeId != null && item.recipeId!.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Món "${item.displayName}" không có trang chi tiết.'),
+        ),
+      );
     }
   }
 
@@ -517,7 +533,179 @@ class _TodayTab extends StatelessWidget {
   }
 
   void _showTodayDetails(BuildContext context, MealPlanDayDashboard? dashboard) {
-    // TODO: Show detailed nutrition info
+    if (dashboard == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có dữ liệu dinh dưỡng hôm nay')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Chi tiết dinh dưỡng hôm nay',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Bám sát ${dashboard.adherencePercent.toStringAsFixed(0)}%',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildNutritionDetailRow(
+                'Năng lượng (Calo)',
+                '${dashboard.actualCalories} / ${dashboard.plannedCalories} kcal',
+                dashboard.plannedCalories > 0
+                    ? dashboard.actualCalories / dashboard.plannedCalories
+                    : 0,
+                Colors.orange,
+              ),
+              const SizedBox(height: 14),
+              _buildNutritionDetailRow(
+                'Chất đạm (Protein)',
+                '${dashboard.actualProtein} / ${dashboard.plannedProtein} g',
+                dashboard.plannedProtein > 0
+                    ? dashboard.actualProtein / dashboard.plannedProtein
+                    : 0,
+                Colors.blue,
+              ),
+              const SizedBox(height: 14),
+              _buildNutritionDetailRow(
+                'Chất bột đường (Carbs)',
+                '${dashboard.actualCarbs} / ${dashboard.plannedCarbs} g',
+                dashboard.plannedCarbs > 0
+                    ? dashboard.actualCarbs / dashboard.plannedCarbs
+                    : 0,
+                Colors.amber.shade700,
+              ),
+              const SizedBox(height: 14),
+              _buildNutritionDetailRow(
+                'Chất béo (Fat)',
+                '${dashboard.actualFat} / ${dashboard.plannedFat} g',
+                dashboard.plannedFat > 0
+                    ? dashboard.actualFat / dashboard.plannedFat
+                    : 0,
+                Colors.redAccent,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        const Text('Bữa đã hoàn thành',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${dashboard.completedMeals} / ${dashboard.totalMeals}',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    Container(height: 30, width: 1, color: Colors.grey.shade300),
+                    Column(
+                      children: [
+                        const Text('Tổng món đã lên lịch',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${dashboard.plannedItems.length} món',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNutritionDetailRow(
+      String label, String value, double progress, Color color) {
+    final clampedProgress = progress.clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        LinearProgressIndicator(
+          value: clampedProgress,
+          backgroundColor: color.withValues(alpha: 0.15),
+          color: color,
+          minHeight: 8,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ],
+    );
   }
 
   void _createPlan(BuildContext context) {
