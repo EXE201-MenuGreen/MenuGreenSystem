@@ -118,9 +118,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (!mounted) return;
     if (result == 'officeActivated') {
       setState(() => _officeModeActivated = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã mở chế độ Office.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã mở chế độ Office.')));
     }
     await _fetchData();
   }
@@ -778,21 +778,20 @@ class _ProfileViewState extends State<ProfileView> {
             subscription.subscriptionPlanName.isNotEmpty
         ? subscription
         : null;
-    final planName =
-        _officeModeActivated
+    final planName = _officeModeActivated
         ? 'Office'
         : activeSubscription?.subscriptionPlanName ??
-        subscription?.subscriptionPlanName ??
-        (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
+              subscription?.subscriptionPlanName ??
+              'Cơ bản';
     final isPro =
         _officeModeActivated ||
         activeSubscription != null &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'free',
-        ) &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'cơ bản',
-        );
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'free',
+            ) &&
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'cơ bản',
+            );
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -875,7 +874,7 @@ class _ProfileViewState extends State<ProfileView> {
             )
           else
             const Text(
-              'Nâng cấp để nhận nhiều ưu đãi',
+              'Quyền Free luôn hoạt động • Không giới hạn',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           const SizedBox(height: 20),

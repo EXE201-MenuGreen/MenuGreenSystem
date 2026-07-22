@@ -79,6 +79,16 @@ class SubscriptionPlan {
   }
 
   bool get isFree => priceVnd <= 0;
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = name.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
 }
 
 class UserSubscription {
@@ -133,6 +143,16 @@ class UserSubscription {
   }
 
   bool get isActive => status.toLowerCase() == 'active';
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = subscriptionPlanName.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
 
   bool get isCurrentlyActive {
     if (!isActive) return false;

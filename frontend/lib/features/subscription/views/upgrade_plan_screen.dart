@@ -10,14 +10,16 @@ import '../repositories/user_subscription_repository.dart';
 import 'sepay_payment_screen.dart';
 
 class UpgradePlanScreen extends StatefulWidget {
-  const UpgradePlanScreen({super.key});
+  const UpgradePlanScreen({super.key, this.repository});
+
+  final UserSubscriptionRepository? repository;
 
   @override
   State<UpgradePlanScreen> createState() => _UpgradePlanScreenState();
 }
 
 class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
-  final _repository = UserSubscriptionRepository();
+  late final UserSubscriptionRepository _repository;
   final _aiProfileRepository = UserAiProfileRepository();
 
   List<SubscriptionPlan> _plans = [];
@@ -30,6 +32,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? UserSubscriptionRepository();
     _loadData();
   }
 
@@ -63,6 +66,11 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Future<bool> _subscribe(SubscriptionPlan plan) async {
+    if (plan.isBaselineFree) {
+      _showResult('Gói Cơ bản đã được bật mặc định cho tài khoản.', true);
+      return true;
+    }
+
     if (!plan.isFree) {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -129,7 +137,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     return const SubscriptionPlan(
       id: '10000000-0000-0000-0000-000000000005',
       name: 'Gói Gym/PT',
-      description: 'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
+      description:
+          'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
       durationDays: 36500, // 100 years
       priceVnd: 0,
       featureGroup: 'gym',
@@ -139,9 +148,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   List<SubscriptionPlan> get _regularPlans => _plans.where((plan) {
-        final group = plan.featureGroup?.trim().toLowerCase();
-        return group != 'gym' && group != 'office';
-      }).toList();
+    final group = plan.featureGroup?.trim().toLowerCase();
+    return group != 'gym' && group != 'office' && !plan.isBaselineFree;
+  }).toList();
 
   bool get _hasGymAccess {
     final current = _current;
@@ -208,7 +217,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
     setState(() => _actionLoading = true);
     try {
-      final alreadyActive = _current?.isActive == true &&
+      final alreadyActive =
+          _current?.isActive == true &&
           _current?.subscriptionPlanId == officePlan.id;
       if (!alreadyActive) {
         final subscriptionResult = await _repository.subscribe(
@@ -329,8 +339,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    if (_current != null) _buildCurrentCard(),
-                    if (_current != null) const SizedBox(height: 16),
+                    _buildCurrentCard(),
+                    const SizedBox(height: 16),
                     _UpgradeHeroCard(
                       title: 'Nâng cấp\nMenuGreen Pro',
                       subtitle:
@@ -357,7 +367,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       )
                     else
                       ..._regularPlans.map(_buildPlanCard),
-                    if (_current?.isActive == true) ...[
+                    if (_current?.isActive == true &&
+                        _current?.isBaselineFree == false) ...[
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: _actionLoading ? null : _renew,
@@ -401,7 +412,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Widget _buildCurrentCard() {
-    final current = _current!;
+    final current = _current;
+    final isBaselineFree = current == null || current.isBaselineFree;
+    final planName = isBaselineFree ? 'Cơ bản' : current.subscriptionPlanName;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -423,7 +436,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            current.subscriptionPlanName,
+            planName,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -431,28 +444,35 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          StreamBuilder<int>(
-            stream: Stream<int>.periodic(
-              const Duration(minutes: 1),
-              (tick) => tick,
-            ),
-            builder: (context, snapshot) => Text(
-              'Trạng thái: ${current.status} • '
-              '${formatSubscriptionRemaining(current.endDate)}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
+          if (isBaselineFree)
+            const Text(
+              'Trạng thái: Active • Không giới hạn',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            )
+          else ...[
+            StreamBuilder<int>(
+              stream: Stream<int>.periodic(
+                const Duration(minutes: 1),
+                (tick) => tick,
+              ),
+              builder: (context, snapshot) => Text(
+                'Trạng thái: ${current.status} • '
+                '${formatSubscriptionRemaining(current.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ),
-          if (current.endDate != null)
-            Text(
-              'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
+            if (current.endDate != null)
+              Text(
+                'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
-            ),
+          ],
         ],
       ),
     );
@@ -826,7 +846,9 @@ class _OfficePackageCard extends StatelessWidget {
                       ),
                     )
                   : const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: Text(loading ? 'Đang mở Office...' : 'Mở tính năng Office'),
+              label: Text(
+                loading ? 'Đang mở Office...' : 'Mở tính năng Office',
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 13),

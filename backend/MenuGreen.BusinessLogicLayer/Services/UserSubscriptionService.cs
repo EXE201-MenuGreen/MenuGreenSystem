@@ -27,6 +27,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserSubscriptionResponse> SubscribeAsync(Guid userId, SubscribeRequest request)
         {
             var plan = await GetActivePlanAsync(request.SubscriptionPlanId);
+            if (IsBaselineFreePlan(plan))
+            {
+                throw new InvalidOperationException(
+                    "The Basic plan is enabled by default and does not require a subscription."
+                );
+            }
             if ((plan.PriceVnd ?? 0) > 0)
             {
                 throw new InvalidOperationException(SepayPaymentRequiredMessage);
@@ -75,6 +81,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var subscription = await GetOwnedSubscriptionAsync(userId, request.UserSubscriptionId);
             var plan = await GetActivePlanAsync(subscription.SubscriptionPlanId);
+            if (IsBaselineFreePlan(plan))
+            {
+                throw new InvalidOperationException(
+                    "The Basic plan is always available and does not require renewal."
+                );
+            }
             if ((plan.PriceVnd ?? 0) > 0)
             {
                 throw new InvalidOperationException(SepayPaymentRequiredMessage);
@@ -250,6 +262,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // column. Keep their current representation until the schema supports
             // subscriptions without an expiration date.
             return 36500;
+        }
+
+        private static bool IsBaselineFreePlan(SubscriptionPlan plan)
+        {
+            var group = plan.FeatureGroup?.Trim();
+            var name = plan.Name?.Trim();
+            return string.Equals(group, "basic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(group, "free", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Cơ bản", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Basic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Free", StringComparison.OrdinalIgnoreCase);
         }
 
         private static int CalculateDaysRemaining(DateTime endDate, DateTime now)

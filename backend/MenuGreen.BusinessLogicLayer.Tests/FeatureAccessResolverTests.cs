@@ -21,6 +21,20 @@ public class FeatureAccessResolverTests
     }
 
     [Fact]
+    public void Legacy_basic_subscription_remains_free_without_a_paid_expiry()
+    {
+        var access = FeatureAccessResolver.Resolve(
+            [Snapshot("Active", "basic", Now.AddDays(-1), Now.AddYears(100))],
+            Now
+        );
+
+        Assert.Equal("free", access.Tier);
+        Assert.Equal([FeatureAccessResolver.FreeFeatures], access.Entitlements);
+        Assert.Equal(["free"], access.FeatureGroups);
+        Assert.Null(access.ExpiresAt);
+    }
+
+    [Fact]
     public void Expired_and_cancelled_subscriptions_do_not_grant_paid_features()
     {
         var access = FeatureAccessResolver.Resolve(
