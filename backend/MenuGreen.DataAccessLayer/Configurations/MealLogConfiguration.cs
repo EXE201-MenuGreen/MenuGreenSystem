@@ -24,6 +24,11 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasIndex(x => x.MealPlanItemId)
                 .IsUnique()
                 .HasFilter("\"MealPlanItemId\" IS NOT NULL");
+
+            // Add indexes for frequently queried columns (performance optimization)
+            builder.HasIndex(x => x.UserId);
+            builder.HasIndex(x => x.LoggedAt);
+            builder.HasIndex(x => new { x.UserId, x.LoggedAt });
         }
     }
 }

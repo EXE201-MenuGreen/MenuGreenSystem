@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +41,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   bool _isApplyingToMealPlan = false;
   bool _isFavorite = false;
   bool _isTogglingFavorite = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -60,7 +62,10 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   Future<void> _loadFromHistory() async {
     if (widget.historyItem == null) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
 
     try {
       await _provider.loadDetail(widget.historyItem!.id);
@@ -70,7 +75,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         _explanation = _provider.explanation;
       }
     } catch (e) {
-      // Handle error
+      setState(() {
+        _loadError = 'Không thể tải dữ liệu. Vui lòng thử lại.';
+      });
     }
 
     if (mounted) {
@@ -81,14 +88,19 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   Future<void> _loadScores() async {
     if (widget.recommendationItem == null) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
 
     try {
       await _provider.loadScores(
         calories: widget.recommendationItem!.caloriesKcal.round(),
       );
     } catch (e) {
-      // Handle error
+      setState(() {
+        _loadError = 'Không thể tải điểm nutrition. Vui lòng thử lại.';
+      });
     }
 
     if (mounted) {
@@ -106,19 +118,26 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         recommendationId: widget.historyItem!.id,
         isLiked: isLiked,
       );
-    } catch (e) {
-      // Handle error
-    }
-
-    if (mounted) {
-      setState(() => _isSubmittingFeedback = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isLiked ? 'Cảm ơn phản hồi tích cực!' : 'Cảm ơn phản hồi của bạn!',
+      if (mounted) {
+        setState(() => _isSubmittingFeedback = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isLiked ? 'Cảm ơn phản hồi tích cực!' : 'Cảm ơn phản hồi của bạn!',
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmittingFeedback = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể gửi phản hồi. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -203,7 +222,45 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _buildContent(),
+          : _loadError != null
+              ? _buildErrorState()
+              : _buildContent(),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _loadError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -407,12 +464,24 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
             if (item.imageUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item.imageUrl!,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
                   width: double.infinity,
                   height: 180,
+                  memCacheWidth: 360,
+                  memCacheHeight: 180,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  placeholder: (_, __) => Container(
+                    width: double.infinity,
+                    height: 180,
+                    color: Colors.grey[200],
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    width: double.infinity,
+                    height: 180,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

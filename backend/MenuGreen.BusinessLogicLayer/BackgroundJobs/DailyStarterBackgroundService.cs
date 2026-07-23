@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -66,31 +68,55 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
 
             _logger.LogInformation("Pre-calculating daily starter dashboard data for {Count} active users.", userList.Count);
 
-            foreach (var user in userList)
+            // Process users in parallel batches for better performance
+            const int batchSize = 10;
+            var batches = userList
+                .Select((user, index) => new { user, index })
+                .GroupBy(x => x.index / batchSize)
+                .Select(g => g.Select(x => x.user).ToList())
+                .ToList();
+
+            foreach (var batch in batches)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                try
-                {
-                    if (!await featureAccessService.HasEntitlementAsync(user.Id, "casual_features"))
-                    {
-                        continue;
-                    }
+                var tasks = batch.Select(user => ProcessUserAsync(
+                    user,
+                    dailyStarterService,
+                    featureAccessService,
+                    stoppingToken
+                ));
 
-                    // By querying the personalization and daily starter, they are computed and cached (e.g. in Redis)
-                    // so that when the user logs in the next morning, the API response is extremely fast.
-                    await dailyStarterService.GetPersonalizationAsync(user.Id);
-                    await dailyStarterService.GetTodayStarterAsync(user.Id);
-                    
-                    _logger.LogDebug("Successfully pre-calculated daily starter for user {UserId}.", user.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to pre-calculate daily starter data for user {UserId}.", user.Id);
-                }
+                await Task.WhenAll(tasks);
             }
 
             _logger.LogInformation("Daily starter pre-calculation completed.");
+        }
+
+        private async Task ProcessUserAsync(
+            User user,
+            IDailyStarterService dailyStarterService,
+            IFeatureAccessService featureAccessService,
+            CancellationToken stoppingToken)
+        {
+            try
+            {
+                if (!await featureAccessService.HasEntitlementAsync(user.Id, "casual_features"))
+                {
+                    return;
+                }
+
+                // By querying the personalization and daily starter, they are computed and cached (e.g. in Redis)
+                // so that when the user logs in the next morning, the API response is extremely fast.
+                await dailyStarterService.GetPersonalizationAsync(user.Id);
+                await dailyStarterService.GetTodayStarterAsync(user.Id);
+                
+                _logger.LogDebug("Successfully pre-calculated daily starter for user {UserId}.", user.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to pre-calculate daily starter data for user {UserId}.", user.Id);
+            }
         }
 
         private TimeSpan GetDelayUntilNextRun()

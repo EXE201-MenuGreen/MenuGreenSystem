@@ -12,6 +12,26 @@ class MealPlanRepository {
 
   final ApiClient _api;
 
+  // Cache for getPlans
+  List<MealPlanListItem>? _plansCache;
+  DateTime? _plansCacheTime;
+  static const _plansCacheDuration = Duration(minutes: 5);
+
+  // Cache for getByDate
+  UserMealPlan? _todayCache;
+  DateTime? _todayCacheTime;
+  static const _todayCacheDuration = Duration(minutes: 2);
+
+  // Cache for getDashboard
+  MealPlanDayDashboard? _dashboardCache;
+  DateTime? _dashboardCacheTime;
+  static const _dashboardCacheDuration = Duration(minutes: 2);
+
+  // Cache for getStreaks
+  MealPlanStreak? _streaksCache;
+  DateTime? _streaksCacheTime;
+  static const _streaksCacheDuration = Duration(minutes: 5);
+
   String _dateQuery(DateTime date) {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
@@ -19,9 +39,29 @@ class MealPlanRepository {
     return '$y-$m-$d';
   }
 
+  void _invalidateCache() {
+    _plansCache = null;
+    _plansCacheTime = null;
+    _todayCache = null;
+    _todayCacheTime = null;
+    _dashboardCache = null;
+    _dashboardCacheTime = null;
+  }
+
   // ==================== User Meal Plan (Daily) ====================
 
   Future<UserMealPlan?> getByDate(DateTime date) async {
+    // Check cache for today's data
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final queryDate = DateTime(date.year, date.month, date.day);
+
+    if (queryDate == today && _todayCache != null && _todayCacheTime != null) {
+      if (now.difference(_todayCacheTime!) < _todayCacheDuration) {
+        return _todayCache;
+      }
+    }
+
     try {
       final response = await _api.get(
         '${ApiEndpoints.userMealPlans}?date=${_dateQuery(date)}',
@@ -30,7 +70,15 @@ class MealPlanRepository {
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return null;
-      return UserMealPlan.fromJson(decoded);
+      final result = UserMealPlan.fromJson(decoded);
+
+      // Cache today's data
+      if (queryDate == today) {
+        _todayCache = result;
+        _todayCacheTime = now;
+      }
+
+      return result;
     } catch (_) {
       return null;
     }
@@ -85,6 +133,8 @@ class MealPlanRepository {
       if (response.statusCode != 200 || response.body.isEmpty) {
         throw Exception(_messageFromResponse(response));
       }
+      // Invalidate cache on mutation
+      _invalidateCache();
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return null;
       return await getByDate(DateTime.now());
@@ -102,6 +152,8 @@ class MealPlanRepository {
       if (response.statusCode != 200 || response.body.isEmpty) {
         throw Exception(_messageFromResponse(response));
       }
+      // Invalidate cache on mutation
+      _invalidateCache();
     } catch (e) {
       rethrow;
     }
@@ -111,6 +163,13 @@ class MealPlanRepository {
 
   /// Lấy danh sách tất cả meal plans
   Future<List<MealPlanListItem>> getPlans({bool? isActive}) async {
+    // Check cache
+    if (_plansCache != null && _plansCacheTime != null) {
+      if (DateTime.now().difference(_plansCacheTime!) < _plansCacheDuration) {
+        return _plansCache!;
+      }
+    }
+
     try {
       var url = ApiEndpoints.mealPlans;
       if (isActive != null) {
@@ -120,10 +179,16 @@ class MealPlanRepository {
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
       if (decoded is List) {
-        return decoded
+        final result = decoded
             .whereType<Map<String, dynamic>>()
             .map((json) => MealPlanListItem.fromJson(json))
             .toList();
+
+        // Update cache
+        _plansCache = result;
+        _plansCacheTime = DateTime.now();
+
+        return result;
       }
       return [];
     } catch (_) {
@@ -341,6 +406,17 @@ class MealPlanRepository {
 
   /// Dashboard theo ngày
   Future<MealPlanDayDashboard> getDashboard(DateTime date) async {
+    // Check cache for today's dashboard
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final queryDate = DateTime(date.year, date.month, date.day);
+
+    if (queryDate == today && _dashboardCache != null && _dashboardCacheTime != null) {
+      if (now.difference(_dashboardCacheTime!) < _dashboardCacheDuration) {
+        return _dashboardCache!;
+      }
+    }
+
     final response = await _api.get(
       '${ApiEndpoints.mealPlanDashboard}?date=${_dateQuery(date)}',
     );
@@ -351,7 +427,41 @@ class MealPlanRepository {
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Invalid response format');
     }
-    return MealPlanDayDashboard.fromJson(decoded);
+    final result = MealPlanDayDashboard.fromJson(decoded);
+
+    // Cache today's dashboard
+    if (queryDate == today) {
+      _dashboardCache = result;
+      _dashboardCacheTime = now;
+    }
+
+    return result;
+  }
+
+  /// Streaks
+  Future<MealPlanStreak> getStreaks() async {
+    // Check cache
+    if (_streaksCache != null && _streaksCacheTime != null) {
+      if (DateTime.now().difference(_streaksCacheTime!) < _streaksCacheDuration) {
+        return _streaksCache!;
+      }
+    }
+
+    final response = await _api.get(ApiEndpoints.mealPlanStreaks);
+    if (response.statusCode != 200) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    final result = MealPlanStreak.fromJson(decoded);
+
+    // Update cache
+    _streaksCache = result;
+    _streaksCacheTime = DateTime.now();
+
+    return result;
   }
 
   /// So sánh planned vs actual
@@ -367,19 +477,6 @@ class MealPlanRepository {
       throw Exception('Invalid response format');
     }
     return MealPlanCompare.fromJson(decoded);
-  }
-
-  /// Streaks
-  Future<MealPlanStreak> getStreaks() async {
-    final response = await _api.get(ApiEndpoints.mealPlanStreaks);
-    if (response.statusCode != 200) {
-      throw Exception(_messageFromResponse(response));
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Invalid response format');
-    }
-    return MealPlanStreak.fromJson(decoded);
   }
 
   /// Creates a weekly budget-aware plan. For Office users the API selects

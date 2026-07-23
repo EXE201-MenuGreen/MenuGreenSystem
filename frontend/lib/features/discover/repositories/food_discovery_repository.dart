@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
@@ -9,6 +10,7 @@ class FoodDiscoveryRepository {
   FoodDiscoveryRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
+  static const String _favStorageKey = 'user_favorite_foods_cache';
 
   Future<List<FoodItem>> searchFoods({
     String? keyword,
@@ -116,33 +118,86 @@ class FoodDiscoveryRepository {
   }
 
   Future<List<FavoriteFoodItem>> getFavorites() async {
+    final List<FavoriteFoodItem> result = [];
+    final Set<String> existingIds = {};
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_favStorageKey) ?? [];
+      for (final s in raw) {
+        final map = jsonDecode(s);
+        if (map is Map<String, dynamic>) {
+          final item = FavoriteFoodItem.fromJson(map);
+          if (existingIds.add(item.foodId)) {
+            result.add(item);
+          }
+        }
+      }
+    } catch (_) {}
+
     try {
       final response = await _api.get(ApiEndpoints.foodFavorites);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List) return [];
-      return decoded.whereType<Map<String, dynamic>>().map(FavoriteFoodItem.fromJson).toList();
-    } catch (_) {
-      return [];
-    }
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          for (final raw in decoded.whereType<Map<String, dynamic>>()) {
+            final item = FavoriteFoodItem.fromJson(raw);
+            if (existingIds.add(item.foodId)) {
+              result.add(item);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return result;
+  }
+
+  Future<bool> saveFavoriteItem(FavoriteFoodItem item) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_favStorageKey) ?? [];
+      list.removeWhere((s) {
+        try {
+          final map = jsonDecode(s);
+          return map['foodId'] == item.foodId;
+        } catch (_) {
+          return false;
+        }
+      });
+      list.insert(0, jsonEncode(item.toJson()));
+      await prefs.setStringList(_favStorageKey, list);
+    } catch (_) {}
+
+    try {
+      await _api.postJson(ApiEndpoints.foodFavorite(item.foodId), {});
+    } catch (_) {}
+    return true;
   }
 
   Future<bool> addFavorite(String foodId) async {
-    try {
-      final response = await _api.postJson(ApiEndpoints.foodFavorite(foodId), {});
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+    return saveFavoriteItem(FavoriteFoodItem(foodId: foodId, nameVi: 'Món ăn yêu thích'));
   }
 
   Future<bool> removeFavorite(String foodId) async {
     try {
-      final response = await _api.delete(ApiEndpoints.foodFavorite(foodId));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_favStorageKey) ?? [];
+      list.removeWhere((s) {
+        try {
+          final map = jsonDecode(s);
+          return map['foodId'] == foodId;
+        } catch (_) {
+          return false;
+        }
+      });
+      await prefs.setStringList(_favStorageKey, list);
+    } catch (_) {}
+
+    try {
+      await _api.delete(ApiEndpoints.foodFavorite(foodId));
+    } catch (_) {}
+    return true;
   }
 
   Future<List<IngredientItem>> searchIngredients({
