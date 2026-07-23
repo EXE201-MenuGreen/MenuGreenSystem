@@ -15,6 +15,7 @@ class FavoritesScreen extends StatefulWidget {
 class _FavoritesScreenState extends State<FavoritesScreen> {
   final _repository = FoodDiscoveryRepository();
   List<FavoriteFoodItem> _items = [];
+  final Set<String> _removingIds = <String>{};
   bool _loading = true;
 
   @override
@@ -33,6 +34,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     });
   }
 
+  Future<void> _removeFavorite(FavoriteFoodItem item) async {
+    if (_removingIds.contains(item.foodId)) return;
+    setState(() => _removingIds.add(item.foodId));
+
+    final ok = await _repository.removeFavorite(item.foodId);
+    if (!mounted) return;
+    setState(() {
+      _removingIds.remove(item.foodId);
+      if (ok) {
+        _items.removeWhere((favorite) => favorite.foodId == item.foodId);
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Đã bỏ ${item.nameVi} khỏi mục yêu thích' : 'Không thể bỏ món yêu thích. Vui lòng thử lại.'),
+        backgroundColor: ok ? null : Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,35 +67,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _items.isEmpty
-              ? const Center(child: Text('Chưa có món yêu thích.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: _items.length,
-                  itemBuilder: (context, index) {
-                    final item = _items[index];
-                    return ListTile(
-                      title: Text(item.nameVi),
-                      subtitle: item.caloriesKcal != null
-                          ? Text('${item.caloriesKcal!.round()} kcal')
-                          : null,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          await _repository.removeFavorite(item.foodId);
-                          _load();
-                        },
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FoodDetailScreen(foodId: item.foodId),
-                          ),
-                        ).then((_) => _load());
-                      },
-                    );
+          ? const Center(child: Text('Chưa có món yêu thích.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: _items.length,
+              itemBuilder: (context, index) {
+                final item = _items[index];
+                return ListTile(
+                  title: Text(item.nameVi),
+                  subtitle: item.caloriesKcal != null ? Text('${item.caloriesKcal!.round()} kcal') : null,
+                  trailing: IconButton(
+                    tooltip: 'Bỏ khỏi mục yêu thích',
+                    icon: _removingIds.contains(item.foodId)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          )
+                        : const Icon(Icons.favorite, color: Colors.red),
+                    onPressed: _removingIds.contains(item.foodId) ? null : () => _removeFavorite(item),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: item.foodId)),
+                    ).then((_) => _load());
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }

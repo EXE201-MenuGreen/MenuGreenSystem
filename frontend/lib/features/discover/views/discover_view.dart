@@ -43,6 +43,8 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   List<FoodItem> _foods = [];
   List<RecipeItem> _recipes = [];
   List<IngredientItem> _ingredients = [];
+  Set<String> _favoriteFoodIds = <String>{};
+  final Set<String> _favoriteBusyIds = <String>{};
   int _loadGeneration = 0;
   bool _recipesLoaded = false;
   bool _ingredientsLoaded = false;
@@ -87,9 +89,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   Future<void> refreshAllergyStatus() async {
     _allergiesCached = null;
     try {
-      final hasAllergies = await _repository
-          .hasAllergiesConfigured()
-          .timeout(const Duration(seconds: 15));
+      final hasAllergies = await _repository.hasAllergiesConfigured().timeout(const Duration(seconds: 15));
       if (!mounted) return;
       if (hasAllergies) _allergiesCached = true;
       setState(() => _hasAllergies = hasAllergies);
@@ -100,17 +100,13 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   String get _effectiveAllergyMode => _safeOnly ? 'hide' : _allergyMode;
 
-  String? get _keyword =>
-      _keywordController.text.trim().isEmpty ? null : _keywordController.text.trim();
+  String? get _keyword => _keywordController.text.trim().isEmpty ? null : _keywordController.text.trim();
 
   Future<void> _load({bool initial = false}) async {
     await _reloadLists(initial: initial, checkAllergy: true);
   }
 
-  Future<void> _reloadLists({
-    bool initial = false,
-    bool checkAllergy = false,
-  }) async {
+  Future<void> _reloadLists({bool initial = false, bool checkAllergy = false}) async {
     final gen = ++_loadGeneration;
     if (!mounted) return;
     setState(() {
@@ -126,9 +122,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
     try {
       if (checkAllergy || _allergiesCached != true) {
-        final hasAllergies = await _repository
-            .hasAllergiesConfigured()
-            .timeout(const Duration(seconds: 15));
+        final hasAllergies = await _repository.hasAllergiesConfigured().timeout(const Duration(seconds: 15));
         if (!mounted || gen != _loadGeneration) return;
         if (hasAllergies) _allergiesCached = true;
         setState(() => _hasAllergies = hasAllergies);
@@ -148,6 +142,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
         _initialLoading = false;
         _refreshing = false;
       });
+      unawaited(_refreshFavorites(generation: gen));
 
       if (_tabController.index == 1) {
         unawaited(_loadRecipes(generation: gen));
@@ -169,6 +164,62 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
         _refreshing = false;
       });
     }
+  }
+
+  Future<void> _refreshFavorites({int? generation}) async {
+    final gen = generation ?? _loadGeneration;
+    final favorites = await _repository.getFavorites().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => <FavoriteFoodItem>[],
+    );
+    if (!mounted || gen != _loadGeneration) return;
+    setState(() {
+      _favoriteFoodIds = favorites.map((item) => item.foodId).toSet();
+    });
+  }
+
+  Future<void> _toggleFavorite(FoodItem food) async {
+    if (_favoriteBusyIds.contains(food.id)) return;
+
+    final wasFavorite = _favoriteFoodIds.contains(food.id);
+    setState(() => _favoriteBusyIds.add(food.id));
+
+    final ok = wasFavorite ? await _repository.removeFavorite(food.id) : await _repository.addFavorite(food.id);
+    if (!mounted) return;
+
+    setState(() {
+      _favoriteBusyIds.remove(food.id);
+      if (ok) {
+        if (wasFavorite) {
+          _favoriteFoodIds.remove(food.id);
+        } else {
+          _favoriteFoodIds.add(food.id);
+        }
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? wasFavorite
+                    ? 'Đã bỏ ${food.nameVi} khỏi mục yêu thích'
+                    : 'Đã thêm ${food.nameVi} vào mục yêu thích'
+              : 'Không thể cập nhật món yêu thích. Vui lòng thử lại.',
+        ),
+        backgroundColor: ok ? null : Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _openFoodDetail(FoodItem food) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FoodDetailScreen(foodId: food.id, allergyMode: _effectiveAllergyMode),
+      ),
+    );
+    if (mounted) await _refreshFavorites();
   }
 
   Future<void> _loadRecipes({int? generation}) async {
@@ -227,10 +278,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   }
 
   Future<void> _openAllergies() async {
-    final changed = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const AllergiesScreen()),
-    );
+    final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const AllergiesScreen()));
     if (changed == true) {
       _allergiesCached = null;
       _scheduleReload(checkAllergy: true);
@@ -258,10 +306,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
       if (mounted) {
         final displayName = LocationService.getRegionDisplayName(region);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã định vị vùng hiện tại: $displayName'),
-            duration: const Duration(seconds: 2),
-          ),
+          SnackBar(content: Text('Đã định vị vùng hiện tại: $displayName'), duration: const Duration(seconds: 2)),
         );
       }
     } catch (e) {
@@ -295,33 +340,21 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                   const Expanded(
                     child: Text(
                       'Khám phá',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textDark),
                     ),
                   ),
                   IconButton(
                     tooltip: 'Gợi ý cá nhân hóa',
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RecommendationScreen(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const RecommendationScreen()));
                     },
                     icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
                   ),
                   IconButton(
                     tooltip: 'Món yêu thích',
                     onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-                      );
-                      _scheduleReload();
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
+                      if (mounted) await _refreshFavorites();
                     },
                     icon: const Icon(Icons.favorite_border, color: AppColors.primary),
                   ),
@@ -377,11 +410,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                     const SizedBox(width: 8),
                     InputChip(
                       avatar: _detectingLocation
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.my_location, size: 18),
                       label: Text(
                         _detectedRegion != null
@@ -405,28 +434,18 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                           : null,
                     ),
                     ActionChip(
-                      avatar: const Icon(
-                        Icons.map_rounded,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
+                      avatar: const Icon(Icons.map_rounded, size: 18, color: AppColors.primary),
                       label: const Text('Bản đồ món 🗺️'),
                       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => FoodMapScreen(initialKeyword: _keyword),
-                          ),
+                          MaterialPageRoute(builder: (_) => FoodMapScreen(initialKeyword: _keyword)),
                         );
                       },
                     ),
                     ActionChip(
-                      avatar: Icon(
-                        Icons.tune,
-                        size: 18,
-                        color: _foodFilters.hasAny ? AppColors.primary : null,
-                      ),
+                      avatar: Icon(Icons.tune, size: 18, color: _foodFilters.hasAny ? AppColors.primary : null),
                       label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
                       onPressed: _openFoodFilters,
                     ),
@@ -454,21 +473,16 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                 Tab(text: 'Nguyên liệu'),
               ],
             ),
-            if (_refreshing)
-              const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+            if (_refreshing) const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
             Expanded(
               child: _initialLoading
                   ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                   : _error != null && _foods.isEmpty
-                      ? _buildError()
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildFoodList(),
-                            _buildRecipeList(),
-                            _buildIngredientList(),
-                          ],
-                        ),
+                  ? _buildError()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [_buildFoodList(), _buildRecipeList(), _buildIngredientList()],
+                    ),
             ),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -538,17 +552,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
         final food = _foods[index];
         return _FoodListTile(
           food: food,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FoodDetailScreen(
-                  foodId: food.id,
-                  allergyMode: _effectiveAllergyMode,
-                ),
-              ),
-            );
-          },
+          isFavorite: _favoriteFoodIds.contains(food.id),
+          favoriteBusy: _favoriteBusyIds.contains(food.id),
+          onFavorite: () => _toggleFavorite(food),
+          onTap: () => _openFoodDetail(food),
         );
       },
     );
@@ -600,10 +607,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => RecipeDetailScreen(
-                  recipeId: recipe.id,
-                  allergyMode: _effectiveAllergyMode,
-                ),
+                builder: (_) => RecipeDetailScreen(recipeId: recipe.id, allergyMode: _effectiveAllergyMode),
               ),
             );
           },
@@ -659,10 +663,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => IngredientDetailScreen(
-                  ingredientId: item.id,
-                  allergyMode: _effectiveAllergyMode,
-                ),
+                builder: (_) => IngredientDetailScreen(ingredientId: item.id, allergyMode: _effectiveAllergyMode),
               ),
             );
           },
@@ -673,9 +674,18 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 }
 
 class _FoodListTile extends StatelessWidget {
-  const _FoodListTile({required this.food, required this.onTap});
+  const _FoodListTile({
+    required this.food,
+    required this.isFavorite,
+    required this.favoriteBusy,
+    required this.onFavorite,
+    required this.onTap,
+  });
 
   final FoodItem food;
+  final bool isFavorite;
+  final bool favoriteBusy;
+  final VoidCallback onFavorite;
   final VoidCallback onTap;
 
   @override
@@ -698,7 +708,30 @@ class _FoodListTile extends StatelessWidget {
             ),
         ],
       ),
-      trailing: AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
+          if (favoriteBusy)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: isFavorite ? 'Bỏ khỏi mục yêu thích' : 'Thêm vào mục yêu thích',
+              onPressed: onFavorite,
+              icon: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.red : AppColors.primary,
+              ),
+            ),
+        ],
+      ),
       onTap: onTap,
     );
   }
