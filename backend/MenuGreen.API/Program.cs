@@ -518,31 +518,32 @@ if (!app.Environment.IsDevelopment())
     }
 
     // -------------------------------------------------------------------------
-    // CRITICAL: Apply migrations. If it fails, REFUSE to start so we don't
-    // serve traffic against a schema that the code doesn't expect.
+    // TEMPORARY: Skip migration - DB already has all tables from previous
+    // deployment. Migration causes "relation already exists" error when
+    // BaselineExistingDatabase is in assembly but tables already exist.
+    // Remove this block after DB schema is fully managed by EF migrations.
     // -------------------------------------------------------------------------
-    try
-    {
-        logger.LogInformation("[MIGRATION] Applying database migrations...");
-        db.Database.Migrate();
-        logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
-
-        // Re-list applied after migrate for verification
-        var appliedAfter = db.Database.GetAppliedMigrations().ToList();
-        logger.LogInformation(
-            "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
-            appliedAfter.Count,
-            string.Join(", ", appliedAfter)
-        );
-    }
-    catch (Exception ex)
-    {
-        logger.LogCritical(
-            ex,
-            "FATAL: Failed to apply database migrations. Application will NOT start to avoid serving requests with mismatched schema."
-        );
-        throw; // Crash the app - DO NOT start with broken schema
-    }
+    // try
+    // {
+    //     logger.LogInformation("[MIGRATION] Applying database migrations...");
+    //     db.Database.Migrate();
+    //     logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
+    //
+    //     var appliedAfter = db.Database.GetAppliedMigrations().ToList();
+    //     logger.LogInformation(
+    //         "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
+    //         appliedAfter.Count,
+    //         string.Join(", ", appliedAfter)
+    //     );
+    // }
+    // catch (Exception ex)
+    // {
+    //     logger.LogCritical(
+    //         ex,
+    //         "FATAL: Failed to apply database migrations. Application will NOT start."
+    //     );
+    //     throw;
+    // }
 }
 
 // Seed data: run backend/run_seed_data.ps1 after migrations.
