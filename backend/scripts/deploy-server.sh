@@ -507,6 +507,21 @@ fi
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
 
+echo "=== Check EF Migration History ==="
+DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
+if [ -n "$DB_CONN_PRECHECK" ]; then
+  PGPASSWORD_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
+  DB_HOST_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Host=\K[^;]+' || true)
+  DB_USER_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN_PRECHECK" | grep -oP 'User Id=\K[^;]+' || true)
+  DB_NAME_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Database=\K[^;]+' || true)
+  
+  if [ -n "$DB_HOST_PRECHECK" ] && [ -n "$DB_NAME_PRECHECK" ]; then
+    MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>/dev/null || echo "0")
+    MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]')
+    echo "  Found $MIGRATION_COUNT migration(s) in history"
+  fi
+fi
+
 echo "=== Stop and remove all existing containers ==="
 docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
 docker stop menugreen_api 2>/dev/null || true
