@@ -195,12 +195,13 @@ class NutritionTrackingRepository {
       'mealType': mealType,
       'quantityG': quantityG,
       'notes': notes,
-      'loggedAt': loggedAt?.toUtc().toIso8601String(),
+      'loggedAt': loggedAt?.toIso8601String(),
       'caloriesKcal': caloriesKcal,
       'proteinG': proteinG,
       'carbsG': carbsG,
       'fatG': fatG,
       'customName': customName,
+      'addToMealPlan': true,
     };
   }
 
@@ -212,7 +213,7 @@ class NutritionTrackingRepository {
     return {
       'weightKg': weightKg,
       'bodyFatPercent': bodyFatPercent,
-      'recordedAt': recordedAt?.toUtc().toIso8601String(),
+      'recordedAt': recordedAt?.toIso8601String(),
     };
   }
 

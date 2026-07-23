@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -95,9 +96,18 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createPlan(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Tạo kế hoạch'),
+        icon: const Icon(Icons.add, color: Colors.white, size: 20),
+        label: Text(
+          'Tạo kế hoạch',
+          style: GoogleFonts.beVietnamPro(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 6,
       ),
     );
   }
@@ -279,11 +289,23 @@ class _TodayTab extends StatelessWidget {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () => _createPlan(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Tạo kế hoạch'),
+            icon: const Icon(Icons.add, color: Colors.white, size: 20),
+            label: Text(
+              'Tạo kế hoạch',
+              style: GoogleFonts.beVietnamPro(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           ),
         ],

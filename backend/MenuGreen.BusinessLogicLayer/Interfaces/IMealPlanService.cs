@@ -40,6 +40,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date);
         Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request);
         Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request);
+        Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId);
         Task<CompleteMealPlanItemResponse> CompleteItemAsync(Guid userId, Guid itemId, CompleteMealPlanItemRequest request);
         Task<MealPlanAdherenceResponse> GetAdherenceAsync(Guid userId, DateOnly date);
         Task<CompleteMealPlanItemResponse> ToggleItemAsync(Guid userId, Guid itemId, bool isCompleted);

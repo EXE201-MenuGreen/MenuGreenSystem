@@ -786,7 +786,7 @@ class _ProfileViewState extends State<ProfileView> {
         ? 'Office'
         : activeSubscription?.subscriptionPlanName ??
               subscription?.subscriptionPlanName ??
-              (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
+              'Cơ bản';
     final isPro =
         _officeModeActivated ||
         activeSubscription != null &&
@@ -878,7 +878,7 @@ class _ProfileViewState extends State<ProfileView> {
             )
           else
             const Text(
-              'Nâng cấp để nhận nhiều ưu đãi',
+              'Quyền Free luôn hoạt động • Không giới hạn',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           const SizedBox(height: 20),

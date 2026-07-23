@@ -1,7 +1,9 @@
 part of 'micro_learning_screen.dart';
 
 class SavedMicroLearningScreen extends StatefulWidget {
-  const SavedMicroLearningScreen({super.key});
+  const SavedMicroLearningScreen({super.key, required this.allowQuiz});
+
+  final bool allowQuiz;
 
   @override
   State<SavedMicroLearningScreen> createState() =>
@@ -43,7 +45,10 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
     final changed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => MicroLearningDetailScreen(cardId: card.id),
+        builder: (_) => MicroLearningDetailScreen(
+          cardId: card.id,
+          allowQuiz: widget.allowQuiz,
+        ),
       ),
     );
     if (changed == true) {
@@ -86,5 +91,3 @@ class _SavedMicroLearningScreenState extends State<SavedMicroLearningScreen> {
     );
   }
 }
-
-

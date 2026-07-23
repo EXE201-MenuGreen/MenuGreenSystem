@@ -18,10 +18,14 @@ namespace MenuGreen.API.Controllers
     public class NutritionTrackingController : ControllerBase
     {
         private readonly INutritionTrackingService _service;
+        private readonly IMealPlanService _mealPlanService;
 
-        public NutritionTrackingController(INutritionTrackingService service)
+        public NutritionTrackingController(
+            INutritionTrackingService service,
+            IMealPlanService mealPlanService)
         {
             _service = service;
+            _mealPlanService = mealPlanService;
         }
 
         /// <summary>
@@ -52,7 +56,12 @@ namespace MenuGreen.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.CreateMealLogAsync(userId, request));
+            var mealLog = await _service.CreateMealLogAsync(userId, request);
+            if (request.AddToMealPlan && !mealLog.MealPlanItemId.HasValue)
+            {
+                await _mealPlanService.LinkMealLogToDailyPlanAsync(userId, mealLog.Id);
+            }
+            return Ok(mealLog);
         }
 
         /// <summary>

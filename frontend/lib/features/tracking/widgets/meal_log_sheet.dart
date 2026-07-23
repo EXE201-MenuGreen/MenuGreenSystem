@@ -37,11 +37,7 @@ Future<bool> showMealLogSheet(
         : await repository.getRecipes(keyword: keyword.isEmpty ? null : keyword);
     setModalState(() {
       items = loaded;
-      if (selectedId != null && !items.any((e) => e.id == selectedId)) {
-        selectedId = items.isNotEmpty ? items.first.id : null;
-      } else if (selectedId == null && initialFoodId != null) {
-        selectedId = initialFoodId;
-      }
+      selectedId ??= initialFoodId ?? (items.isNotEmpty ? items.first.id : null);
       loadingItems = false;
     });
   }
@@ -50,9 +46,7 @@ Future<bool> showMealLogSheet(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
-        if ((initialFoodId != null || initialRecipeId != null) &&
-            items.isEmpty &&
-            !loadingItems) {
+        if (items.isEmpty && !loadingItems) {
           WidgetsBinding.instance.addPostFrameCallback((_) => loadItems(setModalState));
         }
         return AlertDialog(
@@ -239,7 +233,9 @@ Future<bool> showMealLogSheet(
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('🎉 Đã ghi "$name" vào $mealTypeName thành công!'),
+          content: Text(
+            '🎉 Đã lưu "$name" vào $mealTypeName, Kế hoạch ăn uống và Lịch sử.',
+          ),
           backgroundColor: AppColors.primary,
           action: SnackBarAction(
             label: 'Xem nhật ký',

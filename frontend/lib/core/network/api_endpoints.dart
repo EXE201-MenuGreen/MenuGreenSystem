@@ -196,6 +196,8 @@ class ApiEndpoints {
       '$mealTemplates/from-log/$mealLogId';
   static String get microLearningRecommended =>
       '$baseUrl/MicroLearning/cards/recommended';
+  static String get microLearningLibrary =>
+      '$baseUrl/MicroLearning/cards/library';
   static String microLearningCardById(String id) =>
       '$baseUrl/MicroLearning/cards/$id';
   static String get microLearningCategories =>
@@ -222,6 +224,8 @@ class ApiEndpoints {
   static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
   static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
   static String get subscriptionActive => '$baseUrl/UserSubscription/me/active';
+  static String get subscriptionEntitlements =>
+      '$baseUrl/UserSubscription/me/entitlements';
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 

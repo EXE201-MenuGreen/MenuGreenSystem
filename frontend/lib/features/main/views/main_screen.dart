@@ -16,7 +16,6 @@ import '../../tracking/views/ingredient_scan_screen.dart';
 import '../../discover/views/recommendation_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
-import '../../subscription/utils/subscription_access.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -60,10 +59,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadSubscriptionVisualState() async {
     try {
-      final subscriptions = await _subscriptionRepository.getActive();
+      final access = await _subscriptionRepository.getFeatureAccess();
       if (!mounted) return;
       setState(() {
-        _hasAiVipAccess = hasAiVipSubscriptionAccess(subscriptions);
+        _hasAiVipAccess = access.hasAi;
       });
     } catch (_) {
       if (!mounted) return;
@@ -134,7 +133,9 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: Colors.white,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final buttonSize = _hasAiVipAccess ? vipButtonSize : regularButtonSize;
+          final buttonSize = _hasAiVipAccess
+              ? vipButtonSize
+              : regularButtonSize;
           final defaultOffset = Offset(
             constraints.maxWidth - buttonSize - 18,
             constraints.maxHeight - buttonSize - 26,
@@ -144,21 +145,18 @@ class _MainScreenState extends State<MainScreen> {
           return Stack(
             children: [
               Positioned.fill(
-                child: IndexedStack(index: _currentIndex, children: _buildPages()),
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _buildPages(),
+                ),
               ),
-              if (_currentIndex == _homeTab)
+              if (_currentIndex == _homeTab && _hasAiVipAccess)
                 Positioned(
                   left: effectiveOffset.dx
-                      .clamp(
-                        12.0,
-                        constraints.maxWidth - buttonSize - 12,
-                      )
+                      .clamp(12.0, constraints.maxWidth - buttonSize - 12)
                       .toDouble(),
                   top: effectiveOffset.dy
-                      .clamp(
-                        12.0,
-                        constraints.maxHeight - buttonSize - 12,
-                      )
+                      .clamp(12.0, constraints.maxHeight - buttonSize - 12)
                       .toDouble(),
                   child: FloatingAiAssistantButton(
                     isVip: _hasAiVipAccess,

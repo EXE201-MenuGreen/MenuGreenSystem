@@ -14,6 +14,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = "UserOnly")]
+    [Authorize(Policy = "AiFeatures")]
     [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("AiPolicy")]
     public class AiCoachController : ControllerBase
     {

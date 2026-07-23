@@ -1,3 +1,49 @@
+class FeatureAccess {
+  const FeatureAccess({
+    required this.tier,
+    required this.entitlements,
+    required this.featureGroups,
+    required this.expiresAt,
+  });
+
+  final String tier;
+  final Set<String> entitlements;
+  final Set<String> featureGroups;
+  final DateTime? expiresAt;
+
+  static const free = FeatureAccess(
+    tier: 'free',
+    entitlements: {'free_features'},
+    featureGroups: {'free'},
+    expiresAt: null,
+  );
+
+  bool get hasCasual => entitlements.contains('casual_features');
+  bool get hasOffice => entitlements.contains('office_features');
+  bool get hasGym => entitlements.contains('gym_features');
+  bool get hasCoachAccess => entitlements.contains('coach_access');
+  bool get hasAi => entitlements.contains('ai_features');
+
+  factory FeatureAccess.fromJson(Map<String, dynamic> json) {
+    Set<String> stringSet(String camel, String pascal) {
+      final raw = json[camel] ?? json[pascal];
+      if (raw is! List) return const {};
+      return raw
+          .map((item) => item.toString().trim().toLowerCase())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+    }
+
+    final entitlements = stringSet('entitlements', 'Entitlements');
+    return FeatureAccess(
+      tier: _pickString(json, 'tier', 'Tier').toLowerCase(),
+      entitlements: {'free_features', ...entitlements},
+      featureGroups: {'free', ...stringSet('featureGroups', 'FeatureGroups')},
+      expiresAt: _pickDate(json, 'expiresAt', 'ExpiresAt'),
+    );
+  }
+}
+
 class SubscriptionPlan {
   final String id;
   final String name;
@@ -33,6 +79,16 @@ class SubscriptionPlan {
   }
 
   bool get isFree => priceVnd <= 0;
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = name.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
 }
 
 class UserSubscription {
@@ -87,6 +143,16 @@ class UserSubscription {
   }
 
   bool get isActive => status.toLowerCase() == 'active';
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = subscriptionPlanName.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
 
   bool get isCurrentlyActive {
     if (!isActive) return false;

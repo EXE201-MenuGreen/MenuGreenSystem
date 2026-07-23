@@ -13,7 +13,7 @@ namespace MenuGreen.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "CasualOnly")]
+    [Authorize(Policy = "UserOnly")]
     public class MicroLearningController : ControllerBase
     {
         private readonly IMicroLearningService _service;
@@ -27,6 +27,7 @@ namespace MenuGreen.API.Controllers
         /// Get list of recommended short knowledge cards based on user's actual nutrition/health issues.
         /// </summary>
         [HttpGet("cards/recommended")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> GetRecommended()
         {
             if (ModelState.IsValid == false)
@@ -36,6 +37,13 @@ namespace MenuGreen.API.Controllers
                 return Unauthorized();
             var result = await _service.GetRecommendedCardsAsync(userId);
             return Ok(result);
+        }
+
+        [HttpGet("cards/library")]
+        public async Task<IActionResult> GetLibrary([FromQuery] string? category = null)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetLibraryCardsAsync(userId, category));
         }
 
         /// <summary>
@@ -115,6 +123,7 @@ namespace MenuGreen.API.Controllers
         /// Submit quiz answer on card to receive feedback and earn bonus points.
         /// </summary>
         [HttpPost("cards/{id:guid}/quiz/submit")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> SubmitQuiz(Guid id, [FromBody] QuizSubmitRequest request)
         {
             if (!ModelState.IsValid)

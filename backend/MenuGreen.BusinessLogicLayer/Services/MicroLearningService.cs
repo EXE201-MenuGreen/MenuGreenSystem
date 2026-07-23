@@ -154,6 +154,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return sortedList.Select(c => MapToResponse(c, interactions.TryGetValue(c.Id, out var inter) ? inter : null));
         }
 
+        public async Task<IEnumerable<MicroLearningCardResponse>> GetLibraryCardsAsync(
+            Guid userId,
+            string? category
+        )
+        {
+            await EnsureSeedDataAsync();
+            var normalizedCategory = category?.Trim();
+            var cards = (
+                await _unitOfWork.MicroLearningCards.FindAsync(c =>
+                    c.IsActive
+                    && (
+                        string.IsNullOrWhiteSpace(normalizedCategory)
+                        || c.Category == normalizedCategory
+                    )
+                )
+            )
+                .OrderBy(c => c.Category)
+                .ThenBy(c => c.Title)
+                .ToList();
+            var interactions = (
+                await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId)
+            ).ToDictionary(i => i.CardId);
+
+            return cards.Select(c =>
+                MapToResponse(c, interactions.TryGetValue(c.Id, out var interaction) ? interaction : null)
+            );
+        }
+
         public async Task<MicroLearningCardResponse> GetCardByIdAsync(Guid id, Guid userId)
         {
             await EnsureSeedDataAsync();

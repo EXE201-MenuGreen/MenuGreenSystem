@@ -4,6 +4,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/micro_learning_models.dart';
 import '../repositories/micro_learning_repository.dart';
+import '../../subscription/models/subscription_models.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
 
 part 'micro_learning_saved_part.dart';
 part 'micro_learning_detail_part.dart';
@@ -18,6 +20,8 @@ class MicroLearningScreen extends StatefulWidget {
 
 class _MicroLearningScreenState extends State<MicroLearningScreen> {
   final _repository = MicroLearningRepository();
+  final _subscriptionRepository = UserSubscriptionRepository();
+  FeatureAccess _access = FeatureAccess.free;
   List<MicroLearningCard> _cards = const [];
   List<MicroLearningCategory> _categories = const [];
   late List<FoodMoodItem> _moods;
@@ -36,14 +40,18 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      final access = await _subscriptionRepository.getFeatureAccess();
       final results = await Future.wait([
-        _repository.getRecommended(),
+        access.hasCasual
+            ? _repository.getRecommended()
+            : _repository.getLibrary(),
         _repository.getCategories(),
       ]);
       if (!mounted) return;
       setState(() {
         _cards = results[0] as List<MicroLearningCard>;
         _categories = results[1] as List<MicroLearningCategory>;
+        _access = access;
       });
     } catch (error) {
       if (mounted) _message(error.toString(), error: true);
@@ -64,7 +72,10 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
     final changed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => MicroLearningDetailScreen(cardId: card.id),
+        builder: (_) => MicroLearningDetailScreen(
+          cardId: card.id,
+          allowQuiz: _access.hasCasual,
+        ),
       ),
     );
     if (changed == true) await _load();
@@ -73,7 +84,9 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
   Future<void> _openSaved() async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const SavedMicroLearningScreen()),
+      MaterialPageRoute(
+        builder: (_) => SavedMicroLearningScreen(allowQuiz: _access.hasCasual),
+      ),
     );
     if (changed == true) await _load();
   }
@@ -109,6 +122,7 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (_access.hasCasual) ...[
                   // Mood Selector Header
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -187,6 +201,7 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
                     total: _cards.length,
                   ),
                   const SizedBox(height: 20),
+                  ],
                   const Text(
                     'Chủ đề dinh dưỡng',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
@@ -216,7 +231,11 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    _category == null ? 'Mẹo & Bài viết hay' : 'Thẻ thuộc chủ đề',
+                    _category == null
+                        ? (_access.hasCasual
+                              ? 'Dành cho bạn'
+                              : 'Thư viện chung')
+                        : 'Thẻ thuộc chủ đề',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -248,5 +267,3 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
     );
   }
 }
-
-

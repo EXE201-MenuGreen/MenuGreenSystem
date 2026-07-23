@@ -9,6 +9,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface IMicroLearningService
     {
         Task<IEnumerable<MicroLearningCardResponse>> GetRecommendedCardsAsync(Guid userId);
+        Task<IEnumerable<MicroLearningCardResponse>> GetLibraryCardsAsync(Guid userId, string? category);
         Task<MicroLearningCardResponse> GetCardByIdAsync(Guid id, Guid userId);
         Task<IEnumerable<MicroLearningCategoryResponse>> GetCategoriesAsync();
         Task<bool> RecordCardActionAsync(Guid userId, Guid cardId, string action);

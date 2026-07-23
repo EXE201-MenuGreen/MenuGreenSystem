@@ -10,7 +10,7 @@ namespace MenuGreen.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "CasualOnly")]
+    [Authorize(Policy = "CasualFeatures")]
     public class LuckyWheelController : ControllerBase
     {
         private readonly ILuckyWheelService _luckyWheelService;

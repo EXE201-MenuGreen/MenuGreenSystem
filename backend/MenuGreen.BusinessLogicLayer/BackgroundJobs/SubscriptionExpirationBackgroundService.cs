@@ -85,19 +85,6 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
                     sub.UpdatedAt = now;
                     unitOfWork.UserSubscriptions.Update(sub);
 
-                    var freeRoles = await unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "free");
-                    var freeRole = freeRoles.FirstOrDefault();
-                    if (freeRole != null)
-                    {
-                        var user = await unitOfWork.Users.GetByIdAsync(sub.UserId);
-                        if (user != null)
-                        {
-                            user.RoleId = freeRole.Id;
-                            user.UpdatedAt = now;
-                            unitOfWork.Users.Update(user);
-                        }
-                    }
-
                     // Send alert notification
                     var plan = await unitOfWork.SubscriptionPlans.GetByIdAsync(sub.SubscriptionPlanId);
                     var planName = plan?.Name ?? "VIP";

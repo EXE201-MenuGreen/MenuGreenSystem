@@ -59,6 +59,7 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
             using var scope = _serviceProvider.CreateScope();
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             var dailyStarterService = scope.ServiceProvider.GetRequiredService<IDailyStarterService>();
+            var featureAccessService = scope.ServiceProvider.GetRequiredService<IFeatureAccessService>();
 
             var users = await unitOfWork.Users.FindAsync(u => u.IsActive && u.DeletedAt == null);
             var userList = users.ToList();
@@ -71,6 +72,11 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
 
                 try
                 {
+                    if (!await featureAccessService.HasEntitlementAsync(user.Id, "casual_features"))
+                    {
+                        continue;
+                    }
+
                     // By querying the personalization and daily starter, they are computed and cached (e.g. in Redis)
                     // so that when the user logs in the next morning, the API response is extremely fast.
                     await dailyStarterService.GetPersonalizationAsync(user.Id);

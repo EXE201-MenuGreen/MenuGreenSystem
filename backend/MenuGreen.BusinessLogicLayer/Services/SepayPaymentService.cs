@@ -336,49 +336,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             subscription.UpdatedAt = now;
             _unitOfWork.UserSubscriptions.Update(subscription);
 
-            // The purchased package is authoritative. EatingPattern is only a
-            // compatibility fallback for legacy plans without FeatureGroup.
-            var aiProfiles = await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == subscription.UserId);
-            var aiProfile = aiProfiles.FirstOrDefault();
-            var targetRoleName = plan.FeatureGroup?.Trim().ToLowerInvariant() switch
-            {
-                "gym" => "Gymer",
-                "office" => "Office",
-                "casual" => "Casual",
-                "pro" => "Casual",
-                _ => "Casual"
-            };
-            if (string.IsNullOrWhiteSpace(plan.FeatureGroup) && aiProfile != null && !string.IsNullOrEmpty(aiProfile.EatingPattern))
-            {
-                var pattern = aiProfile.EatingPattern.Trim().ToLowerInvariant().Replace("\"", "");
-                if (pattern == "office") targetRoleName = "Office";
-                else if (pattern is "gym" or "gymer") targetRoleName = "Gymer";
-                else if (pattern == "casual") targetRoleName = "Casual";
-            }
-
-            var roles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == targetRoleName.ToLower());
-            var targetRole = roles.FirstOrDefault();
-            if (targetRole == null)
-            {
-                targetRole = new Role
-                {
-                    Id = Guid.NewGuid(),
-                    Name = targetRoleName,
-                    Description = $"{targetRoleName} tier user role",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.Roles.AddAsync(targetRole);
-            }
-
-            var user = await _unitOfWork.Users.GetByIdAsync(subscription.UserId);
-            if (user != null)
-            {
-                user.RoleId = targetRole.Id;
-                user.UpdatedAt = now;
-                _unitOfWork.Users.Update(user);
-            }
-
             await _unitOfWork.SubscriptionTransactions.AddAsync(new SubscriptionTransaction
             {
                 Id = Guid.NewGuid(),
