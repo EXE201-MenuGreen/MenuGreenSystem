@@ -103,6 +103,8 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<MealPlanHeader>().HasQueryFilter(mph => mph.User == null || EF.Property<DateTime?>(mph.User, "DeletedAt") == null);
             modelBuilder.Entity<MealTemplate>().HasQueryFilter(mt => mt.User == null || EF.Property<DateTime?>(mt.User, "DeletedAt") == null);
             modelBuilder.Entity<Notification>().HasQueryFilter(n => n.User == null || EF.Property<DateTime?>(n.User, "DeletedAt") == null);
+            modelBuilder.Entity<FavoriteFood>().HasQueryFilter(ff => ff.User == null || EF.Property<DateTime?>(ff.User, "DeletedAt") == null);
+            modelBuilder.Entity<CoachConnection>().HasQueryFilter(cc => (cc.Client == null || EF.Property<DateTime?>(cc.Client, "DeletedAt") == null) && (cc.Coach == null || EF.Property<DateTime?>(cc.Coach, "DeletedAt") == null));
         }
     }
 }
