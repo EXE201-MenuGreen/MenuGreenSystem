@@ -115,6 +115,7 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<CustomUserPortion>().HasQueryFilter(cup => cup.User == null || EF.Property<DateTime?>(cup.User, "DeletedAt") == null);
             modelBuilder.Entity<DeviceToken>().HasQueryFilter(dt => dt.User == null || EF.Property<DateTime?>(dt.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachProfile>().HasQueryFilter(cp => cp.User == null || EF.Property<DateTime?>(cp.User, "DeletedAt") == null);
+            modelBuilder.Entity<CoachFeedback>().HasQueryFilter(cf => (cf.Client == null || EF.Property<DateTime?>(cf.Client, "DeletedAt") == null) && (cf.Coach == null || EF.Property<DateTime?>(cf.Coach, "DeletedAt") == null));
             modelBuilder.Entity<MealPlanItem>().HasQueryFilter(mpi => mpi.MealPlanHeader == null || mpi.MealPlanHeader.User == null || EF.Property<DateTime?>(mpi.MealPlanHeader.User, "DeletedAt") == null);
             modelBuilder.Entity<MealTemplateItem>().HasQueryFilter(mti => mti.MealTemplate == null || mti.MealTemplate.User == null || EF.Property<DateTime?>(mti.MealTemplate.User, "DeletedAt") == null);
             modelBuilder.Entity<RecipeIngredient>().HasQueryFilter(ri => ri.Recipe == null || EF.Property<DateTime?>(ri.Recipe, "DeletedAt") == null);
