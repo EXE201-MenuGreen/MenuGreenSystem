@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260723102015_AddFinalQueryFilters")]
-    partial class AddFinalQueryFilters
+    [Migration("20260723104217_AddRemainingEntityFilters")]
+    partial class AddRemainingEntityFilters
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

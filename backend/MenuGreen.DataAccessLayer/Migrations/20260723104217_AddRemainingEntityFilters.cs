@@ -5,7 +5,7 @@
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCoachConnectionFavoriteFoodFilters : Migration
+    public partial class AddRemainingEntityFilters : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
