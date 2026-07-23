@@ -518,32 +518,31 @@ if (!app.Environment.IsDevelopment())
     }
 
     // -------------------------------------------------------------------------
-    // TEMPORARY: Skip migration - DB already has all tables from previous
-    // deployment. Migration causes "relation already exists" error when
-    // BaselineExistingDatabase is in assembly but tables already exist.
-    // Remove this block after DB schema is fully managed by EF migrations.
+    // Apply migrations. If DB already has tables but empty __EFMigrationsHistory,
+    // the deploy script seeds it with the baseline migration name, so EF skips
+    // table creation and only applies any real delta migrations.
     // -------------------------------------------------------------------------
-    // try
-    // {
-    //     logger.LogInformation("[MIGRATION] Applying database migrations...");
-    //     db.Database.Migrate();
-    //     logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
-    //
-    //     var appliedAfter = db.Database.GetAppliedMigrations().ToList();
-    //     logger.LogInformation(
-    //         "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
-    //         appliedAfter.Count,
-    //         string.Join(", ", appliedAfter)
-    //     );
-    // }
-    // catch (Exception ex)
-    // {
-    //     logger.LogCritical(
-    //         ex,
-    //         "FATAL: Failed to apply database migrations. Application will NOT start."
-    //     );
-    //     throw;
-    // }
+    try
+    {
+        logger.LogInformation("[MIGRATION] Applying database migrations...");
+        db.Database.Migrate();
+        logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
+
+        var appliedAfter = db.Database.GetAppliedMigrations().ToList();
+        logger.LogInformation(
+            "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
+            appliedAfter.Count,
+            string.Join(", ", appliedAfter)
+        );
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(
+            ex,
+            "FATAL: Failed to apply database migrations. Application will NOT start."
+        );
+        throw;
+    }
 }
 
 // Seed data: run backend/run_seed_data.ps1 after migrations.
