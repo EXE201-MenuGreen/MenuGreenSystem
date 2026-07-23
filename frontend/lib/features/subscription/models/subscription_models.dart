@@ -1,3 +1,49 @@
+class FeatureAccess {
+  const FeatureAccess({
+    required this.tier,
+    required this.entitlements,
+    required this.featureGroups,
+    required this.expiresAt,
+  });
+
+  final String tier;
+  final Set<String> entitlements;
+  final Set<String> featureGroups;
+  final DateTime? expiresAt;
+
+  static const free = FeatureAccess(
+    tier: 'free',
+    entitlements: {'free_features'},
+    featureGroups: {'free'},
+    expiresAt: null,
+  );
+
+  bool get hasCasual => entitlements.contains('casual_features');
+  bool get hasOffice => entitlements.contains('office_features');
+  bool get hasGym => entitlements.contains('gym_features');
+  bool get hasCoachAccess => entitlements.contains('coach_access');
+  bool get hasAi => entitlements.contains('ai_features');
+
+  factory FeatureAccess.fromJson(Map<String, dynamic> json) {
+    Set<String> stringSet(String camel, String pascal) {
+      final raw = json[camel] ?? json[pascal];
+      if (raw is! List) return const {};
+      return raw
+          .map((item) => item.toString().trim().toLowerCase())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+    }
+
+    final entitlements = stringSet('entitlements', 'Entitlements');
+    return FeatureAccess(
+      tier: _pickString(json, 'tier', 'Tier').toLowerCase(),
+      entitlements: {'free_features', ...entitlements},
+      featureGroups: {'free', ...stringSet('featureGroups', 'FeatureGroups')},
+      expiresAt: _pickDate(json, 'expiresAt', 'ExpiresAt'),
+    );
+  }
+}
+
 class SubscriptionPlan {
   final String id;
   final String name;
@@ -33,6 +79,16 @@ class SubscriptionPlan {
   }
 
   bool get isFree => priceVnd <= 0;
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = name.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
 }
 
 class UserSubscription {
@@ -87,6 +143,30 @@ class UserSubscription {
   }
 
   bool get isActive => status.toLowerCase() == 'active';
+
+  bool get isBaselineFree {
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    final normalizedName = subscriptionPlanName.trim().toLowerCase();
+    return group == 'basic' ||
+        group == 'free' ||
+        normalizedName == 'cơ bản' ||
+        normalizedName == 'basic' ||
+        normalizedName == 'free';
+  }
+
+  bool get isCurrentlyActive {
+    if (!isActive) return false;
+    final expiration = endDate;
+    return expiration == null || expiration.isAfter(DateTime.now());
+  }
+
+  int realtimeDaysRemaining([DateTime? currentTime]) {
+    final expiration = endDate;
+    if (expiration == null) return 0;
+    final remaining = expiration.difference(currentTime ?? DateTime.now());
+    if (remaining <= Duration.zero) return 0;
+    return (remaining.inSeconds / Duration.secondsPerDay).ceil();
+  }
 }
 
 class SubscriptionTransaction {
@@ -188,6 +268,26 @@ String formatSubscriptionDate(DateTime? date) {
   final month = local.month.toString().padLeft(2, '0');
   final year = local.year.toString();
   return '$day/$month/$year';
+}
+
+String formatSubscriptionRemaining(DateTime? endDate, [DateTime? currentTime]) {
+  if (endDate == null) return 'Không giới hạn';
+
+  final remaining = endDate.difference(currentTime ?? DateTime.now());
+  if (remaining <= Duration.zero) return 'Đã hết hạn';
+
+  final totalMinutes = (remaining.inSeconds / Duration.secondsPerMinute).ceil();
+  if (totalMinutes < 60) return 'Còn $totalMinutes phút';
+
+  final totalHours = (remaining.inMinutes / Duration.minutesPerHour).ceil();
+  if (totalHours < 24) {
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(Duration.minutesPerHour);
+    return minutes == 0 ? 'Còn $hours giờ' : 'Còn $hours giờ $minutes phút';
+  }
+
+  final days = (remaining.inSeconds / Duration.secondsPerDay).ceil();
+  return 'Còn $days ngày';
 }
 
 String formatDurationLabel(int durationDays) {

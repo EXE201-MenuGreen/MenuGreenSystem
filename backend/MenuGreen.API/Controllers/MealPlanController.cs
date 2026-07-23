@@ -247,6 +247,29 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Save an AI-scanned meal as both an Office plan item and an actual meal log.
+        /// </summary>
+        [HttpPost("{planId:guid}/scan-meals")]
+        [Authorize(Policy = "OfficeFeatures")]
+        public async Task<IActionResult> SaveScanMeal(Guid planId, [FromBody] OfficeScanMealRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.SaveOfficeScanMealAsync(planId, request, userId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Commit today's meal plan for dashboard and reporting.
         /// </summary>
         [HttpPost("{planId:guid}/commit")]
@@ -315,6 +338,7 @@ namespace MenuGreen.API.Controllers
         /// Auto-generate weekly budget-friendly menu based on user's latest budget requirements.
         /// </summary>
         [HttpPost("generate-by-budget")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GenerateByBudget()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -332,6 +356,7 @@ namespace MenuGreen.API.Controllers
         /// Get cost comparison of current meal plan against user budget.
         /// </summary>
         [HttpGet("{id:guid}/budget-status")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GetBudgetStatus(Guid id)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -347,6 +372,7 @@ namespace MenuGreen.API.Controllers
 
         /// <summary>Aggregate recipe ingredients into one shopping list for a lunchbox/weekly plan.</summary>
         [HttpGet("{id:guid}/grocery-list")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GetGroceryList(Guid id)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -375,6 +401,7 @@ namespace MenuGreen.API.Controllers
         /// Compare actual food expenses (meal logs) with planned costs and set budget.
         /// </summary>
         [HttpGet("compare-expenses")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> CompareExpenses([FromQuery] DateOnly from, [FromQuery] DateOnly to)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -385,6 +412,7 @@ namespace MenuGreen.API.Controllers
         /// Analyze expense distribution by food category and suggest savings.
         /// </summary>
         [HttpGet("expense-breakdown")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GetExpenseBreakdown()
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();

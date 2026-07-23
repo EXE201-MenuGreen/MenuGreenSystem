@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/token_storage.dart';
 import '../../../core/services/notification_handler.dart';
 import '../../../main.dart';
@@ -78,9 +79,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (!mounted) return;
 
-    final hasToken = _token != null && _token!.isNotEmpty;
+    var hasValidSession = _token != null && _token!.isNotEmpty;
+    if (hasValidSession) {
+      try {
+        hasValidSession = await ApiClient()
+            .ensureValidSession()
+            .timeout(const Duration(seconds: 8));
+      } catch (error) {
+        debugPrint('[Splash] Session validation failed: $error');
+        hasValidSession = false;
+        await TokenStorage().clear();
+      }
+    }
+
     Widget destination = const WelcomeScreen();
-    if (hasToken) {
+    if (hasValidSession) {
       try {
         final complete = await OnboardingGate().isOnboardingComplete();
         if (complete) {
@@ -105,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     final pendingNotification = getPendingInitialNotification();
-    if (pendingNotification != null && hasToken) {
+    if (pendingNotification != null && hasValidSession) {
       final handler = NotificationHandler();
       final action = handler.parseNotificationData(pendingNotification.data);
       final notificationDestination = handler.buildDestinationScreen(action, pendingNotification);

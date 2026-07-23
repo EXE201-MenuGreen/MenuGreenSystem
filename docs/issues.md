@@ -957,6 +957,74 @@ unzip -l app-release.apk | grep "\.so"
 
 ---
 
+## [PENDING] EF Core Migration Conflict — foods table already exists
+
+**Date:** 2026-07-20
+**Status:** Pending
+**Severity:** High
+
+### Description
+
+`dotnet ef database update` (PM> update-database) bị lỗi khi chạy migration `20260629084940_InitialCreate`:
+
+```
+Npgsql.PostgresException (0x80004005): 42P07: relation "foods" already exists
+```
+
+Migration cố tạo bảng `foods` nhưng bảng đã tồn tại trong database.
+
+### Root Cause
+
+1. Bảng `foods` được tạo bằng **script SQL thủ công** (`backend/database/01_foods_seed.sql`) — không phải qua EF Core migration.
+2. Bảng đã tồn tại nhưng record trong `__EFMigrationsHistory` cho migration `InitialCreate` **chưa có** (hoặc đã bị xoá).
+3. EF Core không biết bảng đã tồn tại → cố tạo lại → conflict.
+
+### Environment
+
+- PostgreSQL database (local hoặc production)
+- EF Core 9.0 / Npgsql
+- Migration: `20260629084940_InitialCreate`
+
+### Logs
+
+```
+CREATE TABLE foods (
+    "Id" uuid NOT NULL,
+    "NameVi" text NOT NULL,
+    ...
+    CONSTRAINT "PK_foods" PRIMARY KEY ("Id")
+);
+Npgsql.PostgresException (0x80004005): 42P07: relation "foods" already exists
+```
+
+### Solution
+
+**Cách 1 (Recommended):** Insert record vào `__EFMigrationsHistory` để đánh dấu migration đã applied:
+
+```sql
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20260629084940_InitialCreate', '9.0.0');
+```
+
+Sau đó chạy lại:
+```bash
+dotnet ef database update
+```
+
+**Cách 2:** Dùng EF Core tool để mark migration as applied:
+
+```bash
+dotnet ef database update 20260629084940_InitialCreate --no-build
+```
+
+### Attempts
+
+- [ ] Chạy SQL insert vào `__EFMigrationsHistory`
+- [ ] Verify `dotnet ef database update` không còn lỗi
+- [ ] Verify các migration tiếp theo áp dụng đúng
+
+---
+
 ## Template for New Issues
 
 ```markdown
@@ -1179,6 +1247,53 @@ volumes:
 - [ ] Verify volume mount + file Firebase có trong container
 - [ ] Test Google sign-in trên Flutter app (production build) → phải tạo được user
 - [ ] Test gửi FCM push từ backend → notification phải đến device
+
+---
+
+## [PENDING] Role rename Free → User + add Coach — partial change (SQL only)
+
+**Date:** 2026-07-19
+**Status:** Pending — backend C# + Flutter not yet updated
+**Severity:** Medium
+
+### Description
+
+User yêu cầu đổi role `Free` thành `User` và thêm role `Coach`. Hiện tại chỉ cập nhật `backend/database/01_roles.sql`, các lớp service phía backend (và có thể Flutter) vẫn đang tham chiếu chuỗi `"Free"` cứng → khi áp seed mới, các flow lọc theo role Free sẽ không match user nào.
+
+### Root Cause
+
+Đổi tên role ở tầng DB seed mà chưa đồng bộ tầng code:
+
+- `backend/MenuGreen.BusinessLogicLayer/Services/SepayPaymentService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/AnalyticsService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/AiAssistantService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/SubscriptionPlanService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/Services/UserSubscriptionService.cs`
+- `backend/MenuGreen.BusinessLogicLayer/BackgroundJobs/SubscriptionExpirationBackgroundService.cs`
+- `backend/database/02_users.sql` (FK seed về role Free)
+
+Ngoài ra cần kiểm tra Flutter (`ApiMessageTranslator`, role label mapping, quick action filter, etc.) để hiển thị `User` / `Coach` đúng và không hiển thị `Free` cũ.
+
+### Environment
+
+- DB seed: `backend/database/01_roles.sql`
+- Backend services: `MenuGreen.BusinessLogicLayer`
+- Frontend (chưa khảo sát): `frontend/lib`
+
+### Changes Applied
+
+- `01_roles.sql`: đổi `('...0001', 'Free', ...)` → `('...0001', 'User', 'Standard registered user', ...)`.
+- `01_roles.sql`: thêm `('00000000-0000-0000-0000-000000000008', 'Coach', 'Personal trainer / nutrition coach', ...)`.
+- Giữ nguyên Id `...0001` (không phá FK cũ).
+
+### Attempts
+
+- [ ] Tìm & thay `"Free"` → `"User"` trong 6 file C# ở trên.
+- [ ] Cập nhật `02_users.sql` nếu seed có user cứng gắn role Free.
+- [ ] Kiểm tra `coach_profiles.sql` (42) và `coach_connections.sql` (43) — đã có schema cho Coach chưa, có cần FK sang `roles.Id` mới `...0008` không.
+- [ ] Khảo sát Flutter: `lib/core/i18n/api_message_translator.dart`, các màn hình liên quan role (home, profile, subscription) để map nhãn `User` / `Coach`.
+- [ ] Viết migration EF Core nếu DB production đang chạy — `UPDATE roles SET "Name"='User', "Description"='Standard registered user' WHERE "Id"='00000000-0000-0000-0000-000000000001'; INSERT INTO roles ... Coach ...`.
+- [ ] Test lại flow: đăng ký user mới → role mặc định là gì (cần xem `AuthService` / seed default), filter analytics, downgrade subscription.
 
 ---
 

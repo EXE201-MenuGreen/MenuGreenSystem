@@ -556,6 +556,14 @@ frontend/android/app/GeneratedPluginRegistrant.java
 # Keep code in scripts/ and ci/ directories; ignore ad-hoc assets/
 /assets/
 
+# Rule running Agent
+.agents
+AGENT_BACKEND.md
+AGENTS_FRONTEND.md
+
+# Local Entity Framework migration files
+backend/MenuGreen.DataAccessLayer/Migrations/*.cs
+
 # Local custom exclusions
 .vscode/launch.json
 **/menugreen-*-firebase-adminsdk-*.json

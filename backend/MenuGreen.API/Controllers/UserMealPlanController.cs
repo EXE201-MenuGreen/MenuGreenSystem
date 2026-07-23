@@ -53,6 +53,7 @@ namespace MenuGreen.API.Controllers
         }
 
         [HttpPost("from-daily-menu")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> CreateFromDailyMenu([FromBody] CreateMealPlanFromDailyMenuRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);

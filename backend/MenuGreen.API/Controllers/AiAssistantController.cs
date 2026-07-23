@@ -11,6 +11,7 @@ namespace MenuGreen.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = "UserOnly")]
+    [Authorize(Policy = "AiFeatures")]
     public class AiAssistantController : ControllerBase
     {
         private readonly IAiAssistantService _service;

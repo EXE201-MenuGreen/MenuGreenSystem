@@ -611,6 +611,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   onPressed: _isLoading ? null : (_isEditMode ? _updatePlan : _createPlan),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
@@ -619,7 +620,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(_isEditMode ? 'Lưu thay đổi' : 'Tạo kế hoạch'),
+                      : Text(
+                          _isEditMode ? 'Lưu thay đổi' : 'Tạo kế hoạch',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                 ),
               ),
             ],

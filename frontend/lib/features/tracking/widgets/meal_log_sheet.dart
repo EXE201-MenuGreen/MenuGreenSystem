@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../history/views/history_view.dart';
 import '../repositories/nutrition_tracking_repository.dart';
 
 /// Dialog thêm nhật ký bữa ăn — dùng từ Lịch sử hoặc Chi tiết món.
@@ -11,6 +12,10 @@ Future<bool> showMealLogSheet(
   String? initialRecipeId,
   String? initialRecipeName,
   DateTime? loggedAt,
+  double? caloriesKcal,
+  double? proteinG,
+  double? carbsG,
+  double? fatG,
 }) async {
   final lockedToRecipe = initialRecipeId != null;
   String sourceType = lockedToRecipe ? 'recipe' : 'food';
@@ -32,11 +37,7 @@ Future<bool> showMealLogSheet(
         : await repository.getRecipes(keyword: keyword.isEmpty ? null : keyword);
     setModalState(() {
       items = loaded;
-      if (selectedId != null && !items.any((e) => e.id == selectedId)) {
-        selectedId = items.isNotEmpty ? items.first.id : null;
-      } else if (selectedId == null && initialFoodId != null) {
-        selectedId = initialFoodId;
-      }
+      selectedId ??= initialFoodId ?? (items.isNotEmpty ? items.first.id : null);
       loadingItems = false;
     });
   }
@@ -45,9 +46,7 @@ Future<bool> showMealLogSheet(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
-        if ((initialFoodId != null || initialRecipeId != null) &&
-            items.isEmpty &&
-            !loadingItems) {
+        if (items.isEmpty && !loadingItems) {
           WidgetsBinding.instance.addPostFrameCallback((_) => loadItems(setModalState));
         }
         return AlertDialog(
@@ -119,7 +118,7 @@ Future<bool> showMealLogSheet(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
-                else if (initialFoodId == null && initialRecipeId == null)
+                else if (initialFoodId == null && initialRecipeId == null && items.isNotEmpty)
                   InputDecorator(
                     decoration: InputDecoration(
                       labelText: sourceType == 'food' ? 'Chọn món' : 'Chọn công thức',
@@ -185,21 +184,80 @@ Future<bool> showMealLogSheet(
 
   if (confirmed != true) return false;
 
-  final quantity = double.tryParse(quantityController.text.trim());
-  final foodId = initialFoodId ?? (initialRecipeId == null && sourceType == 'food' ? selectedId : null);
-  final recipeId = initialRecipeId ?? (initialFoodId == null && sourceType == 'recipe' ? selectedId : null);
+  final quantity = double.tryParse(quantityController.text.trim()) ?? 100.0;
+  final isCustomDish = initialFoodId == null && initialRecipeId == null && initialFoodName != null;
+  final foodId = initialFoodId ?? (!isCustomDish && sourceType == 'food' ? selectedId : null);
+  final recipeId = initialRecipeId ?? (!isCustomDish && sourceType == 'recipe' ? selectedId : null);
+  final customName = isCustomDish
+      ? initialFoodName
+      : (foodId == null && recipeId == null)
+          ? (initialFoodName ?? (keywordController.text.trim().isNotEmpty ? keywordController.text.trim() : null))
+          : null;
 
-  if ((foodId == null || foodId.isEmpty) && (recipeId == null || recipeId.isEmpty)) {
+  if (foodId == null && recipeId == null && (customName == null || customName.isEmpty)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập hoặc chọn tên món ăn trước khi ghi.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
     return false;
   }
-  if (quantity == null || quantity <= 0) return false;
 
   final at = loggedAt ?? DateTime.now();
-  return repository.createMealLog(
+  final success = await repository.createMealLog(
     foodId: foodId,
     recipeId: recipeId,
+    customName: customName,
+    notes: customName,
     mealType: mealType,
     quantityG: quantity,
     loggedAt: at,
+    caloriesKcal: caloriesKcal,
+    proteinG: proteinG,
+    carbsG: carbsG,
+    fatG: fatG,
   );
+
+  if (context.mounted) {
+    final mealTypeName = mealType == 'breakfast'
+        ? 'Bữa sáng'
+        : mealType == 'lunch'
+            ? 'Bữa trưa'
+            : mealType == 'dinner'
+                ? 'Bữa tối'
+                : 'Bữa phụ';
+    final name = initialFoodName ?? customName ?? 'Món ăn';
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '🎉 Đã lưu "$name" vào $mealTypeName, Kế hoạch ăn uống và Lịch sử.',
+          ),
+          backgroundColor: AppColors.primary,
+          action: SnackBarAction(
+            label: 'Xem nhật ký',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryView()),
+              );
+            },
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể ghi nhật ký lúc này. Vui lòng thử lại.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  return success;
 }

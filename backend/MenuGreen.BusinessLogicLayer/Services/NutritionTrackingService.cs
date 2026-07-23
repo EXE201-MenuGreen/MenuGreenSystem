@@ -356,6 +356,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
                 MealType = request.MealType,
+                CustomName = request.CustomName,
                 Notes = request.Notes,
                 LoggedAt = EnsureUtc(request.LoggedAt ?? DateTime.UtcNow),
                 MealPlanItemId = request.MealPlanItemId,
@@ -371,6 +372,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.FoodId = request.FoodId;
             entity.RecipeId = request.RecipeId;
             entity.MealType = request.MealType;
+            entity.CustomName = request.CustomName;
             var quantityG = await ResolveQuantityGAsync(request, entity.UserId);
             entity.QuantityG = quantityG;
             entity.Notes = request.Notes;
@@ -403,7 +405,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 entity.ProteinG = request.ProteinG;
                 entity.CarbsG = request.CarbsG;
                 entity.FatG = request.FatG;
-                entity.SourceType = "Manual";
+                entity.SourceType = string.IsNullOrWhiteSpace(request.CustomName)
+                    ? "Manual"
+                    : "AiScan";
                 return;
             }
 
@@ -578,7 +582,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ? foodName
                 : !string.IsNullOrWhiteSpace(recipeTitle)
                     ? recipeTitle
-                    : "Logged item";
+                    : !string.IsNullOrWhiteSpace(x.CustomName)
+                        ? x.CustomName
+                        : !string.IsNullOrWhiteSpace(x.Notes)
+                            ? x.Notes
+                            : "Món đã ghi";
 
             return new MealLogResponse
             {
@@ -593,6 +601,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsG = x.CarbsG,
                 FatG = x.FatG,
                 SourceType = x.SourceType,
+                CustomName = x.CustomName,
                 Notes = x.Notes,
                 LoggedAt = x.LoggedAt,
                 MealPlanItemId = x.MealPlanItemId,

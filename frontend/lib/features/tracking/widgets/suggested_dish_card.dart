@@ -6,11 +6,11 @@ class SuggestedDishCard extends StatelessWidget {
   const SuggestedDishCard({
     super.key,
     required this.dish,
-    required this.onLog,
+    required this.onView,
   });
 
   final CvSuggestedDish dish;
-  final VoidCallback onLog;
+  final VoidCallback onView;
 
   @override
   Widget build(BuildContext context) {
@@ -119,15 +119,15 @@ class SuggestedDishCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: onLog,
+              onPressed: onView,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isSafe ? AppColors.primary : Colors.grey[600],
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.bookmark_add, size: 18, color: Colors.white),
+              icon: const Icon(Icons.visibility_outlined, size: 18, color: Colors.white),
               label: const Text(
-                'Ghi vào nhật ký ăn uống',
+                'Xem món',
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),

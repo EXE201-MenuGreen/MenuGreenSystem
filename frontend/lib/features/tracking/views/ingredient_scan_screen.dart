@@ -3,23 +3,34 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../meal_plan/models/meal_plan_requests.dart';
+import '../../meal_plan/models/meal_plan_responses.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../meal_templates/repositories/meal_template_repository.dart';
 import '../repositories/nutrition_tracking_repository.dart';
 import '../widgets/scan_decorations.dart';
 import '../widgets/scan_result_sheet.dart';
 import '../widgets/search_and_log_modal.dart';
+import '../widgets/suggested_dish_detail_sheet.dart';
 
 class IngredientScanScreen extends StatefulWidget {
-  const IngredientScanScreen({super.key});
+  const IngredientScanScreen({super.key, this.officeMode = false});
+
+  final bool officeMode;
 
   @override
   State<IngredientScanScreen> createState() => _IngredientScanScreenState();
 }
 
-class _IngredientScanScreenState extends State<IngredientScanScreen> with SingleTickerProviderStateMixin {
+class _IngredientScanScreenState extends State<IngredientScanScreen>
+    with SingleTickerProviderStateMixin {
   final _picker = ImagePicker();
   final _repository = NutritionTrackingRepository();
+  final _mealPlanRepository = MealPlanRepository();
+  final _mealTemplateRepository = MealTemplateRepository();
   bool _loading = false;
   String _loadingStep = '';
+  int _loadingElapsedSeconds = 0;
   Timer? _stepTimer;
   Uint8List? _selectedImageBytes;
 
@@ -48,33 +59,37 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
   }
 
   void _startLoadingSteps() {
-    final steps = [
-      'Đang kết nối tới máy chủ...',
-      'Đang tải hình ảnh lên hệ thống...',
-      'Đang chạy mô hình AI nhận dạng nguyên liệu...',
-      'Đang tính toán khối lượng ước tính...',
-      'Đang đối chiếu hồ sơ dị ứng của bạn...',
-      'Đang hoàn tất phân tích dinh dưỡng...',
-    ];
-    int currentStep = 0;
     setState(() {
       _loading = true;
-      _loadingStep = steps[0];
+      _loadingElapsedSeconds = 0;
+      _loadingStep = 'Đang chuẩn bị hình ảnh...';
     });
 
     _stepTimer?.cancel();
-    _stepTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
-      currentStep++;
-      if (currentStep < steps.length) {
-        if (mounted) {
-          setState(() {
-            _loadingStep = steps[currentStep];
-          });
-        }
-      } else {
-        timer.cancel();
-      }
+    _stepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      final elapsed = timer.tick;
+      setState(() {
+        _loadingElapsedSeconds = elapsed;
+        _loadingStep = switch (elapsed) {
+          < 4 => 'Đang chuẩn bị và tải hình ảnh...',
+          < 12 => 'AI đang nhận diện các nguyên liệu...',
+          < 30 => 'Đang kết hợp nguyên liệu để tìm món phù hợp...',
+          < 55 => 'Đang tính toán khẩu phần và dinh dưỡng...',
+          _ => 'AI đang hoàn tất kết quả, vui lòng chờ thêm...',
+        };
+      });
     });
+  }
+
+  void _stopLoading() {
+    _stepTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _loadingElapsedSeconds = 0;
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -99,9 +114,8 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
         mimeType: _imageMimeType(image),
       );
 
-      _stepTimer?.cancel();
       if (!mounted) return;
-      setState(() => _loading = false);
+      _stopLoading();
 
       if (result == null) {
         _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
@@ -110,20 +124,25 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
 
       _showResultBottomSheet(result);
     } catch (e) {
-      _stepTimer?.cancel();
       if (mounted) {
-        setState(() => _loading = false);
-        _showErrorSnackBar('Đã xảy ra lỗi khi kết nối tới AI Service.');
+        _stopLoading();
+        final message = e
+            .toString()
+            .replaceFirst('Bad state: ', '')
+            .replaceFirst('FormatException: ', '')
+            .replaceFirst('Exception: ', '');
+        _showErrorSnackBar(
+          message.isEmpty
+              ? 'Không thể hoàn tất phân tích. Vui lòng thử lại.'
+              : message,
+        );
       }
     }
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
@@ -139,8 +158,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
         builder: (_, scrollController) => ScanResultSheet(
           response: response,
           onLogIngredient: _handleLogIngredient,
-          onLogSuggestedDish: _handleLogSuggestedDish,
+          onViewSuggestedDish: _showSuggestedDish,
           scrollController: scrollController,
+          officeMode: widget.officeMode,
         ),
       ),
     );
@@ -149,7 +169,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
   // --- Handlers for Logging ---
 
   Future<void> _handleLogIngredient(CvIngredientItem ing) async {
-    _showSearchAndLogDialog(
+    await _showSearchAndLogDialog(
       context: context,
       keyword: ing.tenNguyenLieu,
       defaultGrams: ing.khoiLuongUocTinhG,
@@ -157,22 +177,85 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
     );
   }
 
-  Future<void> _handleLogSuggestedDish(CvSuggestedDish dish) async {
-    _showSearchAndLogDialog(
+  Future<void> _showSuggestedDish(CvSuggestedDish dish) async {
+    final completedAction = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SuggestedDishDetailSheet(
+        dish: dish,
+        officeMode: widget.officeMode,
+        onUseToday: _useDishToday,
+        onAddToOfficePlan: widget.officeMode ? _addDishToOfficePlan : null,
+        onSaveMealTemplate: _saveDishAsMealTemplate,
+      ),
+    );
+
+    if (!mounted || completedAction == null) return;
+    final message = switch (completedAction) {
+      'today' when widget.officeMode =>
+        'Đã thêm món vào kế hoạch cơm hộp Office hôm nay.',
+      'plan' => 'Đã cập nhật kế hoạch cơm hộp Office.',
+      'template' => 'Đã lưu món vào Mẫu bữa ăn.',
+      _ => null,
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.primary),
+      );
+  }
+
+  Future<bool> _useDishToday(
+    CvSuggestedDish dish,
+    double portionMultiplier,
+  ) async {
+    final ingredientWeight = dish.nguyenLieuSuDung.fold<double>(
+      0,
+      (total, ingredient) => total + ingredient.khoiLuongG,
+    );
+
+    if (widget.officeMode) {
+      try {
+        final baseDishWeight = ingredientWeight > 0
+            ? ingredientWeight
+            : 100.0;
+        final saved = await _saveScannedDishToOffice(
+          dish,
+          mealType: 'lunch',
+          quantityG: baseDishWeight * portionMultiplier,
+          baseDishWeight: baseDishWeight,
+        );
+
+        return saved ?? false;
+      } catch (error) {
+        throw Exception(error.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+
+    return _showSearchAndLogDialog(
       context: context,
       keyword: dish.tenMonAn,
-      defaultGrams: 100, // default portion weight
+      defaultGrams:
+          (ingredientWeight > 0 ? ingredientWeight : 100) * portionMultiplier,
       isRecipe: true,
+      fallbackNutrition: dish.thongTinDinhDuongMonAn,
+      fallbackNutritionMultiplier: portionMultiplier,
     );
   }
 
-  Future<void> _showSearchAndLogDialog({
+  Future<bool> _showSearchAndLogDialog({
     required BuildContext context,
     required String keyword,
     required double defaultGrams,
     required bool isRecipe,
+    CvNutritionInfo? fallbackNutrition,
+    double fallbackNutritionMultiplier = 1,
+    MealLogSubmitter? submitter,
+    bool syncsOfficePlan = false,
   }) async {
-    showDialog(
+    final logged = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => SearchAndLogModal(
@@ -180,19 +263,368 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
         keyword: keyword,
         defaultGrams: defaultGrams,
         isRecipe: isRecipe,
+        fallbackNutrition: fallbackNutrition,
+        fallbackNutritionMultiplier: fallbackNutritionMultiplier,
+        submitter: submitter,
+        syncsOfficePlan: syncsOfficePlan,
+        initialMealType: widget.officeMode ? 'lunch' : 'breakfast',
         onSuccess: () {
           if (!context.mounted) return;
-          Navigator.pop(ctx); // Close search modal
+          Navigator.pop(ctx, true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã ghi nhận bữa ăn thành công!'),
+            SnackBar(
+              content: Text(
+                widget.officeMode
+                    ? 'Đã thêm món vào bữa trưa hôm nay.'
+                    : 'Đã thêm món vào bữa ăn.',
+              ),
               backgroundColor: AppColors.primary,
             ),
           );
         },
       ),
     );
+    return logged ?? false;
   }
+
+  Future<bool?> _saveScannedDishToOffice(
+    CvSuggestedDish dish, {
+    required String mealType,
+    required double quantityG,
+    required double baseDishWeight,
+  }) async {
+    final today = _dateOnly(DateTime.now());
+    final plan = await _officePlanFor(today);
+    MealPlanItemDetail? existingMeal;
+    for (final item in plan.items) {
+      if ((item.mealType ?? '').toLowerCase() == mealType.toLowerCase() &&
+          item.plannedDate != null &&
+          DateUtils.isSameDay(item.plannedDate, today)) {
+        existingMeal = item;
+        break;
+      }
+    }
+
+    if (existingMeal != null) {
+      final replace = await _confirmReplaceLunch(existingMeal, dish);
+      if (!replace) return null;
+    }
+
+    final scale = quantityG / baseDishWeight;
+    await _mealPlanRepository.saveOfficeScanMeal(
+      plan.id,
+      OfficeScanMealRequest(
+        customName: dish.tenMonAn,
+        mealType: mealType,
+        plannedDate: today,
+        quantityG: quantityG,
+        caloriesKcal: dish.thongTinDinhDuongMonAn.tongCalories * scale,
+        proteinG: dish.thongTinDinhDuongMonAn.proteinG * scale,
+        carbsG: dish.thongTinDinhDuongMonAn.carbsG * scale,
+        fatG: dish.thongTinDinhDuongMonAn.fatG * scale,
+        replaceExisting: existingMeal != null,
+        ingredients: dish.nguyenLieuSuDung
+            .map(
+              (ingredient) => OfficeScanIngredientRequest(
+                name: ingredient.ten,
+                quantity: ingredient.khoiLuongG * scale,
+              ),
+            )
+            .toList(),
+      ),
+    );
+    return true;
+  }
+
+  Future<CatalogItem?> _chooseRecipeMatch(CvSuggestedDish dish) async {
+    final matches = await _repository.getRecipes(keyword: dish.tenMonAn);
+    if (!mounted) return null;
+    if (matches.isEmpty) {
+      _showErrorSnackBar(
+        'Chưa tìm thấy công thức phù hợp trong dữ liệu món ăn.',
+      );
+      return null;
+    }
+    if (matches.length == 1) return matches.first;
+
+    return showDialog<CatalogItem>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Chọn món khớp trong hệ thống'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: matches.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (_, index) {
+              final item = matches[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.restaurant_menu_outlined,
+                  color: AppColors.primary,
+                ),
+                title: Text(item.name),
+                onTap: () => Navigator.pop(dialogContext, item),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Hủy'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _addDishToOfficePlan(
+    CvSuggestedDish dish,
+    double portionMultiplier,
+  ) async {
+    final recipe = await _chooseRecipeMatch(dish);
+    if (recipe == null || !mounted) return false;
+
+    final now = DateTime.now();
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+      helpText: 'Chọn ngày dùng bữa trưa',
+      cancelText: 'Hủy',
+      confirmText: 'Chọn ngày',
+    );
+    if (selectedDate == null || !mounted) return false;
+
+    try {
+      final plan = await _officePlanFor(selectedDate);
+      final existingLunch = _lunchOn(plan, selectedDate);
+      final request = AddItemRequest(
+        mealType: 'lunch',
+        plannedDate: selectedDate,
+        scheduledTime: DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+          12,
+        ),
+        recipeId: recipe.id,
+        targetCalories:
+            (dish.thongTinDinhDuongMonAn.tongCalories * portionMultiplier)
+                .round(),
+        quantityG: _dishWeight(dish, portionMultiplier),
+      );
+
+      if (existingLunch != null) {
+        final replace = await _confirmReplaceLunch(existingLunch, dish);
+        if (!replace) return false;
+        await _mealPlanRepository.updateItem(
+          plan.id,
+          existingLunch.id,
+          request,
+        );
+      } else {
+        await _mealPlanRepository.addItem(plan.id, request);
+      }
+
+      return true;
+    } catch (error) {
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<MealPlanDetail> _officePlanFor(DateTime date) async {
+    final plans = await _mealPlanRepository.getPlans(isActive: true);
+    for (final summary in plans) {
+      final isOfficePlan =
+          summary.title.toLowerCase().contains('cơm hộp') ||
+          summary.title.toLowerCase().contains('office');
+      final startsBefore =
+          summary.startDate == null ||
+          !date.isBefore(_dateOnly(summary.startDate!));
+      final endsAfter =
+          summary.endDate == null || !date.isAfter(_dateOnly(summary.endDate!));
+      if (!isOfficePlan || !startsBefore || !endsAfter) continue;
+      final detail = await _mealPlanRepository.getPlanDetail(summary.id);
+      if (detail != null) return detail;
+    }
+
+    final weekStart = _dateOnly(
+      date,
+    ).subtract(Duration(days: date.weekday - DateTime.monday));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    return _mealPlanRepository.createEmptyPlan(
+      CreateEmptyPlanRequest(
+        title: 'Kế hoạch cơm hộp Office ${weekStart.day}/${weekStart.month}',
+        planType: 'weekly',
+        startDate: weekStart,
+        endDate: weekEnd,
+      ),
+    );
+  }
+
+  MealPlanItemDetail? _lunchOn(MealPlanDetail plan, DateTime date) {
+    for (final item in plan.items) {
+      if ((item.mealType ?? '').toLowerCase() == 'lunch' &&
+          item.plannedDate != null &&
+          DateUtils.isSameDay(item.plannedDate, date)) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _confirmReplaceLunch(
+    MealPlanItemDetail current,
+    CvSuggestedDish replacement,
+  ) async {
+    if (!mounted) return false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Thay bữa trưa đã có?'),
+            content: Text(
+              'Ngày này đang có “${current.displayName}”. '
+              'Bạn có muốn thay bằng “${replacement.tenMonAn}” không?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Giữ món hiện tại'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Thay món'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _saveDishAsMealTemplate(
+    CvSuggestedDish dish,
+    double portionMultiplier,
+  ) async {
+    final mealType = await _chooseTemplateMealType();
+    if (mealType == null) return false;
+    final mealLabel = _mealTypeLabel(mealType);
+    final baseWeight = dish.nguyenLieuSuDung.fold<double>(
+      0,
+      (total, ingredient) => total + ingredient.khoiLuongG,
+    );
+    final quantityG = (baseWeight > 0 ? baseWeight : 100) * portionMultiplier;
+    final nutrition = dish.thongTinDinhDuongMonAn;
+    try {
+      await _mealTemplateRepository.create({
+        'title': '$mealLabel - ${dish.tenMonAn}',
+        'description': dish.moTaNgan.isEmpty
+            ? 'Món được lưu từ kết quả quét nguyên liệu.'
+            : dish.moTaNgan,
+        'mealType': mealType,
+        'isActive': true,
+        'items': [
+          {
+            'customName': dish.tenMonAn,
+            'sourceType': 'AiScan',
+            'mealType': mealType,
+            'quantityG': quantityG,
+            'caloriesKcal': nutrition.tongCalories * portionMultiplier,
+            'proteinG': nutrition.proteinG * portionMultiplier,
+            'carbsG': nutrition.carbsG * portionMultiplier,
+            'fatG': nutrition.fatG * portionMultiplier,
+            'ingredients': dish.nguyenLieuSuDung
+                .map(
+                  (ingredient) => {
+                    'name': ingredient.ten,
+                    'quantity': ingredient.khoiLuongG * portionMultiplier,
+                    'unit': 'g',
+                    'isAvailable': true,
+                  },
+                )
+                .toList(),
+            'notes': 'Gợi ý từ quét nguyên liệu',
+            'sortOrder': 0,
+          },
+        ],
+      });
+      return true;
+    } catch (error) {
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<String?> _chooseTemplateMealType() {
+    const mealTypes = <(String, String, IconData)>[
+      ('Breakfast', 'Bữa sáng', Icons.wb_sunny_outlined),
+      ('Lunch', 'Bữa trưa', Icons.lunch_dining_outlined),
+      ('Dinner', 'Bữa tối', Icons.nights_stay_outlined),
+    ];
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lưu món cho bữa nào?',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Món sẽ xuất hiện trong Mẫu bữa ăn với loại bữa bạn chọn.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              ...mealTypes.map(
+                (type) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    foregroundColor: AppColors.primary,
+                    child: Icon(type.$3),
+                  ),
+                  title: Text(
+                    type.$2,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(sheetContext, type.$1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _mealTypeLabel(String value) {
+    return switch (value) {
+      'Breakfast' => 'Bữa sáng',
+      'Dinner' => 'Bữa tối',
+      _ => 'Bữa trưa',
+    };
+  }
+
+  double _dishWeight(CvSuggestedDish dish, double multiplier) {
+    final total = dish.nguyenLieuSuDung.fold<double>(
+      0,
+      (sum, ingredient) => sum + ingredient.khoiLuongG,
+    );
+    return (total > 0 ? total : 100) * multiplier;
+  }
+
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   @override
   Widget build(BuildContext context) {
@@ -204,15 +636,8 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
           Positioned.fill(
             child: Container(
               color: Colors.black,
-              child: _selectedImageBytes != null
-                  ? Opacity(
-                      opacity: 0.6,
-                      child: Image.memory(
-                        _selectedImageBytes!,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Column(
+              child: _selectedImageBytes == null
+                  ? Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
@@ -227,9 +652,10 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                             color: Colors.white.withValues(alpha: 0.4),
                             fontSize: 14,
                           ),
-                        )
+                        ),
                       ],
-                    ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
 
@@ -244,18 +670,32 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                   Container(
                     width: 280,
                     height: 280,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
-                      color: Colors.transparent,
+                      color: _selectedImageBytes == null
+                          ? Colors.transparent
+                          : Colors.black,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF4ADE80), width: 2),
+                      border: Border.all(
+                        color: const Color(0xFF4ADE80),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFF22C55E).withValues(alpha: 0.3),
                           blurRadius: 15,
                           spreadRadius: 2,
-                        )
+                        ),
                       ],
                     ),
+                    child: _selectedImageBytes == null
+                        ? null
+                        : Image.memory(
+                            _selectedImageBytes!,
+                            width: 280,
+                            height: 280,
+                            fit: BoxFit.contain,
+                          ),
                   ),
 
                   // Animated Scanning Line
@@ -271,10 +711,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                           color: const Color(0xFF4ADE80),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF4ADE80).withValues(alpha: 0.8),
+                              color: const Color(
+                                0xFF4ADE80,
+                              ).withValues(alpha: 0.8),
                               blurRadius: 8,
                               spreadRadius: 1,
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -282,10 +724,30 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                   ),
 
                   // Corners of the box (Corner brackets)
-                  const ScanCornerBracket(top: -2, left: -2, isTop: true, isLeft: true),
-                  const ScanCornerBracket(top: -2, right: -2, isTop: true, isLeft: false),
-                  const ScanCornerBracket(bottom: -2, left: -2, isTop: false, isLeft: true),
-                  const ScanCornerBracket(bottom: -2, right: -2, isTop: false, isLeft: false),
+                  const ScanCornerBracket(
+                    top: -2,
+                    left: -2,
+                    isTop: true,
+                    isLeft: true,
+                  ),
+                  const ScanCornerBracket(
+                    top: -2,
+                    right: -2,
+                    isTop: true,
+                    isLeft: false,
+                  ),
+                  const ScanCornerBracket(
+                    bottom: -2,
+                    left: -2,
+                    isTop: false,
+                    isLeft: true,
+                  ),
+                  const ScanCornerBracket(
+                    bottom: -2,
+                    right: -2,
+                    isTop: false,
+                    isLeft: false,
+                  ),
 
                   // Floating Tooltips (bouncing tags)
                   const Positioned(
@@ -319,11 +781,17 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                       color: Colors.black.withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.chevron_left, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
-                const Text(
-                  'Quét nguyên liệu',
+                Text(
+                  widget.officeMode
+                      ? 'Quét nguyên liệu Office'
+                      : 'Quét nguyên liệu',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -336,8 +804,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                     color: Colors.black.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.flash_on, color: Colors.white, size: 20),
-                )
+                  child: const Icon(
+                    Icons.flash_on,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
           ),
@@ -348,7 +820,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.only(top: 80, bottom: 48, left: 32, right: 32),
+              padding: const EdgeInsets.only(
+                top: 80,
+                bottom: 48,
+                left: 32,
+                right: 32,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -364,7 +841,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                 children: [
                   // Text instructions
                   Text(
-                    'Hướng ống kính về phía nguyên liệu để nhận dạng tự động',
+                    widget.officeMode
+                        ? 'Chụp nguyên liệu để nhận món phù hợp cho bữa trưa văn phòng'
+                        : 'Hướng ống kính về phía nguyên liệu để nhận dạng tự động',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
@@ -393,13 +872,16 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.primary, width: 4),
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 4,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 15,
                                 offset: const Offset(0, 5),
-                              )
+                              ),
                             ],
                           ),
                           child: Center(
@@ -410,7 +892,9 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   width: 2,
                                 ),
                               ),
@@ -426,7 +910,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                         onTap: () => Navigator.pop(context),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -443,11 +927,39 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(
-                          color: Color(0xFF4ADE80),
-                          strokeWidth: 3,
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF4ADE80,
+                            ).withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF4ADE80),
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
+                        Text(
+                          widget.officeMode
+                              ? 'Đang gợi ý món Office'
+                              : 'Đang phân tích món ăn',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         Text(
                           _loadingStep,
                           textAlign: TextAlign.center,
@@ -456,6 +968,33 @@ class _IngredientScanScreenState extends State<IngredientScanScreen> with Single
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: const LinearProgressIndicator(
+                            minHeight: 5,
+                            color: Color(0xFF4ADE80),
+                            backgroundColor: Color(0x33FFFFFF),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Đã chờ $_loadingElapsedSeconds giây · Thường mất 20–60 giây',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Vui lòng giữ màn hình này trong khi AI xử lý.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 12,
                           ),
                         ),
                       ],

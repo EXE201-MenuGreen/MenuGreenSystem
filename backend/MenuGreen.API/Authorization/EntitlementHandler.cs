@@ -1,19 +1,18 @@
 using System;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using MenuGreen.DataAccessLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 
 namespace MenuGreen.API.Authorization
 {
     public class EntitlementHandler : AuthorizationHandler<EntitlementRequirement>
     {
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IFeatureAccessService _featureAccessService;
 
-        public EntitlementHandler(IUnitOfWork unitOfWork)
+        public EntitlementHandler(IFeatureAccessService featureAccessService)
         {
-            _unitOfWork = unitOfWork;
+            _featureAccessService = featureAccessService;
         }
 
         protected override async Task HandleRequirementAsync(
@@ -34,36 +33,14 @@ namespace MenuGreen.API.Authorization
                 return;
             }
 
-            // 3. Query DB for active subscription
-            var now = DateTime.UtcNow;
-            var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(
-                s => s.UserId == userId && s.Status == "Active" && s.EndDate > now);
-
-            foreach (var activeSub in subscriptions)
+            if (
+                await _featureAccessService.HasEntitlementAsync(
+                    userId,
+                    requirement.RequiredEntitlement
+                )
+            )
             {
-                var plan = await _unitOfWork.SubscriptionPlans.GetByIdAsync(activeSub.SubscriptionPlanId);
-                if (plan != null && !string.IsNullOrEmpty(plan.FeatureGroup))
-                {
-                    var planName = plan.Name?.ToLowerInvariant() ?? "";
-                    var featureGroup = plan.FeatureGroup.Trim().ToLowerInvariant();
-
-                    if (requirement.RequiredEntitlement == "gym_features" || requirement.RequiredEntitlement == "coach_access")
-                    {
-                        if (planName.Contains("gym") || featureGroup is "gym" or "pro")
-                        {
-                            context.Succeed(requirement);
-                            return;
-                        }
-                    }
-                    else if (requirement.RequiredEntitlement == "office_features")
-                    {
-                        if (planName.Contains("office") || featureGroup == "office")
-                        {
-                            context.Succeed(requirement);
-                            return;
-                        }
-                    }
-                }
+                context.Succeed(requirement);
             }
         }
     }

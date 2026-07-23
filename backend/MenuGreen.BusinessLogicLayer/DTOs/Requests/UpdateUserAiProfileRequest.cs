@@ -7,7 +7,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         public string? DislikedFoods { get; set; }
 
-        /// <summary>User segment: gym, office, general.</summary>
+        /// <summary>User segment: gym, office, casual.</summary>
         public string? EatingPattern { get; set; }
 
         /// <summary>True when user completed allergy step with no selections.</summary>

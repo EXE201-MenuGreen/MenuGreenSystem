@@ -27,13 +27,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserSubscriptionResponse> SubscribeAsync(Guid userId, SubscribeRequest request)
         {
             var plan = await GetActivePlanAsync(request.SubscriptionPlanId);
+            if (IsBaselineFreePlan(plan))
+            {
+                throw new InvalidOperationException(
+                    "The Basic plan is enabled by default and does not require a subscription."
+                );
+            }
             if ((plan.PriceVnd ?? 0) > 0)
             {
                 throw new InvalidOperationException(SepayPaymentRequiredMessage);
             }
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = ResolveDurationDays(plan);
             var subscription = new UserSubscription
             {
                 Id = Guid.NewGuid(),
@@ -49,26 +55,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.UserSubscriptions.AddAsync(subscription);
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Subscribe", 0, request.Note ?? "Free plan", now));
-
-            var targetRoleName = plan.FeatureGroup?.Trim().ToLowerInvariant() switch
-            {
-                "gym" => "Gymer",
-                "office" => "Office",
-                _ => "Free"
-            };
-            var targetRoles = await _unitOfWork.Roles.FindAsync(
-                r => r.Name.ToLower() == targetRoleName.ToLower());
-            var targetRole = targetRoles.FirstOrDefault();
-            if (targetRole != null)
-            {
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
-                if (user != null)
-                {
-                    user.RoleId = targetRole.Id;
-                    user.UpdatedAt = now;
-                    _unitOfWork.Users.Update(user);
-                }
-            }
 
             await _unitOfWork.CompleteAsync();
 
@@ -95,13 +81,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var subscription = await GetOwnedSubscriptionAsync(userId, request.UserSubscriptionId);
             var plan = await GetActivePlanAsync(subscription.SubscriptionPlanId);
+            if (IsBaselineFreePlan(plan))
+            {
+                throw new InvalidOperationException(
+                    "The Basic plan is always available and does not require renewal."
+                );
+            }
             if ((plan.PriceVnd ?? 0) > 0)
             {
                 throw new InvalidOperationException(SepayPaymentRequiredMessage);
             }
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = ResolveDurationDays(plan);
             
             var baseDate = subscription.EndDate > now ? subscription.EndDate : now;
             subscription.EndDate = baseDate.AddDays(durationDays);
@@ -145,19 +137,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.UserSubscriptions.Update(subscription);
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
-
-            var freeRoles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == "free");
-            var freeRole = freeRoles.FirstOrDefault();
-            if (freeRole != null)
-            {
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
-                if (user != null)
-                {
-                    user.RoleId = freeRole.Id;
-                    user.UpdatedAt = now;
-                    _unitOfWork.Users.Update(user);
-                }
-            }
 
             await _unitOfWork.CompleteAsync();
 
@@ -260,8 +239,51 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = subscription.EndDate,
                 CancelledAt = subscription.CancelledAt,
                 RenewedAt = subscription.RenewedAt,
-                DaysRemaining = Math.Max(0, (subscription.EndDate - DateTime.UtcNow).Days)
+                DaysRemaining = CalculateDaysRemaining(subscription.EndDate, DateTime.UtcNow)
             };
+        }
+
+        private static int ResolveDurationDays(SubscriptionPlan plan)
+        {
+            if (plan.DurationDays is > 0)
+            {
+                return plan.DurationDays.Value;
+            }
+
+            // Office is a one-day trial: activation at 20/07 10:00 expires at
+            // 21/07 10:00. Never fall back to the legacy 100-year duration.
+            if (string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+
+            // Existing Basic/free lifetime plans still use the non-nullable EndDate
+            // column. Keep their current representation until the schema supports
+            // subscriptions without an expiration date.
+            return 36500;
+        }
+
+        private static bool IsBaselineFreePlan(SubscriptionPlan plan)
+        {
+            var group = plan.FeatureGroup?.Trim();
+            var name = plan.Name?.Trim();
+            return string.Equals(group, "basic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(group, "free", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Cơ bản", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Basic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Free", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int CalculateDaysRemaining(DateTime endDate, DateTime now)
+        {
+            var remaining = endDate - now;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return 0;
+            }
+
+            return (int)Math.Ceiling(remaining.TotalDays);
         }
 
         private static SubscriptionTransactionResponse MapTransaction(SubscriptionTransaction transaction)

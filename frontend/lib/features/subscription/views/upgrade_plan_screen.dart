@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/token_storage.dart';
+import '../../auth/views/login_screen.dart';
+import '../../casual/views/casual_hub_screen.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../models/subscription_models.dart';
 import '../repositories/user_subscription_repository.dart';
+import '../utils/subscription_access.dart';
 import 'sepay_payment_screen.dart';
 
 class UpgradePlanScreen extends StatefulWidget {
-  const UpgradePlanScreen({super.key});
+  const UpgradePlanScreen({super.key, this.repository});
+
+  final UserSubscriptionRepository? repository;
 
   @override
   State<UpgradePlanScreen> createState() => _UpgradePlanScreenState();
 }
 
 class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
-  final _repository = UserSubscriptionRepository();
+  late final UserSubscriptionRepository _repository;
   final _aiProfileRepository = UserAiProfileRepository();
 
   List<SubscriptionPlan> _plans = [];
   UserSubscription? _current;
+  List<UserSubscription> _active = [];
   List<SubscriptionTransaction> _history = [];
   bool _loading = true;
   bool _actionLoading = false;
@@ -28,6 +35,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? UserSubscriptionRepository();
     _loadData();
   }
 
@@ -41,6 +49,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       final results = await Future.wait([
         _repository.getAvailablePlans(),
         _repository.getCurrent(),
+        _repository.getActive(),
         _repository.getHistory(),
       ]);
 
@@ -48,7 +57,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       setState(() {
         _plans = results[0] as List<SubscriptionPlan>;
         _current = results[1] as UserSubscription?;
-        _history = results[2] as List<SubscriptionTransaction>;
+        _active = results[2] as List<UserSubscription>;
+        _history = results[3] as List<SubscriptionTransaction>;
         _loading = false;
       });
     } catch (_) {
@@ -61,6 +71,11 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Future<bool> _subscribe(SubscriptionPlan plan) async {
+    if (plan.isBaselineFree) {
+      _showResult('Gói Cơ bản đã được bật mặc định cho tài khoản.', true);
+      return true;
+    }
+
     if (!plan.isFree) {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -71,7 +86,10 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
         ),
       );
       if (mounted) await _loadData();
-      return _hasGymAccess;
+      final group = plan.featureGroup?.trim().toLowerCase();
+      if (group == 'gym') return _hasGymAccess;
+      if (group == 'casual') return _hasCasualAccess;
+      return _active.any((item) => item.subscriptionPlanId == plan.id);
     }
 
     setState(() => _actionLoading = true);
@@ -125,9 +143,10 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       if (plan.featureGroup?.trim().toLowerCase() == 'gym') return plan;
     }
     return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000004',
+      id: '10000000-0000-0000-0000-000000000005',
       name: 'Gói Gym/PT',
-      description: 'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
+      description:
+          'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
       durationDays: 36500, // 100 years
       priceVnd: 0,
       featureGroup: 'gym',
@@ -136,18 +155,34 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     );
   }
 
-  List<SubscriptionPlan> get _regularPlans => _plans
-      .where((plan) => plan.featureGroup?.trim().toLowerCase() != 'gym')
-      .toList();
-
-  bool get _hasGymAccess {
-    final current = _current;
-    if (current == null || !current.isActive || current.daysRemaining < 0) {
-      return false;
+  SubscriptionPlan? get _casualPlan {
+    for (final plan in _plans) {
+      if (plan.featureGroup?.trim().toLowerCase() == 'casual') return plan;
     }
-    final name = current.subscriptionPlanName.toLowerCase();
-    return name.contains('gym') || name.contains('pro');
+    return const SubscriptionPlan(
+      id: '10000000-0000-0000-0000-000000000005',
+      name: 'Gói Casual',
+      description:
+          'Vòng quay 10 món ăn cá nhân hóa và an toàn\nKhởi động thực đơn, ghi nhật ký nhanh trong một chạm\nThẻ kiến thức dinh dưỡng theo lịch sử ăn uống',
+      durationDays: 36500,
+      priceVnd: 0,
+      featureGroup: 'casual',
+      isActive: true,
+      tierLabel: 'Custom',
+    );
   }
+
+  List<SubscriptionPlan> get _regularPlans => _plans.where((plan) {
+    final group = plan.featureGroup?.trim().toLowerCase();
+    return group != 'gym' &&
+        group != 'casual' &&
+        group != 'office' &&
+        !plan.isBaselineFree;
+  }).toList();
+
+  bool get _hasGymAccess => hasGymerSubscriptionAccess(_active);
+
+  bool get _hasCasualAccess => hasCasualSubscriptionAccess(_active);
 
   Future<void> _cancel() async {
     final current = _current;
@@ -185,13 +220,60 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Future<void> _activateOfficeMode() async {
-    final result = await _aiProfileRepository.upsert(eatingPattern: 'office');
-    if (!mounted) return;
-    if (!result.success) {
-      _showResult(result.message, false);
+    if (_actionLoading) return;
+
+    SubscriptionPlan? officePlan;
+    for (final plan in _plans) {
+      if (plan.featureGroup?.trim().toLowerCase() == 'office') {
+        officePlan = plan;
+        break;
+      }
+    }
+    if (officePlan == null) {
+      _showResult('Gói Office chưa được cấu hình trên hệ thống.', false);
       return;
     }
-    Navigator.of(context).pop('officeActivated');
+    if (!officePlan.isFree) {
+      await _subscribe(officePlan);
+      return;
+    }
+
+    setState(() => _actionLoading = true);
+    try {
+      final alreadyActive =
+          _current?.isActive == true &&
+          _current?.subscriptionPlanId == officePlan.id;
+      if (!alreadyActive) {
+        final subscriptionResult = await _repository.subscribe(
+          subscriptionPlanId: officePlan.id,
+          note: 'Activate Office package',
+        );
+        if (!mounted) return;
+        if (!subscriptionResult.success) {
+          _showResult(subscriptionResult.message, false);
+          return;
+        }
+      }
+
+      final result = await _aiProfileRepository.upsert(eatingPattern: 'office');
+      if (!mounted) return;
+      if (result.requiresLogin) {
+        await TokenStorage().clear();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
+        return;
+      }
+      if (!result.success) {
+        _showResult(result.message, false);
+        return;
+      }
+      Navigator.of(context).pop('officeActivated');
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
   }
 
   Future<void> _openGymerPackage() async {
@@ -213,7 +295,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
     setState(() => _actionLoading = true);
     final profileResult = await _aiProfileRepository.upsert(
-      eatingPattern: 'gymer',
+      eatingPattern: 'gym',
     );
     if (!mounted) return;
     setState(() => _actionLoading = false);
@@ -228,6 +310,42 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const GymerHubScreen()));
+  }
+
+  Future<void> _openCasualPackage() async {
+    if (_hasCasualAccess) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CasualHubScreen()));
+      return;
+    }
+
+    final plan = _casualPlan;
+    if (plan == null) {
+      _showResult(
+        'Gói Casual chưa được đồng bộ từ máy chủ. Vui lòng thử lại sau.',
+        false,
+      );
+      return;
+    }
+
+    setState(() => _actionLoading = true);
+    final profileResult = await _aiProfileRepository.upsert(
+      eatingPattern: 'casual',
+    );
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    if (!profileResult.success) {
+      _showResult(profileResult.message, false);
+      return;
+    }
+
+    final activated = await _subscribe(plan);
+    if (!mounted || !activated) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CasualHubScreen()));
   }
 
   void _showResult(String message, bool success) {
@@ -280,8 +398,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    if (_current != null) _buildCurrentCard(),
-                    if (_current != null) const SizedBox(height: 16),
+                    _buildCurrentCard(),
+                    const SizedBox(height: 16),
                     _UpgradeHeroCard(
                       title: 'Nâng cấp\nMenuGreen Pro',
                       subtitle:
@@ -289,6 +407,13 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       onPress: () {},
                     ),
                     const SizedBox(height: 16),
+                    _CasualPackageCard(
+                      plan: _casualPlan,
+                      hasAccess: _hasCasualAccess,
+                      busy: _actionLoading,
+                      onOpen: _openCasualPackage,
+                    ),
+                    const SizedBox(height: 12),
                     _GymerPackageCard(
                       plan: _gymPlan,
                       hasAccess: _hasGymAccess,
@@ -296,7 +421,10 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       onOpen: _openGymerPackage,
                     ),
                     const SizedBox(height: 12),
-                    _OfficePackageCard(onOpen: _activateOfficeMode),
+                    _OfficePackageCard(
+                      onOpen: _actionLoading ? null : _activateOfficeMode,
+                      loading: _actionLoading,
+                    ),
                     const SizedBox(height: 12),
                     if (_regularPlans.isEmpty)
                       const Text(
@@ -305,7 +433,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                       )
                     else
                       ..._regularPlans.map(_buildPlanCard),
-                    if (_current?.isActive == true) ...[
+                    if (_current?.isActive == true &&
+                        _current?.isBaselineFree == false) ...[
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: _actionLoading ? null : _renew,
@@ -349,7 +478,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   }
 
   Widget _buildCurrentCard() {
-    final current = _current!;
+    final current = _current;
+    final isBaselineFree = current == null || current.isBaselineFree;
+    final planName = isBaselineFree ? 'Cơ bản' : current.subscriptionPlanName;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -371,7 +502,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            current.subscriptionPlanName,
+            planName,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -379,21 +510,35 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Trạng thái: ${current.status} • Còn ${current.daysRemaining} ngày',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-          if (current.endDate != null)
-            Text(
-              'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
+          if (isBaselineFree)
+            const Text(
+              'Trạng thái: Active • Không giới hạn',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            )
+          else ...[
+            StreamBuilder<int>(
+              stream: Stream<int>.periodic(
+                const Duration(minutes: 1),
+                (tick) => tick,
+              ),
+              builder: (context, snapshot) => Text(
+                'Trạng thái: ${current.status} • '
+                '${formatSubscriptionRemaining(current.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ),
+            if (current.endDate != null)
+              Text(
+                'Hết hạn: ${formatSubscriptionDate(current.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -475,6 +620,162 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           Text(
             item.amount > 0 ? formatVnd(item.amount) : '—',
             style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CasualPackageCard extends StatelessWidget {
+  const _CasualPackageCard({
+    required this.plan,
+    required this.hasAccess,
+    required this.busy,
+    required this.onOpen,
+  });
+
+  final SubscriptionPlan? plan;
+  final bool hasAccess;
+  final bool busy;
+  final Future<void> Function() onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = plan?.priceVnd ?? 0;
+    const features = <({IconData icon, String label})>[
+      (icon: Icons.casino_rounded, label: 'Vòng quay'),
+      (icon: Icons.bolt_rounded, label: '1 chạm'),
+      (icon: Icons.auto_stories_rounded, label: 'Kiến thức'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF5DE), Colors.white],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF0CC7F)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFB020),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu_rounded,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gói Casual',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Ăn uống đơn giản, chọn món nhanh',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _PlanTag(label: hasAccess ? 'ĐÃ MỞ' : 'GÓI RIÊNG'),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatVnd(price),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
+                ),
+              ),
+              if (price == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6, bottom: 3),
+                  child: Text(
+                    'vĩnh viễn',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              for (final feature in features)
+                Expanded(
+                  child: _GymerPackageFeature(
+                    icon: feature.icon,
+                    label: feature.label,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy || plan == null ? null : onOpen,
+              icon: busy
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      hasAccess
+                          ? Icons.arrow_forward_rounded
+                          : Icons.lock_open_rounded,
+                      size: 18,
+                    ),
+              label: Text(
+                plan == null
+                    ? 'Đang đồng bộ gói Casual'
+                    : hasAccess
+                    ? 'Mở không gian Casual'
+                    : price == 0
+                    ? 'Kích hoạt miễn phí'
+                    : 'Đăng ký gói Casual',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD88400),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -681,9 +982,10 @@ class _GymerPackageFeature extends StatelessWidget {
 }
 
 class _OfficePackageCard extends StatelessWidget {
-  const _OfficePackageCard({required this.onOpen});
+  const _OfficePackageCard({required this.onOpen, required this.loading});
 
-  final Future<void> Function() onOpen;
+  final Future<void> Function()? onOpen;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -755,9 +1057,20 @@ class _OfficePackageCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onOpen,
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: const Text('Mở tính năng Office'),
+              onPressed: onOpen == null ? null : () => onOpen!(),
+              icon: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(
+                loading ? 'Đang mở Office...' : 'Mở tính năng Office',
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 13),
