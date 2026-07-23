@@ -98,6 +98,11 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<PasswordResetToken>().HasQueryFilter(prt => prt.User == null || EF.Property<DateTime?>(prt.User, "DeletedAt") == null);
             modelBuilder.Entity<RecommendationFeedback>().HasQueryFilter(rf => rf.Recommendation == null || rf.Recommendation.User == null || EF.Property<DateTime?>(rf.Recommendation.User, "DeletedAt") == null);
             modelBuilder.Entity<SepayTransaction>().HasQueryFilter(st => st.Payment == null || st.Payment.User == null || EF.Property<DateTime?>(st.Payment.User, "DeletedAt") == null);
+            modelBuilder.Entity<HealthProfile>().HasQueryFilter(hp => hp.User == null || EF.Property<DateTime?>(hp.User, "DeletedAt") == null);
+            modelBuilder.Entity<MealLog>().HasQueryFilter(ml => ml.User == null || EF.Property<DateTime?>(ml.User, "DeletedAt") == null);
+            modelBuilder.Entity<MealPlanHeader>().HasQueryFilter(mph => mph.User == null || EF.Property<DateTime?>(mph.User, "DeletedAt") == null);
+            modelBuilder.Entity<MealTemplate>().HasQueryFilter(mt => mt.User == null || EF.Property<DateTime?>(mt.User, "DeletedAt") == null);
+            modelBuilder.Entity<Notification>().HasQueryFilter(n => n.User == null || EF.Property<DateTime?>(n.User, "DeletedAt") == null);
         }
     }
 }
