@@ -67,6 +67,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "709315528907-1eljh6d3e56eud0bh5s64bdpub3gf4jg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.food",
+            "certificate_hash": "e4d08b7029b11f080e5807ed666a48e11b4dc9d7"
+          }
+        },
+        {
           "client_id": "709315528907-8b8eqpetu91l34fcvmkm8483fnoe04b5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -33,6 +33,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // Load .env.local first (for local development overrides)
+    // Then load .env as fallback/defaults
+    await dotenv.load(fileName: '.env.local', isOptional: true);
     await dotenv.load(fileName: '.env');
   } catch (e) {
     debugPrint('Cảnh báo: Không thể nạp tệp .env: $e');

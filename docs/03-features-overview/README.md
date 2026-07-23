@@ -114,4 +114,4 @@ Mỗi file `01-10` theo cùng template để dễ tìm thông tin:
 
 ---
 
-*Last updated: 2026-07-08 — Restructured from 10 legacy files into 10 canonical feature files.*
+*Last updated: 2026-07-23 — Cập nhật AI Assistant UI status.*

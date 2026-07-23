@@ -4,6 +4,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
     {
         public int CurrentStreakDays { get; set; }
         public int BestStreakDays { get; set; }
+        public DateOnly? LastTrackedDate { get; set; }
+        public int TotalTrackedDays { get; set; }
         public decimal WeeklyAdherenceRate { get; set; }
     }
 }

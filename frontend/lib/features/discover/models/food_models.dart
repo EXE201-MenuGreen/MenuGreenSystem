@@ -666,12 +666,14 @@ class FavoriteFoodItem {
     required this.nameVi,
     this.caloriesKcal,
     this.imageUrl,
+    this.address,
   });
 
   final String foodId;
   final String nameVi;
   final double? caloriesKcal;
   final String? imageUrl;
+  final String? address;
 
   factory FavoriteFoodItem.fromJson(Map<String, dynamic> json) {
     final c = json['caloriesKcal'] ?? json['CaloriesKcal'];
@@ -680,7 +682,18 @@ class FavoriteFoodItem {
       nameVi: (json['nameVi'] ?? json['NameVi'] ?? '').toString(),
       caloriesKcal: c is num ? c.toDouble() : null,
       imageUrl: json['imageUrl']?.toString() ?? json['ImageUrl']?.toString(),
+      address: json['address']?.toString() ?? json['Address']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'foodId': foodId,
+      'nameVi': nameVi,
+      if (caloriesKcal != null) 'caloriesKcal': caloriesKcal,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (address != null) 'address': address,
+    };
   }
 }
 

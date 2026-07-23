@@ -1,3 +1,5 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
@@ -5,28 +7,16 @@ class ApiEndpoints {
   /// Backend local mặc định cho Android Emulator.
   static const String localBaseUrl = 'http://10.0.2.2:5000/api';
 
-  /// Chọn môi trường bằng `--dart-define=APP_ENV=development`.
-  /// Nếu không truyền, ứng dụng luôn dùng production để release an toàn.
-  static const String environmentName = String.fromEnvironment(
-    'APP_ENV',
-    defaultValue: 'production',
-  );
-
-  /// Ghi đè URL cho emulator/thiết bị khác khi cần.
-  static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
-
-  static bool get isLocalEnvironment {
-    final environment = environmentName.trim().toLowerCase();
-    return environment == 'local' ||
-        environment == 'development' ||
-        environment == 'dev';
-  }
-
+  /// Ưu tiên: env file > environment variable > default
   static String get baseUrl {
-    if (_envBaseUrl.trim().isNotEmpty) {
-      return _normalizeBaseUrl(_envBaseUrl);
+    // 1. Check dotenv file first
+    final envUrl = dotenv.env['API_BASE_URL'];
+    if (envUrl != null && envUrl.trim().isNotEmpty) {
+      return _normalizeBaseUrl(envUrl);
     }
-    return isLocalEnvironment ? localBaseUrl : productionBaseUrl;
+
+    // 2. Fallback to default production
+    return productionBaseUrl;
   }
 
   static String _normalizeBaseUrl(String url) {
@@ -151,6 +141,10 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/$planId/duplicate';
   static String mealPlanBudgetStatus(String planId) =>
       '$baseUrl/MealPlan/$planId/budget-status';
+  static String mealPlanSaveOfficeScan(String planId) =>
+      '$baseUrl/MealPlan/$planId/save-office-scan';
+  static String mealPlanReplaceItem(String planId, String itemId) =>
+      '$baseUrl/MealPlan/$planId/items/$itemId/replace';
   static String get mealPlanDashboard => '$baseUrl/MealPlan/dashboard';
   static String get mealPlanCompare => '$baseUrl/MealPlan/compare';
   static String get mealPlanStreaks => '$baseUrl/MealPlan/streaks';

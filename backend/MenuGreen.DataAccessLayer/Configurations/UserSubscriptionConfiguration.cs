@@ -10,6 +10,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
         {
             builder.ToTable("user_subscriptions");
             builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
 
             builder.Property(x => x.Status).IsRequired().HasMaxLength(50);
             builder.Property(x => x.StartDate).IsRequired();

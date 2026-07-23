@@ -6,6 +6,9 @@ import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/models/meal_plan_responses.dart';
 import '../../meal_plan/models/meal_plan_requests.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../subscription/repositories/user_subscription_repository.dart';
+import '../../subscription/utils/subscription_access.dart';
+import '../../subscription/views/upgrade_plan_screen.dart';
 import '../widgets/office_grocery_section.dart';
 import '../widgets/office_meal_roadmap.dart';
 import '../widgets/office_plan_summary.dart';
@@ -31,6 +34,7 @@ class OfficeMealPlanScreen extends StatefulWidget {
 class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   final AdvancedRepository _budgetRepository = AdvancedRepository();
   final MealPlanRepository _mealPlanRepository = MealPlanRepository();
+  final UserSubscriptionRepository _subscriptionRepository = UserSubscriptionRepository();
 
   Map<String, dynamic>? _budget;
   MealPlanDetail? _plan;
@@ -40,13 +44,71 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   bool _loadingPlan = true;
   bool _generating = false;
   bool _savingBudget = false;
+  bool _hasOfficeAccess = false;
   String? _replacingItemId;
 
   @override
   void initState() {
     super.initState();
+    _checkAccess();
     _loadBudget();
     _loadExistingPlan();
+  }
+
+  Future<void> _checkAccess() async {
+    try {
+      final activeSubs = await _subscriptionRepository.getActive();
+      final hasAccess = hasOfficeSubscriptionAccess(activeSubs);
+      if (mounted) setState(() => _hasOfficeAccess = hasAccess);
+    } catch (_) {}
+  }
+
+  void _showUpgradePrompt() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 26),
+            SizedBox(width: 8),
+            Text(
+              'Kích hoạt Office VIP',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Bạn cần nâng cấp gói Office VIP để mở khóa chế độ lên kế hoạch & thực đơn cơm hộp văn phòng này.',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Để sau', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UpgradePlanScreen()),
+              );
+            },
+            child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   String _value(Map<String, dynamic> source, String key, [String fallback = '']) {
@@ -143,6 +205,10 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   }
 
   Future<void> _openBudgetSettings() async {
+    if (!_hasOfficeAccess) {
+      _showUpgradePrompt();
+      return;
+    }
     if (_loadingBudget || _savingBudget) return;
     final previousAmount = _number(_budget, 'budgetVnd');
     final previousMinutes = _number(_budget, 'timeLimitMin');
@@ -186,6 +252,10 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   }
 
   Future<void> _generatePlan() async {
+    if (!_hasOfficeAccess) {
+      _showUpgradePrompt();
+      return;
+    }
     if (_budget == null) {
       _notice('Hãy thiết lập mục tiêu ngân sách trước khi tạo kế hoạch.');
       await _openBudgetSettings();
@@ -368,14 +438,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       final updatedPlan = await _mealPlanRepository.replaceItem(
         plan.id,
         item.id,
-        AddItemRequest(
-          mealType: item.mealType ?? 'lunch',
-          plannedDate: item.plannedDate,
-          scheduledTime: item.scheduledTime,
-          foodId: selected.foodId,
-          recipeId: selected.recipeId,
-          targetCalories: selected.targetCalories,
-        ),
+        selected.foodId ?? selected.recipeId ?? '',
       );
       final results = await Future.wait([
         _mealPlanRepository.getGroceryList(updatedPlan.id),

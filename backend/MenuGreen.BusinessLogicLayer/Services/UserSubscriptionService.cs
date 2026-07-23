@@ -7,6 +7,7 @@ using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -53,10 +54,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
 
             await _unitOfWork.UserSubscriptions.AddAsync(subscription);
+
+            try
+            {
+                // Step 1: Save subscription first to get the ID in DB
+                await _unitOfWork.CompleteAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                throw new InvalidOperationException($"Không thể kích hoạt gói dịch vụ: {inner}", ex);
+            }
+
+            // Step 2: Now create and save transaction (FK is guaranteed to exist)
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Subscribe", 0, request.Note ?? "Free plan", now));
 
-            await _unitOfWork.CompleteAsync();
+            try
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Rollback: mark subscription as failed if transaction fails
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                throw new InvalidOperationException($"Không thể ghi nhận giao dịch: {inner}", ex);
+            }
 
             try
             {

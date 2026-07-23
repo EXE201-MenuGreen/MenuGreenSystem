@@ -32,6 +32,9 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.CreatedAt)
                 .HasColumnType("timestamp with time zone");
 
+            builder.Property(x => x.Origin)
+                .HasMaxLength(50);
+
             builder.HasOne(x => x.MealPlanHeader)
                 .WithMany(h => h.MealPlanItems)
                 .HasForeignKey(x => x.MealPlanId)
@@ -50,6 +53,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasIndex(x => x.MealPlanId);
             builder.HasIndex(x => x.PlannedDate);
             builder.HasIndex(x => x.MealType);
+            builder.HasIndex(x => x.Origin);
         }
     }
 }

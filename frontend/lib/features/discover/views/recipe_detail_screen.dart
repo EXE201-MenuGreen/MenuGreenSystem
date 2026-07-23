@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -88,12 +89,25 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                recipe.imageUrl!,
+              child: CachedNetworkImage(
+                imageUrl: recipe.imageUrl!,
                 width: double.infinity,
                 height: 200,
+                memCacheWidth: 400,
+                memCacheHeight: 200,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                placeholder: (_, __) => Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
               ),
             ),
           ],
@@ -123,6 +137,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (recipe.totalCalories > 0) _chip('${recipe.totalCalories} kcal'),
                 if (recipe.prepTimeMin != null) _chip('Sơ chế ${recipe.prepTimeMin} phút'),
                 if (recipe.cookTimeMin != null) _chip('Nấu ${recipe.cookTimeMin} phút'),
                 if (recipe.totalTimeMin != null) _chip('Tổng ${recipe.totalTimeMin} phút'),
@@ -382,7 +397,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   bool _hasMetadata(RecipeItem recipe) {
-    return recipe.prepTimeMin != null ||
+    return recipe.totalCalories > 0 ||
+        recipe.prepTimeMin != null ||
         recipe.cookTimeMin != null ||
         recipe.totalTimeMin != null ||
         recipe.servings != null ||
@@ -400,7 +416,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   String _formatPrice(int amount) {
-    if (amount >= 1000) return '${(amount / 1000).toStringAsFixed(0)}K đ';
-    return '$amount đ';
+    final formatted = amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$formatted VNĐ';
   }
 }

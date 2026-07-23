@@ -1,7 +1,7 @@
 # 03. Meal Plan
 
 **Status:** API Done · UI Done (100%)
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-23
 
 **Related controllers:**
 - `backend/MenuGreen.API/Controllers/MealPlanController.cs`
@@ -37,15 +37,18 @@ Nguồn: HealthcareOnTime (calorie distribution) + PMC 2024 (meal timing meta-an
 
 ### 2.2 Streak Logic
 
-- Streak tăng khi user log ít nhất 1 bữa/ngày.
-- Reset = 0 nếu bỏ log 2 ngày liên tiếp (kiểm tra ngày cuối là hôm nay hoặc hôm qua).
-- Công thức: đếm ngày log liên tiếp giảm dần.
+- Hôm nay được tính khi user có kế hoạch cho hôm nay hoặc đã log/hoàn thành ít nhất 1 bữa.
+- Với ngày đã qua, streak chỉ tính ngày đã log hoặc hoàn thành ít nhất 1 món trong kế hoạch.
+- Reset = 0 nếu không có hoạt động hợp lệ trong hôm nay và hôm qua.
+- Ngày được quy đổi theo múi giờ Việt Nam (UTC+7) trước khi đếm chuỗi liên tiếp.
 
 ### 2.3 Quick Actions
 
 - **Convert-to-log:** chuyển 1 plan item thành meal log (giữ nguyên khối lượng, meal slot).
 - **Commit:** ghi toàn bộ items trong plan thành meal logs theo ngày.
 - **Duplicate:** tạo plan mới dựa trên plan cũ (kế hoạch tuần mới từ tuần cũ).
+- **Scan-meals (Office):** lưu AI-scanned meal vừa là plan item vừa là meal log.
+- **Grocery-list (Office):** tổng hợp nguyên liệu từ recipes trong plan thành danh sách mua sắm.
 
 ### 2.4 Reminder (Notification)
 
@@ -86,6 +89,10 @@ Nguồn: HealthcareOnTime (calorie distribution) + PMC 2024 (meal timing meta-an
 |--------|----------|-------------|
 | `POST` | `/api/MealPlan/{planId}/commit` | Commit toàn bộ plan thành logs |
 | `POST` | `/api/MealPlan/{planId}/duplicate` | Duplicate plan sang date range mới |
+| `POST` | `/api/MealPlan/{planId}/scan-meals` | Lưu AI-scanned meal *(OfficeFeatures policy)* |
+| `GET` | `/api/MealPlan/{id}/grocery-list` | Tổng hợp nguyên liệu mua sắm *(OfficeFeatures policy)* |
+
+> **Ghi chú:** `scan-meals` và `grocery-list` thuộc Office workflow, yêu cầu `OfficeFeatures` policy.
 
 ### 3.4 Dashboard & Stats
 
@@ -120,7 +127,7 @@ Nguồn: HealthcareOnTime (calorie distribution) + PMC 2024 (meal timing meta-an
 
 > **Ghi chú:** Reminder UI (settings + inbox) thuộc [`07-notification.md`](./07-notification.md); endpoint meal-plan-remind đặt tại NotificationController nhưng liên quan Meal Plan, nên liệt kê ở đây để dễ tham chiếu.
 
-**Tổng: 30 endpoint** (24 MealPlanController + 6 PlannedVsActualController). Notification reminders đã gộp trong §3.7.
+**Tổng: 32 endpoint** (26 MealPlanController + 6 PlannedVsActualController). Notification reminders đã gộp trong §3.7.
 
 ---
 
@@ -170,7 +177,7 @@ Nguồn: HealthcareOnTime (calorie distribution) + PMC 2024 (meal timing meta-an
 | AddItemSheet | `features/meal_plan/widgets/add_item_sheet.dart` | Done |
 | EditItemSheet | `features/meal_plan/widgets/edit_item_sheet.dart` | Done |
 
-**Tổng:** 30 endpoint API, 6 screens, 4 widgets.
+**Tổng:** 32 endpoint API, 6 screens, 4 widgets.
 
 ---
 
@@ -247,4 +254,5 @@ Backend models đầy đủ: [`../02-backend/backend_models_documentation.md`](.
 - Streak logic: [`10-vietnam-local-features.md` → Appendix A.15](./10-vietnam-local-features.md#15-streak)
 - Planned vs Actual analytics: [`09-analytics.md`](./09-analytics.md)
 - AI tạo meal plan: [`06-ai-assistant-and-coach.md`](./06-ai-assistant-and-coach.md)
+- Office workflow: [`../workflow/office_workflow.md`](../workflow/office_workflow.md)
 - File cũ (archive): [`../_archive/features/MEAL_PLAN.md`](../_archive/features/MEAL_PLAN.md)

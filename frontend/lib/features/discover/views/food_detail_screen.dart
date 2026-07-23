@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -118,12 +119,25 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                food.imageUrl!,
+              child: CachedNetworkImage(
+                imageUrl: food.imageUrl!,
                 width: double.infinity,
                 height: 200,
+                memCacheWidth: 400,
+                memCacheHeight: 200,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                placeholder: (_, __) => Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
               ),
             ),
           ],
@@ -146,22 +160,23 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           const SizedBox(height: 16),
           if (food.description != null && food.description!.isNotEmpty)
             Text(food.description!, style: const TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (food.caloriesKcal != null) _chip('${food.caloriesKcal!.round()} kcal'),
-              if (food.proteinG != null) _chip('${food.proteinG!.round()}g đạm'),
-              if (food.carbsG != null) _chip('C ${food.carbsG!.round()}g'),
-              if (food.fatG != null) _chip('F ${food.fatG!.round()}g'),
-              if (food.fiberG != null) _chip('Chất xơ ${food.fiberG!.round()}g'),
-              if (food.defaultServingG != null) _chip('${food.defaultServingG}g/khẩu phần'),
-              if (food.estimatedPriceVnd != null) _chip(_formatPrice(food.estimatedPriceVnd!)),
-              if (food.category != null) _chip(food.category!),
-              if (food.region != null) _chip(food.region!),
-            ],
-          ),
+          const SizedBox(height: 16),
+          _buildNutritionSection(food),
+          const SizedBox(height: 16),
+          if (food.defaultServingG != null ||
+              food.estimatedPriceVnd != null ||
+              food.category != null ||
+              food.region != null)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (food.defaultServingG != null) _chip('${food.defaultServingG}g / khẩu phần'),
+                if (food.estimatedPriceVnd != null) _chip(_formatPrice(food.estimatedPriceVnd!)),
+                if (food.category != null) _chip(food.category!),
+                if (food.region != null) _chip(food.region!),
+              ],
+            ),
           if (food.allergenLabelsVi.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text('Thành phần dị ứng ghi nhận', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -256,6 +271,170 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     }
   }
 
+  Widget _buildNutritionSection(FoodItem food) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Giá trị dinh dưỡng',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAF9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildNutritionItem(
+                      label: 'Năng lượng',
+                      value: '${food.caloriesKcal?.round() ?? 0}',
+                      unit: 'kcal',
+                      icon: Icons.local_fire_department_rounded,
+                      color: const Color(0xFFE53935),
+                      bgColor: const Color(0xFFFFEBEE),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildNutritionItem(
+                      label: 'Đạm (Protein)',
+                      value: '${food.proteinG?.round() ?? 0}',
+                      unit: 'g',
+                      icon: Icons.fitness_center_rounded,
+                      color: const Color(0xFF1E88E5),
+                      bgColor: const Color(0xFFE3F2FD),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildNutritionItem(
+                      label: 'Tinh bột (Carbs)',
+                      value: '${food.carbsG?.round() ?? 0}',
+                      unit: 'g',
+                      icon: Icons.grain_rounded,
+                      color: const Color(0xFFFB8C00),
+                      bgColor: const Color(0xFFFFF3E0),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildNutritionItem(
+                      label: 'Chất béo (Fat)',
+                      value: '${food.fatG?.round() ?? 0}',
+                      unit: 'g',
+                      icon: Icons.water_drop_rounded,
+                      color: const Color(0xFF8E24AA),
+                      bgColor: const Color(0xFFF3E5F5),
+                    ),
+                  ),
+                ],
+              ),
+              if (food.fiberG != null && food.fiberG! > 0) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildNutritionItem(
+                        label: 'Chất xơ (Fiber)',
+                        value: '${food.fiberG!.round()}',
+                        unit: 'g',
+                        icon: Icons.grass_rounded,
+                        color: const Color(0xFF43A047),
+                        bgColor: const Color(0xFFE8F5E9),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNutritionItem({
+    required String label,
+    required String value,
+    required String unit,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: value,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' $unit',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _chip(String text) {
     return Chip(
       label: Text(text),
@@ -265,7 +444,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   }
 
   String _formatPrice(int amount) {
-    if (amount >= 1000) return '${(amount / 1000).toStringAsFixed(0)}K đ';
-    return '$amount đ';
+    final formatted = amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$formatted VNĐ';
   }
 }

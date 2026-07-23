@@ -98,6 +98,18 @@ class _PtTabState extends State<_PtTab> {
   }
 
   Future<void> create() async {
+    try {
+      final coaches = await repo.myCoaches();
+      final hasConnected = coaches.any((c) => _v(c, 'connectionStatus').toLowerCase() == 'connected');
+      if (!hasConnected) {
+        if (mounted) _notice(context, 'Bạn chưa Đăng ký kết nối với PT');
+        return;
+      }
+    } catch (e) {
+      if (mounted) _notice(context, e);
+      return;
+    }
+
     final now = DateTime.now();
     final monday = now.subtract(Duration(days: now.weekday - 1));
 
@@ -106,6 +118,8 @@ class _PtTabState extends State<_PtTab> {
     final bodyFatController = TextEditingController();
     int selectedDays = 3;
     String selectedFeeling = 'Khỏe 😊';
+
+    if (!mounted) return;
 
     final bool? shouldSubmit = await showDialog<bool>(
       context: context,
@@ -869,58 +883,159 @@ class _CoachTabState extends State<_CoachTab> {
       if (!mounted) return;
       await showModalBottomSheet<void>(
         context: context,
-        showDragHandle: true,
-        builder: (sheetContext) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _v(detail, 'fullName'),
-                style: Theme.of(sheetContext).textTheme.headlineSmall,
-              ),
-              Text(
-                '${_v(detail, 'specialty')} • ${_v(detail, 'experienceYears')} năm',
-              ),
-              const SizedBox(height: 8),
-              Text(_v(detail, 'bio')),
-              const SizedBox(height: 8),
-              Text('Phí: ${_v(detail, 'priceVnd')} VND'),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await repo.access(_v(detail, 'id'), true);
-                        if (sheetContext.mounted) Navigator.pop(sheetContext);
-                      },
-                      child: const Text('Cấp quyền'),
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        showDragHandle: false,
+        builder: (sheetContext) {
+          final isConnected = connectedCoaches.any(
+            (c) => _v(c, 'id') == _v(detail, 'id'),
+          );
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
+                ),
+                const SizedBox(height: 20),
+                // Avatar + name
+                Row(
+                  children: [
+                    Container(
+                      width: 64, height: 64,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.sports_gymnastics_rounded, color: Colors.white, size: 32),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _v(detail, 'fullName'),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _v(detail, 'specialty'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                // Stats row
+                Row(
+                  children: [
+                    _DetailStat(
+                      icon: Icons.star_rounded,
+                      label: '${_v(detail, 'experienceYears')} năm',
+                      sub: 'Kinh nghiệm',
+                    ),
+                    const SizedBox(width: 12),
+                    _DetailStat(
+                      icon: Icons.payments_outlined,
+                      label: '${_v(detail, 'priceVnd')} đ',
+                      sub: 'Học phí',
+                    ),
+                  ],
+                ),
+                if (_v(detail, 'bio').isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    _v(detail, 'bio'),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.5),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                if (isConnected) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionButton(
+                          label: 'Cấp quyền xem',
+                          icon: Icons.lock_open_rounded,
+                          color: AppColors.primary,
+                          onTap: () async {
+                            await repo.access(_v(detail, 'id'), true);
+                            if (sheetContext.mounted) Navigator.pop(sheetContext);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ActionButton(
+                          label: 'Thu hồi quyền',
+                          icon: Icons.lock_rounded,
+                          color: Colors.red.shade400,
+                          onTap: () async {
+                            await repo.access(_v(detail, 'id'), false);
+                            if (sheetContext.mounted) Navigator.pop(sheetContext);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
                       onPressed: () async {
-                        await repo.access(_v(detail, 'id'), false);
-                        if (sheetContext.mounted) Navigator.pop(sheetContext);
+                        await repo.connect(_v(detail, 'id'));
+                        if (sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                          load();
+                        }
                       },
-                      child: const Text('Thu hồi'),
+                      icon: const Icon(Icons.person_add_rounded),
+                      label: const Text('Gửi yêu cầu kết nối'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  sheetContext,
-                  MaterialPageRoute(builder: (_) => const MyCoachesScreen()),
-                ),
-                icon: const Icon(Icons.people_outline),
-                label: const Text('Coach của tôi & phản hồi'),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       );
     } catch (e) {
       if (mounted) _notice(context, e);
@@ -929,181 +1044,149 @@ class _CoachTabState extends State<_CoachTab> {
 
   @override
   Widget build(BuildContext c) => loading
-      ? const Center(child: CircularProgressIndicator())
+      ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
       : RefreshIndicator(
+          color: AppColors.primary,
           onRefresh: load,
           child: ListView(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               if (!widget.gymerMode)
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.push(
-                          c,
-                          MaterialPageRoute(
-                            builder: (_) => const CoachRegisterScreen(),
-                          ),
+                      child: _OutlineChip(
+                        label: 'Đăng ký Coach',
+                        icon: Icons.verified_user_outlined,
+                        onTap: () => Navigator.push(
+                          c, MaterialPageRoute(builder: (_) => const CoachRegisterScreen()),
                         ),
-                        child: const Text('Đăng ký Coach'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.push(
-                          c,
-                          MaterialPageRoute(
-                            builder: (_) => const CoachClientsScreen(),
-                          ),
+                      child: _OutlineChip(
+                        label: 'Học viên',
+                        icon: Icons.group_outlined,
+                        onTap: () => Navigator.push(
+                          c, MaterialPageRoute(builder: (_) => const CoachClientsScreen()),
                         ),
-                        child: const Text('Học viên của tôi'),
                       ),
                     ),
                   ],
                 ),
-              Text(
-                widget.gymerMode ? 'Huấn luyện viên phù hợp' : 'Danh bạ coach',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              if (widget.gymerMode) ...[
-                const SizedBox(height: 4),
-                const Text(
-                  'Bạn chủ động cấp hoặc thu hồi quyền xem dữ liệu sức khỏe bất cứ lúc nào.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+              if (!widget.gymerMode) const SizedBox(height: 16),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.sports_gymnastics_rounded, color: AppColors.primary, size: 22),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.gymerMode ? 'Huấn luyện viên phù hợp' : 'Danh bạ coach',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      if (widget.gymerMode)
+                        Text(
+                          'Chủ động cấp hoặc thu hồi quyền xem dữ liệu',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Connected section
+              if (connectedCoaches.isNotEmpty) ...[
+                _SectionLabel(label: 'Đang kết nối', icon: Icons.link_rounded, color: AppColors.primary),
+                const SizedBox(height: 10),
+                for (final r in connectedCoaches)
+                  _CoachCard(
+                    name: _v(r, 'fullName'),
+                    specialty: _v(r, 'specialty'),
+                    experienceYears: _v(r, 'experienceYears'),
+                    priceVnd: _v(r, 'priceVnd'),
+                    status: _v(r, 'connectionStatus'),
+                    isConnected: true,
+                    onTap: () => showCoach(r),
+                    onAction: () async {
+                      final isConn = _v(r, 'connectionStatus').toLowerCase() == 'connected';
+                      final title = isConn ? 'Hủy kết nối' : 'Hủy yêu cầu';
+                      final confirm = await showDialog<bool>(
+                        context: c,
+                        builder: (d) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          title: Text(title),
+                          content: Text(isConn
+                              ? 'Bạn có chắc muốn hủy kết nối với huấn luyện viên này?'
+                              : 'Bạn có chắc muốn rút lại yêu cầu?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Bỏ qua')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(d, true),
+                              child: Text(title, style: const TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        try {
+                          await repo.disconnect(_v(r, 'id'));
+                          if (c.mounted) { _notice(c, isConn ? 'Đã hủy kết nối' : 'Đã hủy yêu cầu'); load(); }
+                        } catch (e) { if (c.mounted) _notice(c, e); }
+                      }
+                    },
+                    actionLabel: _v(r, 'connectionStatus').toLowerCase() == 'connected' ? 'Hủy kết nối' : 'Hủy yêu cầu',
+                    actionColor: Colors.red,
+                  ),
+                const SizedBox(height: 16),
+                _SectionLabel(label: 'Khám phá thêm', icon: Icons.explore_rounded, color: Colors.grey.shade600),
                 const SizedBox(height: 10),
               ],
-              if (connectedCoaches.isNotEmpty)
-                for (final r in connectedCoaches)
-                  Card(
-                    child: ListTile(
-                      onTap: () => showCoach(r),
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.fitness_center),
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _v(r, 'fullName'),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _v(r, 'connectionStatus').toLowerCase() == 'connected'
-                                  ? Colors.green.shade100
-                                  : Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _v(r, 'connectionStatus').toLowerCase() == 'connected'
-                                  ? 'Đã kết nối'
-                                  : 'Đang chờ duyệt',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: _v(r, 'connectionStatus').toLowerCase() == 'connected'
-                                    ? Colors.green.shade800
-                                    : Colors.orange.shade800,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '${_v(r, 'specialty')} • ${_v(r, 'experienceYears')} năm\n${_v(r, 'priceVnd')} VND',
-                      ),
-                      isThreeLine: true,
-                      trailing: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        onPressed: () async {
-                          final isConnected = _v(r, 'connectionStatus').toLowerCase() == 'connected';
-                          final titleText = isConnected ? 'Hủy kết nối' : 'Hủy yêu cầu';
-                          final contentText = isConnected
-                              ? 'Bạn có chắc muốn hủy kết nối với huấn luyện viên này?'
-                              : 'Bạn có chắc muốn rút lại yêu cầu kết nối với huấn luyện viên này?';
-                          
-                          final confirm = await showDialog<bool>(
-                            context: c,
-                            builder: (dialogContext) => AlertDialog(
-                              title: Text(titleText),
-                              content: Text(contentText),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialogContext, false),
-                                  child: const Text('Bỏ qua'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialogContext, true),
-                                  child: Text(
-                                    titleText,
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
 
-                          if (confirm == true) {
-                            try {
-                              await repo.disconnect(_v(r, 'id'));
-                              if (c.mounted) {
-                                _notice(c, isConnected ? 'Đã hủy kết nối' : 'Đã hủy yêu cầu');
-                                load();
-                              }
-                            } catch (e) {
-                              if (c.mounted) _notice(c, e);
-                            }
-                          }
-                        },
-                        child: Text(
-                          _v(r, 'connectionStatus').toLowerCase() == 'connected'
-                              ? 'Hủy kết nối'
-                              : 'Hủy yêu cầu',
-                        ),
-                      ),
+              // Available coaches
+              if (rows.isEmpty && connectedCoaches.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: Column(
+                      children: [
+                        Icon(Icons.sports_gymnastics_rounded, size: 56, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('Chưa có huấn luyện viên', style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+                      ],
                     ),
-                  )
+                  ),
+                )
               else
                 for (final r in rows)
-                  Card(
-                    child: ListTile(
-                      onTap: () => showCoach(r),
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.fitness_center),
-                      ),
-                      title: Text(_v(r, 'fullName')),
-                      subtitle: Text(
-                        '${_v(r, 'specialty')} • ${_v(r, 'experienceYears')} năm\n${_v(r, 'priceVnd')} VND',
-                      ),
-                      isThreeLine: true,
-                      trailing: FilledButton(
-                        onPressed: () async {
-                          try {
-                            await repo.connect(_v(r, 'id'));
-                            if (c.mounted) {
-                              _notice(c, 'Đã gửi yêu cầu kết nối');
-                              load();
-                            }
-                          } catch (e) {
-                            if (c.mounted) _notice(c, e);
-                          }
-                        },
-                        child: const Text('Kết nối'),
-                      ),
-                    ),
+                  _CoachCard(
+                    name: _v(r, 'fullName'),
+                    specialty: _v(r, 'specialty'),
+                    experienceYears: _v(r, 'experienceYears'),
+                    priceVnd: _v(r, 'priceVnd'),
+                    status: '',
+                    isConnected: false,
+                    onTap: () => showCoach(r),
+                    onAction: () async {
+                      try {
+                        await repo.connect(_v(r, 'id'));
+                        if (c.mounted) { _notice(c, 'Đã gửi yêu cầu kết nối'); load(); }
+                      } catch (e) { if (c.mounted) _notice(c, e); }
+                    },
+                    actionLabel: 'Kết nối',
+                    actionColor: AppColors.primary,
                   ),
             ],
           ),
@@ -1334,4 +1417,308 @@ class _UserTabState extends State<_UserTab> {
             ],
           ),
         );
+}
+
+// ─── Helper widgets for _CoachTab ─────────────────────────────────────────────
+
+class _CoachCard extends StatelessWidget {
+  const _CoachCard({
+    required this.name,
+    required this.specialty,
+    required this.experienceYears,
+    required this.priceVnd,
+    required this.status,
+    required this.isConnected,
+    required this.onTap,
+    required this.onAction,
+    required this.actionLabel,
+    required this.actionColor,
+  });
+
+  final String name, specialty, experienceYears, priceVnd, status;
+  final bool isConnected;
+  final VoidCallback onTap, onAction;
+  final String actionLabel;
+  final Color actionColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final isConn = status.toLowerCase() == 'connected';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isConnected
+                ? AppColors.primary.withValues(alpha: 0.25)
+                : Colors.grey.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Avatar
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isConnected
+                        ? [AppColors.primary, AppColors.primary.withValues(alpha: 0.65)]
+                        : [const Color(0xFF6EE7B7), const Color(0xFF34D399)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.sports_gymnastics_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isConnected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isConn
+                                  ? Colors.green.shade50
+                                  : Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              isConn ? 'Đã kết nối' : 'Chờ duyệt',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: isConn
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      specialty,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$experienceYears năm • ${priceVnd.isEmpty ? "Thỏa thuận" : "$priceVnd đ"}',
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Action button
+              GestureDetector(
+                onTap: onAction,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: actionColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: actionColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: actionColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailStat extends StatelessWidget {
+  const _DetailStat({
+    required this.icon,
+    required this.label,
+    required this.sub,
+  });
+
+  final IconData icon;
+  final String label, sub;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4FAF7),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                Text(sub, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OutlineChip extends StatelessWidget {
+  const _OutlineChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

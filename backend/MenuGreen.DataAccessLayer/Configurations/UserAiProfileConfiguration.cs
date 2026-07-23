@@ -10,6 +10,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
         {
             builder.ToTable("user_ai_profile");
             builder.HasKey(x => x.UserId);
+            builder.Property(x => x.UserId).ValueGeneratedNever();
             builder.Property(x => x.Preferences).HasColumnType("jsonb");
             builder.Property(x => x.DislikedFoods).HasColumnType("jsonb");
             // Stored as JSON string value, e.g. "gym" (valid jsonb).

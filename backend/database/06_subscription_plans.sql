@@ -32,7 +32,7 @@ INSERT INTO subscription_plans (
     "Id", "Name", "Description", "DurationDays", "PriceVnd", "FeatureGroup", "IsActive"
 )
 VALUES (
-    '10000000-0000-0000-0000-000000000005',
+    '10000000-0000-0000-0000-000000000006',
     'Gói Casual',
     E'Vòng quay 10 món ăn cá nhân hóa và an toàn\nKhởi động thực đơn, ghi nhật ký nhanh trong một chạm\nThẻ kiến thức dinh dưỡng theo lịch sử ăn uống',
     NULL,

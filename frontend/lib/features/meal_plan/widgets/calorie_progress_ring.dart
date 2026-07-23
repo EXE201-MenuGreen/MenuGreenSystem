@@ -51,15 +51,17 @@ class _CalorieProgressRingState extends State<CalorieProgressRing>
   }
 
   void _setupAnimation() {
-    _animation = Tween<double>(begin: 0, end: _progress).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _animation = Tween<double>(
+      begin: 0,
+      end: _progress,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
   void didUpdateWidget(CalorieProgressRing oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.current != widget.current || oldWidget.target != widget.target) {
+    if (oldWidget.current != widget.current ||
+        oldWidget.target != widget.target) {
       _setupAnimation();
       if (widget.animated) {
         _controller.forward(from: 0);
@@ -272,6 +274,8 @@ class TodayCaloriesCard extends StatelessWidget {
     this.carbsTarget = 0,
     this.fat = 0,
     this.fatTarget = 0,
+    this.completedMeals = 0,
+    this.totalMeals = 0,
     this.onTap,
   });
 
@@ -283,6 +287,8 @@ class TodayCaloriesCard extends StatelessWidget {
   final int carbsTarget;
   final int fat;
   final int fatTarget;
+  final int completedMeals;
+  final int totalMeals;
   final VoidCallback? onTap;
 
   @override
@@ -302,15 +308,31 @@ class TodayCaloriesCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'HÔM NAY',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    letterSpacing: 1,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'DINH DƯỠNG HÔM NAY',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      if (totalMeals > 0) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '$completedMeals/$totalMeals món đã ăn',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (onTap != null)
@@ -390,6 +412,28 @@ class TodayCaloriesCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (totalMeals > 0) ...[
+              const SizedBox(height: 10),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.touch_app_outlined,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Tick món đã ăn để cập nhật các chỉ số thực tế.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -417,10 +461,7 @@ class _MacroChip extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -501,10 +542,7 @@ class StreakWidget extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '(max: $longestStreak)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.orange.shade600,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade600),
             ),
           ],
         ],

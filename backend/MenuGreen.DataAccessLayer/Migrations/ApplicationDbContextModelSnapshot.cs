@@ -565,6 +565,14 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
+                    b.HasIndex("Region");
+
                     b.ToTable("foods", (string)null);
                 });
 
@@ -785,6 +793,12 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
                     b.ToTable("ingredients", (string)null);
                 });
 
@@ -844,6 +858,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasIndex("FoodId");
 
+                    b.HasIndex("LoggedAt");
+
                     b.HasIndex("MealPlanItemId")
                         .IsUnique()
                         .HasFilter("\"MealPlanItemId\" IS NOT NULL");
@@ -851,6 +867,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("RecipeId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "LoggedAt");
 
                     b.ToTable("meal_logs", (string)null);
                 });
@@ -979,6 +997,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateOnly?>("PlannedDate")
                         .HasColumnType("date");
 
@@ -1008,6 +1030,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("MealPlanId");
 
                     b.HasIndex("MealType");
+
+                    b.HasIndex("Origin");
 
                     b.HasIndex("PlannedDate");
 
@@ -1663,7 +1687,15 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Difficulty");
+
                     b.HasIndex("FoodId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("MealType");
 
                     b.ToTable("recipes", (string)null);
                 });
@@ -1962,7 +1994,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.SubscriptionTransaction", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Amount")
@@ -2240,7 +2271,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledAt")

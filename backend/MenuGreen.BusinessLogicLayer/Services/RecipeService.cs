@@ -78,8 +78,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid? userId = null,
             string? allergyMode = null)
         {
-            var recipes = await _unitOfWork.Recipes.GetAllAsync();
-            var query = recipes.AsEnumerable();
+            // Build query with filters at database level (fix client-side filtering)
+            var allRecipes = await _unitOfWork.Recipes.FindAsync(r => true, asNoTracking: true);
+            var query = allRecipes.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -108,17 +109,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var recipeList = query.ToList();
             var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
             var mode = NormalizeAllergyMode(allergyMode);
-            var items = new List<RecipeResponse>();
 
-            foreach (var recipe in recipeList)
+            // Parallelize enrichment for better performance
+            var enrichTasks = recipeList.Select(async recipe =>
             {
                 var dto = Map(recipe);
                 ingredientMap.TryGetValue(recipe.Id, out var names);
                 dto = await EnrichRecipeAsync(dto, userId, allergyMode, names ?? new List<string>());
-                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser)
-                    continue;
-                items.Add(dto);
-            }
+                return (Dto: dto, ShouldInclude: mode != AllergenCatalog.ModeHide || dto.IsSafeForUser);
+            });
+
+            var results = await Task.WhenAll(enrichTasks);
+            var items = results.Where(r => r.ShouldInclude).Select(r => r.Dto).ToList();
 
             return new RecipeSearchResponse { Items = items, TotalCount = items.Count };
         }

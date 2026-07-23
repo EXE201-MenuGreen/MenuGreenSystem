@@ -8,6 +8,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public DateOnly Date { get; set; }
         public int TotalPlannedCalories { get; set; }
         public int TotalActualCalories { get; set; }
+        public int PlannedProtein { get; set; }
+        public int ActualProtein { get; set; }
+        public int PlannedCarbs { get; set; }
+        public int ActualCarbs { get; set; }
+        public int PlannedFat { get; set; }
+        public int ActualFat { get; set; }
         public int PlannedItemsCount { get; set; }
         public int CompletedItemsCount { get; set; }
         public int SkippedItemsCount { get; set; }

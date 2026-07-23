@@ -24,5 +24,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? RecipeId { get; set; }
         public int? TargetCalories { get; set; }
         public TimeOnly? ScheduledTime { get; set; }
+
+        /// <summary>
+        /// Nguồn gốc: "user" = tạo tay ở tab Kế hoạch,
+        /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+        /// </summary>
+        public string? Origin { get; set; }
     }
 }

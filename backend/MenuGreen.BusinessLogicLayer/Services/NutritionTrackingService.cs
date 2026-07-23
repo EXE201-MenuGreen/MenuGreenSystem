@@ -72,7 +72,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealDaySummaryResponse> GetDailySummaryAsync(Guid userId, DateOnly date)
         {
-            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId && x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == date);
+            var startOfDay = date.ToDateTime(TimeOnly.MinValue);
+            var endOfDay = date.ToDateTime(TimeOnly.MaxValue);
+            var logs = await _unitOfWork.MealLogs.FindAsync(x => 
+                x.UserId == userId && 
+                x.LoggedAt.HasValue && 
+                x.LoggedAt.Value >= startOfDay && 
+                x.LoggedAt.Value <= endOfDay);
             await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, date);
             return await BuildDailySummaryAsync(userId, date, logs.ToList());
         }
@@ -80,11 +86,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
         {
             var (from, to) = ResolveRange(range, startDate, endDate);
+            var fromDateTime = from.ToDateTime(TimeOnly.MinValue);
+            var toDateTime = to.ToDateTime(TimeOnly.MaxValue);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && x.LoggedAt.HasValue
-                    && DateOnly.FromDateTime(x.LoggedAt.Value) >= from
-                    && DateOnly.FromDateTime(x.LoggedAt.Value) <= to)).ToList();
+                    && x.LoggedAt.Value >= fromDateTime
+                    && x.LoggedAt.Value <= toDateTime)).ToList();
 
             var logDates = logs
                 .Where(x => x.LoggedAt.HasValue)
@@ -92,16 +100,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Distinct()
                 .ToList();
 
-            foreach (var day in logDates)
+            // Parallelize sync operations for better performance
+            if (logDates.Any())
             {
-                await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day);
+                var syncTasks = logDates.Select(day => _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day));
+                await Task.WhenAll(syncTasks);
             }
 
             var days = await BuildRangeSummariesAsync(userId, from, to, logs);
+            var weightFromDateTime = from.ToDateTime(TimeOnly.MinValue);
+            var weightToDateTime = to.ToDateTime(TimeOnly.MaxValue);
             var weightLogs = await _unitOfWork.WeightLogs.FindAsync(
                 x => x.UserId == userId && x.RecordedAt.HasValue
-                    && DateOnly.FromDateTime(x.RecordedAt.Value) >= from
-                    && DateOnly.FromDateTime(x.RecordedAt.Value) <= to);
+                    && x.RecordedAt.Value >= weightFromDateTime
+                    && x.RecordedAt.Value <= weightToDateTime);
 
             return new NutritionDashboardResponse
             {
@@ -147,11 +159,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealLogListResponse> GetMealLogsAsync(Guid userId, int page = 1, int pageSize = 20)
         {
-            var allLogs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId);
-            var totalCount = allLogs.Count();
+            var query = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId);
+            var totalCount = query.Count();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
             
-            var pagedLogs = allLogs
+            var pagedLogs = query
                 .OrderByDescending(x => x.LoggedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -177,11 +189,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealLogListResponse> GetMealLogsByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.LoggedAt.HasValue && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+                x.LoggedAt.Value >= startDateTime && 
+                x.LoggedAt.Value <= endDateTime);
 
             var logList = logs.OrderByDescending(x => x.LoggedAt).ToList();
             var mappedLogs = await MapMealLogsAsync(logList);
@@ -199,12 +213,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<NutritionSummaryResponse> GetNutritionSummaryAsync(Guid userId, string period = "day", DateOnly? date = null)
         {
             var (startDate, endDate) = ResolvePeriod(period, date);
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
             
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.LoggedAt.HasValue && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+                x.LoggedAt.Value >= startDateTime && 
+                x.LoggedAt.Value <= endDateTime);
 
             var logList = logs.ToList();
             var totalCalories = logList.Sum(x => x.CaloriesKcal ?? 0);
@@ -233,11 +249,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<NutritionTrendResponse> GetNutritionTrendsAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.LoggedAt.HasValue && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) >= startDate && 
-                DateOnly.FromDateTime(x.LoggedAt.Value) <= endDate);
+                x.LoggedAt.Value >= startDateTime && 
+                x.LoggedAt.Value <= endDateTime);
 
             var logList = logs.ToList();
             var dailyData = new List<DailyNutritionPoint>();
@@ -296,11 +314,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<WeightTrendResponse> GetWeightTrendAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
             var logs = await _unitOfWork.WeightLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.RecordedAt.HasValue && 
-                DateOnly.FromDateTime(x.RecordedAt.Value) >= startDate && 
-                DateOnly.FromDateTime(x.RecordedAt.Value) <= endDate);
+                x.RecordedAt.Value >= startDateTime && 
+                x.RecordedAt.Value <= endDateTime);
 
             var logList = logs.OrderBy(x => x.RecordedAt).ToList();
             

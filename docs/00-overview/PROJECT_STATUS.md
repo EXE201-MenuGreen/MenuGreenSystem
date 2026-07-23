@@ -1,6 +1,6 @@
 # Project Status - MenuGreen
 
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-23
 
 ---
 
@@ -130,7 +130,7 @@ Tóm tắt nhanh:
 | **Meal Plan** | ✅ | ✅ | [03-meal-plan](./features/03-meal-plan.md) |
 | **Discover/Khám phá** + Allergy + Portion | ✅ | ✅ | [04-discover-and-allergy](./features/04-discover-and-allergy.md) |
 | **Recommendation** | ✅ | ✅ | [05-recommendation-engine](./features/05-recommendation-engine.md) |
-| **AI Assistant & Coach** | ✅ | ⏳ Placeholder | [06-ai-assistant-and-coach](./features/06-ai-assistant-and-coach.md) |
+| **AI Assistant & Coach** | ✅ | ⚠️ Partial | [06-ai-assistant-and-coach](./features/06-ai-assistant-and-coach.md) |
 | **Notification** | ✅ | ✅ | [07-notification](./features/07-notification.md) |
 | **Subscription/SePay** | ✅ | ✅ | [08-subscription-and-payment](./features/08-subscription-and-payment.md) |
 | **Analytics** | ✅ | ❌ Admin only | [09-analytics](./features/09-analytics.md) |
