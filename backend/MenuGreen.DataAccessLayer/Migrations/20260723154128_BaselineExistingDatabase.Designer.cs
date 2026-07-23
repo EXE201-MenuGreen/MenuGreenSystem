@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260723124950_CaptureModelConfiguration")]
-    partial class CaptureModelConfiguration
+    [Migration("20260723154128_BaselineExistingDatabase")]
+    partial class BaselineExistingDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
