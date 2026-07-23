@@ -105,6 +105,16 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<Notification>().HasQueryFilter(n => n.User == null || EF.Property<DateTime?>(n.User, "DeletedAt") == null);
             modelBuilder.Entity<FavoriteFood>().HasQueryFilter(ff => ff.User == null || EF.Property<DateTime?>(ff.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachConnection>().HasQueryFilter(cc => (cc.Client == null || EF.Property<DateTime?>(cc.Client, "DeletedAt") == null) && (cc.Coach == null || EF.Property<DateTime?>(cc.Coach, "DeletedAt") == null));
+            modelBuilder.Entity<EmailVerification>().HasQueryFilter(ev => ev.User == null || EF.Property<DateTime?>(ev.User, "DeletedAt") == null);
+            modelBuilder.Entity<Allergy>().HasQueryFilter(a => a.User == null || EF.Property<DateTime?>(a.User, "DeletedAt") == null);
+            modelBuilder.Entity<AiConversation>().HasQueryFilter(ac => ac.User == null || EF.Property<DateTime?>(ac.User, "DeletedAt") == null);
+            modelBuilder.Entity<AiMessage>().HasQueryFilter(am => am.Conversation == null || am.Conversation.User == null || EF.Property<DateTime?>(am.Conversation.User, "DeletedAt") == null);
+            modelBuilder.Entity<ActivityLog>().HasQueryFilter(al => al.User == null || EF.Property<DateTime?>(al.User, "DeletedAt") == null);
+            modelBuilder.Entity<BudgetRequest>().HasQueryFilter(br => br.User == null || EF.Property<DateTime?>(br.User, "DeletedAt") == null);
+            modelBuilder.Entity<GoalDriftAlert>().HasQueryFilter(gda => gda.User == null || EF.Property<DateTime?>(gda.User, "DeletedAt") == null);
+            modelBuilder.Entity<CustomUserPortion>().HasQueryFilter(cup => cup.User == null || EF.Property<DateTime?>(cup.User, "DeletedAt") == null);
+            modelBuilder.Entity<DeviceToken>().HasQueryFilter(dt => dt.User == null || EF.Property<DateTime?>(dt.User, "DeletedAt") == null);
+            modelBuilder.Entity<CoachProfile>().HasQueryFilter(cp => cp.User == null || EF.Property<DateTime?>(cp.User, "DeletedAt") == null);
         }
     }
 }
