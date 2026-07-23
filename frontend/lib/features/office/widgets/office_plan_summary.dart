@@ -168,32 +168,102 @@ class OfficePlanOverview extends StatelessWidget {
   const OfficePlanOverview({super.key, required this.plan});
   final MealPlanDetail plan;
 
+  int get _avgKcalPerMeal {
+    if (plan.items.isEmpty) return 0;
+    final validKcal = plan.items
+        .where((i) => i.targetCalories != null && i.targetCalories! > 0)
+        .map((i) => i.targetCalories!)
+        .toList();
+    if (validKcal.isNotEmpty) {
+      return (validKcal.reduce((a, b) => a + b) / validKcal.length).round();
+    }
+    return plan.totalCalories > 0
+        ? (plan.totalCalories / plan.items.length).round()
+        : 450;
+  }
+
+  int get _avgCostPerMeal {
+    if (plan.items.isEmpty) return 0;
+    final validPrices = plan.items
+        .where((i) => i.estimatedPriceVnd != null && i.estimatedPriceVnd! > 0)
+        .map((i) => i.estimatedPriceVnd!)
+        .toList();
+    if (validPrices.isNotEmpty) {
+      return (validPrices.reduce((a, b) => a + b) / validPrices.length).round();
+    }
+    return 0;
+  }
+
+  static String _currency(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
+      buffer.write(digits[index]);
+    }
+    return '${buffer.toString()}đ';
+  }
+
   @override
-  Widget build(BuildContext context) => Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(plan.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _MetricChip(icon: Icons.local_fire_department_outlined, text: '${plan.totalCalories} kcal'),
-                  _MetricChip(icon: Icons.restaurant_menu_outlined, text: '${plan.items.length} bữa'),
-                  _MetricChip(icon: Icons.calendar_today_outlined, text: _dateRange(plan)),
-                ],
+  Widget build(BuildContext context) {
+    final avgCost = _avgCostPerMeal;
+    final avgKcal = _avgKcalPerMeal;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFB8DCCB), width: 0.8),
+      ),
+      color: const Color(0xFFF8FCFA),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              plan.title,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (avgCost > 0)
+                  _MetricChip(
+                    icon: Icons.payments_outlined,
+                    text: '~${_currency(avgCost)}/bữa',
+                  )
+                else if (avgKcal > 0)
+                  _MetricChip(
+                    icon: Icons.local_fire_department_outlined,
+                    text: '~$avgKcal kcal/bữa',
+                  ),
+                _MetricChip(
+                  icon: Icons.restaurant_menu_outlined,
+                  text: '${plan.items.length} bữa',
+                ),
+                _MetricChip(
+                  icon: Icons.calendar_today_outlined,
+                  text: _dateRange(plan),
+                ),
+              ],
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   String _dateRange(MealPlanDetail plan) {
-    String format(DateTime date) => '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+    String format(DateTime date) =>
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
     if (plan.startDate == null) return 'Trong tuần';
     if (plan.endDate == null) return format(plan.startDate!);
     return '${format(plan.startDate!)} - ${format(plan.endDate!)}';

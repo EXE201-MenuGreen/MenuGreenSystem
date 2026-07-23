@@ -7,8 +7,8 @@ import '../../meal_plan/models/meal_plan_responses.dart';
 import '../../meal_plan/models/meal_plan_requests.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
-import '../../subscription/utils/subscription_access.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
+import '../../tracking/views/ingredient_scan_screen.dart';
 import '../widgets/office_grocery_section.dart';
 import '../widgets/office_meal_roadmap.dart';
 import '../widgets/office_plan_summary.dart';
@@ -34,7 +34,8 @@ class OfficeMealPlanScreen extends StatefulWidget {
 class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   final AdvancedRepository _budgetRepository = AdvancedRepository();
   final MealPlanRepository _mealPlanRepository = MealPlanRepository();
-  final UserSubscriptionRepository _subscriptionRepository = UserSubscriptionRepository();
+  final UserSubscriptionRepository _subscriptionRepository =
+      UserSubscriptionRepository();
 
   Map<String, dynamic>? _budget;
   MealPlanDetail? _plan;
@@ -45,7 +46,11 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   bool _generating = false;
   bool _savingBudget = false;
   bool _hasOfficeAccess = false;
+  bool _checkingOfficeAccess = true;
   String? _replacingItemId;
+  MealPlanItemDetail? _priorityLunch;
+  bool _loadingPriorityLunch = true;
+  bool _loggingPriorityLunch = false;
 
   @override
   void initState() {
@@ -53,41 +58,65 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     _checkAccess();
     _loadBudget();
     _loadExistingPlan();
+    _loadPriorityLunch();
   }
 
   Future<void> _checkAccess() async {
     try {
-      final activeSubs = await _subscriptionRepository.getActive();
-      final hasAccess = hasOfficeSubscriptionAccess(activeSubs);
-      if (mounted) setState(() => _hasOfficeAccess = hasAccess);
-    } catch (_) {}
+      final access = await _subscriptionRepository.getFeatureAccess();
+      if (mounted) setState(() => _hasOfficeAccess = access.hasOffice);
+    } finally {
+      if (mounted) setState(() => _checkingOfficeAccess = false);
+    }
+  }
+
+  bool _canUseOfficeFeature() {
+    if (_checkingOfficeAccess) {
+      _notice(
+        'Đang xác nhận quyền truy cập Office. Vui lòng thử lại sau giây lát.',
+      );
+      return false;
+    }
+    if (!_hasOfficeAccess) {
+      _showUpgradePrompt();
+      return false;
+    }
+    return true;
   }
 
   void _showUpgradePrompt() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 26),
+            Icon(
+              Icons.workspace_premium_rounded,
+              color: Colors.amber,
+              size: 26,
+            ),
             SizedBox(width: 8),
             Text(
-              'Kích hoạt Office VIP',
+              'Kích hoạt gói Office',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         content: const Text(
-          'Bạn cần nâng cấp gói Office VIP để mở khóa chế độ lên kế hoạch & thực đơn cơm hộp văn phòng này.',
+          'Bạn cần kích hoạt gói Office để mở khóa chế độ lên kế hoạch và thực đơn cơm hộp văn phòng này.',
           style: TextStyle(fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Để sau', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            child: const Text(
+              'Để sau',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -104,14 +133,21 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                 MaterialPageRoute(builder: (_) => const UpgradePlanScreen()),
               );
             },
-            child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Mở gói Office',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
   }
 
-  String _value(Map<String, dynamic> source, String key, [String fallback = '']) {
+  String _value(
+    Map<String, dynamic> source,
+    String key, [
+    String fallback = '',
+  ]) {
     final pascalKey = key[0].toUpperCase() + key.substring(1);
     return (source[key] ?? source[pascalKey] ?? fallback).toString();
   }
@@ -153,14 +189,15 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   Future<void> _loadExistingPlan() async {
     try {
       final plans = await _mealPlanRepository.getPlans(isActive: true);
-      final officePlans = plans
-          .where((plan) => plan.title.toLowerCase().contains('cơm hộp'))
-          .toList()
-        ..sort((a, b) {
-          final aDate = a.startDate ?? DateTime(1970);
-          final bDate = b.startDate ?? DateTime(1970);
-          return bDate.compareTo(aDate);
-        });
+      final officePlans =
+          plans
+              .where((plan) => plan.title.toLowerCase().contains('cơm hộp'))
+              .toList()
+            ..sort((a, b) {
+              final aDate = a.startDate ?? DateTime(1970);
+              final bDate = b.startDate ?? DateTime(1970);
+              return bDate.compareTo(aDate);
+            });
       if (officePlans.isEmpty) {
         if (mounted) {
           setState(() {
@@ -172,7 +209,9 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
         return;
       }
 
-      final detail = await _mealPlanRepository.getPlanDetail(officePlans.first.id);
+      final detail = await _mealPlanRepository.getPlanDetail(
+        officePlans.first.id,
+      );
       if (detail == null) {
         if (mounted) {
           setState(() {
@@ -200,15 +239,66 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     }
   }
 
+  Future<void> _loadPriorityLunch() async {
+    try {
+      final dashboard = await _mealPlanRepository.getDashboard(DateTime.now());
+      final item = dashboard.plannedItems
+          .where(
+            (candidate) =>
+                (candidate.mealType ?? '').toLowerCase() == 'lunch' &&
+                (candidate.origin ?? '').toLowerCase() == 'office_priority',
+          )
+          .firstOrNull;
+      if (mounted) setState(() => _priorityLunch = item);
+    } catch (error) {
+      _notice(error);
+    } finally {
+      if (mounted) setState(() => _loadingPriorityLunch = false);
+    }
+  }
+
   Future<void> _refresh() async {
-    await Future.wait([_loadBudget(), _loadExistingPlan()]);
+    await Future.wait([
+      _checkAccess(),
+      _loadBudget(),
+      _loadExistingPlan(),
+      _loadPriorityLunch(),
+    ]);
+  }
+
+  Future<void> _logPriorityLunch() async {
+    final item = _priorityLunch;
+    if (item == null || item.mealPlanId == null || _loggingPriorityLunch) {
+      return;
+    }
+    setState(() => _loggingPriorityLunch = true);
+    try {
+      await _mealPlanRepository.convertItemToLog(
+        item.mealPlanId!,
+        item.id,
+        ConvertToLogRequest(),
+      );
+      await _loadPriorityLunch();
+      _notice('Đã ghi nhận bữa trưa vào nhật ký hôm nay.');
+    } catch (error) {
+      _notice(error);
+    } finally {
+      if (mounted) setState(() => _loggingPriorityLunch = false);
+    }
+  }
+
+  Future<void> _openOfficeScan() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const IngredientScanScreen(officeMode: true),
+      ),
+    );
+    if (mounted) await _loadPriorityLunch();
   }
 
   Future<void> _openBudgetSettings() async {
-    if (!_hasOfficeAccess) {
-      _showUpgradePrompt();
-      return;
-    }
+    if (!_canUseOfficeFeature()) return;
     if (_loadingBudget || _savingBudget) return;
     final previousAmount = _number(_budget, 'budgetVnd');
     final previousMinutes = _number(_budget, 'timeLimitMin');
@@ -221,8 +311,8 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     );
     if (input == null || !mounted) return;
 
-    final targetChanged = previousAmount != input.amount
-        || previousMinutes != input.minutes;
+    final targetChanged =
+        previousAmount != input.amount || previousMinutes != input.minutes;
     setState(() => _savingBudget = true);
     try {
       final saved = await _budgetRepository.saveBudget(
@@ -252,10 +342,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   }
 
   Future<void> _generatePlan() async {
-    if (!_hasOfficeAccess) {
-      _showUpgradePrompt();
-      return;
-    }
+    if (!_canUseOfficeFeature()) return;
     if (_budget == null) {
       _notice('Hãy thiết lập mục tiêu ngân sách trước khi tạo kế hoạch.');
       await _openBudgetSettings();
@@ -294,9 +381,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       );
       if (!mounted) return;
       if (alternatives.isEmpty) {
-        _notice(
-          'Chưa có món khác phù hợp với loại bữa và thời gian nấu.',
-        );
+        _notice('Chưa có món khác phù hợp với loại bữa và thời gian nấu.');
         return;
       }
 
@@ -366,7 +451,8 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                     itemBuilder: (context, index) {
                       final alternative = alternatives[index];
                       final isOverBudget = exceedsBudget(alternative);
-                      final isCheaper = projectedCost(alternative) != null &&
+                      final isCheaper =
+                          projectedCost(alternative) != null &&
                           plannedCost != null &&
                           projectedCost(alternative)! < plannedCost;
                       return ListTile(
@@ -381,7 +467,8 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: '${alternative.targetCalories ?? 0} kcal · '
+                                text:
+                                    '${alternative.targetCalories ?? 0} kcal · '
                                     '${_currency(alternative.estimatedPriceVnd)}',
                               ),
                               if (isOverBudget)
@@ -467,23 +554,23 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => RecipeDetailScreen(recipeId: recipeId),
-      ),
+      MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: recipeId)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Kế hoạch cơm hộp'),
           actions: [
             IconButton(
               tooltip: 'Mục tiêu ngân sách',
-              onPressed: _loadingBudget || _savingBudget ? null : _openBudgetSettings,
+              onPressed: _loadingBudget || _savingBudget
+                  ? null
+                  : _openBudgetSettings,
               icon: Badge(
                 isLabelVisible: _budget == null && !_loadingBudget,
                 child: _loadingBudget
@@ -499,6 +586,10 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.route_outlined), text: 'Kế hoạch'),
+              Tab(
+                icon: Icon(Icons.lunch_dining_outlined),
+                text: 'Món ăn ưu tiên',
+              ),
               Tab(
                 icon: Icon(Icons.shopping_basket_outlined),
                 text: 'Danh sách đi chợ',
@@ -532,7 +623,9 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: _generating || _savingBudget ? null : _generatePlan,
+                    onPressed: _generating || _savingBudget
+                        ? null
+                        : _generatePlan,
                     icon: _generating
                         ? const SizedBox(
                             width: 18,
@@ -571,6 +664,10 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
               ),
             ),
             RefreshIndicator(
+              onRefresh: _loadPriorityLunch,
+              child: _buildPriorityLunchTab(),
+            ),
+            RefreshIndicator(
               onRefresh: _refresh,
               child: OfficeGroceryTab(
                 data: _groceryList,
@@ -584,6 +681,151 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       ),
     );
   }
+
+  Widget _buildPriorityLunchTab() {
+    final item = _priorityLunch;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          'Món ăn ưu tiên',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Món bạn chọn từ quét AI cho hôm nay. Chỉ khi xác nhận đã ăn, món mới được ghi vào nhật ký.',
+          style: TextStyle(color: Colors.black54, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        if (_loadingPriorityLunch)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (item == null)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.lunch_dining_outlined,
+                    size: 48,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Chưa chọn món ăn ưu tiên',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Quét nguyên liệu để chọn món phù hợp cho bữa trưa hôm nay.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _openOfficeScan,
+                    icon: const Icon(Icons.document_scanner_outlined),
+                    label: const Text('Quét nguyên liệu'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Color(0xFFE7F5EC),
+                        child: Icon(
+                          Icons.restaurant_outlined,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item.displayName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      _priorityStatus(item),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${item.targetCalories ?? 0} kcal · ${item.quantityG?.round() ?? 0} g',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Protein ${item.proteinG ?? 0} g  ·  Carbs ${item.carbsG ?? 0} g  ·  Chất béo ${item.fatG ?? 0} g',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 18),
+                  if (item.isDone)
+                    const Text(
+                      'Bữa trưa này đã được ghi vào nhật ký.',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _loggingPriorityLunch
+                            ? null
+                            : _logPriorityLunch,
+                        icon: _loggingPriorityLunch
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_outline),
+                        label: const Text('Đã ăn món này'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _priorityStatus(MealPlanItemDetail item) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: (item.isDone ? AppColors.primary : Colors.orange).withValues(
+        alpha: 0.12,
+      ),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      item.isDone ? 'Đã ăn' : 'Đã chọn',
+      style: TextStyle(
+        color: item.isDone ? AppColors.primary : Colors.orange.shade800,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 class _OfficeBudgetDialog extends StatefulWidget {
@@ -631,10 +873,7 @@ class _OfficeBudgetDialogState extends State<_OfficeBudgetDialog> {
       });
       return;
     }
-    Navigator.pop(
-      context,
-      _BudgetInput(amount: amount, minutes: minutes),
-    );
+    Navigator.pop(context, _BudgetInput(amount: amount, minutes: minutes));
   }
 
   @override
@@ -693,10 +932,7 @@ class _OfficeBudgetDialogState extends State<_OfficeBudgetDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Hủy'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Lưu mục tiêu'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Lưu mục tiêu')),
       ],
     );
   }

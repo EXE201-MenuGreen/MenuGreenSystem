@@ -22,4 +22,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         /// </summary>
         public string? Origin { get; set; }
     }
+
+    public class MealPlanItemReplaceRequest
+    {
+        [Required]
+        public Guid NewFoodId { get; set; }
+    }
 }

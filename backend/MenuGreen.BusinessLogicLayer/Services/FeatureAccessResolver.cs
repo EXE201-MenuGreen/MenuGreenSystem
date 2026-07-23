@@ -37,14 +37,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
             DateTime? latestPaidExpiry = null;
 
-            foreach (
-                var subscription in subscriptions.Where(x =>
-                    string.Equals(x.Status, "Active", StringComparison.OrdinalIgnoreCase)
-                    && x.StartDate <= nowUtc
-                    && x.EndDate > nowUtc
-                )
-            )
+            foreach (var subscription in subscriptions)
             {
+                var startUtc = NormalizeUtc(subscription.StartDate);
+                var endUtc = NormalizeUtc(subscription.EndDate);
+                if (!string.Equals(subscription.Status, "Active", StringComparison.OrdinalIgnoreCase)
+                    || startUtc > nowUtc
+                    || endUtc <= nowUtc)
+                {
+                    continue;
+                }
+
                 var group = Normalize(subscription.FeatureGroup);
                 var planName = Normalize(subscription.PlanName);
                 var matchedPaidGroup = false;
@@ -92,10 +95,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 if (
                     matchedPaidGroup
-                    && (!latestPaidExpiry.HasValue || subscription.EndDate > latestPaidExpiry.Value)
+                    && (!latestPaidExpiry.HasValue || endUtc > latestPaidExpiry.Value)
                 )
                 {
-                    latestPaidExpiry = subscription.EndDate;
+                    latestPaidExpiry = endUtc;
                 }
             }
 
@@ -118,5 +121,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static string Normalize(string? value) =>
             value?.Trim().Trim('"').ToLowerInvariant() ?? string.Empty;
+
+        private static DateTime NormalizeUtc(DateTime value) =>
+            value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
     }
 }

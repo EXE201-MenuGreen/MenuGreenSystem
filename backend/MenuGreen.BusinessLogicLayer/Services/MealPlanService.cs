@@ -15,11 +15,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INutritionTrackingService _nutritionTracking;
+        private readonly IGroceryListBuilderService _groceryListBuilder;
+        private readonly IShoppingTripBuilderService _shoppingTripBuilder;
 
-        public MealPlanService(IUnitOfWork unitOfWork, INutritionTrackingService nutritionTracking)
+        public MealPlanService(
+            IUnitOfWork unitOfWork,
+            INutritionTrackingService nutritionTracking,
+            IGroceryListBuilderService groceryListBuilder,
+            IShoppingTripBuilderService shoppingTripBuilder)
         {
             _unitOfWork = unitOfWork;
             _nutritionTracking = nutritionTracking;
+            _groceryListBuilder = groceryListBuilder;
+            _shoppingTripBuilder = shoppingTripBuilder;
         }
 
         public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null)
@@ -218,6 +226,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await GetByIdAsync(planId, userId);
         }
 
+        public async Task<MealPlanResponse> ReplaceItemAsync(
+            Guid planId,
+            Guid itemId,
+            MealPlanItemReplaceRequest request,
+            Guid userId)
+        {
+            var item = await GetPlanItemAsync(planId, itemId, userId);
+            if (item.IsCompleted)
+            {
+                throw new InvalidOperationException("Không thể đổi món đã hoàn thành.");
+            }
+
+            var replacementRecipe = await _unitOfWork.Recipes.GetByIdAsync(request.NewFoodId);
+            var replacementFood = replacementRecipe == null
+                ? await _unitOfWork.Foods.GetByIdAsync(request.NewFoodId)
+                : null;
+            if (replacementRecipe == null && replacementFood == null)
+            {
+                throw new InvalidOperationException("Không tìm thấy món thay thế.");
+            }
+
+            if (replacementRecipe != null)
+            {
+                var expectedMealType = item.MealType ?? "lunch";
+                if (replacementRecipe.MealType == null ||
+                    !replacementRecipe.MealType.Contains(expectedMealType, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Món thay thế không phù hợp với loại bữa ăn này.");
+                }
+
+                item.RecipeId = replacementRecipe.Id;
+                item.FoodId = null;
+                item.TargetCalories = await GetRecipeCaloriesAsync(replacementRecipe.Id);
+            }
+            else if (replacementFood != null)
+            {
+                item.FoodId = replacementFood.Id;
+                item.RecipeId = null;
+                item.TargetCalories = (int)Math.Round(replacementFood.CaloriesKcal ?? 0);
+            }
+
+            item.CustomName = null;
+            item.SourceType = null;
+            item.IngredientSnapshotJson = null;
+            _unitOfWork.MealPlanItems.Update(item);
+            await _unitOfWork.CompleteAsync();
+            return await GetByIdAsync(planId, userId);
+        }
+
         public async Task DeleteItemAsync(Guid planId, Guid itemId, Guid? userId = null)
         {
             var item = await GetPlanItemAsync(planId, itemId, userId);
@@ -256,7 +313,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = item.FoodId,
                 RecipeId = item.RecipeId,
                 MealType = item.MealType ?? "snack",
-                QuantityG = 100,
+                QuantityG = item.QuantityG ?? 100,
+                CaloriesKcal = item.TargetCalories,
+                ProteinG = item.ProteinG,
+                CarbsG = item.CarbsG,
+                FatG = item.FatG,
+                CustomName = item.CustomName,
                 Notes = request.Notes ?? "Logged from meal plan.",
                 LoggedAt = request.LoggedAt ?? ResolveMealLogUtc(item),
                 MealPlanItemId = item.Id
@@ -738,22 +800,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var foodIds = itemsList.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).Distinct().ToList();
             var recipeIds = itemsList.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).Distinct().ToList();
             
-            var foodsTask = _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id));
-            var recipesTask = _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id));
-            
-            await Task.WhenAll(foodsTask, recipesTask);
-            
-            var foodDict = foodsTask.Result.ToDictionary(f => f.Id);
-            var recipeDict = recipesTask.Result.ToDictionary(r => r.Id);
-            
-            // Pre-compute macros for recipes (batch loading ingredients already optimized)
-            var recipeMacrosTasks = recipeDict.Keys.Select(async rid => 
-            {
-                var macros = await GetRecipeMacrosAsync(rid);
-                return (Id: rid, Macros: macros);
-            }).ToList();
-            await Task.WhenAll(recipeMacrosTasks);
-            var recipeMacrosDict = recipeMacrosTasks.ToDictionary(t => t.Result.Id, t => t.Result.Macros);
+            // A scoped UnitOfWork shares one DbContext, so its queries must not
+            // run concurrently. Batch each data set and await it sequentially.
+            var foods = await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id));
+            var recipes = await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id));
+            var foodDict = foods.ToDictionary(f => f.Id);
+            var recipeDict = recipes.ToDictionary(r => r.Id);
+            var recipeMacrosDict = await GetRecipeMacrosBatchAsync(recipeIds);
             
             var responseItems = new List<MealPlanItemResponse>();
             decimal totalProtein = 0;
@@ -809,8 +862,80 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Items = responseItems
             };
         }
+
+        private async Task<Dictionary<Guid, (decimal protein, decimal carbs, decimal fat, decimal calories)>>
+            GetRecipeMacrosBatchAsync(IEnumerable<Guid> recipeIds)
+        {
+            var ids = recipeIds.Distinct().ToList();
+            var macrosByRecipe = ids.ToDictionary(
+                id => id,
+                _ => (protein: 0m, carbs: 0m, fat: 0m, calories: 0m));
+            if (ids.Count == 0) return macrosByRecipe;
+
+            var recipes = (await _unitOfWork.Recipes.FindAsync(r => ids.Contains(r.Id))).ToDictionary(r => r.Id);
+            var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(
+                item => ids.Contains(item.RecipeId));
+            var ingredientIds = recipeIngredients
+                .Select(item => item.IngredientId)
+                .Distinct()
+                .ToList();
+
+            var ingredientsById = ingredientIds.Count > 0
+                ? (await _unitOfWork.Ingredients.FindAsync(item => ingredientIds.Contains(item.Id))).ToDictionary(item => item.Id)
+                : new Dictionary<Guid, Ingredient>();
+
+            foreach (var recipeIngredient in recipeIngredients)
+            {
+                if (!macrosByRecipe.TryGetValue(recipeIngredient.RecipeId, out var current)
+                    || !ingredientsById.TryGetValue(recipeIngredient.IngredientId, out var ingredient))
+                {
+                    continue;
+                }
+
+                var quantity = recipeIngredient.Quantity ?? 1;
+                var scale = global::MenuGreen.BusinessLogicLayer.Helpers.NutritionMath
+                    .IngredientNutritionRatio(quantity, recipeIngredient.Unit ?? ingredient.UnitDefault);
+
+                macrosByRecipe[recipeIngredient.RecipeId] = (
+                    current.protein + (ingredient.ProteinG ?? 0) * scale,
+                    current.carbs + (ingredient.CarbsG ?? 0) * scale,
+                    current.fat + (ingredient.FatG ?? 0) * scale,
+                    current.calories + (ingredient.CaloriesKcal ?? 0) * scale);
+            }
+
+            foreach (var id in ids)
+            {
+                var m = macrosByRecipe[id];
+                if (recipes.TryGetValue(id, out var recipe))
+                {
+                    var servings = Math.Max(1, recipe.Servings ?? 1);
+                    m = (
+                        m.protein / servings,
+                        m.carbs / servings,
+                        m.fat / servings,
+                        m.calories / servings);
+
+                    if (m.calories == 0 && recipe.FoodId.HasValue)
+                    {
+                        var food = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                        if (food != null)
+                        {
+                            m = (
+                                food.ProteinG ?? 0,
+                                food.CarbsG ?? 0,
+                                food.FatG ?? 0,
+                                food.CaloriesKcal ?? 0);
+                        }
+                    }
+
+                    macrosByRecipe[id] = m;
+                }
+            }
+
+            return macrosByRecipe;
+        }
         
-        private Task<MealPlanItemResponse> MapItemWithCacheAsync(
+        private async Task<MealPlanItemResponse> MapItemWithCacheAsync(
             MealPlanItem x, 
             Dictionary<Guid, Food> foodDict, 
             Dictionary<Guid, Recipe> recipeDict)
@@ -820,11 +945,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var price = food?.EstimatedPriceVnd
                 ?? (recipe == null ? null : RecipeServingPrice(recipe));
-            var displayCalories = food?.CaloriesKcal.HasValue == true
-                ? (int)Math.Round(food.CaloriesKcal.Value)
-                : x.TargetCalories ?? 0;
+            
+            var macros = await GetItemMacrosAsync(x);
 
-            return Task.FromResult(new MealPlanItemResponse
+            var displayCalories = (food?.CaloriesKcal.HasValue == true && food.CaloriesKcal.Value > 0)
+                ? (int)Math.Round(food.CaloriesKcal.Value)
+                : (x.TargetCalories.HasValue && x.TargetCalories.Value > 0 ? x.TargetCalories.Value : (int)Math.Round(macros.calories));
+
+            if (displayCalories == 0 && recipe != null && recipe.FoodId.HasValue)
+            {
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                if (linkedFood?.CaloriesKcal.HasValue == true && linkedFood.CaloriesKcal.Value > 0)
+                {
+                    displayCalories = (int)Math.Round(linkedFood.CaloriesKcal.Value);
+                }
+            }
+
+            return new MealPlanItemResponse
             {
                 Id = x.Id,
                 MealPlanId = x.MealPlanId,
@@ -833,16 +970,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = x.RecipeId,
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
-                TargetCalories = displayCalories,
+                TargetCalories = displayCalories > 0 ? displayCalories : null,
                 QuantityG = x.QuantityG,
-                ProteinG = x.ProteinG,
-                CarbsG = x.CarbsG,
-                FatG = x.FatG,
+                ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
+                CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
+                FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
                 CustomName = x.CustomName,
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName ?? "Unknown",
-                SourceEntityType = x.SourceType,
-                EstimatedPriceVnd = price
-            });
+                SourceEntityType = x.SourceType ?? (x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null),
+                EstimatedPriceVnd = price,
+                Origin = x.Origin
+            };
         }
         
         private (decimal protein, decimal carbs, decimal fat, decimal calories) GetItemMacrosFromCache(
@@ -864,16 +1002,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return macros;
             }
 
-            if (string.Equals(item.SourceType, "AiScan", StringComparison.OrdinalIgnoreCase))
-            {
-                return (
-                    item.ProteinG ?? 0,
-                    item.CarbsG ?? 0,
-                    item.FatG ?? 0,
-                    item.TargetCalories ?? 0
-                );
-            }
-
             return (0, 0, 0, 0);
         }
 
@@ -892,30 +1020,58 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     );
                 }
             }
-            else if (item.RecipeId.HasValue)
+
+            if (item.RecipeId.HasValue)
             {
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
                 var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(
                     ri => ri.RecipeId == item.RecipeId.Value);
 
-                decimal totalProtein = 0;
-                decimal totalCarbs = 0;
-                decimal totalFat = 0;
-                decimal totalCalories = 0;
-
-                foreach (var ri in recipeIngredients)
+                if (recipeIngredients != null && recipeIngredients.Any())
                 {
-                    var ingredient = await _unitOfWork.Ingredients.GetByIdAsync(ri.IngredientId);
-                    if (ingredient != null)
+                    decimal totalProtein = 0;
+                    decimal totalCarbs = 0;
+                    decimal totalFat = 0;
+                    decimal totalCalories = 0;
+
+                    foreach (var ri in recipeIngredients)
                     {
-                        var quantity = ri.Quantity ?? 1;
-                        totalProtein += (ingredient.ProteinG ?? 0) * quantity;
-                        totalCarbs += (ingredient.CarbsG ?? 0) * quantity;
-                        totalFat += (ingredient.FatG ?? 0) * quantity;
-                        totalCalories += (ingredient.CaloriesKcal ?? 0) * quantity;
+                        var ingredient = await _unitOfWork.Ingredients.GetByIdAsync(ri.IngredientId);
+                        if (ingredient != null)
+                        {
+                            var quantity = ri.Quantity ?? 1;
+                            var scale = global::MenuGreen.BusinessLogicLayer.Helpers.NutritionMath
+                                .IngredientNutritionRatio(quantity, ri.Unit ?? ingredient.UnitDefault);
+
+                            totalProtein += (ingredient.ProteinG ?? 0) * scale;
+                            totalCarbs += (ingredient.CarbsG ?? 0) * scale;
+                            totalFat += (ingredient.FatG ?? 0) * scale;
+                            totalCalories += (ingredient.CaloriesKcal ?? 0) * scale;
+                        }
                     }
+
+                    var servings = recipe?.Servings > 0 ? recipe.Servings.Value : 1;
+                    return (
+                        totalProtein / servings,
+                        totalCarbs / servings,
+                        totalFat / servings,
+                        totalCalories / servings
+                    );
                 }
 
-                return (totalProtein, totalCarbs, totalFat, totalCalories);
+                if (recipe?.FoodId != null)
+                {
+                    var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                    if (linkedFood != null)
+                    {
+                        return (
+                            linkedFood.ProteinG ?? 0,
+                            linkedFood.CarbsG ?? 0,
+                            linkedFood.FatG ?? 0,
+                            linkedFood.CaloriesKcal ?? 0
+                        );
+                    }
+                }
             }
 
             return (0, 0, 0, 0);
@@ -938,6 +1094,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
             var macros = await GetItemMacrosAsync(x);
 
+            var cal = (x.TargetCalories.HasValue && x.TargetCalories.Value > 0)
+                ? x.TargetCalories.Value
+                : (int)Math.Round(macros.calories);
+
+            if (cal == 0 && recipe?.FoodId != null)
+            {
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                if (linkedFood?.CaloriesKcal.HasValue == true && linkedFood.CaloriesKcal.Value > 0)
+                {
+                    cal = (int)Math.Round(linkedFood.CaloriesKcal.Value);
+                }
+            }
+
             return new MealPlanItemResponse
             {
                 Id = x.Id,
@@ -947,40 +1116,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = x.RecipeId,
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
-                TargetCalories = x.TargetCalories ?? (int)Math.Round(macros.calories),
+                TargetCalories = cal > 0 ? cal : null,
                 IsCompleted = x.IsCompleted,
-                FoodName = food?.NameVi,
+                CustomName = x.CustomName,
+                FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName,
                 RecipeName = recipe?.Title,
-                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
+                SourceEntityType = x.SourceType ?? (x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null),
                 Status = x.IsCompleted ? "done" : "planned",
                 EstimatedPriceVnd = price,
-                ProteinG = (int)Math.Round(macros.protein),
-                CarbsG = (int)Math.Round(macros.carbs),
-                FatG = (int)Math.Round(macros.fat),
-                Origin = x.Origin
-            };
-        }
-
-        private static MealPlanItemResponse MapItem(MealPlanItem x)
-        {
-            return new MealPlanItemResponse
-            {
-                Id = x.Id,
-                MealPlanId = x.MealPlanId,
-                MealType = x.MealType,
-                FoodId = x.FoodId,
-                RecipeId = x.RecipeId,
-                PlannedDate = x.PlannedDate,
-                ScheduledTime = x.ScheduledTime,
-                TargetCalories = x.TargetCalories,
-                IsCompleted = x.IsCompleted,
-                FoodName = x.Food?.NameVi,
-                RecipeName = x.Recipe?.Title,
-                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
-                Status = x.IsCompleted ? "done" : "planned",
-                ProteinG = x.Food?.ProteinG,
-                CarbsG = x.Food?.CarbsG,
-                FatG = x.Food?.FatG,
+                ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
+                CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
+                FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
                 Origin = x.Origin
             };
         }
@@ -1017,6 +1163,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var weeklyBudget = latestBudget.BudgetVnd ?? 1500000;
+            if (weeklyBudget <= 0)
+            {
+                throw new Exception("Ngân sách tuần phải lớn hơn 0.");
+            }
+
             var isOfficeUser = string.Equals((await _unitOfWork.UserAiProfiles.FindAsync(x => x.UserId == userId))
                 .FirstOrDefault()?.EatingPattern?.Trim().Trim('"'), "office", StringComparison.OrdinalIgnoreCase);
 
@@ -1024,29 +1175,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var healthProfile = healthProfiles.FirstOrDefault();
             var targetCalories = healthProfile?.TargetCalories ?? 2000;
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
             var startDate = today.AddDays(1);
             var endDate = startDate.AddDays(6);
 
-            var mealPlanHeader = new MealPlanHeader
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Title = isOfficeUser
-                    ? $"Cơm hộp văn phòng ({startDate:dd/MM} - {endDate:dd/MM})"
-                    : $"Budget-friendly meal plan ({startDate:dd/MM} - {endDate:dd/MM})",
-                PlanType = "weekly",
-                StartDate = startDate,
-                EndDate = endDate,
-                TargetCalories = targetCalories,
-                GeneratedBy = "AI_BUDGET_AWARE",
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await _unitOfWork.MealPlanHeaders.AddAsync(mealPlanHeader);
-            await _unitOfWork.CompleteAsync();
+            // A rebuild for the same week should be a meaningful alternative,
+            // not a newly-created copy of the exact same roadmap.
+            var generatedPlansForWeek = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId &&
+                x.GeneratedBy == "AI_BUDGET_AWARE" &&
+                x.StartDate == startDate &&
+                x.EndDate == endDate);
+            var previousPlanIds = generatedPlansForWeek.Select(x => x.Id).ToList();
+            var previousItems = previousPlanIds.Any()
+                ? await _unitOfWork.MealPlanItems.FindAsync(x => previousPlanIds.Contains(x.MealPlanId))
+                : Enumerable.Empty<MealPlanItem>();
+            var previousRecipeIds = previousItems
+                .Where(x => x.RecipeId.HasValue)
+                .Select(x => x.RecipeId!.Value)
+                .ToHashSet();
+            var previousFoodIds = previousItems
+                .Where(x => x.FoodId.HasValue)
+                .Select(x => x.FoodId!.Value)
+                .ToHashSet();
+            var rebuildSequence = generatedPlansForWeek.Count();
 
             var allFoods = (await _unitOfWork.Foods.GetAllAsync()).Where(f => f.IsActive == true || f.IsActive == null).ToList();
             var allRecipes = (await _unitOfWork.Recipes.GetAllAsync()).Where(r => r.IsActive == true || r.IsActive == null).ToList();
@@ -1058,72 +1210,163 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var foodAllergies = await _unitOfWork.FoodAllergies.FindAsync(fa => allergyIds.Contains(fa.AllergyId));
                 var forbiddenFoodIds = foodAllergies.Select(fa => fa.FoodId).ToHashSet();
                 allFoods = allFoods.Where(f => !forbiddenFoodIds.Contains(f.Id)).ToList();
+                allRecipes = allRecipes.Where(r => !r.FoodId.HasValue || !forbiddenFoodIds.Contains(r.FoodId.Value)).ToList();
             }
+
+            // The budget is applied while selecting meals, not merely displayed after generation.
+            // A recipe is selected once per week whenever the catalog has enough candidates.
+            var usedRecipeIds = new HashSet<Guid>();
+            var usedFoodIds = new HashSet<Guid>();
+            var recipeUseCounts = new Dictionary<Guid, int>();
+            var foodUseCounts = new Dictionary<Guid, int>();
+            var generatedItems = new List<MealPlanItem>();
+            var remainingWeeklyBudget = weeklyBudget;
+            var weeklyRemainder = weeklyBudget % 7;
+            var maxCookingMinutes = latestBudget.TimeLimitMin ?? 45;
+            var mealSlots = new[]
+            {
+                (Type: "breakfast", CalorieRatio: 0.25m, BudgetRatio: 0.25m, Time: new TimeOnly(7, 30)),
+                (Type: "lunch", CalorieRatio: 0.35m, BudgetRatio: 0.40m, Time: new TimeOnly(12, 0)),
+                (Type: "dinner", CalorieRatio: 0.30m, BudgetRatio: 0.35m, Time: new TimeOnly(18, 30))
+            };
 
             for (var d = 0; d < 7; d++)
             {
                 var currentDate = startDate.AddDays(d);
-                var mealTypes = new[] { "breakfast", "lunch", "dinner" };
+                var remainingDailyBudget = weeklyBudget / 7 + (d < weeklyRemainder ? 1 : 0);
 
-                var breakfastCal = targetCalories * 0.25;
-                var lunchCal = targetCalories * 0.35;
-                var dinnerCal = targetCalories * 0.30;
-
-                foreach (var mealType in mealTypes)
+                foreach (var slot in mealSlots)
                 {
-                    var targetCal = mealType == "breakfast" ? breakfastCal : (mealType == "lunch" ? lunchCal : dinnerCal);
-                    
-                    var candidateRecipes = allRecipes
-                        .Where(r => r.MealType != null && r.MealType.Contains(mealType, StringComparison.OrdinalIgnoreCase))
-                        .Where(r => !isOfficeUser || (r.TotalTimeMin ?? r.CookTimeMin ?? 30) <= (latestBudget.TimeLimitMin ?? 45))
-                        .OrderBy(r => Math.Abs((r.CookTimeMin ?? 30) - (latestBudget.TimeLimitMin ?? 45)))
-                        .ThenBy(r => r.EstimatedPriceVnd ?? 100000)
+                    var targetCaloriesForMeal = (int)Math.Round(targetCalories * slot.CalorieRatio);
+                    var targetBudgetForMeal = Math.Max(1, (int)Math.Round((weeklyBudget / 7m) * slot.BudgetRatio));
+                    // Keep each meal within its allocated share. Unused money remains
+                    // in the weekly budget rather than allowing breakfast to consume lunch's budget.
+                    var allowedBudget = Math.Min(targetBudgetForMeal, Math.Min(remainingDailyBudget, remainingWeeklyBudget));
+
+                    var recipeCandidates = allRecipes
+                        .Where(r => r.MealType != null && r.MealType.Contains(slot.Type, StringComparison.OrdinalIgnoreCase))
+                        .Where(r => (r.TotalTimeMin ?? r.CookTimeMin ?? 30) <= maxCookingMinutes)
+                        .Where(r => RecipeServingPrice(r) <= allowedBudget)
                         .ToList();
+                    var unusedRecipeCandidates = recipeCandidates
+                        .Where(r => !usedRecipeIds.Contains(r.Id))
+                        .ToList();
+                    var recipePool = unusedRecipeCandidates.Any() ? unusedRecipeCandidates : recipeCandidates;
+                    // Prefer dishes not used by an earlier version of this
+                    // week's plan. When the catalog is too small, rotate the
+                    // eligible candidates so a rebuild still varies the menu.
+                    var newRecipePool = recipePool
+                        .Where(r => !previousRecipeIds.Contains(r.Id))
+                        .ToList();
+                    if (newRecipePool.Any()) recipePool = newRecipePool;
+                    var orderedRecipePool = recipePool
+                        .OrderBy(r => recipeUseCounts.GetValueOrDefault(r.Id))
+                        .ThenBy(r => Math.Abs(RecipeServingPrice(r) - targetBudgetForMeal))
+                        .ThenBy(r => Math.Abs((r.TotalTimeMin ?? r.CookTimeMin ?? 30) - maxCookingMinutes))
+                        .ThenBy(r => r.Title)
+                        .ToList();
+                    var selectedRecipe = orderedRecipePool.Count == 0
+                        ? null
+                        : orderedRecipePool[(rebuildSequence + d) % orderedRecipePool.Count];
 
-                    Guid? recipeId = null;
+                    Guid? recipeId = selectedRecipe?.Id;
                     Guid? foodId = null;
-                    int selectedCalories = (int)targetCal;
+                    var selectedPrice = 0;
+                    var selectedCalories = targetCaloriesForMeal;
 
-                    if (candidateRecipes.Any())
+                    if (selectedRecipe != null)
                     {
-                        var selectedRecipe = candidateRecipes.First();
-                        recipeId = selectedRecipe.Id;
+                        selectedPrice = RecipeServingPrice(selectedRecipe);
                         selectedCalories = await GetRecipeCaloriesAsync(selectedRecipe.Id);
+                        usedRecipeIds.Add(selectedRecipe.Id);
+                        recipeUseCounts[selectedRecipe.Id] = recipeUseCounts.GetValueOrDefault(selectedRecipe.Id) + 1;
                     }
                     else
                     {
-                        var candidateFoods = allFoods
+                        var foodCandidates = allFoods
                             .Where(f => f.CaloriesKcal.HasValue)
-                            .OrderBy(f => f.EstimatedPriceVnd ?? 50000)
+                            .Where(f => (f.EstimatedPriceVnd ?? 0) <= allowedBudget)
                             .ToList();
+                        var unusedFoodCandidates = foodCandidates.Where(f => !usedFoodIds.Contains(f.Id)).ToList();
+                        var foodPool = unusedFoodCandidates.Any() ? unusedFoodCandidates : foodCandidates;
+                        var newFoodPool = foodPool.Where(f => !previousFoodIds.Contains(f.Id)).ToList();
+                        if (newFoodPool.Any()) foodPool = newFoodPool;
+                        var orderedFoodPool = foodPool
+                            .OrderBy(f => foodUseCounts.GetValueOrDefault(f.Id))
+                            .ThenBy(f => Math.Abs((f.EstimatedPriceVnd ?? 0) - targetBudgetForMeal))
+                            .ThenBy(f => Math.Abs((int)(f.CaloriesKcal ?? 0) - targetCaloriesForMeal))
+                            .ThenBy(f => f.NameVi)
+                            .ToList();
+                        var selectedFood = orderedFoodPool.Count == 0
+                            ? null
+                            : orderedFoodPool[(rebuildSequence + d) % orderedFoodPool.Count];
 
-                        if (candidateFoods.Any())
+                        if (selectedFood != null)
                         {
-                            var selectedFood = candidateFoods.First();
                             foodId = selectedFood.Id;
+                            selectedPrice = selectedFood.EstimatedPriceVnd ?? 0;
                             selectedCalories = (int)(selectedFood.CaloriesKcal ?? 0);
+                            usedFoodIds.Add(selectedFood.Id);
+                            foodUseCounts[selectedFood.Id] = foodUseCounts.GetValueOrDefault(selectedFood.Id) + 1;
                         }
                     }
 
-                    var item = new MealPlanItem
+                    if (recipeId == null && foodId == null)
+                    {
+                        throw new Exception($"Không tìm thấy món {slot.Type} phù hợp với ngân sách còn lại và thời gian nấu đã đặt.");
+                    }
+
+                    generatedItems.Add(new MealPlanItem
                     {
                         Id = Guid.NewGuid(),
-                        MealPlanId = mealPlanHeader.Id,
-                        MealType = mealType,
+                        MealType = slot.Type,
                         FoodId = foodId,
                         RecipeId = recipeId,
                         PlannedDate = currentDate,
-                        ScheduledTime = mealType == "breakfast" ? new TimeOnly(7, 30) : (mealType == "lunch" ? new TimeOnly(12, 0) : new TimeOnly(18, 30)),
+                        ScheduledTime = slot.Time,
                         TargetCalories = selectedCalories,
                         IsCompleted = false,
                         CreatedAt = DateTime.UtcNow,
-                        Origin = "user"
-                    };
+                        Origin = "budget_ai"
+                    });
 
-                    await _unitOfWork.MealPlanItems.AddAsync(item);
+                    remainingDailyBudget -= selectedPrice;
+                    remainingWeeklyBudget -= selectedPrice;
                 }
             }
 
+            // Regenerating the same week replaces the old generated plan instead of
+            // accumulating several active Office plans for the same date range.
+            foreach (var existingPlan in generatedPlansForWeek.Where(x => x.IsActive))
+            {
+                existingPlan.IsActive = false;
+                existingPlan.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.MealPlanHeaders.Update(existingPlan);
+            }
+
+            var mealPlanHeader = new MealPlanHeader
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = isOfficeUser
+                    ? $"Cơm hộp văn phòng ({startDate:dd/MM} - {endDate:dd/MM})"
+                    : $"Cơm hộp theo ngân sách ({startDate:dd/MM} - {endDate:dd/MM})",
+                PlanType = "weekly",
+                StartDate = startDate,
+                EndDate = endDate,
+                TargetCalories = targetCalories,
+                GeneratedBy = "AI_BUDGET_AWARE",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MealPlanHeaders.AddAsync(mealPlanHeader);
+            foreach (var item in generatedItems)
+            {
+                item.MealPlanId = mealPlanHeader.Id;
+                await _unitOfWork.MealPlanItems.AddAsync(item);
+            }
             await _unitOfWork.CompleteAsync();
             return await GetByIdAsync(mealPlanHeader.Id);
         }
@@ -1134,23 +1377,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Meal plan not found.");
             if (plan.UserId != userId) throw new Exception("Forbidden.");
 
-            var recipeIds = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId))
+            var planItems = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId)).ToList();
+            var recipeIds = planItems
                 .Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).Distinct().ToList();
             var ingredients = await _unitOfWork.RecipeIngredients.FindAsync(x => recipeIds.Contains(x.RecipeId));
+            var ingredientsList = ingredients.ToList();
             // Batch load all recipes for servings (fix N+1 query)
-            var recipeServings = new Dictionary<Guid, int>();
+            var recipesById = new Dictionary<Guid, Recipe>();
             if (recipeIds.Any())
             {
-                var recipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id)))
-                    .ToDictionary(r => r.Id, r => Math.Max(1, r.Servings ?? 1));
-                foreach (var kvp in recipes)
+                var recipes = await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id));
+                foreach (var recipe in recipes)
                 {
-                    recipeServings[kvp.Key] = kvp.Value;
+                    if (recipe != null) recipesById[recipe.Id] = recipe;
                 }
             }
             var catalog = await _unitOfWork.Ingredients.GetAllAsync();
             var catalogById = catalog.ToDictionary(x => x.Id);
-            var items = ingredients.GroupBy(x => new { x.IngredientId, Unit = x.Unit ?? "unit" })
+            var items = ingredientsList.GroupBy(x => new { x.IngredientId, Unit = x.Unit ?? "unit" })
                 .Select(group =>
                 {
                     catalogById.TryGetValue(group.Key.IngredientId, out var ingredient);
@@ -1162,7 +1406,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         EstimatedPriceVnd = ingredient?.EstimatedPriceVnd ?? 0
                     };
                 }).OrderBy(x => x.Name).ToList();
-            return new GroceryListResponse { MealPlanId = planId, Items = items, EstimatedTotalVnd = items.Sum(x => x.EstimatedPriceVnd) };
+
+            // Phase 1: group ingredients by PlannedDate so the UI can show a
+            // separate shopping card per day instead of one flat weekly list.
+            var days = await _groceryListBuilder.BuildDaysAsync(
+                planId,
+                planItems,
+                ingredientsList,
+                recipesById,
+                catalogById);
+
+            // Phase 2: roll the per-day view into chợ visits. Stock items
+            // (rice/spices/...) go to an InitialTrip dated the day before the
+            // plan starts; other items follow PlannedDate - 1.
+            var shoppingTrips = await _shoppingTripBuilder.BuildShoppingTripsAsync(
+                planItems,
+                days,
+                catalogById);
+
+            return new GroceryListResponse
+            {
+                MealPlanId = planId,
+                Items = items,
+                Days = days,
+                ShoppingTrips = shoppingTrips,
+                EstimatedTotalVnd = items.Sum(x => x.EstimatedPriceVnd),
+            };
         }
 
         public async Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId)
@@ -1223,11 +1492,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             else if (currentItem.RecipeId.HasValue)
             {
                 var recipe = await _unitOfWork.Recipes.GetByIdAsync(currentItem.RecipeId.Value);
-                currentPrice = recipe?.EstimatedPriceVnd ?? 100000;
+                currentPrice = recipe == null ? 0 : RecipeServingPrice(recipe);
             }
 
             var result = new List<MealPlanItemResponse>();
             var planItems = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId)).ToList();
+            var normalizedMealType = (currentItem.MealType ?? "lunch").ToLowerInvariant();
             var sameDayRecipeIds = planItems
                 .Where(x => x.Id != itemId &&
                             x.PlannedDate == currentItem.PlannedDate &&
@@ -1260,11 +1530,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (currentItem.RecipeId.HasValue)
             {
                 var recipes = await _unitOfWork.Recipes.FindAsync(r => 
-                    r.MealType != null && r.MealType.Contains(currentItem.MealType ?? "lunch") &&
+                    r.MealType != null && r.MealType.ToLower() == normalizedMealType &&
                     r.Id != currentItem.RecipeId &&
-                    r.EstimatedPriceVnd.HasValue && r.EstimatedPriceVnd.Value < currentPrice);
+                    (r.TotalTimeMin ?? r.CookTimeMin ?? 30) <= maxCookingMinutes &&
+                    (r.IsActive == true || r.IsActive == null));
 
-                var alternativeRecipes = recipes.OrderBy(r => r.EstimatedPriceVnd).Take(5);
+                var recipesForDifferentDay = recipes
+                    .Where(r => !sameDayRecipeIds.Contains(r.Id))
+                    .ToList();
+                var alternativeRecipes = (recipesForDifferentDay.Any()
+                        ? recipesForDifferentDay
+                        : recipes.ToList())
+                    .OrderBy(r => recipeUseCounts.GetValueOrDefault(r.Id))
+                    .ThenBy(r => Math.Abs(RecipeServingPrice(r) - currentPrice))
+                    .ThenBy(r => RecipeServingPrice(r))
+                    .ThenBy(r => r.Title)
+                    .Take(5);
                 foreach (var r in alternativeRecipes)
                 {
                     result.Add(new MealPlanItemResponse
@@ -1276,7 +1557,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         RecipeName = r.Title,
                         SourceEntityType = "Recipe",
                         TargetCalories = currentCal,
-                        EstimatedPriceVnd = r.EstimatedPriceVnd,
+                        EstimatedPriceVnd = RecipeServingPrice(r),
                         Status = "alternative"
                     });
                 }
@@ -1285,9 +1566,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var foods = await _unitOfWork.Foods.FindAsync(f => 
                     f.Id != currentItem.FoodId &&
-                    f.EstimatedPriceVnd.HasValue && f.EstimatedPriceVnd.Value < currentPrice);
+                    f.EstimatedPriceVnd.HasValue &&
+                    (f.IsActive == true || f.IsActive == null));
 
-                var alternativeFoods = foods.OrderBy(f => f.EstimatedPriceVnd).Take(5);
+                var alternativeFoods = foods
+                    .OrderBy(f => Math.Abs((f.EstimatedPriceVnd ?? 0) - currentPrice))
+                    .ThenBy(f => f.EstimatedPriceVnd)
+                    .ThenBy(f => f.NameVi)
+                    .Take(5);
                 foreach (var f in alternativeFoods)
                 {
                     result.Add(new MealPlanItemResponse
@@ -1524,16 +1810,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var items = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == plan.Id && (x.PlannedDate == null || x.PlannedDate == date))).ToList();
-            var itemIds = items.Select(x => x.Id).ToHashSet();
-            var logs = (await _unitOfWork.MealLogs.FindAsync(
-                x => x.UserId == userId
-                    && x.MealPlanItemId.HasValue
-                    && itemIds.Contains(x.MealPlanItemId.Value))).ToList();
+            var itemIds = items.Select(x => x.Id).ToList();
+
+            var logs = new List<MealLog>();
+            if (itemIds.Count > 0)
+            {
+                logs = (await _unitOfWork.MealLogs.FindAsync(
+                    x => x.UserId == userId
+                        && x.MealPlanItemId.HasValue
+                        && itemIds.Contains(x.MealPlanItemId.Value))).ToList();
+            }
 
             var plannedKcal = items.Sum(x => x.TargetCalories ?? 0);
-            var actualKcal = logs.Sum(x => x.CaloriesKcal ?? 0);
+            var actualKcal = (decimal)logs.Sum(x => x.CaloriesKcal ?? 0);
             decimal? deviation = plannedKcal > 0
-                ? Math.Round((actualKcal - plannedKcal) / plannedKcal * 100m, 2)
+                ? Math.Round((actualKcal - (decimal)plannedKcal) / (decimal)plannedKcal * 100m, 2)
                 : null;
 
             return new MealPlanAdherenceResponse
@@ -1742,45 +2033,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         .FirstOrDefault();
         }
 
-        private async Task<(decimal protein, decimal carbs, decimal fat, decimal calories)> GetRecipeMacrosAsync(Guid recipeId)
-        {
-            var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(ri => ri.RecipeId == recipeId);
-            var ingredientIds = recipeIngredients.Select(ri => ri.IngredientId).ToList();
-            var ingredients = (await _unitOfWork.Ingredients.FindAsync(i => ingredientIds.Contains(i.Id))).ToDictionary(i => i.Id);
-
-            decimal totalProtein = 0;
-            decimal totalCarbs = 0;
-            decimal totalFat = 0;
-            decimal totalCalories = 0;
-
-            foreach (var ri in recipeIngredients)
-            {
-                if (ingredients.TryGetValue(ri.IngredientId, out var ingredient))
-                {
-                    var quantity = ri.Quantity ?? 1;
-                    totalCalories += (ingredient.CaloriesKcal ?? 0) * quantity;
-                    totalProtein += (ingredient.ProteinG ?? 0) * quantity;
-                    totalCarbs += (ingredient.CarbsG ?? 0) * quantity;
-                    totalFat += (ingredient.FatG ?? 0) * quantity;
-                }
-            }
-
-            return (totalProtein, totalCarbs, totalFat, totalCalories);
-        }
-
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)
         {
+            var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId);
+            if (recipe == null) return 0;
+
             var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(ri => ri.RecipeId == recipeId);
-            
+            if (!recipeIngredients.Any())
+            {
+                if (!recipe.FoodId.HasValue) return 0;
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                return linkedFood?.CaloriesKcal is > 0
+                    ? (int)Math.Round(linkedFood.CaloriesKcal.Value)
+                    : 0;
+            }
+
             // Batch load all ingredients in one query to avoid N+1 problem
             var ingredientIds = recipeIngredients.Select(ri => ri.IngredientId).ToList();
             var ingredientsQuery = await _unitOfWork.Ingredients.FindAsync(i => ingredientIds.Contains(i.Id));
             var ingredients = ingredientsQuery.ToList();
             var ingredientDict = ingredients.ToDictionary(i => i.Id);
 
-            decimal totalProtein = 0;
-            decimal totalCarbs = 0;
-            decimal totalFat = 0;
             decimal totalCalories = 0;
 
             foreach (var ri in recipeIngredients)
@@ -1788,11 +2061,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (ingredientDict.TryGetValue(ri.IngredientId, out var ingredient))
                 {
                     var quantity = ri.Quantity ?? 1;
-                    totalCalories += (ingredient.CaloriesKcal ?? 0) * quantity;
+                    var scale = global::MenuGreen.BusinessLogicLayer.Helpers.NutritionMath
+                        .IngredientNutritionRatio(quantity, ri.Unit ?? ingredient.UnitDefault);
+                    totalCalories += (ingredient.CaloriesKcal ?? 0) * scale;
                 }
             }
 
-            return (int)Math.Round(totalCalories);
+            if (totalCalories <= 0 && recipe.FoodId.HasValue)
+            {
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                if (linkedFood?.CaloriesKcal is > 0)
+                {
+                    return (int)Math.Round(linkedFood.CaloriesKcal.Value);
+                }
+            }
+
+            return (int)Math.Round(totalCalories / Math.Max(1, recipe.Servings ?? 1));
         }
 
         private static int RecipeServingPrice(Recipe recipe)
@@ -2010,6 +2294,62 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ReplacedExisting = false,
                 DisplayName = request.CustomName
             };
+        }
+
+        public async Task<MealPlanItemResponse> SaveOfficeScanPlanItemAsync(
+            Guid planId,
+            OfficeScanMealRequest request,
+            Guid userId,
+            bool isPriorityLunch)
+        {
+            if (isPriorityLunch && !string.Equals(request.MealType, "lunch", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Món ưu tiên chỉ áp dụng cho bữa trưa.");
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
+            if (plan == null || plan.UserId != userId)
+                throw new UnauthorizedAccessException("Meal plan not found or access denied.");
+
+            var origin = isPriorityLunch ? "office_priority" : "office_scan";
+            var existing = (await _unitOfWork.MealPlanItems.FindAsync(x =>
+                    x.MealPlanId == planId &&
+                    x.PlannedDate == request.PlannedDate &&
+                    x.MealType != null &&
+                    x.MealType.ToLower() == request.MealType.ToLower() &&
+                    x.Origin == origin))
+                .FirstOrDefault();
+
+            if (existing != null && !request.ReplaceExisting)
+                throw new InvalidOperationException("Ngày này đã có món được chọn. Hãy xác nhận thay món hiện tại.");
+
+            var snapshot = System.Text.Json.JsonSerializer.Serialize(request.Ingredients);
+            var item = existing ?? new MealPlanItem
+            {
+                Id = Guid.NewGuid(),
+                MealPlanId = planId,
+                CreatedAt = DateTime.UtcNow,
+                Origin = origin
+            };
+
+            item.MealType = request.MealType.ToLowerInvariant();
+            item.PlannedDate = request.PlannedDate;
+            item.ScheduledTime = request.ScheduledTime ?? new TimeOnly(12, 0);
+            item.TargetCalories = (int)Math.Round(request.CaloriesKcal);
+            item.QuantityG = request.QuantityG;
+            item.ProteinG = request.ProteinG;
+            item.CarbsG = request.CarbsG;
+            item.FatG = request.FatG;
+            item.CustomName = request.CustomName.Trim();
+            item.SourceType = "AiScan";
+            item.IngredientSnapshotJson = snapshot;
+            item.IsCompleted = false;
+
+            if (existing == null)
+                await _unitOfWork.MealPlanItems.AddAsync(item);
+            else
+                _unitOfWork.MealPlanItems.Update(item);
+
+            await _unitOfWork.CompleteAsync();
+            return await MapItemAsync(item);
         }
 
         public async Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId)

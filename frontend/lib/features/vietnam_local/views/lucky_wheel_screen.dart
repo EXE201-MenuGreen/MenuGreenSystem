@@ -249,11 +249,11 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                             memCacheWidth: 320,
                             memCacheHeight: 160,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
+                            placeholder: (_, _) => Container(
                               height: 160,
                               color: Colors.grey.shade800,
                             ),
-                            errorWidget: (_, __, ___) => Container(
+                            errorWidget: (_, _, _) => Container(
                               height: 140,
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade800,

@@ -30,6 +30,7 @@ Future<bool> showMealLogSheet(
   bool loadingItems = false;
 
   Future<void> loadItems(void Function(void Function()) setModalState) async {
+    if (initialFoodId != null || initialRecipeId != null) return;
     setModalState(() => loadingItems = true);
     final keyword = keywordController.text.trim();
     final loaded = sourceType == 'food'
@@ -46,7 +47,7 @@ Future<bool> showMealLogSheet(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
-        if (items.isEmpty && !loadingItems) {
+        if (initialFoodId == null && initialRecipeId == null && items.isEmpty && !loadingItems) {
           WidgetsBinding.instance.addPostFrameCallback((_) => loadItems(setModalState));
         }
         return AlertDialog(
@@ -181,6 +182,9 @@ Future<bool> showMealLogSheet(
       },
     ),
   );
+
+  quantityController.dispose();
+  keywordController.dispose();
 
   if (confirmed != true) return false;
 

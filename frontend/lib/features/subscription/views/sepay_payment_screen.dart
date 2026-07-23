@@ -456,7 +456,7 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
                 memCacheWidth: 240,
                 memCacheHeight: 240,
                 fit: BoxFit.contain,
-                placeholder: (_, __) => const SizedBox(
+                placeholder: (_, _) => const SizedBox(
                   width: 240,
                   height: 240,
                   child: Center(

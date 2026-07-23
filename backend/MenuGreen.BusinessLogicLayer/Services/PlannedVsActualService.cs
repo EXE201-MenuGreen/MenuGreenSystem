@@ -21,14 +21,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _recipeService = recipeService;
         }
 
+        private async Task<List<MealPlanItem>> GetActivePlanItemsAsync(Guid userId, DateOnly from, DateOnly to)
+        {
+            var activePlans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId && h.IsActive);
+            var planIds = activePlans.Select(h => h.Id).ToList();
+
+            if (!planIds.Any())
+                return new List<MealPlanItem>();
+
+            var rawItems = (await _unitOfWork.MealPlanItems.FindAsync(i =>
+                planIds.Contains(i.MealPlanId) &&
+                i.PlannedDate >= from &&
+                i.PlannedDate <= to
+            )).ToList();
+
+            return rawItems
+                .GroupBy(i => new { i.PlannedDate, MealType = (i.MealType ?? "lunch").ToLower() })
+                .Select(g => g.OrderByDescending(i => i.CreatedAt).First())
+                .ToList();
+        }
+
         public async Task<PlannedVsActualSummaryResponse> GetSummaryAsync(Guid userId, DateOnly from, DateOnly to)
         {
-            var userPlans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId);
-            var planIds = userPlans.Select(h => h.Id).ToList();
-
-            var planItems = planIds.Any()
-                ? (await _unitOfWork.MealPlanItems.FindAsync(i => planIds.Contains(i.MealPlanId) && i.PlannedDate >= from && i.PlannedDate <= to)).ToList()
-                : new List<MealPlanItem>();
+            var planItems = await GetActivePlanItemsAsync(userId, from, to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
@@ -211,12 +226,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var summary = await GetSummaryAsync(userId, from, to);
 
-            var userPlans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId);
-            var planIds = userPlans.Select(h => h.Id).ToList();
-
-            var planItems = planIds.Any()
-                ? (await _unitOfWork.MealPlanItems.FindAsync(i => planIds.Contains(i.MealPlanId) && i.PlannedDate >= from && i.PlannedDate <= to)).ToList()
-                : new List<MealPlanItem>();
+            var planItems = await GetActivePlanItemsAsync(userId, from, to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
@@ -326,12 +336,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<DriftAnalysisResponse> GetDriftAnalysisAsync(Guid userId, DateOnly from, DateOnly to)
         {
-            var userPlans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId);
-            var planIds = userPlans.Select(h => h.Id).ToList();
-
-            var planItems = planIds.Any()
-                ? (await _unitOfWork.MealPlanItems.FindAsync(i => planIds.Contains(i.MealPlanId) && i.PlannedDate >= from && i.PlannedDate <= to)).ToList()
-                : new List<MealPlanItem>();
+            var planItems = await GetActivePlanItemsAsync(userId, from, to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&

@@ -126,13 +126,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                 memCacheWidth: 400,
                 memCacheHeight: 200,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                placeholder: (_, _) => Container(
                   width: double.infinity,
                   height: 200,
                   color: Colors.grey[200],
                   child: const Center(child: CircularProgressIndicator()),
                 ),
-                errorWidget: (_, __, ___) => Container(
+                errorWidget: (_, _, _) => Container(
                   width: double.infinity,
                   height: 200,
                   color: Colors.grey[200],
