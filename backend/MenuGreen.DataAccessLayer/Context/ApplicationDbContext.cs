@@ -80,9 +80,14 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<UserAllergy>().HasQueryFilter(ua => ua.User == null || EF.Property<DateTime?>(ua.User, "DeletedAt") == null);
             modelBuilder.Entity<UserCardInteraction>().HasQueryFilter(uci => uci.User == null || EF.Property<DateTime?>(uci.User, "DeletedAt") == null);
             modelBuilder.Entity<UserPremiumProgram>().HasQueryFilter(upp => upp.User == null || EF.Property<DateTime?>(upp.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserProgramMilestone>().HasQueryFilter(upm => upm.UserPremiumProgram == null || upm.UserPremiumProgram.User == null || EF.Property<DateTime?>(upm.UserPremiumProgram.User, "DeletedAt") == null);
             modelBuilder.Entity<UserSubscription>().HasQueryFilter(us => us.User == null || EF.Property<DateTime?>(us.User, "DeletedAt") == null);
             modelBuilder.Entity<UserSubstitutionPreference>().HasQueryFilter(usp => usp.User == null || EF.Property<DateTime?>(usp.User, "DeletedAt") == null);
             modelBuilder.Entity<WeightLog>().HasQueryFilter(wl => wl.User == null || EF.Property<DateTime?>(wl.User, "DeletedAt") == null);
+            modelBuilder.Entity<Session>().HasQueryFilter(s => s.User == null || EF.Property<DateTime?>(s.User, "DeletedAt") == null);
+            modelBuilder.Entity<Subscription>().HasQueryFilter(sub => sub.User == null || EF.Property<DateTime?>(sub.User, "DeletedAt") == null);
+            modelBuilder.Entity<SubscriptionTransaction>().HasQueryFilter(st => st.User == null || EF.Property<DateTime?>(st.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserAiProfile>().HasQueryFilter(uap => uap.User == null || EF.Property<DateTime?>(uap.User, "DeletedAt") == null);
         }
     }
 }
