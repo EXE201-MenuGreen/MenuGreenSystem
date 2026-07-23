@@ -9,6 +9,9 @@ import '../models/meal_plan_models.dart'; // Keep existing models for UserMealPl
 class MealPlanProvider extends ChangeNotifier {
   final MealPlanRepository _repository = MealPlanRepository();
 
+  // Disposed flag to prevent state updates after disposal
+  bool _disposed = false;
+
   // States
   List<MealPlanListItem> _plans = [];
   MealPlanDetail? _currentPlan;
@@ -19,6 +22,16 @@ class MealPlanProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingDetail = false;
   String? _error;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
 
   // Getters
   List<MealPlanListItem> get plans => _plans;
@@ -49,7 +62,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<void> loadPlans({bool? isActive}) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       _plans = await _repository.getPlans(isActive: isActive);
@@ -58,7 +71,7 @@ class MealPlanProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -66,7 +79,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<void> loadPlanDetail(String id) async {
     _isLoadingDetail = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       _currentPlan = await _repository.getPlanDetail(id);
@@ -75,7 +88,7 @@ class MealPlanProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _isLoadingDetail = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -83,12 +96,12 @@ class MealPlanProvider extends ChangeNotifier {
   Future<void> loadTodayDashboard() async {
     try {
       _todayDashboard = await _repository.getDashboard(DateTime.now());
-      notifyListeners();
+      _safeNotify();
     } catch (_) {
       // Fallback to adherence
       try {
         _todayAdherence = await _repository.getAdherence(DateTime.now());
-        notifyListeners();
+        _safeNotify();
       } catch (_) {}
     }
   }
@@ -97,7 +110,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<void> loadStreaks() async {
     try {
       _streaks = await _repository.getStreaks();
-      notifyListeners();
+      _safeNotify();
     } catch (_) {}
   }
 
@@ -112,14 +125,14 @@ class MealPlanProvider extends ChangeNotifier {
         from ?? startOfMonth,
         to ?? endOfMonth,
       );
-      notifyListeners();
+      _safeNotify();
     } catch (_) {}
   }
 
   /// Load all data cho home screen
   Future<void> loadAllForHome() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
 
     await Future.wait([
       loadPlans(),
@@ -128,7 +141,7 @@ class MealPlanProvider extends ChangeNotifier {
     ]);
 
     _isLoading = false;
-    notifyListeners();
+    _safeNotify();
   }
 
   // ==================== CRUD Operations ====================
@@ -137,7 +150,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<MealPlanDetail?> createPlan(CreatePlanRequest request) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final plan = await _repository.createPlan(request);
@@ -148,7 +161,7 @@ class MealPlanProvider extends ChangeNotifier {
       return null;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -156,7 +169,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<MealPlanDetail?> createEmptyPlan(CreateEmptyPlanRequest request) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final plan = await _repository.createEmptyPlan(request);
@@ -167,7 +180,7 @@ class MealPlanProvider extends ChangeNotifier {
       return null;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -175,7 +188,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<MealPlanDetail?> createPlanWithItems(CreatePlanWithItemsRequest request) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final plan = await _repository.createPlanWithItems(request);
@@ -186,7 +199,7 @@ class MealPlanProvider extends ChangeNotifier {
       return null;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -194,7 +207,7 @@ class MealPlanProvider extends ChangeNotifier {
   Future<MealPlanDetail?> updatePlan(String id, CreatePlanRequest request) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final plan = await _repository.updatePlan(id, request);
@@ -205,7 +218,7 @@ class MealPlanProvider extends ChangeNotifier {
       return null;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
