@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../repositories/advanced_repository.dart';
 import '../../notifications/repositories/notification_repository.dart';
 import '../../notifications/models/notification_models.dart';
+import '../../coach_pt/coach_pt.dart';
+import '../../coach_pt/views/coach_reports_tab_screen.dart';
 
 String valueOf(Map<String, dynamic> data, String key, [String fallback = '']) =>
     (data[key] ?? data[key[0].toUpperCase() + key.substring(1)] ?? fallback)
@@ -1642,7 +1645,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final primaryColor = theme.primaryColor;
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: Text(valueOf(widget.client, 'fullName')),
@@ -1653,6 +1656,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
             tabs: const [
               Tab(icon: Icon(Icons.person), text: 'Hồ sơ cá nhân'),
               Tab(icon: Icon(Icons.restaurant), text: 'Lộ trình & Gợi ý'),
+              Tab(icon: Icon(Icons.assessment), text: 'Báo cáo tuần'),
             ],
           ),
         ),
@@ -1733,9 +1737,23 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       ],
                     ),
                   ),
+
+                  // Tab 3: Báo cáo tuần — nhúng CoachReportsTabScreen đã lọc
+                  // theo clientId của học viên hiện tại.
+                  _buildCoachReportsTab(),
                 ],
               ),
       ),
+    );
+  }
+
+  Widget _buildCoachReportsTab() {
+    final clientId = id;
+    final clientName = valueOf(widget.client, 'fullName',
+        valueOf(widget.client, 'clientName'));
+    return ChangeNotifierProvider(
+      create: (_) => CoachReportProvider(),
+      child: CoachReportsTabScreen(clientId: clientId, clientName: clientName),
     );
   }
 

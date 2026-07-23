@@ -277,6 +277,127 @@ class AdvancedRepository {
         ),
       );
 
+  // =========================================================================
+  // COACH MEAL-PLAN OPERATIONS (Phase 1 backend - /api/Coaches/clients/...)
+  // Coach views, creates, edits, submits and deletes meal plans on behalf
+  // of a connected Gymer.
+  // =========================================================================
+
+  Future<List<Map<String, dynamic>>> clientMealPlans(
+    String clientId, {
+    DateTime? from,
+    DateTime? to,
+    String? planType,
+  }) async {
+    final params = <String, String>{};
+    if (from != null) params['from'] = _dateOnly(from);
+    if (to != null) params['to'] = _dateOnly(to);
+    if (planType != null && planType.isNotEmpty) params['planType'] = planType;
+    final uri = Uri.parse(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans',
+    ).replace(queryParameters: params);
+    return _list(_body(await _api.get(uri.toString())));
+  }
+
+  Future<Map<String, dynamic>> clientMealPlanDetail(
+    String clientId,
+    String planId,
+  ) async => _map(
+    _body(
+      await _api.get(
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
+      ),
+    ),
+  );
+
+  Future<Map<String, dynamic>> createClientMealPlan(
+    String clientId,
+    Map<String, dynamic> body,
+  ) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans',
+        body,
+      ),
+    ),
+  );
+
+  Future<Map<String, dynamic>> updateClientMealPlan(
+    String clientId,
+    String planId,
+    Map<String, dynamic> body,
+  ) async => _map(
+    _body(
+      await _api.putJson(
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
+        body,
+      ),
+    ),
+  );
+
+  Future<Map<String, dynamic>> submitClientMealPlan(
+    String clientId,
+    String planId, {
+    String? notes,
+  }) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId/submit',
+        {?notes == null ? null : 'notes': notes},
+      ),
+    ),
+  );
+
+  Future<void> deleteClientMealPlan(String clientId, String planId) async => _body(
+    await _api.delete(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
+    ),
+  );
+
+  // =========================================================================
+  // COACH WEEKLY-REPORT OPERATIONS (Phase 2 backend - /api/PtReview/coach/...)
+  // =========================================================================
+
+  Future<List<Map<String, dynamic>>> coachWeeklyReports({
+    DateTime? weekStart,
+    String? month,
+    String? status,
+    String? clientId,
+  }) async {
+    final params = <String, String>{};
+    if (weekStart != null) params['weekStart'] = _dateOnly(weekStart);
+    if (month != null && month.isNotEmpty) params['month'] = month;
+    if (status != null && status.isNotEmpty) params['status'] = status;
+    if (clientId != null && clientId.isNotEmpty) params['clientId'] = clientId;
+    final uri = Uri.parse(
+      '${ApiEndpoints.baseUrl}/PtReview/coach/reports',
+    ).replace(queryParameters: params);
+    return _list(_body(await _api.get(uri.toString())));
+  }
+
+  Future<Map<String, dynamic>> coachReportDetail(String reportId) async => _map(
+    _body(
+      await _api.get(
+        '${ApiEndpoints.baseUrl}/PtReview/coach/reports/$reportId',
+      ),
+    ),
+  );
+
+  Future<void> submitCoachReview(
+    String reportId,
+    Map<String, dynamic> body,
+  ) async => _body(
+    await _api.postJson(
+      '${ApiEndpoints.baseUrl}/PtReview/coach/reports/$reportId/review',
+      body,
+    ),
+  );
+
+  String _dateOnly(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
   Map<String, dynamic> _map(dynamic value) =>
       Map<String, dynamic>.from(value as Map);
   List<Map<String, dynamic>> _list(dynamic value) =>

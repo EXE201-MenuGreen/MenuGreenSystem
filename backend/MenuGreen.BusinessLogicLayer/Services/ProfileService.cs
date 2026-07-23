@@ -144,6 +144,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<ProfileCompletionResponse> GetCompletionAsync(Guid userId)
         {
+            var roleName = await GetRoleNameAsync(userId);
+            var isCoach = string.Equals(roleName, "Coach", StringComparison.OrdinalIgnoreCase);
+
+            // Coach / PT không cần onboarding của user (calorie goal, allergy, snapshot) — bỏ qua.
+            if (isCoach)
+            {
+                return new ProfileCompletionResponse
+                {
+                    IsCompleted = true,
+                    CompletionPercent = 100,
+                    CompletedSteps = new[] { "Profile", "Coach" },
+                    MissingSteps = Array.Empty<string>(),
+                    NextStep = "Completed"
+                };
+            }
+
             var profile = await EnsureProfileAsync(userId);
             var healthProfile = await EnsureHealthProfileAsync(userId);
             var hasAllergies = await HasActiveAllergiesAsync(userId);
