@@ -507,7 +507,7 @@ fi
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
 
-echo "=== Check EF Migration History ==="
+echo "=== Check / Seed EF Migration History ==="
 DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
 if [ -n "$DB_CONN_PRECHECK" ]; then
   PGPASSWORD_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
@@ -519,6 +519,22 @@ if [ -n "$DB_CONN_PRECHECK" ]; then
     MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>/dev/null || echo "0")
     MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]')
     echo "  Found $MIGRATION_COUNT migration(s) in history"
+    
+    # If __EFMigrationsHistory is empty but tables exist (existing DB),
+    # seed it with the baseline migration name so EF skips table creation
+    if [ "$MIGRATION_COUNT" = "0" ]; then
+      echo "  Database has no migration history. Checking if tables exist..."
+      TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT LIKE '%_%_indexes' AND table_name != 'spatial_ref_sys';" 2>/dev/null | tr -d '[:space:]' || echo "0")
+      echo "  Found $TABLE_COUNT tables in database"
+      
+      if [ "$TABLE_COUNT" -gt "10" ]; then
+        echo "  Seeding __EFMigrationsHistory with baseline migration..."
+        PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723154128_BaselineExistingDatabase', '8.0.11');" 2>/dev/null || true
+        echo "  ✓ Baseline migration seeded. EF will skip table creation."
+      else
+        echo "  No tables found. EF will create all tables on startup."
+      fi
+    fi
   fi
 fi
 
