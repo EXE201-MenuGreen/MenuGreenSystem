@@ -38,6 +38,11 @@ class RecommendationProvider extends ChangeNotifier {
   bool _isGenerating = false;
   bool _isLoadingHistory = false;
   String? _error;
+  
+  // Pagination states
+  int _historyPage = 1;
+  bool _hasMoreHistory = true;
+  static const int _pageSize = 10;
 
   // =========================================================================
   // GETTERS
@@ -58,6 +63,7 @@ class RecommendationProvider extends ChangeNotifier {
   bool get isGenerating => _isGenerating;
   bool get isLoadingHistory => _isLoadingHistory;
   String? get error => _error;
+  bool get hasMoreHistory => _hasMoreHistory;
 
   // =========================================================================
   // GENERATE METHODS
@@ -310,12 +316,35 @@ class RecommendationProvider extends ChangeNotifier {
   Future<void> loadHistory() async {
     _isLoadingHistory = true;
     _error = null;
+    _historyPage = 1;
+    _hasMoreHistory = true;
     notifyListeners();
 
     try {
-      _history = await _repository.getHistory();
+      _history = await _repository.getHistory(page: _historyPage, pageSize: _pageSize);
+      _hasMoreHistory = _history.length >= _pageSize;
       _error = null;
     } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingHistory = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreHistory() async {
+    if (_isLoadingHistory || !_hasMoreHistory) return;
+    
+    _isLoadingHistory = true;
+    notifyListeners();
+
+    try {
+      _historyPage++;
+      final moreItems = await _repository.getHistory(page: _historyPage, pageSize: _pageSize);
+      _history.addAll(moreItems);
+      _hasMoreHistory = moreItems.length >= _pageSize;
+    } catch (e) {
+      _historyPage--; // Revert on error
       _error = e.toString();
     } finally {
       _isLoadingHistory = false;

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -407,12 +408,24 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
             if (item.imageUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item.imageUrl!,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
                   width: double.infinity,
                   height: 180,
+                  cacheWidth: 360,
+                  cacheHeight: 180,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  placeholder: (_, __) => Container(
+                    width: double.infinity,
+                    height: 180,
+                    color: Colors.grey[200],
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    width: double.infinity,
+                    height: 180,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

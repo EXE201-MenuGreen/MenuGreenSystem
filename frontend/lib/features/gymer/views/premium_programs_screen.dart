@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1888,12 +1889,18 @@ class _ProgramPaymentSheet extends StatelessWidget {
             const SizedBox(height: 16),
             if (order.qrImageUrl.isNotEmpty)
               Center(
-                child: Image.network(
-                  order.qrImageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: order.qrImageUrl,
                   width: 220,
                   height: 220,
+                  cacheWidth: 220,
+                  cacheHeight: 220,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  placeholder: (_, __) => const SizedBox(
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, error, stackTrace) => const SizedBox(
                     height: 120,
                     child: Center(child: Text('Không tải được ảnh QR.')),
                   ),

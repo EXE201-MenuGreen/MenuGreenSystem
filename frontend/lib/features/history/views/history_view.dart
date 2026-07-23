@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/history_models.dart';
@@ -1171,14 +1172,19 @@ class _MealCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: meal.imageUrl != null
-                    ? Image.network(
-                        meal.imageUrl!,
+                    ? CachedNetworkImage(
+                        imageUrl: meal.imageUrl!,
                         width: 56,
                         height: 56,
                         cacheWidth: 56,
                         cacheHeight: 56,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
+                        placeholder: (_, __) => Container(
+                          width: 56,
+                          height: 56,
+                          color: Colors.grey[200],
+                        ),
+                        errorWidget: (_, __, ___) => _imagePlaceholder(),
                       )
                     : _imagePlaceholder(meal.isRecipe),
               ),
