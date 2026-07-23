@@ -29,6 +29,7 @@ class ScanCornerBracket extends StatelessWidget {
     this.right,
     required this.isTop,
     required this.isLeft,
+    this.color = AppColors.primary,
   });
 
   final double? top;
@@ -37,6 +38,7 @@ class ScanCornerBracket extends StatelessWidget {
   final double? right;
   final bool isTop;
   final bool isLeft;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -57,16 +59,16 @@ class ScanCornerBracket extends StatelessWidget {
           ),
           border: Border(
             top: isTop
-                ? const BorderSide(color: Colors.white, width: 4)
+                ? BorderSide(color: color, width: 4)
                 : BorderSide.none,
             bottom: !isTop
-                ? const BorderSide(color: Colors.white, width: 4)
+                ? BorderSide(color: color, width: 4)
                 : BorderSide.none,
             left: isLeft
-                ? const BorderSide(color: Colors.white, width: 4)
+                ? BorderSide(color: color, width: 4)
                 : BorderSide.none,
             right: !isLeft
-                ? const BorderSide(color: Colors.white, width: 4)
+                ? BorderSide(color: color, width: 4)
                 : BorderSide.none,
           ),
         ),
@@ -85,12 +87,12 @@ class ScanFloatingTooltip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
             offset: const Offset(0, 3),
           )
         ],
@@ -112,7 +114,7 @@ class ScanFloatingTooltip extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A4231),
+              color: AppColors.primary,
             ),
           ),
         ],
@@ -127,11 +129,13 @@ class ScanControlBtn extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isLightMode = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isLightMode;
 
   @override
   Widget build(BuildContext context) {
@@ -141,21 +145,40 @@ class ScanControlBtn extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: isLightMode
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: isLightMode
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.2),
+              ),
+              boxShadow: isLightMode
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(
+              icon,
+              color: isLightMode ? AppColors.primary : Colors.white,
+              size: 24,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
+            style: TextStyle(
+              color: isLightMode ? AppColors.textDark : Colors.white,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
             ),
