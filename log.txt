@@ -1,534 +1,538 @@
-2026-07-23T16:19:42.6120257Z Current runner version: '2.335.1'
-2026-07-23T16:19:42.6147951Z ##[group]Runner Image Provisioner
-2026-07-23T16:19:42.6149565Z Hosted Compute Agent
-2026-07-23T16:19:42.6150536Z Version: 20260707.563
-2026-07-23T16:19:42.6151584Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
-2026-07-23T16:19:42.6152956Z Build Date: 2026-07-07T19:33:50Z
-2026-07-23T16:19:42.6154030Z Worker ID: {ceac1326-8e7c-4e88-b67c-c835c8f92ea9}
-2026-07-23T16:19:42.6155252Z Azure Region: eastus2
-2026-07-23T16:19:42.6156234Z ##[endgroup]
-2026-07-23T16:19:42.6158280Z ##[group]Operating System
-2026-07-23T16:19:42.6159592Z Ubuntu
-2026-07-23T16:19:42.6160489Z 24.04.4
-2026-07-23T16:19:42.6161395Z LTS
-2026-07-23T16:19:42.6162322Z ##[endgroup]
-2026-07-23T16:19:42.6163248Z ##[group]Runner Image
-2026-07-23T16:19:42.6164345Z Image: ***-24.04
-2026-07-23T16:19:42.6165409Z Version: 20260720.247.2
-2026-07-23T16:19:42.6167237Z Included Software: https://github.com/actions/runner-images/blob/***24/20260720.247/images/***/Ubuntu2404-Readme.md
-2026-07-23T16:19:42.6169494Z Image Release: https://github.com/actions/runner-images/releases/tag/***24%2F20260720.247
-2026-07-23T16:19:42.6170923Z ##[endgroup]
-2026-07-23T16:19:42.6172736Z ##[group]GITHUB_TOKEN Permissions
-2026-07-23T16:19:42.6175355Z Contents: read
-2026-07-23T16:19:42.6176373Z Metadata: read
-2026-07-23T16:19:42.6177348Z Packages: read
-2026-07-23T16:19:42.6178308Z ##[endgroup]
-2026-07-23T16:19:42.6181003Z Secret source: Actions
-2026-07-23T16:19:42.6182273Z Prepare workflow directory
-2026-07-23T16:19:42.6724167Z Prepare all required actions
-2026-07-23T16:19:42.6761551Z Getting action download info
-2026-07-23T16:19:42.9954327Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
-2026-07-23T16:19:43.4814710Z Download action repository 'appleboy/scp-action@v0.1.7' (SHA:917f8b81dfc1ccd331fef9e2d61bdc6c8be94634)
-2026-07-23T16:19:43.6090687Z Download action repository 'appleboy/ssh-action@v1.1.0' (SHA:25ce8cbbcb08177468c7ff7ec5cbfa236f9341e1)
-2026-07-23T16:19:43.8825523Z Complete job name: Deploy to Server
-2026-07-23T16:19:43.9287623Z ##[group]Build container for action use: '/home/runner/work/_actions/appleboy/scp-action/v0.1.7/Dockerfile'.
-2026-07-23T16:19:43.9347690Z ##[command]/usr/bin/docker build -t 9b9540:865199fd3e084356bf0926217efc9476 -f "/home/runner/work/_actions/appleboy/scp-action/v0.1.7/Dockerfile" "/home/runner/work/_actions/appleboy/scp-action/v0.1.7"
-2026-07-23T16:19:47.3215309Z #0 building with "default" instance using docker driver
-2026-07-23T16:19:47.3215865Z 
-2026-07-23T16:19:47.3216117Z #1 [internal] load build definition from Dockerfile
-2026-07-23T16:19:47.3216679Z #1 transferring dockerfile: 150B 0.0s done
-2026-07-23T16:19:47.3217174Z #1 DONE 0.0s
-2026-07-23T16:19:47.3217400Z 
-2026-07-23T16:19:47.3217722Z #2 [internal] load metadata for ghcr.io/appleboy/drone-scp:1.6.14
-2026-07-23T16:19:48.2521669Z #2 DONE 1.1s
-2026-07-23T16:19:48.3906214Z 
-2026-07-23T16:19:48.3910456Z #3 [internal] load .dockerignore
-2026-07-23T16:19:48.3911345Z #3 transferring context: 2B done
-2026-07-23T16:19:48.3912013Z #3 DONE 0.0s
-2026-07-23T16:19:48.3912256Z 
-2026-07-23T16:19:48.3912480Z #4 [internal] load build context
-2026-07-23T16:19:48.3912988Z #4 transferring context: 187B done
-2026-07-23T16:19:48.3913447Z #4 DONE 0.0s
-2026-07-23T16:19:48.3913695Z 
-2026-07-23T16:19:48.3914226Z #5 [1/2] FROM ghcr.io/appleboy/drone-scp:1.6.14@sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818
-2026-07-23T16:19:48.3915299Z #5 resolve ghcr.io/appleboy/drone-scp:1.6.14@sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818 done
-2026-07-23T16:19:48.3916258Z #5 sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818 2.38kB / 2.38kB done
-2026-07-23T16:19:48.3917487Z #5 sha256:b49e06fc857838320ee2682058d609a527fd05056650f6f6387b8a320d25aed5 1.24kB / 1.24kB done
-2026-07-23T16:19:48.3918409Z #5 sha256:6e1933d0a1a550dee7c2be05d0c681372d8661e12dec2bd66f028fd3f2e1eccb 3.65kB / 3.65kB done
-2026-07-23T16:19:48.4004581Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 2.10MB / 3.38MB 0.1s
-2026-07-23T16:19:48.4006393Z #5 sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 0B / 284.84kB 0.1s
-2026-07-23T16:19:48.4007572Z #5 sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 0B / 1.20kB 0.1s
-2026-07-23T16:19:48.5323685Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 3.38MB / 3.38MB 0.1s done
-2026-07-23T16:19:48.5325147Z #5 extracting sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 0.1s done
-2026-07-23T16:19:48.5326051Z #5 sha256:c5ff66ca7e6bad6eb2c1b483c6c580ef147d04552f3bba4b13ac1b05cf474013 125B / 125B 0.2s done
-2026-07-23T16:19:48.5326917Z #5 sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 0B / 2.49MB 0.2s
-2026-07-23T16:19:48.5327944Z #5 extracting sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2
-2026-07-23T16:19:48.6910755Z #5 sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 284.84kB / 284.84kB 0.2s done
-2026-07-23T16:19:48.6911897Z #5 sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 2.49MB / 2.49MB 0.2s done
-2026-07-23T16:19:48.6912827Z #5 extracting sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 0.0s done
-2026-07-23T16:19:48.7912326Z #5 sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 1.20kB / 1.20kB 0.5s
-2026-07-23T16:19:48.9412260Z #5 extracting sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35
-2026-07-23T16:19:49.1750527Z #5 sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 1.20kB / 1.20kB 0.6s done
-2026-07-23T16:19:49.1751836Z #5 extracting sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 done
-2026-07-23T16:19:49.1753053Z #5 extracting sha256:c5ff66ca7e6bad6eb2c1b483c6c580ef147d04552f3bba4b13ac1b05cf474013 done
-2026-07-23T16:19:49.1754219Z #5 extracting sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 0.0s done
-2026-07-23T16:19:49.1755691Z #5 DONE 0.7s
-2026-07-23T16:19:49.1756033Z 
-2026-07-23T16:19:49.1756311Z #6 [2/2] COPY entrypoint.sh /bin/entrypoint.sh
-2026-07-23T16:19:49.1756954Z #6 DONE 0.0s
-2026-07-23T16:19:49.1757233Z 
-2026-07-23T16:19:49.1757444Z #7 exporting to image
-2026-07-23T16:19:49.1757959Z #7 exporting layers
-2026-07-23T16:19:50.0034748Z #7 exporting layers 1.0s done
-2026-07-23T16:19:50.0186957Z #7 writing image sha256:ba1ecf1c52a1ed2fa869eda71703e5d75a6808050c8a96eaa1b1d81d2600abc8 done
-2026-07-23T16:19:50.0188895Z #7 naming to docker.io/library/9b9540:865199fd3e084356bf0926217efc9476 done
-2026-07-23T16:19:50.0189827Z #7 DONE 1.0s
-2026-07-23T16:19:50.0490786Z ##[endgroup]
-2026-07-23T16:19:50.0770387Z ##[group]Run actions/checkout@v5
-2026-07-23T16:19:50.0771199Z with:
-2026-07-23T16:19:50.0771599Z   repository: EXE201-MenuGreen/MenuGreenSystem
-2026-07-23T16:19:50.0774273Z   token: ***
-2026-07-23T16:19:50.0774623Z   ssh-strict: true
-2026-07-23T16:19:50.0774979Z   ssh-user: git
-2026-07-23T16:19:50.0775337Z   persist-credentials: true
-2026-07-23T16:19:50.0775747Z   clean: true
-2026-07-23T16:19:50.0776111Z   sparse-checkout-cone-mode: true
-2026-07-23T16:19:50.0776538Z   fetch-depth: 1
-2026-07-23T16:19:50.0776886Z   fetch-tags: false
-2026-07-23T16:19:50.0777252Z   show-progress: true
-2026-07-23T16:19:50.0777610Z   lfs: false
-2026-07-23T16:19:50.0777936Z   submodules: false
-2026-07-23T16:19:50.0778311Z   set-safe-directory: true
-2026-07-23T16:19:50.0778700Z   allow-unsafe-pr-checkout: false
-2026-07-23T16:19:50.0779490Z env:
-2026-07-23T16:19:50.0779878Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:19:50.0780441Z   DOPPLER_TOKEN: ***
-2026-07-23T16:19:50.0780931Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:19:50.0781317Z ##[endgroup]
-2026-07-23T16:19:50.1791408Z Syncing repository: EXE201-MenuGreen/MenuGreenSystem
-2026-07-23T16:19:50.1793551Z ##[group]Getting Git version info
-2026-07-23T16:19:50.1794157Z Working directory is '/home/runner/work/MenuGreenSystem/MenuGreenSystem'
-2026-07-23T16:19:50.1794974Z [command]/usr/bin/git version
-2026-07-23T16:19:50.1796186Z git version 2.54.0
-2026-07-23T16:19:50.1828628Z ##[endgroup]
-2026-07-23T16:19:50.1834518Z Temporarily overriding HOME='/home/runner/work/_temp/f47ec44f-31c5-4858-8dc0-171820618c88' before making global git config changes
-2026-07-23T16:19:50.1835848Z Adding repository directory to the temporary git global config as a safe directory
-2026-07-23T16:19:50.1838783Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MenuGreenSystem/MenuGreenSystem
-2026-07-23T16:19:50.1885337Z Deleting the contents of '/home/runner/work/MenuGreenSystem/MenuGreenSystem'
-2026-07-23T16:19:50.1891290Z ##[group]Initializing the repository
-2026-07-23T16:19:50.1895994Z [command]/usr/bin/git init /home/runner/work/MenuGreenSystem/MenuGreenSystem
-2026-07-23T16:19:50.1994266Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-07-23T16:19:50.1995747Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-07-23T16:19:50.1996996Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-07-23T16:19:50.1998184Z hint: call:
-2026-07-23T16:19:50.1998714Z hint:
-2026-07-23T16:19:50.1999485Z hint: 	git config --global init.defaultBranch <name>
-2026-07-23T16:19:50.2000147Z hint:
-2026-07-23T16:19:50.2000810Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-07-23T16:19:50.2001791Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-07-23T16:19:50.2002578Z hint:
-2026-07-23T16:19:50.2003066Z hint: 	git branch -m <name>
-2026-07-23T16:19:50.2003609Z hint:
-2026-07-23T16:19:50.2004316Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-07-23T16:19:50.2005468Z Initialized empty Git repository in /home/runner/work/MenuGreenSystem/MenuGreenSystem/.git/
-2026-07-23T16:19:50.2027729Z [command]/usr/bin/git remote add origin https://github.com/EXE201-MenuGreen/MenuGreenSystem
-2026-07-23T16:19:50.2098847Z ##[endgroup]
-2026-07-23T16:19:50.2100010Z ##[group]Disabling automatic garbage collection
-2026-07-23T16:19:50.2103945Z [command]/usr/bin/git config --local gc.auto 0
-2026-07-23T16:19:50.2141798Z ##[endgroup]
-2026-07-23T16:19:50.2142932Z ##[group]Setting up auth
-2026-07-23T16:19:50.2150180Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-07-23T16:19:50.2187549Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-07-23T16:19:50.2544189Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-07-23T16:19:50.2583803Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-07-23T16:19:50.2840306Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-07-23T16:19:50.2878896Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-07-23T16:19:50.3117526Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-07-23T16:19:50.3158470Z ##[endgroup]
-2026-07-23T16:19:50.3159680Z ##[group]Fetching the repository
-2026-07-23T16:19:50.3169250Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +59aa06bfcf4ac692566988c9a0ccf2a4f2412099:refs/remotes/origin/develop
-2026-07-23T16:19:50.8573325Z From https://github.com/EXE201-MenuGreen/MenuGreenSystem
-2026-07-23T16:19:50.8574415Z  * [new ref]         59aa06bfcf4ac692566988c9a0ccf2a4f2412099 -> origin/develop
-2026-07-23T16:19:50.8606413Z ##[endgroup]
-2026-07-23T16:19:50.8607294Z ##[group]Determining the checkout info
-2026-07-23T16:19:50.8610112Z ##[endgroup]
-2026-07-23T16:19:50.8616299Z [command]/usr/bin/git sparse-checkout disable
-2026-07-23T16:19:50.8663921Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-07-23T16:19:50.8696871Z ##[group]Checking out the ref
-2026-07-23T16:19:50.8702615Z [command]/usr/bin/git checkout --progress --force -B develop refs/remotes/origin/develop
-2026-07-23T16:19:50.9511616Z Switched to a new branch 'develop'
-2026-07-23T16:19:50.9513327Z branch 'develop' set up to track 'origin/develop'.
-2026-07-23T16:19:50.9522837Z ##[endgroup]
-2026-07-23T16:19:50.9579847Z [command]/usr/bin/git log -1 --format=%H
-2026-07-23T16:19:50.9608000Z 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:19:50.9807638Z ##[group]Run echo "SHA=59aa06bfcf4ac692566988c9a0ccf2a4f2412099" >> "$GITHUB_ENV"
-2026-07-23T16:19:50.9808390Z [36;1mecho "SHA=59aa06bfcf4ac692566988c9a0ccf2a4f2412099" >> "$GITHUB_ENV"[0m
-2026-07-23T16:19:50.9862170Z shell: /usr/bin/bash -e {0}
-2026-07-23T16:19:50.9862551Z env:
-2026-07-23T16:19:50.9863004Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:19:50.9863593Z   DOPPLER_TOKEN: ***
-2026-07-23T16:19:50.9863984Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:19:50.9864368Z ##[endgroup]
-2026-07-23T16:19:51.0015262Z ##[group]Run echo "=== Initial disk space ==="
-2026-07-23T16:19:51.0015768Z [36;1mecho "=== Initial disk space ==="[0m
-2026-07-23T16:19:51.0016216Z [36;1mdf -h[0m
-2026-07-23T16:19:51.0063933Z shell: /usr/bin/bash -e {0}
-2026-07-23T16:19:51.0064322Z env:
-2026-07-23T16:19:51.0064760Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:19:51.0065343Z   DOPPLER_TOKEN: ***
-2026-07-23T16:19:51.0065746Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:19:51.0066178Z   SHA: 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:19:51.0066606Z ##[endgroup]
-2026-07-23T16:19:51.0135015Z === Initial disk space ===
-2026-07-23T16:19:51.0243806Z Filesystem      Size  Used Avail Use% Mounted on
-2026-07-23T16:19:51.0244371Z /dev/root       145G   57G   89G  39% /
-2026-07-23T16:19:51.0245034Z tmpfs           7.9G   84K  7.9G   1% /dev/shm
-2026-07-23T16:19:51.0245754Z tmpfs           3.2G 1012K  3.2G   1% /run
-2026-07-23T16:19:51.0246438Z tmpfs           5.0M     0  5.0M   0% /run/lock
-2026-07-23T16:19:51.0247255Z efivarfs        128M   32K  128M   1% /sys/firmware/efi/efivars
-2026-07-23T16:19:51.0248229Z /dev/sda16      881M   64M  756M   8% /boot
-2026-07-23T16:19:51.0248795Z /dev/sda15      105M  6.2M   99M   6% /boot/efi
-2026-07-23T16:19:51.0249549Z tmpfs           1.6G   12K  1.6G   1% /run/user/1001
-2026-07-23T16:19:51.0346328Z ##[group]Run appleboy/scp-action@v0.1.7
-2026-07-23T16:19:51.0346765Z with:
-2026-07-23T16:19:51.0347166Z   host: ***
-2026-07-23T16:19:51.0347539Z   username: ***
-2026-07-23T16:19:51.0355012Z   key: ***
-2026-07-23T16:19:51.0355677Z   source: backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf,backend/scripts/deploy-server.sh,docker-compose.prod.yml
-2026-07-23T16:19:51.0356422Z   target: /tmp/nginx-deploy
-2026-07-23T16:19:51.0356795Z   port: 22
-2026-07-23T16:19:51.0357112Z   timeout: 30s
-2026-07-23T16:19:51.0357458Z   command_timeout: 10m
-2026-07-23T16:19:51.0357820Z   use_insecure_cipher: false
-2026-07-23T16:19:51.0358186Z   rm: false
-2026-07-23T16:19:51.0358501Z   debug: false
-2026-07-23T16:19:51.0358836Z   strip_components: 0
-2026-07-23T16:19:51.0359435Z   overwrite: false
-2026-07-23T16:19:51.0359784Z   tar_dereference: false
-2026-07-23T16:19:51.0360142Z   tar_exec: tar
-2026-07-23T16:19:51.0360465Z   proxy_port: 22
-2026-07-23T16:19:51.0360794Z   proxy_timeout: 30s
-2026-07-23T16:19:51.0361186Z   proxy_use_insecure_cipher: false
-2026-07-23T16:19:51.0361582Z env:
-2026-07-23T16:19:51.0361948Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:19:51.0362504Z   DOPPLER_TOKEN: ***
-2026-07-23T16:19:51.0362902Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:19:51.0363322Z   SHA: 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:19:51.0363745Z ##[endgroup]
-2026-07-23T16:19:51.0473455Z ##[command]/usr/bin/docker run --name b9540865199fd3e084356bf0926217efc9476_bfec63 --label 9b9540 --workdir /github/workspace --rm -e "APP_DIR" -e "DOPPLER_TOKEN" -e "IMAGE_NAME" -e "SHA" -e "INPUT_HOST" -e "INPUT_USERNAME" -e "INPUT_KEY" -e "INPUT_SOURCE" -e "INPUT_TARGET" -e "INPUT_PORT" -e "INPUT_PASSWORD" -e "INPUT_TIMEOUT" -e "INPUT_COMMAND_TIMEOUT" -e "INPUT_KEY_PATH" -e "INPUT_PASSPHRASE" -e "INPUT_FINGERPRINT" -e "INPUT_USE_INSECURE_CIPHER" -e "INPUT_RM" -e "INPUT_DEBUG" -e "INPUT_STRIP_COMPONENTS" -e "INPUT_OVERWRITE" -e "INPUT_TAR_DEREFERENCE" -e "INPUT_TAR_TMP_PATH" -e "INPUT_TAR_EXEC" -e "INPUT_PROXY_HOST" -e "INPUT_PROXY_PORT" -e "INPUT_PROXY_USERNAME" -e "INPUT_PROXY_PASSWORD" -e "INPUT_PROXY_PASSPHRASE" -e "INPUT_PROXY_TIMEOUT" -e "INPUT_PROXY_KEY" -e "INPUT_PROXY_KEY_PATH" -e "INPUT_PROXY_FINGERPRINT" -e "INPUT_PROXY_USE_INSECURE_CIPHER" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e "ACTIONS_ORCHESTRATION_ID" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp":"/github/runner_temp" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/MenuGreenSystem/MenuGreenSystem":"/github/workspace" 9b9540:865199fd3e084356bf0926217efc9476
-2026-07-23T16:19:51.2627078Z drone-scp version: v1.6.14
-2026-07-23T16:19:51.2627928Z tar all files into /tmp/yPquNMWYHt.tar.gz
-2026-07-23T16:19:54.1643167Z remote server os type is unix
-2026-07-23T16:19:59.5282848Z scp file to server.
-2026-07-23T16:19:59.5283890Z create folder /tmp/nginx-deploy
-2026-07-23T16:20:02.2755452Z untar file yPquNMWYHt.tar.gz
-2026-07-23T16:20:04.9403239Z remove file yPquNMWYHt.tar.gz
-2026-07-23T16:20:07.5548648Z ===================================================
-2026-07-23T16:20:07.5549913Z ✅ Successfully executed transfer data to all host
-2026-07-23T16:20:07.5550399Z ===================================================
-2026-07-23T16:20:07.6367320Z ##[group]Run appleboy/ssh-action@v1.1.0
-2026-07-23T16:20:07.6367751Z with:
-2026-07-23T16:20:07.6368291Z   host: ***
-2026-07-23T16:20:07.6368810Z   username: ***
-2026-07-23T16:20:07.6376457Z   key: ***
-2026-07-23T16:20:07.6377023Z   port: 22
-2026-07-23T16:20:07.6377663Z   envs: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME,SHA
-2026-07-23T16:20:07.6378324Z   debug: true
-2026-07-23T16:20:07.6379362Z   script: set -e
+2026-07-23T16:27:21.2561674Z Current runner version: '2.336.0'
+2026-07-23T16:27:21.2588686Z ##[group]Runner Image Provisioner
+2026-07-23T16:27:21.2590002Z Hosted Compute Agent
+2026-07-23T16:27:21.2590967Z Version: 20260707.563
+2026-07-23T16:27:21.2591946Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-23T16:27:21.2593293Z Build Date: 2026-07-07T19:33:50Z
+2026-07-23T16:27:21.2594373Z Worker ID: {81c3d6f3-2c37-44f1-a188-91dc2ae8a423}
+2026-07-23T16:27:21.2595484Z Azure Region: westus
+2026-07-23T16:27:21.2596408Z ##[endgroup]
+2026-07-23T16:27:21.2598199Z ##[group]Operating System
+2026-07-23T16:27:21.2599263Z Ubuntu
+2026-07-23T16:27:21.2600138Z 24.04.4
+2026-07-23T16:27:21.2600977Z LTS
+2026-07-23T16:27:21.2601808Z ##[endgroup]
+2026-07-23T16:27:21.2602703Z ##[group]Runner Image
+2026-07-23T16:27:21.2604254Z Image: ***-24.04
+2026-07-23T16:27:21.2605243Z Version: 20260714.240.1
+2026-07-23T16:27:21.2607053Z Included Software: https://github.com/actions/runner-images/blob/***24/20260714.240/images/***/Ubuntu2404-Readme.md
+2026-07-23T16:27:21.2609022Z Image Release: https://github.com/actions/runner-images/releases/tag/***24%2F20260714.240
+2026-07-23T16:27:21.2610452Z ##[endgroup]
+2026-07-23T16:27:21.2612187Z ##[group]GITHUB_TOKEN Permissions
+2026-07-23T16:27:21.2614942Z Contents: read
+2026-07-23T16:27:21.2615969Z Metadata: read
+2026-07-23T16:27:21.2616858Z Packages: read
+2026-07-23T16:27:21.2617994Z ##[endgroup]
+2026-07-23T16:27:21.2620380Z Secret source: Actions
+2026-07-23T16:27:21.2621984Z Prepare workflow directory
+2026-07-23T16:27:21.3201483Z Prepare all required actions
+2026-07-23T16:27:21.3244372Z Getting action download info
+2026-07-23T16:27:21.6748455Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
+2026-07-23T16:27:22.1087061Z Download action repository 'appleboy/scp-action@v0.1.7' (SHA:917f8b81dfc1ccd331fef9e2d61bdc6c8be94634)
+2026-07-23T16:27:22.3584414Z Download action repository 'appleboy/ssh-action@v1.1.0' (SHA:25ce8cbbcb08177468c7ff7ec5cbfa236f9341e1)
+2026-07-23T16:27:22.8324429Z Complete job name: Deploy to Server
+2026-07-23T16:27:22.8939607Z ##[group]Build container for action use: '/home/runner/work/_actions/appleboy/scp-action/v0.1.7/Dockerfile'.
+2026-07-23T16:27:22.8997578Z ##[command]/usr/bin/docker build -t 06e86b:51cdf4a7dae24f639082ae224ce79d4d -f "/home/runner/work/_actions/appleboy/scp-action/v0.1.7/Dockerfile" "/home/runner/work/_actions/appleboy/scp-action/v0.1.7"
+2026-07-23T16:27:23.4648023Z #0 building with "default" instance using docker driver
+2026-07-23T16:27:23.4648984Z 
+2026-07-23T16:27:23.4649643Z #1 [internal] load build definition from Dockerfile
+2026-07-23T16:27:23.4651059Z #1 transferring dockerfile: 150B done
+2026-07-23T16:27:23.4652351Z #1 DONE 0.0s
+2026-07-23T16:27:23.4653222Z 
+2026-07-23T16:27:23.4653970Z #2 [internal] load metadata for ghcr.io/appleboy/drone-scp:1.6.14
+2026-07-23T16:27:24.1316036Z #2 DONE 0.8s
+2026-07-23T16:27:24.2529495Z 
+2026-07-23T16:27:24.2529974Z #3 [internal] load .dockerignore
+2026-07-23T16:27:24.2530744Z #3 transferring context: 2B done
+2026-07-23T16:27:24.2531529Z #3 DONE 0.0s
+2026-07-23T16:27:24.2531889Z 
+2026-07-23T16:27:24.2532217Z #4 [internal] load build context
+2026-07-23T16:27:24.2533247Z #4 transferring context: 187B done
+2026-07-23T16:27:24.2533929Z #4 DONE 0.0s
+2026-07-23T16:27:24.2534146Z 
+2026-07-23T16:27:24.2534821Z #5 [1/2] FROM ghcr.io/appleboy/drone-scp:1.6.14@sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818
+2026-07-23T16:27:24.2536428Z #5 resolve ghcr.io/appleboy/drone-scp:1.6.14@sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818 done
+2026-07-23T16:27:24.2537341Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 0B / 3.38MB 0.1s
+2026-07-23T16:27:24.2538152Z #5 sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 0B / 284.84kB 0.1s
+2026-07-23T16:27:24.2538966Z #5 sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 0B / 1.20kB 0.1s
+2026-07-23T16:27:24.2539797Z #5 sha256:0e0597678b948b0aa09888c66ac75af904cce81baf6af955208527d259c61818 2.38kB / 2.38kB done
+2026-07-23T16:27:24.2540913Z #5 sha256:b49e06fc857838320ee2682058d609a527fd05056650f6f6387b8a320d25aed5 1.24kB / 1.24kB done
+2026-07-23T16:27:24.2541731Z #5 sha256:6e1933d0a1a550dee7c2be05d0c681372d8661e12dec2bd66f028fd3f2e1eccb 3.65kB / 3.65kB done
+2026-07-23T16:27:24.3886621Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 3.38MB / 3.38MB 0.1s done
+2026-07-23T16:27:24.3889297Z #5 sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 284.84kB / 284.84kB 0.2s done
+2026-07-23T16:27:24.3891805Z #5 sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 1.20kB / 1.20kB 0.2s done
+2026-07-23T16:27:24.3893933Z #5 extracting sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 0.1s done
+2026-07-23T16:27:24.3895508Z #5 sha256:c5ff66ca7e6bad6eb2c1b483c6c580ef147d04552f3bba4b13ac1b05cf474013 0B / 125B 0.2s
+2026-07-23T16:27:24.3897171Z #5 sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 0B / 2.49MB 0.2s
+2026-07-23T16:27:24.3898688Z #5 extracting sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2
+2026-07-23T16:27:24.5527380Z #5 sha256:c5ff66ca7e6bad6eb2c1b483c6c580ef147d04552f3bba4b13ac1b05cf474013 125B / 125B 0.2s done
+2026-07-23T16:27:24.5529201Z #5 sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 2.49MB / 2.49MB 0.4s done
+2026-07-23T16:27:24.5530673Z #5 extracting sha256:57fce42a8fe3138af514e9b1be611ec437fe87def8a6946cad1d6b7608188ce2 0.0s done
+2026-07-23T16:27:24.7159359Z #5 extracting sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35
+2026-07-23T16:27:24.8203293Z #5 extracting sha256:a7e706a435c2a53ff172ba5b50e2a06c2eaf63d2f764bdaabcca52d378beeb35 done
+2026-07-23T16:27:24.8205389Z #5 extracting sha256:c5ff66ca7e6bad6eb2c1b483c6c580ef147d04552f3bba4b13ac1b05cf474013 done
+2026-07-23T16:27:24.8207290Z #5 extracting sha256:103b78775db928290fb85c370d3e47361a507a82b3b7c69c628783e018a9ffb8 0.0s done
+2026-07-23T16:27:24.8208682Z #5 DONE 0.7s
+2026-07-23T16:27:24.9844930Z 
+2026-07-23T16:27:24.9845459Z #6 [2/2] COPY entrypoint.sh /bin/entrypoint.sh
+2026-07-23T16:27:24.9846328Z #6 DONE 0.0s
+2026-07-23T16:27:24.9846676Z 
+2026-07-23T16:27:24.9846943Z #7 exporting to image
+2026-07-23T16:27:24.9847572Z #7 exporting layers
+2026-07-23T16:27:25.0056720Z #7 exporting layers 0.2s done
+2026-07-23T16:27:25.0300738Z #7 writing image sha256:6d0119789e7b074f916d58f410ea69f141c20b7a7957cc45e5093bef49ccaf60 done
+2026-07-23T16:27:25.0301933Z #7 naming to docker.io/library/06e86b:51cdf4a7dae24f639082ae224ce79d4d done
+2026-07-23T16:27:25.0302588Z #7 DONE 0.2s
+2026-07-23T16:27:25.0372229Z ##[endgroup]
+2026-07-23T16:27:25.0681401Z ##[group]Run actions/checkout@v5
+2026-07-23T16:27:25.0682093Z with:
+2026-07-23T16:27:25.0682461Z   repository: EXE201-MenuGreen/MenuGreenSystem
+2026-07-23T16:27:25.0685249Z   token: ***
+2026-07-23T16:27:25.0685574Z   ssh-strict: true
+2026-07-23T16:27:25.0685885Z   ssh-user: git
+2026-07-23T16:27:25.0686215Z   persist-credentials: true
+2026-07-23T16:27:25.0686568Z   clean: true
+2026-07-23T16:27:25.0686882Z   sparse-checkout-cone-mode: true
+2026-07-23T16:27:25.0687255Z   fetch-depth: 1
+2026-07-23T16:27:25.0687552Z   fetch-tags: false
+2026-07-23T16:27:25.0687863Z   show-progress: true
+2026-07-23T16:27:25.0688174Z   lfs: false
+2026-07-23T16:27:25.0688464Z   submodules: false
+2026-07-23T16:27:25.0688780Z   set-safe-directory: true
+2026-07-23T16:27:25.0689129Z   allow-unsafe-pr-checkout: false
+2026-07-23T16:27:25.0689750Z env:
+2026-07-23T16:27:25.0690100Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:25.0690634Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:25.0691060Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:25.0691418Z ##[endgroup]
+2026-07-23T16:27:25.1693706Z Syncing repository: EXE201-MenuGreen/MenuGreenSystem
+2026-07-23T16:27:25.1695697Z ##[group]Getting Git version info
+2026-07-23T16:27:25.1696300Z Working directory is '/home/runner/work/MenuGreenSystem/MenuGreenSystem'
+2026-07-23T16:27:25.1697164Z [command]/usr/bin/git version
+2026-07-23T16:27:25.1697868Z git version 2.54.0
+2026-07-23T16:27:25.1709825Z ##[endgroup]
+2026-07-23T16:27:25.1725937Z Temporarily overriding HOME='/home/runner/work/_temp/d0432efe-8c40-4136-a465-0146b8d734c0' before making global git config changes
+2026-07-23T16:27:25.1727567Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-23T16:27:25.1731545Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MenuGreenSystem/MenuGreenSystem
+2026-07-23T16:27:25.1781086Z Deleting the contents of '/home/runner/work/MenuGreenSystem/MenuGreenSystem'
+2026-07-23T16:27:25.1785550Z ##[group]Initializing the repository
+2026-07-23T16:27:25.1790662Z [command]/usr/bin/git init /home/runner/work/MenuGreenSystem/MenuGreenSystem
+2026-07-23T16:27:25.1916639Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-07-23T16:27:25.1917429Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-07-23T16:27:25.1918187Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-07-23T16:27:25.1918764Z hint: call:
+2026-07-23T16:27:25.1919081Z hint:
+2026-07-23T16:27:25.1919534Z hint: 	git config --global init.defaultBranch <name>
+2026-07-23T16:27:25.1920012Z hint:
+2026-07-23T16:27:25.1920465Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-07-23T16:27:25.1921188Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-07-23T16:27:25.1921730Z hint:
+2026-07-23T16:27:25.1922058Z hint: 	git branch -m <name>
+2026-07-23T16:27:25.1922422Z hint:
+2026-07-23T16:27:25.1923289Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-23T16:27:25.1932041Z Initialized empty Git repository in /home/runner/work/MenuGreenSystem/MenuGreenSystem/.git/
+2026-07-23T16:27:25.1942435Z [command]/usr/bin/git remote add origin https://github.com/EXE201-MenuGreen/MenuGreenSystem
+2026-07-23T16:27:25.1990039Z ##[endgroup]
+2026-07-23T16:27:25.1991053Z ##[group]Disabling automatic garbage collection
+2026-07-23T16:27:25.1994865Z [command]/usr/bin/git config --local gc.auto 0
+2026-07-23T16:27:25.2026763Z ##[endgroup]
+2026-07-23T16:27:25.2027606Z ##[group]Setting up auth
+2026-07-23T16:27:25.2035335Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-23T16:27:25.2072594Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-23T16:27:25.2459927Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-23T16:27:25.2504079Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-23T16:27:25.2753229Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-23T16:27:25.2791745Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-23T16:27:25.3023359Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-07-23T16:27:25.3064417Z ##[endgroup]
+2026-07-23T16:27:25.3065270Z ##[group]Fetching the repository
+2026-07-23T16:27:25.3074063Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +3b0a5f5eee87f2392106b12f89d81c8abf4983ce:refs/remotes/origin/develop
+2026-07-23T16:27:26.2454840Z From https://github.com/EXE201-MenuGreen/MenuGreenSystem
+2026-07-23T16:27:26.2455786Z  * [new ref]         3b0a5f5eee87f2392106b12f89d81c8abf4983ce -> origin/develop
+2026-07-23T16:27:26.2493206Z ##[endgroup]
+2026-07-23T16:27:26.2494075Z ##[group]Determining the checkout info
+2026-07-23T16:27:26.2495884Z ##[endgroup]
+2026-07-23T16:27:26.2502272Z [command]/usr/bin/git sparse-checkout disable
+2026-07-23T16:27:26.2548919Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-23T16:27:26.2580828Z ##[group]Checking out the ref
+2026-07-23T16:27:26.2585779Z [command]/usr/bin/git checkout --progress --force -B develop refs/remotes/origin/develop
+2026-07-23T16:27:26.3402164Z Switched to a new branch 'develop'
+2026-07-23T16:27:26.3403484Z branch 'develop' set up to track 'origin/develop'.
+2026-07-23T16:27:26.3413740Z ##[endgroup]
+2026-07-23T16:27:26.3461278Z [command]/usr/bin/git log -1 --format=%H
+2026-07-23T16:27:26.3492207Z 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:26.3687324Z ##[group]Run echo "SHA=3b0a5f5eee87f2392106b12f89d81c8abf4983ce" >> "$GITHUB_ENV"
+2026-07-23T16:27:26.3688058Z [36;1mecho "SHA=3b0a5f5eee87f2392106b12f89d81c8abf4983ce" >> "$GITHUB_ENV"[0m
+2026-07-23T16:27:26.3767263Z shell: /usr/bin/bash -e {0}
+2026-07-23T16:27:26.3767648Z env:
+2026-07-23T16:27:26.3768085Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:26.3768637Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:26.3769020Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:26.3769380Z ##[endgroup]
+2026-07-23T16:27:26.3926916Z ##[group]Run echo "=== Initial disk space ==="
+2026-07-23T16:27:26.3927398Z [36;1mecho "=== Initial disk space ==="[0m
+2026-07-23T16:27:26.3927783Z [36;1mdf -h[0m
+2026-07-23T16:27:26.3981273Z shell: /usr/bin/bash -e {0}
+2026-07-23T16:27:26.3981616Z env:
+2026-07-23T16:27:26.3982010Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:26.3982527Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:26.3983198Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:26.3983591Z   SHA: 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:26.3983979Z ##[endgroup]
+2026-07-23T16:27:26.4058044Z === Initial disk space ===
+2026-07-23T16:27:26.4161755Z Filesystem      Size  Used Avail Use% Mounted on
+2026-07-23T16:27:26.4162290Z /dev/root       145G   58G   88G  40% /
+2026-07-23T16:27:26.4163235Z tmpfs           7.9G   84K  7.9G   1% /dev/shm
+2026-07-23T16:27:26.4164085Z tmpfs           3.2G 1012K  3.2G   1% /run
+2026-07-23T16:27:26.4164883Z tmpfs           5.0M     0  5.0M   0% /run/lock
+2026-07-23T16:27:26.4165953Z efivarfs        128M   32K  128M   1% /sys/firmware/efi/efivars
+2026-07-23T16:27:26.4166635Z /dev/sda16      881M   64M  756M   8% /boot
+2026-07-23T16:27:26.4167122Z /dev/sda15      105M  6.2M   99M   6% /boot/efi
+2026-07-23T16:27:26.4167613Z tmpfs           1.6G   12K  1.6G   1% /run/user/1001
+2026-07-23T16:27:26.4265623Z ##[group]Run appleboy/scp-action@v0.1.7
+2026-07-23T16:27:26.4266043Z with:
+2026-07-23T16:27:26.4266408Z   host: ***
+2026-07-23T16:27:26.4266717Z   username: ***
+2026-07-23T16:27:26.4274189Z   key: ***
+2026-07-23T16:27:26.4274838Z   source: backend/nginx/nginx.conf,backend/nginx/conf.d/cors-map.conf,backend/scripts/deploy-server.sh,docker-compose.prod.yml
+2026-07-23T16:27:26.4275550Z   target: /tmp/nginx-deploy
+2026-07-23T16:27:26.4275880Z   port: 22
+2026-07-23T16:27:26.4276160Z   timeout: 30s
+2026-07-23T16:27:26.4276464Z   command_timeout: 10m
+2026-07-23T16:27:26.4276794Z   use_insecure_cipher: false
+2026-07-23T16:27:26.4277118Z   rm: false
+2026-07-23T16:27:26.4277381Z   debug: false
+2026-07-23T16:27:26.4277665Z   strip_components: 0
+2026-07-23T16:27:26.4277971Z   overwrite: false
+2026-07-23T16:27:26.4278265Z   tar_dereference: false
+2026-07-23T16:27:26.4278572Z   tar_exec: tar
+2026-07-23T16:27:26.4278856Z   proxy_port: 22
+2026-07-23T16:27:26.4279146Z   proxy_timeout: 30s
+2026-07-23T16:27:26.4279493Z   proxy_use_insecure_cipher: false
+2026-07-23T16:27:26.4279844Z env:
+2026-07-23T16:27:26.4280154Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:26.4280649Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:26.4281004Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:26.4281376Z   SHA: 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:26.4281751Z ##[endgroup]
+2026-07-23T16:27:26.4394595Z ##[command]/usr/bin/docker run --name e86b51cdf4a7dae24f639082ae224ce79d4d_c82f8c --label 06e86b --workdir /github/workspace --rm -e "APP_DIR" -e "DOPPLER_TOKEN" -e "IMAGE_NAME" -e "SHA" -e "INPUT_HOST" -e "INPUT_USERNAME" -e "INPUT_KEY" -e "INPUT_SOURCE" -e "INPUT_TARGET" -e "INPUT_PORT" -e "INPUT_PASSWORD" -e "INPUT_TIMEOUT" -e "INPUT_COMMAND_TIMEOUT" -e "INPUT_KEY_PATH" -e "INPUT_PASSPHRASE" -e "INPUT_FINGERPRINT" -e "INPUT_USE_INSECURE_CIPHER" -e "INPUT_RM" -e "INPUT_DEBUG" -e "INPUT_STRIP_COMPONENTS" -e "INPUT_OVERWRITE" -e "INPUT_TAR_DEREFERENCE" -e "INPUT_TAR_TMP_PATH" -e "INPUT_TAR_EXEC" -e "INPUT_PROXY_HOST" -e "INPUT_PROXY_PORT" -e "INPUT_PROXY_USERNAME" -e "INPUT_PROXY_PASSWORD" -e "INPUT_PROXY_PASSPHRASE" -e "INPUT_PROXY_TIMEOUT" -e "INPUT_PROXY_KEY" -e "INPUT_PROXY_KEY_PATH" -e "INPUT_PROXY_FINGERPRINT" -e "INPUT_PROXY_USE_INSECURE_CIPHER" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "GITHUB_ARTIFACTS" -e "GITHUB_ARTIFACTS_LIST" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e "ACTIONS_ORCHESTRATION_ID" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp":"/github/runner_temp" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/MenuGreenSystem/MenuGreenSystem":"/github/workspace" 06e86b:51cdf4a7dae24f639082ae224ce79d4d
+2026-07-23T16:27:26.6729624Z drone-scp version: v1.6.14
+2026-07-23T16:27:26.6730578Z tar all files into /tmp/WTodRKnLoi.tar.gz
+2026-07-23T16:27:29.0104396Z remote server os type is unix
+2026-07-23T16:27:29.0106012Z scp file to server.
+2026-07-23T16:27:33.0463609Z create folder /tmp/nginx-deploy
+2026-07-23T16:27:34.9826856Z untar file WTodRKnLoi.tar.gz
+2026-07-23T16:27:36.9139404Z remove file WTodRKnLoi.tar.gz
+2026-07-23T16:27:38.8492525Z ===================================================
+2026-07-23T16:27:38.8494034Z ✅ Successfully executed transfer data to all host
+2026-07-23T16:27:38.8494764Z ===================================================
+2026-07-23T16:27:38.9458309Z ##[group]Run appleboy/ssh-action@v1.1.0
+2026-07-23T16:27:38.9458743Z with:
+2026-07-23T16:27:38.9459263Z   host: ***
+2026-07-23T16:27:38.9459602Z   username: ***
+2026-07-23T16:27:38.9467085Z   key: ***
+2026-07-23T16:27:38.9467407Z   port: 22
+2026-07-23T16:27:38.9467732Z   envs: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME,SHA
+2026-07-23T16:27:38.9468125Z   debug: true
+2026-07-23T16:27:38.9468749Z   script: set -e
 chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
 /tmp/nginx-deploy/backend/scripts/deploy-server.sh
 
-2026-07-23T16:20:07.6393346Z   protocol: tcp
-2026-07-23T16:20:07.6393740Z   timeout: 30s
-2026-07-23T16:20:07.6394069Z   command_timeout: 10m
-2026-07-23T16:20:07.6394411Z   proxy_port: 22
-2026-07-23T16:20:07.6394729Z   proxy_timeout: 30s
-2026-07-23T16:20:07.6395053Z env:
-2026-07-23T16:20:07.6395418Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:20:07.6395957Z   DOPPLER_TOKEN: ***
-2026-07-23T16:20:07.6396324Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:20:07.6396761Z   SHA: 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:20:07.6397180Z ##[endgroup]
-2026-07-23T16:20:07.6464963Z ##[start-action display=Set GitHub Path;id=__appleboy_ssh-action.__run]
-2026-07-23T16:20:07.6489572Z ##[group]Run echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
-2026-07-23T16:20:07.6490085Z [36;1mecho "$GITHUB_ACTION_PATH" >> $GITHUB_PATH[0m
-2026-07-23T16:20:07.6537014Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-07-23T16:20:07.6537486Z env:
-2026-07-23T16:20:07.6537853Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:20:07.6538407Z   DOPPLER_TOKEN: ***
-2026-07-23T16:20:07.6538803Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:20:07.6539384Z   SHA: 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:20:07.6539948Z   GITHUB_ACTION_PATH: /home/runner/work/_actions/appleboy/ssh-action/v1.1.0
-2026-07-23T16:20:07.6540458Z ##[endgroup]
-2026-07-23T16:20:07.6617219Z ##[end-action id=__appleboy_ssh-action.__run;outcome=success;conclusion=success;duration_ms=15]
-2026-07-23T16:20:07.6625386Z ##[start-action display=Run entrypoint.sh;id=__appleboy_ssh-action.__run_2]
-2026-07-23T16:20:07.6641298Z ##[group]Run entrypoint.sh
-2026-07-23T16:20:07.6641682Z [36;1mentrypoint.sh[0m
-2026-07-23T16:20:07.6685716Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-07-23T16:20:07.6686192Z env:
-2026-07-23T16:20:07.6686565Z   APP_DIR: /home/***/apps/menugreen
-2026-07-23T16:20:07.6687110Z   DOPPLER_TOKEN: ***
-2026-07-23T16:20:07.6687483Z   IMAGE_NAME: ***/menugreensystem
-2026-07-23T16:20:07.6687894Z   SHA: 59aa06bfcf4ac692566988c9a0ccf2a4f2412099
-2026-07-23T16:20:07.6688445Z   GITHUB_ACTION_PATH: /home/runner/work/_actions/appleboy/ssh-action/v1.1.0
-2026-07-23T16:20:07.6688966Z   INPUT_HOST: ***
-2026-07-23T16:20:07.6689513Z   INPUT_PORT: 22
-2026-07-23T16:20:07.6689837Z   INPUT_PROTOCOL: tcp
-2026-07-23T16:20:07.6690192Z   INPUT_USERNAME: ***
-2026-07-23T16:20:07.6690510Z   INPUT_PASSWORD: 
-2026-07-23T16:20:07.6690830Z   INPUT_PASSPHRASE: 
-2026-07-23T16:20:07.6697759Z   INPUT_KEY: ***
-2026-07-23T16:20:07.6698104Z   INPUT_KEY_PATH: 
-2026-07-23T16:20:07.6698423Z   INPUT_FINGERPRINT: 
-2026-07-23T16:20:07.6698751Z   INPUT_PROXY_HOST: 
-2026-07-23T16:20:07.6699237Z   INPUT_PROXY_PORT: 22
-2026-07-23T16:20:07.6699575Z   INPUT_PROXY_USERNAME: 
-2026-07-23T16:20:07.6699915Z   INPUT_PROXY_PASSWORD: 
-2026-07-23T16:20:07.6700246Z   INPUT_PROXY_PASSPHRASE: 
-2026-07-23T16:20:07.6700585Z   INPUT_PROXY_KEY: 
-2026-07-23T16:20:07.6700906Z   INPUT_PROXY_KEY_PATH: 
-2026-07-23T16:20:07.6701256Z   INPUT_PROXY_FINGERPRINT: 
-2026-07-23T16:20:07.6701605Z   INPUT_TIMEOUT: 30s
-2026-07-23T16:20:07.6701931Z   INPUT_PROXY_TIMEOUT: 30s
-2026-07-23T16:20:07.6702278Z   INPUT_COMMAND_TIMEOUT: 10m
-2026-07-23T16:20:07.6703056Z   INPUT_SCRIPT: set -e
+2026-07-23T16:27:38.9469436Z   protocol: tcp
+2026-07-23T16:27:38.9469754Z   timeout: 30s
+2026-07-23T16:27:38.9470056Z   command_timeout: 10m
+2026-07-23T16:27:38.9470381Z   proxy_port: 22
+2026-07-23T16:27:38.9470679Z   proxy_timeout: 30s
+2026-07-23T16:27:38.9470992Z env:
+2026-07-23T16:27:38.9471323Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:38.9471853Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:38.9472221Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:38.9472662Z   SHA: 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:38.9473210Z ##[endgroup]
+2026-07-23T16:27:38.9531023Z ##[start-action display=Set GitHub Path;id=__appleboy_ssh-action.__run]
+2026-07-23T16:27:38.9556541Z ##[group]Run echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+2026-07-23T16:27:38.9557032Z [36;1mecho "$GITHUB_ACTION_PATH" >> $GITHUB_PATH[0m
+2026-07-23T16:27:38.9616352Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T16:27:38.9616801Z env:
+2026-07-23T16:27:38.9617134Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:38.9617647Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:38.9618016Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:38.9618405Z   SHA: 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:38.9618920Z   GITHUB_ACTION_PATH: /home/runner/work/_actions/appleboy/ssh-action/v1.1.0
+2026-07-23T16:27:38.9619411Z ##[endgroup]
+2026-07-23T16:27:38.9706632Z ##[end-action id=__appleboy_ssh-action.__run;outcome=success;conclusion=success;duration_ms=17]
+2026-07-23T16:27:38.9715411Z ##[start-action display=Run entrypoint.sh;id=__appleboy_ssh-action.__run_2]
+2026-07-23T16:27:38.9731888Z ##[group]Run entrypoint.sh
+2026-07-23T16:27:38.9732243Z [36;1mentrypoint.sh[0m
+2026-07-23T16:27:38.9785814Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T16:27:38.9786272Z env:
+2026-07-23T16:27:38.9786627Z   APP_DIR: /home/***/apps/menugreen
+2026-07-23T16:27:38.9787148Z   DOPPLER_TOKEN: ***
+2026-07-23T16:27:38.9787508Z   IMAGE_NAME: ***/menugreensystem
+2026-07-23T16:27:38.9787892Z   SHA: 3b0a5f5eee87f2392106b12f89d81c8abf4983ce
+2026-07-23T16:27:38.9788430Z   GITHUB_ACTION_PATH: /home/runner/work/_actions/appleboy/ssh-action/v1.1.0
+2026-07-23T16:27:38.9788943Z   INPUT_HOST: ***
+2026-07-23T16:27:38.9789245Z   INPUT_PORT: 22
+2026-07-23T16:27:38.9789550Z   INPUT_PROTOCOL: tcp
+2026-07-23T16:27:38.9789875Z   INPUT_USERNAME: ***
+2026-07-23T16:27:38.9790186Z   INPUT_PASSWORD: 
+2026-07-23T16:27:38.9790485Z   INPUT_PASSPHRASE: 
+2026-07-23T16:27:38.9797842Z   INPUT_KEY: ***
+2026-07-23T16:27:38.9798189Z   INPUT_KEY_PATH: 
+2026-07-23T16:27:38.9798519Z   INPUT_FINGERPRINT: 
+2026-07-23T16:27:38.9798839Z   INPUT_PROXY_HOST: 
+2026-07-23T16:27:38.9799184Z   INPUT_PROXY_PORT: 22
+2026-07-23T16:27:38.9799499Z   INPUT_PROXY_USERNAME: 
+2026-07-23T16:27:38.9799824Z   INPUT_PROXY_PASSWORD: 
+2026-07-23T16:27:38.9800151Z   INPUT_PROXY_PASSPHRASE: 
+2026-07-23T16:27:38.9800467Z   INPUT_PROXY_KEY: 
+2026-07-23T16:27:38.9800771Z   INPUT_PROXY_KEY_PATH: 
+2026-07-23T16:27:38.9801089Z   INPUT_PROXY_FINGERPRINT: 
+2026-07-23T16:27:38.9801413Z   INPUT_TIMEOUT: 30s
+2026-07-23T16:27:38.9801722Z   INPUT_PROXY_TIMEOUT: 30s
+2026-07-23T16:27:38.9802049Z   INPUT_COMMAND_TIMEOUT: 10m
+2026-07-23T16:27:38.9802941Z   INPUT_SCRIPT: set -e
 chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
 /tmp/nginx-deploy/backend/scripts/deploy-server.sh
 
-2026-07-23T16:20:07.6703763Z   INPUT_SCRIPT_STOP: 
-2026-07-23T16:20:07.6704132Z   INPUT_ENVS: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME,SHA
-2026-07-23T16:20:07.6704805Z   INPUT_ENVS_FORMAT: 
-2026-07-23T16:20:07.6705128Z   INPUT_DEBUG: true
-2026-07-23T16:20:07.6705451Z   INPUT_ALL_ENVS: 
-2026-07-23T16:20:07.6705766Z   INPUT_REQUEST_PTY: 
-2026-07-23T16:20:07.6706096Z   INPUT_USE_INSECURE_CIPHER: 
-2026-07-23T16:20:07.6706445Z   INPUT_CIPHER: 
-2026-07-23T16:20:07.6706765Z   INPUT_PROXY_USE_INSECURE_CIPHER: 
-2026-07-23T16:20:07.6707137Z   INPUT_PROXY_CIPHER: 
-2026-07-23T16:20:07.6707485Z   INPUT_SYNC: 
-2026-07-23T16:20:07.6707797Z ##[endgroup]
-2026-07-23T16:20:07.6830522Z Will download drone-ssh-1.7.7-linux-amd64 from https://github.com/appleboy/drone-ssh/releases/download/v1.7.7
-2026-07-23T16:20:07.8884243Z ======= CLI Version =======
-2026-07-23T16:20:07.8912459Z Drone SSH version 1.7.7
-2026-07-23T16:20:07.8917306Z ===========================
-2026-07-23T16:20:07.8946650Z ======CMD======
-2026-07-23T16:20:07.8947176Z set -e
-2026-07-23T16:20:07.8947782Z chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
-2026-07-23T16:20:07.8948530Z /tmp/nginx-deploy/backend/scripts/deploy-server.sh
-2026-07-23T16:20:07.8949941Z 
-2026-07-23T16:20:07.8950094Z ======END======
-2026-07-23T16:20:07.8950405Z ======ENV======
-2026-07-23T16:20:07.8951012Z export DOPPLER_TOKEN='***'
-2026-07-23T16:20:07.8951697Z export APP_DIR='/home/***/apps/menugreen'
-2026-07-23T16:20:07.8952174Z export IMAGE_NAME='***/menugreensystem'
-2026-07-23T16:20:07.8952614Z export SHA='59aa06bfcf4ac692566988c9a0ccf2a4f2412099'
-2026-07-23T16:20:07.8953049Z ======END======
-2026-07-23T16:20:10.4876546Z out: === [0a] Ensure self-signed cert exists ===
-2026-07-23T16:20:10.4975140Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.0248973Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.0405825Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.0469513Z out:   ✓ Generated self-signed cert
-2026-07-23T16:20:11.0485959Z out: === [0/10] Apply nginx config from git ===
-2026-07-23T16:20:11.0501854Z out:   Found nginx.conf at: /tmp/nginx-deploy/backend/nginx/nginx.conf
-2026-07-23T16:20:11.0502952Z out:   Found cors-map.conf at: /tmp/nginx-deploy/backend/nginx/conf.d/cors-map.conf
-2026-07-23T16:20:11.0604810Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.0772841Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.0940840Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.1097919Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.1276909Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.2680598Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.2681553Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.2682139Z out: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:11.2682750Z out: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-2026-07-23T16:20:11.2683326Z out: nginx: configuration file /etc/nginx/nginx.conf test is successful
-2026-07-23T16:20:11.2684173Z out:   ✓ Nginx config applied and reloaded
-2026-07-23T16:20:11.2684615Z out: === Cleanup disk space - Before ===
-2026-07-23T16:20:11.5151968Z out: Deleted Images:
-2026-07-23T16:20:11.5152753Z out: untagged: ***/menugreensystem:main
-2026-07-23T16:20:11.5153193Z out: untagged: menugreen_api:latest
-2026-07-23T16:20:11.5153748Z out: deleted: sha256:2d18447df21556f4d453d284878f18b717a449f2c9f3836d5a94f5981a015d5d
-2026-07-23T16:20:11.5253935Z out: Total reclaimed space: 33.26MB
-2026-07-23T16:20:11.5307229Z out: === Disk space after cleanup ===
-2026-07-23T16:20:11.5339626Z out: Filesystem       Size  Used Avail Use% Mounted on
-2026-07-23T16:20:11.5340348Z out: /dev/root         58G  7.4G   51G  13% /
-2026-07-23T16:20:11.5340907Z out: tmpfs            956M     0  956M   0% /dev/shm
-2026-07-23T16:20:11.5341890Z out: tmpfs            383M  1.2M  381M   1% /run
-2026-07-23T16:20:11.5342595Z out: tmpfs            5.0M     0  5.0M   0% /run/lock
-2026-07-23T16:20:11.5343353Z out: efivarfs         128K  3.1K  120K   3% /sys/firmware/efi/efivars
-2026-07-23T16:20:11.5344149Z out: /dev/nvme0n1p15  105M  6.1M   99M   6% /boot/efi
-2026-07-23T16:20:11.5344609Z out: tmpfs            192M  4.0K  192M   1% /run/user/1000
-2026-07-23T16:20:11.5345086Z out: === Locate SCP'd docker-compose.prod.yml ===
-2026-07-23T16:20:11.5345655Z out:   Found docker-compose.prod.yml at: /tmp/nginx-deploy/docker-compose.prod.yml
-2026-07-23T16:20:11.5371091Z out: === docker-compose.prod.yml installed ===
-2026-07-23T16:20:11.5627066Z out: === Install Doppler CLI ===
-2026-07-23T16:20:12.5788268Z out: === Download secrets from Doppler ===
-2026-07-23T16:20:13.2751941Z out: === Materialize Firebase credentials JSON ===
-2026-07-23T16:20:13.6836867Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7004474Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7169926Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7328646Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7496441Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7927351Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:13.7992559Z out:   ✓ Firebase credentials materialized (root:root, mode 600, valid JSON, real-PEM private_key)
-2026-07-23T16:20:14.0064099Z out: === .env file created ===
-2026-07-23T16:20:14.0229517Z out: === Starting database backup ===
-2026-07-23T16:20:14.4170711Z out: Backup saved to: /tmp/menugreen_backup_20260723_162013.sql
-2026-07-23T16:20:14.4216938Z out: === Save previous image locally for rollback ===
-2026-07-23T16:20:14.4617766Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:14.4928451Z err: Error response from daemon: No such image: menugreen_api:latest
-2026-07-23T16:20:14.4966227Z out:   ! Could not tag previous image (non-fatal)
-2026-07-23T16:20:14.4967235Z out:   ✓ Saved rollback image as menugreen_api:rollback-local-1784823614
-2026-07-23T16:20:14.4967756Z out: === Pull latest image ===
-2026-07-23T16:20:18.5997059Z out: acbb93984b2d: Download complete
-2026-07-23T16:20:18.5997748Z out: acbb93984b2d: Pull complete
-2026-07-23T16:20:18.5998312Z out: Digest: sha256:2d18447df21556f4d453d284878f18b717a449f2c9f3836d5a94f5981a015d5d
-2026-07-23T16:20:18.5999466Z out: Status: Downloaded newer image for ***/menugreensystem:main
-2026-07-23T16:20:18.6000197Z out: docker.io/***/menugreensystem:main
-2026-07-23T16:20:18.6000616Z out: === Tag image for local use ===
-2026-07-23T16:20:18.6102292Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:20:18.6609401Z out: === Check / Seed EF Migration History ===
-2026-07-23T16:20:18.6866032Z out: === Stop and remove all existing containers ===
-2026-07-23T16:20:19.0909619Z out: === Start API container ===
-2026-07-23T16:20:19.2112701Z err:  Image docker.io/***/menugreensystem:latest Pulling 
-2026-07-23T16:20:23.1277294Z err:  c769f77ccaf8 Pulling fs layer 0B
-2026-07-23T16:20:23.1277799Z err:  d808405073ee Pulling fs layer 0B
-2026-07-23T16:20:23.1281420Z err:  4f4fb700ef54 Pulling fs layer 0B
-2026-07-23T16:20:23.1545820Z err:  4f4fb700ef54 Already exists 0B
-2026-07-23T16:20:25.1553093Z err:  c769f77ccaf8 Downloading 1.049MB
-2026-07-23T16:20:25.2541672Z err:  c769f77ccaf8 Downloading 1.049MB
-2026-07-23T16:20:25.3537038Z err:  c769f77ccaf8 Downloading 1.049MB
-2026-07-23T16:20:25.4540339Z err:  c769f77ccaf8 Downloading 3.146MB
-2026-07-23T16:20:25.4540833Z err:  d808405073ee Downloading 1.049MB
-2026-07-23T16:20:25.5542022Z err:  c769f77ccaf8 Downloading 3.146MB
-2026-07-23T16:20:25.5542546Z err:  d808405073ee Downloading 1.049MB
-2026-07-23T16:20:25.6537525Z err:  c769f77ccaf8 Download complete 0B
-2026-07-23T16:20:25.6539279Z err:  d808405073ee Download complete 0B
-2026-07-23T16:20:25.6568883Z err:  d808405073ee Extracting 1B
-2026-07-23T16:20:25.7548300Z err:  4f4fb700ef54 Pull complete 0B
-2026-07-23T16:20:25.7567224Z err:  d808405073ee Pull complete 0B
-2026-07-23T16:20:25.8554041Z err:  c769f77ccaf8 Extracting 1B
-2026-07-23T16:20:25.9568845Z err:  c769f77ccaf8 Extracting 1B
-2026-07-23T16:20:25.9960248Z err:  c769f77ccaf8 Pull complete 0B
-2026-07-23T16:20:26.0013094Z err:  Image docker.io/***/menugreensystem:latest Pulled 
-2026-07-23T16:20:26.0315628Z err:  Container menugreen_api Creating 
-2026-07-23T16:20:26.1334349Z err:  Container menugreen_api Created 
-2026-07-23T16:20:26.1386073Z err:  Container menugreen_api Starting 
-2026-07-23T16:20:26.3534343Z err:  Container menugreen_api Started 
-2026-07-23T16:20:26.3575513Z out: === Waiting for container to be ready ===
-2026-07-23T16:20:26.3984537Z out: Container is running!
-2026-07-23T16:20:26.3985197Z out: === Waiting for app startup and auto-migration (max 45 seconds) ===
-2026-07-23T16:20:41.4002474Z out: App should have auto-migrated on startup.
-2026-07-23T16:20:41.4004548Z out: Checking database tables...
-2026-07-23T16:20:41.4228149Z out: === Waiting for health check (max 30 attempts) ===
-2026-07-23T16:20:41.4377580Z out: Waiting for health check... (1/30)
-2026-07-23T16:20:43.4480128Z out: Waiting for health check... (2/30)
-2026-07-23T16:20:45.4622707Z out: Waiting for health check... (3/30)
-2026-07-23T16:20:47.4722297Z out: Waiting for health check... (4/30)
-2026-07-23T16:20:49.4812636Z out: Waiting for health check... (5/30)
-2026-07-23T16:20:51.4943957Z out: Waiting for health check... (6/30)
-2026-07-23T16:20:53.5041866Z out: Waiting for health check... (7/30)
-2026-07-23T16:20:55.5136978Z out: Waiting for health check... (8/30)
-2026-07-23T16:20:57.5227103Z out: Waiting for health check... (9/30)
-2026-07-23T16:20:59.5361984Z out: Waiting for health check... (10/30)
-2026-07-23T16:21:01.5566428Z out: Waiting for health check... (11/30)
-2026-07-23T16:21:03.5923972Z out: Waiting for health check... (12/30)
-2026-07-23T16:21:05.6048057Z out: Waiting for health check... (13/30)
-2026-07-23T16:21:07.6154648Z out: Waiting for health check... (14/30)
-2026-07-23T16:21:09.6250643Z out: Waiting for health check... (15/30)
-2026-07-23T16:21:11.6348258Z out: Waiting for health check... (16/30)
-2026-07-23T16:21:13.6437152Z out: Waiting for health check... (17/30)
-2026-07-23T16:21:15.6536148Z out: Waiting for health check... (18/30)
-2026-07-23T16:21:17.6666028Z out: Waiting for health check... (19/30)
-2026-07-23T16:21:19.6796713Z out: Waiting for health check... (20/30)
-2026-07-23T16:21:21.6897314Z out: Waiting for health check... (21/30)
-2026-07-23T16:21:23.6995962Z out: Waiting for health check... (22/30)
-2026-07-23T16:21:25.7089472Z out: Waiting for health check... (23/30)
-2026-07-23T16:21:27.7180263Z out: Waiting for health check... (24/30)
-2026-07-23T16:21:29.7274391Z out: Waiting for health check... (25/30)
-2026-07-23T16:21:31.7399925Z out: Waiting for health check... (26/30)
-2026-07-23T16:21:33.7497024Z out: Waiting for health check... (27/30)
-2026-07-23T16:21:35.7610267Z out: Waiting for health check... (28/30)
-2026-07-23T16:21:37.7715179Z out: Waiting for health check... (29/30)
-2026-07-23T16:21:39.7862021Z out: Waiting for health check... (30/30)
-2026-07-23T16:21:41.7890090Z out: >>> Health check failed after 30 attempts, initiating rollback...
-2026-07-23T16:21:41.7890656Z out: >>> Initiating rollback...
-2026-07-23T16:21:41.7891034Z out: >>> Logging failed container...
-2026-07-23T16:21:41.8848183Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
-2026-07-23T16:21:41.8850257Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
-2026-07-23T16:21:41.8853822Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.Execute(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean beginTransaction, Boolean commitTransaction, Nullable`1 isolationLevel)
-2026-07-23T16:21:41.8857094Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.<>c.<ExecuteNonQuery>b__3_1(DbContext _, ValueTuple`6 s)
-2026-07-23T16:21:41.8859522Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-2026-07-23T16:21:41.8861421Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean commitTransaction, Nullable`1 isolationLevel)
-2026-07-23T16:21:41.8863364Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.MigrateImplementation(DbContext context, String targetMigration, MigrationExecutionState state, Boolean useTransaction)
-2026-07-23T16:21:41.8864714Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.<>c.<Migrate>b__20_1(DbContext c, ValueTuple`4 s)
-2026-07-23T16:21:41.8866230Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-2026-07-23T16:21:41.8867501Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
-2026-07-23T16:21:41.8868554Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Migrations.Internal.NpgsqlMigrator.Migrate(String targetMigration)
-2026-07-23T16:21:41.8869887Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
-2026-07-23T16:21:41.8870869Z out: menugreen_api  |          at Program.<Main>$(String[] args) in /src/backend/MenuGreen.API/Program.cs:line 528
-2026-07-23T16:21:41.8871507Z out: menugreen_api  |         Exception data:
-2026-07-23T16:21:41.8871954Z out: menugreen_api  |           Severity: ERROR
-2026-07-23T16:21:41.8872379Z out: menugreen_api  |           SqlState: 42P07
-2026-07-23T16:21:41.8872902Z out: menugreen_api  |           MessageText: relation "campaigns" already exists
-2026-07-23T16:21:41.8873436Z out: menugreen_api  |           File: heap.c
-2026-07-23T16:21:41.8873855Z out: menugreen_api  |           Line: 1177
-2026-07-23T16:21:41.8874333Z out: menugreen_api  |           Routine: heap_create_with_catalog
-2026-07-23T16:21:41.8875082Z out: menugreen_api  | Unhandled exception. Npgsql.PostgresException (0x80004005): 42P07: relation "campaigns" already exists
-2026-07-23T16:21:41.8876315Z out: menugreen_api  |    at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)
-2026-07-23T16:21:41.8877833Z out: menugreen_api  |    at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
-2026-07-23T16:21:41.8879324Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
-2026-07-23T16:21:41.8880344Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
-2026-07-23T16:21:41.8881122Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult()
-2026-07-23T16:21:41.8881950Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
-2026-07-23T16:21:41.8883135Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
-2026-07-23T16:21:41.8884130Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)
-2026-07-23T16:21:41.8884868Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteNonQuery()
-2026-07-23T16:21:41.8885764Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
-2026-07-23T16:21:41.8887069Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
-2026-07-23T16:21:41.8888971Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.Execute(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean beginTransaction, Boolean commitTransaction, Nullable`1 isolationLevel)
-2026-07-23T16:21:41.8890971Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.<>c.<ExecuteNonQuery>b__3_1(DbContext _, ValueTuple`6 s)
-2026-07-23T16:21:41.8892510Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-2026-07-23T16:21:41.8894366Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean commitTransaction, Nullable`1 isolationLevel)
-2026-07-23T16:21:41.8896268Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.MigrateImplementation(DbContext context, String targetMigration, MigrationExecutionState state, Boolean useTransaction)
-2026-07-23T16:21:41.8897601Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.<>c.<Migrate>b__20_1(DbContext c, ValueTuple`4 s)
-2026-07-23T16:21:41.8898853Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-2026-07-23T16:21:41.8900362Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
-2026-07-23T16:21:41.8901412Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Migrations.Internal.NpgsqlMigrator.Migrate(String targetMigration)
-2026-07-23T16:21:41.8902508Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
-2026-07-23T16:21:41.8903448Z out: menugreen_api  |    at Program.<Main>$(String[] args) in /src/backend/MenuGreen.API/Program.cs:line 528
-2026-07-23T16:21:41.8904036Z out: menugreen_api  |   Exception data:
-2026-07-23T16:21:41.8904451Z out: menugreen_api  |     Severity: ERROR
-2026-07-23T16:21:41.8904865Z out: menugreen_api  |     SqlState: 42P07
-2026-07-23T16:21:41.8905341Z out: menugreen_api  |     MessageText: relation "campaigns" already exists
-2026-07-23T16:21:41.8905855Z out: menugreen_api  |     File: heap.c
-2026-07-23T16:21:41.8906249Z out: menugreen_api  |     Line: 1177
-2026-07-23T16:21:41.8906691Z out: menugreen_api  |     Routine: heap_create_with_catalog
-2026-07-23T16:21:42.0163524Z out: >>> Stopping current containers...
-2026-07-23T16:21:42.0385557Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:21:42.1600050Z out: >>> No local rollback tag found, trying ***/menugreensystem:previous...
-2026-07-23T16:21:43.4018342Z out: >>> No ***/menugreensystem:previous, trying ***/menugreensystem:main-<oldsha> from Hub...
-2026-07-23T16:21:43.4125044Z err: sudo: unable to resolve host menugreen-api: Name or service not known
-2026-07-23T16:21:43.5238668Z out: >>> FATAL: No rollback image available (local, :previous, or :main-<sha>)
-2026-07-23T16:21:43.5240133Z out: >>> Manual recovery required. Service is DOWN.
-2026-07-23T16:21:43.5240793Z out: >>> Container state preserved for debugging.
-2026-07-23T16:21:43.5241598Z 2026/07/23 16:21:43 Process exited with status 1
-2026-07-23T16:21:43.5263858Z ##[error]Process completed with exit code 1.
-2026-07-23T16:21:43.5271846Z ##[end-action id=__appleboy_ssh-action.__run_2;outcome=failure;conclusion=failure;duration_ms=95864]
-2026-07-23T16:21:43.5391345Z Post job cleanup.
-2026-07-23T16:21:43.6243777Z [command]/usr/bin/git version
-2026-07-23T16:21:43.6287897Z git version 2.54.0
-2026-07-23T16:21:43.6332680Z Temporarily overriding HOME='/home/runner/work/_temp/b5aaa17d-acdd-41e2-a54f-ed8b4650eac9' before making global git config changes
-2026-07-23T16:21:43.6334165Z Adding repository directory to the temporary git global config as a safe directory
-2026-07-23T16:21:43.6335490Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MenuGreenSystem/MenuGreenSystem
-2026-07-23T16:21:43.6375766Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-07-23T16:21:43.6412292Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-07-23T16:21:43.6675397Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-07-23T16:21:43.6709712Z http.https://github.com/.extraheader
-2026-07-23T16:21:43.6721985Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-07-23T16:21:43.6773953Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-07-23T16:21:43.7035535Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-07-23T16:21:43.7074203Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-07-23T16:21:43.7494081Z Cleaning up orphan processes
+2026-07-23T16:27:38.9803700Z   INPUT_SCRIPT_STOP: 
+2026-07-23T16:27:38.9804059Z   INPUT_ENVS: DOPPLER_TOKEN,APP_DIR,IMAGE_NAME,SHA
+2026-07-23T16:27:38.9804765Z   INPUT_ENVS_FORMAT: 
+2026-07-23T16:27:38.9805094Z   INPUT_DEBUG: true
+2026-07-23T16:27:38.9805394Z   INPUT_ALL_ENVS: 
+2026-07-23T16:27:38.9805679Z   INPUT_REQUEST_PTY: 
+2026-07-23T16:27:38.9806004Z   INPUT_USE_INSECURE_CIPHER: 
+2026-07-23T16:27:38.9806327Z   INPUT_CIPHER: 
+2026-07-23T16:27:38.9806645Z   INPUT_PROXY_USE_INSECURE_CIPHER: 
+2026-07-23T16:27:38.9807003Z   INPUT_PROXY_CIPHER: 
+2026-07-23T16:27:38.9807306Z   INPUT_SYNC: 
+2026-07-23T16:27:38.9807609Z ##[endgroup]
+2026-07-23T16:27:38.9933610Z Will download drone-ssh-1.7.7-linux-amd64 from https://github.com/appleboy/drone-ssh/releases/download/v1.7.7
+2026-07-23T16:27:39.2338672Z ======= CLI Version =======
+2026-07-23T16:27:39.2366954Z Drone SSH version 1.7.7
+2026-07-23T16:27:39.2372452Z ===========================
+2026-07-23T16:27:39.2406518Z ======CMD======
+2026-07-23T16:27:39.2407063Z set -e
+2026-07-23T16:27:39.2407703Z chmod +x /tmp/nginx-deploy/backend/scripts/deploy-server.sh
+2026-07-23T16:27:39.2408542Z /tmp/nginx-deploy/backend/scripts/deploy-server.sh
+2026-07-23T16:27:39.2409046Z 
+2026-07-23T16:27:39.2409258Z ======END======
+2026-07-23T16:27:39.2409755Z ======ENV======
+2026-07-23T16:27:39.2410907Z export DOPPLER_TOKEN='***'
+2026-07-23T16:27:39.2411567Z export APP_DIR='/home/***/apps/menugreen'
+2026-07-23T16:27:39.2412318Z export IMAGE_NAME='***/menugreensystem'
+2026-07-23T16:27:39.2413377Z export SHA='3b0a5f5eee87f2392106b12f89d81c8abf4983ce'
+2026-07-23T16:27:39.2414075Z ======END======
+2026-07-23T16:27:41.1774274Z out: === [0a] Ensure self-signed cert exists ===
+2026-07-23T16:27:41.1858152Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.3321195Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.3484424Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.3545163Z out:   ✓ Generated self-signed cert
+2026-07-23T16:27:41.3565114Z out: === [0/10] Apply nginx config from git ===
+2026-07-23T16:27:41.3581913Z out:   Found nginx.conf at: /tmp/nginx-deploy/backend/nginx/nginx.conf
+2026-07-23T16:27:41.3583725Z out:   Found cors-map.conf at: /tmp/nginx-deploy/backend/nginx/conf.d/cors-map.conf
+2026-07-23T16:27:41.3686740Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.3852132Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.4030105Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.4222091Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.4398675Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.5004052Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.5005156Z out: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.5006157Z out: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+2026-07-23T16:27:41.5007157Z out: nginx: configuration file /etc/nginx/nginx.conf test is successful
+2026-07-23T16:27:41.5164974Z out:   ✓ Nginx config applied and reloaded
+2026-07-23T16:27:41.5165585Z out: === Cleanup disk space - Before ===
+2026-07-23T16:27:41.5266135Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:41.7719974Z out: Deleted Images:
+2026-07-23T16:27:41.7720984Z out: untagged: ***/menugreensystem:latest
+2026-07-23T16:27:41.7721768Z out: deleted: sha256:45c3a47daf45979da764c2ee46896587afb28cf0b8a7a04a2728293a369d8f83
+2026-07-23T16:27:41.7722600Z out: untagged: ***/menugreensystem:main
+2026-07-23T16:27:41.7723437Z out: untagged: menugreen_api:latest
+2026-07-23T16:27:41.7724140Z out: deleted: sha256:2d18447df21556f4d453d284878f18b717a449f2c9f3836d5a94f5981a015d5d
+2026-07-23T16:27:41.7725086Z out: untagged: sha256:2976481595da18b3bb079811232fcf0c330a36adddaff234235b7164499c0f57
+2026-07-23T16:27:41.7726469Z out: deleted: sha256:2976481595da18b3bb079811232fcf0c330a36adddaff234235b7164499c0f57
+2026-07-23T16:27:41.7827663Z out: Total reclaimed space: 315.2MB
+2026-07-23T16:27:41.7864285Z out: === Disk space after cleanup ===
+2026-07-23T16:27:41.7885245Z out: Filesystem       Size  Used Avail Use% Mounted on
+2026-07-23T16:27:41.7886136Z out: /dev/root         58G  7.2G   51G  13% /
+2026-07-23T16:27:41.7886955Z out: tmpfs            956M     0  956M   0% /dev/shm
+2026-07-23T16:27:41.7887742Z out: tmpfs            383M  1.1M  382M   1% /run
+2026-07-23T16:27:41.7888473Z out: tmpfs            5.0M     0  5.0M   0% /run/lock
+2026-07-23T16:27:41.7889104Z out: efivarfs         128K  3.1K  120K   3% /sys/firmware/efi/efivars
+2026-07-23T16:27:41.7889732Z out: /dev/nvme0n1p15  105M  6.1M   99M   6% /boot/efi
+2026-07-23T16:27:41.7890305Z out: tmpfs            192M  4.0K  192M   1% /run/user/1000
+2026-07-23T16:27:41.7890889Z out: === Locate SCP'd docker-compose.prod.yml ===
+2026-07-23T16:27:41.7891614Z out:   Found docker-compose.prod.yml at: /tmp/nginx-deploy/docker-compose.prod.yml
+2026-07-23T16:27:41.7909481Z out: === docker-compose.prod.yml installed ===
+2026-07-23T16:27:41.8117460Z out: === Install Doppler CLI ===
+2026-07-23T16:27:42.7809637Z out: === Download secrets from Doppler ===
+2026-07-23T16:27:43.4281335Z out: === Materialize Firebase credentials JSON ===
+2026-07-23T16:27:43.8701504Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.8855564Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.9036687Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.9206583Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.9354339Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.9767418Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:43.9837629Z out:   ✓ Firebase credentials materialized (root:root, mode 600, valid JSON, real-PEM private_key)
+2026-07-23T16:27:44.2322342Z out: === .env file created ===
+2026-07-23T16:27:44.2470316Z out: === Starting database backup ===
+2026-07-23T16:27:44.5724617Z out: Backup saved to: /tmp/menugreen_backup_20260723_162744.sql
+2026-07-23T16:27:44.5768605Z out: === Save previous image locally for rollback ===
+2026-07-23T16:27:44.6079989Z out:   ⊘ No existing menugreen_api image found, skipping rollback save (cold deploy)
+2026-07-23T16:27:44.6080953Z out: === Pull latest image ===
+2026-07-23T16:27:50.8724496Z out: 4f4fb700ef54: Pull complete
+2026-07-23T16:27:50.8725258Z out: acbb93984b2d: Pull complete
+2026-07-23T16:27:50.8726261Z out: Digest: sha256:2d18447df21556f4d453d284878f18b717a449f2c9f3836d5a94f5981a015d5d
+2026-07-23T16:27:50.8727637Z out: Status: Downloaded newer image for ***/menugreensystem:main
+2026-07-23T16:27:50.8728592Z out: docker.io/***/menugreensystem:main
+2026-07-23T16:27:50.8742830Z out: === Tag image for local use ===
+2026-07-23T16:27:50.8900870Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:27:50.9404384Z out: === Check / Seed EF Migration History ===
+2026-07-23T16:27:50.9467001Z out:   DEBUG: DB_CONN_PRECHECK length: 112
+2026-07-23T16:27:50.9676813Z out:   DEBUG: DB_HOST=, DB_NAME=, DB_USER=
+2026-07-23T16:27:50.9677704Z out:   ! Could not parse DB connection details from .env
+2026-07-23T16:27:50.9678606Z out: === Stop and remove all existing containers ===
+2026-07-23T16:27:51.0935612Z out: === Start API container ===
+2026-07-23T16:27:51.1744705Z err:  Image docker.io/***/menugreensystem:latest Pulling 
+2026-07-23T16:27:55.1045248Z err:  ddffae7983ab Pulling fs layer 0B
+2026-07-23T16:27:55.1046071Z err:  aa38deca60dc Pulling fs layer 0B
+2026-07-23T16:27:55.1048241Z err:  4f4fb700ef54 Pulling fs layer 0B
+2026-07-23T16:27:55.1802020Z err:  4f4fb700ef54 Already exists 0B
+2026-07-23T16:27:57.3800071Z err:  aa38deca60dc Downloading 1.049MB
+2026-07-23T16:27:57.4805416Z err:  ddffae7983ab Downloading 1.049MB
+2026-07-23T16:27:57.4808993Z err:  aa38deca60dc Downloading 1.049MB
+2026-07-23T16:27:57.5813763Z err:  ddffae7983ab Downloading 1.049MB
+2026-07-23T16:27:57.5835623Z err:  aa38deca60dc Download complete 0B
+2026-07-23T16:27:57.5862002Z err:  aa38deca60dc Extracting 1B
+2026-07-23T16:27:57.6798759Z err:  ddffae7983ab Downloading 1.049MB
+2026-07-23T16:27:57.6816550Z err:  4f4fb700ef54 Pull complete 0B
+2026-07-23T16:27:57.6819118Z err:  aa38deca60dc Pull complete 0B
+2026-07-23T16:27:57.7794674Z err:  ddffae7983ab Downloading 3.146MB
+2026-07-23T16:27:57.8797362Z err:  ddffae7983ab Downloading 3.146MB
+2026-07-23T16:27:57.9804874Z err:  ddffae7983ab Download complete 0B
+2026-07-23T16:27:57.9811914Z err:  ddffae7983ab Extracting 1B
+2026-07-23T16:27:58.0812580Z err:  ddffae7983ab Extracting 1B
+2026-07-23T16:27:58.1703648Z err:  ddffae7983ab Pull complete 0B
+2026-07-23T16:27:58.1730419Z err:  Image docker.io/***/menugreensystem:latest Pulled 
+2026-07-23T16:27:58.2139519Z err:  Container menugreen_api Creating 
+2026-07-23T16:27:58.3483848Z err:  Container menugreen_api Created 
+2026-07-23T16:27:58.3536627Z err:  Container menugreen_api Starting 
+2026-07-23T16:27:58.5794651Z err:  Container menugreen_api Started 
+2026-07-23T16:27:58.5841137Z out: === Waiting for container to be ready ===
+2026-07-23T16:27:58.6207080Z out: Container is running!
+2026-07-23T16:27:58.6208123Z out: === Waiting for app startup and auto-migration (max 45 seconds) ===
+2026-07-23T16:28:13.6230602Z out: App should have auto-migrated on startup.
+2026-07-23T16:28:13.6231328Z out: Checking database tables...
+2026-07-23T16:28:13.6466576Z out: === Waiting for health check (max 30 attempts) ===
+2026-07-23T16:28:13.6584193Z out: Waiting for health check... (1/30)
+2026-07-23T16:28:15.6711466Z out: Waiting for health check... (2/30)
+2026-07-23T16:28:17.8891989Z out: Waiting for health check... (3/30)
+2026-07-23T16:28:19.9016081Z out: Waiting for health check... (4/30)
+2026-07-23T16:28:21.9115202Z out: Waiting for health check... (5/30)
+2026-07-23T16:28:23.9260857Z out: Waiting for health check... (6/30)
+2026-07-23T16:28:25.9374523Z out: Waiting for health check... (7/30)
+2026-07-23T16:28:27.9469365Z out: Waiting for health check... (8/30)
+2026-07-23T16:28:29.9561933Z out: Waiting for health check... (9/30)
+2026-07-23T16:28:31.9652073Z out: Waiting for health check... (10/30)
+2026-07-23T16:28:33.9783216Z out: Waiting for health check... (11/30)
+2026-07-23T16:28:35.9875736Z out: Waiting for health check... (12/30)
+2026-07-23T16:28:37.9965102Z out: Waiting for health check... (13/30)
+2026-07-23T16:28:40.0057114Z out: Waiting for health check... (14/30)
+2026-07-23T16:28:42.0158111Z out: Waiting for health check... (15/30)
+2026-07-23T16:28:44.0251281Z out: Waiting for health check... (16/30)
+2026-07-23T16:28:46.0340602Z out: Waiting for health check... (17/30)
+2026-07-23T16:28:48.0476695Z out: Waiting for health check... (18/30)
+2026-07-23T16:28:50.0596426Z out: Waiting for health check... (19/30)
+2026-07-23T16:28:52.0695015Z out: Waiting for health check... (20/30)
+2026-07-23T16:28:54.0797941Z out: Waiting for health check... (21/30)
+2026-07-23T16:28:56.0891859Z out: Waiting for health check... (22/30)
+2026-07-23T16:28:58.0999633Z out: Waiting for health check... (23/30)
+2026-07-23T16:29:00.1183130Z out: Waiting for health check... (24/30)
+2026-07-23T16:29:02.1476387Z out: Waiting for health check... (25/30)
+2026-07-23T16:29:04.1684920Z out: Waiting for health check... (26/30)
+2026-07-23T16:29:06.1785140Z out: Waiting for health check... (27/30)
+2026-07-23T16:29:08.1885985Z out: Waiting for health check... (28/30)
+2026-07-23T16:29:10.1988652Z out: Waiting for health check... (29/30)
+2026-07-23T16:29:12.2081361Z out: Waiting for health check... (30/30)
+2026-07-23T16:29:14.2108402Z out: >>> Health check failed after 30 attempts, initiating rollback...
+2026-07-23T16:29:14.2109510Z out: >>> Initiating rollback...
+2026-07-23T16:29:14.2110538Z out: >>> Logging failed container...
+2026-07-23T16:29:14.3080174Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+2026-07-23T16:29:14.3083077Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+2026-07-23T16:29:14.3086360Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.Execute(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean beginTransaction, Boolean commitTransaction, Nullable`1 isolationLevel)
+2026-07-23T16:29:14.3089180Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.<>c.<ExecuteNonQuery>b__3_1(DbContext _, ValueTuple`6 s)
+2026-07-23T16:29:14.3091331Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+2026-07-23T16:29:14.3094357Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean commitTransaction, Nullable`1 isolationLevel)
+2026-07-23T16:29:14.3096933Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.MigrateImplementation(DbContext context, String targetMigration, MigrationExecutionState state, Boolean useTransaction)
+2026-07-23T16:29:14.3098418Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.<>c.<Migrate>b__20_1(DbContext c, ValueTuple`4 s)
+2026-07-23T16:29:14.3099818Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+2026-07-23T16:29:14.3101165Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+2026-07-23T16:29:14.3102283Z out: menugreen_api  |          at Npgsql.EntityFrameworkCore.PostgreSQL.Migrations.Internal.NpgsqlMigrator.Migrate(String targetMigration)
+2026-07-23T16:29:14.3103608Z out: menugreen_api  |          at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+2026-07-23T16:29:14.3104660Z out: menugreen_api  |          at Program.<Main>$(String[] args) in /src/backend/MenuGreen.API/Program.cs:line 528
+2026-07-23T16:29:14.3105282Z out: menugreen_api  |         Exception data:
+2026-07-23T16:29:14.3105695Z out: menugreen_api  |           Severity: ERROR
+2026-07-23T16:29:14.3106097Z out: menugreen_api  |           SqlState: 42P07
+2026-07-23T16:29:14.3106586Z out: menugreen_api  |           MessageText: relation "campaigns" already exists
+2026-07-23T16:29:14.3107079Z out: menugreen_api  |           File: heap.c
+2026-07-23T16:29:14.3107461Z out: menugreen_api  |           Line: 1177
+2026-07-23T16:29:14.3107911Z out: menugreen_api  |           Routine: heap_create_with_catalog
+2026-07-23T16:29:14.3108637Z out: menugreen_api  | Unhandled exception. Npgsql.PostgresException (0x80004005): 42P07: relation "campaigns" already exists
+2026-07-23T16:29:14.3109868Z out: menugreen_api  |    at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)
+2026-07-23T16:29:14.3111392Z out: menugreen_api  |    at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+2026-07-23T16:29:14.3112685Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
+2026-07-23T16:29:14.3113823Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
+2026-07-23T16:29:14.3114716Z out: menugreen_api  |    at Npgsql.NpgsqlDataReader.NextResult()
+2026-07-23T16:29:14.3115520Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
+2026-07-23T16:29:14.3116591Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
+2026-07-23T16:29:14.3117569Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)
+2026-07-23T16:29:14.3118328Z out: menugreen_api  |    at Npgsql.NpgsqlCommand.ExecuteNonQuery()
+2026-07-23T16:29:14.3119213Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+2026-07-23T16:29:14.3120529Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+2026-07-23T16:29:14.3122456Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.Execute(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean beginTransaction, Boolean commitTransaction, Nullable`1 isolationLevel)
+2026-07-23T16:29:14.3124535Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.<>c.<ExecuteNonQuery>b__3_1(DbContext _, ValueTuple`6 s)
+2026-07-23T16:29:14.3125924Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+2026-07-23T16:29:14.3127798Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IReadOnlyList`1 migrationCommands, IRelationalConnection connection, MigrationExecutionState executionState, Boolean commitTransaction, Nullable`1 isolationLevel)
+2026-07-23T16:29:14.3129800Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.MigrateImplementation(DbContext context, String targetMigration, MigrationExecutionState state, Boolean useTransaction)
+2026-07-23T16:29:14.3131174Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.<>c.<Migrate>b__20_1(DbContext c, ValueTuple`4 s)
+2026-07-23T16:29:14.3132474Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+2026-07-23T16:29:14.3133821Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+2026-07-23T16:29:14.3134854Z out: menugreen_api  |    at Npgsql.EntityFrameworkCore.PostgreSQL.Migrations.Internal.NpgsqlMigrator.Migrate(String targetMigration)
+2026-07-23T16:29:14.3135938Z out: menugreen_api  |    at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+2026-07-23T16:29:14.3136874Z out: menugreen_api  |    at Program.<Main>$(String[] args) in /src/backend/MenuGreen.API/Program.cs:line 528
+2026-07-23T16:29:14.3137465Z out: menugreen_api  |   Exception data:
+2026-07-23T16:29:14.3137853Z out: menugreen_api  |     Severity: ERROR
+2026-07-23T16:29:14.3138230Z out: menugreen_api  |     SqlState: 42P07
+2026-07-23T16:29:14.3138688Z out: menugreen_api  |     MessageText: relation "campaigns" already exists
+2026-07-23T16:29:14.3139169Z out: menugreen_api  |     File: heap.c
+2026-07-23T16:29:14.3139526Z out: menugreen_api  |     Line: 1177
+2026-07-23T16:29:14.3139937Z out: menugreen_api  |     Routine: heap_create_with_catalog
+2026-07-23T16:29:14.3794946Z out: >>> Stopping current containers...
+2026-07-23T16:29:14.4548499Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:29:14.5717975Z out: >>> No local rollback tag found, trying ***/menugreensystem:previous...
+2026-07-23T16:29:15.7898792Z out: >>> No ***/menugreensystem:previous, trying ***/menugreensystem:main-<oldsha> from Hub...
+2026-07-23T16:29:15.8010424Z err: sudo: unable to resolve host menugreen-api: Name or service not known
+2026-07-23T16:29:15.9306858Z out: >>> FATAL: No rollback image available (local, :previous, or :main-<sha>)
+2026-07-23T16:29:15.9308056Z out: >>> Manual recovery required. Service is DOWN.
+2026-07-23T16:29:15.9309411Z out: >>> Container state preserved for debugging.
+2026-07-23T16:29:15.9312617Z 2026/07/23 16:29:15 Process exited with status 1
+2026-07-23T16:29:15.9337062Z ##[error]Process completed with exit code 1.
+2026-07-23T16:29:15.9346037Z ##[end-action id=__appleboy_ssh-action.__run_2;outcome=failure;conclusion=failure;duration_ms=96962]
+2026-07-23T16:29:15.9467661Z Post job cleanup.
+2026-07-23T16:29:16.0317901Z [command]/usr/bin/git version
+2026-07-23T16:29:16.0362475Z git version 2.54.0
+2026-07-23T16:29:16.0404149Z Temporarily overriding HOME='/home/runner/work/_temp/527ff478-a217-400a-96a8-923cf4a1c07d' before making global git config changes
+2026-07-23T16:29:16.0405723Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-23T16:29:16.0413461Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MenuGreenSystem/MenuGreenSystem
+2026-07-23T16:29:16.0455776Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-23T16:29:16.0517268Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-23T16:29:16.0786119Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-23T16:29:16.0817873Z http.https://github.com/.extraheader
+2026-07-23T16:29:16.0829546Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-23T16:29:16.0863907Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-23T16:29:16.1115538Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-23T16:29:16.1155586Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-23T16:29:16.1567052Z Cleaning up orphan processes
 Beta
 0 / 0
 used queries
