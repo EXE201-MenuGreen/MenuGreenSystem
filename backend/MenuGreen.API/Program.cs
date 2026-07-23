@@ -485,6 +485,23 @@ if (!app.Environment.IsDevelopment())
                 unknownInHistory.Count,
                 string.Join(", ", unknownInHistory)
             );
+
+            // AUTO-FIX: Remove unknown migrations from history since they don't exist in this DLL
+            logger.LogInformation(
+                "[MIGRATION] Auto-removing {Count} unknown migration(s) from __EFMigrationsHistory.",
+                unknownInHistory.Count
+            );
+            foreach (var unknownId in unknownInHistory)
+            {
+                db.Database.ExecuteSqlRaw(
+                    "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+                    unknownId);
+                logger.LogInformation("[MIGRATION] Removed: {MigrationId}", unknownId);
+            }
+
+            // Refresh applied/pending lists
+            applied = db.Database.GetAppliedMigrations().ToList();
+            pending = db.Database.GetPendingMigrations().ToList();
         }
     }
     catch (Exception ex)
