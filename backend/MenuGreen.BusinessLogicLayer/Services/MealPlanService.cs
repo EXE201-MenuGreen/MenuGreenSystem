@@ -26,10 +26,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null)
         {
             var plans = await _unitOfWork.MealPlanHeaders.GetAllAsync();
-            if (isActive.HasValue)
+            // Default to active plans only when no filter specified
+            if (isActive == null)
             {
-                plans = plans.Where(x => x.IsActive == isActive.Value);
+                isActive = true;
             }
+            plans = plans.Where(x => x.IsActive == isActive.Value);
 
             var results = new List<MealPlanResponse>();
             foreach (var plan in plans)
@@ -133,6 +135,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteAsync(Guid id, Guid? userId = null)
         {
             var entity = await GetMealPlanAsync(id);
+            
+            // Delete all items in the meal plan first
+            var items = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == entity.Id);
+            _unitOfWork.MealPlanItems.RemoveRange(items);
+            await _unitOfWork.CompleteAsync();
+            
+            // Then soft delete the plan header
             entity.IsActive = false;
             _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
