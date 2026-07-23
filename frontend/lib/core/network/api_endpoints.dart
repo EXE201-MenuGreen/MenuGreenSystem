@@ -2,12 +2,31 @@ class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
 
-  /// Ghi đè khi dev local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api`
+  /// Backend local mặc định cho Android Emulator.
+  static const String localBaseUrl = 'http://10.0.2.2:5000/api';
+
+  /// Chọn môi trường bằng `--dart-define=APP_ENV=development`.
+  /// Nếu không truyền, ứng dụng luôn dùng production để release an toàn.
+  static const String environmentName = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: 'production',
+  );
+
+  /// Ghi đè URL cho emulator/thiết bị khác khi cần.
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  static bool get isLocalEnvironment {
+    final environment = environmentName.trim().toLowerCase();
+    return environment == 'local' ||
+        environment == 'development' ||
+        environment == 'dev';
+  }
+
   static String get baseUrl {
-    if (_envBaseUrl.isNotEmpty) return _normalizeBaseUrl(_envBaseUrl);
-    return productionBaseUrl;
+    if (_envBaseUrl.trim().isNotEmpty) {
+      return _normalizeBaseUrl(_envBaseUrl);
+    }
+    return isLocalEnvironment ? localBaseUrl : productionBaseUrl;
   }
 
   static String _normalizeBaseUrl(String url) {
@@ -64,6 +83,8 @@ class ApiEndpoints {
   static String recipeById(String id) => '$baseUrl/Recipe/$id';
   static String recipeIngredients(String id) =>
       '$baseUrl/Recipe/$id/ingredients';
+  static String mealPlanScanMeals(String planId) =>
+      '$baseUrl/MealPlan/$planId/scan-meals';
   static String get ingredientSearch => '$baseUrl/Ingredient/search';
   static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
   static String ingredientRecipes(String id) =>
@@ -114,6 +135,8 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/generate-by-budget';
   static String mealPlanGroceryList(String id) =>
       '${mealPlanById(id)}/grocery-list';
+  static String mealPlanAlternatives(String planId, String itemId) =>
+      '${mealPlanById(planId)}/alternatives/$itemId';
   static String mealPlanItems(String planId) =>
       '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>
@@ -173,6 +196,8 @@ class ApiEndpoints {
       '$mealTemplates/from-log/$mealLogId';
   static String get microLearningRecommended =>
       '$baseUrl/MicroLearning/cards/recommended';
+  static String get microLearningLibrary =>
+      '$baseUrl/MicroLearning/cards/library';
   static String microLearningCardById(String id) =>
       '$baseUrl/MicroLearning/cards/$id';
   static String get microLearningCategories =>
@@ -199,6 +224,8 @@ class ApiEndpoints {
   static String get subscriptionCancel => '$baseUrl/UserSubscription/cancel';
   static String get subscriptionCurrent => '$baseUrl/UserSubscription/me';
   static String get subscriptionActive => '$baseUrl/UserSubscription/me/active';
+  static String get subscriptionEntitlements =>
+      '$baseUrl/UserSubscription/me/entitlements';
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 

@@ -228,47 +228,82 @@ class _SubstitutionEditorDialog extends StatefulWidget {
 class _SubstitutionEditorDialogState extends State<_SubstitutionEditorDialog> {
   static const _reasons = <String>['allergy', 'not_available', 'expensive'];
 
-  late final TextEditingController _originalIdController;
-  late final TextEditingController _originalNameController;
-  late final TextEditingController _substituteIdController;
-  late final TextEditingController _substituteNameController;
+  static const _presetIngredients = [
+    (id: 'ing_tom', name: 'Tôm tươi'),
+    (id: 'ing_thit_heo', name: 'Thịt heo'),
+    (id: 'ing_thit_bo', name: 'Thịt bò'),
+    (id: 'ing_ca_hoi', name: 'Cá hồi'),
+    (id: 'ing_sua_bo', name: 'Sữa bò'),
+    (id: 'ing_trung_ga', name: 'Trứng gà'),
+    (id: 'ing_dau_hu', name: 'Đậu hũ'),
+    (id: 'ing_uc_ga', name: 'Ức gà'),
+    (id: 'ing_cai_ngot', name: 'Cải ngọt'),
+    (id: 'ing_sua_hat', name: 'Sữa hạt'),
+    (id: 'ing_ca_thu', name: 'Cá thu'),
+    (id: 'ing_gao_lut', name: 'Gạo lứt'),
+  ];
+
+  late final TextEditingController _customOriginalController;
+  late final TextEditingController _customSubstituteController;
   late final TextEditingController _maxPriceController;
+
+  String? _selectedOriginalId;
+  String? _selectedSubstituteId;
+
   String _reason = _reasons.last;
   bool _macroMatch = false;
 
   @override
   void initState() {
     super.initState();
-    _originalIdController = TextEditingController();
-    _originalNameController = TextEditingController();
-    _substituteIdController = TextEditingController();
-    _substituteNameController = TextEditingController();
+    _customOriginalController = TextEditingController();
+    _customSubstituteController = TextEditingController();
     _maxPriceController = TextEditingController();
+
+    _selectedOriginalId = _presetIngredients[0].id;
+    _selectedSubstituteId = _presetIngredients[7].id; // Default: Ức gà
   }
 
   @override
   void dispose() {
-    _originalIdController.dispose();
-    _originalNameController.dispose();
-    _substituteIdController.dispose();
-    _substituteNameController.dispose();
+    _customOriginalController.dispose();
+    _customSubstituteController.dispose();
     _maxPriceController.dispose();
     super.dispose();
   }
 
+  String _getIngredientName(String? id, String customText) {
+    if (id == 'custom') return customText.trim();
+    final item = _presetIngredients.firstWhere(
+      (e) => e.id == id,
+      orElse: () => (id: 'custom', name: customText),
+    );
+    return item.name;
+  }
+
   Future<void> _save() async {
-    if (_originalIdController.text.trim().isEmpty ||
-        _substituteIdController.text.trim().isEmpty) {
+    final origName = _getIngredientName(_selectedOriginalId, _customOriginalController.text);
+    final subName = _getIngredientName(_selectedSubstituteId, _customSubstituteController.text);
+
+    if (origName.isEmpty || subName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cần nhập ID nguyên liệu gốc và thay thế.')),
+        const SnackBar(content: Text('Vui lòng chọn hoặc nhập tên nguyên liệu gốc và thay thế.')),
       );
       return;
     }
+
+    final origId = _selectedOriginalId == 'custom'
+        ? 'ing_${origName.toLowerCase().replaceAll(' ', '_')}'
+        : (_selectedOriginalId ?? 'ing_orig');
+    final subId = _selectedSubstituteId == 'custom'
+        ? 'ing_${subName.toLowerCase().replaceAll(' ', '_')}'
+        : (_selectedSubstituteId ?? 'ing_sub');
+
     final ok = await context.read<IngredientSubstitutionProvider>().add(
-          originalIngredientId: _originalIdController.text.trim(),
-          originalIngredientName: _originalNameController.text.trim(),
-          substituteIngredientId: _substituteIdController.text.trim(),
-          substituteIngredientName: _substituteNameController.text.trim(),
+          originalIngredientId: origId,
+          originalIngredientName: origName,
+          substituteIngredientId: subId,
+          substituteIngredientName: subName,
           reason: _reason,
           maxPriceVnd: int.tryParse(_maxPriceController.text.trim()),
           macroMatch: _macroMatch,
@@ -298,36 +333,92 @@ class _SubstitutionEditorDialogState extends State<_SubstitutionEditorDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _originalIdController,
-              decoration: const InputDecoration(labelText: 'ID nguyên liệu gốc'),
+            // 1. Original Ingredient Selector
+            const Text(
+              'Nguyên liệu gốc (cần đổi)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _originalNameController,
-              decoration: const InputDecoration(labelText: 'Tên gốc (tuỳ chọn)'),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedOriginalId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: [
+                ..._presetIngredients.map(
+                  (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
+                ),
+                const DropdownMenuItem(value: 'custom', child: Text('+ Nhập tên nguyên liệu khác')),
+              ],
+              onChanged: (val) => setState(() => _selectedOriginalId = val),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _substituteIdController,
-              decoration: const InputDecoration(labelText: 'ID nguyên liệu thay thế'),
+            if (_selectedOriginalId == 'custom') ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _customOriginalController,
+                decoration: InputDecoration(
+                  labelText: 'Tên nguyên liệu gốc',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  isDense: true,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // 2. Substitute Ingredient Selector
+            const Text(
+              'Nguyên liệu thay thế mới',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _substituteNameController,
-              decoration:
-                  const InputDecoration(labelText: 'Tên thay thế (tuỳ chọn)'),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedSubstituteId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: [
+                ..._presetIngredients.map(
+                  (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
+                ),
+                const DropdownMenuItem(value: 'custom', child: Text('+ Nhập tên nguyên liệu khác')),
+              ],
+              onChanged: (val) => setState(() => _selectedSubstituteId = val),
             ),
-            const SizedBox(height: 8),
+            if (_selectedSubstituteId == 'custom') ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _customSubstituteController,
+                decoration: InputDecoration(
+                  labelText: 'Tên nguyên liệu thay thế',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  isDense: true,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // 3. Max price
             TextField(
               controller: _maxPriceController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Trần giá (VND, tuỳ chọn)',
+              decoration: InputDecoration(
+                labelText: 'Trần giá tối đa (VND, tùy chọn)',
+                hintText: 'Ví dụ: 150000',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                isDense: true,
               ),
             ),
-            const SizedBox(height: 10),
-            const Text('Lý do thay thế'),
+            const SizedBox(height: 14),
+
+            // 4. Reason
+            const Text(
+              'Lý do thay thế',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -343,9 +434,15 @@ class _SubstitutionEditorDialogState extends State<_SubstitutionEditorDialog> {
                   .toList(),
             ),
             const SizedBox(height: 6),
+
+            // 5. Macro match
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Khớp macro'),
+              title: const Text(
+                'Khớp dinh dưỡng (Macro)',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('Quy đổi khẩu phần để giữ nguyên Calo/Protein'),
               value: _macroMatch,
               onChanged: (v) => setState(() => _macroMatch = v),
               activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
@@ -358,7 +455,14 @@ class _SubstitutionEditorDialogState extends State<_SubstitutionEditorDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Huỷ'),
         ),
-        TextButton(onPressed: _save, child: const Text('Lưu')),
+        ElevatedButton(
+          onPressed: _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Lưu'),
+        ),
       ],
     );
   }

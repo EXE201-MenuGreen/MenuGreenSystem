@@ -139,6 +139,7 @@ namespace MenuGreen.API.Controllers
         /// Retrain rule/model from feedback and recommendation history.
         /// </summary>
         [HttpPost("retrain")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> Retrain([FromBody] RecommendationRetrainRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -149,6 +150,7 @@ namespace MenuGreen.API.Controllers
         /// Generate general eating suggestions and save to history.
         /// </summary>
         [HttpPost("generate")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> Generate([FromBody] RecommendationGenerateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -167,6 +169,7 @@ namespace MenuGreen.API.Controllers
         /// Sinh gợi ý an toàn qua AI worker, ưu tiên loại trừ dị ứng/preference.
         /// </summary>
         [HttpPost("generate/safe")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> GenerateSafe([FromBody] SafeRecommendationGenerateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -185,6 +188,7 @@ namespace MenuGreen.API.Controllers
         /// Sinh thực đơn trong ngày qua AI worker.
         /// </summary>
         [HttpPost("generate/daily-menu")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> GenerateDailyMenu([FromBody] RecommendationGenerateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -203,6 +207,7 @@ namespace MenuGreen.API.Controllers
         /// Generate weekly meal plan suggestions.
         /// </summary>
         [HttpPost("generate/weekly-plan")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> GenerateWeeklyPlan([FromBody] WeeklyPlanGenerateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -221,6 +226,7 @@ namespace MenuGreen.API.Controllers
         /// Generate eating suggestions based on budget constraints.
         /// </summary>
         [HttpPost("generate/budget-aware")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GenerateBudgetAware([FromBody] BudgetAwareGenerateRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -239,6 +245,7 @@ namespace MenuGreen.API.Controllers
         /// Sinh lịch gợi ý giờ ăn qua AI worker.
         /// </summary>
         [HttpPost("generate/smart-schedule")]
+        [Authorize(Policy = "CasualFeatures")]
         public async Task<IActionResult> GenerateSmartSchedule([FromBody] SmartScheduleRequest request)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();

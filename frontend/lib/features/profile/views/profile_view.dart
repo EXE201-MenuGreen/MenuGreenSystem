@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../subscription/models/subscription_models.dart';
@@ -13,13 +14,11 @@ import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
 import 'personal_info_screen.dart';
-import '../../vietnam_local/views/lucky_wheel_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../advanced/views/advanced_features_screen.dart';
-import '../../advanced/views/advanced_detail_screens.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -119,9 +118,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (!mounted) return;
     if (result == 'officeActivated') {
       setState(() => _officeModeActivated = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã mở chế độ Office.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã mở chế độ Office.')));
     }
     await _fetchData();
   }
@@ -355,7 +354,7 @@ class _ProfileViewState extends State<ProfileView> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AdvancedFeaturesScreen(),
+                          builder: (_) => const OfficeWorkspaceScreen(),
                         ),
                       ),
                     ),
@@ -391,8 +390,7 @@ class _ProfileViewState extends State<ProfileView> {
                     'Cấu hình calo tự đổi theo ngày tập/nghỉ',
                     onTap: () {
                       final activeSub = _subscription != null &&
-                              _subscription!.isActive &&
-                              _subscription!.daysRemaining >= 0 &&
+                              _subscription!.isCurrentlyActive &&
                               _subscription!.subscriptionPlanName.isNotEmpty
                           ? _subscription
                           : null;
@@ -459,7 +457,9 @@ class _ProfileViewState extends State<ProfileView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const LuckyWheelScreen(),
+                          builder: (_) => const CasualHubScreen(
+                            openFeature: CasualFeature.luckyWheel,
+                          ),
                         ),
                       );
                     },
@@ -650,7 +650,9 @@ class _ProfileViewState extends State<ProfileView> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const LuckyWheelScreen(),
+                              builder: (_) => const CasualHubScreen(
+                                openFeature: CasualFeature.luckyWheel,
+                              ),
                             ),
                           );
                         },
@@ -776,26 +778,24 @@ class _ProfileViewState extends State<ProfileView> {
     final subscription = _subscription;
     final activeSubscription =
         subscription != null &&
-            subscription.isActive &&
-            subscription.daysRemaining >= 0 &&
+            subscription.isCurrentlyActive &&
             subscription.subscriptionPlanName.isNotEmpty
         ? subscription
         : null;
-    final planName =
-        _officeModeActivated
+    final planName = _officeModeActivated
         ? 'Office'
         : activeSubscription?.subscriptionPlanName ??
-        subscription?.subscriptionPlanName ??
-        (_profileData?['role']?.toString() ?? 'Gói Cơ Bản');
+              subscription?.subscriptionPlanName ??
+              'Cơ bản';
     final isPro =
         _officeModeActivated ||
         activeSubscription != null &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'free',
-        ) &&
-        !activeSubscription.subscriptionPlanName.toLowerCase().contains(
-          'cơ bản',
-        );
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'free',
+            ) &&
+            !activeSubscription.subscriptionPlanName.toLowerCase().contains(
+              'cơ bản',
+            );
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -852,11 +852,20 @@ class _ProfileViewState extends State<ProfileView> {
           if (activeSubscription != null &&
               isPro &&
               activeSubscription.endDate != null)
-            Text(
-              'Hết hạn: ${formatSubscriptionDate(activeSubscription.endDate)} • Còn ${activeSubscription.daysRemaining} ngày',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
+            StreamBuilder<int>(
+              stream: Stream<int>.periodic(
+                const Duration(minutes: 1),
+                (tick) => tick,
+              ),
+              builder: (context, snapshot) => Text(
+                'Bắt đầu: ${formatSubscriptionDate(activeSubscription.startDate)}'
+                ' • Hết hạn: ${formatSubscriptionDate(activeSubscription.endDate)}\n'
+                '${formatSubscriptionRemaining(activeSubscription.endDate)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             )
           else if (subscription != null)
@@ -869,7 +878,7 @@ class _ProfileViewState extends State<ProfileView> {
             )
           else
             const Text(
-              'Nâng cấp để nhận nhiều ưu đãi',
+              'Quyền Free luôn hoạt động • Không giới hạn',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           const SizedBox(height: 20),

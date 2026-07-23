@@ -1,9 +1,14 @@
 part of 'micro_learning_screen.dart';
 
 class MicroLearningDetailScreen extends StatefulWidget {
-  const MicroLearningDetailScreen({super.key, required this.cardId});
+  const MicroLearningDetailScreen({
+    super.key,
+    required this.cardId,
+    required this.allowQuiz,
+  });
 
   final String cardId;
+  final bool allowQuiz;
 
   @override
   State<MicroLearningDetailScreen> createState() =>
@@ -194,7 +199,7 @@ class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
                         ),
                       ),
                     ],
-                    if (card.hasQuiz) ...[
+                    if (widget.allowQuiz && card.hasQuiz) ...[
                       const SizedBox(height: 28),
                       _QuizPanel(
                         card: card,
@@ -218,5 +223,3 @@ class _MicroLearningDetailScreenState extends State<MicroLearningDetailScreen> {
     );
   }
 }
-
-

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/reminder_models.dart';
 import '../repositories/reminder_repository.dart';
+import '../utils/reminder_validation.dart';
 
 part 'adaptive_reminder_widgets_part.dart';
 
@@ -10,7 +12,8 @@ class AdaptiveRemindersScreen extends StatefulWidget {
   const AdaptiveRemindersScreen({super.key});
 
   @override
-  State<AdaptiveRemindersScreen> createState() => _AdaptiveRemindersScreenState();
+  State<AdaptiveRemindersScreen> createState() =>
+      _AdaptiveRemindersScreenState();
 }
 
 class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
@@ -34,7 +37,10 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
       _loadError = null;
     });
     try {
-      final data = await Future.wait([_repository.getProfile(), _repository.getScheduled()]);
+      final data = await Future.wait([
+        _repository.getProfile(),
+        _repository.getScheduled(),
+      ]);
       if (!mounted) return;
       setState(() {
         _profile = data[0] as ReminderProfile;
@@ -55,7 +61,10 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
       'lunch' => profile.optimalLunchTime,
       _ => profile.optimalDinnerTime,
     };
-    final selected = await showTimePicker(context: context, initialTime: _timeOfDay(current));
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: _timeOfDay(current),
+    );
     if (selected == null || !mounted) return;
     final value = _formatTime(selected);
     setState(() {
@@ -100,7 +109,8 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     final saved = await showModalBottomSheet<ScheduledReminder>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _ReminderEditor(reminder: reminder, repository: _repository),
+      builder: (_) =>
+          _ReminderEditor(reminder: reminder, repository: _repository),
     );
     if (saved == null || !mounted) return;
     await _load();
@@ -110,15 +120,23 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     try {
       await _repository.create(
         title: water ? 'Uống nước' : 'Vận động giãn cơ',
-        body: water ? 'Uống một cốc nước để duy trì tập trung.' : 'Đứng dậy và đi bộ hoặc giãn cơ 5 phút.',
+        body: water
+            ? 'Uống một cốc nước để duy trì tập trung.'
+            : 'Đứng dậy và đi bộ hoặc giãn cơ 5 phút.',
         scheduledAt: DateTime.now().add(Duration(hours: water ? 2 : 1)),
         repeatIntervalMinutes: water ? 120 : 60,
       );
-      if (mounted) _message('Đã bật nhắc nhở ${water ? 'uống nước mỗi 2 giờ' : 'vận động mỗi giờ'}.');
+      if (mounted) {
+        _message(
+          'Đã bật nhắc nhở ${water ? 'uống nước mỗi 2 giờ' : 'vận động mỗi giờ'}.',
+        );
+      }
       await _load();
     } catch (error) {
       if (mounted) {
-        setState(() => _loadError = 'Không thể tải nhắc nhở. Vui lòng thử lại.');
+        setState(
+          () => _loadError = 'Không thể tải nhắc nhở. Vui lòng thử lại.',
+        );
         _message(error.toString(), error: true);
       }
     }
@@ -128,21 +146,23 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     try {
       await _repository.update(reminder.id, isEnabled: enabled);
       if (mounted) {
-        setState(() => _reminders = [
-              for (final item in _reminders)
-                if (item.id == reminder.id)
-                  ScheduledReminder(
-                    id: item.id,
-                    title: item.title,
-                    body: item.body,
-                    isEnabled: enabled,
-                    type: item.type,
-                    scheduledAt: item.scheduledAt,
-                    repeatIntervalMinutes: item.repeatIntervalMinutes,
-                  )
-                else
-                  item,
-            ]);
+        setState(
+          () => _reminders = [
+            for (final item in _reminders)
+              if (item.id == reminder.id)
+                ScheduledReminder(
+                  id: item.id,
+                  title: item.title,
+                  body: item.body,
+                  isEnabled: enabled,
+                  type: item.type,
+                  scheduledAt: item.scheduledAt,
+                  repeatIntervalMinutes: item.repeatIntervalMinutes,
+                )
+              else
+                item,
+          ],
+        );
       }
     } catch (error) {
       if (mounted) _message(error.toString(), error: true);
@@ -166,15 +186,27 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
         title: const Text('Xóa nhắc nhở?'),
         content: Text('Nhắc nhở "${reminder.title}" sẽ bị xóa.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xóa')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
     try {
       await _repository.delete(reminder.id);
-      if (mounted) setState(() => _reminders = _reminders.where((item) => item.id != reminder.id).toList());
+      if (mounted) {
+        setState(
+          () => _reminders = _reminders
+              .where((item) => item.id != reminder.id)
+              .toList(),
+        );
+      }
     } catch (error) {
       if (mounted) _message(error.toString(), error: true);
     }
@@ -182,7 +214,10 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
 
   void _message(String text, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text.replaceFirst('Exception: ', '')), backgroundColor: error ? Colors.red : null),
+      SnackBar(
+        content: Text(text.replaceFirst('Exception: ', '')),
+        backgroundColor: error ? Colors.red : null,
+      ),
     );
   }
 
@@ -211,7 +246,10 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                   Text(
                     _loadError ?? 'Không thể tải dữ liệu nhắc nhở.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -224,9 +262,14 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  const Text('Giờ ăn ưu tiên', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Giờ ăn ưu tiên',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                  const Text('Dùng để gợi ý thời điểm nhắc bữa ăn phù hợp với bạn.'),
+                  const Text(
+                    'Dùng để gợi ý thời điểm nhắc bữa ăn phù hợp với bạn.',
+                  ),
                   const SizedBox(height: 12),
                   _ProfileTimeTile(
                     icon: Icons.wb_sunny_outlined,
@@ -253,7 +296,13 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _recalculating ? null : _recalculate,
                           icon: _recalculating
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Icon(Icons.auto_fix_high_outlined),
                           label: const Text('Tự tính từ nhật ký'),
                         ),
@@ -262,7 +311,9 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                       Expanded(
                         child: FilledButton(
                           onPressed: _savingProfile ? null : _saveProfile,
-                          child: Text(_savingProfile ? 'Đang lưu...' : 'Lưu giờ ăn'),
+                          child: Text(
+                            _savingProfile ? 'Đang lưu...' : 'Lưu giờ ăn',
+                          ),
                         ),
                       ),
                     ],
@@ -270,23 +321,47 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                   const SizedBox(height: 28),
                   Row(
                     children: [
-                      Expanded(child: Text('Lịch nhắc tùy chỉnh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                      Text('${_reminders.length} lịch', style: const TextStyle(color: AppColors.textSecondary)),
+                      Expanded(
+                        child: Text(
+                          'Lịch nhắc tùy chỉnh',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_reminders.length} lịch',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: [
-                      ActionChip(avatar: const Icon(Icons.water_drop_outlined, size: 18), label: const Text('Nước / 2 giờ'), onPressed: () => _addOfficePreset(water: true)),
-                      ActionChip(avatar: const Icon(Icons.directions_walk_outlined, size: 18), label: const Text('Giãn cơ / 1 giờ'), onPressed: () => _addOfficePreset(water: false)),
+                      ActionChip(
+                        avatar: const Icon(Icons.water_drop_outlined, size: 18),
+                        label: const Text('Nước / 2 giờ'),
+                        onPressed: () => _addOfficePreset(water: true),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(
+                          Icons.directions_walk_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('Giãn cơ / 1 giờ'),
+                        onPressed: () => _addOfficePreset(water: false),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   if (_reminders.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 28),
-                      child: Center(child: Text('Chưa có nhắc nhở nào được lên lịch.')),
+                      child: Center(
+                        child: Text('Chưa có nhắc nhở nào được lên lịch.'),
+                      ),
                     )
                   else
                     ..._reminders.map(
@@ -305,5 +380,3 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     );
   }
 }
-
-

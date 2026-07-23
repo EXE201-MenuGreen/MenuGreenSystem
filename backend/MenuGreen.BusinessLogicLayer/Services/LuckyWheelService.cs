@@ -123,12 +123,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Take(30)
                 .ToList();
 
-            if (topCandidates.Count == 0)
-            {
-                // Fallback: just take some active foods if no candidates matched filters
-                topCandidates = allFoods.Select(f => (f, 0, new HashSet<string>())).Take(15).ToList();
-            }
-
             var rand = new Random();
             var selectedList = topCandidates
                 .OrderBy(_ => rand.Next())
@@ -154,6 +148,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     DefaultServingG = item.Food.DefaultServingG,
                     ImageUrl = item.Food.ImageUrl,
                     IsActive = item.Food.IsActive,
+                    Region = item.Food.Region,
                     AllergenKeys = item.FoodAllergens.OrderBy(k => k).ToList(),
                     AllergenLabelsVi = AllergenCatalog.ToDisplayNamesVi(item.FoodAllergens).ToList()
                 };
@@ -168,6 +163,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task ApplyWheelSelectionAsync(Guid userId, Guid foodId, string mealType)
         {
+            var normalizedMealType = mealType?.Trim() ?? string.Empty;
+            var validMealTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Breakfast", "Lunch", "Dinner", "Snack"
+            };
+            if (foodId == Guid.Empty || !validMealTypes.Contains(normalizedMealType))
+            {
+                throw new InvalidOperationException("Món ăn hoặc loại bữa ăn không hợp lệ.");
+            }
+
+            var food = await _db.Foods.AsNoTracking().FirstOrDefaultAsync(x => x.Id == foodId && x.IsActive != false);
+            if (food == null)
+            {
+                throw new InvalidOperationException("Món ăn không còn khả dụng.");
+            }
+
+            var userKeys = await _allergenMatchingService.GetUserAllergenKeysAsync(userId);
+            var allergenMap = await _allergenMatchingService.GetFoodAllergenKeysAsync(new[] { foodId });
+            if (allergenMap.TryGetValue(foodId, out var foodKeys) && userKeys.Any(foodKeys.Contains))
+            {
+                throw new InvalidOperationException("Không thể thêm món có thành phần dị ứng vào kế hoạch.");
+            }
+
             var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)); // Vietnam time zone
             
             // 1. Find or create today's meal plan header
@@ -204,16 +222,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 MealPlanId = plan.Id,
-                MealType = string.IsNullOrEmpty(mealType) ? "Snack" : mealType,
+                MealType = normalizedMealType,
                 FoodId = foodId,
                 PlannedDate = today,
-                ScheduledTime = new TimeOnly(12, 0),
+                ScheduledTime = GetScheduledTime(normalizedMealType),
                 IsCompleted = false,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _db.MealPlanItems.AddAsync(item);
             await _unitOfWork.CompleteAsync();
+        }
+
+        private static TimeOnly GetScheduledTime(string mealType)
+        {
+            return mealType.Trim().ToLowerInvariant() switch
+            {
+                "breakfast" => new TimeOnly(8, 0),
+                "lunch" => new TimeOnly(12, 0),
+                "dinner" => new TimeOnly(19, 0),
+                _ => new TimeOnly(15, 30)
+            };
         }
     }
 }

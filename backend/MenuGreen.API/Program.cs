@@ -24,6 +24,15 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Windows Event Log requires elevated permissions on some development machines.
+// Keep local logging on console/debug so a denied Event Log write cannot stop API startup.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
+
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
 if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 {
@@ -78,18 +87,77 @@ builder
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure authorization policies for role-based and entitlement-based access control.
-builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, MenuGreen.API.Authorization.EntitlementHandler>();
+builder.Services.AddScoped<
+    Microsoft.AspNetCore.Authorization.IAuthorizationHandler,
+    MenuGreen.API.Authorization.EntitlementHandler
+>();
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("Admin", "User", "Casual", "Gymer", "Office", "Coach"));
+    options.AddPolicy(
+        "UserOnly",
+        policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office", "Coach")
+    );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
-    options.AddPolicy("GymerOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")));
-    options.AddPolicy("CoachAccessOnly", policy => policy.Requirements.Add(new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")));
-    options.AddPolicy("OfficeOnly", policy => policy.RequireRole("Office", "Admin"));
-    options.AddPolicy("CasualOnly", policy => policy.RequireRole("Casual", "User", "Gymer", "Office", "Coach", "Admin"));
+    options.AddPolicy(
+        "FreeFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("free_features")
+            )
+    );
+    options.AddPolicy(
+        "CasualFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")
+            )
+    );
+    options.AddPolicy(
+        "OfficeFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+            )
+    );
+    options.AddPolicy(
+        "AiFeatures",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("ai_features")
+            )
+    );
+    options.AddPolicy(
+        "GymerOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")
+            )
+    );
+    options.AddPolicy(
+        "CoachAccessOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("coach_access")
+            )
+    );
+    options.AddPolicy(
+        "OfficeOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+            )
+    );
+    options.AddPolicy(
+        "CasualOnly",
+        policy =>
+            policy.Requirements.Add(
+                new MenuGreen.API.Authorization.EntitlementRequirement("casual_features")
+            )
+    );
 });
+
 
 // Configure CORS - Allow frontend domains
 var isDevelopment = builder.Environment.IsDevelopment();
@@ -571,3 +639,5 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
         writer.WriteStringValue(value.ToString(DateFormat));
     }
 }
+
+public partial class Program { }

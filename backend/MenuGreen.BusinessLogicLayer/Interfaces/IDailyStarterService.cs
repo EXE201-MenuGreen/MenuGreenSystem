@@ -9,7 +9,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface IDailyStarterService
     {
         Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId);
-        Task<IEnumerable<FoodResponse>> GetFeaturedMealsAsync();
+        Task<IEnumerable<FoodResponse>> GetFeaturedMealsAsync(Guid userId);
         Task SelectMealPlanAsync(Guid userId, DailyStarterSelectMealRequest request);
         Task<DailyStarterStartLogResponse> StartLogFlowAsync(Guid userId);
         Task<DailyStarterPersonalizationResponse> GetPersonalizationAsync(Guid userId);

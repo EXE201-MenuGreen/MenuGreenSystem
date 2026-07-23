@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -192,6 +193,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> UpdateItemAsync(Guid planId, Guid itemId, MealPlanItemUpsertRequest request, Guid? userId = null)
         {
             ValidateItem(request);
+            var plan = await GetMealPlanAsync(planId);
+            if (userId.HasValue && userId.Value != Guid.Empty && plan.UserId != userId.Value)
+            {
+                throw new Exception("Forbidden.");
+            }
             var item = await GetPlanItemAsync(planId, itemId);
             item.MealType = request.MealType;
             item.FoodId = request.FoodId;
@@ -242,6 +248,107 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
 
             return mealLog;
+        }
+
+        public async Task<OfficeScanMealResponse> SaveOfficeScanMealAsync(
+            Guid planId,
+            OfficeScanMealRequest request,
+            Guid userId)
+        {
+            var plan = await GetMealPlanAsync(planId);
+            if (plan.UserId != userId) throw new Exception("Forbidden.");
+            if (request.PlannedDate.Year < 2000) throw new Exception("PlannedDate is required.");
+
+            var mealType = NormalizeMealType(request.MealType);
+            var items = await _unitOfWork.MealPlanItems.FindAsync(x =>
+                x.MealPlanId == planId && x.PlannedDate == request.PlannedDate);
+            var item = items.FirstOrDefault(x => NormalizeMealType(x.MealType ?? string.Empty) == mealType);
+            var replacedExisting = item != null;
+            var isNewItem = item == null;
+
+            if (item != null && !request.ReplaceExisting &&
+                !string.Equals(item.SourceType, "AiScan", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Bữa ăn này đã có trong kế hoạch Office.");
+            }
+
+            if (item == null)
+            {
+                item = new MealPlanItem
+                {
+                    Id = Guid.NewGuid(),
+                    MealPlanId = planId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanItems.AddAsync(item);
+            }
+
+            item.MealType = mealType;
+            item.PlannedDate = request.PlannedDate;
+            item.ScheduledTime = request.ScheduledTime ?? new TimeOnly(12, 0);
+            item.FoodId = null;
+            item.RecipeId = null;
+            item.TargetCalories = (int)Math.Round(request.CaloriesKcal);
+            item.QuantityG = request.QuantityG;
+            item.ProteinG = request.ProteinG;
+            item.CarbsG = request.CarbsG;
+            item.FatG = request.FatG;
+            item.SourceType = "AiScan";
+            item.CustomName = request.CustomName.Trim();
+            item.IngredientSnapshotJson = JsonSerializer.Serialize(request.Ingredients);
+            item.IsCompleted = true;
+            if (!isNewItem)
+            {
+                _unitOfWork.MealPlanItems.Update(item);
+            }
+
+            var existingLogs = await _unitOfWork.MealLogs.FindAsync(x => x.MealPlanItemId == item.Id);
+            var mealLog = existingLogs.FirstOrDefault();
+            var isNewMealLog = mealLog == null;
+            if (mealLog == null)
+            {
+                mealLog = new MealLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    MealPlanItemId = item.Id
+                };
+                await _unitOfWork.MealLogs.AddAsync(mealLog);
+            }
+
+            mealLog.FoodId = null;
+            mealLog.RecipeId = null;
+            mealLog.MealType = mealType;
+            mealLog.QuantityG = request.QuantityG;
+            mealLog.CaloriesKcal = request.CaloriesKcal;
+            mealLog.ProteinG = request.ProteinG;
+            mealLog.CarbsG = request.CarbsG;
+            mealLog.FatG = request.FatG;
+            mealLog.SourceType = "AiScan";
+            mealLog.CustomName = request.CustomName.Trim();
+            mealLog.Notes = "Được ghi nhận từ AI scan và đồng bộ với kế hoạch Office.";
+            mealLog.LoggedAt = (request.LoggedAt ?? DateTime.UtcNow).ToUniversalTime();
+            mealLog.IsFromMealPlan = true;
+            if (!isNewMealLog)
+            {
+                _unitOfWork.MealLogs.Update(mealLog);
+            }
+
+            plan.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.MealPlanHeaders.Update(plan);
+
+            // EF Core wraps this SaveChanges call in a transaction, so the plan item
+            // and its actual meal log cannot be persisted independently.
+            await _unitOfWork.CompleteAsync();
+
+            return new OfficeScanMealResponse
+            {
+                MealPlanId = plan.Id,
+                MealPlanItemId = item.Id,
+                MealLogId = mealLog.Id,
+                ReplacedExisting = replacedExisting,
+                DisplayName = item.CustomName
+            };
         }
 
         public async Task<MealPlanResponse> CommitAsync(Guid planId, MealPlanCommitRequest request, Guid? userId = null)
@@ -571,6 +678,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return await GetRecipeMacrosAsync(item.RecipeId.Value);
             }
 
+            if (string.Equals(item.SourceType, "AiScan", StringComparison.OrdinalIgnoreCase))
+            {
+                return (
+                    item.ProteinG ?? 0,
+                    item.CarbsG ?? 0,
+                    item.FatG ?? 0,
+                    item.TargetCalories ?? 0
+                );
+            }
+
             return (0, 0, 0, 0);
         }
 
@@ -606,10 +723,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = displayCalories,
+                QuantityG = x.QuantityG,
+                ProteinG = x.ProteinG,
+                CarbsG = x.CarbsG,
+                FatG = x.FatG,
+                CustomName = x.CustomName,
                 IsCompleted = x.IsCompleted,
                 FoodName = food?.NameVi,
                 RecipeName = recipe?.Title,
-                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
+                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : x.SourceType,
                 Status = x.IsCompleted ? "done" : "planned",
                 EstimatedPriceVnd = price
             };
@@ -627,10 +749,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = x.TargetCalories,
+                QuantityG = x.QuantityG,
+                ProteinG = x.ProteinG,
+                CarbsG = x.CarbsG,
+                FatG = x.FatG,
+                CustomName = x.CustomName,
                 IsCompleted = x.IsCompleted,
                 FoodName = x.Food?.NameVi,
                 RecipeName = x.Recipe?.Title,
-                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
+                SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : x.SourceType,
                 Status = x.IsCompleted ? "done" : "planned"
             };
         }
@@ -650,6 +777,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsG = x.CarbsG,
                 FatG = x.FatG,
                 SourceType = x.SourceType,
+                CustomName = x.CustomName,
                 Notes = x.Notes,
                 LoggedAt = x.LoggedAt,
                 MealPlanItemId = x.MealPlanItemId,
@@ -697,8 +825,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var candidates = new List<BudgetMealCandidate>();
                 foreach (var recipe in allRecipes.Where(r =>
-                             r.MealType != null &&
-                             r.MealType.Contains(mealType, StringComparison.OrdinalIgnoreCase)))
+                             IsMealTypeCompatible(r.MealType, mealType)))
                 {
                     var preparationMinutes = recipe.TotalTimeMin
                         ?? ((recipe.PrepTimeMin ?? 0) + (recipe.CookTimeMin ?? 0));
@@ -719,7 +846,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     throw new Exception($"Không có món {MealTypeLabel(mealType)} đáp ứng thời gian tối đa {maxCookingMinutes} phút và có dữ liệu giá hợp lệ.");
                 }
 
-                candidatesByMeal[mealType] = candidates;
+                // Shuffle once for every generation so plans with the same targets do not
+                // always start with the same recipe when candidates have similar scores.
+                candidatesByMeal[mealType] = candidates
+                    .OrderBy(_ => Random.Shared.Next())
+                    .ToList();
             }
 
             var slots = new List<BudgetMealSlot>();
@@ -755,13 +886,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     throw new Exception("Không thể phân bổ món ăn mà vẫn giữ tổng chi phí trong ngân sách tuần.");
                 }
 
-                var recentRecipeIds = selections
-                    .Where(selection => selection.Slot.MealType.Equals(slot.MealType, StringComparison.OrdinalIgnoreCase))
-                    .TakeLast(2)
+                var usedRecipeIds = selections
                     .Select(selection => selection.Candidate.RecipeId)
                     .ToHashSet();
-                var diverse = feasible.Where(candidate => !recentRecipeIds.Contains(candidate.RecipeId)).ToList();
-                var pool = diverse.Count > 0 ? diverse : feasible;
+                var usageByRecipe = selections
+                    .GroupBy(selection => selection.Candidate.RecipeId)
+                    .ToDictionary(group => group.Key, group => group.Count());
+                var lastRecipeId = selections.LastOrDefault()?.Candidate.RecipeId;
+                var diversityEligible = feasible
+                    .Where(candidate => usageByRecipe.GetValueOrDefault(candidate.RecipeId) < 2)
+                    .Where(candidate => candidate.RecipeId != lastRecipeId)
+                    .ToList();
+                var unused = diversityEligible
+                    .Where(candidate => !usedRecipeIds.Contains(candidate.RecipeId))
+                    .ToList();
+                // Prefer at most two uses per week and never repeat in adjacent slots.
+                // The final fallback keeps generation possible when the catalogue or
+                // remaining budget cannot satisfy those diversity constraints.
+                var pool = unused.Count > 0
+                    ? unused
+                    : diversityEligible.Count > 0
+                        ? diversityEligible
+                        : feasible.Where(candidate => candidate.RecipeId != lastRecipeId).DefaultIfEmpty(feasible.First()).ToList();
                 var remainingSlots = slots.Count - index;
                 var averageRemainingBudget = Math.Max(1d, (weeklyBudget - totalPlannedCost) / (double)remainingSlots);
 
@@ -771,7 +917,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         slot.TargetCalories,
                         averageRemainingBudget,
                         maxCookingMinutes,
-                        selections.Count(selection => selection.Candidate.RecipeId == candidate.RecipeId)))
+                        selections.Count(selection => selection.Candidate.RecipeId == candidate.RecipeId))
+                        + Random.Shared.NextDouble() * 0.08d)
                     .ThenBy(candidate => candidate.PriceVnd)
                     .First();
 
@@ -782,6 +929,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (totalPlannedCost > weeklyBudget)
             {
                 throw new Exception($"Kế hoạch dự kiến {totalPlannedCost:N0}đ, vượt ngân sách tuần {weeklyBudget:N0}đ.");
+            }
+
+            // A user should have only one active budget/Office plan. Keeping older
+            // generations active makes the app load an arbitrary plan after reopening.
+            var activePlans = await _unitOfWork.MealPlanHeaders.FindAsync(
+                x => x.UserId == userId && x.IsActive);
+            foreach (var activePlan in activePlans.Where(x =>
+                         (x.GeneratedBy ?? string.Empty).StartsWith("BUDGET_AWARE", StringComparison.OrdinalIgnoreCase)))
+            {
+                activePlan.IsActive = false;
+                activePlan.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.MealPlanHeaders.Update(activePlan);
             }
 
             var mealPlanHeader = new MealPlanHeader
@@ -873,7 +1032,141 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             group.Key.Unit)
                     };
                 }).OrderBy(x => x.Name).ToList();
-            return new GroceryListResponse { MealPlanId = planId, Items = items, EstimatedTotalVnd = items.Sum(x => x.EstimatedPriceVnd) };
+            var fallbackDate = plan.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var days = planItems
+                .Where(x => x.RecipeId.HasValue)
+                .GroupBy(x => x.PlannedDate ?? fallbackDate)
+                .OrderBy(group => group.Key)
+                .Select(dayGroup =>
+                {
+                    var dailyRecipeOccurrences = dayGroup
+                        .GroupBy(x => x.RecipeId!.Value)
+                        .ToDictionary(group => group.Key, group => group.Count());
+                    var dailyScaledIngredients = ingredients
+                        .Where(row => dailyRecipeOccurrences.ContainsKey(row.RecipeId))
+                        .Select(row =>
+                        {
+                            catalogById.TryGetValue(row.IngredientId, out var ingredient);
+                            var unit = row.Unit ?? ingredient?.UnitDefault ?? "unit";
+                            var occurrences = dailyRecipeOccurrences.GetValueOrDefault(row.RecipeId, 1);
+                            var servings = recipeServings.GetValueOrDefault(row.RecipeId, 1);
+                            return new
+                            {
+                                row.IngredientId,
+                                Unit = unit,
+                                Quantity = (row.Quantity ?? 0) * occurrences / servings
+                            };
+                        });
+                    var dailyItems = dailyScaledIngredients
+                        .GroupBy(x => new { x.IngredientId, x.Unit })
+                        .Select(group =>
+                        {
+                            catalogById.TryGetValue(group.Key.IngredientId, out var ingredient);
+                            var totalQuantity = group.Sum(x => x.Quantity);
+                            return new GroceryListItemResponse
+                            {
+                                IngredientId = group.Key.IngredientId,
+                                Name = ingredient?.NameVi ?? "Nguyên liệu",
+                                Quantity = totalQuantity,
+                                Unit = group.Key.Unit,
+                                EstimatedPriceVnd = NutritionMath.EstimateIngredientCost(
+                                    ingredient?.EstimatedPriceVnd ?? 0,
+                                    totalQuantity,
+                                    group.Key.Unit)
+                            };
+                        })
+                        .OrderBy(x => x.Name)
+                        .ToList();
+                    return new GroceryListDayResponse
+                    {
+                        PlannedDate = dayGroup.Key,
+                        Items = dailyItems,
+                        EstimatedTotalVnd = dailyItems.Sum(x => x.EstimatedPriceVnd)
+                    };
+                })
+                .ToList();
+
+            var recipePlanItems = planItems.Where(x => x.RecipeId.HasValue).ToList();
+            var earliestShoppingDate = recipePlanItems.Count > 0
+                ? recipePlanItems.Min(item => GroceryShoppingDate(item, fallbackDate))
+                : fallbackDate.AddDays(-1);
+            var shoppingContributions = recipePlanItems
+                .SelectMany(planItem => ingredients
+                    .Where(row => row.RecipeId == planItem.RecipeId!.Value)
+                    .Select(row =>
+                    {
+                        catalogById.TryGetValue(row.IngredientId, out var ingredient);
+                        var weeklyStock = IsWeeklyStockIngredient(ingredient);
+                        var unit = row.Unit ?? ingredient?.UnitDefault ?? "unit";
+                        var servings = recipeServings.GetValueOrDefault(row.RecipeId, 1);
+                        return new GroceryIngredientContribution(
+                            weeklyStock
+                                ? earliestShoppingDate
+                                : GroceryShoppingDate(planItem, fallbackDate),
+                            row.IngredientId,
+                            unit,
+                            (row.Quantity ?? 0) / servings,
+                            weeklyStock);
+                    }))
+                .ToList();
+            var shoppingDates = shoppingContributions
+                .Select(x => x.ShoppingDate)
+                .Distinct()
+                .OrderBy(date => date)
+                .ToList();
+            var shoppingTrips = shoppingDates.Select(shoppingDate =>
+            {
+                var coveredMeals = recipePlanItems
+                    .Where(item => GroceryShoppingDate(item, fallbackDate) == shoppingDate)
+                    .Select(item => new GroceryCoveredMealResponse
+                    {
+                        PlannedDate = item.PlannedDate ?? fallbackDate,
+                        MealType = (item.MealType ?? "meal").ToLowerInvariant()
+                    })
+                    .OrderBy(item => item.PlannedDate)
+                    .ThenBy(item => MealTypeSortOrder(item.MealType))
+                    .ToList();
+                var tripItems = shoppingContributions
+                    .Where(x => x.ShoppingDate == shoppingDate)
+                    .GroupBy(x => new { x.IngredientId, x.Unit, x.IsWeeklyStock })
+                    .Select(group =>
+                    {
+                        catalogById.TryGetValue(group.Key.IngredientId, out var ingredient);
+                        var totalQuantity = group.Sum(x => x.Quantity);
+                        return new GroceryListItemResponse
+                        {
+                            IngredientId = group.Key.IngredientId,
+                            Name = ingredient?.NameVi ?? "Nguyên liệu",
+                            Quantity = totalQuantity,
+                            Unit = group.Key.Unit,
+                            IsWeeklyStock = group.Key.IsWeeklyStock,
+                            EstimatedPriceVnd = NutritionMath.EstimateIngredientCost(
+                                ingredient?.EstimatedPriceVnd ?? 0,
+                                totalQuantity,
+                                group.Key.Unit)
+                        };
+                    })
+                    .OrderByDescending(x => x.IsWeeklyStock)
+                    .ThenBy(x => x.Name)
+                    .ToList();
+                return new ShoppingTripResponse
+                {
+                    ShoppingDate = shoppingDate,
+                    IsInitialTrip = plan.StartDate.HasValue && shoppingDate < plan.StartDate.Value,
+                    CoveredMeals = coveredMeals,
+                    Items = tripItems,
+                    EstimatedTotalVnd = tripItems.Sum(x => x.EstimatedPriceVnd)
+                };
+            }).ToList();
+
+            return new GroceryListResponse
+            {
+                MealPlanId = planId,
+                Items = items,
+                Days = days,
+                ShoppingTrips = shoppingTrips,
+                EstimatedTotalVnd = shoppingTrips.Sum(x => x.EstimatedTotalVnd)
+            };
         }
 
         public async Task<BudgetStatusResponse> GetBudgetStatusAsync(Guid planId, Guid userId)
@@ -916,6 +1209,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<MealPlanItemResponse>> GetAlternativesAsync(Guid planId, Guid itemId, Guid userId)
         {
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId)
+                ?? throw new Exception("Meal plan not found.");
+            if (plan.UserId != userId) throw new Exception("Forbidden.");
+
             var currentItem = await GetPlanItemAsync(planId, itemId);
             var currentCal = currentItem.TargetCalories ?? 500;
             var currentPrice = 0;
@@ -928,21 +1225,62 @@ namespace MenuGreen.BusinessLogicLayer.Services
             else if (currentItem.RecipeId.HasValue)
             {
                 var recipe = await _unitOfWork.Recipes.GetByIdAsync(currentItem.RecipeId.Value);
-                currentPrice = recipe?.EstimatedPriceVnd ?? 100000;
+                currentPrice = recipe == null ? 0 : RecipeServingPrice(recipe);
             }
 
             var result = new List<MealPlanItemResponse>();
+            var planItems = (await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId)).ToList();
+            var sameDayRecipeIds = planItems
+                .Where(x => x.Id != itemId &&
+                            x.PlannedDate == currentItem.PlannedDate &&
+                            x.RecipeId.HasValue)
+                .Select(x => x.RecipeId!.Value)
+                .ToHashSet();
+            var recipeUseCounts = planItems
+                .Where(x => x.Id != itemId && x.RecipeId.HasValue)
+                .GroupBy(x => x.RecipeId!.Value)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var budgets = await _unitOfWork.BudgetRequests.FindAsync(x => x.UserId == userId);
+            var latestBudget = budgets.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
+            var budgetLimit = latestBudget?.BudgetVnd ?? int.MaxValue;
+            var maxCookingMinutes = latestBudget?.TimeLimitMin ?? int.MaxValue;
+            var currentPlanCost = 0;
+            foreach (var planItem in planItems.Where(x => x.RecipeId.HasValue))
+            {
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(planItem.RecipeId!.Value);
+                if (recipe != null) currentPlanCost += RecipeServingPrice(recipe);
+            }
+            var maximumReplacementPrice = Math.Max(0, budgetLimit - (currentPlanCost - currentPrice));
 
             if (currentItem.RecipeId.HasValue)
             {
-                var recipes = await _unitOfWork.Recipes.FindAsync(r => 
-                    r.MealType != null && r.MealType.Contains(currentItem.MealType ?? "lunch") &&
+                var recipes = (await _unitOfWork.Recipes.GetAllAsync()).Where(r =>
+                    (r.IsActive == true || r.IsActive == null) &&
+                    IsMealTypeCompatible(r.MealType, currentItem.MealType ?? "lunch") &&
                     r.Id != currentItem.RecipeId &&
-                    r.EstimatedPriceVnd.HasValue && r.EstimatedPriceVnd.Value < currentPrice);
+                    !sameDayRecipeIds.Contains(r.Id));
 
-                var alternativeRecipes = recipes.OrderBy(r => r.EstimatedPriceVnd).Take(5);
-                foreach (var r in alternativeRecipes)
+                var alternatives = new List<(Recipe Recipe, int Calories, int Price)>();
+                foreach (var recipe in recipes)
                 {
+                    var preparationMinutes = recipe.TotalTimeMin
+                        ?? ((recipe.PrepTimeMin ?? 0) + (recipe.CookTimeMin ?? 0));
+                    if (preparationMinutes > maxCookingMinutes) continue;
+                    var price = RecipeServingPrice(recipe);
+                    if (price <= 0) continue;
+                    var calories = await GetRecipeCaloriesAsync(recipe.Id);
+                    if (calories <= 0) continue;
+                    alternatives.Add((recipe, calories, price));
+                }
+
+                foreach (var alternative in alternatives
+                    .OrderBy(x => x.Price <= maximumReplacementPrice ? 0 : 1)
+                    .ThenBy(x => recipeUseCounts.GetValueOrDefault(x.Recipe.Id, 0))
+                    .ThenBy(x => Math.Abs(x.Calories - currentCal))
+                    .ThenBy(_ => Random.Shared.Next())
+                    .Take(5))
+                {
+                    var r = alternative.Recipe;
                     result.Add(new MealPlanItemResponse
                     {
                         Id = Guid.Empty,
@@ -951,8 +1289,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         RecipeId = r.Id,
                         RecipeName = r.Title,
                         SourceEntityType = "Recipe",
-                        TargetCalories = currentCal,
-                        EstimatedPriceVnd = r.EstimatedPriceVnd,
+                        TargetCalories = alternative.Calories,
+                        EstimatedPriceVnd = alternative.Price,
                         Status = "alternative"
                     });
                 }
@@ -1248,6 +1586,84 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return (await GetByDateAsync(userId, request.PlannedDate))!;
         }
 
+        public async Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId)
+        {
+            var mealLog = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId)
+                ?? throw new Exception("Meal log not found.");
+            if (mealLog.UserId != userId) throw new Exception("Forbidden.");
+
+            // The operation is idempotent, so a retry cannot create duplicate plan items.
+            if (mealLog.MealPlanItemId.HasValue) return;
+
+            var plannedDate = DateOnly.FromDateTime(mealLog.LoggedAt ?? DateTime.UtcNow);
+            var plan = await FindDailyPlanAsync(userId, plannedDate);
+            if (plan == null)
+            {
+                plan = new MealPlanHeader
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = $"Daily plan {plannedDate:yyyy-MM-dd}",
+                    PlanType = "DAILY",
+                    StartDate = plannedDate,
+                    EndDate = plannedDate,
+                    GeneratedBy = "USER",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanHeaders.AddAsync(plan);
+            }
+
+            var normalizedMealType = NormalizeMealType(mealLog.MealType ?? "snack");
+            var planItems = await _unitOfWork.MealPlanItems.FindAsync(x =>
+                x.MealPlanId == plan.Id && x.MealType == normalizedMealType && !x.IsCompleted);
+            var planItem = planItems.FirstOrDefault(x =>
+                x.FoodId == mealLog.FoodId && x.RecipeId == mealLog.RecipeId &&
+                (x.FoodId.HasValue || x.RecipeId.HasValue));
+
+            if (planItem == null && !string.IsNullOrWhiteSpace(mealLog.CustomName))
+            {
+                planItem = planItems.FirstOrDefault(x =>
+                    string.Equals(x.CustomName, mealLog.CustomName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (planItem == null)
+            {
+                planItem = new MealPlanItem
+                {
+                    Id = Guid.NewGuid(),
+                    MealPlanId = plan.Id,
+                    MealType = normalizedMealType,
+                    FoodId = mealLog.FoodId,
+                    RecipeId = mealLog.RecipeId,
+                    PlannedDate = plannedDate,
+                    TargetCalories = mealLog.CaloriesKcal.HasValue
+                        ? (int)Math.Round(mealLog.CaloriesKcal.Value)
+                        : null,
+                    QuantityG = mealLog.QuantityG,
+                    ProteinG = mealLog.ProteinG,
+                    CarbsG = mealLog.CarbsG,
+                    FatG = mealLog.FatG,
+                    SourceType = "ACTUAL_LOG",
+                    CustomName = mealLog.CustomName,
+                    IsCompleted = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.MealPlanItems.AddAsync(planItem);
+            }
+            else
+            {
+                planItem.IsCompleted = true;
+                _unitOfWork.MealPlanItems.Update(planItem);
+            }
+
+            mealLog.MealPlanItemId = planItem.Id;
+            mealLog.IsFromMealPlan = true;
+            _unitOfWork.MealLogs.Update(mealLog);
+            await _unitOfWork.CompleteAsync();
+        }
+
         public async Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request)
         {
             var items = request.Items.Select(x => new MealPlanItemUpsertRequest
@@ -1469,7 +1885,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var calorieGap = Math.Abs(candidate.CaloriesKcal - targetCalories) / Math.Max(1d, targetCalories);
             var priceRatio = candidate.PriceVnd / Math.Max(1d, averageRemainingBudget);
             var timeRatio = candidate.PreparationMinutes / Math.Max(1d, maxCookingMinutes);
-            var repeatPenalty = previousUses * 0.08d;
+            var repeatPenalty = previousUses * 0.35d;
             return calorieGap * 0.65d + priceRatio * 0.20d + timeRatio * 0.07d + repeatPenalty;
         }
 
@@ -1483,6 +1899,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _ => "bữa ăn"
             };
         }
+
+        private static bool IsMealTypeCompatible(string? recipeMealType, string requestedMealType)
+        {
+            if (string.IsNullOrWhiteSpace(recipeMealType)) return false;
+            if (recipeMealType.Contains(requestedMealType, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // Snack recipes such as sweet potato, oatmeal drinks and smoothies are
+            // valid quick Office breakfasts when the catalogue has few breakfast recipes.
+            return requestedMealType.Equals("breakfast", StringComparison.OrdinalIgnoreCase)
+                && recipeMealType.Contains("snack", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static DateOnly GroceryShoppingDate(MealPlanItem item, DateOnly fallbackDate)
+        {
+            var plannedDate = item.PlannedDate ?? fallbackDate;
+            var mealType = (item.MealType ?? string.Empty).Trim().ToLowerInvariant();
+            return mealType is "breakfast" or "lunch"
+                ? plannedDate.AddDays(-1)
+                : plannedDate;
+        }
+
+        private static bool IsWeeklyStockIngredient(Ingredient? ingredient)
+        {
+            var category = ingredient?.Category ?? string.Empty;
+            var englishName = ingredient?.NameEn ?? string.Empty;
+            return category.Contains("Gia vị", StringComparison.OrdinalIgnoreCase)
+                || category.Contains("Dầu", StringComparison.OrdinalIgnoreCase)
+                || category.Contains("Tinh bột", StringComparison.OrdinalIgnoreCase)
+                || englishName.Contains("Peanut butter", StringComparison.OrdinalIgnoreCase)
+                || englishName.Contains("Almond", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int MealTypeSortOrder(string mealType) => mealType switch
+        {
+            "dinner" => 0,
+            "breakfast" => 1,
+            "lunch" => 2,
+            _ => 3
+        };
+
+        private sealed record GroceryIngredientContribution(
+            DateOnly ShoppingDate,
+            Guid IngredientId,
+            string Unit,
+            decimal Quantity,
+            bool IsWeeklyStock);
 
         private sealed record BudgetMealCandidate(
             Guid RecipeId,
@@ -1613,11 +2078,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
                 TargetCalories = item.TargetCalories,
+                QuantityG = item.QuantityG,
+                ProteinG = item.ProteinG,
+                CarbsG = item.CarbsG,
+                FatG = item.FatG,
+                CustomName = item.CustomName,
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,
                 RecipeName = recipe?.Title,
-                SourceEntityType = item.FoodId.HasValue ? "Food" : item.RecipeId.HasValue ? "Recipe" : null,
+                SourceEntityType = item.FoodId.HasValue ? "Food" : item.RecipeId.HasValue ? "Recipe" : item.SourceType,
                 Status = item.IsCompleted ? "done" : "planned",
                 EstimatedPriceVnd = price
             };

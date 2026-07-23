@@ -19,6 +19,8 @@ class PremiumProgramsScreen extends StatefulWidget {
 class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   final _repository = PremiumProgramRepository();
 
+  // Retained for the legacy catalogue widgets below.
+  // ignore: unused_field
   List<Map<String, dynamic>> _programs = const [];
   List<Map<String, dynamic>> _enrollments = const [];
   Map<String, dynamic>? _customApprovedRoute;
@@ -27,7 +29,6 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   String? _error;
 
   String _viewMode = 'week'; // 'day', 'week', 'month'
-  int _selectedDayIndex = 0; // 0 to 6 (Monday to Sunday)
   DateTime _currentDay = DateTime.now();
   DateTime _currentWeekStart = DateTime.now();
   DateTime _currentMonth = DateTime.now();
@@ -35,8 +36,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   List<Map<String, dynamic>> _singleDayMeals = [];
   bool _loadingMealsData = false;
 
+  // ignore: unused_element
   Map<String, dynamic>? get _activeProgram => _firstWithStatus('active');
+  // ignore: unused_element
   Map<String, dynamic>? get _paidProgram => _firstWithStatus('paid');
+  // ignore: unused_element
   List<Map<String, dynamic>> get _completedPrograms => _enrollments
       .where((item) => _value(item, 'status').toLowerCase() == 'completed')
       .toList();
@@ -62,30 +66,30 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
       final reqs = results[2] as List<dynamic>;
       // Find if there is an active/reviewed/applied RouteApproval request
-      final activeReq = reqs.firstWhere(
-        (r) {
-          final status = (r['status'] ?? '').toString().toLowerCase();
-          final reqType = (r['requestType'] ?? '').toString().toLowerCase();
-          return (status == 'reviewed' || status == 'applied') &&
-                 (reqType.isEmpty || reqType == 'routeapproval');
-        },
-        orElse: () => <String, dynamic>{},
-      );
+      final activeReq = reqs.firstWhere((r) {
+        final status = (r['status'] ?? '').toString().toLowerCase();
+        final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+        return (status == 'reviewed' || status == 'applied') &&
+            (reqType.isEmpty || reqType == 'routeapproval');
+      }, orElse: () => <String, dynamic>{});
 
       Map<String, dynamic>? routeDetail;
       if (activeReq.isNotEmpty) {
-        routeDetail = await AdvancedRepository().ptResult(activeReq['reportId'].toString());
+        routeDetail = await AdvancedRepository().ptResult(
+          activeReq['reportId'].toString(),
+        );
       }
 
       if (routeDetail != null) {
         final weekStart = (routeDetail['weekStartDate'] ?? '').toString();
         final parsedStartDate = DateTime.tryParse(weekStart) ?? DateTime.now();
         _currentWeekStart = parsedStartDate;
-        
+
         // If today is within this week, set _currentDay to today, otherwise set to Monday
         final today = DateTime.now();
         final weekEnd = parsedStartDate.add(const Duration(days: 6));
-        if (today.isAfter(parsedStartDate.subtract(const Duration(days: 1))) && today.isBefore(weekEnd.add(const Duration(days: 1)))) {
+        if (today.isAfter(parsedStartDate.subtract(const Duration(days: 1))) &&
+            today.isBefore(weekEnd.add(const Duration(days: 1)))) {
           _currentDay = today;
         } else {
           _currentDay = parsedStartDate;
@@ -148,8 +152,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         final list = <Map<String, dynamic>>[];
         for (int i = 0; i < 7; i++) {
           final date = _currentWeekStart.add(Duration(days: i));
-          final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-          
+          final dateStr =
+              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
           final plan = results[i];
           final itemsList = <Map<String, dynamic>>[];
           if (plan != null) {
@@ -205,14 +210,22 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   String _getDayOfWeekString(int weekday) {
     switch (weekday) {
-      case 1: return 'Thứ Hai';
-      case 2: return 'Thứ Ba';
-      case 3: return 'Thứ Tư';
-      case 4: return 'Thứ Năm';
-      case 5: return 'Thứ Sáu';
-      case 6: return 'Thứ Bảy';
-      case 7: return 'Chủ Nhật';
-      default: return '';
+      case 1:
+        return 'Thứ Hai';
+      case 2:
+        return 'Thứ Ba';
+      case 3:
+        return 'Thứ Tư';
+      case 4:
+        return 'Thứ Năm';
+      case 5:
+        return 'Thứ Sáu';
+      case 6:
+        return 'Thứ Bảy';
+      case 7:
+        return 'Chủ Nhật';
+      default:
+        return '';
     }
   }
 
@@ -223,6 +236,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     return null;
   }
 
+  // Retained for the legacy paid-program card.
+  // ignore: unused_element
   Future<void> _checkout(Map<String, dynamic> program) async {
     final accepted = await showDialog<bool>(
       context: context,
@@ -575,6 +590,10 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeProgram = _activeProgram;
+    final paidProgram = _paidProgram;
+    final completedPrograms = _completedPrograms;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF9),
       appBar: AppBar(
@@ -606,16 +625,56 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 children: [
                   _buildIntro(),
+                  if (activeProgram != null) ...[
+                    const SizedBox(height: 14),
+                    _buildActiveProgram(activeProgram),
+                  ] else if (paidProgram != null) ...[
+                    const SizedBox(height: 14),
+                    _buildPaidProgram(paidProgram),
+                  ] else if (_programs.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Chương trình đang mở',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ..._programs.map(
+                      (program) => _ProgramCard(
+                        program: program,
+                        busy: _actionLoading,
+                        onCheckout: () => _checkout(program),
+                      ),
+                    ),
+                  ],
                   if (_customApprovedRoute != null) ...[
                     const SizedBox(height: 14),
                     _buildCustomApprovedRoute(_customApprovedRoute!),
                   ] else ...[
                     const SizedBox(height: 14),
-                    const _MessageCard(message: 'Chưa có lộ trình cá nhân nào được duyệt từ PT.'),
+                    const _MessageCard(
+                      message: 'Chưa có lộ trình cá nhân nào được duyệt từ PT.',
+                    ),
                   ],
                   if (_error != null) ...[
                     const SizedBox(height: 14),
                     _MessageCard(message: _error!),
+                  ],
+                  if (completedPrograms.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Lộ trình đã hoàn thành',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...completedPrograms.map(_buildCompletedProgram),
                   ],
                 ],
               ),
@@ -665,6 +724,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildPaidProgram(Map<String, dynamic> program) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -707,6 +767,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildActiveProgram(Map<String, dynamic> active) {
     final milestones = _listValue(active, 'milestones');
     final currentWeek = _intValue(active, 'currentWeek', fallback: 1);
@@ -758,11 +819,13 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               if (startDateStr.isEmpty) return const SizedBox.shrink();
               final parsedDate = DateTime.tryParse(startDateStr);
               if (parsedDate == null) return const SizedBox.shrink();
-              final endDate = parsedDate.add(Duration(days: milestones.length * 7));
-              
+              final endDate = parsedDate.add(
+                Duration(days: milestones.length * 7),
+              );
+
               String format(DateTime d) =>
                   '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-              
+
               return Padding(
                 padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
@@ -844,6 +907,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCompletedProgram(Map<String, dynamic> completed) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -915,7 +979,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.green.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
             ),
             child: Row(
               children: [
@@ -1086,7 +1152,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_left),
               onPressed: () {
                 setState(() {
-                  _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+                  _currentWeekStart = _currentWeekStart.subtract(
+                    const Duration(days: 7),
+                  );
                   _currentDay = _currentWeekStart;
                 });
                 _loadMealsData();
@@ -1100,7 +1168,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_right),
               onPressed: () {
                 setState(() {
-                  _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+                  _currentWeekStart = _currentWeekStart.add(
+                    const Duration(days: 7),
+                  );
                   _currentDay = _currentWeekStart;
                 });
                 _loadMealsData();
@@ -1116,7 +1186,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               for (int i = 0; i < 7; i++) ...[
                 (() {
                   final date = _currentWeekStart.add(Duration(days: i));
-                  final isSelected = date.year == _currentDay.year &&
+                  final isSelected =
+                      date.year == _currentDay.year &&
                       date.month == _currentDay.month &&
                       date.day == _currentDay.day;
                   return Padding(
@@ -1124,14 +1195,19 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                     child: ChoiceChip(
                       showCheckmark: false,
                       label: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         child: Text(
                           '${_getDayOfWeekLabel(date.weekday)}\n${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : AppColors.textDark,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textDark,
                           ),
                         ),
                       ),
@@ -1157,7 +1233,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         if (_loadingMealsData)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           )
         else
           _buildDayMealsList(_singleDayMeals),
@@ -1176,7 +1254,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_left),
               onPressed: () {
                 setState(() {
-                  _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+                  _currentWeekStart = _currentWeekStart.subtract(
+                    const Duration(days: 7),
+                  );
                 });
                 _loadMealsData();
               },
@@ -1189,7 +1269,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_right),
               onPressed: () {
                 setState(() {
-                  _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+                  _currentWeekStart = _currentWeekStart.add(
+                    const Duration(days: 7),
+                  );
                 });
                 _loadMealsData();
               },
@@ -1200,7 +1282,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         if (_loadingMealsData)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           )
         else if (_weeklyMeals.isEmpty)
           const Padding(
@@ -1222,10 +1306,18 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   }
 
   Widget _buildMonthView() {
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final firstDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month,
+      1,
+    );
+    final lastDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month + 1,
+      0,
+    );
     final daysInMonth = lastDayOfMonth.day;
-    final startOffset = firstDayOfMonth.weekday - 1; 
+    final startOffset = firstDayOfMonth.weekday - 1;
 
     final weekDaysLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
@@ -1239,8 +1331,16 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_left),
               onPressed: () {
                 setState(() {
-                  _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1, 1);
-                  _currentDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+                  _currentMonth = DateTime(
+                    _currentMonth.year,
+                    _currentMonth.month - 1,
+                    1,
+                  );
+                  _currentDay = DateTime(
+                    _currentMonth.year,
+                    _currentMonth.month,
+                    1,
+                  );
                 });
                 _loadMealsData();
               },
@@ -1253,8 +1353,16 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               icon: const Icon(Icons.chevron_right),
               onPressed: () {
                 setState(() {
-                  _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 1);
-                  _currentDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+                  _currentMonth = DateTime(
+                    _currentMonth.year,
+                    _currentMonth.month + 1,
+                    1,
+                  );
+                  _currentDay = DateTime(
+                    _currentMonth.year,
+                    _currentMonth.month,
+                    1,
+                  );
                 });
                 _loadMealsData();
               },
@@ -1268,7 +1376,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
             for (final label in weekDaysLabels)
               Text(
                 label,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
               ),
           ],
         ),
@@ -1287,8 +1399,13 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               return const SizedBox.shrink();
             }
             final dayNumber = index - startOffset + 1;
-            final date = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
-            final isSelected = date.year == _currentDay.year &&
+            final date = DateTime(
+              _currentMonth.year,
+              _currentMonth.month,
+              dayNumber,
+            );
+            final isSelected =
+                date.year == _currentDay.year &&
                 date.month == _currentDay.month &&
                 date.day == _currentDay.day;
 
@@ -1303,9 +1420,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : Colors.transparent,
+                  color: isSelected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   border: isSelected
                       ? null
@@ -1314,7 +1429,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 child: Text(
                   '$dayNumber',
                   style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     fontSize: 12.5,
                     color: isSelected ? Colors.white : Colors.black87,
                   ),
@@ -1332,7 +1449,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         if (_loadingMealsData)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           )
         else
           _buildDayMealsList(_singleDayMeals),
@@ -1347,7 +1466,11 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         child: Center(
           child: Text(
             'Không có bữa ăn nào trong ngày này.',
-            style: TextStyle(color: Colors.grey, fontSize: 12.5, fontStyle: FontStyle.italic),
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 12.5,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ),
       );
@@ -1369,7 +1492,10 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
@@ -1417,7 +1543,12 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
-  Widget _buildMetricCard(String label, String value, Color bgColor, Color textColor) {
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    Color bgColor,
+    Color textColor,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
@@ -1496,13 +1627,21 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                _translateMealType(_value(meal as Map<String, dynamic>, 'mealType')),
+                                _translateMealType(
+                                  _value(
+                                    meal as Map<String, dynamic>,
+                                    'mealType',
+                                  ),
+                                ),
                                 style: const TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -1549,14 +1688,22 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   String _getDayOfWeekLabel(int weekday) {
     switch (weekday) {
-      case 1: return 'T2';
-      case 2: return 'T3';
-      case 3: return 'T4';
-      case 4: return 'T5';
-      case 5: return 'T6';
-      case 6: return 'T7';
-      case 7: return 'CN';
-      default: return '';
+      case 1:
+        return 'T2';
+      case 2:
+        return 'T3';
+      case 3:
+        return 'T4';
+      case 4:
+        return 'T5';
+      case 5:
+        return 'T6';
+      case 6:
+        return 'T7';
+      case 7:
+        return 'CN';
+      default:
+        return '';
     }
   }
 
@@ -1589,6 +1736,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   }
 }
 
+// Retained for the legacy premium-program catalogue.
+// ignore: unused_element
 class _ProgramCard extends StatelessWidget {
   const _ProgramCard({
     required this.program,

@@ -10,6 +10,20 @@ class UserSubscriptionRepository {
 
   final ApiClient _api;
 
+  Future<FeatureAccess> getFeatureAccess() async {
+    try {
+      final response = await _api.get(ApiEndpoints.subscriptionEntitlements);
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        return FeatureAccess.free;
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return FeatureAccess.free;
+      return FeatureAccess.fromJson(decoded);
+    } catch (_) {
+      return FeatureAccess.free;
+    }
+  }
+
   Future<List<SubscriptionPlan>> getAvailablePlans() async {
     final response = await _api.get(ApiEndpoints.subscriptionPlans);
     if (response.statusCode != 200 || response.body.isEmpty) return [];

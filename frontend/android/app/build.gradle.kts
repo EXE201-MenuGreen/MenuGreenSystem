@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     // Firebase: apply sau Flutter plugin (đọc google-services.json)
@@ -16,6 +17,14 @@ if (keystorePropertiesFile.exists()) {
 val hasReleaseSigningConfig =
     listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
         .all { !keystoreProperties.getProperty(it).isNullOrBlank() }
+
+// Load environment variables from .env file securely
+val envProperties = Properties()
+val envFile = rootProject.file("../.env")
+if (envFile.exists()) {
+    envFile.inputStream().use { envProperties.load(it) }
+}
+val mapApiKey = envProperties.getProperty("GOONG_API_KEY") ?: envProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
 
 android {
     namespace = "com.menugreen.food"
@@ -50,17 +59,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapApiKey
         // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
-        // Without this, AGP's mergeReleaseNativeLibs step only includes libflutter.so
-        // and the resulting APK crashes on launch with:
-        //   "VM snapshot invalid and could not be inferred from settings."
         ndk {
             // no abiFilters override here - let --target-platform drive it
         }
     }
 
     // Include Flutter's AOT-compiled libapp.so into the APK packaging.
-    // Flutter writes it to build/app/intermediates/flutter/release/jniLibs/<abi>/libapp.so
     sourceSets {
         getByName("main") {
             jniLibs.srcDirs(

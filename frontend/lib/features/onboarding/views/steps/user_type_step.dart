@@ -15,7 +15,7 @@ class _UserTypeStepState extends State<UserTypeStep> {
   int _selectedIndex = 0;
   bool _saving = false;
 
-  static const _patterns = ['gym', 'office', 'general'];
+  static const _patterns = ['gym', 'office', 'casual'];
 
   Widget _buildTypeCard(int index, String title, String desc, IconData icon) {
     final isSelected = _selectedIndex == index;
@@ -28,7 +28,9 @@ class _UserTypeStepState extends State<UserTypeStep> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.progressBackground,
+            color: isSelected
+                ? AppColors.primary
+                : AppColors.progressBackground,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: [
@@ -37,7 +39,7 @@ class _UserTypeStepState extends State<UserTypeStep> {
                 color: AppColors.primary.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
-              )
+              ),
           ],
         ),
         child: Column(
@@ -50,9 +52,23 @@ class _UserTypeStepState extends State<UserTypeStep> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(desc, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                      Text(
+                        desc,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -75,7 +91,11 @@ class _UserTypeStepState extends State<UserTypeStep> {
                 color: AppColors.progressBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.image_outlined, color: AppColors.textLight, size: 40),
+              child: const Icon(
+                Icons.image_outlined,
+                color: AppColors.textLight,
+                size: 40,
+              ),
             ),
             if (isSelected) ...[
               const SizedBox(height: 12),
@@ -83,10 +103,16 @@ class _UserTypeStepState extends State<UserTypeStep> {
                 children: [
                   Icon(Icons.check_circle, color: AppColors.primary, size: 20),
                   SizedBox(width: 8),
-                  Text('Đã chọn', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Đã chọn',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
-              )
-            ]
+              ),
+            ],
           ],
         ),
       ),
@@ -105,7 +131,11 @@ class _UserTypeStepState extends State<UserTypeStep> {
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          const Text('Bạn thuộc nhóm nào?', style: AppTextStyles.heading1, textAlign: TextAlign.center),
+          const Text(
+            'Bạn thuộc nhóm nào?',
+            style: AppTextStyles.heading1,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           const Text(
             'Để MenuGreen gợi ý chế độ ăn phù hợp nhất cho mục tiêu của bạn.',
@@ -113,9 +143,24 @@ class _UserTypeStepState extends State<UserTypeStep> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          _buildTypeCard(0, 'Người tập Gym', 'Chế độ ăn giàu protein, hỗ trợ tăng cơ, giảm mỡ và phục hồi thể lực sau tập.', Icons.fitness_center),
-          _buildTypeCard(1, 'Nhân viên văn phòng', 'Thực đơn cân bằng, ít béo, giàu chất xơ giúp duy trì năng lượng và sự tập trung.', Icons.laptop_mac),
-          _buildTypeCard(2, 'Người dùng phổ thông', 'Duy trì vóc dáng, sức khỏe dẻo dai với các món ăn xanh, sạch và đủ chất.', Icons.spa),
+          _buildTypeCard(
+            0,
+            'Người tập Gym',
+            'Chế độ ăn giàu protein, hỗ trợ tăng cơ, giảm mỡ và phục hồi thể lực sau tập.',
+            Icons.fitness_center,
+          ),
+          _buildTypeCard(
+            1,
+            'Nhân viên văn phòng',
+            'Thực đơn cân bằng, ít béo, giàu chất xơ giúp duy trì năng lượng và sự tập trung.',
+            Icons.laptop_mac,
+          ),
+          _buildTypeCard(
+            2,
+            'Người dùng phổ thông',
+            'Duy trì vóc dáng, sức khỏe dẻo dai với các món ăn xanh, sạch và đủ chất.',
+            Icons.spa,
+          ),
           const SizedBox(height: 24),
           PrimaryButton(
             text: _saving ? 'Đang lưu...' : 'Tiếp tục  →',

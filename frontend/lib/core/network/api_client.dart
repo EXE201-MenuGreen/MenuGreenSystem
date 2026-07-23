@@ -31,6 +31,28 @@ class ApiClient {
   static Completer<bool>? _refreshInFlight;
   static DateTime? _lastSuccessfulRefresh;
 
+  /// Verifies the stored access token before the app enters an authenticated
+  /// screen. Expired or malformed sessions are refreshed once; unusable
+  /// credentials are removed so Splash cannot keep opening the main app with
+  /// a dead session.
+  Future<bool> ensureValidSession() async {
+    final access = await _storage.getAccessToken();
+    if (access == null || access.isEmpty) return false;
+
+    final exp = JwtUtils.tryGetExpiryEpochSeconds(access);
+    if (exp == null) {
+      await _storage.clear();
+      return false;
+    }
+
+    final nowSec = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    if (exp - nowSec > 60) return true;
+
+    final refreshed = await _refreshTokenOnce();
+    if (!refreshed) await _storage.clear();
+    return refreshed;
+  }
+
   Future<http.Response> get(String url, {bool authenticated = true}) {
     final uri = Uri.parse(url);
     return _sendWithAuthRetry(
@@ -122,8 +144,10 @@ class ApiClient {
     String filename, {
     MediaType? fileContentType,
     bool authenticated = true,
+    Duration? timeout,
   }) {
     final uri = Uri.parse(url);
+    final requestTimeout = timeout ?? _timeout;
     return _sendWithAuthRetry(
       method: 'POST',
       uri: uri,
@@ -140,7 +164,7 @@ class ApiClient {
           contentType: fileContentType,
         ),
         );
-        final streamedResponse = await request.send().timeout(_timeout);
+        final streamedResponse = await request.send().timeout(requestTimeout);
         return http.Response.fromStream(streamedResponse);
       },
     );
@@ -168,17 +192,22 @@ class ApiClient {
     if (!authenticated || response.statusCode != 401) return response;
 
     final refreshed = await _refreshTokenOnce();
-    if (!refreshed) return response;
+    if (!refreshed) {
+      await _storage.clear();
+      return response;
+    }
 
     final retryHeaders = await _buildHeaders(
       authenticated: true,
       jsonContentType: jsonContentType,
     );
-    return _guardedRequest(
+    final retryResponse = await _guardedRequest(
       method: method,
       uri: uri,
       request: () => send(retryHeaders),
     );
+    if (retryResponse.statusCode == 401) await _storage.clear();
+    return retryResponse;
   }
 
   Future<http.Response> _guardedRequest({
@@ -285,6 +314,6 @@ class ApiClient {
       return;
     }
 
-    await _refreshTokenOnce();
+    await ensureValidSession();
   }
 }

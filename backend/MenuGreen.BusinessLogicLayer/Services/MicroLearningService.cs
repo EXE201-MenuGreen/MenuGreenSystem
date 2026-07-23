@@ -51,6 +51,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             // 1. Quét phát hiện vấn đề
             bool isProteinDeficient = false;
+            bool isFiberDeficient = false;
             bool isFatExcess = false;
             bool hasMilkAllergy = allergies.Any(a => a.Name.Contains("sữa", StringComparison.OrdinalIgnoreCase) || a.Name.Contains("milk", StringComparison.OrdinalIgnoreCase));
             bool hasSeafoodAllergy = allergies.Any(a => a.Name.Contains("hải sản", StringComparison.OrdinalIgnoreCase) || a.Name.Contains("seafood", StringComparison.OrdinalIgnoreCase) || a.Name.Contains("tôm", StringComparison.OrdinalIgnoreCase) || a.Name.Contains("cá", StringComparison.OrdinalIgnoreCase));
@@ -59,6 +60,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var avgProtein = logs.Sum(l => l.ProteinG ?? 0) / 3m;
                 var avgFat = logs.Sum(l => l.FatG ?? 0) / 3m;
+                var loggedFoodIds = logs.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).Distinct().ToList();
+                var foodsById = (await _unitOfWork.Foods.FindAsync(x => loggedFoodIds.Contains(x.Id)))
+                    .ToDictionary(x => x.Id);
+                var avgFiber = logs.Sum(log =>
+                {
+                    if (!log.FoodId.HasValue || !foodsById.TryGetValue(log.FoodId.Value, out var food)) return 0m;
+                    var quantity = log.QuantityG ?? food.DefaultServingG ?? 100;
+                    return (food.FiberG ?? 0) * quantity / 100m;
+                }) / 3m;
 
                 if (healthProfile.TargetProteinG > 0 && avgProtein < (decimal)healthProfile.TargetProteinG * 0.7m)
                 {
@@ -69,12 +79,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     isFatExcess = true;
                 }
+
+                if (avgFiber < 17.5m)
+                {
+                    isFiberDeficient = true;
+                }
             }
 
             // 2. Xác định các Category được đề xuất
             var targetCategories = new List<string> { "General", "Hydration" };
             if (isOfficeUser) targetCategories.Add("Office");
             if (isProteinDeficient) targetCategories.Add("Protein");
+            if (isFiberDeficient) targetCategories.Add("Fiber");
             if (isFatExcess) targetCategories.Add("Sodium");
             if (hasMilkAllergy || hasSeafoodAllergy) targetCategories.Add("Allergy");
 
@@ -115,7 +131,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // - Ưu tiên thẻ chưa hoàn thành quiz
             var sortedList = recommendedList
                 .OrderByDescending(c => isOfficeUser && c.Category == "Office")
-                .ThenByDescending(c => c.Category == "Protein" || c.Category == "Sodium" || c.Category == "Allergy")
+                .ThenByDescending(c => c.Category == "Protein" || c.Category == "Fiber" || c.Category == "Sodium" || c.Category == "Allergy")
                 .ThenBy(c => interactions.TryGetValue(c.Id, out var inter) && inter.IsRead ? 1 : 0)
                 .ThenBy(c => interactions.TryGetValue(c.Id, out var inter) && inter.IsQuizCompleted ? 1 : 0)
                 .Take(3)
@@ -136,6 +152,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return sortedList.Select(c => MapToResponse(c, interactions.TryGetValue(c.Id, out var inter) ? inter : null));
+        }
+
+        public async Task<IEnumerable<MicroLearningCardResponse>> GetLibraryCardsAsync(
+            Guid userId,
+            string? category
+        )
+        {
+            await EnsureSeedDataAsync();
+            var normalizedCategory = category?.Trim();
+            var cards = (
+                await _unitOfWork.MicroLearningCards.FindAsync(c =>
+                    c.IsActive
+                    && (
+                        string.IsNullOrWhiteSpace(normalizedCategory)
+                        || c.Category == normalizedCategory
+                    )
+                )
+            )
+                .OrderBy(c => c.Category)
+                .ThenBy(c => c.Title)
+                .ToList();
+            var interactions = (
+                await _unitOfWork.UserCardInteractions.FindAsync(i => i.UserId == userId)
+            ).ToDictionary(i => i.CardId);
+
+            return cards.Select(c =>
+                MapToResponse(c, interactions.TryGetValue(c.Id, out var interaction) ? interaction : null)
+            );
         }
 
         public async Task<MicroLearningCardResponse> GetCardByIdAsync(Guid id, Guid userId)
@@ -164,6 +208,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Description = "Mẹo bổ sung đạm tinh khiết, hỗ trợ tăng cơ và kiểm soát mỡ thừa.",
                     Icon = "fitness_center",
                     TotalCards = cardList.Count(c => c.Category == "Protein")
+                },
+                new MicroLearningCategoryResponse
+                {
+                    Name = "Fiber",
+                    DisplayName = "Chất xơ",
+                    Description = "Mẹo bổ sung rau, trái cây và ngũ cốc nguyên hạt để hỗ trợ tiêu hóa.",
+                    Icon = "grass",
+                    TotalCards = cardList.Count(c => c.Category == "Fiber")
                 },
                 new MicroLearningCategoryResponse
                 {

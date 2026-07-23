@@ -12,6 +12,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasKey(x => x.Id);
             builder.Property(x => x.MealType).HasColumnType("text");
             builder.Property(x => x.SourceType).HasColumnType("text");
+            builder.Property(x => x.CustomName).HasMaxLength(200);
             builder.Property(x => x.Notes).HasColumnType("text");
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.Food).WithMany().HasForeignKey(x => x.FoodId);

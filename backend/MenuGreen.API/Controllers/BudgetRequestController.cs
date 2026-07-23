@@ -40,6 +40,7 @@ namespace MenuGreen.API.Controllers
         /// Set desired food budget and cooking time limits.
         /// </summary>
         [HttpPost]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> Create([FromBody] BudgetRequestUpsertRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -51,6 +52,7 @@ namespace MenuGreen.API.Controllers
         /// Update budget or cooking time limit by Id.
         /// </summary>
         [HttpPut("{id:guid}")]
+        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> Update(Guid id, [FromBody] BudgetRequestUpsertRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);

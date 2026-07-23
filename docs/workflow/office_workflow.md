@@ -49,8 +49,12 @@ Người dùng văn phòng thường có nhu cầu tự chuẩn bị cơm trưa 
 2. **Lên kế hoạch thực đơn tuần**:
    - Hệ thống tự động gợi ý thực đơn đáp ứng đồng thời: lượng calo giới hạn (để tránh tăng cân) và mức giá nguyên liệu nằm trong ngân sách (Budget-Aware).
    - Công thức gợi ý ưu tiên các món dễ chế biến và bảo quản trong hộp cơm văn phòng.
-3. **Mua sắm thông minh (Grocery List)**:
-   - Hệ thống tự động gom các nguyên liệu cần mua thành danh sách tổng hợp để người dùng đi chợ một lần cho cả tuần.
+3. **Mua sắm thông minh sau giờ làm (After-work Grocery Trips)**:
+   - Danh sách đi chợ được chia theo từng lượt mua thực tế, không chia đơn thuần theo ngày ăn.
+   - Lượt mua sau giờ làm ngày `D` phục vụ bữa tối ngày `D` và bữa sáng, cơm hộp trưa ngày `D+1`.
+   - Bữa sáng và trưa của ngày đầu kế hoạch thuộc lượt mua chuẩn bị trước tuần.
+   - Đồ tươi được mua sát ngày nấu; nguyên liệu bảo quản lâu như gạo, yến mạch, dầu và gia vị được gom vào lượt đầu và gắn nhãn dùng nhiều ngày.
+   - Mỗi lượt mua hiển thị các bữa được phục vụ, số lượng nguyên liệu và tổng chi phí ước tính.
 4. **Gợi ý thay thế nguyên liệu**:
    - Nếu ở chợ thiếu nguyên liệu, người dùng sử dụng API `/api/Ingredient/{id}/substitutes` để tìm món thay thế có dưỡng chất tương đương.
 

@@ -311,7 +311,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? throw new Exception("Subscription plan not found.");
 
             var now = DateTime.UtcNow;
-            var durationDays = plan.DurationDays ?? 36500; // 100 years for lifetime/unlimited plans
+            var durationDays = plan.DurationDays is > 0
+                ? plan.DurationDays.Value
+                : string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase)
+                    ? 1
+                    : 36500;
             var isRenewal = subscription.Status == "Active";
 
             if (isRenewal)
@@ -330,41 +335,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             subscription.UpdatedAt = now;
             _unitOfWork.UserSubscriptions.Update(subscription);
-
-            // Update user role based on AI profile EatingPattern segment
-            var aiProfiles = await _unitOfWork.UserAiProfiles.FindAsync(p => p.UserId == subscription.UserId);
-            var aiProfile = aiProfiles.FirstOrDefault();
-            var targetRoleName = "Casual";
-            if (aiProfile != null && !string.IsNullOrEmpty(aiProfile.EatingPattern))
-            {
-                var pattern = aiProfile.EatingPattern.Trim().ToLowerInvariant().Replace("\"", "");
-                if (pattern == "office") targetRoleName = "Office";
-                else if (pattern == "gymer") targetRoleName = "Gymer";
-                else if (pattern == "casual") targetRoleName = "Casual";
-            }
-
-            var roles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == targetRoleName.ToLower());
-            var targetRole = roles.FirstOrDefault();
-            if (targetRole == null)
-            {
-                targetRole = new Role
-                {
-                    Id = Guid.NewGuid(),
-                    Name = targetRoleName,
-                    Description = $"{targetRoleName} tier user role",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.Roles.AddAsync(targetRole);
-            }
-
-            var user = await _unitOfWork.Users.GetByIdAsync(subscription.UserId);
-            if (user != null)
-            {
-                user.RoleId = targetRole.Id;
-                user.UpdatedAt = now;
-                _unitOfWork.Users.Update(user);
-            }
 
             await _unitOfWork.SubscriptionTransactions.AddAsync(new SubscriptionTransaction
             {
