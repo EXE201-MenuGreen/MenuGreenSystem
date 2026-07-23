@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MenuGreen.DataAccessLayer",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MenuGreen.BusinessLogicLayer.Tests", "MenuGreen.BusinessLogicLayer.Tests\MenuGreen.BusinessLogicLayer.Tests.csproj", "{A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MenuGreen.API.Tests", "MenuGreen.API.Tests\MenuGreen.API.Tests.csproj", "{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,18 +69,6 @@ Global
 		{A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6}.Release|x64.Build.0 = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6}.Release|x86.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6}.Release|x86.Build.0 = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|x64.Build.0 = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Debug|x86.Build.0 = Debug|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|x64.ActiveCfg = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|x64.Build.0 = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|x86.ActiveCfg = Release|Any CPU
-		{B2C3D4E5-F607-48B9-AC1D-E2F3A4B5C6D7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
