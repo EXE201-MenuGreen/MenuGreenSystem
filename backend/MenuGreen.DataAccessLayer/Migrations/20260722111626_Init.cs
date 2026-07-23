@@ -1193,7 +1193,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     ScheduledTime = table.Column<TimeOnly>(type: "time without time zone", nullable: true),
                     TargetCalories = table.Column<int>(type: "integer", nullable: true),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Origin = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1708,6 +1709,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 name: "IX_meal_plan_items_MealType",
                 table: "meal_plan_items",
                 column: "MealType");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_meal_plan_items_Origin",
+                table: "meal_plan_items",
+                column: "Origin");
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_plan_items_PlannedDate",

@@ -665,9 +665,10 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     }
 
     final endDate = _endDate;
-    return endDate == null
-        ? '${_formatDate(_startDate)} - Chưa chọn ngày kết thúc'
-        : '${_formatDate(_startDate)} - ${_formatDate(endDate)}';
+    if (endDate == null || DateUtils.isSameDay(_startDate, endDate)) {
+      return _formatDate(_startDate);
+    }
+    return '${_formatDate(_startDate)} - ${_formatDate(endDate)}';
   }
 
   Widget _buildPlanPeriodPicker() {
@@ -901,6 +902,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               foodId: meal.isFood ? meal.id : null,
               recipeId: meal.isFood ? null : meal.id,
               targetCalories: meal.calories,
+              origin: 'user', // User tạo thủ công từ tab Kế hoạch
             ));
           }
         }

@@ -55,7 +55,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
             catch (DbUpdateException ex)
             {
-                throw new Exception(ToUserFriendlyDbMessage(ex), ex);
+                var friendlyMessage = ToUserFriendlyDbMessage(ex);
+                throw new Exception(friendlyMessage, ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new Exception($"Database connection error: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to save AI profile: {ex.Message}", ex);
             }
         }
 

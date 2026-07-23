@@ -36,7 +36,8 @@ VALUES
 ('453681f7-f489-47ed-842c-bc3ffd220423', 'Phan Huy Hoàng', 'https://i.pravatar.cc/150?u=453681f7-f489-47ed-842c-bc3ffd220423', '1995-04-12', 'Male', 'Việt Nam', now() - interval '30 days', now() - interval '30 days'),
 ('396f9dff-6c2a-422f-b0cc-8eb451168ed3', 'Đỗ Mỹ Linh', 'https://i.pravatar.cc/150?u=396f9dff-6c2a-422f-b0cc-8eb451168ed3', '1997-09-22', 'Female', 'Việt Nam', now() - interval '30 days', now() - interval '30 days'),
 ('5dc50160-db9e-447a-ba33-9026d8800ab5', 'Bùi Quốc Anh', 'https://i.pravatar.cc/150?u=5dc50160-db9e-447a-ba33-9026d8800ab5', '1995-04-12', 'Male', 'Việt Nam', now() - interval '30 days', now() - interval '30 days'),
-('212ea8ea-749e-44a1-92d2-636bd617cbc8', 'Ngô Khánh Vy', 'https://i.pravatar.cc/150?u=212ea8ea-749e-44a1-92d2-636bd617cbc8', '1997-09-22', 'Female', 'Việt Nam', now() - interval '30 days', now() - interval '30 days')
+('212ea8ea-749e-44a1-92d2-636bd617cbc8', 'Ngô Khánh Vy', 'https://i.pravatar.cc/150?u=212ea8ea-749e-44a1-92d2-636bd617cbc8', '1997-09-22', 'Female', 'Việt Nam', now() - interval '30 days', now() - interval '30 days'),
+('77777777-7777-7777-7777-777777777777', 'Huấn luyện viên Coach (PT)', 'https://i.pravatar.cc/150?u=77777777-7777-7777-7777-777777777777', '1992-05-15', 'Male', 'Việt Nam', now() - interval '30 days', now() - interval '30 days')
 ON CONFLICT DO NOTHING;
 
 COMMIT;

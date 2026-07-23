@@ -177,6 +177,7 @@ class _AddItemSheetState extends State<AddItemSheet> {
       recipeId: _selectedRecipe?.id,
       targetCalories: _estimatedCalories,
       quantityG: _quantity.toDouble(),
+      origin: 'user', // User tạo từ tab Kế hoạch
     );
 
     Navigator.pop(context, request);

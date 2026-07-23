@@ -115,6 +115,7 @@ class CreateItemRequest {
   final String? recipeId;
   final int? targetCalories;
   final double? quantityG;
+  final String? origin;
 
   CreateItemRequest({
     required this.mealType,
@@ -123,6 +124,7 @@ class CreateItemRequest {
     this.recipeId,
     this.targetCalories,
     this.quantityG,
+    this.origin,
   });
 
   Map<String, dynamic> toJson() {
@@ -134,6 +136,7 @@ class CreateItemRequest {
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
+      if (origin != null) 'origin': origin,
     };
   }
 }
@@ -163,6 +166,7 @@ class AddItemRequest {
   final String? recipeId;
   final int? targetCalories;
   final double? quantityG;
+  final String? origin;
 
   AddItemRequest({
     required this.mealType,
@@ -171,6 +175,7 @@ class AddItemRequest {
     this.recipeId,
     this.targetCalories,
     this.quantityG,
+    this.origin,
   });
 
   Map<String, dynamic> toJson() {
@@ -182,6 +187,7 @@ class AddItemRequest {
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
+      if (origin != null) 'origin': origin,
     };
   }
 
@@ -193,6 +199,7 @@ class AddItemRequest {
       recipeId: recipeId,
       targetCalories: targetCalories,
       quantityG: quantityG,
+      origin: origin,
     );
   }
 }
@@ -239,6 +246,29 @@ enum ItemStatus {
         return ItemStatus.changed;
       default:
         return ItemStatus.planned;
+    }
+  }
+}
+
+/// Item origin enum - phân biệt nguồn tạo item
+enum ItemOrigin {
+  /// Item được tạo thủ công bởi user trong tab Kế hoạch
+  user('user'),
+  /// Item được tạo tự động bởi AI Gym Goals trong tab Mục tiêu
+  gym('gym');
+
+  final String value;
+  const ItemOrigin(this.value);
+
+  static ItemOrigin? fromString(String? value) {
+    if (value == null) return null;
+    switch (value.toLowerCase()) {
+      case 'user':
+        return ItemOrigin.user;
+      case 'gym':
+        return ItemOrigin.gym;
+      default:
+        return null;
     }
   }
 }

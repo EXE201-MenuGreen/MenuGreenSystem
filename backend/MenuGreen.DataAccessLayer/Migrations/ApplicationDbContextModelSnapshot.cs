@@ -962,6 +962,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateOnly?>("PlannedDate")
                         .HasColumnType("date");
 
@@ -981,6 +985,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("MealPlanId");
 
                     b.HasIndex("MealType");
+
+                    b.HasIndex("Origin");
 
                     b.HasIndex("PlannedDate");
 

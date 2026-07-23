@@ -15,6 +15,12 @@ namespace MenuGreen.DataAccessLayer.Entities
         public bool IsCompleted { get; set; } = false;
         public DateTime? CreatedAt { get; set; }
 
+        /// <summary>
+        /// Nguồn gốc tạo item: "user" = tạo tay ở tab Kế hoạch,
+        /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+        /// </summary>
+        public string? Origin { get; set; }
+
         // Navigation properties
         public virtual MealPlanHeader? MealPlanHeader { get; set; }
         public virtual Food? Food { get; set; }

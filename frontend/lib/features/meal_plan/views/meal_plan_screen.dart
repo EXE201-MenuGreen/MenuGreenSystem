@@ -191,13 +191,20 @@ class _TodayTab extends StatelessWidget {
     List<MealPlanItemDetail> items,
     String emptyMessage,
   ) {
-    if (items.isEmpty) {
+    // CHỈ hiển thị items có origin = 'user' HOẶC origin = null (backward compatible).
+    // Items có origin = 'gym' thuộc về tab Mục tiêu (GymGoalsScreen).
+    final userItems = items.where((item) {
+      final origin = item.origin?.toLowerCase();
+      return origin == null || origin.isEmpty || origin == 'user';
+    }).toList();
+
+    if (userItems.isEmpty) {
       return _buildEmptyState(context, emptyMessage);
     }
 
     // Group by meal type
     final grouped = <MealType, List<MealPlanItemDetail>>{};
-    for (final item in items) {
+    for (final item in userItems) {
       final mealType = MealType.fromString(item.mealType);
       grouped.putIfAbsent(mealType, () => []).add(item);
     }

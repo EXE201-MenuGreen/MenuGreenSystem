@@ -15,5 +15,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public TimeOnly? ScheduledTime { get; set; }
         public int? TargetCalories { get; set; }
         public bool IsCompleted { get; set; }
+
+        /// <summary>
+        /// Nguồn gốc: "user" = tạo tay ở tab Kế hoạch,
+        /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+        /// </summary>
+        public string? Origin { get; set; }
     }
 }

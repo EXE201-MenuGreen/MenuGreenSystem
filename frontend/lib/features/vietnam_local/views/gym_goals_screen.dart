@@ -428,7 +428,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    if (_todayPlan == null || _todayPlan!.items.isEmpty) {
+    // Hiển thị items có origin = 'gym' hoặc null/empty (tương thích dữ liệu cũ)
+    final gymItems = _todayPlan?.items
+            .where((x) => x.origin == null || x.origin!.isEmpty || x.origin?.toLowerCase() == 'gym')
+            .toList() ??
+        [];
+    if (gymItems.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -782,14 +787,18 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           else
             Builder(
             builder: (context) {
-              final addedIds = _todayPlan?.items
+              // Chỉ check gym items để so sánh với suggestions
+              final gymItems = _todayPlan?.items
+                  .where((x) => x.origin == null || x.origin!.isEmpty || x.origin?.toLowerCase() == 'gym')
+                  .toList() ?? [];
+              final addedIds = gymItems
                   .map((x) => (x.foodId ?? x.recipeId ?? '').trim().toLowerCase())
                   .where((s) => s.isNotEmpty)
                   .toSet() ?? {};
               
-              debugPrint('GymGoals: _todayPlan items size = ${_todayPlan?.items.length}');
-              for (final x in _todayPlan?.items ?? []) {
-                debugPrint('GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}');
+              debugPrint('GymGoals: gym items size = ${gymItems.length}');
+              for (final x in gymItems) {
+                debugPrint('GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}, origin=${x.origin}');
               }
               debugPrint('GymGoals: addedIds: $addedIds');
               
@@ -998,8 +1007,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
+    // Chỉ hiển thị items có origin = 'gym' (từ AI Gym Goals)
     final items = _todayPlan?.items
-            .where((x) => x.mealType.toLowerCase() == mealType)
+            .where((x) =>
+                x.mealType.toLowerCase() == mealType &&
+                (x.origin == null || x.origin!.isEmpty || x.origin?.toLowerCase() == 'gym'))
             .toList() ??
         [];
     final color = _mealSlotColor(mealType);
@@ -1218,6 +1230,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           'foodId': s.type.toLowerCase().contains('recipe') ? null : s.id.toString(),
           'recipeId': s.type.toLowerCase().contains('recipe') ? s.id.toString() : null,
           'targetCalories': s.caloriesKcal.round(),
+          'origin': 'gym', // Tạo bởi AI Gym Goals
         });
         
         assignedCount++;
@@ -1402,6 +1415,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           foodId: item.type.toLowerCase().contains('recipe') ? null : item.id.toString(),
           recipeId: item.type.toLowerCase().contains('recipe') ? item.id.toString() : null,
           targetCalories: item.caloriesKcal.round(),
+          origin: 'gym', // Tạo bởi AI Gym Goals
         ),
       );
       await _loadTodayPlanQuietly();

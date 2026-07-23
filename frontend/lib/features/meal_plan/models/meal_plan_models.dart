@@ -43,6 +43,7 @@ class MealPlanItemModel {
     this.mealLogId,
     this.scheduledTime,
     this.sourceEntityType,
+    this.origin,
   });
 
   final String id;
@@ -56,6 +57,9 @@ class MealPlanItemModel {
   final String? mealLogId;
   final String? scheduledTime;
   final String? sourceEntityType;
+  /// Nguồn gốc của item: "user" = tạo tay ở tab Kế hoạch,
+  /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+  final String? origin;
 
   String get displayName {
     final name = (foodName ?? recipeName ?? '').trim();
@@ -78,6 +82,7 @@ class MealPlanItemModel {
       mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
       scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])?.toString(),
       sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])?.toString(),
+      origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
 }

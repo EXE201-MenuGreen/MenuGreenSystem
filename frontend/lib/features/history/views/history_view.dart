@@ -54,7 +54,7 @@ class HistoryViewState extends State<HistoryView> {
   ];
 
   List<HistoryTimelineSection> get _sections {
-    var sections = _buildSectionsFromSummary(_dailySummary);
+    var sections = _buildSectionsFromSummary(_effectiveSummary);
 
     if (_mealFilter != null) {
       sections = sections.where((s) => s.category == _mealFilter).toList();
@@ -80,6 +80,65 @@ class HistoryViewState extends State<HistoryView> {
     }
 
     return sections;
+  }
+
+  MealDaySummary? get _effectiveSummary {
+    if (_dashboardRange == DashboardRange.day) {
+      return _dailySummary;
+    }
+    final days = _dashboard?.days ?? [];
+    if (days.isEmpty) return _dailySummary;
+
+    final count = days.length;
+    final totalCal = days.fold<double>(0, (sum, d) => sum + d.totalCalories);
+    final totalTargetCal = days.fold<double>(0, (sum, d) => sum + d.targetCalories);
+    final totalProt = days.fold<double>(0, (sum, d) => sum + d.totalProteinG);
+    final totalTargetProt = days.fold<double>(0, (sum, d) => sum + d.targetProteinG);
+    final totalCarb = days.fold<double>(0, (sum, d) => sum + d.totalCarbsG);
+    final totalTargetCarb = days.fold<double>(0, (sum, d) => sum + d.targetCarbsG);
+    final totalFat = days.fold<double>(0, (sum, d) => sum + d.totalFatG);
+    final totalTargetFat = days.fold<double>(0, (sum, d) => sum + d.targetFatG);
+    final allLogs = days.expand((d) => d.mealLogs).toList();
+
+    return MealDaySummary(
+      date: _dashboardRange == DashboardRange.week ? 'Tuần' : 'Tháng',
+      totalCalories: count > 0 ? totalCal / count : 0,
+      targetCalories: count > 0 ? totalTargetCal / count : 0,
+      totalProteinG: count > 0 ? totalProt / count : 0,
+      targetProteinG: count > 0 ? totalTargetProt / count : 0,
+      totalCarbsG: count > 0 ? totalCarb / count : 0,
+      targetCarbsG: count > 0 ? totalTargetCarb / count : 0,
+      totalFatG: count > 0 ? totalFat / count : 0,
+      targetFatG: count > 0 ? totalTargetFat / count : 0,
+      goalCompletionPercent: totalTargetCal > 0 ? (totalCal / totalTargetCal * 100) : null,
+      mealLogs: allLogs,
+    );
+  }
+
+  String get _summaryCardTitle {
+    switch (_dashboardRange) {
+      case DashboardRange.day:
+        return 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}';
+      case DashboardRange.week:
+        final days = _dashboard?.days ?? [];
+        if (days.isNotEmpty) {
+          final startStr = _formatShortDateStr(days.first.date);
+          final endStr = _formatShortDateStr(days.last.date);
+          return 'Tiến độ tuần ($startStr - $endStr)';
+        }
+        return 'Tiến độ tuần này';
+      case DashboardRange.month:
+        return 'Tiến độ tháng ${_focusedMonth.month}/${_focusedMonth.year}';
+    }
+  }
+
+  String _formatShortDateStr(String dateStr) {
+    try {
+      final parsed = DateTime.parse(dateStr);
+      return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   @override
@@ -632,8 +691,9 @@ class HistoryViewState extends State<HistoryView> {
                   ),
                   const SizedBox(height: 16),
                   DailySummaryCard(
-                    summary: _dailySummary,
-                    title: 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}',
+                    summary: _effectiveSummary,
+                    title: _summaryCardTitle,
+                    isAverage: _dashboardRange != DashboardRange.day,
                   ),
                   const SizedBox(height: 16),
                   CalorieTrendChart(

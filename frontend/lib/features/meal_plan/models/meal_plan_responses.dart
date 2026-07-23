@@ -61,10 +61,13 @@ class MealPlanListItem {
 
   String get dateRangeText {
     if (startDate == null) return '';
-    if (endDate == null) {
-      return _formatDate(startDate!);
+    final startStr = _formatDate(startDate!);
+    if (endDate == null) return startStr;
+    final endStr = _formatDate(endDate!);
+    if (startStr == endStr || planType?.toLowerCase() == 'daily') {
+      return startStr;
     }
-    return '${_formatDate(startDate!)} - ${_formatDate(endDate!)}';
+    return '$startStr - $endStr';
   }
 
   String _formatDate(DateTime date) {
@@ -186,6 +189,9 @@ class MealPlanItemDetail {
   final int? carbsG;
   final int? fatG;
   final double? quantityG;
+  /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
+  /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
+  final String? origin;
 
   MealPlanItemDetail({
     required this.id,
@@ -206,6 +212,7 @@ class MealPlanItemDetail {
     this.carbsG,
     this.fatG,
     this.quantityG,
+    this.origin,
   });
 
   factory MealPlanItemDetail.fromJson(Map<String, dynamic> json) {
@@ -234,12 +241,13 @@ class MealPlanItemDetail {
                   json['quantity'] ??
                   json['Quantity'])
               ?.toDouble(),
+      origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
 
   String get displayName {
     final name = (foodName ?? recipeName ?? '').trim();
-    return name.isNotEmpty ? name : 'Món trong kế hoạch';
+    return name.isNotEmpty ? name : 'M?n trong k? ho?ch';
   }
 
   bool get isFood =>

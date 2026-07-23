@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260720055013_Init")]
+    [Migration("20260722111626_Init")]
     partial class Init
     {
         /// <inheritdoc />
@@ -965,6 +965,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateOnly?>("PlannedDate")
                         .HasColumnType("date");
 
@@ -984,6 +988,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("MealPlanId");
 
                     b.HasIndex("MealType");
+
+                    b.HasIndex("Origin");
 
                     b.HasIndex("PlannedDate");
 

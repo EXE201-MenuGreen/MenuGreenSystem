@@ -183,7 +183,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ScheduledTime = request.ScheduledTime,
                 TargetCalories = request.TargetCalories,
                 IsCompleted = request.IsCompleted,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Origin = request.Origin
             };
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
@@ -202,6 +203,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.ScheduledTime = request.ScheduledTime;
             item.TargetCalories = request.TargetCalories;
             item.IsCompleted = request.IsCompleted;
+            item.Origin = request.Origin;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
             return await GetByIdAsync(planId, userId);
@@ -304,7 +306,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = item.TargetCalories,
                     IsCompleted = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    Origin = item.Origin
                 });
             }
             await _unitOfWork.CompleteAsync();
@@ -799,7 +802,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EstimatedPriceVnd = price,
                 ProteinG = (int)Math.Round(macros.protein),
                 CarbsG = (int)Math.Round(macros.carbs),
-                FatG = (int)Math.Round(macros.fat)
+                FatG = (int)Math.Round(macros.fat),
+                Origin = x.Origin
             };
         }
 
@@ -822,7 +826,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Status = x.IsCompleted ? "done" : "planned",
                 ProteinG = x.Food != null ? (int?)Math.Round(x.Food.ProteinG ?? 0) : null,
                 CarbsG = x.Food != null ? (int?)Math.Round(x.Food.CarbsG ?? 0) : null,
-                FatG = x.Food != null ? (int?)Math.Round(x.Food.FatG ?? 0) : null
+                FatG = x.Food != null ? (int?)Math.Round(x.Food.FatG ?? 0) : null,
+                Origin = x.Origin
             };
         }
 
@@ -957,7 +962,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         ScheduledTime = mealType == "breakfast" ? new TimeOnly(7, 30) : (mealType == "lunch" ? new TimeOnly(12, 0) : new TimeOnly(18, 30)),
                         TargetCalories = selectedCalories,
                         IsCompleted = false,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        Origin = "user"
                     };
 
                     await _unitOfWork.MealPlanItems.AddAsync(item);
@@ -1375,7 +1381,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = request.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = x.TargetCalories,
-                IsCompleted = false
+                IsCompleted = false,
+                Origin = x.Origin
             }).ToList();
 
             return await CreateOrUpdateDailyAsync(userId, new UserMealPlanUpsertRequest
@@ -1496,6 +1503,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = item.TargetCalories,
                     IsCompleted = item.IsCompleted,
+                    Origin = item.Origin,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.MealPlanItems.AddAsync(planItem);
@@ -1688,7 +1696,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EstimatedPriceVnd = price,
                 ProteinG = (int)Math.Round(macros.protein),
                 CarbsG = (int)Math.Round(macros.carbs),
-                FatG = (int)Math.Round(macros.fat)
+                FatG = (int)Math.Round(macros.fat),
+                Origin = item.Origin
             };
         }
     }

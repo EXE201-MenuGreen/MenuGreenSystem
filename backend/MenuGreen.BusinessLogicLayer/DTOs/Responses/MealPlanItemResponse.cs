@@ -22,5 +22,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int? ProteinG { get; set; }
         public int? CarbsG { get; set; }
         public int? FatG { get; set; }
+
+        /// <summary>
+        /// Nguồn gốc: "user" = tạo tay ở tab Kế hoạch,
+        /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+        /// </summary>
+        public string? Origin { get; set; }
     }
 }

@@ -24,7 +24,8 @@ CREATE TABLE coach_profiles (
 -- Seed Data for coach_profiles
 INSERT INTO coach_profiles ("Id", "UserId", "Specialty", "Bio", "ExperienceYears", "CertificateUrl", "PriceVnd", "IsActive", "CreatedAt", "UpdatedAt")
 VALUES
-('90000000-0000-0000-0000-000000000001', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Tăng cơ giảm mỡ & Thể hình chuyên nghiệp', 'Chào bạn, tôi là PT Hoàng Thị Premium với hơn 5 năm kinh nghiệm huấn luyện thể hình và thiết kế thực đơn ăn uống lành mạnh.', 5, 'https://example.com/certificates/pt_premium.pdf', 500000, true, now(), now())
+('90000000-0000-0000-0000-000000000001', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Tăng cơ giảm mỡ & Thể hình chuyên nghiệp', 'Chào bạn, tôi là PT Hoàng Thị Premium với hơn 5 năm kinh nghiệm huấn luyện thể hình và thiết kế thực đơn ăn uống lành mạnh.', 5, 'https://example.com/certificates/pt_premium.pdf', 500000, true, now(), now()),
+('90000000-0000-0000-0000-000000000002', '77777777-7777-7777-7777-777777777777', 'Huấn luyện viên PT & Dinh dưỡng chuyên sâu', 'Chào bạn, tôi là PT Coach MenuGreen với nhiều năm kinh nghiệm tư vấn thực đơn và lên kế hoạch luyện tập chuyên biệt.', 6, 'https://example.com/certificates/pt_coach.pdf', 500000, true, now(), now())
 ON CONFLICT DO NOTHING;
 
 COMMIT;

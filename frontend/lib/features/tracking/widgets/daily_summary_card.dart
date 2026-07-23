@@ -9,10 +9,12 @@ class DailySummaryCard extends StatelessWidget {
     super.key,
     required this.summary,
     this.title = 'Tiến độ mục tiêu',
+    this.isAverage = false,
   });
 
   final MealDaySummary? summary;
   final String title;
+  final bool isAverage;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,7 @@ class DailySummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: _cardDecoration,
         child: const Text(
-          'Chưa có dữ liệu dinh dưỡng cho ngày này.',
+          'Chưa có dữ liệu dinh dưỡng cho khoảng thời gian này.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       );
@@ -94,7 +96,9 @@ class DailySummaryCard extends StatelessWidget {
                 ),
               ),
               Text(
-                ' / ${targetCalories.toStringAsFixed(0)} kcal',
+                isAverage
+                    ? ' / ${targetCalories.toStringAsFixed(0)} kcal/ngày'
+                    : ' / ${targetCalories.toStringAsFixed(0)} kcal',
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const Spacer(),
@@ -121,18 +125,22 @@ class DailySummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            remaining >= 0
-                ? 'Còn ${remaining.toStringAsFixed(0)} kcal'
-                : 'Vượt ${(-remaining).toStringAsFixed(0)} kcal',
+            isAverage
+                ? (remaining >= 0
+                    ? 'TB còn ${remaining.toStringAsFixed(0)} kcal/ngày'
+                    : 'TB vượt ${(-remaining).toStringAsFixed(0)} kcal/ngày')
+                : (remaining >= 0
+                    ? 'Còn ${remaining.toStringAsFixed(0)} kcal'
+                    : 'Vượt ${(-remaining).toStringAsFixed(0)} kcal'),
             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _macroChip('Protein', s.totalProteinG, s.targetProteinG),
-              _macroChip('Carbs', s.totalCarbsG, s.targetCarbsG),
-              _macroChip('Fat', s.totalFatG, s.targetFatG),
+              _macroChip(isAverage ? 'TB Protein' : 'Protein', s.totalProteinG, s.targetProteinG),
+              _macroChip(isAverage ? 'TB Carbs' : 'Carbs', s.totalCarbsG, s.targetCarbsG),
+              _macroChip(isAverage ? 'TB Fat' : 'Fat', s.totalFatG, s.targetFatG),
             ],
           ),
         ],
