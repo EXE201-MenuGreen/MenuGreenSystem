@@ -45,16 +45,22 @@ class MealPlanProvider extends ChangeNotifier {
   String? get error => _error;
 
   // Computed values
-  int get todayPlannedCalories => _todayDashboard?.plannedCalories ?? _todayAdherence?.plannedKcal ?? 0;
-  int get todayActualCalories => _todayDashboard?.actualCalories ?? _todayAdherence?.actualKcal.toInt() ?? 0;
+  int get todayPlannedCalories =>
+      _todayDashboard?.plannedCalories ?? _todayAdherence?.plannedKcal ?? 0;
+  int get todayActualCalories =>
+      _todayDashboard?.actualCalories ??
+      _todayAdherence?.actualKcal.toInt() ??
+      0;
   int get todayTargetCalories => _todayDashboard?.plannedCalories ?? 2000;
   double get todayProgressPercent {
     if (todayTargetCalories == 0) return 0;
     return (todayActualCalories / todayTargetCalories).clamp(0, 1.5);
   }
 
-  int get todayCompletedMeals => _todayDashboard?.completedMeals ?? _todayAdherence?.completedCount ?? 0;
-  int get todayTotalMeals => _todayDashboard?.totalMeals ?? _todayAdherence?.totalCount ?? 0;
+  int get todayCompletedMeals =>
+      _todayDashboard?.completedMeals ?? _todayAdherence?.completedCount ?? 0;
+  int get todayTotalMeals =>
+      _todayDashboard?.totalMeals ?? _todayAdherence?.totalCount ?? 0;
 
   // ==================== Load Data ====================
 
@@ -134,11 +140,7 @@ class MealPlanProvider extends ChangeNotifier {
     _isLoading = true;
     _safeNotify();
 
-    await Future.wait([
-      loadPlans(),
-      loadTodayDashboard(),
-      loadStreaks(),
-    ]);
+    await Future.wait([loadPlans(), loadTodayDashboard(), loadStreaks()]);
 
     _isLoading = false;
     _safeNotify();
@@ -166,7 +168,9 @@ class MealPlanProvider extends ChangeNotifier {
   }
 
   /// Tạo plan rỗng (không cần items) - user tạo plan trước, thêm items sau.
-  Future<MealPlanDetail?> createEmptyPlan(CreateEmptyPlanRequest request) async {
+  Future<MealPlanDetail?> createEmptyPlan(
+    CreateEmptyPlanRequest request,
+  ) async {
     _isLoading = true;
     _error = null;
     _safeNotify();
@@ -185,7 +189,9 @@ class MealPlanProvider extends ChangeNotifier {
   }
 
   /// Tạo plan với items ngay từ đầu
-  Future<MealPlanDetail?> createPlanWithItems(CreatePlanWithItemsRequest request) async {
+  Future<MealPlanDetail?> createPlanWithItems(
+    CreatePlanWithItemsRequest request,
+  ) async {
     _isLoading = true;
     _error = null;
     _safeNotify();
@@ -204,7 +210,10 @@ class MealPlanProvider extends ChangeNotifier {
   }
 
   /// Cập nhật plan
-  Future<MealPlanDetail?> updatePlan(String id, CreatePlanRequest request) async {
+  Future<MealPlanDetail?> updatePlan(
+    String id,
+    CreatePlanRequest request,
+  ) async {
     _isLoading = true;
     _error = null;
     _safeNotify();
@@ -239,7 +248,10 @@ class MealPlanProvider extends ChangeNotifier {
   }
 
   /// Nhân bản plan
-  Future<MealPlanDetail?> duplicatePlan(String id, DuplicatePlanRequest request) async {
+  Future<MealPlanDetail?> duplicatePlan(
+    String id,
+    DuplicatePlanRequest request,
+  ) async {
     _isLoading = true;
     notifyListeners();
 
@@ -259,7 +271,10 @@ class MealPlanProvider extends ChangeNotifier {
   // ==================== Item Operations ====================
 
   /// Thêm item vào plan
-  Future<MealPlanItemDetail?> addItem(String planId, AddItemRequest request) async {
+  Future<MealPlanItemDetail?> addItem(
+    String planId,
+    AddItemRequest request,
+  ) async {
     _isLoadingDetail = true;
     notifyListeners();
 
@@ -346,7 +361,11 @@ class MealPlanProvider extends ChangeNotifier {
     ConvertToLogRequest request,
   ) async {
     try {
-      final result = await _repository.convertItemToLog(planId, itemId, request);
+      final result = await _repository.convertItemToLog(
+        planId,
+        itemId,
+        request,
+      );
       await loadPlanDetail(planId);
       await loadTodayDashboard();
       return result;
@@ -357,16 +376,18 @@ class MealPlanProvider extends ChangeNotifier {
     }
   }
 
-  Future<MealPlanItemDetail?> addRecommendationToTodayPlan(AddItemRequest request) async {
+  Future<MealPlanItemDetail?> addRecommendationToTodayPlan(
+    AddItemRequest request,
+  ) async {
     _isLoadingDetail = true;
     notifyListeners();
 
     try {
       final today = DateTime.now();
-      
+
       // Load current plans to find an active one
       _plans = await _repository.getPlans();
-      
+
       MealPlanListItem? activePlan;
       if (_plans.isNotEmpty) {
         activePlan = _plans.firstWhere(
@@ -382,7 +403,8 @@ class MealPlanProvider extends ChangeNotifier {
         return item;
       }
 
-      final title = 'Kế hoạch ${MealType.fromString(request.mealType).labelVi} ${_formatDateShort(today)}';
+      final title =
+          'Kế hoạch ${MealType.fromString(request.mealType).labelVi} ${_formatDateShort(today)}';
       final plan = await _repository.createPlanWithItems(
         CreatePlanWithItemsRequest(
           title: title,
