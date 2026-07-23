@@ -16,6 +16,12 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.Description).HasColumnType("text");
             builder.Property(x => x.ImageUrl).HasColumnType("text");
             builder.Property(x => x.Region).HasColumnType("text");
+
+            // Add indexes for frequently queried columns (performance optimization)
+            builder.HasIndex(x => x.Category);
+            builder.HasIndex(x => x.IsActive);
+            builder.HasIndex(x => x.NameVi);
+            builder.HasIndex(x => x.Region);
         }
     }
 }

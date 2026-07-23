@@ -196,20 +196,34 @@ class RecommendationRepository {
   // HISTORY & DETAIL METHODS
   // =========================================================================
 
-  Future<List<RecommendationHistoryItem>> getHistory() async {
-    final response = await _api.get(ApiEndpoints.recommendationHistory);
+  Future<List<RecommendationHistoryItem>> getHistory({int page = 1, int pageSize = 10}) async {
+    final queryParams = 'page=$page&pageSize=$pageSize';
+    final response = await _api.get('${ApiEndpoints.recommendationHistory}?$queryParams');
     if (response.statusCode != 200 || response.body.isEmpty) {
       throw StateError(_responseError(response, 'Không thể tải lịch sử gợi ý'));
     }
     final decoded = jsonDecode(response.body);
-    if (decoded is! List) {
-      throw const FormatException('Lịch sử gợi ý trả về dữ liệu không đúng định dạng.');
+    
+    // Handle both array response (for backward compatibility) and paginated response
+    if (decoded is List) {
+      return decoded
+          .whereType<Map>()
+          .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+          .map(RecommendationHistoryItem.fromJson)
+          .toList();
     }
-    return decoded
-        .whereType<Map>()
-        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
-        .map(RecommendationHistoryItem.fromJson)
-        .toList();
+    
+    // Paginated response format
+    if (decoded is Map) {
+      final items = decoded['items'] ?? decoded['data'] ?? decoded['history'] ?? [];
+      return (items as List)
+          .whereType<Map>()
+          .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+          .map(RecommendationHistoryItem.fromJson)
+          .toList();
+    }
+    
+    throw const FormatException('Lịch sử gợi ý trả về dữ liệu không đúng định dạng.');
   }
 
   Future<RecommendationDetail?> getById(String id) async {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -448,22 +449,21 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
           if (order.qrImageUrl.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                order.qrImageUrl,
+              child: CachedNetworkImage(
+                imageUrl: order.qrImageUrl,
                 width: 240,
                 height: 240,
+                memCacheWidth: 240,
+                memCacheHeight: 240,
                 fit: BoxFit.contain,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return const SizedBox(
-                    width: 240,
-                    height: 240,
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) => Container(
+                placeholder: (_, __) => const SizedBox(
+                  width: 240,
+                  height: 240,
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                ),
+                errorWidget: (context, error, stackTrace) => Container(
                   width: 240,
                   height: 240,
                   alignment: Alignment.center,

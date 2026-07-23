@@ -49,13 +49,40 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<ActivityLogResponse>> GetActivityLogsAsync(Guid? userId = null, DateTimeOffset? from = null, DateTimeOffset? to = null, string? action = null)
         {
-            var logs = await _unitOfWork.ActivityLogs.GetAllAsync();
+            var logs = await _unitOfWork.ActivityLogs.FindAsync(x => true, asNoTracking: true);
             var query = logs.AsQueryable();
             if (userId.HasValue) query = query.Where(x => x.UserId == userId.Value);
             if (from.HasValue) query = query.Where(x => x.CreatedAt >= from.Value);
             if (to.HasValue) query = query.Where(x => x.CreatedAt <= to.Value);
             if (!string.IsNullOrWhiteSpace(action)) query = query.Where(x => x.Action == action);
             return query.OrderByDescending(x => x.CreatedAt).Select(Map).ToList();
+        }
+
+        public async Task<(IEnumerable<ActivityLogResponse> Items, int TotalCount)> GetActivityLogsPaginatedAsync(
+            Guid? userId = null,
+            DateTimeOffset? from = null,
+            DateTimeOffset? to = null,
+            string? action = null,
+            int page = 1,
+            int pageSize = 50)
+        {
+            var logs = await _unitOfWork.ActivityLogs.FindAsync(x => true, asNoTracking: true);
+            var query = logs.AsQueryable();
+            
+            if (userId.HasValue) query = query.Where(x => x.UserId == userId.Value);
+            if (from.HasValue) query = query.Where(x => x.CreatedAt >= from.Value);
+            if (to.HasValue) query = query.Where(x => x.CreatedAt <= to.Value);
+            if (!string.IsNullOrWhiteSpace(action)) query = query.Where(x => x.Action == action);
+            
+            var totalCount = query.Count();
+            var items = query
+                .OrderByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(Map)
+                .ToList();
+            
+            return (items, totalCount);
         }
 
         public async Task<ActivityLogResponse> GetActivityLogByIdAsync(Guid id)

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/vietnam_local_models.dart';
@@ -241,12 +242,18 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                       if (food.imageUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            food.imageUrl!,
+                          child: CachedNetworkImage(
+                            imageUrl: food.imageUrl!,
                             height: 160,
                             width: double.infinity,
+                            memCacheWidth: 320,
+                            memCacheHeight: 160,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
+                            placeholder: (_, __) => Container(
+                              height: 160,
+                              color: Colors.grey.shade800,
+                            ),
+                            errorWidget: (_, __, ___) => Container(
                               height: 140,
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade800,
@@ -706,8 +713,10 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                               angle: _rotationAnimation.value,
                               child: AspectRatio(
                                 aspectRatio: 1,
-                                child: CustomPaint(
-                                  painter: _WheelPainter(foods: _foods),
+                                child: RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: _WheelPainter(foods: _foods),
+                                  ),
                                 ),
                               ),
                             );
