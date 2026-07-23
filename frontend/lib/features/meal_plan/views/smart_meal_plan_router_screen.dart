@@ -30,8 +30,8 @@ class _SmartMealPlanRouterScreenState
   final _subscriptionRepository = UserSubscriptionRepository();
 
   MealPlanWorkspaceMode _currentMode = MealPlanWorkspaceMode.standard;
-  bool _isOfficeMode = false;
   bool _hasGymerAccess = false;
+  bool _hasOfficeAccess = false;
   bool _loading = true;
 
   @override
@@ -52,16 +52,19 @@ class _SmartMealPlanRouterScreenState
       final hasGymer = hasGymerSubscriptionAccess(
         subscriptions.cast(),
       );
+      final hasOffice = hasOfficeSubscriptionAccess(
+        subscriptions.cast(),
+      );
 
       if (!mounted) return;
 
       setState(() {
-        _isOfficeMode = isOffice;
         _hasGymerAccess = hasGymer;
+        _hasOfficeAccess = hasOffice;
 
         if (widget.initialMode != null) {
           _currentMode = widget.initialMode!;
-        } else if (isOffice) {
+        } else if (isOffice && hasOffice) {
           _currentMode = MealPlanWorkspaceMode.office;
         } else if (hasGymer) {
           _currentMode = MealPlanWorkspaceMode.gymer;
@@ -83,6 +86,10 @@ class _SmartMealPlanRouterScreenState
       _showUpgradePrompt('Gymer VIP');
       return;
     }
+    if (mode == MealPlanWorkspaceMode.office && !_hasOfficeAccess) {
+      _showUpgradePrompt('Office VIP');
+      return;
+    }
 
     setState(() {
       _currentMode = mode;
@@ -93,25 +100,37 @@ class _SmartMealPlanRouterScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.workspace_premium_rounded, color: Colors.amber),
+            const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 26),
             const SizedBox(width: 8),
-            Text('Kích hoạt $planTitle'),
+            Text(
+              'Kích hoạt $planTitle',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Text(
-          'Bạn cần nâng cấp gói $planTitle để mở khóa chế độ lên kế hoạch & thực đơn chuyên sâu này.',
+          planTitle.contains('Office')
+              ? 'Bạn cần nâng cấp gói Office VIP để mở khóa chế độ lên kế hoạch & thực đơn cơm hộp văn phòng này.'
+              : 'Bạn cần nâng cấp gói $planTitle để mở khóa chế độ lên kế hoạch & thực đơn chuyên sâu này.',
+          style: const TextStyle(fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Để sau'),
+            child: const Text('Để sau', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () {
               Navigator.pop(context);
@@ -120,7 +139,7 @@ class _SmartMealPlanRouterScreenState
                 MaterialPageRoute(builder: (_) => const UpgradePlanScreen()),
               );
             },
-            child: const Text('Nâng cấp ngay'),
+            child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -199,7 +218,7 @@ class _SmartMealPlanRouterScreenState
                     label: 'Office 🏢',
                     icon: Icons.business_center_rounded,
                     color: const Color(0xFF166534),
-                    isUnlocked: _isOfficeMode,
+                    isUnlocked: _hasOfficeAccess,
                   ),
                   const SizedBox(width: 8),
                   _buildChip(

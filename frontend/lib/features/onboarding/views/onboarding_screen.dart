@@ -7,7 +7,6 @@ import '../repositories/health_profile_repository.dart';
 import '../repositories/onboarding_repository.dart';
 import '../repositories/user_ai_profile_repository.dart';
 import 'steps/basic_info_step.dart';
-import 'steps/user_type_step.dart';
 import 'steps/preferences_step.dart';
 import 'steps/allergies_step.dart';
 import 'steps/calorie_goal_step.dart';
@@ -40,13 +39,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _goal = 'maintain weight';
   int? _targetCalories;
 
-  static const _stepCount = 5;
+  static const _stepCount = 4;
 
   final List<String> _titles = [
     'Thiết lập hồ sơ',
-    'Chọn loại người dùng',
     'Sở thích ăn uống',
-    '',
+    'Dị ứng thực phẩm',
     'Mục tiêu Calo',
   ];
 
@@ -101,6 +99,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
+    // Auto-upsert default eating pattern for AI Profile
+    await _userAiProfileRepository.upsert(eatingPattern: 'casual');
+
     final target =
         healthResult.data?['targetCalories'] ??
         healthResult.data?['TargetCalories'];
@@ -121,17 +122,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _targetCalories = parsedTarget ?? 2500;
     });
 
-    _nextPage();
-  }
-
-  Future<void> _handleUserTypeNext(String eatingPattern) async {
-    final result = await _userAiProfileRepository.upsert(
-      eatingPattern: eatingPattern,
-    );
-    if (!result.success) {
-      _showMessage(result.message, isError: true);
-      return;
-    }
     _nextPage();
   }
 
@@ -241,10 +231,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (missing is! List || missing.isEmpty) return;
     final first = missing.first.toString().toLowerCase();
     final page = switch (first) {
-      'profile' || 'healthprofile' || 'goal' => 0,
-      'useraiprofile' => 1,
-      'allergies' => 3,
-      'nutritionsnapshot' => 4,
+      'profile' || 'healthprofile' || 'goal' || 'useraiprofile' => 0,
+      'allergies' => 2,
+      'nutritionsnapshot' => 3,
       _ => 0,
     };
     _pageController.jumpToPage(page);
@@ -284,12 +273,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              if (_currentIndex > 0)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 8.0,
+                ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -334,7 +322,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       initialActivityLevel: _activityLevel,
                       initialGoal: _goal,
                     ),
-                    UserTypeStep(onNext: _handleUserTypeNext),
                     PreferencesStep(onNext: _handlePreferencesNext),
                     AllergiesStep(
                       onNext: _nextPage,
