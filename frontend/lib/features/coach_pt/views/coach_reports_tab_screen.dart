@@ -197,7 +197,7 @@ class _ReportsList extends StatelessWidget {
             ),
             SizedBox(height: 16),
             Text(
-              'Chưa có báo cáo nào.',
+              'Học viên chưa gửi báo cáo nào.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),

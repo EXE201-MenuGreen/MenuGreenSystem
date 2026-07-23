@@ -13,6 +13,8 @@ import 'core/services/push_notification_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'features/splash/views/splash_screen.dart';
 import 'features/meal_plan/providers/meal_plan_provider.dart';
+import 'features/coach/providers/coach_badge_provider.dart';
+import 'features/coach_pt/providers/coach_report_provider.dart';
 import 'features/vietnam_local/providers/daily_starter_provider.dart';
 import 'features/vietnam_local/providers/gym_goals_provider.dart';
 import 'features/vietnam_local/providers/safety_provider.dart';
@@ -67,6 +69,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => NetworkStatusProvider()..start()),
         ChangeNotifierProvider(create: (_) => MealPlanProvider()),
+        ChangeNotifierProvider(create: (_) => CoachBadgeProvider()),
+        ChangeNotifierProvider(create: (_) => CoachReportProvider()),
         ChangeNotifierProvider(create: (_) => PushNotificationProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DailyStarterProvider()),

@@ -266,4 +266,38 @@ VALUES
 ('50000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'fd000002-0000-0000-0000-000000000002', NULL, 'Lunch', 300.00, 500.0, 35.0, 60.0, 12.0, 'PlanConvert', 'Ăn trưa theo kế hoạch', now() - interval '6 hours', NULL, true)
 ON CONFLICT DO NOTHING;
 
+-- =============================================================================
+-- Add CoachId to meal_plan_headers (merged from 26_meal_plan_coach.sql)
+-- Goal: track which meal plans were created by a Coach on behalf of a Gymer.
+-- Idempotent migration: safe to run multiple times.
+-- =============================================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'meal_plan_headers'
+          AND column_name = 'CoachId'
+    ) THEN
+        ALTER TABLE meal_plan_headers
+        ADD COLUMN "CoachId" uuid NULL;
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE constraint_name = 'FK_meal_plan_headers_users_CoachId'
+    ) THEN
+        ALTER TABLE meal_plan_headers
+        ADD CONSTRAINT "FK_meal_plan_headers_users_CoachId"
+        FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE SET NULL;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_CoachId"
+ON meal_plan_headers ("CoachId");
+
 COMMIT;
