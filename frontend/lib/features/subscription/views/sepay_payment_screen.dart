@@ -453,8 +453,8 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
                 imageUrl: order.qrImageUrl,
                 width: 240,
                 height: 240,
-                cacheWidth: 240,
-                cacheHeight: 240,
+                memCacheWidth: 240,
+                memCacheHeight: 240,
                 fit: BoxFit.contain,
                 placeholder: (_, __) => const SizedBox(
                   width: 240,

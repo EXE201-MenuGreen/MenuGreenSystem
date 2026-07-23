@@ -246,8 +246,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                             imageUrl: food.imageUrl!,
                             height: 160,
                             width: double.infinity,
-                            cacheWidth: 320,
-                            cacheHeight: 160,
+                            memCacheWidth: 320,
+                            memCacheHeight: 160,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
                               height: 160,
@@ -713,8 +713,10 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                               angle: _rotationAnimation.value,
                               child: AspectRatio(
                                 aspectRatio: 1,
-                                child: CustomPaint(
-                                  painter: _WheelPainter(foods: _foods),
+                                child: RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: _WheelPainter(foods: _foods),
+                                  ),
                                 ),
                               ),
                             );

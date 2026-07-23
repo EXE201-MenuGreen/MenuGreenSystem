@@ -314,87 +314,93 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     final waist = TextEditingController();
     final hip = TextEditingController();
     final week = _intValue(active, 'currentWeek', fallback: 1);
-    final submitted = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          4,
-          20,
-          MediaQuery.viewInsetsOf(context).bottom + 24,
+    
+    bool submitted;
+    try {
+      submitted = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: Colors.white,
+        builder: (context) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            4,
+            20,
+            MediaQuery.viewInsetsOf(context).bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Check-in tuần $week',
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Cập nhật chỉ số để mở khóa tuần tiếp theo.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: weight,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Cân nặng (kg)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: bodyFat,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Tỷ lệ mỡ (%) — không bắt buộc',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _measurementField(chest, 'Ngực (cm)')),
+                  const SizedBox(width: 8),
+                  Expanded(child: _measurementField(waist, 'Eo (cm)')),
+                  const SizedBox(width: 8),
+                  Expanded(child: _measurementField(hip, 'Hông (cm)')),
+                ],
+              ),
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+                child: const Text('Hoàn tất check-in'),
+              ),
+            ],
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Check-in tuần $week',
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Cập nhật chỉ số để mở khóa tuần tiếp theo.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: weight,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Cân nặng (kg)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: bodyFat,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Tỷ lệ mỡ (%) — không bắt buộc',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _measurementField(chest, 'Ngực (cm)')),
-                const SizedBox(width: 8),
-                Expanded(child: _measurementField(waist, 'Eo (cm)')),
-                const SizedBox(width: 8),
-                Expanded(child: _measurementField(hip, 'Hông (cm)')),
-              ],
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-              ),
-              child: const Text('Hoàn tất check-in'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (submitted != true || !mounted) {
+      ) ?? false;
+    } finally {
+      // Always dispose controllers to prevent memory leak
       weight.dispose();
       bodyFat.dispose();
       chest.dispose();
       waist.dispose();
       hip.dispose();
+    }
+
+    if (submitted != true || !mounted) {
       return;
     }
 
@@ -405,11 +411,6 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     final chestValue = _parseDecimal(chest.text);
     final waistValue = _parseDecimal(waist.text);
     final hipValue = _parseDecimal(hip.text);
-    weight.dispose();
-    bodyFat.dispose();
-    chest.dispose();
-    waist.dispose();
-    hip.dispose();
     if (weightValue == null) {
       _showMessage('Vui lòng nhập cân nặng hợp lệ.', error: true);
       return;
@@ -1893,8 +1894,8 @@ class _ProgramPaymentSheet extends StatelessWidget {
                   imageUrl: order.qrImageUrl,
                   width: 220,
                   height: 220,
-                  cacheWidth: 220,
-                  cacheHeight: 220,
+                  memCacheWidth: 220,
+                  memCacheHeight: 220,
                   fit: BoxFit.contain,
                   placeholder: (_, __) => const SizedBox(
                     height: 120,

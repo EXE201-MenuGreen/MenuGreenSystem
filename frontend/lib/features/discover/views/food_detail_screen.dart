@@ -123,8 +123,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                 imageUrl: food.imageUrl!,
                 width: double.infinity,
                 height: 200,
-                cacheWidth: 400,
-                cacheHeight: 200,
+                memCacheWidth: 400,
+                memCacheHeight: 200,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(
                   width: double.infinity,
