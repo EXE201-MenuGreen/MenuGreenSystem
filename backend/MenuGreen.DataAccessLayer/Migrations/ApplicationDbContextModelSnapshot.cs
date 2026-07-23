@@ -565,6 +565,14 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
+                    b.HasIndex("Region");
+
                     b.ToTable("foods", (string)null);
                 });
 
@@ -785,6 +793,12 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
                     b.ToTable("ingredients", (string)null);
                 });
 
@@ -844,6 +858,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasIndex("FoodId");
 
+                    b.HasIndex("LoggedAt");
+
                     b.HasIndex("MealPlanItemId")
                         .IsUnique()
                         .HasFilter("\"MealPlanItemId\" IS NOT NULL");
@@ -851,6 +867,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("RecipeId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "LoggedAt");
 
                     b.ToTable("meal_logs", (string)null);
                 });
@@ -1669,7 +1687,15 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Difficulty");
+
                     b.HasIndex("FoodId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("MealType");
 
                     b.ToTable("recipes", (string)null);
                 });

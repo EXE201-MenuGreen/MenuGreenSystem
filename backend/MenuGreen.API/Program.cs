@@ -15,6 +15,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Prometheus;
 
+// Enable legacy timestamp behavior in Npgsql to allow writing Unspecified/Local/Utc DateTimes to timestamptz columns
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
 var renderPort = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(renderPort))

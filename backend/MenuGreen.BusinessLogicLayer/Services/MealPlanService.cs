@@ -414,8 +414,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var allPlanItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.PlannedDate >= from && x.PlannedDate <= to);
             var allLogs = await _unitOfWork.MealLogs.FindAsync(x =>
                 x.LoggedAt.HasValue &&
-                x.LoggedAt.Value.Date >= from.ToDateTime(TimeOnly.MinValue) &&
-                x.LoggedAt.Value.Date <= to.ToDateTime(TimeOnly.MaxValue));
+                x.LoggedAt.Value >= from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) &&
+                x.LoggedAt.Value <= to.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc));
 
             var itemsByDate = allPlanItems.GroupBy(x => x.PlannedDate ?? from).ToDictionary(g => g.Key, g => g.ToList());
             var logsByDate = allLogs.GroupBy(x => DateOnly.FromDateTime(x.LoggedAt!.Value)).ToDictionary(g => g.Key, g => g.ToList());
