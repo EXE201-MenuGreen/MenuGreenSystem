@@ -73,7 +73,16 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
             // Global Query Filters for Soft Deletion
+            // Filter User by DeletedAt (soft delete)
             modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);
+
+            // Filter entities with required relationship to User
+            modelBuilder.Entity<UserAllergy>().HasQueryFilter(ua => ua.User == null || EF.Property<DateTime?>(ua.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserCardInteraction>().HasQueryFilter(uci => uci.User == null || EF.Property<DateTime?>(uci.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserPremiumProgram>().HasQueryFilter(upp => upp.User == null || EF.Property<DateTime?>(upp.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserSubscription>().HasQueryFilter(us => us.User == null || EF.Property<DateTime?>(us.User, "DeletedAt") == null);
+            modelBuilder.Entity<UserSubstitutionPreference>().HasQueryFilter(usp => usp.User == null || EF.Property<DateTime?>(usp.User, "DeletedAt") == null);
+            modelBuilder.Entity<WeightLog>().HasQueryFilter(wl => wl.User == null || EF.Property<DateTime?>(wl.User, "DeletedAt") == null);
         }
     }
 }
