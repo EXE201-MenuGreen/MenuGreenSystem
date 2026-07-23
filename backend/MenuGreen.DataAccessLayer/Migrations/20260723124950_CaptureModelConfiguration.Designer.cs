@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260723123648_FixPendingModelChanges")]
-    partial class FixPendingModelChanges
+    [Migration("20260723124950_CaptureModelConfiguration")]
+    partial class CaptureModelConfiguration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
