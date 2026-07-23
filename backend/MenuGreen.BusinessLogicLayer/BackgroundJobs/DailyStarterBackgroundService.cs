@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

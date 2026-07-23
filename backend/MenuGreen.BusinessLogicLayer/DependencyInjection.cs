@@ -72,6 +72,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddHttpClient<IEmailService, EmailService>();
             services.AddHttpClient(nameof(NutritionAssistantService));
             services.AddHttpClient(nameof(CvService));
+            services.AddHttpClient(nameof(SepayReconciliationBackgroundService));
             return services;
         }
     }

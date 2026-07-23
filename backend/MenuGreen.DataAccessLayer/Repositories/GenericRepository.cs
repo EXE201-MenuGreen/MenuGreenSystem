@@ -21,13 +21,17 @@ namespace MenuGreen.DataAccessLayer.Repositories
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public async Task<IEnumerable<T>> GetAllAsync(bool asNoTracking = false)
         {
+            if (asNoTracking)
+                return await _dbSet.AsNoTracking().ToListAsync();
             return await _dbSet.ToListAsync();
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> expression)
+        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> expression, bool asNoTracking = false)
         {
+            if (asNoTracking)
+                return await _dbSet.AsNoTracking().Where(expression).ToListAsync();
             return await _dbSet.Where(expression).ToListAsync();
         }
 

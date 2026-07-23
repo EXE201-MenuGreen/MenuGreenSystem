@@ -21,16 +21,19 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<SepayReconciliationBackgroundService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly TimeSpan _interval = TimeSpan.FromMinutes(15); // Run every 15 minutes
 
         public SepayReconciliationBackgroundService(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<SepayReconciliationBackgroundService> logger)
+            ILogger<SepayReconciliationBackgroundService> logger,
+            IHttpClientFactory httpClientFactory)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -91,7 +94,7 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
                 // In production: pull transaction history from SePay API
                 try
                 {
-                    using var client = new HttpClient();
+                    using var client = _httpClientFactory.CreateClient(nameof(SepayReconciliationBackgroundService));
                     client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sepayApiKey);
                     var response = await client.GetAsync("https://api.sepay.vn/v1/tb/transactions", stoppingToken);
                     if (response.IsSuccessStatusCode)

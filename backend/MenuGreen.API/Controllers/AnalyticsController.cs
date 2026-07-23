@@ -59,6 +59,22 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Get events by user or time with pagination.
+        /// </summary>
+        [HttpGet("activity-log/paginated")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> GetActivityLogsPaginated(
+            [FromQuery] Guid? userId = null,
+            [FromQuery] DateTimeOffset? from = null,
+            [FromQuery] DateTimeOffset? to = null,
+            [FromQuery] string? action = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            return Ok(await _service.GetActivityLogsPaginatedAsync(userId, from, to, action, page, pageSize));
+        }
+
+        /// <summary>
         /// View event details.
         /// </summary>
         [HttpGet("activity-log/{id:guid}")]

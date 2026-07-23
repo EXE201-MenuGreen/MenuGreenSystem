@@ -702,11 +702,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ?? (recipe == null ? null : RecipeServingPrice(recipe));
             var displayCalories = food?.CaloriesKcal.HasValue == true
                 ? (int)Math.Round(food.CaloriesKcal.Value)
-                : recipe == null
-                    ? x.TargetCalories
-                    : (int)Math.Round(recipeDict.TryGetValue(recipe.Id, out var cachedRecipe) 
-                        ? (cachedRecipe.EstimatedCaloriesKcal ?? 0) 
-                        : 0);
+                : x.TargetCalories ?? 0;
 
             return Task.FromResult(new MealPlanItemResponse
             {
@@ -723,14 +719,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsG = x.CarbsG,
                 FatG = x.FatG,
                 CustomName = x.CustomName,
-                CustomImageUrl = x.CustomImageUrl,
-                IsCustomFood = x.IsCustomFood,
-                SourceType = x.SourceType,
-                MealLogId = x.MealLogId,
-                PriceVnd = price,
-                FoodName = food?.NameVi ?? recipe?.NameVi ?? x.CustomName ?? "Unknown",
-                ImageUrl = food?.ImageUrl ?? recipe?.ImageUrl ?? x.CustomImageUrl,
-                Recipe = recipe != null ? MapRecipe(recipe) : null
+                FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName ?? "Unknown",
+                SourceEntityType = x.SourceType,
+                EstimatedPriceVnd = price
             });
         }
         

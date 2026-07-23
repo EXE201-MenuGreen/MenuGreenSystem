@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -60,32 +62,56 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             var goalDriftService = scope.ServiceProvider.GetRequiredService<IGoalDriftService>();
 
-            var users = await unitOfWork.Users.FindAsync(u => u.IsActive && u.DeletedAt == null);
+            var users = await unitOfWork.Users.FindAsync(u => u.IsActive && u.DeletedAt == null, asNoTracking: true);
             var userList = users.ToList();
 
             _logger.LogInformation("Scanning nutrition goal drifts for {Count} active users.", userList.Count);
 
-            foreach (var user in userList)
+            // Process users in parallel batches for better performance
+            const int batchSize = 10;
+            var batches = userList
+                .Select((user, index) => new { user, index })
+                .GroupBy(x => x.index / batchSize)
+                .Select(g => g.Select(x => x.user).ToList())
+                .ToList();
+
+            foreach (var batch in batches)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                try
-                {
-                    // Recalculates user calorie drift. This automatically triggers notifications
-                    // and creates GoalDriftAlert entities if it exceeds thresholds.
-                    var alert = await goalDriftService.RecalculateDriftAsync(user.Id);
-                    if (alert != null)
-                    {
-                        _logger.LogInformation("Calorie drift detected and recorded for user {UserId}. Drift Value: {DriftVal}%.", user.Id, alert.PercentDeviation);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to recalculate goal drift for user {UserId}.", user.Id);
-                }
+                var tasks = batch.Select(user => ProcessUserAsync(
+                    user,
+                    goalDriftService,
+                    stoppingToken
+                ));
+
+                await Task.WhenAll(tasks);
             }
 
             _logger.LogInformation("Daily goal drift scanning completed.");
+        }
+
+        private async Task ProcessUserAsync(
+            User user,
+            IGoalDriftService goalDriftService,
+            CancellationToken stoppingToken)
+        {
+            try
+            {
+                if (stoppingToken.IsCancellationRequested) return;
+
+                // Recalculates user calorie drift. This automatically triggers notifications
+                // and creates GoalDriftAlert entities if it exceeds thresholds.
+                var alert = await goalDriftService.RecalculateDriftAsync(user.Id);
+                if (alert != null)
+                {
+                    _logger.LogInformation("Calorie drift detected and recorded for user {UserId}. Drift Value: {DriftVal}%.", user.Id, alert.PercentDeviation);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to recalculate goal drift for user {UserId}.", user.Id);
+            }
         }
 
         private TimeSpan GetDelayUntilNextRun()

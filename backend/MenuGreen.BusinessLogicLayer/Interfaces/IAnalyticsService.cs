@@ -11,6 +11,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<ActivityLogResponse> CreateActivityLogAsync(Guid userId, ActivityLogCreateRequest request);
         Task<IEnumerable<ActivityLogResponse>> CreateActivityLogsAsync(Guid userId, IEnumerable<ActivityLogCreateRequest> requests);
         Task<IEnumerable<ActivityLogResponse>> GetActivityLogsAsync(Guid? userId = null, DateTimeOffset? from = null, DateTimeOffset? to = null, string? action = null);
+        Task<(IEnumerable<ActivityLogResponse> Items, int TotalCount)> GetActivityLogsPaginatedAsync(Guid? userId = null, DateTimeOffset? from = null, DateTimeOffset? to = null, string? action = null, int page = 1, int pageSize = 50);
         Task<ActivityLogResponse> GetActivityLogByIdAsync(Guid id);
         Task<AnalyticsDashboardResponse> GetDashboardAsync();
         Task<AnalyticsSummaryResponse> GetSummaryAsync(DateTimeOffset from, DateTimeOffset to);
