@@ -430,6 +430,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
             }
 
+            // Map items without navigation properties (names will be null - frontend should fetch detail if needed)
+            var items = itemList.Select(x => new MealPlanItemResponse
+            {
+                Id = x.Id,
+                MealPlanId = x.MealPlanId,
+                MealType = x.MealType,
+                FoodId = x.FoodId,
+                RecipeId = x.RecipeId,
+                PlannedDate = x.PlannedDate,
+                ScheduledTime = x.ScheduledTime,
+                TargetCalories = x.TargetCalories,
+                QuantityG = x.QuantityG,
+                ProteinG = x.ProteinG,
+                CarbsG = x.CarbsG,
+                FatG = x.FatG,
+                CustomName = x.CustomName,
+                IsCompleted = x.IsCompleted,
+                Status = x.IsCompleted ? "done" : "planned"
+            }).ToList();
+
             return new MealPlanDashboardResponse
             {
                 Date = date,
@@ -438,18 +458,73 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedItemsCount = itemList.Count,
                 CompletedItemsCount = itemList.Count(x => x.IsCompleted),
                 SkippedItemsCount = itemList.Count(x => !x.IsCompleted && x.PlannedDate.HasValue && x.PlannedDate.Value <= date),
-                Items = itemList.Select(MapItem).ToList(),
+                Items = items,
                 ActualLogs = logList.Select(MapLog).ToList()
             };
         }
 
         public async Task<MealPlanCompareResponse> GetCompareAsync(DateOnly from, DateOnly to, Guid? userId = null)
         {
+            // Batch load all data upfront to avoid N+1 queries (fix sequential awaits)
+            var allPlanItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.PlannedDate >= from && x.PlannedDate <= to);
+            var allLogs = await _unitOfWork.MealLogs.FindAsync(x =>
+                x.LoggedAt.HasValue &&
+                x.LoggedAt.Value.Date >= from.ToDateTime(TimeOnly.MinValue) &&
+                x.LoggedAt.Value.Date <= to.ToDateTime(TimeOnly.MaxValue));
+
+            var itemsByDate = allPlanItems.GroupBy(x => x.PlannedDate ?? from).ToDictionary(g => g.Key, g => g.ToList());
+            var logsByDate = allLogs.GroupBy(x => DateOnly.FromDateTime(x.LoggedAt!.Value)).ToDictionary(g => g.Key, g => g.ToList());
+
             var days = new List<MealPlanDashboardResponse>();
             var cursor = from;
             while (cursor <= to)
             {
-                days.Add(await GetDashboardAsync(cursor, userId));
+                var dateItems = itemsByDate.GetValueOrDefault(cursor) ?? new List<MealPlanItem>();
+                var dateLogs = logsByDate.GetValueOrDefault(cursor) ?? new List<MealLog>();
+
+                var actualByItem = dateLogs
+                    .Where(x => x.MealPlanItemId.HasValue)
+                    .ToDictionary(x => x.MealPlanItemId!.Value, x => x.Id);
+
+                foreach (var item in dateItems)
+                {
+                    if (actualByItem.ContainsKey(item.Id))
+                    {
+                        item.IsCompleted = true;
+                    }
+                }
+
+                var items = dateItems.Select(x => new MealPlanItemResponse
+                {
+                    Id = x.Id,
+                    MealPlanId = x.MealPlanId,
+                    MealType = x.MealType,
+                    FoodId = x.FoodId,
+                    RecipeId = x.RecipeId,
+                    PlannedDate = x.PlannedDate,
+                    ScheduledTime = x.ScheduledTime,
+                    TargetCalories = x.TargetCalories,
+                    QuantityG = x.QuantityG,
+                    ProteinG = x.ProteinG,
+                    CarbsG = x.CarbsG,
+                    FatG = x.FatG,
+                    CustomName = x.CustomName,
+                    IsCompleted = x.IsCompleted,
+                    Status = x.IsCompleted ? "done" : "planned"
+                }).ToList();
+
+                days.Add(new MealPlanDashboardResponse
+                {
+                    Date = cursor,
+                    TotalPlannedCalories = dateItems.Sum(x => x.TargetCalories ?? 0),
+                    TotalActualCalories = (int)dateLogs.Sum(x => x.CaloriesKcal ?? 0),
+                    PlannedItemsCount = dateItems.Count,
+                    CompletedItemsCount = dateItems.Count(x => x.IsCompleted),
+                    SkippedItemsCount = dateItems.Count(x => !x.IsCompleted && x.PlannedDate.HasValue && x.PlannedDate.Value <= cursor),
+                    Items = items,
+                    ActualLogs = dateLogs.Select(MapLog).ToList()
+                });
+
                 cursor = cursor.AddDays(1);
             }
 
@@ -1093,11 +1168,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .ToDictionary(group => group.Key, group => group.Count());
             var recipeIds = recipeOccurrences.Keys.ToList();
             var ingredients = await _unitOfWork.RecipeIngredients.FindAsync(x => recipeIds.Contains(x.RecipeId));
+            // Batch load all recipes for servings (fix N+1 query)
             var recipeServings = new Dictionary<Guid, int>();
-            foreach (var recipeId in recipeIds)
+            if (recipeIds.Any())
             {
-                var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId);
-                recipeServings[recipeId] = Math.Max(1, recipe?.Servings ?? 1);
+                var recipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id)))
+                    .ToDictionary(r => r.Id, r => Math.Max(1, r.Servings ?? 1));
+                foreach (var kvp in recipes)
+                {
+                    recipeServings[kvp.Key] = kvp.Value;
+                }
             }
             var catalog = await _unitOfWork.Ingredients.GetAllAsync();
             var catalogById = catalog.ToDictionary(x => x.Id);
@@ -1273,19 +1353,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plan = await GetMealPlanAsync(planId);
             if (plan.UserId != userId) throw new Exception("Forbidden.");
             var planItems = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == planId);
-            
+
+            // Batch load all foods and recipes to fix N+1 queries
+            var foodIds = planItems.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).ToList();
+            var recipeIds = planItems.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).ToList();
+
+            var foods = (await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id)))
+                .ToDictionary(f => f.Id);
+            var recipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id)))
+                .ToDictionary(r => r.Id);
+
             var totalPlannedCost = 0;
             foreach (var item in planItems)
             {
-                if (item.FoodId.HasValue)
+                if (item.FoodId.HasValue && foods.TryGetValue(item.FoodId.Value, out var food))
                 {
-                    var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                     totalPlannedCost += food?.EstimatedPriceVnd ?? 0;
                 }
-                else if (item.RecipeId.HasValue)
+                else if (item.RecipeId.HasValue && recipes.TryGetValue(item.RecipeId.Value, out var recipe))
                 {
-                    var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
-                    if (recipe != null) totalPlannedCost += RecipeServingPrice(recipe);
+                    totalPlannedCost += recipe == null ? 0 : RecipeServingPrice(recipe);
                 }
             }
 
@@ -1343,11 +1430,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var latestBudget = budgets.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
             var budgetLimit = latestBudget?.BudgetVnd ?? int.MaxValue;
             var maxCookingMinutes = latestBudget?.TimeLimitMin ?? int.MaxValue;
+
+            // Batch load all recipes to fix N+1 query
+            var recipeIdsInPlan = planItems.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).ToHashSet();
+            var allRecipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIdsInPlan.Contains(r.Id)))
+                .ToDictionary(r => r.Id);
             var currentPlanCost = 0;
             foreach (var planItem in planItems.Where(x => x.RecipeId.HasValue))
             {
-                var recipe = await _unitOfWork.Recipes.GetByIdAsync(planItem.RecipeId!.Value);
-                if (recipe != null) currentPlanCost += RecipeServingPrice(recipe);
+                if (allRecipes.TryGetValue(planItem.RecipeId!.Value, out var recipe))
+                {
+                    currentPlanCost += recipe == null ? 0 : RecipeServingPrice(recipe);
+                }
             }
             var maximumReplacementPrice = Math.Max(0, budgetLimit - (currentPlanCost - currentPrice));
 
@@ -1478,20 +1572,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (activePlan != null)
             {
                 var items = await _unitOfWork.MealPlanItems.FindAsync(x => x.MealPlanId == activePlan.Id);
+
+                // Batch load all foods and recipes to fix N+1 queries
+                var foodIds = items.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).ToList();
+                var recipeIds = items.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).ToList();
+
+                var foods = (await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id)))
+                    .ToDictionary(f => f.Id);
+                var recipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id)))
+                    .ToDictionary(r => r.Id);
+
                 foreach (var item in items)
                 {
                     var price = 0;
                     var category = "Other";
 
-                    if (item.FoodId.HasValue)
+                    if (item.FoodId.HasValue && foods.TryGetValue(item.FoodId.Value, out var food))
                     {
-                        var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                         price = food?.EstimatedPriceVnd ?? 0;
                         category = "Fresh ingredients";
                     }
-                    else if (item.RecipeId.HasValue)
+                    else if (item.RecipeId.HasValue && recipes.TryGetValue(item.RecipeId.Value, out var recipe))
                     {
-                        var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
                         price = recipe?.EstimatedPriceVnd ?? 0;
                         category = recipe?.MealType ?? "Main dishes";
                     }
@@ -1538,25 +1640,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var weeklyBudget = latestBudget?.BudgetVnd ?? 1500000;
             var dailyBudgetLimit = weeklyBudget / 7;
 
-            var completedItems = await _unitOfWork.MealPlanItems.FindAsync(x => 
+            var completedItems = await _unitOfWork.MealPlanItems.FindAsync(x =>
                 x.PlannedDate >= fromDate && x.PlannedDate <= today &&
                 x.MealPlanHeader != null && x.MealPlanHeader.UserId == userId &&
                 x.IsCompleted);
+
+            // Batch load all foods and recipes to fix N+1 queries
+            var foodIds = completedItems.Where(x => x.FoodId.HasValue).Select(x => x.FoodId!.Value).ToList();
+            var recipeIds = completedItems.Where(x => x.RecipeId.HasValue).Select(x => x.RecipeId!.Value).ToList();
+
+            var foods = (await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id)))
+                .ToDictionary(f => f.Id);
+            var recipes = (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id)))
+                .ToDictionary(r => r.Id);
 
             var dailySpent = new Dictionary<DateOnly, int>();
             foreach (var item in completedItems)
             {
                 if (!item.PlannedDate.HasValue) continue;
-                
+
                 var price = 0;
-                if (item.FoodId.HasValue)
+                if (item.FoodId.HasValue && foods.TryGetValue(item.FoodId.Value, out var food))
                 {
-                    var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                     price = food?.EstimatedPriceVnd ?? 0;
                 }
-                else if (item.RecipeId.HasValue)
+                else if (item.RecipeId.HasValue && recipes.TryGetValue(item.RecipeId.Value, out var recipe))
                 {
-                    var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
                     price = recipe?.EstimatedPriceVnd ?? 0;
                 }
 

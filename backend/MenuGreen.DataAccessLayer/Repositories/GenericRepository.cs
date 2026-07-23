@@ -16,8 +16,22 @@ namespace MenuGreen.DataAccessLayer.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T?> GetByIdAsync(Guid id)
+        public async Task<T?> GetByIdAsync(Guid id, bool asNoTracking = false)
         {
+            if (asNoTracking)
+            {
+                // Use AsNoTracking with FirstOrDefault for read-only queries
+                var keyProperty = _context.Model.FindEntityType(typeof(T))?.FindPrimaryKey()?.Properties.FirstOrDefault();
+                if (keyProperty == null) return null;
+
+                var parameter = Expression.Parameter(typeof(T), "e");
+                var property = Expression.Property(parameter, keyProperty.Name);
+                var value = Expression.Constant(id, typeof(Guid));
+                var equals = Expression.Equal(property, value);
+                var lambda = Expression.Lambda<Func<T, bool>>(equals, parameter);
+
+                return await _dbSet.AsNoTracking().FirstOrDefaultAsync(lambda);
+            }
             return await _dbSet.FindAsync(id);
         }
 

@@ -100,9 +100,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Distinct()
                 .ToList();
 
-            foreach (var day in logDates)
+            // Parallelize sync operations for better performance
+            if (logDates.Any())
             {
-                await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day);
+                var syncTasks = logDates.Select(day => _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day));
+                await Task.WhenAll(syncTasks);
             }
 
             var days = await BuildRangeSummariesAsync(userId, from, to, logs);
