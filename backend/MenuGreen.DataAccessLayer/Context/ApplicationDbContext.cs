@@ -88,6 +88,11 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<Subscription>().HasQueryFilter(sub => sub.User == null || EF.Property<DateTime?>(sub.User, "DeletedAt") == null);
             modelBuilder.Entity<SubscriptionTransaction>().HasQueryFilter(st => st.User == null || EF.Property<DateTime?>(st.User, "DeletedAt") == null);
             modelBuilder.Entity<UserAiProfile>().HasQueryFilter(uap => uap.User == null || EF.Property<DateTime?>(uap.User, "DeletedAt") == null);
+            modelBuilder.Entity<Payment>().HasQueryFilter(p => p.User == null || EF.Property<DateTime?>(p.User, "DeletedAt") == null);
+            modelBuilder.Entity<Profile>().HasQueryFilter(p => p.User == null || EF.Property<DateTime?>(p.User, "DeletedAt") == null);
+            modelBuilder.Entity<PtReviewRequest>().HasQueryFilter(pr => pr.User == null || EF.Property<DateTime?>(pr.User, "DeletedAt") == null);
+            modelBuilder.Entity<RecommendationHistory>().HasQueryFilter(rh => rh.User == null || EF.Property<DateTime?>(rh.User, "DeletedAt") == null);
+            modelBuilder.Entity<ReminderProfile>().HasQueryFilter(rp => rp.User == null || EF.Property<DateTime?>(rp.User, "DeletedAt") == null);
         }
     }
 }
