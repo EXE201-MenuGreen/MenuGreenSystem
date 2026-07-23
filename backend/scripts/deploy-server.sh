@@ -507,7 +507,7 @@ fi
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
 
-echo "=== Reset EF Migration History (fix model mismatch) ==="
+echo "=== Check EF Migration History ==="
 DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
 if [ -n "$DB_CONN_PRECHECK" ]; then
   PGPASSWORD_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
@@ -518,14 +518,7 @@ if [ -n "$DB_CONN_PRECHECK" ]; then
   if [ -n "$DB_HOST_PRECHECK" ] && [ -n "$DB_NAME_PRECHECK" ]; then
     MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>/dev/null || echo "0")
     MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]')
-    
-    if [ "$MIGRATION_COUNT" -gt "0" ]; then
-      echo "  Found $MIGRATION_COUNT migration(s) in history, clearing for fresh migration..."
-      PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "DELETE FROM \"__EFMigrationsHistory\";" 2>/dev/null || true
-      echo "  ✓ Migration history cleared"
-    else
-      echo "  ⊘ No existing migrations in history"
-    fi
+    echo "  Found $MIGRATION_COUNT migration(s) in history"
   fi
 fi
 
