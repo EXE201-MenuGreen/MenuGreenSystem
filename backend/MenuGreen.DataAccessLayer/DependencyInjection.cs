@@ -17,7 +17,7 @@ namespace MenuGreen.DataAccessLayer
                 options.UseNpgsql(ConnectionStringHelper.ResolvePostgresConnectionString(configuration));
                 // TEMPORARY: Ignore PendingModelChangesWarning to allow deployment
                 // TODO: Remove after fixing model/migration mismatch
-                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.PendingModelChangesWarning));
+                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
             });
 
             // Register Repositories and UnitOfWork
