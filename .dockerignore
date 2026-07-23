@@ -51,6 +51,8 @@ Desktop.ini
 
 # Frontend (không cần cho backend container)
 frontend/
+frontend-web/
+**/node_modules/
 !.github/
 
 # CI/CD - không cần trong production image
