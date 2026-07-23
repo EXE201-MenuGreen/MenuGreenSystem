@@ -4,6 +4,7 @@
 **Date:** 2026-07-08
 **Status:** Production — đã deploy
 **Last updated by:** Agent (docs review + verification)
+**Last docs update:** 2026-07-23
 
 ---
 
@@ -72,7 +73,7 @@ MenuGreen là ứng dụng dinh dưỡng cá nhân hóa cho thị trường Vi�
 | 03 | Meal Plan | MealPlan, Notification (reminders) | ✅ Done | ✅ Done | Budget & expenses |
 | 04 | Discover & Allergy | Food, Recipe, Allergy, PortionConverter, IngredientSubstitution | ✅ Done | ✅ Done | Full catalog |
 | 05 | Recommendation Engine | Recommendation | ✅ Done | ✅ Done | Rule-based + scoring |
-| 06 | AI Assistant & Coach | AiAssistant, AiCoach, AiAdmin | ✅ Done | ⚠️ Placeholder | Chưa kết nối API |
+| 06 | AI Assistant & Coach | AiAssistant, AiCoach, AiAdmin | ✅ Done | ⚠️ Partial | Chat đã kết nối API |
 | 07 | Notification | Notification | ✅ Done | ✅ Done | Settings + inbox + campaigns |
 | 08 | Subscription & Payment | SubscriptionPlan, UserSubscription, SePay | ✅ Done | ✅ Done | Free tier + SePay QR |
 | 09 | Analytics | Analytics, PlannedVsActual | ✅ Done | ⛔ Out of scope | Admin/BI only |

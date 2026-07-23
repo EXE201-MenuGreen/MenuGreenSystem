@@ -380,11 +380,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Date = date,
                 TotalPlannedCalories = mappedItems.Sum(x => x.TargetCalories ?? 0),
                 TotalActualCalories = (int)logList.Sum(x => x.CaloriesKcal ?? 0),
-                PlannedProtein = mappedItems.Sum(x => x.ProteinG ?? 0),
+                PlannedProtein = (int)mappedItems.Sum(x => x.ProteinG ?? 0),
                 ActualProtein = (int)Math.Round(logList.Sum(x => x.ProteinG ?? 0)),
-                PlannedCarbs = mappedItems.Sum(x => x.CarbsG ?? 0),
+                PlannedCarbs = (int)mappedItems.Sum(x => x.CarbsG ?? 0),
                 ActualCarbs = (int)Math.Round(logList.Sum(x => x.CarbsG ?? 0)),
-                PlannedFat = mappedItems.Sum(x => x.FatG ?? 0),
+                PlannedFat = (int)mappedItems.Sum(x => x.FatG ?? 0),
                 ActualFat = (int)Math.Round(logList.Sum(x => x.FatG ?? 0)),
                 PlannedItemsCount = itemList.Count,
                 CompletedItemsCount = itemList.Count(x => x.IsCompleted),
@@ -413,11 +413,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var completedItems = days.Sum(x => x.CompletedItemsCount);
             var plannedCalories = days.Sum(x => x.TotalPlannedCalories);
             var actualCalories = days.Sum(x => x.TotalActualCalories);
-            var plannedProtein = days.Sum(x => x.Items.Sum(item => item.ProteinG ?? 0));
+            var plannedProtein = (int)Math.Round(days.Sum(x => x.Items.Sum(item => item.ProteinG ?? 0)));
             var actualProtein = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.ProteinG ?? 0)));
-            var plannedCarbs = days.Sum(x => x.Items.Sum(item => item.CarbsG ?? 0));
+            var plannedCarbs = (int)Math.Round(days.Sum(x => x.Items.Sum(item => item.CarbsG ?? 0)));
             var actualCarbs = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.CarbsG ?? 0)));
-            var plannedFat = days.Sum(x => x.Items.Sum(item => item.FatG ?? 0));
+            var plannedFat = (int)Math.Round(days.Sum(x => x.Items.Sum(item => item.FatG ?? 0)));
             var actualFat = (int)Math.Round(days.Sum(x => x.ActualLogs.Sum(log => log.FatG ?? 0)));
 
             var weeklyData = days
@@ -824,9 +824,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeName = x.Recipe?.Title,
                 SourceEntityType = x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null,
                 Status = x.IsCompleted ? "done" : "planned",
-                ProteinG = x.Food != null ? (int?)Math.Round(x.Food.ProteinG ?? 0) : null,
-                CarbsG = x.Food != null ? (int?)Math.Round(x.Food.CarbsG ?? 0) : null,
-                FatG = x.Food != null ? (int?)Math.Round(x.Food.FatG ?? 0) : null,
+                ProteinG = x.Food?.ProteinG,
+                CarbsG = x.Food?.CarbsG,
+                FatG = x.Food?.FatG,
                 Origin = x.Origin
             };
         }
@@ -1699,6 +1699,109 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FatG = (int)Math.Round(macros.fat),
                 Origin = item.Origin
             };
+        }
+
+        public async Task<OfficeScanMealResponse> SaveOfficeScanMealAsync(Guid planId, OfficeScanMealRequest request, Guid userId)
+        {
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
+            if (plan == null || plan.UserId != userId)
+                throw new UnauthorizedAccessException("Meal plan not found or access denied.");
+
+            var mealLog = new MealLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                MealType = request.MealType,
+                LoggedAt = request.LoggedAt ?? DateTime.UtcNow,
+                QuantityG = request.QuantityG,
+                CaloriesKcal = request.CaloriesKcal,
+                ProteinG = request.ProteinG,
+                CarbsG = request.CarbsG,
+                FatG = request.FatG,
+                CustomName = request.CustomName,
+                SourceType = "office_scan"
+            };
+
+            var item = new MealPlanItem
+            {
+                Id = Guid.NewGuid(),
+                MealPlanId = planId,
+                FoodId = null,
+                RecipeId = null,
+                MealType = request.MealType,
+                PlannedDate = request.PlannedDate,
+                ScheduledTime = request.ScheduledTime,
+                TargetCalories = (int)request.CaloriesKcal,
+                IsCompleted = true,
+                CustomName = request.CustomName,
+                Origin = "office_scan"
+            };
+
+            await _unitOfWork.MealLogs.AddAsync(mealLog);
+            await _unitOfWork.MealPlanItems.AddAsync(item);
+            await _unitOfWork.CompleteAsync();
+
+            return new OfficeScanMealResponse
+            {
+                MealPlanId = planId,
+                MealPlanItemId = item.Id,
+                MealLogId = mealLog.Id,
+                ReplacedExisting = false,
+                DisplayName = request.CustomName
+            };
+        }
+
+        public async Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var dailyPlan = await GetOrCreateTodayDailyPlanAsync(userId);
+
+            var mealLog = await _unitOfWork.MealLogs.GetByIdAsync(mealLogId);
+            if (mealLog == null || mealLog.UserId != userId)
+                throw new Exception("Meal log not found.");
+
+            var item = new MealPlanItem
+            {
+                Id = Guid.NewGuid(),
+                MealPlanId = dailyPlan.Id,
+                MealType = mealLog.MealType,
+                PlannedDate = today,
+                IsCompleted = true,
+                TargetCalories = (int)(mealLog.CaloriesKcal ?? 0),
+                CustomName = mealLog.CustomName,
+                Origin = "user",
+                SourceType = "meal_log"
+            };
+
+            await _unitOfWork.MealPlanItems.AddAsync(item);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task<MealPlanHeader> GetOrCreateTodayDailyPlanAsync(Guid userId)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var plans = await _unitOfWork.MealPlanHeaders
+                .FindAsync(x => x.UserId == userId && x.PlanType == "DAILY" && x.StartDate == today);
+
+            var existing = plans.FirstOrDefault();
+            if (existing != null)
+                return existing;
+
+            var plan = new MealPlanHeader
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = $"Thực đơn ngày {today:dd/MM/yyyy}",
+                PlanType = "DAILY",
+                StartDate = today,
+                EndDate = today,
+                IsActive = true,
+                GeneratedBy = "SYSTEM"
+            };
+
+            await _unitOfWork.MealPlanHeaders.AddAsync(plan);
+            await _unitOfWork.CompleteAsync();
+            return plan;
         }
     }
 }

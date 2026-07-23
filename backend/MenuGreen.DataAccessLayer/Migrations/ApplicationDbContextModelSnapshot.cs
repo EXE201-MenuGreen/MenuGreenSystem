@@ -1968,7 +1968,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.SubscriptionTransaction", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Amount")
@@ -2246,7 +2245,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledAt")

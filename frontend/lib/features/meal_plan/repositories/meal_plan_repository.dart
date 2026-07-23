@@ -411,6 +411,76 @@ class MealPlanRepository {
     return decoded;
   }
 
+  /// Save office scan meal
+  Future<void> saveOfficeScanMeal(
+    String planId,
+    OfficeScanMealRequest request,
+  ) async {
+    final response = await _api.postJson(
+      ApiEndpoints.mealPlanSaveOfficeScan(planId),
+      request.toJson(),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_messageFromResponse(response));
+    }
+  }
+
+  /// Get budget status for a plan
+  Future<Map<String, dynamic>> getBudgetStatus(String planId) async {
+    final response = await _api.get(
+      ApiEndpoints.mealPlanBudgetStatus(planId),
+    );
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    return decoded;
+  }
+
+  /// Get alternatives for an item
+  Future<List<MealPlanItemDetail>> getAlternatives(
+    String planId,
+    String itemId,
+  ) async {
+    final response = await _api.get(
+      ApiEndpoints.mealPlanAlternatives(planId, itemId),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is List) {
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map((json) => MealPlanItemDetail.fromJson(json))
+          .toList();
+    }
+    return [];
+  }
+
+  /// Replace item with alternative
+  Future<MealPlanDetail> replaceItem(
+    String planId,
+    String itemId,
+    String newFoodId,
+  ) async {
+    final response = await _api.postJson(
+      ApiEndpoints.mealPlanReplaceItem(planId, itemId),
+      {'newFoodId': newFoodId},
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    return MealPlanDetail.fromJson(decoded);
+  }
+
   // ==================== Helpers ====================
 
   String _messageFromResponse(dynamic response) {

@@ -162,6 +162,7 @@ class DuplicatePlanRequest {
 class AddItemRequest {
   final String mealType;
   final DateTime? scheduledTime;
+  final DateTime? plannedDate;
   final String? foodId;
   final String? recipeId;
   final int? targetCalories;
@@ -171,6 +172,7 @@ class AddItemRequest {
   AddItemRequest({
     required this.mealType,
     this.scheduledTime,
+    this.plannedDate,
     this.foodId,
     this.recipeId,
     this.targetCalories,
@@ -183,12 +185,17 @@ class AddItemRequest {
       'mealType': mealType,
       if (scheduledTime != null)
         'scheduledTime': scheduledTime!.toIso8601String(),
+      if (plannedDate != null) 'plannedDate': _dateOnlyFmt(plannedDate!),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
       if (origin != null) 'origin': origin,
     };
+  }
+
+  static String _dateOnlyFmt(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   CreateItemRequest toCreateItemRequest() {
@@ -358,5 +365,78 @@ enum MealType {
 
   int getCaloriesTarget(int totalCalories) {
     return (totalCalories * caloriesRatio).round();
+  }
+}
+
+/// Office scan meal request for saving scanned meals
+class OfficeScanMealRequest {
+  final String customName;
+  final String mealType;
+  final DateTime plannedDate;
+  final double quantityG;
+  final double caloriesKcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final DateTime? loggedAt;
+  final bool replaceExisting;
+  final List<OfficeScanIngredientRequest> ingredients;
+
+  OfficeScanMealRequest({
+    required this.customName,
+    required this.mealType,
+    required this.plannedDate,
+    required this.quantityG,
+    required this.caloriesKcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+    this.loggedAt,
+    this.replaceExisting = false,
+    this.ingredients = const [],
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'customName': customName,
+      'mealType': mealType,
+      'plannedDate': _dateOnly(plannedDate),
+      'quantityG': quantityG,
+      'caloriesKcal': caloriesKcal,
+      'proteinG': proteinG,
+      'carbsG': carbsG,
+      'fatG': fatG,
+      if (loggedAt != null) 'loggedAt': loggedAt!.toIso8601String(),
+      'replaceExisting': replaceExisting,
+      'ingredients': ingredients.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  static String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Office scan ingredient request
+class OfficeScanIngredientRequest {
+  final String name;
+  final double quantity;
+  final String unit;
+  final bool isAvailable;
+
+  OfficeScanIngredientRequest({
+    required this.name,
+    required this.quantity,
+    this.unit = 'g',
+    this.isAvailable = true,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'quantity': quantity,
+      'unit': unit,
+      'isAvailable': isAvailable,
+    };
   }
 }

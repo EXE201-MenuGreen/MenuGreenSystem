@@ -1,12 +1,16 @@
 # 08. Subscription & Payment
 
 **Status:** API Done · UI Done (100%)
-**Last updated:** 2026-07-08
+**Last updated:** 2026-07-23
 
 **Related controllers:**
 - `backend/MenuGreen.API/Controllers/SubscriptionPlanController.cs` (Admin CRUD)
 - `backend/MenuGreen.API/Controllers/UserSubscriptionController.cs` (User workflow)
 - `backend/MenuGreen.API/Controllers/SepayController.cs` (Payment gateway)
+
+**Related services:**
+- `backend/MenuGreen.BusinessLogicLayer/Services/FeatureAccessService.cs` (Feature access resolver)
+- `backend/MenuGreen.BusinessLogicLayer/Services/FeatureAccessResolver.cs` (Feature groups)
 
 **Related Flutter feature:** `frontend/lib/features/subscription/`
 
@@ -16,10 +20,10 @@
 
 Quản lý gói thành viên và thanh toán qua cổng SePay:
 
-- **Subscription Plans** — CRUD gói (Free, Premium, Pro) do Admin quản lý.
+- **Subscription Plans** — CRUD gói (Free, Casual, Gym/PT, Pro) do Admin quản lý.
 - **User Subscription** — subscribe/renew/cancel gói (miễn phí active ngay, trả phí qua SePay).
 - **SePay Payment** — tạo QR thanh toán, webhook xác thực giao dịch.
-- **Subscription History** — lịch sử giao dịch, metrics cho Admin.
+- **Feature Access** — quyền truy cập tính năng dựa trên subscription plan.
 
 ---
 
@@ -27,10 +31,29 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 
 ### 2.1 Subscription Plan (Admin)
 
-- Plans có các trường: `Name`, `PriceVnd`, `DurationDays`, `Features[]`, `IsActive`.
+- Plans có các trường: `Name`, `PriceVnd`, `DurationDays`, `FeatureGroup`, `Features[]`, `IsActive`.
 - Admin có thể CRUD plans; user chỉ thấy plans active.
+- Plans được nhóm theo `FeatureGroup`: `free`, `casual`, `gym`, `office`, `pro`.
 
-### 2.2 User Subscription Workflow
+### 2.2 Feature Groups & Access
+
+Hệ thống `FeatureAccessResolver` quản lý quyền truy cập dựa trên subscription:
+
+| Feature Group | Entitlements | Mô tả |
+|---------------|--------------|--------|
+| `free` | `free_features` | Luôn có (mặc định) |
+| `casual` | `casual_features` | Gói Casual - vòng quay, quick-log, micro-learning |
+| `office` | `office_features` | Gói Office - grocery list, scan meals, budget |
+| `gym` | `gym_features` + `coach_access` + `ai_features` | Gói Gym/PT - PT review, coach, AI |
+| `pro`/`premium`/`vip`/`gold` | Tất cả features | Full access |
+
+**Cơ chế hoạt động:**
+- Mỗi subscription có `FeatureGroup` xác định quyền truy cập.
+- `FeatureAccessResolver.Resolve()` tổng hợp tất cả active subscriptions của user.
+- Tier được xác định: `free` → `casual/office/gym` → `multi` (nhiều nhóm).
+- `ExpiresAt` = ngày hết hạn subscription trả phí gần nhất.
+
+### 2.3 User Subscription Workflow
 
 - **Subscribe Free:** gói miễn phí → kích hoạt ngay, không qua payment.
 - **Subscribe Paid:** gói trả phí → tạo SePay order → user quét QR → webhook xác nhận → kích hoạt gói.
@@ -38,16 +61,17 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 - **Cancel:** hủy subscription hiện tại (status = cancelled, vẫn dùng đến hết hạn).
 - **Auto-renew:** có thể bật trong settings (TODO nếu chưa có).
 
-### 2.3 SePay Payment
+### 2.4 SePay Payment
 
 - Tạo order với số tiền VND → trả QR code (SePay VietQR).
 - Webhook từ SePay gọi về khi user thanh toán thành công.
 - Polling status: `GET /api/payments/sepay/pending` để check đơn đang chờ.
 
-### 2.4 Premium Features Gating
+### 2.5 Premium Features Gating
 
-- AI Assistant có thể yêu cầu Premium (xem [`06-ai-assistant-and-coach.md`](./06-ai-assistant-and-coach.md)).
-- Check entitlement tại backend trước khi thực thi action premium.
+- AI Assistant yêu cầu entitlement `ai_features` (Gym/PT hoặc Pro).
+- Coach features yêu cầu entitlement `coach_access`.
+- Check entitlement tại backend qua `FeatureAccessService.HasEntitlementAsync()`.
 
 ---
 
@@ -75,8 +99,12 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 | `POST` | `/api/UserSubscription/renew` | Renew gói miễn phí |
 | `POST` | `/api/UserSubscription/cancel` | Cancel gói hiện tại |
 | `GET` | `/api/UserSubscription/me` | Subscription hiện tại |
+| `GET` | `/api/UserSubscription/me/active` | Tất cả subscriptions active (không chỉ mới nhất) |
+| `GET` | `/api/UserSubscription/me/entitlements` | Feature access tổng hợp |
 | `GET` | `/api/UserSubscription/{id}` | Chi tiết subscription |
 | `GET` | `/api/UserSubscription/me/history` | Lịch sử subscription |
+
+> **2026-07-23:** Thêm 2 endpoints mới: `me/active` và `me/entitlements`.
 
 ### 3.3 SePay Payment
 
@@ -88,7 +116,7 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 | `GET` | `/api/payments/sepay/{paymentId}` | Trạng thái đơn |
 | `POST` | `/api/payments/sepay/webhook` | Webhook SePay xác thực (AllowAnonymous) |
 
-**Tổng: 20 endpoint** (8 SubscriptionPlan + 7 UserSubscription + 5 SePay).
+**Tổng: 22 endpoint** (8 SubscriptionPlan + 9 UserSubscription + 5 SePay).
 
 ---
 
@@ -113,7 +141,7 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 ```
 ProfileScreen
 └── "Quản lý gói" → UpgradePlanScreen
-        ├── Hiển thị plans active
+        ├── Hiển thị plans active (có FeatureGroup)
         ├── Plan miễn phí → POST /subscribe → activate → back to Profile
         └── Plan trả phí → SePayPaymentScreen
                 ├── Tạo order → POST /create-order
@@ -132,6 +160,7 @@ ProfileScreen
 SubscriptionPlan
 ├── Id, Name, Description
 ├── PriceVnd, DurationDays
+├── FeatureGroup (free/casual/gym/office/pro)
 ├── Features[] (string)
 ├── IsActive, DisplayOrder
 └── CreatedAt, UpdatedAt
@@ -152,14 +181,88 @@ SepayTransaction
 ├── PaidAt?
 ├── WebhookPayload (JSON)
 └── CreatedAt
+
+FeatureAccessResponse (2026-07-23)
+├── Tier (free/casual/office/gym/multi)
+├── Entitlements[] (free_features/casual_features/office_features/gym_features/coach_access/ai_features)
+├── FeatureGroups[] (tên các feature group đang active)
+└── ExpiresAt (ngày hết hạn gần nhất)
 ```
 
 Backend models đầy đủ: [`../02-backend/backend_models_documentation.md`](../02-backend/backend_models_documentation.md) (mục 1.5 Subscriptions & Payments).
 
 ---
 
-## 7. Related Documents
+## 7. Feature Access Resolution
+
+### 7.1 FeatureAccessResolver Logic
+
+```csharp
+// Entitlements luôn có
+entitlements.Add("free_features");
+
+// Casual subscription → casual_features
+if (group == "casual" || planName.Contains("casual"))
+    entitlements.Add("casual_features");
+
+// Office subscription → office_features
+if (group == "office" || planName.Contains("office"))
+    entitlements.Add("office_features");
+
+// Gym subscription → gym_features + coach_access + ai_features
+if (group == "gym" || planName.Contains("gym"))
+    entitlements.Add("gym_features");
+    entitlements.Add("coach_access");
+    entitlements.Add("ai_features");
+
+// Pro/Premium/VIP/Gold → tất cả features
+if (group == "pro" || planName.Contains("pro/premium/vip/gold"))
+    entitlements.Add("casual_features");
+    entitlements.Add("gym_features");
+    entitlements.Add("coach_access");
+    entitlements.Add("ai_features");
+```
+
+### 7.2 Using Feature Access in Backend
+
+```csharp
+// Kiểm tra entitlement trong service
+var hasAccess = await _featureAccessService.HasEntitlementAsync(userId, "ai_features");
+
+// Lấy toàn bộ feature access
+var access = await _featureAccessService.GetAsync(userId);
+// access.Tier = "gym" / "casual" / "free" / "multi"
+// access.Entitlements = ["free_features", "gym_features", "coach_access", "ai_features"]
+```
+
+---
+
+## 8. Database Migration Scripts
+
+| Script | Mô tả |
+|--------|--------|
+| `06_subscription_plans.sql` | Bảng subscription_plans |
+| `07_subscriptions.sql` | Bảng user_subscriptions |
+| `08_user_subscriptions.sql` | User subscription history |
+| `57_gymer_subscription_plan.sql` | Gym/PT subscription plan (FeatureGroup='gym') |
+| `58_casual_subscription_plan.sql` | Casual subscription plan (FeatureGroup='casual') |
+
+---
+
+## 9. Related Documents
 
 - AI Premium gating: [`06-ai-assistant-and-coach.md`](./06-ai-assistant-and-coach.md)
+- Coach features: [`17-coaches.md`](./17-coaches.md)
+- Office workflow: [`../workflow/office_workflow.md`](../workflow/office_workflow.md)
+- Gym workflow: [`../workflow/gymer_workflow.md`](../workflow/gymer_workflow.md)
 - User workflow cũ (mục 4.11): [`../_archive/root-readmes/README_USER_WORKFLOW.md`](../_archive/root-readmes/README_USER_WORKFLOW.md)
 - API status cũ (mục 2.8): [`../_archive/root-readmes/README_WORKFLOW_API_STATUS.md`](../_archive/root-readmes/README_WORKFLOW_API_STATUS.md)
+
+---
+
+## 10. Changelog
+
+| Ngày | Thay đổi |
+|------|-----------|
+| 2026-07-08 | Tạo file canonical |
+| 2026-07-23 | Thêm Feature Access system, endpoints `me/active` và `me/entitlements`, FeatureAccessResolver, FeatureGroup documentation |

@@ -368,14 +368,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       final updatedPlan = await _mealPlanRepository.replaceItem(
         plan.id,
         item.id,
-        AddItemRequest(
-          mealType: item.mealType ?? 'lunch',
-          plannedDate: item.plannedDate,
-          scheduledTime: item.scheduledTime,
-          foodId: selected.foodId,
-          recipeId: selected.recipeId,
-          targetCalories: selected.targetCalories,
-        ),
+        selected.foodId ?? selected.recipeId ?? '',
       );
       final results = await Future.wait([
         _mealPlanRepository.getGroceryList(updatedPlan.id),

@@ -189,6 +189,7 @@ class MealPlanItemDetail {
   final int? carbsG;
   final int? fatG;
   final double? quantityG;
+  final int? estimatedPriceVnd;
   /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
   /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
   final String? origin;
@@ -212,6 +213,7 @@ class MealPlanItemDetail {
     this.carbsG,
     this.fatG,
     this.quantityG,
+    this.estimatedPriceVnd,
     this.origin,
   });
 
@@ -241,6 +243,7 @@ class MealPlanItemDetail {
                   json['quantity'] ??
                   json['Quantity'])
               ?.toDouble(),
+      estimatedPriceVnd: _int(json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd']),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
@@ -634,8 +637,10 @@ class MealPlanStreak {
 }
 
 int _int(dynamic v) {
+  if (v == null) return 0;
   if (v is int) return v;
   if (v is num) return v.round();
+  if (v is String) return double.tryParse(v)?.round() ?? 0;
   return 0;
 }
 

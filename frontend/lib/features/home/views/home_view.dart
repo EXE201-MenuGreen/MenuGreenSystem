@@ -364,7 +364,7 @@ class HomeViewState extends State<HomeView> {
               ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: QuickActionGrid(access: _featureAccess),
+                child: const QuickActionGrid(),
               ),
               const SizedBox(height: 20),
               Padding(

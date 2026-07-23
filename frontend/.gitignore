@@ -47,6 +47,7 @@ app.*.map.json
 # Local Configuration & API Keys
 config.json
 .env
+.env.local
 
 # Android signing - never commit keystore or signing properties
 **/key.properties

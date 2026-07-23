@@ -72,8 +72,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             if (request.EatingPattern != null)
             {
-                // jsonb column requires valid JSON (plain "gym" is invalid).
-                entity.EatingPattern = JsonSerializer.Serialize(request.EatingPattern.Trim());
+                entity.EatingPattern = NormalizeJsonColumnValue(request.EatingPattern);
             }
 
             if (request.DislikedFoods != null)
@@ -131,6 +130,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 && inner.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
             {
                 return "Database schema is outdated. Please run migrations.";
+            }
+
+            if (inner.Contains("FK_user_ai_profile_users_UserId", StringComparison.OrdinalIgnoreCase)
+                || inner.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
+            {
+                return "User profile record not found. Please relogin and try again.";
             }
 
             return "Cannot save AI profile. Please try again later.";
