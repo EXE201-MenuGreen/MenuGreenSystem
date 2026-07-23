@@ -1318,3 +1318,42 @@ Ngoài ra cần kiểm tra Flutter (`ApiMessageTranslator`, role label mapping, 
 ```
 
 ```
+
+---
+
+## [PENDING] Backend throws Vietnamese string instead of English
+
+**Date:** 2026-07-23
+**Status:** Pending
+**Severity:** Low (violates `backend-english-frontend-vietnamese-i18n.mdc`)
+
+### Description
+
+Khi audit backend trong Phase 6, phát hiện ít nhất 1 chỗ `PtReviewService.cs:37` throw exception với chuỗi tiếng Việt thay vì tiếng Anh:
+
+```csharp
+if (!connections.Any())
+{
+    throw new Exception("Bạn chưa Đăng ký kết nối với PT");
+}
+```
+
+Điều này vi phạm rule workspace `"Backend English · Flutter Vietnamese UI"` — backend phải trả về English để Flutter `ApiMessageTranslator` map chính xác sang tiếng Việt. Nếu backend lỡ trả tiếng Việt thì Flutter sẽ hiển thị nguyên chuỗi Việt cho user mà không qua dịch.
+
+### Root Cause
+
+Code viết tắt trong quá trình dev nhanh, không theo convention.
+
+### Environment
+
+- File: `backend/MenuGreen.BusinessLogicLayer/Services/PtReviewService.cs`
+- Method: `CreateReportAsync`
+
+### Attempts
+
+- [ ] Sửa `"Bạn chưa Đăng ký kết nối với PT"` → English (ví dụ: `"You are not connected to any coach."`)
+- [ ] Chạy grep toàn project: `grep -rn '"[^"]*[ăâđêôơưĂÂĐÊÔƠƯ][^"]*"' backend/MenuGreen.BusinessLogicLayer/Services/` để tìm các chuỗi Việt còn sót
+- [ ] Thêm mapping tương ứng vào `frontend/lib/core/i18n/api_message_translator.dart`
+- [ ] Verify Flutter analyzer pass
+
+

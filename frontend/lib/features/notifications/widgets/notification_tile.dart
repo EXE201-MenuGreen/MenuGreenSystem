@@ -136,7 +136,7 @@ class NotificationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            notification.title,
+                            notification.displayTitle,
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight:
@@ -163,7 +163,7 @@ class NotificationTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      notification.body,
+                      notification.displayBody,
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,

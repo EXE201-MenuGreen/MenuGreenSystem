@@ -75,6 +75,28 @@ class ApiMessageTranslator {
         'Không thể đánh dấu đã ăn cho bữa ăn trong tương lai.',
     'Cannot mark a future meal as eaten.':
         'Không thể đánh dấu đã ăn cho bữa ăn trong tương lai.',
+
+    // PT Review / Coach weekly report (Phase 2)
+    'Review request does not exist.':
+        'Không tìm thấy yêu cầu đánh giá.',
+    'Review request does not exist or token is invalid.':
+        'Không tìm thấy yêu cầu đánh giá hoặc mã token không hợp lệ.',
+    'Link has expired.':
+        'Liên kết đã hết hạn.',
+    'This review request has already been responded to or applied.':
+        'Yêu cầu đánh giá đã được phản hồi hoặc đã áp dụng.',
+    'Review request has not been responded to by PT or has already been processed.':
+        'Yêu cầu chưa được PT phản hồi hoặc đã được xử lý.',
+    'Access denied.':
+        'Bạn không có quyền truy cập.',
+
+    // Coach Meal Plan (Phase 1)
+    'Meal plan items cannot be null.':
+        'Danh sách món trong lộ trình không được để trống.',
+    'Please set up a budget (Budget Request) before automatically generating a plan.':
+        'Vui lòng thiết lập ngân sách trước khi tự động tạo lộ trình.',
+    'Meal plan not found or access denied.':
+        'Không tìm thấy lộ trình hoặc bạn không có quyền truy cập.',
   };
 
   static final _macroExceeds = RegExp(

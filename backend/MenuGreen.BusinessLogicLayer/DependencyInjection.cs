@@ -67,6 +67,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IPortionConverterService, PortionConverterService>();
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
             services.AddScoped<ICoachService, CoachService>();
+            services.AddScoped<ICoachReviewService, CoachReviewService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();
             services.AddHttpClient<IEmailService, EmailService>();
