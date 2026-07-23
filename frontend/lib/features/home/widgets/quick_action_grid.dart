@@ -2,25 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../casual/views/casual_hub_screen.dart';
-import '../../discover/views/discover_view.dart';
 import '../../discover/views/favorites_screen.dart';
-import '../../discover/views/food_map_screen.dart';
+import '../../discover/views/discover_view.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
-import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
+import '../../meal_plan/views/meal_plan_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
+import '../../micro_learning/views/micro_learning_screen.dart';
+import '../../tracking/views/ingredient_scan_screen.dart';
 import 'weight_log_sheet.dart';
+import '../../vietnam_local/views/daily_starter_screen.dart';
 import '../../vietnam_local/views/food_capture_screen.dart';
 import '../../vietnam_local/views/local_preferences_screen.dart';
 import '../../vietnam_local/views/planned_vs_actual_screen.dart';
 import '../../vietnam_local/views/safety_hub_screen.dart';
 import '../../vietnam_local/views/ingredient_substitution_screen.dart';
-import '../../office/views/office_workspace_screen.dart';
-import '../../subscription/models/subscription_models.dart';
-import '../../tracking/widgets/meal_log_sheet.dart';
+import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 
 enum QuickActionType {
-  logMeal,
   todayEat,
   eatOut,
   mealPlan,
@@ -35,32 +33,13 @@ enum QuickActionType {
   ingredientSubstitution,
   savedTemplates,
   nutritionLearning,
-  officeWorkspace,
+  officeReminders,
 }
 
 class QuickActionGrid extends StatelessWidget {
-  const QuickActionGrid({super.key, this.access = FeatureAccess.free});
-
-  final FeatureAccess access;
-
-  static const _freePrimaryTypes = <QuickActionType>[
-    QuickActionType.searchFood,
-    QuickActionType.logMeal,
-    QuickActionType.calcCalo,
-    QuickActionType.weightLog,
-    QuickActionType.mealPlan,
-    QuickActionType.eatOut,
-    QuickActionType.favorites,
-  ];
+  const QuickActionGrid({super.key});
 
   static const _actions = <_ActionItem>[
-    _ActionItem(
-      type: QuickActionType.logMeal,
-      icon: Icons.add_circle_outline_rounded,
-      label: 'Ghi\nbữa ăn',
-      gradientColors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
-      bgColor: Color(0xFFE8F5E9),
-    ),
     _ActionItem(
       type: QuickActionType.todayEat,
       icon: Icons.bolt,
@@ -71,14 +50,14 @@ class QuickActionGrid extends StatelessWidget {
     _ActionItem(
       type: QuickActionType.mealPlan,
       icon: Icons.calendar_today,
-      label: 'Kế hoạch\năn uống',
+      label: 'Kế hoạch\năn',
       gradientColors: [Color(0xFF0077B6), Color(0xFF00B4D8)],
       bgColor: Color(0xFFE3F2FD),
     ),
     _ActionItem(
       type: QuickActionType.calcCalo,
       icon: Icons.calculate_outlined,
-      label: 'Tra cứu\ncalo',
+      label: 'Tính\ncalo',
       gradientColors: [Color(0xFF0891B2), Color(0xFF22D3EE)],
       bgColor: Color(0xFFCFFAFE),
     ),
@@ -91,8 +70,8 @@ class QuickActionGrid extends StatelessWidget {
     ),
     _ActionItem(
       type: QuickActionType.searchFood,
-      icon: Icons.map_rounded,
-      label: 'Bản đồ\nmón ăn',
+      icon: Icons.search,
+      label: 'Tìm\nmón ăn',
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),
@@ -102,6 +81,20 @@ class QuickActionGrid extends StatelessWidget {
       label: 'Thay thế\nnguyên liệu',
       gradientColors: [Color(0xFF65A30D), Color(0xFFA3E635)],
       bgColor: Color(0xFFECFCCB),
+    ),
+    _ActionItem(
+      type: QuickActionType.planVsActual,
+      icon: Icons.insights,
+      label: 'Kế hoạch\nvs Thực tế',
+      gradientColors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
+      bgColor: Color(0xFFEDE9FE),
+    ),
+    _ActionItem(
+      type: QuickActionType.savedTemplates,
+      icon: Icons.bookmark_outline,
+      label: 'Thực đơn\nđã lưu',
+      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+      bgColor: Color(0xFFCCFBF1),
     ),
     _ActionItem(
       type: QuickActionType.eatOut,
@@ -140,34 +133,31 @@ class QuickActionGrid extends StatelessWidget {
     ),
     _ActionItem(
       type: QuickActionType.nutritionLearning,
-      icon: Icons.psychology_outlined,
-      label: 'Góc\nCảm xúc',
+      icon: Icons.menu_book_outlined,
+      label: 'Góc\ndinh dưỡng',
       gradientColors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
       bgColor: Color(0xFFDBEAFE),
     ),
     _ActionItem(
-      type: QuickActionType.officeWorkspace,
-      icon: Icons.business_center_outlined,
-      label: 'Không gian\nOffice',
-      gradientColors: [Color(0xFF166534), Color(0xFF4ADE80)],
-      bgColor: Color(0xFFDCFCE7),
+      type: QuickActionType.officeReminders,
+      icon: Icons.schedule_outlined,
+      label: 'Nhắc nhở\nvăn phòng',
+      gradientColors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+      bgColor: Color(0xFFCCFBF1),
     ),
   ];
 
   void _navigateTo(BuildContext context, QuickActionType type) {
     Widget screen;
     switch (type) {
-      case QuickActionType.logMeal:
-        showMealLogSheet(context, loggedAt: DateTime.now());
-        return;
       case QuickActionType.todayEat:
-        screen = const CasualHubScreen(openFeature: CasualFeature.dailyStarter);
+        screen = const DailyStarterScreen();
         break;
       case QuickActionType.eatOut:
         screen = const FoodCaptureScreen();
         break;
       case QuickActionType.mealPlan:
-        screen = const SmartMealPlanRouterScreen();
+        screen = const MealPlanScreen();
         break;
       case QuickActionType.planVsActual:
         screen = const PlannedVsActualScreen();
@@ -179,13 +169,13 @@ class QuickActionGrid extends StatelessWidget {
         screen = const LocalPreferencesScreen();
         break;
       case QuickActionType.searchFood:
-        screen = const FoodMapScreen();
+        screen = const DiscoverView(isStandalone: true);
         break;
       case QuickActionType.favorites:
         screen = const FavoritesScreen();
         break;
       case QuickActionType.calcCalo:
-        screen = const DiscoverView();
+        screen = const IngredientScanScreen();
         break;
       case QuickActionType.weightLog:
         _openWeightLog(context);
@@ -200,12 +190,10 @@ class QuickActionGrid extends StatelessWidget {
         screen = const MealTemplatesScreen();
         break;
       case QuickActionType.nutritionLearning:
-        screen = const CasualHubScreen(
-          openFeature: CasualFeature.microLearning,
-        );
+        screen = const MicroLearningScreen();
         break;
-      case QuickActionType.officeWorkspace:
-        screen = const OfficeWorkspaceScreen();
+      case QuickActionType.officeReminders:
+        screen = const AdaptiveRemindersScreen();
         break;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -223,7 +211,6 @@ class QuickActionGrid extends StatelessWidget {
   }
 
   void _showAllFeaturesSheet(BuildContext context) {
-    final visibleActions = _actions.where(_canShow).toList();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -263,16 +250,15 @@ class QuickActionGrid extends StatelessWidget {
                   Expanded(
                     child: GridView.builder(
                       controller: scrollController,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: 0.82,
-                          ),
-                      itemCount: visibleActions.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 0.82,
+                      ),
+                      itemCount: _actions.length,
                       itemBuilder: (gridContext, index) {
-                        final action = visibleActions[index];
+                        final action = _actions[index];
                         return _QuickActionItem(
                           action: action,
                           onTap: () {
@@ -291,18 +277,6 @@ class QuickActionGrid extends StatelessWidget {
       },
     );
   }
-
-  bool _canShow(_ActionItem action) {
-    return switch (action.type) {
-      QuickActionType.todayEat => access.hasCasual,
-      QuickActionType.officeWorkspace => access.hasOffice,
-      QuickActionType.gymMode => access.hasGym,
-      _ => true,
-    };
-  }
-
-  _ActionItem _actionFor(QuickActionType type) =>
-      _actions.firstWhere((action) => action.type == type);
 
   @override
   Widget build(BuildContext context) {
@@ -341,17 +315,14 @@ class QuickActionGrid extends StatelessWidget {
                       type: QuickActionType.calcCalo,
                       icon: Icons.apps_rounded,
                       label: 'Khác',
-                      gradientColors: [
-                        AppColors.primary,
-                        AppColors.primaryLight,
-                      ],
+                      gradientColors: [AppColors.primary, AppColors.primaryLight],
                       bgColor: Colors.white,
                     ),
                     onTap: () => _showAllFeaturesSheet(context),
                   );
                 }
 
-                final action = _actionFor(_freePrimaryTypes[index]);
+                final action = _actions[index];
                 return _QuickActionItem(
                   action: action,
                   onTap: () => _navigateTo(context, action.type),
@@ -373,33 +344,33 @@ class _QuickActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: action.label.replaceAll('\n', ' '),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(action.icon, color: action.gradientColors.first, size: 32),
-              const SizedBox(height: 8),
-              Text(
-                action.label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.beVietnamPro(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
-                  height: 1.25,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              action.icon,
+              color: action.gradientColors.first,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              action.label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+                height: 1.25,
               ),
-            ],
-          ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

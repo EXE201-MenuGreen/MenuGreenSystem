@@ -286,59 +286,59 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (summary != null) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.local_fire_department,
-                    label: 'Calo',
-                    value: '${summary.actualCalories}/${summary.plannedCalories}',
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.check_circle,
-                    label: 'Bua an',
-                    value: '${summary.completedMeals}/${summary.totalMeals}',
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.trending_up,
-                    label: 'Adherence',
-                    value: '${(summary.adherencePercent * 100).toStringAsFixed(0)}%',
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.event_note,
-                      size: 32,
-                      color: AppColors.textSecondary.withValues(alpha: 0.5),
+          Expanded(
+            child: summary != null
+                ? Center(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.local_fire_department,
+                            label: 'Calo',
+                            value: '${summary.actualCalories}/${summary.plannedCalories}',
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.check_circle,
+                            label: 'Bua an',
+                            value: '${summary.completedMeals}/${summary.totalMeals}',
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.trending_up,
+                            label: 'Adherence',
+                            value: '${(summary.adherencePercent * 100).toStringAsFixed(0)}%',
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Chua co du lieu cho ngay nay',
-                      style: TextStyle(color: AppColors.textSecondary),
+                  )
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.event_note,
+                          size: 32,
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Chua co du lieu cho ngay nay',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          const Spacer(),
+                  ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

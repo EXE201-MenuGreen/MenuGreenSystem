@@ -41,7 +41,8 @@ class FoodDiscoveryRepository {
       final items = decoded['items'] ?? decoded['Items'];
       if (items is! List) return [];
       return items.whereType<Map<String, dynamic>>().map(FoodItem.fromJson).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      print('Error searchFoods: $e\n$stack');
       return [];
     }
   }
@@ -93,7 +94,8 @@ class FoodDiscoveryRepository {
       final items = decoded['items'] ?? decoded['Items'];
       if (items is! List) return [];
       return items.whereType<Map<String, dynamic>>().map(RecipeItem.fromJson).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      print('Error searchRecipes: $e\n$stack');
       return [];
     }
   }

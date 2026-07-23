@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../repositories/meal_plan_repository.dart';
@@ -21,6 +22,8 @@ class MealPlanProvider extends ChangeNotifier {
   MealPlanCompare? _compare;
   bool _isLoading = false;
   bool _isLoadingDetail = false;
+  bool _isLoadingCompare = false;
+  final Set<String> _pendingItemToggles = <String>{};
   String? _error;
 
   @override
@@ -42,6 +45,7 @@ class MealPlanProvider extends ChangeNotifier {
   MealPlanCompare? get compare => _compare;
   bool get isLoading => _isLoading;
   bool get isLoadingDetail => _isLoadingDetail;
+  bool get isLoadingCompare => _isLoadingCompare;
   String? get error => _error;
 
   // Computed values
@@ -51,7 +55,8 @@ class MealPlanProvider extends ChangeNotifier {
       _todayDashboard?.actualCalories ??
       _todayAdherence?.actualKcal.toInt() ??
       0;
-  int get todayTargetCalories => _todayDashboard?.plannedCalories ?? 2000;
+  int get todayTargetCalories =>
+      _todayDashboard?.plannedCalories ?? _todayAdherence?.plannedKcal ?? 2000;
   double get todayProgressPercent {
     if (todayTargetCalories == 0) return 0;
     return (todayActualCalories / todayTargetCalories).clamp(0, 1.5);
@@ -65,10 +70,12 @@ class MealPlanProvider extends ChangeNotifier {
   // ==================== Load Data ====================
 
   /// Load danh sách plans
-  Future<void> loadPlans({bool? isActive}) async {
-    _isLoading = true;
-    _error = null;
-    _safeNotify();
+  Future<void> loadPlans({bool? isActive, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      _safeNotify();
+    }
 
     try {
       _plans = await _repository.getPlans(isActive: isActive);
@@ -76,16 +83,21 @@ class MealPlanProvider extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
     } finally {
-      _isLoading = false;
+      if (!silent) {
+        _isLoading = false;
+      }
       _safeNotify();
     }
   }
 
   /// Load chi tiết một plan
-  Future<void> loadPlanDetail(String id) async {
-    _isLoadingDetail = true;
-    _error = null;
-    _safeNotify();
+  Future<void> loadPlanDetail(String id, {bool silent = false}) async {
+    if (!silent) {
+      _isLoadingDetail = true;
+      _currentPlan = null;
+      _error = null;
+      _safeNotify();
+    }
 
     try {
       _currentPlan = await _repository.getPlanDetail(id);
@@ -93,7 +105,9 @@ class MealPlanProvider extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
     } finally {
-      _isLoadingDetail = false;
+      if (!silent) {
+        _isLoadingDetail = false;
+      }
       _safeNotify();
     }
   }
@@ -102,13 +116,18 @@ class MealPlanProvider extends ChangeNotifier {
   Future<void> loadTodayDashboard() async {
     try {
       _todayDashboard = await _repository.getDashboard(DateTime.now());
+      _todayAdherence = null;
       _safeNotify();
     } catch (_) {
+      _todayDashboard = null;
       // Fallback to adherence
       try {
         _todayAdherence = await _repository.getAdherence(DateTime.now());
         _safeNotify();
-      } catch (_) {}
+      } catch (e) {
+        _error = e.toString();
+        _safeNotify();
+      }
     }
   }
 
@@ -126,21 +145,35 @@ class MealPlanProvider extends ChangeNotifier {
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 0);
 
+    _isLoadingCompare = true;
+    _compare = null;
+    _error = null;
+    _safeNotify();
+
     try {
       _compare = await _repository.getCompare(
         from ?? startOfMonth,
         to ?? endOfMonth,
       );
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingCompare = false;
       _safeNotify();
-    } catch (_) {}
+    }
   }
 
   /// Load all data cho home screen
   Future<void> loadAllForHome() async {
     _isLoading = true;
+    _error = null;
     _safeNotify();
 
-    await Future.wait([loadPlans(), loadTodayDashboard(), loadStreaks()]);
+    await Future.wait([
+      loadPlans(silent: true),
+      loadTodayDashboard(),
+      loadStreaks(),
+    ]);
 
     _isLoading = false;
     _safeNotify();
@@ -281,6 +314,7 @@ class MealPlanProvider extends ChangeNotifier {
     try {
       final item = await _repository.addItem(planId, request);
       await loadPlanDetail(planId);
+      await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
       _error = e.toString();
@@ -303,6 +337,7 @@ class MealPlanProvider extends ChangeNotifier {
     try {
       final item = await _repository.updateItem(planId, itemId, request);
       await loadPlanDetail(planId);
+      await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
       _error = e.toString();
@@ -318,6 +353,7 @@ class MealPlanProvider extends ChangeNotifier {
     try {
       await _repository.deleteItem(planId, itemId);
       await loadPlanDetail(planId);
+      await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return true;
     } catch (e) {
       _error = e.toString();
@@ -335,7 +371,7 @@ class MealPlanProvider extends ChangeNotifier {
     try {
       final item = await _repository.updateItemStatus(planId, itemId, status);
       await loadPlanDetail(planId);
-      await loadTodayDashboard();
+      await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
       _error = e.toString();
@@ -347,6 +383,72 @@ class MealPlanProvider extends ChangeNotifier {
   /// Mark item là done
   Future<MealPlanItemDetail?> markItemDone(String planId, String itemId) async {
     return updateItemStatus(planId, itemId, 'done');
+  }
+
+  /// Toggle trạng thái hoàn thành của item (Đã ăn / Chưa ăn)
+  Future<bool> toggleItemCompletion(
+    String itemId,
+    bool isCompleted, {
+    String? planId,
+  }) async {
+    if (!_pendingItemToggles.add(itemId)) return false;
+    try {
+      _error = null;
+      await _repository.toggleItem(itemId, isCompleted);
+      await _refreshAfterCompletionChange(planId: planId);
+      return true;
+    } catch (e) {
+      _error = ApiMessageTranslator.translate(e.toString());
+      notifyListeners();
+      return false;
+    } finally {
+      _pendingItemToggles.remove(itemId);
+    }
+  }
+
+  /// Hoàn thành nhiều món rồi chỉ tải lại dashboard/lịch sử một lần.
+  Future<int> completeItems(
+    Iterable<MealPlanItemDetail> items, {
+    String? planId,
+  }) async {
+    final pendingItems = items.where((item) => !item.isDone).toList();
+    if (pendingItems.isEmpty) return 0;
+
+    _error = null;
+    var completedCount = 0;
+    Object? firstError;
+
+    for (final item in pendingItems) {
+      if (!_pendingItemToggles.add(item.id)) {
+        continue;
+      }
+      try {
+        await _repository.toggleItem(item.id, true);
+        completedCount++;
+      } catch (error) {
+        firstError ??= error;
+      } finally {
+        _pendingItemToggles.remove(item.id);
+      }
+    }
+
+    await _refreshAfterCompletionChange(planId: planId);
+    if (firstError != null) {
+      _error = ApiMessageTranslator.translate(firstError.toString());
+      notifyListeners();
+    }
+    return completedCount;
+  }
+
+  Future<void> _refreshAfterCompletionChange({String? planId}) async {
+    if (planId != null) {
+      await loadPlanDetail(planId, silent: true);
+    }
+    await Future.wait([
+      loadTodayDashboard(),
+      loadStreaks(),
+      loadPlans(silent: true),
+    ]);
   }
 
   /// Mark item là skipped
@@ -367,7 +469,11 @@ class MealPlanProvider extends ChangeNotifier {
         request,
       );
       await loadPlanDetail(planId);
-      await loadTodayDashboard();
+      await Future.wait([
+        loadTodayDashboard(),
+        loadStreaks(),
+        loadPlans(silent: true),
+      ]);
       return result;
     } catch (e) {
       _error = e.toString();
@@ -451,7 +557,9 @@ class MealPlanProvider extends ChangeNotifier {
     _compare = null;
     _isLoading = false;
     _isLoadingDetail = false;
+    _isLoadingCompare = false;
+    _pendingItemToggles.clear();
     _error = null;
-    notifyListeners();
+    _safeNotify();
   }
 }

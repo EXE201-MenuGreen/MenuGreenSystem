@@ -1,7 +1,7 @@
 # 06. AI Assistant & Coach
 
-**Status:** API Done · UI Placeholder (chat screen tồn tại nhưng chưa kết nối đầy đủ)
-**Last updated:** 2026-07-09
+**Status:** API Done · UI Partial (2026-07-23: Chat + conversation list + provider + repository đã hoạt động, một số feature cần mở rộng)
+**Last updated:** 2026-07-23
 
 **Related controllers:**
 - `backend/MenuGreen.API/Controllers/AiAssistantController.cs`
@@ -132,24 +132,24 @@ Cả hai đều có **function calling** để thực thi hành động (log mea
 | `POST` | `/api/AiCoach/messages/{messageId}/feedback` | Feedback cho message (backward-compat flat path) |
 
 **Tổng user-facing: 31 endpoint** (22 AiAssistant + 9 AiCoach).
-(Update 2026-07-08: EP regenerate/feedback trên AiAssistant có cả PATCH và POST (backward-compat Flutter cũ), EP feedback trên AiCoach có 2 path (sessions-flat). Update 2026-07-09: thêm §3.9 AiAdminController.)
+(Update 2026-07-08: EP regenerate/feedback trên AiAssistant có cả PATCH và POST (backward-compat Flutter cũ), EP feedback trên AiCoach có 2 path (sessions-flat). Update 2026-07-09: thêm §3.9 AiAdminController. Update 2026-07-23: xác nhận Flutter UI đã kết nối API.)
 
 ### 3.9 AI Admin (AiAdminController — AdminOnly)
 
-|| Method | Endpoint | Description |
-||--------|----------|-------------|
-|| `GET` | `/api/AiAdmin/overview/health` | System health check |
-|| `GET` | `/api/AiAdmin/debug/db` | DB debug info |
-|| `POST` | `/api/AiAdmin/debug/db` | Execute DB command |
-|| `GET` | `/api/AiAdmin/debug/postgres` | PostgreSQL debug info |
-|| `POST` | `/api/AiAdmin/debug/postgres` | Execute PostgreSQL command |
-|| `POST` | `/api/AiAdmin/crawler/normalize` | Normalize crawler data |
-|| `POST` | `/api/AiAdmin/crawler/ingest` | Ingest food data |
-|| `GET` | `/api/AiAdmin/training-samples` | List training samples |
-|| `POST` | `/api/AiAdmin/training-samples` | Create training sample |
-|| `PATCH` | `/api/AiAdmin/training-samples/{id}` | Update training sample |
-|| `POST` | `/api/AiAdmin/feedback/{id}/to-training-sample` | Convert feedback to training sample |
-|| `POST` | `/api/AiAdmin/curation/nightly` | Trigger nightly curation job |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/AiAdmin/overview/health` | System health check |
+| `GET` | `/api/AiAdmin/debug/db` | DB debug info |
+| `POST` | `/api/AiAdmin/debug/db` | Execute DB command |
+| `GET` | `/api/AiAdmin/debug/postgres` | PostgreSQL debug info |
+| `POST` | `/api/AiAdmin/debug/postgres` | Execute PostgreSQL command |
+| `POST` | `/api/AiAdmin/crawler/normalize` | Normalize crawler data |
+| `POST` | `/api/AiAdmin/crawler/ingest` | Ingest food data |
+| `GET` | `/api/AiAdmin/training-samples` | List training samples |
+| `POST` | `/api/AiAdmin/training-samples` | Create training sample |
+| `PATCH` | `/api/AiAdmin/training-samples/{id}` | Update training sample |
+| `POST` | `/api/AiAdmin/feedback/{id}/to-training-sample` | Convert feedback to training sample |
+| `POST` | `/api/AiAdmin/curation/nightly` | Trigger nightly curation job |
 
 **Tổng system: 43 endpoint** (31 user-facing + 12 admin).
 
@@ -157,21 +157,32 @@ Cả hai đều có **function calling** để thực thi hành động (log mea
 
 ## 4. UI Components
 
-| Component | File | Status |
-|-----------|------|--------|
-| AiConversationListScreen | `features/ai_assistant/views/ai_conversation_list_screen.dart` | Placeholder |
-| AiChatScreen | `features/ai_assistant/views/ai_chat_screen.dart` | Placeholder |
-| AiAssistantProvider | `features/ai_assistant/providers/ai_assistant_provider.dart` | Placeholder |
-| AiAssistantRepository | `features/ai_assistant/repositories/ai_assistant_repository.dart` | Placeholder |
-| AiAssistantModels | `features/ai_assistant/models/ai_assistant_models.dart` | Placeholder |
-| ai_assistant.dart (barrel) | `features/ai_assistant/ai_assistant.dart` | Placeholder |
+### 4.1 Flutter UI (2026-07-23 Update)
 
-> **Trạng thái Placeholder:** Màn hình chat đã tồn tại trong tab AI nhưng chưa kết nối đầy đủ với API. Cần triển khai:
-> - Wire conversation list → chat screen.
-> - Send message + render streaming response.
-> - Hiển thị action suggestions (meal plan, replace food, ...).
-> - Confirmation flow cho function calling.
-> - Render suggested prompts từ `/api/AiCoach/suggested-prompts`.
+| Component | File | Status | Notes |
+|-----------|------|--------|-------|
+| AiConversationListScreen | `features/ai_assistant/views/ai_conversation_list_screen.dart` | Partial | Hiển thị danh sách, tạo/xóa conversation |
+| AiChatScreen | `features/ai_assistant/views/ai_chat_screen.dart` | Done | Chat UI với message bubbles, gửi message, feedback, regenerate, food detection |
+| AiAssistantProvider | `features/ai_assistant/providers/ai_assistant_provider.dart` | Done | State management đầy đủ |
+| AiAssistantRepository | `features/ai_assistant/repositories/ai_assistant_repository.dart` | Partial | Kết nối API cơ bản |
+| AiAssistantModels | `features/ai_assistant/models/ai_assistant_models.dart` | Partial | Data models |
+| ai_assistant.dart (barrel) | `features/ai_assistant/ai_assistant.dart` | Done | Export barrel |
+
+### 4.2 Đã triển khai trong AiChatScreen
+
+- Message bubbles cho user và assistant
+- Gửi message + nhận AI response
+- Feedback buttons (like/dislike)
+- Regenerate response
+- Food detection từ message content + quick-add vào meal plan
+- Smooth scroll to bottom khi có message mới
+
+### 4.3 Cần mở rộng
+
+- Suggested prompts chips (từ `/api/AiAssistant/suggestions`)
+- Action suggestions từ AI (meal plan, replace food, ...)
+- Confirmation dialog cho function calling
+- Suggested prompts từ `/api/AiCoach/suggested-prompts` cho AI Coach tab
 
 ---
 
@@ -191,6 +202,7 @@ MainScreen
                 │       │       └── confirm → POST /actions/replace-food → FoodDetailScreen
                 │       └── "Log meal" → confirmation dialog
                 │               └── confirm → POST /execute-action → MealLogSheet (xem 02-nutrition-tracking.md)
+                ├── Food detection → thêm nhanh vào meal plan
                 └── Feedback (like/dislike) → PATCH /feedback
 ```
 
@@ -303,6 +315,11 @@ Backend models đầy đủ: [`../02-backend/backend_models_documentation.md`](.
 
 ## 9. Thay đổi so với file cũ
 
+| Ngày | Thay đổi |
+|------|-----------|
+| 2026-07-09 | Tạo file canonical gộp cả AI Assistant và AI Coach |
+| 2026-07-23 | Cập nhật status UI: "Placeholder" → "Partial" (chat + conversation list đã kết nối API, cần mở rộng thêm features) |
+
 File cũ `features/AI_ASSISTANT.md` chỉ mô tả AI Assistant. **Contextual AI Coach** (`/api/AiCoach/*`) là controller riêng (`AiCoachController.cs`) chỉ được document trong `README_AI_FEATURES_API.md` — không xuất hiện ở `PROJECT_STATUS.md` hay `README_WORKFLOW_API_STATUS.md`. Tạo ra "shadow feature".
 
-→ File canonical này gộp cả 2 phần, đánh status chung **"API Done · UI Placeholder"**.
+→ File canonical này gộp cả 2 phần, đánh status **"API Done · UI Partial"** với chat functionality đã hoạt động.

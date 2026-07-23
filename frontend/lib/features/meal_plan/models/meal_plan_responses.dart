@@ -27,6 +27,20 @@ class MealPlanListItem {
   });
 
   factory MealPlanListItem.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] ?? json['Items'] ?? const [];
+    final items = rawItems is List
+        ? rawItems.whereType<Map<String, dynamic>>().toList()
+        : const <Map<String, dynamic>>[];
+    final completedFromItems = items.where((item) {
+      final status = (item['status'] ?? item['Status'] ?? '')
+          .toString()
+          .toLowerCase();
+      return item['isCompleted'] == true ||
+          item['IsCompleted'] == true ||
+          status == 'done' ||
+          status == 'completed';
+    }).length;
+
     return MealPlanListItem(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       title: (json['title'] ?? json['Title'] ?? '').toString(),
@@ -36,19 +50,24 @@ class MealPlanListItem {
       targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
       isActive: json['isActive'] == true || json['IsActive'] == true,
       completedItems: _int(
-        json['completedItems'] ?? json['CompletedItems'] ?? 0,
+        json['completedItems'] ?? json['CompletedItems'] ?? completedFromItems,
       ),
-      totalItems: _int(json['totalItems'] ?? json['TotalItems'] ?? 0),
+      totalItems: _int(
+        json['totalItems'] ?? json['TotalItems'] ?? items.length,
+      ),
       currentStreak: _int(json['currentStreak'] ?? json['CurrentStreak'] ?? 0),
     );
   }
 
   String get dateRangeText {
     if (startDate == null) return '';
-    if (endDate == null) {
-      return _formatDate(startDate!);
+    final startStr = _formatDate(startDate!);
+    if (endDate == null) return startStr;
+    final endStr = _formatDate(endDate!);
+    if (startStr == endStr || planType?.toLowerCase() == 'daily') {
+      return startStr;
     }
-    return '${_formatDate(startDate!)} - ${_formatDate(endDate!)}';
+    return '$startStr - $endStr';
   }
 
   String _formatDate(DateTime date) {
@@ -165,13 +184,15 @@ class MealPlanItemDetail {
   final String? foodName;
   final String? recipeName;
   final String? sourceEntityType;
-  final String? customName;
   final String? status;
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
   final double? quantityG;
   final int? estimatedPriceVnd;
+  /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
+  /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
+  final String? origin;
 
   MealPlanItemDetail({
     required this.id,
@@ -187,13 +208,13 @@ class MealPlanItemDetail {
     this.foodName,
     this.recipeName,
     this.sourceEntityType,
-    this.customName,
     this.status,
     this.proteinG,
     this.carbsG,
     this.fatG,
     this.quantityG,
     this.estimatedPriceVnd,
+    this.origin,
   });
 
   factory MealPlanItemDetail.fromJson(Map<String, dynamic> json) {
@@ -212,7 +233,6 @@ class MealPlanItemDetail {
       recipeName: (json['recipeName'] ?? json['RecipeName'])?.toString(),
       sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])
           ?.toString(),
-      customName: (json['customName'] ?? json['CustomName'])?.toString(),
       status: (json['status'] ?? json['Status'] ?? 'planned').toString(),
       proteinG: _int(json['proteinG'] ?? json['ProteinG']),
       carbsG: _int(json['carbsG'] ?? json['CarbsG']),
@@ -223,15 +243,14 @@ class MealPlanItemDetail {
                   json['quantity'] ??
                   json['Quantity'])
               ?.toDouble(),
-      estimatedPriceVnd: _int(
-        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'],
-      ),
+      estimatedPriceVnd: _int(json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd']),
+      origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
 
   String get displayName {
-    final name = (foodName ?? recipeName ?? customName ?? '').trim();
-    return name.isNotEmpty ? name : 'Món trong kế hoạch';
+    final name = (foodName ?? recipeName ?? '').trim();
+    return name.isNotEmpty ? name : 'M?n trong k? ho?ch';
   }
 
   bool get isFood =>
@@ -275,9 +294,11 @@ class ConvertToLogResult {
   ConvertToLogResult({required this.success, this.mealLogId, this.message});
 
   factory ConvertToLogResult.fromJson(Map<String, dynamic> json) {
+    final id =
+        json['mealLogId'] ?? json['MealLogId'] ?? json['id'] ?? json['Id'];
     return ConvertToLogResult(
-      success: json['success'] == true || json['Success'] == true,
-      mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
+      success: json['success'] == true || json['Success'] == true || id != null,
+      mealLogId: id?.toString(),
       message: (json['message'] ?? json['Message'])?.toString(),
     );
   }
@@ -317,37 +338,128 @@ class MealPlanDayDashboard {
   });
 
   factory MealPlanDayDashboard.fromJson(Map<String, dynamic> json) {
+    final rawItems =
+        json['plannedItems'] ??
+        json['PlannedItems'] ??
+        json['items'] ??
+        json['Items'] ??
+        const [];
+    final plannedItems = rawItems is List
+        ? rawItems
+              .whereType<Map<String, dynamic>>()
+              .map(MealPlanItemDetail.fromJson)
+              .toList()
+        : <MealPlanItemDetail>[];
+    final completedItems = plannedItems.where((item) => item.isDone).toList();
+    final rawActualLogs = json['actualLogs'] ?? json['ActualLogs'] ?? const [];
+    final actualLogs = rawActualLogs is List
+        ? rawActualLogs.whereType<Map<String, dynamic>>().toList()
+        : const <Map<String, dynamic>>[];
+
+    int sumItems(int? Function(MealPlanItemDetail item) selector) =>
+        plannedItems.fold(0, (sum, item) => sum + (selector(item) ?? 0));
+    int sumCompleted(int? Function(MealPlanItemDetail item) selector) =>
+        completedItems.fold(0, (sum, item) => sum + (selector(item) ?? 0));
+    int sumLogs(String camelCaseKey, String pascalCaseKey) => actualLogs.fold(
+      0,
+      (sum, log) => sum + _int(log[camelCaseKey] ?? log[pascalCaseKey]),
+    );
+    int valueOrFallback(
+      String camelCaseKey,
+      String pascalCaseKey,
+      int fallback,
+    ) {
+      final value = json[camelCaseKey] ?? json[pascalCaseKey];
+      return value == null ? fallback : _int(value);
+    }
+
+    final rawAdherence =
+        (json['adherencePercent'] ??
+                json['AdherencePercent'] ??
+                json['completionRate'] ??
+                json['CompletionRate'] ??
+                0)
+            .toDouble();
+
     return MealPlanDayDashboard(
       date: DateTime.parse(json['date'] ?? json['Date']),
-      plannedCalories: _int(
-        json['plannedCalories'] ?? json['PlannedCalories'] ?? 0,
+      plannedCalories: valueOrFallback(
+        'plannedCalories',
+        'PlannedCalories',
+        valueOrFallback(
+          'totalPlannedCalories',
+          'TotalPlannedCalories',
+          sumItems((item) => item.targetCalories),
+        ),
       ),
-      actualCalories: _int(
-        json['actualCalories'] ?? json['ActualCalories'] ?? 0,
+      actualCalories: valueOrFallback(
+        'actualCalories',
+        'ActualCalories',
+        valueOrFallback(
+          'totalActualCalories',
+          'TotalActualCalories',
+          actualLogs.isNotEmpty
+              ? sumLogs('caloriesKcal', 'CaloriesKcal')
+              : sumCompleted((item) => item.targetCalories),
+        ),
       ),
-      plannedProtein: _int(
-        json['plannedProtein'] ?? json['PlannedProtein'] ?? 0,
+      plannedProtein: valueOrFallback(
+        'plannedProtein',
+        'PlannedProtein',
+        sumItems((item) => item.proteinG),
       ),
-      actualProtein: _int(json['actualProtein'] ?? json['ActualProtein'] ?? 0),
-      plannedCarbs: _int(json['plannedCarbs'] ?? json['PlannedCarbs'] ?? 0),
-      actualCarbs: _int(json['actualCarbs'] ?? json['ActualCarbs'] ?? 0),
-      plannedFat: _int(json['plannedFat'] ?? json['PlannedFat'] ?? 0),
-      actualFat: _int(json['actualFat'] ?? json['ActualFat'] ?? 0),
-      completedMeals: _int(
-        json['completedMeals'] ?? json['CompletedMeals'] ?? 0,
+      actualProtein: valueOrFallback(
+        'actualProtein',
+        'ActualProtein',
+        actualLogs.isNotEmpty
+            ? sumLogs('proteinG', 'ProteinG')
+            : sumCompleted((item) => item.proteinG),
       ),
-      totalMeals: _int(json['totalMeals'] ?? json['TotalMeals'] ?? 0),
-      adherencePercent:
-          (json['adherencePercent'] ?? json['AdherencePercent'] ?? 0)
-              .toDouble(),
-      plannedItems: (json['plannedItems'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map((item) => MealPlanItemDetail.fromJson(item))
-          .toList(),
-      completedItems: (json['completedItems'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map((item) => MealPlanItemDetail.fromJson(item))
-          .toList(),
+      plannedCarbs: valueOrFallback(
+        'plannedCarbs',
+        'PlannedCarbs',
+        sumItems((item) => item.carbsG),
+      ),
+      actualCarbs: valueOrFallback(
+        'actualCarbs',
+        'ActualCarbs',
+        actualLogs.isNotEmpty
+            ? sumLogs('carbsG', 'CarbsG')
+            : sumCompleted((item) => item.carbsG),
+      ),
+      plannedFat: valueOrFallback(
+        'plannedFat',
+        'PlannedFat',
+        sumItems((item) => item.fatG),
+      ),
+      actualFat: valueOrFallback(
+        'actualFat',
+        'ActualFat',
+        actualLogs.isNotEmpty
+            ? sumLogs('fatG', 'FatG')
+            : sumCompleted((item) => item.fatG),
+      ),
+      completedMeals: valueOrFallback(
+        'completedMeals',
+        'CompletedMeals',
+        valueOrFallback(
+          'completedItemsCount',
+          'CompletedItemsCount',
+          completedItems.length,
+        ),
+      ),
+      totalMeals: valueOrFallback(
+        'totalMeals',
+        'TotalMeals',
+        valueOrFallback(
+          'plannedItemsCount',
+          'PlannedItemsCount',
+          plannedItems.length,
+        ),
+      ),
+      adherencePercent: rawAdherence > 1 ? rawAdherence / 100 : rawAdherence,
+      plannedItems: plannedItems,
+      completedItems: completedItems,
     );
   }
 }
@@ -392,6 +504,7 @@ class MealPlanCompare {
   });
 
   factory MealPlanCompare.fromJson(Map<String, dynamic> json) {
+    final rawWeeklyData = json['weeklyData'] ?? json['WeeklyData'] ?? const [];
     return MealPlanCompare(
       from: DateTime.parse(json['from'] ?? json['From']),
       to: DateTime.parse(json['to'] ?? json['To']),
@@ -418,7 +531,7 @@ class MealPlanCompare {
       fatPercent: (json['fatPercent'] ?? json['FatPercent'] ?? 0).toDouble(),
       completedDays: _int(json['completedDays'] ?? json['CompletedDays'] ?? 0),
       totalDays: _int(json['totalDays'] ?? json['TotalDays'] ?? 0),
-      weeklyData: (json['weeklyData'] as List? ?? [])
+      weeklyData: (rawWeeklyData as List? ?? [])
           .whereType<Map<String, dynamic>>()
           .map((item) => WeekCompare.fromJson(item))
           .toList(),
@@ -469,18 +582,43 @@ class MealPlanStreak {
   });
 
   factory MealPlanStreak.fromJson(Map<String, dynamic> json) {
+    final rawAdherence =
+        (json['weeklyAdherenceRate'] ??
+                json['WeeklyAdherenceRate'] ??
+                json['averageAdherence'] ??
+                json['AverageAdherence'] ??
+                0)
+            .toDouble();
+
     return MealPlanStreak(
-      currentStreak: _int(json['currentStreak'] ?? json['CurrentStreak'] ?? 0),
-      longestStreak: _int(json['longestStreak'] ?? json['LongestStreak'] ?? 0),
+      currentStreak: _int(
+        json['currentStreakDays'] ??
+            json['CurrentStreakDays'] ??
+            json['currentStreak'] ??
+            json['CurrentStreak'] ??
+            0,
+      ),
+      longestStreak: _int(
+        json['bestStreakDays'] ??
+            json['BestStreakDays'] ??
+            json['longestStreak'] ??
+            json['LongestStreak'] ??
+            0,
+      ),
       lastCompletedDate: _parseDate(
-        json['lastCompletedDate'] ?? json['LastCompletedDate'],
+        json['lastTrackedDate'] ??
+            json['LastTrackedDate'] ??
+            json['lastCompletedDate'] ??
+            json['LastCompletedDate'],
       ),
       totalCompletedDays: _int(
-        json['totalCompletedDays'] ?? json['TotalCompletedDays'] ?? 0,
+        json['totalTrackedDays'] ??
+            json['TotalTrackedDays'] ??
+            json['totalCompletedDays'] ??
+            json['TotalCompletedDays'] ??
+            0,
       ),
-      averageAdherence:
-          (json['averageAdherence'] ?? json['AverageAdherence'] ?? 0)
-              .toDouble(),
+      averageAdherence: rawAdherence > 1 ? rawAdherence / 100 : rawAdherence,
     );
   }
 
@@ -499,8 +637,10 @@ class MealPlanStreak {
 }
 
 int _int(dynamic v) {
+  if (v == null) return 0;
   if (v is int) return v;
   if (v is num) return v.round();
+  if (v is String) return double.tryParse(v)?.round() ?? 0;
   return 0;
 }
 

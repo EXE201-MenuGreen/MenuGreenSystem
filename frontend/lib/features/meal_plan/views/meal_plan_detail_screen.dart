@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
@@ -56,7 +57,8 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                   tooltip: 'Sửa',
                 ),
                 PopupMenuButton<String>(
-                  onSelected: (value) => _handleMenuAction(context, value, plan),
+                  onSelected: (value) =>
+                      _handleMenuAction(context, value, plan),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'duplicate',
@@ -68,16 +70,24 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: Colors.red)),
-                        ],
+                    if (plan.isActive)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.archive_outlined,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Kết thúc',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -86,8 +96,8 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
           body: provider.isLoadingDetail
               ? const Center(child: CircularProgressIndicator())
               : plan == null
-                  ? _buildEmptyState(context)
-                  : _buildContent(context, plan, provider),
+              ? _buildEmptyState(context)
+              : _buildContent(context, plan, provider),
           floatingActionButton: plan != null
               ? FloatingActionButton(
                   onPressed: () => _addItem(context),
@@ -104,11 +114,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: AppColors.textSecondary,
-          ),
+          Icon(Icons.error_outline, size: 64, color: AppColors.textSecondary),
           const SizedBox(height: 16),
           const Text(
             'Không tìm thấy kế hoạch',
@@ -124,7 +130,11 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, MealPlanDetail plan, MealPlanProvider provider) {
+  Widget _buildContent(
+    BuildContext context,
+    MealPlanDetail plan,
+    MealPlanProvider provider,
+  ) {
     // Group items by meal type
     final grouped = <MealType, List<MealPlanItemDetail>>{};
     for (final item in plan.items) {
@@ -166,7 +176,8 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                   onLogAll: items.any((i) => !i.isDone)
                       ? () => _logAllMeal(context, items)
                       : null,
-                  onMarkItemDone: (item) => _markItemDone(context, item),
+                  onMarkItemDone: (item) =>
+                      _toggleItemCompletion(context, item),
                   onConvertToLog: (item) => _convertItemToLog(context, item),
                   onEditItem: (item) => _editItem(context, item),
                   onDeleteItem: (item) => _deleteItemFromPlan(context, item),
@@ -236,7 +247,10 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                   children: [
                     const Text(
                       'Tiến độ',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     Text(
                       '${(progress * 100).toStringAsFixed(0)}%',
@@ -254,7 +268,9 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: AppColors.progressBackground,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                     minHeight: 8,
                   ),
                 ),
@@ -267,6 +283,14 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   }
 
   Widget _buildMacroProgress(MealPlanDetail plan) {
+    final durationDays =
+        plan.startDate != null &&
+            plan.endDate != null &&
+            !plan.endDate!.isBefore(plan.startDate!)
+        ? plan.endDate!.difference(plan.startDate!).inDays + 1
+        : 1;
+    final calorieTarget = (plan.targetCalories ?? 2000) * durationDays;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -274,14 +298,14 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Macros tuần này',
+              'Dinh dưỡng tuần này',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             MacroProgressBar(
               label: 'KCAL',
               current: plan.totalCalories,
-              target: plan.targetCalories ?? 14000,
+              target: calorieTarget,
               unit: 'kcal',
               color: AppColors.primary,
             ),
@@ -289,7 +313,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             MacroProgressBar(
               label: 'PROTEIN',
               current: plan.totalProteinG,
-              target: plan.targetProtein ?? 500,
+              target: plan.targetProtein ?? 840,
               unit: 'g',
               color: Colors.blue,
             ),
@@ -297,7 +321,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             MacroProgressBar(
               label: 'CARBS',
               current: plan.totalCarbsG,
-              target: plan.targetCarbs ?? 1100,
+              target: plan.targetCarbs ?? 1750,
               unit: 'g',
               color: Colors.orange,
             ),
@@ -305,7 +329,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             MacroProgressBar(
               label: 'FAT',
               current: plan.totalFatG,
-              target: plan.targetFat ?? 450,
+              target: plan.targetFat ?? 420,
               unit: 'g',
               color: Colors.purple,
             ),
@@ -318,17 +342,6 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   Widget _buildActionButtons(BuildContext context, MealPlanDetail plan) {
     return Row(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _setReminders(context, plan),
-            icon: const Icon(Icons.notifications_outlined),
-            label: const Text('Nhắc nhở'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => _comparePlan(context),
@@ -374,9 +387,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
               ),
             ),
           ),
-          const Expanded(
-            child: Divider(indent: 12),
-          ),
+          const Expanded(child: Divider(indent: 12)),
         ],
       ),
     );
@@ -384,9 +395,9 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
 
   void _addItem(BuildContext context, [MealType? mealType]) {
     HapticFeedback.lightImpact();
-    
+
     final selectedMealType = mealType ?? MealType.snack;
-    
+
     AddItemSheet.show(
       context: context,
       planId: widget.planId,
@@ -396,7 +407,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
       if (request != null && context.mounted) {
         final provider = context.read<MealPlanProvider>();
         final item = await provider.addItem(widget.planId, request);
-        
+
         if (context.mounted) {
           if (item != null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -435,20 +446,40 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     }
   }
 
-  void _markItemDone(BuildContext context, MealPlanItemDetail item) async {
+  void _toggleItemCompletion(
+    BuildContext context,
+    MealPlanItemDetail item,
+  ) async {
     HapticFeedback.mediumImpact();
     final provider = context.read<MealPlanProvider>();
-    
-    final updatedItem = await provider.markItemDone(widget.planId, item.id);
-    
+
+    final success = await provider.toggleItemCompletion(
+      item.id,
+      !item.isDone,
+      planId: widget.planId,
+    );
+
     if (context.mounted) {
-      if (updatedItem != null) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã hoàn thành "${item.displayName}"')),
+          SnackBar(
+            content: Text(
+              item.isDone
+                  ? 'Đã hủy đánh dấu ăn "${item.displayName}"'
+                  : 'Đã hoàn thành "${item.displayName}"',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(provider.error ?? 'Không thể cập nhật')),
+          SnackBar(
+            content: Text(
+              ApiMessageTranslator.translate(
+                provider.error ?? 'Không thể cập nhật',
+              ),
+            ),
+          ),
         );
       }
     }
@@ -478,10 +509,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             const SizedBox(height: 8),
             Text(
               'Hành động này sẽ ghi nhận bữa ăn này vào lịch sử dinh dưỡng của bạn.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -501,7 +529,6 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     if (confirmed == true && context.mounted) {
       final provider = context.read<MealPlanProvider>();
       final request = ConvertToLogRequest(
-        loggedAt: DateTime.now(),
         quantityG: null, // Use default quantity from plan item
       );
 
@@ -519,7 +546,9 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result?.message ?? provider.error ?? 'Không thể ghi nhận'),
+              content: Text(
+                result?.message ?? provider.error ?? 'Không thể ghi nhận',
+              ),
             ),
           );
         }
@@ -527,12 +556,17 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     }
   }
 
-  void _deleteItemFromPlan(BuildContext context, MealPlanItemDetail item) async {
+  void _deleteItemFromPlan(
+    BuildContext context,
+    MealPlanItemDetail item,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xóa món'),
-        content: Text('Bạn có chắc muốn xóa "${item.displayName}" khỏi kế hoạch?'),
+        content: Text(
+          'Bạn có chắc muốn xóa "${item.displayName}" khỏi kế hoạch?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -550,7 +584,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     if (confirmed == true && context.mounted) {
       final provider = context.read<MealPlanProvider>();
       final success = await provider.deleteItem(widget.planId, item.id);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(success ? 'Đã xóa món' : 'Không thể xóa món')),
@@ -562,9 +596,9 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   void _skipItem(BuildContext context, MealPlanItemDetail item) async {
     HapticFeedback.lightImpact();
     final provider = context.read<MealPlanProvider>();
-    
+
     final updatedItem = await provider.skipItem(widget.planId, item.id);
-    
+
     if (context.mounted) {
       if (updatedItem != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -581,14 +615,22 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   void _logAllMeal(BuildContext context, List<MealPlanItemDetail> items) async {
     HapticFeedback.mediumImpact();
     final provider = context.read<MealPlanProvider>();
-
-    for (final item in items.where((i) => !i.isDone)) {
-      await provider.markItemDone(widget.planId, item.id);
-    }
+    final pendingCount = items.where((item) => !item.isDone).length;
+    final completedCount = await provider.completeItems(
+      items,
+      planId: widget.planId,
+    );
 
     if (context.mounted) {
+      final failedCount = pendingCount - completedCount;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã log ${items.length} món')),
+        SnackBar(
+          content: Text(
+            failedCount == 0
+                ? 'Đã ghi nhận $completedCount món'
+                : 'Đã ghi nhận $completedCount món, $failedCount món chưa thành công',
+          ),
+        ),
       );
     }
   }
@@ -610,7 +652,11 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     });
   }
 
-  void _handleMenuAction(BuildContext context, String action, MealPlanDetail plan) {
+  void _handleMenuAction(
+    BuildContext context,
+    String action,
+    MealPlanDetail plan,
+  ) {
     switch (action) {
       case 'duplicate':
         _duplicatePlan(context, plan);
@@ -624,7 +670,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
   void _duplicatePlan(BuildContext context, MealPlanDetail plan) async {
     DateTime newStartDate = DateTime.now();
     DateTime? newEndDate;
-    
+
     // Calculate end date based on plan type
     if (plan.endDate != null && plan.startDate != null) {
       final duration = plan.endDate!.difference(plan.startDate!);
@@ -658,13 +704,18 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
                           context: context,
                           initialDate: newStartDate,
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                         );
                         if (date != null) {
                           setDialogState(() {
                             newStartDate = date;
-                            if (plan.endDate != null && plan.startDate != null) {
-                              final duration = plan.endDate!.difference(plan.startDate!);
+                            if (plan.endDate != null &&
+                                plan.startDate != null) {
+                              final duration = plan.endDate!.difference(
+                                plan.startDate!,
+                              );
                               newEndDate = newStartDate.add(duration);
                             }
                           });
@@ -679,10 +730,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
               const SizedBox(height: 8),
               Text(
                 'Đến ngày: ${newEndDate != null ? _formatDate(newEndDate!) : "..."}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -729,7 +777,9 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(provider.error ?? 'Không thể nhân bản kế hoạch')),
+            SnackBar(
+              content: Text(provider.error ?? 'Không thể nhân bản kế hoạch'),
+            ),
           );
         }
       }
@@ -744,8 +794,10 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa kế hoạch'),
-        content: Text('Bạn có chắc muốn xóa "${plan.title}"?'),
+        title: const Text('Kết thúc kế hoạch'),
+        content: Text(
+          'Kế hoạch "${plan.title}" sẽ được chuyển vào nhóm đã kết thúc.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -754,41 +806,32 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: const Text('Kết thúc'),
           ),
         ],
       ),
     );
 
     if (confirmed == true && context.mounted) {
-      final success = await context.read<MealPlanProvider>().deletePlan(plan.id);
+      final success = await context.read<MealPlanProvider>().deletePlan(
+        plan.id,
+      );
       if (context.mounted) {
         if (success) {
           Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể xóa kế hoạch')),
+            const SnackBar(content: Text('Không thể kết thúc kế hoạch')),
           );
         }
       }
     }
   }
 
-  void _setReminders(BuildContext context, MealPlanDetail plan) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const MealPlanStatsScreen(),
-      ),
-    );
-  }
-
   void _comparePlan(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const MealPlanStatsScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const MealPlanStatsScreen()),
     );
   }
 }

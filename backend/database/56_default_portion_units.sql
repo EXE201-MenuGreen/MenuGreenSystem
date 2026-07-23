@@ -1,4 +1,11 @@
--- Seed default portion units (25 Vietnam traditional units)
+-- =============================================================================
+-- MenuGreen Seed Data - Table: default_portion_units
+-- Sequence Number: 56
+-- Description: Seed 25 Vietnam traditional portion units
+-- =============================================================================
+
+BEGIN;
+
 INSERT INTO default_portion_units ("Id", "UnitName", "GramsEquivalent", "Description", "IsActive", "CreatedAt")
 VALUES
     ('d0000001-0000-0000-0000-000000000001', 'chén', 150.00, 'Chén cơm, chén chấm gia vị thông thường (khoảng 150g)', true, NOW()),
@@ -26,8 +33,10 @@ VALUES
     ('d0000001-0000-0000-0000-000000000023', 'que', 50.00, 'Que kem, que kẹo hoặc xiên chả nhỏ', true, NOW()),
     ('d0000001-0000-0000-0000-000000000024', 'cái', 100.00, 'Đơn vị cái cho bánh bao, bánh giò, bánh chưng nhỏ', true, NOW()),
     ('d0000001-0000-0000-0000-000000000025', 'khoanh', 50.00, 'Khoanh giò, khoanh bánh tét, cá cắt khoanh', true, NOW())
-ON CONFLICT ("UnitName") 
-DO UPDATE SET 
+ON CONFLICT ("UnitName")
+DO UPDATE SET
     "GramsEquivalent" = EXCLUDED."GramsEquivalent",
     "Description" = EXCLUDED."Description",
     "IsActive" = EXCLUDED."IsActive";
+
+COMMIT;

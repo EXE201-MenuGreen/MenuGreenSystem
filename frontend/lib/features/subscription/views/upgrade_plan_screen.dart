@@ -160,7 +160,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       if (plan.featureGroup?.trim().toLowerCase() == 'casual') return plan;
     }
     return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000005',
+      id: '10000000-0000-0000-0000-000000000006',
       name: 'Gói Casual',
       description:
           'Vòng quay 10 món ăn cá nhân hóa và an toàn\nKhởi động thực đơn, ghi nhật ký nhanh trong một chạm\nThẻ kiến thức dinh dưỡng theo lịch sử ăn uống',
@@ -266,10 +266,6 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
         );
         return;
       }
-      if (!result.success) {
-        _showResult(result.message, false);
-        return;
-      }
       Navigator.of(context).pop('officeActivated');
     } finally {
       if (mounted) setState(() => _actionLoading = false);
@@ -293,20 +289,17 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       return;
     }
 
-    setState(() => _actionLoading = true);
-    final profileResult = await _aiProfileRepository.upsert(
-      eatingPattern: 'gym',
-    );
-    if (!mounted) return;
-    setState(() => _actionLoading = false);
-
-    if (!profileResult.success) {
-      _showResult(profileResult.message, false);
-      return;
-    }
-
     final activated = await _subscribe(plan);
     if (!mounted || !activated) return;
+
+    setState(() => _actionLoading = true);
+    try {
+      await _aiProfileRepository.upsert(eatingPattern: 'gym');
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+
+    if (!mounted) return;
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const GymerHubScreen()));
@@ -329,20 +322,17 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
       return;
     }
 
-    setState(() => _actionLoading = true);
-    final profileResult = await _aiProfileRepository.upsert(
-      eatingPattern: 'casual',
-    );
-    if (!mounted) return;
-    setState(() => _actionLoading = false);
-
-    if (!profileResult.success) {
-      _showResult(profileResult.message, false);
-      return;
-    }
-
     final activated = await _subscribe(plan);
     if (!mounted || !activated) return;
+
+    setState(() => _actionLoading = true);
+    try {
+      await _aiProfileRepository.upsert(eatingPattern: 'casual');
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+
+    if (!mounted) return;
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const CasualHubScreen()));

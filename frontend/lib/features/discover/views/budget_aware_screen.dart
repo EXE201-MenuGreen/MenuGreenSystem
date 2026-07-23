@@ -369,10 +369,11 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
   }
 
   String _formatCurrency(int amount) {
-    if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(0)}K đ';
-    }
-    return '$amount đ';
+    final formatted = amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$formatted VNĐ';
   }
 
   @override

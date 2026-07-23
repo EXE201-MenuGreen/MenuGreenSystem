@@ -12,13 +12,13 @@ import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
 import 'favorites_screen.dart';
 import 'food_detail_screen.dart';
-import 'food_map_screen.dart';
 import 'ingredient_detail_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'recommendation_screen.dart';
 
 class DiscoverView extends StatefulWidget {
-  const DiscoverView({super.key});
+  final bool isStandalone;
+  const DiscoverView({super.key, this.isStandalone = false});
 
   @override
   State<DiscoverView> createState() => DiscoverViewState();
@@ -292,6 +292,11 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
+                  if (widget.isStandalone)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   const Expanded(
                     child: Text(
                       'Khám phá',
@@ -352,95 +357,77 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    FilterChip(
-                      avatar: Icon(
-                        _safeOnly ? Icons.verified : Icons.verified_outlined,
-                        size: 18,
-                        color: _safeOnly ? Colors.white : AppColors.primary,
-                      ),
-                      label: const Text('An toàn dị ứng'),
-                      selected: _safeOnly,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: _safeOnly ? Colors.white : AppColors.textDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onSelected: (selected) {
-                        setState(() => _safeOnly = selected);
-                        _scheduleReload();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    InputChip(
-                      avatar: _detectingLocation
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.my_location, size: 18),
-                      label: Text(
-                        _detectedRegion != null
-                            ? 'Miền ${LocationService.getRegionDisplayName(_detectedRegion!)}'
-                            : 'Quét vị trí',
-                      ),
-                      selected: _detectedRegion != null,
-                      onSelected: (selected) {
-                        if (selected) {
-                          _scanLocation();
-                        } else {
-                          setState(() => _detectedRegion = null);
-                          _scheduleReload();
-                        }
-                      },
-                      onDeleted: _detectedRegion != null
-                          ? () {
-                              setState(() => _detectedRegion = null);
-                              _scheduleReload();
-                            }
-                          : null,
-                    ),
-                    ActionChip(
-                      avatar: const Icon(
-                        Icons.map_rounded,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                      label: const Text('Bản đồ món 🗺️'),
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FoodMapScreen(initialKeyword: _keyword),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  FilterChip(
+                    label: const Text('Chỉ món an toàn'),
+                    selected: _safeOnly,
+                    onSelected: (v) {
+                      setState(() => _safeOnly = v);
+                      _scheduleReload();
+                    },
+                  ),
+                  InputChip(
+                    avatar: _detectingLocation
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : Icon(
+                            _detectedRegion != null ? Icons.my_location : Icons.location_searching,
+                            size: 16,
+                            color: _detectedRegion != null ? AppColors.primary : null,
                           ),
-                        );
-                      },
+                    label: Text(
+                      _detectedRegion != null
+                          ? 'Miền ${LocationService.getRegionDisplayName(_detectedRegion!)}'
+                          : 'Quét vị trí',
                     ),
-                    ActionChip(
-                      avatar: Icon(
-                        Icons.tune,
-                        size: 18,
-                        color: _foodFilters.hasAny ? AppColors.primary : null,
-                      ),
-                      label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
-                      onPressed: _openFoodFilters,
+                    selected: _detectedRegion != null,
+                    onSelected: (selected) {
+                      if (selected) {
+                        _scanLocation();
+                      } else {
+                        setState(() => _detectedRegion = null);
+                        _scheduleReload();
+                      }
+                    },
+                    onDeleted: _detectedRegion != null
+                        ? () {
+                            setState(() => _detectedRegion = null);
+                            _scheduleReload();
+                          }
+                        : null,
+                  ),
+                  ActionChip(
+                    avatar: Icon(
+                      Icons.tune,
+                      size: 18,
+                      color: _foodFilters.hasAny ? AppColors.primary : null,
                     ),
-                    TextButton.icon(
-                      onPressed: _openAllergies,
-                      icon: const Icon(Icons.medical_information_outlined, size: 18),
-                      label: const Text('Dị ứng'),
+                    label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
+                    onPressed: _openFoodFilters,
+                  ),
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.medical_information_outlined,
+                      size: 18,
                     ),
-                    TextButton(
-                      onPressed: _refreshing ? null : () => _reloadLists(checkAllergy: false),
-                      child: const Text('Tải lại'),
-                    ),
-                  ],
-                ),
+                    label: const Text('Dị ứng'),
+                    onPressed: _openAllergies,
+                  ),
+                  ActionChip(
+                    label: const Text('Tải lại'),
+                    onPressed: _refreshing ? null : () => _reloadLists(checkAllergy: false),
+                  ),
+                ],
               ),
             ),
             TabBar(

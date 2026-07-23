@@ -55,7 +55,7 @@ class HistoryViewState extends State<HistoryView> {
   ];
 
   List<HistoryTimelineSection> get _sections {
-    var sections = _buildSectionsFromSummary(_dailySummary);
+    var sections = _buildSectionsFromSummary(_effectiveSummary);
 
     if (_mealFilter != null) {
       sections = sections.where((s) => s.category == _mealFilter).toList();
@@ -81,6 +81,65 @@ class HistoryViewState extends State<HistoryView> {
     }
 
     return sections;
+  }
+
+  MealDaySummary? get _effectiveSummary {
+    if (_dashboardRange == DashboardRange.day) {
+      return _dailySummary;
+    }
+    final days = _dashboard?.days ?? [];
+    if (days.isEmpty) return _dailySummary;
+
+    final count = days.length;
+    final totalCal = days.fold<double>(0, (sum, d) => sum + d.totalCalories);
+    final totalTargetCal = days.fold<double>(0, (sum, d) => sum + d.targetCalories);
+    final totalProt = days.fold<double>(0, (sum, d) => sum + d.totalProteinG);
+    final totalTargetProt = days.fold<double>(0, (sum, d) => sum + d.targetProteinG);
+    final totalCarb = days.fold<double>(0, (sum, d) => sum + d.totalCarbsG);
+    final totalTargetCarb = days.fold<double>(0, (sum, d) => sum + d.targetCarbsG);
+    final totalFat = days.fold<double>(0, (sum, d) => sum + d.totalFatG);
+    final totalTargetFat = days.fold<double>(0, (sum, d) => sum + d.targetFatG);
+    final allLogs = days.expand((d) => d.mealLogs).toList();
+
+    return MealDaySummary(
+      date: _dashboardRange == DashboardRange.week ? 'Tuần' : 'Tháng',
+      totalCalories: count > 0 ? totalCal / count : 0,
+      targetCalories: count > 0 ? totalTargetCal / count : 0,
+      totalProteinG: count > 0 ? totalProt / count : 0,
+      targetProteinG: count > 0 ? totalTargetProt / count : 0,
+      totalCarbsG: count > 0 ? totalCarb / count : 0,
+      targetCarbsG: count > 0 ? totalTargetCarb / count : 0,
+      totalFatG: count > 0 ? totalFat / count : 0,
+      targetFatG: count > 0 ? totalTargetFat / count : 0,
+      goalCompletionPercent: totalTargetCal > 0 ? (totalCal / totalTargetCal * 100) : null,
+      mealLogs: allLogs,
+    );
+  }
+
+  String get _summaryCardTitle {
+    switch (_dashboardRange) {
+      case DashboardRange.day:
+        return 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}';
+      case DashboardRange.week:
+        final days = _dashboard?.days ?? [];
+        if (days.isNotEmpty) {
+          final startStr = _formatShortDateStr(days.first.date);
+          final endStr = _formatShortDateStr(days.last.date);
+          return 'Tiến độ tuần ($startStr - $endStr)';
+        }
+        return 'Tiến độ tuần này';
+      case DashboardRange.month:
+        return 'Tiến độ tháng ${_focusedMonth.month}/${_focusedMonth.year}';
+    }
+  }
+
+  String _formatShortDateStr(String dateStr) {
+    try {
+      final parsed = DateTime.parse(dateStr);
+      return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   @override
@@ -614,98 +673,85 @@ class HistoryViewState extends State<HistoryView> {
   Widget build(BuildContext context) {
     final sections = _sections;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Lịch sử hoạt động'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textDark),
-        titleTextStyle: const TextStyle(
-          color: AppColors.textDark,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCalendar(),
-                    const SizedBox(height: 16),
-                    DashboardRangeSelector(
-                      selected: _dashboardRange,
-                      onChanged: _onDashboardRangeChanged,
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCalendar(),
+                  const SizedBox(height: 16),
+                  DashboardRangeSelector(
+                    selected: _dashboardRange,
+                    onChanged: _onDashboardRangeChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  DailySummaryCard(
+                    summary: _effectiveSummary,
+                    title: _summaryCardTitle,
+                    isAverage: _dashboardRange != DashboardRange.day,
+                  ),
+                  const SizedBox(height: 16),
+                  CalorieTrendChart(
+                    days: _dashboard?.days ?? [],
+                    selectedDate: _selectedDate,
+                    onDayTap: (date) => _selectDate(date),
+                  ),
+                  const SizedBox(height: 16),
+                  WeightTrendChart(logs: _dashboard?.weightLogs ?? []),
+                  const SizedBox(height: 16),
+                  WeightLogsList(
+                    logs: _dashboard?.weightLogs ?? [],
+                    onEdit: _editWeightLog,
+                    onDelete: _deleteWeightLog,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Nhật ký bữa ăn',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
                     ),
-                    const SizedBox(height: 16),
-                    DailySummaryCard(
-                      summary: _dailySummary,
-                      title: 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}',
-                    ),
-                    const SizedBox(height: 16),
-                    CalorieTrendChart(
-                      days: _dashboard?.days ?? [],
-                      selectedDate: _selectedDate,
-                      onDayTap: (date) => _selectDate(date),
-                    ),
-                    const SizedBox(height: 16),
-                    WeightTrendChart(logs: _dashboard?.weightLogs ?? []),
-                    const SizedBox(height: 16),
-                    WeightLogsList(
-                      logs: _dashboard?.weightLogs ?? [],
-                      onEdit: _editWeightLog,
-                      onDelete: _deleteWeightLog,
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Nhật ký bữa ăn',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSearchBar(),
+                  const SizedBox(height: 16),
+                  _buildFilterChips(),
+                  const SizedBox(height: 24),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildSearchBar(),
-                    const SizedBox(height: 16),
-                    _buildFilterChips(),
-                    const SizedBox(height: 24),
-                    if (_loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48),
-                        child: Center(
-                          child: CircularProgressIndicator(color: AppColors.primary),
-                        ),
-                      )
-                    else if (sections.isEmpty)
-                      _buildEmptyState()
-                    else
-                      ...sections.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final section = entry.value;
-                        final isLast = index == sections.length - 1;
-                        return _TimelineSectionWidget(
-                          section: section,
-                          showLineBelow: !isLast,
-                          onDeleteMeal: _deleteMealLog,
-                          onEditMeal: _editMealLog,
-                          onOpenDetail: _openMealDetail,
-                          onCreateTemplate: _createTemplateFromLog,
-                        );
-                      }),
-                  ],
-                ),
+                    )
+                  else if (sections.isEmpty)
+                    _buildEmptyState()
+                  else
+                    ...sections.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final section = entry.value;
+                      final isLast = index == sections.length - 1;
+                      return _TimelineSectionWidget(
+                        section: section,
+                        showLineBelow: !isLast,
+                        onDeleteMeal: _deleteMealLog,
+                        onEditMeal: _editMealLog,
+                        onOpenDetail: _openMealDetail,
+                        onCreateTemplate: _createTemplateFromLog,
+                      );
+                    }),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
