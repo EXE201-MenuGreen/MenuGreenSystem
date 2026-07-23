@@ -147,11 +147,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealLogListResponse> GetMealLogsAsync(Guid userId, int page = 1, int pageSize = 20)
         {
-            var allLogs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId);
-            var totalCount = allLogs.Count();
+            var query = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == userId);
+            var totalCount = query.Count();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
             
-            var pagedLogs = allLogs
+            var pagedLogs = query
                 .OrderByDescending(x => x.LoggedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
