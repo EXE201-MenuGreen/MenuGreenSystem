@@ -509,33 +509,52 @@ sudo docker tag $IMAGE:main menugreen_api
 
 echo "=== Check / Seed EF Migration History ==="
 DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
+echo "  DEBUG: DB_CONN_PRECHECK length: ${#DB_CONN_PRECHECK}"
+
 if [ -n "$DB_CONN_PRECHECK" ]; then
   PGPASSWORD_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
   DB_HOST_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Host=\K[^;]+' || true)
   DB_USER_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN_PRECHECK" | grep -oP 'User Id=\K[^;]+' || true)
   DB_NAME_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Database=\K[^;]+' || true)
+  DB_PORT_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Port=\K[^;]+' || echo "5432")
+  
+  echo "  DEBUG: DB_HOST=$DB_HOST_PRECHECK, DB_NAME=$DB_NAME_PRECHECK, DB_USER=$DB_USER_PRECHECK"
   
   if [ -n "$DB_HOST_PRECHECK" ] && [ -n "$DB_NAME_PRECHECK" ]; then
-    MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>/dev/null || echo "0")
-    MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]')
+    # Check if __EFMigrationsHistory table exists
+    TABLE_EXISTS=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__EFMigrationsHistory');" 2>&1 || echo "f")
+    echo "  DEBUG: __EFMigrationsHistory exists: $TABLE_EXISTS"
+    
+    MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>&1 || echo "0")
+    MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo "0")
     echo "  Found $MIGRATION_COUNT migration(s) in history"
     
     # If __EFMigrationsHistory is empty but tables exist (existing DB),
     # seed it with the baseline migration name so EF skips table creation
     if [ "$MIGRATION_COUNT" = "0" ]; then
       echo "  Database has no migration history. Checking if tables exist..."
-      TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT LIKE '%_%_indexes' AND table_name != 'spatial_ref_sys';" 2>/dev/null | tr -d '[:space:]' || echo "0")
+      TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT LIKE '%_%_indexes' AND table_name NOT LIKE '__EFMigrationsHistory' AND table_name != 'spatial_ref_sys';" 2>&1 | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo "0")
       echo "  Found $TABLE_COUNT tables in database"
       
       if [ "$TABLE_COUNT" -gt "10" ]; then
         echo "  Seeding __EFMigrationsHistory with baseline migration..."
-        PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723154128_BaselineExistingDatabase', '8.0.11');" 2>/dev/null || true
-        echo "  ✓ Baseline migration seeded. EF will skip table creation."
+        SEED_RESULT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723154128_BaselineExistingDatabase', '8.0.11');" 2>&1)
+        if [ $? -eq 0 ]; then
+          echo "  ✓ Baseline migration seeded. EF will skip table creation."
+        else
+          echo "  ! Seed failed: $SEED_RESULT"
+        fi
       else
         echo "  No tables found. EF will create all tables on startup."
       fi
+    else
+      echo "  Migration history exists ($MIGRATION_COUNT records). EF will apply delta migrations only."
     fi
+  else
+    echo "  ! Could not parse DB connection details from .env"
   fi
+else
+  echo "  ! DB connection string not found in .env file"
 fi
 
 echo "=== Stop and remove all existing containers ==="
