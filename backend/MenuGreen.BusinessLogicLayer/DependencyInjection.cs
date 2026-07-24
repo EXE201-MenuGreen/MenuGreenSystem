@@ -26,6 +26,8 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<INutritionTrackingService, NutritionTrackingService>();
             services.AddScoped<IRecommendationService, RecommendationService>();
             services.AddScoped<IMealPlanService, MealPlanService>();
+            services.AddScoped<IGroceryListBuilderService, GroceryListBuilderService>();
+            services.AddScoped<IShoppingTripBuilderService, ShoppingTripBuilderService>();
             services.AddScoped<IBudgetRequestService, BudgetRequestService>();
             services.AddScoped<IMealTemplateService, MealTemplateService>();
             services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
@@ -67,11 +69,13 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IPortionConverterService, PortionConverterService>();
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
             services.AddScoped<ICoachService, CoachService>();
+            services.AddScoped<ICoachReviewService, CoachReviewService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();
             services.AddHttpClient<IEmailService, EmailService>();
             services.AddHttpClient(nameof(NutritionAssistantService));
             services.AddHttpClient(nameof(CvService));
+            services.AddHttpClient(nameof(SepayReconciliationBackgroundService));
             return services;
         }
     }

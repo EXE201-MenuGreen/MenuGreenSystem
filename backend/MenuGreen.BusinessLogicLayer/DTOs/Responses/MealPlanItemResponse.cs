@@ -24,5 +24,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? SourceEntityType { get; set; }
         public string? Status { get; set; }
         public int? EstimatedPriceVnd { get; set; }
+
+        /// <summary>
+        /// Nguồn gốc: "user" = tạo tay ở tab Kế hoạch,
+        /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
+        /// </summary>
+        public string? Origin { get; set; }
     }
 }

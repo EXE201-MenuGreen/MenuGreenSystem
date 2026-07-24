@@ -28,7 +28,8 @@ namespace MenuGreen.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
         {
-            return Ok(await _service.GetAllAsync(isActive));
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            return Ok(await _service.GetAllAsync(isActive, userId));
         }
 
         /// <summary>
@@ -37,9 +38,10 @@ namespace MenuGreen.API.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
             try
             {
-                return Ok(await _service.GetByIdAsync(id));
+                return Ok(await _service.GetByIdAsync(id, userId));
             }
             catch (Exception ex)
             {
@@ -256,6 +258,71 @@ namespace MenuGreen.API.Controllers
             try
             {
                 return Ok(await _service.SaveOfficeScanMealAsync(planId, request, userId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Replace one planned item with an approved Food or Recipe alternative.
+        /// </summary>
+        [HttpPost("{planId:guid}/items/{itemId:guid}/replace")]
+        [Authorize(Policy = "OfficeFeatures")]
+        public async Task<IActionResult> ReplaceItem(Guid planId, Guid itemId, [FromBody] MealPlanItemReplaceRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.ReplaceItemAsync(planId, itemId, request, userId));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Save an AI-scanned dish as a planned Office meal. It is not logged as eaten.
+        /// </summary>
+        [HttpPost("{planId:guid}/scan-plan-items")]
+        [Authorize(Policy = "OfficeFeatures")]
+        public async Task<IActionResult> SaveScanPlanItem(Guid planId, [FromBody] OfficeScanMealRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.SaveOfficeScanPlanItemAsync(planId, request, userId, false));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Save today's AI-scanned lunch as the user's Office priority lunch.
+        /// </summary>
+        [HttpPost("{planId:guid}/priority-lunch")]
+        [Authorize(Policy = "OfficeFeatures")]
+        public async Task<IActionResult> SavePriorityLunch(Guid planId, [FromBody] OfficeScanMealRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.SaveOfficeScanPlanItemAsync(planId, request, userId, true));
             }
             catch (InvalidOperationException ex)
             {

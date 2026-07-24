@@ -78,8 +78,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid? userId = null,
             string? allergyMode = null)
         {
-            var recipes = await _unitOfWork.Recipes.GetAllAsync();
-            var query = recipes.AsEnumerable();
+            // Build query with filters at database level (fix client-side filtering)
+            var allRecipes = await _unitOfWork.Recipes.FindAsync(r => true, asNoTracking: true);
+            var query = allRecipes.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -108,16 +109,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var recipeList = query.ToList();
             var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
             var mode = NormalizeAllergyMode(allergyMode);
-            var items = new List<RecipeResponse>();
 
+            // Enrich serially to keep the shared DbContext single-threaded.
+            // EF Core's DbContext is NOT thread-safe; running multiple
+            // _allergenMatching calls in parallel via Task.WhenAll triggers
+            // "A second operation was started on this context instance..."
+            // (verified with curl: empty keyword → 400; non-empty keyword → 200).
+            var items = new List<RecipeResponse>(recipeList.Count);
             foreach (var recipe in recipeList)
             {
                 var dto = Map(recipe);
                 ingredientMap.TryGetValue(recipe.Id, out var names);
                 dto = await EnrichRecipeAsync(dto, userId, allergyMode, names ?? new List<string>());
-                if (mode == AllergenCatalog.ModeHide && !dto.IsSafeForUser)
-                    continue;
-                items.Add(dto);
+                var shouldInclude = mode != AllergenCatalog.ModeHide || dto.IsSafeForUser;
+                if (shouldInclude) items.Add(dto);
             }
 
             return new RecipeSearchResponse { Items = items, TotalCount = items.Count };

@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260711083535_AddRegionToFood")]
-    partial class AddRegionToFood
+    [Migration("20260723091704_Init")]
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -568,6 +568,14 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
+                    b.HasIndex("Region");
+
                     b.ToTable("foods", (string)null);
                 });
 
@@ -726,6 +734,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<int?>("TargetProteinG")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("TargetWeightKg")
+                        .HasColumnType("numeric(5,2)");
+
                     b.Property<int?>("TdeeKcal")
                         .HasColumnType("integer");
 
@@ -785,6 +796,12 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameVi");
+
                     b.ToTable("ingredients", (string)null);
                 });
 
@@ -799,6 +816,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.Property<decimal?>("CarbsG")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("CustomName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<decimal?>("FatG")
                         .HasColumnType("numeric");
@@ -840,6 +861,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasIndex("FoodId");
 
+                    b.HasIndex("LoggedAt");
+
                     b.HasIndex("MealPlanItemId")
                         .IsUnique()
                         .HasFilter("\"MealPlanItemId\" IS NOT NULL");
@@ -847,6 +870,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("RecipeId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "LoggedAt");
 
                     b.ToTable("meal_logs", (string)null);
                 });
@@ -944,11 +969,24 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("CarbsG")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CustomName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("FatG")
+                        .HasColumnType("numeric");
+
                     b.Property<Guid?>("FoodId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("IngredientSnapshotJson")
+                        .HasColumnType("jsonb");
 
                     b.Property<bool>("IsCompleted")
                         .ValueGeneratedOnAdd()
@@ -962,14 +1000,28 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateOnly?>("PlannedDate")
                         .HasColumnType("date");
+
+                    b.Property<decimal?>("ProteinG")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal?>("QuantityG")
+                        .HasColumnType("numeric");
 
                     b.Property<Guid?>("RecipeId")
                         .HasColumnType("uuid");
 
                     b.Property<TimeOnly?>("ScheduledTime")
                         .HasColumnType("time without time zone");
+
+                    b.Property<string>("SourceType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<int?>("TargetCalories")
                         .HasColumnType("integer");
@@ -981,6 +1033,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("MealPlanId");
 
                     b.HasIndex("MealType");
+
+                    b.HasIndex("Origin");
 
                     b.HasIndex("PlannedDate");
 
@@ -1077,11 +1131,30 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("CaloriesKcal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("CarbsG")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CustomName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("FatG")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<Guid?>("FoodId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("IngredientSnapshotJson")
+                        .HasColumnType("jsonb");
 
                     b.Property<Guid>("MealTemplateId")
                         .HasColumnType("uuid");
@@ -1089,6 +1162,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal?>("ProteinG")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<decimal>("QuantityG")
                         .HasPrecision(18, 2)
@@ -1099,6 +1176,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SourceType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
 
@@ -1609,7 +1690,15 @@ namespace MenuGreen.DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Difficulty");
+
                     b.HasIndex("FoodId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("MealType");
 
                     b.ToTable("recipes", (string)null);
                 });
@@ -1908,7 +1997,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.SubscriptionTransaction", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Amount")
@@ -2127,6 +2215,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BadgeName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<decimal?>("BodyFatPercent")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -2134,8 +2226,16 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<DateTime?>("CheckInDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("ChestCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("HipCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<bool>("IsCheckedIn")
                         .HasColumnType("boolean");
@@ -2143,11 +2243,18 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.Property<bool>("IsUnlocked")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("RewardPoints")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UnlockedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserProgramId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("WaistCm")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("WeekNumber")
                         .HasColumnType("integer");
@@ -2167,7 +2274,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledAt")

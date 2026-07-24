@@ -16,18 +16,36 @@ namespace MenuGreen.DataAccessLayer.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T?> GetByIdAsync(Guid id)
+        public async Task<T?> GetByIdAsync(Guid id, bool asNoTracking = false)
         {
+            if (asNoTracking)
+            {
+                // Use AsNoTracking with FirstOrDefault for read-only queries
+                var keyProperty = _context.Model.FindEntityType(typeof(T))?.FindPrimaryKey()?.Properties.FirstOrDefault();
+                if (keyProperty == null) return null;
+
+                var parameter = Expression.Parameter(typeof(T), "e");
+                var property = Expression.Property(parameter, keyProperty.Name);
+                var value = Expression.Constant(id, typeof(Guid));
+                var equals = Expression.Equal(property, value);
+                var lambda = Expression.Lambda<Func<T, bool>>(equals, parameter);
+
+                return await _dbSet.AsNoTracking().FirstOrDefaultAsync(lambda);
+            }
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public async Task<IEnumerable<T>> GetAllAsync(bool asNoTracking = false)
         {
+            if (asNoTracking)
+                return await _dbSet.AsNoTracking().ToListAsync();
             return await _dbSet.ToListAsync();
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> expression)
+        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> expression, bool asNoTracking = false)
         {
+            if (asNoTracking)
+                return await _dbSet.AsNoTracking().Where(expression).ToListAsync();
             return await _dbSet.Where(expression).ToListAsync();
         }
 

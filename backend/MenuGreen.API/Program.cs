@@ -15,6 +15,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Prometheus;
 
+// Enable legacy timestamp behavior in Npgsql to allow writing Unspecified/Local/Utc DateTimes to timestamptz columns
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // Render (và nhiều PaaS) inject PORT; ghi đè ASPNETCORE_URLS sai định dạng trên dashboard.
 var renderPort = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(renderPort))
@@ -482,6 +485,23 @@ if (!app.Environment.IsDevelopment())
                 unknownInHistory.Count,
                 string.Join(", ", unknownInHistory)
             );
+
+            // AUTO-FIX: Remove unknown migrations from history since they don't exist in this DLL
+            logger.LogInformation(
+                "[MIGRATION] Auto-removing {Count} unknown migration(s) from __EFMigrationsHistory.",
+                unknownInHistory.Count
+            );
+            foreach (var unknownId in unknownInHistory)
+            {
+                db.Database.ExecuteSqlRaw(
+                    "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+                    unknownId);
+                logger.LogInformation("[MIGRATION] Removed: {MigrationId}", unknownId);
+            }
+
+            // Refresh applied/pending lists
+            applied = db.Database.GetAppliedMigrations().ToList();
+            pending = db.Database.GetPendingMigrations().ToList();
         }
     }
     catch (Exception ex)
@@ -498,8 +518,9 @@ if (!app.Environment.IsDevelopment())
     }
 
     // -------------------------------------------------------------------------
-    // CRITICAL: Apply migrations. If it fails, REFUSE to start so we don't
-    // serve traffic against a schema that the code doesn't expect.
+    // Apply migrations. If DB already has tables but empty __EFMigrationsHistory,
+    // the deploy script seeds it with the baseline migration name, so EF skips
+    // table creation and only applies any real delta migrations.
     // -------------------------------------------------------------------------
     try
     {
@@ -507,7 +528,6 @@ if (!app.Environment.IsDevelopment())
         db.Database.Migrate();
         logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
 
-        // Re-list applied after migrate for verification
         var appliedAfter = db.Database.GetAppliedMigrations().ToList();
         logger.LogInformation(
             "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
@@ -519,9 +539,9 @@ if (!app.Environment.IsDevelopment())
     {
         logger.LogCritical(
             ex,
-            "FATAL: Failed to apply database migrations. Application will NOT start to avoid serving requests with mismatched schema."
+            "FATAL: Failed to apply database migrations. Application will NOT start."
         );
-        throw; // Crash the app - DO NOT start with broken schema
+        throw;
     }
 }
 

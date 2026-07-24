@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/history_models.dart';
@@ -54,7 +55,7 @@ class HistoryViewState extends State<HistoryView> {
   ];
 
   List<HistoryTimelineSection> get _sections {
-    var sections = _buildSectionsFromSummary(_dailySummary);
+    var sections = _buildSectionsFromSummary(_effectiveSummary);
 
     if (_mealFilter != null) {
       sections = sections.where((s) => s.category == _mealFilter).toList();
@@ -80,6 +81,65 @@ class HistoryViewState extends State<HistoryView> {
     }
 
     return sections;
+  }
+
+  MealDaySummary? get _effectiveSummary {
+    if (_dashboardRange == DashboardRange.day) {
+      return _dailySummary;
+    }
+    final days = _dashboard?.days ?? [];
+    if (days.isEmpty) return _dailySummary;
+
+    final count = days.length;
+    final totalCal = days.fold<double>(0, (sum, d) => sum + d.totalCalories);
+    final totalTargetCal = days.fold<double>(0, (sum, d) => sum + d.targetCalories);
+    final totalProt = days.fold<double>(0, (sum, d) => sum + d.totalProteinG);
+    final totalTargetProt = days.fold<double>(0, (sum, d) => sum + d.targetProteinG);
+    final totalCarb = days.fold<double>(0, (sum, d) => sum + d.totalCarbsG);
+    final totalTargetCarb = days.fold<double>(0, (sum, d) => sum + d.targetCarbsG);
+    final totalFat = days.fold<double>(0, (sum, d) => sum + d.totalFatG);
+    final totalTargetFat = days.fold<double>(0, (sum, d) => sum + d.targetFatG);
+    final allLogs = days.expand((d) => d.mealLogs).toList();
+
+    return MealDaySummary(
+      date: _dashboardRange == DashboardRange.week ? 'Tuần' : 'Tháng',
+      totalCalories: count > 0 ? totalCal / count : 0,
+      targetCalories: count > 0 ? totalTargetCal / count : 0,
+      totalProteinG: count > 0 ? totalProt / count : 0,
+      targetProteinG: count > 0 ? totalTargetProt / count : 0,
+      totalCarbsG: count > 0 ? totalCarb / count : 0,
+      targetCarbsG: count > 0 ? totalTargetCarb / count : 0,
+      totalFatG: count > 0 ? totalFat / count : 0,
+      targetFatG: count > 0 ? totalTargetFat / count : 0,
+      goalCompletionPercent: totalTargetCal > 0 ? (totalCal / totalTargetCal * 100) : null,
+      mealLogs: allLogs,
+    );
+  }
+
+  String get _summaryCardTitle {
+    switch (_dashboardRange) {
+      case DashboardRange.day:
+        return 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}';
+      case DashboardRange.week:
+        final days = _dashboard?.days ?? [];
+        if (days.isNotEmpty) {
+          final startStr = _formatShortDateStr(days.first.date);
+          final endStr = _formatShortDateStr(days.last.date);
+          return 'Tiến độ tuần ($startStr - $endStr)';
+        }
+        return 'Tiến độ tuần này';
+      case DashboardRange.month:
+        return 'Tiến độ tháng ${_focusedMonth.month}/${_focusedMonth.year}';
+    }
+  }
+
+  String _formatShortDateStr(String dateStr) {
+    try {
+      final parsed = DateTime.parse(dateStr);
+      return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   @override
@@ -612,25 +672,23 @@ class HistoryViewState extends State<HistoryView> {
   @override
   Widget build(BuildContext context) {
     final sections = _sections;
+    final isStandalone = ModalRoute.of(context)?.canPop ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Lịch sử hoạt động'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textDark),
-        titleTextStyle: const TextStyle(
-          color: AppColors.textDark,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      appBar: isStandalone
+          ? AppBar(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.textDark,
+              elevation: 0,
+              title: const Text('Lịch sử hoạt động'),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(isStandalone),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -645,8 +703,9 @@ class HistoryViewState extends State<HistoryView> {
                     ),
                     const SizedBox(height: 16),
                     DailySummaryCard(
-                      summary: _dailySummary,
-                      title: 'Tiến độ ngày ${_selectedDate.day}/${_selectedDate.month}',
+                      summary: _effectiveSummary,
+                      title: _summaryCardTitle,
+                      isAverage: _dashboardRange != DashboardRange.day,
                     ),
                     const SizedBox(height: 16),
                     CalorieTrendChart(
@@ -709,7 +768,7 @@ class HistoryViewState extends State<HistoryView> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isStandalone) {
     final latestWeight = _dashboard?.weightLogs.isNotEmpty == true
         ? _dashboard!.weightLogs.last.weightKg
         : null;
@@ -721,14 +780,15 @@ class HistoryViewState extends State<HistoryView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Lịch sử hoạt động',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                if (!isStandalone)
+                  const Text(
+                    'Lịch sử hoạt động',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
                 if (latestWeight != null)
                   Text(
                     'Cân nặng gần nhất: ${latestWeight.toStringAsFixed(1)} kg',
@@ -1171,14 +1231,19 @@ class _MealCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: meal.imageUrl != null
-                    ? Image.network(
-                        meal.imageUrl!,
+                    ? CachedNetworkImage(
+                        imageUrl: meal.imageUrl!,
                         width: 56,
                         height: 56,
-                        cacheWidth: 56,
-                        cacheHeight: 56,
+                        memCacheWidth: 56,
+                        memCacheHeight: 56,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
+                        placeholder: (_, _) => Container(
+                          width: 56,
+                          height: 56,
+                          color: Colors.grey[200],
+                        ),
+                        errorWidget: (_, _, _) => _imagePlaceholder(),
                       )
                     : _imagePlaceholder(meal.isRecipe),
               ),

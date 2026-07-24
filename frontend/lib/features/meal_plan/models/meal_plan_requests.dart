@@ -1,74 +1,6 @@
 /// Request DTOs cho Meal Plan API
 library;
 
-class OfficeScanIngredientRequest {
-  const OfficeScanIngredientRequest({
-    required this.name,
-    required this.quantity,
-    this.unit = 'g',
-    this.isAvailable = true,
-  });
-
-  final String name;
-  final double quantity;
-  final String unit;
-  final bool isAvailable;
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'quantity': quantity,
-    'unit': unit,
-    'isAvailable': isAvailable,
-  };
-}
-
-class OfficeScanMealRequest {
-  const OfficeScanMealRequest({
-    required this.customName,
-    required this.mealType,
-    required this.plannedDate,
-    required this.quantityG,
-    required this.caloriesKcal,
-    required this.proteinG,
-    required this.carbsG,
-    required this.fatG,
-    required this.ingredients,
-    this.replaceExisting = false,
-    this.loggedAt,
-  });
-
-  final String customName;
-  final String mealType;
-  final DateTime plannedDate;
-  final double quantityG;
-  final double caloriesKcal;
-  final double proteinG;
-  final double carbsG;
-  final double fatG;
-  final List<OfficeScanIngredientRequest> ingredients;
-  final bool replaceExisting;
-  final DateTime? loggedAt;
-
-  Map<String, dynamic> toJson() => {
-    'customName': customName,
-    'mealType': mealType,
-    'plannedDate': _dateOnly(plannedDate),
-    'scheduledTime': '12:00:00',
-    'quantityG': quantityG,
-    'caloriesKcal': caloriesKcal,
-    'proteinG': proteinG,
-    'carbsG': carbsG,
-    'fatG': fatG,
-    'replaceExisting': replaceExisting,
-    'loggedAt': (loggedAt ?? DateTime.now()).toUtc().toIso8601String(),
-    'ingredients': ingredients.map((item) => item.toJson()).toList(),
-  };
-
-  static String _dateOnly(DateTime date) {
-    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-}
-
 class CreatePlanRequest {
   final String title;
   final String planType;
@@ -183,6 +115,7 @@ class CreateItemRequest {
   final String? recipeId;
   final int? targetCalories;
   final double? quantityG;
+  final String? origin;
 
   CreateItemRequest({
     required this.mealType,
@@ -191,6 +124,7 @@ class CreateItemRequest {
     this.recipeId,
     this.targetCalories,
     this.quantityG,
+    this.origin,
   });
 
   Map<String, dynamic> toJson() {
@@ -202,6 +136,7 @@ class CreateItemRequest {
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
+      if (origin != null) 'origin': origin,
     };
   }
 }
@@ -226,41 +161,41 @@ class DuplicatePlanRequest {
 
 class AddItemRequest {
   final String mealType;
-  final DateTime? plannedDate;
   final DateTime? scheduledTime;
+  final DateTime? plannedDate;
   final String? foodId;
   final String? recipeId;
   final int? targetCalories;
   final double? quantityG;
+  final String? origin;
 
   AddItemRequest({
     required this.mealType,
-    this.plannedDate,
     this.scheduledTime,
+    this.plannedDate,
     this.foodId,
     this.recipeId,
     this.targetCalories,
     this.quantityG,
+    this.origin,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (plannedDate != null) 'plannedDate': _dateOnly(plannedDate!),
-      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
+      if (scheduledTime != null)
+        'scheduledTime': scheduledTime!.toIso8601String(),
+      if (plannedDate != null) 'plannedDate': _dateOnlyFmt(plannedDate!),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
+      if (origin != null) 'origin': origin,
     };
   }
 
-  static String _dateOnly(DateTime date) {
+  static String _dateOnlyFmt(DateTime date) {
     return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  static String _timeOnly(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:00';
   }
 
   CreateItemRequest toCreateItemRequest() {
@@ -271,19 +206,20 @@ class AddItemRequest {
       recipeId: recipeId,
       targetCalories: targetCalories,
       quantityG: quantityG,
+      origin: origin,
     );
   }
 }
 
 class ConvertToLogRequest {
-  final DateTime loggedAt;
+  final DateTime? loggedAt;
   final double? quantityG;
 
-  ConvertToLogRequest({required this.loggedAt, this.quantityG});
+  ConvertToLogRequest({this.loggedAt, this.quantityG});
 
   Map<String, dynamic> toJson() {
     return {
-      'loggedAt': loggedAt.toIso8601String(),
+      if (loggedAt != null) 'loggedAt': loggedAt!.toIso8601String(),
       if (quantityG != null) 'quantityG': quantityG,
     };
   }
@@ -317,6 +253,30 @@ enum ItemStatus {
         return ItemStatus.changed;
       default:
         return ItemStatus.planned;
+    }
+  }
+}
+
+/// Item origin enum - phân biệt nguồn tạo item
+enum ItemOrigin {
+  /// Item được tạo thủ công bởi user trong tab Kế hoạch
+  user('user'),
+
+  /// Item được tạo tự động bởi AI Gym Goals trong tab Mục tiêu
+  gym('gym');
+
+  final String value;
+  const ItemOrigin(this.value);
+
+  static ItemOrigin? fromString(String? value) {
+    if (value == null) return null;
+    switch (value.toLowerCase()) {
+      case 'user':
+        return ItemOrigin.user;
+      case 'gym':
+        return ItemOrigin.gym;
+      default:
+        return null;
     }
   }
 }
@@ -406,5 +366,84 @@ enum MealType {
 
   int getCaloriesTarget(int totalCalories) {
     return (totalCalories * caloriesRatio).round();
+  }
+}
+
+/// Office scan meal request for saving scanned meals
+class OfficeScanMealRequest {
+  final String customName;
+  final String mealType;
+  final DateTime plannedDate;
+  final DateTime? scheduledTime;
+  final double quantityG;
+  final double caloriesKcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final DateTime? loggedAt;
+  final bool replaceExisting;
+  final List<OfficeScanIngredientRequest> ingredients;
+
+  OfficeScanMealRequest({
+    required this.customName,
+    required this.mealType,
+    required this.plannedDate,
+    this.scheduledTime,
+    required this.quantityG,
+    required this.caloriesKcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+    this.loggedAt,
+    this.replaceExisting = false,
+    this.ingredients = const [],
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'customName': customName,
+      'mealType': mealType,
+      'plannedDate': _dateOnly(plannedDate),
+      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
+      'quantityG': quantityG,
+      'caloriesKcal': caloriesKcal,
+      'proteinG': proteinG,
+      'carbsG': carbsG,
+      'fatG': fatG,
+      if (loggedAt != null) 'loggedAt': loggedAt!.toIso8601String(),
+      'replaceExisting': replaceExisting,
+      'ingredients': ingredients.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  static String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _timeOnly(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+}
+
+/// Office scan ingredient request
+class OfficeScanIngredientRequest {
+  final String name;
+  final double quantity;
+  final String unit;
+  final bool isAvailable;
+
+  OfficeScanIngredientRequest({
+    required this.name,
+    required this.quantity,
+    this.unit = 'g',
+    this.isAvailable = true,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'quantity': quantity,
+      'unit': unit,
+      'isAvailable': isAvailable,
+    };
   }
 }

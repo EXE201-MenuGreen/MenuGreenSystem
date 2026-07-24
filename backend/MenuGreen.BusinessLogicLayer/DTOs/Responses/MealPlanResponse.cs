@@ -17,6 +17,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int TotalProteinG { get; set; }
         public int TotalCarbsG { get; set; }
         public int TotalFatG { get; set; }
+        public int? TargetProteinG { get; set; }
+        public int? TargetCarbsG { get; set; }
+        public int? TargetFatG { get; set; }
         public List<MealPlanItemResponse> Items { get; set; } = new();
     }
 }

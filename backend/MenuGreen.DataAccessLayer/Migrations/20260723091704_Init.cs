@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -68,7 +68,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     DefaultServingG = table.Column<int>(type: "integer", nullable: true),
                     ImageUrl = table.Column<string>(type: "text", nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Region = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -601,6 +602,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     HeightCm = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     WeightKg = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     BodyFatPercent = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
+                    TargetWeightKg = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
                     ActivityLevel = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Goal = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Bmi = table.Column<decimal>(type: "numeric(5,2)", nullable: true),
@@ -1190,8 +1192,16 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     PlannedDate = table.Column<DateOnly>(type: "date", nullable: true),
                     ScheduledTime = table.Column<TimeOnly>(type: "time without time zone", nullable: true),
                     TargetCalories = table.Column<int>(type: "integer", nullable: true),
+                    QuantityG = table.Column<decimal>(type: "numeric", nullable: true),
+                    ProteinG = table.Column<decimal>(type: "numeric", nullable: true),
+                    CarbsG = table.Column<decimal>(type: "numeric", nullable: true),
+                    FatG = table.Column<decimal>(type: "numeric", nullable: true),
+                    SourceType = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    CustomName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    IngredientSnapshotJson = table.Column<string>(type: "jsonb", nullable: true),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Origin = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1224,7 +1234,14 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     MealTemplateId = table.Column<Guid>(type: "uuid", nullable: false),
                     FoodId = table.Column<Guid>(type: "uuid", nullable: true),
                     RecipeId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CustomName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    SourceType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     QuantityG = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    CaloriesKcal = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    ProteinG = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    CarbsG = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    FatG = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    IngredientSnapshotJson = table.Column<string>(type: "jsonb", nullable: true),
                     Notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     SortOrder = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -1282,6 +1299,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     IsCheckedIn = table.Column<bool>(type: "boolean", nullable: false),
                     WeightKg = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
                     BodyFatPercent = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    ChestCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    WaistCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    HipCm = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    RewardPoints = table.Column<int>(type: "integer", nullable: false),
+                    BadgeName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     CheckInDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     UnlockedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -1385,6 +1407,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     CarbsG = table.Column<decimal>(type: "numeric", nullable: true),
                     FatG = table.Column<decimal>(type: "numeric", nullable: true),
                     SourceType = table.Column<string>(type: "text", nullable: true),
+                    CustomName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     Notes = table.Column<string>(type: "text", nullable: true),
                     LoggedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     MealPlanItemId = table.Column<Guid>(type: "uuid", nullable: true),
@@ -1616,9 +1639,44 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_foods_Category",
+                table: "foods",
+                column: "Category");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_foods_IsActive",
+                table: "foods",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_foods_NameVi",
+                table: "foods",
+                column: "NameVi");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_foods_Region",
+                table: "foods",
+                column: "Region");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_goal_drift_alerts_UserId",
                 table: "goal_drift_alerts",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ingredients_Category",
+                table: "ingredients",
+                column: "Category");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ingredients_IsActive",
+                table: "ingredients",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ingredients_NameVi",
+                table: "ingredients",
+                column: "NameVi");
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_log_substitutions_MealLogId",
@@ -1641,6 +1699,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 column: "FoodId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_meal_logs_LoggedAt",
+                table: "meal_logs",
+                column: "LoggedAt");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_meal_logs_MealPlanItemId",
                 table: "meal_logs",
                 column: "MealPlanItemId",
@@ -1656,6 +1719,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 name: "IX_meal_logs_UserId",
                 table: "meal_logs",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_meal_logs_UserId_LoggedAt",
+                table: "meal_logs",
+                columns: new[] { "UserId", "LoggedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_plan_headers_PlanType",
@@ -1701,6 +1769,11 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 name: "IX_meal_plan_items_MealType",
                 table: "meal_plan_items",
                 column: "MealType");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_meal_plan_items_Origin",
+                table: "meal_plan_items",
+                column: "Origin");
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_plan_items_PlannedDate",
@@ -1805,9 +1878,29 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 column: "RecipeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_recipes_CreatedAt",
+                table: "recipes",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_recipes_Difficulty",
+                table: "recipes",
+                column: "Difficulty");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_recipes_FoodId",
                 table: "recipes",
                 column: "FoodId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_recipes_IsActive",
+                table: "recipes",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_recipes_MealType",
+                table: "recipes",
+                column: "MealType");
 
             migrationBuilder.CreateIndex(
                 name: "IX_recommendation_feedbacks_RecommendationId",

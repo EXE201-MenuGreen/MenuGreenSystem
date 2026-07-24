@@ -18,6 +18,12 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.ImageUrl).HasColumnType("text");
             builder.Property(x => x.VideoUrl).HasColumnType("text");
             builder.HasOne(x => x.Food).WithMany(x => x.Recipes).HasForeignKey(x => x.FoodId);
+
+            // Add indexes for frequently queried columns (performance optimization)
+            builder.HasIndex(x => x.MealType);
+            builder.HasIndex(x => x.IsActive);
+            builder.HasIndex(x => x.CreatedAt);
+            builder.HasIndex(x => x.Difficulty);
         }
     }
 }

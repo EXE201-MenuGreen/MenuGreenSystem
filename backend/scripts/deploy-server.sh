@@ -507,6 +507,78 @@ fi
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
 
+echo "=== Check / Seed EF Migration History ==="
+DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
+echo "  DEBUG: DB_CONN_PRECHECK: ${DB_CONN_PRECHECK:0:80}..."
+
+if [ -n "$DB_CONN_PRECHECK" ]; then
+  # Parse connection string - support multiple formats
+  # Format 1: Host=xxx;Database=xxx;Username=xxx;Password=xxx (ADO.NET style)
+  # Format 2: postgres://user:pass@host:5432/dbname (URL style)
+  
+  # Try URL format first (postgres://...)
+  if echo "$DB_CONN_PRECHECK" | grep -q '://'; then
+    echo "  DEBUG: Detected URL format connection string"
+    # Extract from URL: postgres://user:pass@host:5432/dbname
+    DB_USER_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*://([^:]+):.*|\1|')
+    DB_PASS_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
+    DB_HOST_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*@([^:]+):.*|\1|')
+    DB_PORT_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*:[0-9]+/([^/]+).*|\1|' | sed 's|/.*||')  # wrong but we'll fix
+    # Fix port extraction
+    DB_PORT_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*:[0-9]+/.*|\0|' | grep -oP '(?<=:)\d+(?=/)' || echo "5432")
+    # Fix database extraction
+    DB_NAME_PRECHECK=$(echo "$DB_CONN_PRECHECK" | sed -E 's|.*/([^/?]+)(\?.*)?$|\1|')
+    PGPASSWORD_PRECHECK="$DB_PASS_PRECHECK"
+  else
+    echo "  DEBUG: Detected Key=Value format connection string"
+    # ADO.NET style: Host=xxx;Database=xxx;Username=xxx;Password=xxx
+    PGPASSWORD_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
+    DB_HOST_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Host=\K[^;]+' || true)
+    DB_USER_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP '(Username|User Id)=\K[^;]+' || true)
+    DB_NAME_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Database=\K[^;]+' || true)
+    DB_PORT_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Port=\K[^;]+' || echo "5432")
+  fi
+  
+  echo "  DEBUG: Parsed - Host=$DB_HOST_PRECHECK, DB=$DB_NAME_PRECHECK, User=$DB_USER_PRECHECK, Port=$DB_PORT_PRECHECK"
+  
+  if [ -n "$DB_HOST_PRECHECK" ] && [ -n "$DB_NAME_PRECHECK" ] && [ -n "$DB_USER_PRECHECK" ]; then
+    # Check if __EFMigrationsHistory table exists
+    TABLE_EXISTS=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__EFMigrationsHistory');" 2>&1 || echo "f")
+    echo "  DEBUG: __EFMigrationsHistory exists: $TABLE_EXISTS"
+    
+    MIGRATION_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>&1 || echo "0")
+    MIGRATION_COUNT=$(echo "$MIGRATION_COUNT" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo "0")
+    echo "  Found $MIGRATION_COUNT migration(s) in history"
+    
+    # If __EFMigrationsHistory is empty but tables exist (existing DB),
+    # seed it with the baseline migration name so EF skips table creation
+    if [ "$MIGRATION_COUNT" = "0" ]; then
+      echo "  Database has no migration history. Checking if tables exist..."
+      TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT LIKE '%_%_indexes' AND table_name NOT LIKE '__EFMigrationsHistory' AND table_name != 'spatial_ref_sys';" 2>&1 | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo "0")
+      echo "  Found $TABLE_COUNT tables in database"
+      
+      if [ "$TABLE_COUNT" -gt "10" ]; then
+        echo "  Seeding __EFMigrationsHistory with baseline migration..."
+        SEED_RESULT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723091704_Init', '8.0.11');" 2>&1)
+        if [ $? -eq 0 ]; then
+          echo "  ✓ Baseline migration seeded. EF will skip table creation."
+        else
+          echo "  ! Seed failed: $SEED_RESULT"
+        fi
+      else
+        echo "  No tables found. EF will create all tables on startup."
+      fi
+    else
+      echo "  Migration history exists ($MIGRATION_COUNT records). EF will apply delta migrations only."
+    fi
+  else
+    echo "  ! Could not parse DB connection details from .env"
+    echo "  ! User=$DB_USER_PRECHECK, Host=$DB_HOST_PRECHECK, DB=$DB_NAME_PRECHECK"
+  fi
+else
+  echo "  ! DB connection string not found in .env file"
+fi
+
 echo "=== Stop and remove all existing containers ==="
 docker compose -f "$APP_DIR/docker-compose.prod.yml" down --remove-orphans 2>/dev/null || true
 docker stop menugreen_api 2>/dev/null || true

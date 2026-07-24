@@ -561,9 +561,6 @@ frontend/android/app/GeneratedPluginRegistrant.java
 AGENT_BACKEND.md
 AGENTS_FRONTEND.md
 
-# Local Entity Framework migration files
-backend/MenuGreen.DataAccessLayer/Migrations/*.cs
-
 # Local custom exclusions
 .vscode/launch.json
 **/menugreen-*-firebase-adminsdk-*.json

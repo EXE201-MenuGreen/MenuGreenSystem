@@ -33,18 +33,63 @@ namespace MenuGreen.BusinessLogicLayer.Services
             CompleteOnboardingRequest? request = null
         )
         {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId)
+                ?? throw new Exception("User not found.");
+            var roleName = (await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId))
+                .FirstOrDefault()?.Name ?? string.Empty;
+            var isCoach = string.Equals(roleName, "Coach", StringComparison.OrdinalIgnoreCase);
+
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(h =>
                 h.UserId == userId
             );
-            var health =
-                healthProfiles.FirstOrDefault()
-                ?? throw new Exception(
-                    "Please complete health profile before finishing onboarding."
-                );
+            var health = healthProfiles.FirstOrDefault();
 
-            if (!health.HeightCm.HasValue || !health.WeightKg.HasValue)
+            // Coach/PT không cần health baseline — auto tạo placeholder nếu thiếu.
+            if (health == null)
+            {
+                if (!isCoach)
+                {
+                    throw new Exception(
+                        "Please complete health profile before finishing onboarding."
+                    );
+                }
+                health = new MenuGreen.DataAccessLayer.Entities.HealthProfile
+                {
+                    UserId = userId,
+                    HeightCm = 170,
+                    WeightKg = 65,
+                    ActivityLevel = "sedentary",
+                    Goal = "maintain weight",
+                    TargetCalories = 2000,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                };
+                await _unitOfWork.HealthProfiles.AddAsync(health);
+                await _unitOfWork.CompleteAsync();
+            }
+            else if (!isCoach &&
+                (!health.HeightCm.HasValue || !health.WeightKg.HasValue))
             {
                 throw new Exception("Height and weight are required.");
+            }
+            else if (!health.HeightCm.HasValue || !health.WeightKg.HasValue)
+            {
+                health.HeightCm ??= 170;
+                health.WeightKg ??= 65;
+                health.ActivityLevel = string.IsNullOrWhiteSpace(health.ActivityLevel)
+                    ? "sedentary"
+                    : health.ActivityLevel;
+                health.Goal = string.IsNullOrWhiteSpace(health.Goal)
+                    ? "maintain weight"
+                    : health.Goal;
+                if (health.TargetCalories == null || health.TargetCalories <= 0)
+                {
+                    health.TargetCalories = 2000;
+                }
+                HealthProfileMetricsCalculator.ApplyMacroTargets(health);
+                health.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.HealthProfiles.Update(health);
+                await _unitOfWork.CompleteAsync();
             }
 
             // The Office journey starts with a conservative activity baseline and

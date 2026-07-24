@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
@@ -15,8 +16,6 @@ import 'meal_plan_detail_screen.dart';
 import 'create_meal_plan_screen.dart';
 import 'meal_plan_stats_screen.dart';
 import 'meal_plan_calendar_screen.dart';
-import '../../discover/views/food_detail_screen.dart';
-import '../../discover/views/recipe_detail_screen.dart';
 
 /// Filter enum for history tab
 enum PlanFilter { all, active, completed }
@@ -30,23 +29,13 @@ class MealPlanScreen extends StatefulWidget {
   State<MealPlanScreen> createState() => _MealPlanScreenState();
 }
 
-class _MealPlanScreenState extends State<MealPlanScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _MealPlanScreenState extends State<MealPlanScreen> {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MealPlanProvider>().loadAllForHome();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
@@ -66,17 +55,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             tooltip: 'Thống kê',
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Hôm nay'),
-            Tab(text: 'Tất cả'),
-            Tab(text: 'Lịch sử'),
-          ],
-        ),
       ),
       body: Consumer<MealPlanProvider>(
         builder: (context, provider, child) {
@@ -84,30 +62,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             return const Center(child: CircularProgressIndicator());
           }
 
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _TodayTab(provider: provider),
-              _AllPlansTab(provider: provider),
-              _HistoryTab(provider: provider),
-            ],
-          );
+          return _TodayTab(provider: provider);
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createPlan(context),
-        icon: const Icon(Icons.add, color: Colors.white, size: 20),
-        label: Text(
-          'Tạo kế hoạch',
-          style: GoogleFonts.beVietnamPro(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 6,
       ),
     );
   }
@@ -125,19 +81,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       MaterialPageRoute(builder: (_) => const MealPlanStatsScreen()),
     );
   }
-
-  void _createPlan(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-    ).then((_) {
-      if (!context.mounted) return;
-      context.read<MealPlanProvider>().loadAllForHome();
-    });
-  }
 }
 
-/// Tab hôm nay - Dashboard
+/// Màn tổng quan chung: hôm nay + các kế hoạch đã tạo.
 class _TodayTab extends StatelessWidget {
   const _TodayTab({required this.provider});
 
@@ -151,8 +97,14 @@ class _TodayTab extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () => provider.loadAllForHome(),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          if (provider.error != null) ...[
+            _buildErrorBanner(context),
+            const SizedBox(height: 16),
+          ],
+
           // Header with streak
           if (streaks != null && streaks.currentStreak > 0) ...[
             StreakWidget(
@@ -172,7 +124,9 @@ class _TodayTab extends StatelessWidget {
             carbsTarget: dashboard?.plannedCarbs ?? 200,
             fat: dashboard?.actualFat ?? 0,
             fatTarget: dashboard?.plannedFat ?? 60,
-            onTap: () => _showTodayDetails(context, dashboard),
+            completedMeals: dashboard?.completedMeals ?? 0,
+            totalMeals: dashboard?.totalMeals ?? 0,
+            onTap: () => _openStats(context),
           ),
           const SizedBox(height: 24),
 
@@ -191,10 +145,19 @@ class _TodayTab extends StatelessWidget {
             'Chưa có kế hoạch cho hôm nay',
           ),
 
+          const SizedBox(height: 20),
+
+          _buildCreatePlanCta(context),
+
+          const SizedBox(height: 28),
+
+          _AllPlansTab(provider: provider),
+
           const SizedBox(height: 24),
 
           // Quick actions
           _buildQuickActions(context),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -218,10 +181,7 @@ class _TodayTab extends StatelessWidget {
           ),
         ),
         if (onSeeAll != null)
-          TextButton(
-            onPressed: onSeeAll,
-            child: const Text('Xem tất cả'),
-          ),
+          TextButton(onPressed: onSeeAll, child: const Text('Xem tất cả')),
       ],
     );
   }
@@ -231,13 +191,20 @@ class _TodayTab extends StatelessWidget {
     List<MealPlanItemDetail> items,
     String emptyMessage,
   ) {
-    if (items.isEmpty) {
+    // CHỈ hiển thị items có origin = 'user' HOẶC origin = null (backward compatible).
+    // Items có origin = 'gym' thuộc về tab Mục tiêu (GymGoalsScreen).
+    final userItems = items.where((item) {
+      final origin = item.origin?.toLowerCase();
+      return origin == null || origin.isEmpty || origin == 'user';
+    }).toList();
+
+    if (userItems.isEmpty) {
       return _buildEmptyState(context, emptyMessage);
     }
 
     // Group by meal type
     final grouped = <MealType, List<MealPlanItemDetail>>{};
-    for (final item in items) {
+    for (final item in userItems) {
       final mealType = MealType.fromString(item.mealType);
       grouped.putIfAbsent(mealType, () => []).add(item);
     }
@@ -252,7 +219,7 @@ class _TodayTab extends StatelessWidget {
               onAddItem: () => _addMeal(context, mealType),
               onTapItem: (item) => _openItemDetail(context, item),
               onLogAll: () => _logAllMeal(context, grouped[mealType]!),
-              onMarkItemDone: (item) => _markItemDone(context, item),
+              onMarkItemDone: (item) => _toggleItemCompletion(context, item),
               onConvertToLog: (item) => _convertItemToLog(context, item),
               onEditItem: (item) => _editItem(context, item),
               onDeleteItem: (item) => _deleteItem(context, item),
@@ -272,11 +239,7 @@ class _TodayTab extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.restaurant_menu,
-            size: 48,
-            color: AppColors.textSecondary,
-          ),
+          Icon(Icons.restaurant_menu, size: 48, color: AppColors.textSecondary),
           const SizedBox(height: 12),
           Text(
             message,
@@ -286,29 +249,101 @@ class _TodayTab extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => _createPlan(context),
-            icon: const Icon(Icons.add, color: Colors.white, size: 20),
-            label: Text(
-              'Tạo kế hoạch',
-              style: GoogleFonts.beVietnamPro(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tạo kế hoạch dinh dưỡng bên dưới để bắt đầu.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: AppColors.textLight),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreatePlanCta(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Tạo kế hoạch dinh dưỡng mới',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.22),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _createPlan(context),
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tạo kế hoạch dinh dưỡng',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Lên thực đơn theo ngày hoặc trọn tuần mới',
+                          style: TextStyle(
+                            color: Color(0xFFD8F3DC),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -375,7 +410,9 @@ class _TodayTab extends StatelessWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(item != null ? 'Đã thêm món' : 'Không thể thêm món'),
+              content: Text(
+                item != null ? 'Đã thêm món' : 'Không thể thêm món',
+              ),
             ),
           );
         }
@@ -398,24 +435,18 @@ class _TodayTab extends StatelessWidget {
   }
 
   void _openItemDetail(BuildContext context, MealPlanItemDetail item) {
-    if (item.foodId != null && item.foodId!.isNotEmpty) {
+    if (item.foodId != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => FoodDetailScreen(foodId: item.foodId!),
         ),
       );
-    } else if (item.recipeId != null && item.recipeId!.isNotEmpty) {
+    } else if (item.recipeId != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Món "${item.displayName}" không có trang chi tiết.'),
         ),
       );
     }
@@ -426,7 +457,9 @@ class _TodayTab extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Ghi nhận ăn uống'),
-        content: Text('Chuyển "${item.displayName}" thành bản ghi ăn uống thực tế?'),
+        content: Text(
+          'Chuyển "${item.displayName}" thành bản ghi ăn uống thực tế?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -441,10 +474,7 @@ class _TodayTab extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      final request = ConvertToLogRequest(
-        loggedAt: DateTime.now(),
-        quantityG: null,
-      );
+      final request = ConvertToLogRequest(quantityG: null);
 
       // Find plan ID from item or provider
       final planId = item.mealPlanId ?? provider.plans.firstOrNull?.id;
@@ -466,7 +496,11 @@ class _TodayTab extends StatelessWidget {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result?.message ?? provider.error ?? 'Không thể ghi nhận')),
+            SnackBar(
+              content: Text(
+                result?.message ?? provider.error ?? 'Không thể ghi nhận',
+              ),
+            ),
           );
         }
       }
@@ -476,9 +510,9 @@ class _TodayTab extends StatelessWidget {
   void _editItem(BuildContext context, MealPlanItemDetail item) {
     final planId = item.mealPlanId ?? provider.plans.firstOrNull?.id;
     if (planId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không tìm thấy kế hoạch')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Không tìm thấy kế hoạch')));
       return;
     }
 
@@ -492,13 +526,35 @@ class _TodayTab extends StatelessWidget {
     );
   }
 
-  void _markItemDone(BuildContext context, MealPlanItemDetail item) async {
+  void _toggleItemCompletion(
+    BuildContext context,
+    MealPlanItemDetail item,
+  ) async {
     HapticFeedback.mediumImpact();
-    await provider.markItemDone(item.mealPlanId ?? '', item.id);
+    final success = await provider.toggleItemCompletion(item.id, !item.isDone);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã hoàn thành "${item.displayName}"')),
-      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              item.isDone
+                  ? 'Đã hủy đánh dấu ăn "${item.displayName}"'
+                  : 'Đã hoàn thành "${item.displayName}"',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              provider.error != null && provider.error!.isNotEmpty
+                  ? provider.error!
+                  : 'Không thể cập nhật',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -544,189 +600,46 @@ class _TodayTab extends StatelessWidget {
 
   void _logAllMeal(BuildContext context, List<MealPlanItemDetail> items) async {
     HapticFeedback.mediumImpact();
-    for (final item in items.where((i) => !i.isDone)) {
-      await provider.markItemDone(item.mealPlanId ?? '', item.id);
-    }
+    final pendingCount = items.where((item) => !item.isDone).length;
+    final completedCount = await provider.completeItems(items);
     if (context.mounted) {
+      final failedCount = pendingCount - completedCount;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã log ${items.length} món')),
-      );
-    }
-  }
-
-  void _showTodayDetails(BuildContext context, MealPlanDayDashboard? dashboard) {
-    if (dashboard == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có dữ liệu dinh dưỡng hôm nay')),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Chi tiết dinh dưỡng hôm nay',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Bám sát ${dashboard.adherencePercent.toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildNutritionDetailRow(
-                'Năng lượng (Calo)',
-                '${dashboard.actualCalories} / ${dashboard.plannedCalories} kcal',
-                dashboard.plannedCalories > 0
-                    ? dashboard.actualCalories / dashboard.plannedCalories
-                    : 0,
-                Colors.orange,
-              ),
-              const SizedBox(height: 14),
-              _buildNutritionDetailRow(
-                'Chất đạm (Protein)',
-                '${dashboard.actualProtein} / ${dashboard.plannedProtein} g',
-                dashboard.plannedProtein > 0
-                    ? dashboard.actualProtein / dashboard.plannedProtein
-                    : 0,
-                Colors.blue,
-              ),
-              const SizedBox(height: 14),
-              _buildNutritionDetailRow(
-                'Chất bột đường (Carbs)',
-                '${dashboard.actualCarbs} / ${dashboard.plannedCarbs} g',
-                dashboard.plannedCarbs > 0
-                    ? dashboard.actualCarbs / dashboard.plannedCarbs
-                    : 0,
-                Colors.amber.shade700,
-              ),
-              const SizedBox(height: 14),
-              _buildNutritionDetailRow(
-                'Chất béo (Fat)',
-                '${dashboard.actualFat} / ${dashboard.plannedFat} g',
-                dashboard.plannedFat > 0
-                    ? dashboard.actualFat / dashboard.plannedFat
-                    : 0,
-                Colors.redAccent,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Column(
-                      children: [
-                        const Text('Bữa đã hoàn thành',
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${dashboard.completedMeals} / ${dashboard.totalMeals}',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    Container(height: 30, width: 1, color: Colors.grey.shade300),
-                    Column(
-                      children: [
-                        const Text('Tổng món đã lên lịch',
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${dashboard.plannedItems.length} món',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+        SnackBar(
+          content: Text(
+            failedCount == 0
+                ? 'Đã ghi nhận $completedCount món'
+                : 'Đã ghi nhận $completedCount món, $failedCount món chưa thành công',
           ),
-        );
-      },
-    );
+        ),
+      );
+    }
   }
 
-  Widget _buildNutritionDetailRow(
-      String label, String value, double progress, Color color) {
-    final clampedProgress = progress.clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        LinearProgressIndicator(
-          value: clampedProgress,
-          backgroundColor: color.withValues(alpha: 0.15),
-          color: color,
-          minHeight: 8,
-          borderRadius: BorderRadius.circular(4),
-        ),
-      ],
+  Widget _buildErrorBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Colors.orange),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Một số dữ liệu chưa tải được. Bạn có thể thử lại.',
+              style: TextStyle(fontSize: 12, color: AppColors.textDark),
+            ),
+          ),
+          TextButton(
+            onPressed: provider.loadAllForHome,
+            child: const Text('Thử lại'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -734,7 +647,10 @@ class _TodayTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-    );
+    ).then((_) {
+      if (!context.mounted) return;
+      provider.loadAllForHome();
+    });
   }
 
   void _openCalendar(BuildContext context) {
@@ -752,7 +668,7 @@ class _TodayTab extends StatelessWidget {
   }
 }
 
-/// Tab tất cả - List plans
+/// Danh sách kế hoạch được gộp vào màn tổng quan.
 class _AllPlansTab extends StatefulWidget {
   const _AllPlansTab({required this.provider});
 
@@ -766,71 +682,71 @@ class _AllPlansTabState extends State<_AllPlansTab> {
   PlanFilter _currentFilter = PlanFilter.all;
 
   List<MealPlanListItem> get _filteredPlans {
-    final plans = widget.provider.plans;
-    switch (_currentFilter) {
-      case PlanFilter.all:
-        return plans;
-      case PlanFilter.active:
-        return plans.where((p) => p.isActive).toList();
-      case PlanFilter.completed:
-        return plans.where((p) => !p.isActive).toList();
-    }
+    final plans = switch (_currentFilter) {
+      PlanFilter.all => widget.provider.plans.toList(),
+      PlanFilter.active =>
+        widget.provider.plans.where((p) => p.isActive).toList(),
+      PlanFilter.completed =>
+        widget.provider.plans.where((p) => !p.isActive).toList(),
+    };
+
+    plans.sort((a, b) {
+      if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
+      final aDate = a.startDate ?? DateTime(2000);
+      final bDate = b.startDate ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+    return plans;
   }
 
   @override
   Widget build(BuildContext context) {
     final plans = _filteredPlans;
 
-    if (plans.isEmpty) {
-      return Column(
-        children: [
-          _buildFilterHeader(),
-          Expanded(child: _buildEmptyState(context)),
-        ],
-      );
-    }
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildFilterHeader(),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => widget.provider.loadPlans(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: plans.length,
-              itemBuilder: (context, index) {
-                final plan = plans[index];
-                return _PlanCard(
-                  plan: plan,
-                  onTap: () => _openPlanDetail(context, plan),
-                  onDuplicate: () => _duplicatePlan(context, plan),
-                  onDelete: () => _deletePlan(context, plan),
-                );
-              },
-            ),
+        const Text(
+          'KẾ HOẠCH DINH DƯỠNG',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textSecondary,
+            letterSpacing: 1,
           ),
         ),
+        const SizedBox(height: 4),
+        const Text(
+          'Theo dõi kế hoạch tuần và những kế hoạch trước đây',
+          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 14),
+        _buildFilterHeader(),
+        const SizedBox(height: 14),
+        if (plans.isEmpty)
+          _buildEmptyState()
+        else
+          for (final plan in plans)
+            _PlanCard(
+              plan: plan,
+              onTap: () => _openPlanDetail(context, plan),
+              onDuplicate: () => _duplicatePlan(context, plan),
+              onDelete: () => _deletePlan(context, plan),
+            ),
       ],
     );
   }
 
   Widget _buildFilterHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildFilterChip(PlanFilter.all, 'Tất cả', widget.provider.plans.length),
+          _buildFilterChip(
+            PlanFilter.all,
+            'Tất cả',
+            widget.provider.plans.length,
+          ),
           const SizedBox(width: 8),
           _buildFilterChip(
             PlanFilter.active,
@@ -850,340 +766,22 @@ class _AllPlansTabState extends State<_AllPlansTab> {
 
   Widget _buildFilterChip(PlanFilter filter, String label, int count) {
     final isSelected = _currentFilter == filter;
-    return GestureDetector(
-      onTap: () => setState(() => _currentFilter = filter),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary
-              : AppColors.progressBackground.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.progressBackground,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : AppColors.textSecondary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+    return ChoiceChip(
+      selected: isSelected,
+      onSelected: (_) => setState(() => _currentFilter = filter),
+      showCheckmark: false,
+      selectedColor: AppColors.primary,
+      backgroundColor: AppColors.progressBackground.withValues(alpha: 0.45),
+      side: BorderSide(
+        color: isSelected ? AppColors.primary : AppColors.progressBackground,
       ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    String message;
-    IconData icon;
-
-    switch (_currentFilter) {
-      case PlanFilter.all:
-        message = 'Chưa có kế hoạch nào\nTạo kế hoạch đầu tiên!';
-        icon = Icons.calendar_today_outlined;
-        break;
-      case PlanFilter.active:
-        message = 'Không có kế hoạch đang hoạt động';
-        icon = Icons.play_circle_outline;
-        break;
-      case PlanFilter.completed:
-        message = 'Không có kế hoạch đã kết thúc';
-        icon = Icons.check_circle_outline;
-        break;
-    }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          if (_currentFilter == PlanFilter.all) ...[
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _createPlan(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Tạo kế hoạch đầu tiên'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _openPlanDetail(BuildContext context, MealPlanListItem plan) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MealPlanDetailScreen(planId: plan.id),
-      ),
-    );
-  }
-
-  void _duplicatePlan(BuildContext context, MealPlanListItem plan) async {
-    HapticFeedback.mediumImpact();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nhân bản kế hoạch'),
-        content: Text('Tạo bản sao của "${plan.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Nhân bản'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      final request = DuplicatePlanRequest(
-        newStartDate: DateTime.now(),
-        newEndDate: plan.endDate,
-      );
-
-      final newPlan = await widget.provider.duplicatePlan(plan.id, request);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              newPlan != null
-                  ? 'Đã nhân bản thành công'
-                  : 'Không thể nhân bản kế hoạch',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  void _deletePlan(BuildContext context, MealPlanListItem plan) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa kế hoạch'),
-        content: Text('Bạn có chắc muốn xóa "${plan.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      final success = await widget.provider.deletePlan(plan.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Đã xóa kế hoạch' : 'Không thể xóa kế hoạch'),
-          ),
-        );
-      }
-    }
-  }
-
-  void _createPlan(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-    ).then((_) => widget.provider.loadPlans());
-  }
-}
-
-/// Tab lịch sử
-class _HistoryTab extends StatefulWidget {
-  const _HistoryTab({required this.provider});
-
-  final MealPlanProvider provider;
-
-  @override
-  State<_HistoryTab> createState() => _HistoryTabState();
-}
-
-class _HistoryTabState extends State<_HistoryTab> {
-  PlanFilter _currentFilter = PlanFilter.all;
-
-  List<MealPlanListItem> get _filteredPlans {
-    final plans = widget.provider.plans;
-    switch (_currentFilter) {
-      case PlanFilter.all:
-        return plans;
-      case PlanFilter.active:
-        return plans.where((p) => p.isActive).toList();
-      case PlanFilter.completed:
-        return plans.where((p) => !p.isActive).toList();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final plans = _filteredPlans;
-    final completedPlans = widget.provider.plans.where((p) => !p.isActive).toList();
-
-    if (widget.provider.isLoading && widget.provider.plans.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      children: [
-        // Filter chips
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _buildFilterChip(PlanFilter.all, 'Tất cả', widget.provider.plans.length),
-              const SizedBox(width: 8),
-              _buildFilterChip(
-                PlanFilter.active,
-                'Đang hoạt động',
-                widget.provider.plans.where((p) => p.isActive).length,
-              ),
-              const SizedBox(width: 8),
-              _buildFilterChip(
-                PlanFilter.completed,
-                'Đã kết thúc',
-                completedPlans.length,
-              ),
-            ],
-          ),
-        ),
-
-        // Plans list
-        Expanded(
-          child: plans.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: () => widget.provider.loadPlans(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: plans.length,
-                    itemBuilder: (context, index) {
-                      final plan = plans[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _PlanCard(
-                          plan: plan,
-                          onTap: () => _viewPlan(context, plan),
-                          onDuplicate: () => _duplicatePlan(context, plan),
-                          onDelete: () => _deletePlan(context, plan),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFilterChip(PlanFilter filter, String label, int count) {
-    final isSelected = _currentFilter == filter;
-    return GestureDetector(
-      onTap: () => setState(() => _currentFilter = filter),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.progressBackground.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.progressBackground,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : AppColors.textSecondary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      label: Text(
+        '$label${count > 0 ? '  $count' : ''}',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isSelected ? Colors.white : AppColors.textSecondary,
         ),
       ),
     );
@@ -1192,10 +790,10 @@ class _HistoryTabState extends State<_HistoryTab> {
   Widget _buildEmptyState() {
     String message;
     IconData icon;
-    
+
     switch (_currentFilter) {
       case PlanFilter.all:
-        message = 'Chưa có kế hoạch nào\nTạo kế hoạch đầu tiên của bạn!';
+        message = 'Chưa có kế hoạch nào';
         icon = Icons.calendar_today_outlined;
         break;
       case PlanFilter.active:
@@ -1208,12 +806,22 @@ class _HistoryTabState extends State<_HistoryTab> {
         break;
     }
 
-    return Center(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      decoration: BoxDecoration(
+        color: AppColors.progressBackground.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.progressBackground),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
-          const SizedBox(height: 16),
+          Icon(
+            icon,
+            size: 40,
+            color: AppColors.textSecondary.withValues(alpha: 0.55),
+          ),
+          const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -1228,15 +836,11 @@ class _HistoryTabState extends State<_HistoryTab> {
     );
   }
 
-  void _viewPlan(BuildContext context, MealPlanListItem plan) {
+  void _openPlanDetail(BuildContext context, MealPlanListItem plan) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => MealPlanDetailScreen(planId: plan.id),
-      ),
-    ).then((_) {
-      widget.provider.loadPlans();
-    });
+      MaterialPageRoute(builder: (_) => MealPlanDetailScreen(planId: plan.id)),
+    ).then((_) => widget.provider.loadAllForHome());
   }
 
   void _duplicatePlan(BuildContext context, MealPlanListItem plan) async {
@@ -1285,8 +889,10 @@ class _HistoryTabState extends State<_HistoryTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa kế hoạch'),
-        content: Text('Bạn có chắc muốn xóa "${plan.title}"?'),
+        title: const Text('Kết thúc kế hoạch'),
+        content: Text(
+          'Kế hoạch "${plan.title}" sẽ được chuyển vào nhóm đã kết thúc.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1295,17 +901,21 @@ class _HistoryTabState extends State<_HistoryTab> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: const Text('Kết thúc'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && context.mounted) {
       final success = await widget.provider.deletePlan(plan.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? 'Đã xóa kế hoạch' : 'Không thể xóa')),
+          SnackBar(
+            content: Text(
+              success ? 'Đã kết thúc kế hoạch' : 'Không thể kết thúc kế hoạch',
+            ),
+          ),
         );
       }
     }
@@ -1331,152 +941,355 @@ class _PlanCard extends StatelessWidget {
     final progress = plan.totalItems > 0
         ? plan.completedItems / plan.totalItems
         : 0.0;
+    final accent = plan.isActive ? AppColors.primary : AppColors.textSecondary;
+    final durationDays = _durationDays;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.progressBackground),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: plan.isActive ? const Color(0xFFF7FBF8) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: plan.isActive
+              ? AppColors.primary.withValues(alpha: 0.22)
+              : AppColors.progressBackground,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(_planIcon, color: accent, size: 26),
                     ),
-                    child: const Icon(
-                      Icons.restaurant_menu,
-                      color: AppColors.primary,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _buildBadge(
+                                _planTypeLabel,
+                                accent,
+                                filled: false,
+                              ),
+                              _buildBadge(
+                                plan.isActive ? 'Đang áp dụng' : 'Đã kết thúc',
+                                plan.isActive
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                filled: true,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            plan.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              height: 1.25,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          if (plan.dateRangeText.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.date_range_outlined,
+                                  size: 15,
+                                  color: AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    plan.dateRangeText,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plan.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
+                    PopupMenuButton<String>(
+                      tooltip: 'Tùy chọn kế hoạch',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'duplicate':
+                            onDuplicate?.call();
+                            break;
+                          case 'delete':
+                            onDelete?.call();
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'duplicate',
+                          child: Row(
+                            children: [
+                              Icon(Icons.copy_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text('Nhân bản'),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          plan.dateRangeText,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
+                        if (plan.isActive)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.archive_outlined,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Kết thúc',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'duplicate':
-                          onDuplicate?.call();
-                          break;
-                        case 'delete':
-                          onDelete?.call();
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'duplicate',
-                        child: Row(
-                          children: [
-                            Icon(Icons.copy, size: 18),
-                            SizedBox(width: 8),
-                            Text('Nhân bản'),
-                          ],
-                        ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PlanMetric(
+                        icon: Icons.local_fire_department_outlined,
+                        label: 'Mục tiêu mỗi ngày',
+                        value: (plan.targetCalories ?? 0) > 0
+                            ? '${plan.targetCalories} kcal'
+                            : 'Chưa thiết lập',
                       ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Xóa', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Progress bar
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${plan.completedItems}/${plan.totalItems} bữa',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              '${(progress * 100).toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: AppColors.progressBackground,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
-                            ),
-                            minHeight: 6,
-                          ),
-                        ),
-                      ],
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _PlanMetric(
+                        icon: Icons.calendar_view_week_outlined,
+                        label: 'Thời lượng',
+                        value: durationDays > 0
+                            ? '$durationDays ngày'
+                            : 'Linh hoạt',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      plan.totalItems > 0
+                          ? '${plan.completedItems}/${plan.totalItems} món đã ăn'
+                          : 'Chưa có món trong kế hoạch',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: AppColors.progressBackground,
+                    valueColor: AlwaysStoppedAnimation<Color>(accent),
+                    minHeight: 8,
                   ),
-                ],
-              ),
-              // Streak badge
-              if (plan.currentStreak > 0) ...[
-                const SizedBox(height: 12),
-                StreakWidget(
-                  currentStreak: plan.currentStreak,
-                  size: 'small',
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (plan.currentStreak > 0)
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.local_fire_department,
+                            size: 17,
+                            color: Colors.orange,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${plan.currentStreak} ngày liên tiếp',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      const Text(
+                        'Xem chi tiết kế hoạch',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    const Spacer(),
+                    Icon(Icons.arrow_forward_rounded, color: accent, size: 20),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String label, Color color, {required bool filled}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: filled ? color : color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: filled ? null : Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: filled ? Colors.white : color,
+        ),
+      ),
+    );
+  }
+
+  String get _planTypeLabel {
+    switch ((plan.planType ?? '').toLowerCase()) {
+      case 'daily':
+        return 'Kế hoạch ngày';
+      case 'custom':
+        return 'Kế hoạch tùy chỉnh';
+      default:
+        return 'Kế hoạch tuần';
+    }
+  }
+
+  IconData get _planIcon {
+    switch ((plan.planType ?? '').toLowerCase()) {
+      case 'daily':
+        return Icons.today_outlined;
+      case 'custom':
+        return Icons.tune_rounded;
+      default:
+        return Icons.calendar_view_week_rounded;
+    }
+  }
+
+  int get _durationDays {
+    final start = plan.startDate;
+    final end = plan.endDate;
+    if (start == null || end == null || end.isBefore(start)) return 0;
+    return end.difference(start).inDays + 1;
+  }
+}
+
+class _PlanMetric extends StatelessWidget {
+  const _PlanMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.progressBackground),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

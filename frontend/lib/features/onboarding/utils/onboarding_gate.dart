@@ -25,28 +25,6 @@ class OnboardingGate {
     if (_sessionComplete == true) return true;
 
     try {
-      final completion = await _profileRepository
-          .getMyCompletion()
-          .timeout(const Duration(seconds: 12));
-      if (completion != null) {
-        final isCompleted = completion['isCompleted'] ?? completion['IsCompleted'];
-        final missingSteps = completion['missingSteps'] ?? completion['MissingSteps'];
-        final nextStep = completion['nextStep'] ?? completion['NextStep'];
-        debugPrint('[OnboardingGate] completion=$completion');
-        final done = isCompleted == true;
-        if (done) _sessionComplete = true;
-        if (!done) {
-          debugPrint(
-            '[OnboardingGate] Missing steps: $missingSteps | NextStep: $nextStep',
-          );
-        }
-        return done;
-      }
-    } catch (e) {
-      debugPrint('[OnboardingGate] completion API failed: $e');
-    }
-
-    try {
       final profile = await _profileRepository
           .getMyProfile()
           .timeout(const Duration(seconds: 12));
@@ -54,11 +32,22 @@ class OnboardingGate {
         debugPrint('[OnboardingGate] Profile API returned null — allowing MainScreen');
         return true;
       }
+      // Coach / PT không cần thu thập thông tin onboarding của user (health baseline, calorie goal, ...)
+      if (_isCoachRole(profile)) {
+        debugPrint('[OnboardingGate] Role is Coach — skipping onboarding');
+        _sessionComplete = true;
+        return true;
+      }
       return _isProfileOnboardingComplete(profile);
     } catch (e) {
       debugPrint('[OnboardingGate] profile API failed: $e — allowing MainScreen');
       return true;
     }
+  }
+
+  static bool _isCoachRole(Map<String, dynamic> profile) {
+    final role = (profile['role'] ?? profile['Role'])?.toString().trim().toLowerCase();
+    return role == 'coach' || role == 'pt' || role == 'trainer';
   }
 
   static bool _isProfileOnboardingComplete(Map<String, dynamic>? profile) {

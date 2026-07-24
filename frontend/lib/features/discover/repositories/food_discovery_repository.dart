@@ -1,14 +1,18 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/middleware/logging_middleware.dart';
 import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/food_models.dart';
 
 class FoodDiscoveryRepository {
-  FoodDiscoveryRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  FoodDiscoveryRepository({ApiClient? apiClient})
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
+  static const String _favStorageKey = 'user_favorite_foods_cache';
 
   Future<List<FoodItem>> searchFoods({
     String? keyword,
@@ -21,11 +25,14 @@ class FoodDiscoveryRepository {
         if (QueryMiddleware.normalizeKeyword(keyword) != null)
           'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
-        if (filters?.minCalories != null) 'minCalories': '${filters!.minCalories}',
-        if (filters?.maxCalories != null) 'maxCalories': '${filters!.maxCalories}',
+        if (filters?.minCalories != null)
+          'minCalories': '${filters!.minCalories}',
+        if (filters?.maxCalories != null)
+          'maxCalories': '${filters!.maxCalories}',
         if (filters?.proteinLevel != null && filters!.proteinLevel!.isNotEmpty)
           'proteinLevel': filters.proteinLevel!,
-        if (filters?.maxPriceVnd != null) 'maxPriceVnd': '${filters!.maxPriceVnd}',
+        if (filters?.maxPriceVnd != null)
+          'maxPriceVnd': '${filters!.maxPriceVnd}',
         if (filters?.category != null && filters!.category!.trim().isNotEmpty)
           'category': filters.category!.trim(),
         if (region != null && region.isNotEmpty) 'region': region,
@@ -38,19 +45,25 @@ class FoodDiscoveryRepository {
       if (decoded is! Map<String, dynamic>) return [];
       final items = decoded['items'] ?? decoded['Items'];
       if (items is! List) return [];
-      return items.whereType<Map<String, dynamic>>().map(FoodItem.fromJson).toList();
-    } catch (_) {
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(FoodItem.fromJson)
+          .toList();
+    } catch (e, stack) {
+      AppLogger.error('FoodDiscoveryRepository.searchFoods', e, stack);
       return [];
     }
   }
 
-  Future<FoodItem?> getFoodById(String id, {String allergyMode = 'warn'}) async {
+  Future<FoodItem?> getFoodById(
+    String id, {
+    String allergyMode = 'warn',
+  }) async {
     try {
       final response = await _api.get(
-        QueryMiddleware.buildUrl(
-          ApiEndpoints.foodById(id),
-          {'allergyMode': allergyMode},
-        ),
+        QueryMiddleware.buildUrl(ApiEndpoints.foodById(id), {
+          'allergyMode': allergyMode,
+        }),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
@@ -67,7 +80,10 @@ class FoodDiscoveryRepository {
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
       if (decoded is! List) return [];
-      return decoded.whereType<Map<String, dynamic>>().map(RecipeItem.fromJson).toList();
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(RecipeItem.fromJson)
+          .toList();
     } catch (_) {
       return [];
     }
@@ -90,19 +106,25 @@ class FoodDiscoveryRepository {
       if (decoded is! Map<String, dynamic>) return [];
       final items = decoded['items'] ?? decoded['Items'];
       if (items is! List) return [];
-      return items.whereType<Map<String, dynamic>>().map(RecipeItem.fromJson).toList();
-    } catch (_) {
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(RecipeItem.fromJson)
+          .toList();
+    } catch (e, stack) {
+      AppLogger.error('FoodDiscoveryRepository.searchRecipes', e, stack);
       return [];
     }
   }
 
-  Future<RecipeItem?> getRecipeById(String id, {String allergyMode = 'warn'}) async {
+  Future<RecipeItem?> getRecipeById(
+    String id, {
+    String allergyMode = 'warn',
+  }) async {
     try {
       final response = await _api.get(
-        QueryMiddleware.buildUrl(
-          ApiEndpoints.recipeById(id),
-          {'allergyMode': allergyMode},
-        ),
+        QueryMiddleware.buildUrl(ApiEndpoints.recipeById(id), {
+          'allergyMode': allergyMode,
+        }),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
@@ -114,33 +136,88 @@ class FoodDiscoveryRepository {
   }
 
   Future<List<FavoriteFoodItem>> getFavorites() async {
+    final List<FavoriteFoodItem> result = [];
+    final Set<String> existingIds = {};
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_favStorageKey) ?? [];
+      for (final s in raw) {
+        final map = jsonDecode(s);
+        if (map is Map<String, dynamic>) {
+          final item = FavoriteFoodItem.fromJson(map);
+          if (existingIds.add(item.foodId)) {
+            result.add(item);
+          }
+        }
+      }
+    } catch (_) {}
+
     try {
       final response = await _api.get(ApiEndpoints.foodFavorites);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List) return [];
-      return decoded.whereType<Map<String, dynamic>>().map(FavoriteFoodItem.fromJson).toList();
-    } catch (_) {
-      return [];
-    }
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          for (final raw in decoded.whereType<Map<String, dynamic>>()) {
+            final item = FavoriteFoodItem.fromJson(raw);
+            if (existingIds.add(item.foodId)) {
+              result.add(item);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return result;
+  }
+
+  Future<bool> saveFavoriteItem(FavoriteFoodItem item) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_favStorageKey) ?? [];
+      list.removeWhere((s) {
+        try {
+          final map = jsonDecode(s);
+          return map['foodId'] == item.foodId;
+        } catch (_) {
+          return false;
+        }
+      });
+      list.insert(0, jsonEncode(item.toJson()));
+      await prefs.setStringList(_favStorageKey, list);
+    } catch (_) {}
+
+    try {
+      await _api.postJson(ApiEndpoints.foodFavorite(item.foodId), {});
+    } catch (_) {}
+    return true;
   }
 
   Future<bool> addFavorite(String foodId) async {
-    try {
-      final response = await _api.postJson(ApiEndpoints.foodFavorite(foodId), {});
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+    return saveFavoriteItem(
+      FavoriteFoodItem(foodId: foodId, nameVi: 'Món ăn yêu thích'),
+    );
   }
 
   Future<bool> removeFavorite(String foodId) async {
     try {
-      final response = await _api.delete(ApiEndpoints.foodFavorite(foodId));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_favStorageKey) ?? [];
+      list.removeWhere((s) {
+        try {
+          final map = jsonDecode(s);
+          return map['foodId'] == foodId;
+        } catch (_) {
+          return false;
+        }
+      });
+      await prefs.setStringList(_favStorageKey, list);
+    } catch (_) {}
+
+    try {
+      await _api.delete(ApiEndpoints.foodFavorite(foodId));
+    } catch (_) {}
+    return true;
   }
 
   Future<List<IngredientItem>> searchIngredients({
@@ -153,26 +230,34 @@ class FoodDiscoveryRepository {
           'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
       };
-      final url = QueryMiddleware.buildUrl(ApiEndpoints.ingredientSearch, params);
+      final url = QueryMiddleware.buildUrl(
+        ApiEndpoints.ingredientSearch,
+        params,
+      );
       final response = await _api.get(url);
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return [];
       final items = decoded['items'] ?? decoded['Items'];
       if (items is! List) return [];
-      return items.whereType<Map<String, dynamic>>().map(IngredientItem.fromJson).toList();
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(IngredientItem.fromJson)
+          .toList();
     } catch (_) {
       return [];
     }
   }
 
-  Future<IngredientItem?> getIngredientById(String id, {String allergyMode = 'warn'}) async {
+  Future<IngredientItem?> getIngredientById(
+    String id, {
+    String allergyMode = 'warn',
+  }) async {
     try {
       final response = await _api.get(
-        QueryMiddleware.buildUrl(
-          ApiEndpoints.ingredientById(id),
-          {'allergyMode': allergyMode},
-        ),
+        QueryMiddleware.buildUrl(ApiEndpoints.ingredientById(id), {
+          'allergyMode': allergyMode,
+        }),
       );
       if (response.statusCode != 200 || response.body.isEmpty) return null;
       final decoded = jsonDecode(response.body);
@@ -183,9 +268,13 @@ class FoodDiscoveryRepository {
     }
   }
 
-  Future<List<IngredientRecipeLink>> getIngredientRecipes(String ingredientId) async {
+  Future<List<IngredientRecipeLink>> getIngredientRecipes(
+    String ingredientId,
+  ) async {
     try {
-      final response = await _api.get(ApiEndpoints.ingredientRecipes(ingredientId));
+      final response = await _api.get(
+        ApiEndpoints.ingredientRecipes(ingredientId),
+      );
       if (response.statusCode != 200 || response.body.isEmpty) return [];
       final decoded = jsonDecode(response.body);
       if (decoded is! List) return [];
@@ -206,8 +295,8 @@ class FoodDiscoveryRepository {
         final decoded = jsonDecode(response.body);
         if (decoded is List) {
           final hasActive = decoded.whereType<Map<String, dynamic>>().any(
-                (row) => (row['isActive'] ?? row['IsActive']) == true,
-              );
+            (row) => (row['isActive'] ?? row['IsActive']) == true,
+          );
           if (hasActive) return true;
         }
       }

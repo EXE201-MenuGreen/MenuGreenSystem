@@ -8,8 +8,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
 {
     public interface IMealPlanService
     {
-        Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null);
-        Task<MealPlanResponse> GetByIdAsync(Guid id);
+        Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null);
+        Task<MealPlanResponse> GetByIdAsync(Guid id, Guid? userId = null);
         Task<MealPlanResponse> CreateAsync(MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> UpdateAsync(Guid id, MealPlanUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> CreateEmptyAsync(CreateEmptyPlanRequest request, Guid? userId = null);
@@ -18,10 +18,12 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<MealPlanDistributionResponse> DistributeAsync(Guid id, string targetAudience, string? notes = null, Guid? userId = null);
         Task<MealPlanResponse> AddItemAsync(Guid planId, MealPlanItemUpsertRequest request, Guid? userId = null);
         Task<MealPlanResponse> UpdateItemAsync(Guid planId, Guid itemId, MealPlanItemUpsertRequest request, Guid? userId = null);
+        Task<MealPlanResponse> ReplaceItemAsync(Guid planId, Guid itemId, MealPlanItemReplaceRequest request, Guid userId);
         Task DeleteItemAsync(Guid planId, Guid itemId, Guid? userId = null);
         Task<MealPlanResponse> UpdateItemStatusAsync(Guid planId, Guid itemId, MealPlanStatusRequest request, Guid? userId = null);
         Task<MealLogResponse> ConvertItemToLogAsync(Guid planId, Guid itemId, MealPlanConvertToLogRequest request, Guid? userId = null);
         Task<OfficeScanMealResponse> SaveOfficeScanMealAsync(Guid planId, OfficeScanMealRequest request, Guid userId);
+        Task<MealPlanItemResponse> SaveOfficeScanPlanItemAsync(Guid planId, OfficeScanMealRequest request, Guid userId, bool isPriorityLunch);
         Task<MealPlanResponse> CommitAsync(Guid planId, MealPlanCommitRequest request, Guid? userId = null);
         Task<MealPlanResponse> DuplicateAsync(Guid planId, MealPlanDuplicateRequest request, Guid? userId = null);
         Task<MealPlanDashboardResponse> GetDashboardAsync(DateOnly date, Guid? userId = null);

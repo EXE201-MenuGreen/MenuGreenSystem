@@ -18,13 +18,15 @@ import 'recipe_detail_screen.dart';
 import 'recommendation_screen.dart';
 
 class DiscoverView extends StatefulWidget {
-  const DiscoverView({super.key});
+  final bool isStandalone;
+  const DiscoverView({super.key, this.isStandalone = false});
 
   @override
   State<DiscoverView> createState() => DiscoverViewState();
 }
 
-class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderStateMixin {
+class DiscoverViewState extends State<DiscoverView>
+    with SingleTickerProviderStateMixin {
   final _repository = FoodDiscoveryRepository();
   final _keywordController = TextEditingController();
   late final TabController _tabController;
@@ -89,7 +91,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   Future<void> refreshAllergyStatus() async {
     _allergiesCached = null;
     try {
-      final hasAllergies = await _repository.hasAllergiesConfigured().timeout(const Duration(seconds: 15));
+      final hasAllergies = await _repository.hasAllergiesConfigured().timeout(
+        const Duration(seconds: 15),
+      );
       if (!mounted) return;
       if (hasAllergies) _allergiesCached = true;
       setState(() => _hasAllergies = hasAllergies);
@@ -100,13 +104,18 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   String get _effectiveAllergyMode => _safeOnly ? 'hide' : _allergyMode;
 
-  String? get _keyword => _keywordController.text.trim().isEmpty ? null : _keywordController.text.trim();
+  String? get _keyword => _keywordController.text.trim().isEmpty
+      ? null
+      : _keywordController.text.trim();
 
   Future<void> _load({bool initial = false}) async {
     await _reloadLists(initial: initial, checkAllergy: true);
   }
 
-  Future<void> _reloadLists({bool initial = false, bool checkAllergy = false}) async {
+  Future<void> _reloadLists({
+    bool initial = false,
+    bool checkAllergy = false,
+  }) async {
     final gen = ++_loadGeneration;
     if (!mounted) return;
     setState(() {
@@ -122,7 +131,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
     try {
       if (checkAllergy || _allergiesCached != true) {
-        final hasAllergies = await _repository.hasAllergiesConfigured().timeout(const Duration(seconds: 15));
+        final hasAllergies = await _repository.hasAllergiesConfigured().timeout(
+          const Duration(seconds: 15),
+        );
         if (!mounted || gen != _loadGeneration) return;
         if (hasAllergies) _allergiesCached = true;
         setState(() => _hasAllergies = hasAllergies);
@@ -184,7 +195,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     final wasFavorite = _favoriteFoodIds.contains(food.id);
     setState(() => _favoriteBusyIds.add(food.id));
 
-    final ok = wasFavorite ? await _repository.removeFavorite(food.id) : await _repository.addFavorite(food.id);
+    final ok = wasFavorite
+        ? await _repository.removeFavorite(food.id)
+        : await _repository.addFavorite(food.id);
     if (!mounted) return;
 
     setState(() {
@@ -216,7 +229,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FoodDetailScreen(foodId: food.id, allergyMode: _effectiveAllergyMode),
+        builder: (_) => FoodDetailScreen(
+          foodId: food.id,
+          allergyMode: _effectiveAllergyMode,
+        ),
       ),
     );
     if (mounted) await _refreshFavorites();
@@ -252,7 +268,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     setState(() => _ingredientsLoading = true);
     try {
       final items = await _repository
-          .searchIngredients(keyword: _keyword, allergyMode: _effectiveAllergyMode)
+          .searchIngredients(
+            keyword: _keyword,
+            allergyMode: _effectiveAllergyMode,
+          )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
@@ -271,14 +290,20 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   }
 
   Future<void> _openFoodFilters() async {
-    final result = await showDiscoverFoodFiltersSheet(context, initial: _foodFilters);
+    final result = await showDiscoverFoodFiltersSheet(
+      context,
+      initial: _foodFilters,
+    );
     if (result == null || !mounted) return;
     setState(() => _foodFilters = result);
     _scheduleReload();
   }
 
   Future<void> _openAllergies() async {
-    final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const AllergiesScreen()));
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AllergiesScreen()),
+    );
     if (changed == true) {
       _allergiesCached = null;
       _scheduleReload(checkAllergy: true);
@@ -306,7 +331,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
       if (mounted) {
         final displayName = LocationService.getRegionDisplayName(region);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã định vị vùng hiện tại: $displayName'), duration: const Duration(seconds: 2)),
+          SnackBar(
+            content: Text('Đã định vị vùng hiện tại: $displayName'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
@@ -337,26 +365,54 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
+                  if (widget.isStandalone)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.textDark,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   const Expanded(
                     child: Text(
                       'Khám phá',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
                     ),
                   ),
                   IconButton(
                     tooltip: 'Gợi ý cá nhân hóa',
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const RecommendationScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RecommendationScreen(),
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.auto_awesome,
+                      color: AppColors.primary,
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Món yêu thích',
                     onPressed: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FavoritesScreen(),
+                        ),
+                      );
                       if (mounted) await _refreshFavorites();
                     },
-                    icon: const Icon(Icons.favorite_border, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.favorite_border,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ],
               ),
@@ -376,8 +432,13 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                       _scheduleReload();
                     },
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 0,
+                  ),
                 ),
                 onSubmitted: (_) => _scheduleReload(),
               ),
@@ -385,81 +446,101 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    FilterChip(
-                      avatar: Icon(
-                        _safeOnly ? Icons.verified : Icons.verified_outlined,
-                        size: 18,
-                        color: _safeOnly ? Colors.white : AppColors.primary,
-                      ),
-                      label: const Text('An toàn dị ứng'),
-                      selected: _safeOnly,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: _safeOnly ? Colors.white : AppColors.textDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onSelected: (selected) {
-                        setState(() => _safeOnly = selected);
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  FilterChip(
+                    label: const Text('Chỉ món an toàn'),
+                    selected: _safeOnly,
+                    onSelected: (v) {
+                      setState(() => _safeOnly = v);
+                      _scheduleReload();
+                    },
+                  ),
+                  InputChip(
+                    avatar: _detectingLocation
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : Icon(
+                            _detectedRegion != null
+                                ? Icons.my_location
+                                : Icons.location_searching,
+                            size: 16,
+                            color: _detectedRegion != null
+                                ? AppColors.primary
+                                : null,
+                          ),
+                    label: Text(
+                      _detectedRegion != null
+                          ? 'Miền ${LocationService.getRegionDisplayName(_detectedRegion!)}'
+                          : 'Quét vị trí',
+                    ),
+                    selected: _detectedRegion != null,
+                    onSelected: (selected) {
+                      if (selected) {
+                        _scanLocation();
+                      } else {
+                        setState(() => _detectedRegion = null);
                         _scheduleReload();
-                      },
+                      }
+                    },
+                    onDeleted: _detectedRegion != null
+                        ? () {
+                            setState(() => _detectedRegion = null);
+                            _scheduleReload();
+                          }
+                        : null,
+                  ),
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.map_rounded,
+                      size: 18,
+                      color: AppColors.primary,
                     ),
-                    const SizedBox(width: 8),
-                    InputChip(
-                      avatar: _detectingLocation
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.my_location, size: 18),
-                      label: Text(
-                        _detectedRegion != null
-                            ? 'Miền ${LocationService.getRegionDisplayName(_detectedRegion!)}'
-                            : 'Quét vị trí',
-                      ),
-                      selected: _detectedRegion != null,
-                      onSelected: (selected) {
-                        if (selected) {
-                          _scanLocation();
-                        } else {
-                          setState(() => _detectedRegion = null);
-                          _scheduleReload();
-                        }
-                      },
-                      onDeleted: _detectedRegion != null
-                          ? () {
-                              setState(() => _detectedRegion = null);
-                              _scheduleReload();
-                            }
-                          : null,
+                    label: const Text('Bản đồ món 🗺️'),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              FoodMapScreen(initialKeyword: _keyword),
+                        ),
+                      );
+                    },
+                  ),
+                  ActionChip(
+                    avatar: Icon(
+                      Icons.tune,
+                      size: 18,
+                      color: _foodFilters.hasAny ? AppColors.primary : null,
                     ),
-                    ActionChip(
-                      avatar: const Icon(Icons.map_rounded, size: 18, color: AppColors.primary),
-                      label: const Text('Bản đồ món 🗺️'),
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => FoodMapScreen(initialKeyword: _keyword)),
-                        );
-                      },
+                    label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
+                    onPressed: _openFoodFilters,
+                  ),
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.medical_information_outlined,
+                      size: 18,
                     ),
-                    ActionChip(
-                      avatar: Icon(Icons.tune, size: 18, color: _foodFilters.hasAny ? AppColors.primary : null),
-                      label: Text(_foodFilters.hasAny ? 'Đã lọc' : 'Lọc món'),
-                      onPressed: _openFoodFilters,
-                    ),
-                    TextButton.icon(
-                      onPressed: _openAllergies,
-                      icon: const Icon(Icons.medical_information_outlined, size: 18),
-                      label: const Text('Dị ứng'),
-                    ),
-                    TextButton(
-                      onPressed: _refreshing ? null : () => _reloadLists(checkAllergy: false),
-                      child: const Text('Tải lại'),
-                    ),
-                  ],
-                ),
+                    label: const Text('Dị ứng'),
+                    onPressed: _openAllergies,
+                  ),
+                  ActionChip(
+                    label: const Text('Tải lại'),
+                    onPressed: _refreshing
+                        ? null
+                        : () => _reloadLists(checkAllergy: false),
+                  ),
+                ],
               ),
             ),
             TabBar(
@@ -473,15 +554,27 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                 Tab(text: 'Nguyên liệu'),
               ],
             ),
-            if (_refreshing) const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+            if (_refreshing)
+              const LinearProgressIndicator(
+                minHeight: 2,
+                color: AppColors.primary,
+              ),
             Expanded(
               child: _initialLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
                   : _error != null && _foods.isEmpty
                   ? _buildError()
                   : TabBarView(
                       controller: _tabController,
-                      children: [_buildFoodList(), _buildRecipeList(), _buildIngredientList()],
+                      children: [
+                        _buildFoodList(),
+                        _buildRecipeList(),
+                        _buildIngredientList(),
+                      ],
                     ),
             ),
             const Padding(
@@ -563,7 +656,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   Widget _buildRecipeList() {
     if (_recipesLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_recipes.isEmpty) {
       return const Center(child: Text('Không có công thức phù hợp.'));
@@ -579,7 +674,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          title: Text(recipe.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            recipe.title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -607,7 +705,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => RecipeDetailScreen(recipeId: recipe.id, allergyMode: _effectiveAllergyMode),
+                builder: (_) => RecipeDetailScreen(
+                  recipeId: recipe.id,
+                  allergyMode: _effectiveAllergyMode,
+                ),
               ),
             );
           },
@@ -618,7 +719,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   Widget _buildIngredientList() {
     if (_ingredientsLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_ingredients.isEmpty) {
       return const Center(child: Text('Không có nguyên liệu phù hợp.'));
@@ -634,14 +737,18 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          title: Text(item.nameVi, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            item.nameVi,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 [
                   if (item.category != null) item.category!,
-                  if (item.caloriesKcal != null) '${item.caloriesKcal!.round()} kcal',
+                  if (item.caloriesKcal != null)
+                    '${item.caloriesKcal!.round()} kcal',
                   if (item.unitDefault != null) item.unitDefault!,
                 ].join(' · '),
               ),
@@ -663,7 +770,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => IngredientDetailScreen(ingredientId: item.id, allergyMode: _effectiveAllergyMode),
+                builder: (_) => IngredientDetailScreen(
+                  ingredientId: item.id,
+                  allergyMode: _effectiveAllergyMode,
+                ),
               ),
             );
           },
@@ -695,12 +805,17 @@ class _FoodListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      title: Text(food.nameVi, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        food.nameVi,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (food.caloriesKcal != null)
-            Text('${food.caloriesKcal!.round()} kcal · ${food.proteinG?.round() ?? 0}g đạm'),
+            Text(
+              '${food.caloriesKcal!.round()} kcal · ${food.proteinG?.round() ?? 0}g đạm',
+            ),
           if (food.matchedAllergens.isNotEmpty)
             Text(
               'Trùng: ${food.matchedAllergens.join(', ')}',
@@ -718,12 +833,17 @@ class _FoodListTile extends StatelessWidget {
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
               ),
             )
           else
             IconButton(
-              tooltip: isFavorite ? 'Bỏ khỏi mục yêu thích' : 'Thêm vào mục yêu thích',
+              tooltip: isFavorite
+                  ? 'Bỏ khỏi mục yêu thích'
+                  : 'Thêm vào mục yêu thích',
               onPressed: onFavorite,
               icon: Icon(
                 isFavorite ? Icons.favorite : Icons.favorite_border,
