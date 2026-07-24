@@ -190,6 +190,8 @@ class MealPlanItemDetail {
   final int? fatG;
   final double? quantityG;
   final int? estimatedPriceVnd;
+  final String? customName;
+
   /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
   /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
   final String? origin;
@@ -214,6 +216,7 @@ class MealPlanItemDetail {
     this.fatG,
     this.quantityG,
     this.estimatedPriceVnd,
+    this.customName,
     this.origin,
   });
 
@@ -243,13 +246,16 @@ class MealPlanItemDetail {
                   json['quantity'] ??
                   json['Quantity'])
               ?.toDouble(),
-      estimatedPriceVnd: _int(json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd']),
+      estimatedPriceVnd: _int(
+        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'],
+      ),
+      customName: (json['customName'] ?? json['CustomName'])?.toString(),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
 
   String get displayName {
-    final name = (foodName ?? recipeName ?? '').trim();
+    final name = (foodName ?? recipeName ?? customName ?? '').trim();
     return name.isNotEmpty ? name : 'M?n trong k? ho?ch';
   }
 

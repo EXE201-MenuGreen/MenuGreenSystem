@@ -34,7 +34,14 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> GetAdherence([FromQuery] DateOnly date)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            return Ok(await _service.GetAdherenceAsync(userId, date));
+            try
+            {
+                return Ok(await _service.GetAdherenceAsync(userId, date));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         [HttpPost]
