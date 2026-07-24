@@ -75,6 +75,10 @@ class ApiEndpoints {
       '$baseUrl/Recipe/$id/ingredients';
   static String mealPlanScanMeals(String planId) =>
       '$baseUrl/MealPlan/$planId/scan-meals';
+  static String mealPlanScanPlanItems(String planId) =>
+      '$baseUrl/MealPlan/$planId/scan-plan-items';
+  static String mealPlanPriorityLunch(String planId) =>
+      '$baseUrl/MealPlan/$planId/priority-lunch';
   static String get ingredientSearch => '$baseUrl/Ingredient/search';
   static String ingredientById(String id) => '$baseUrl/Ingredient/$id';
   static String ingredientRecipes(String id) =>
@@ -141,8 +145,6 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/$planId/duplicate';
   static String mealPlanBudgetStatus(String planId) =>
       '$baseUrl/MealPlan/$planId/budget-status';
-  static String mealPlanSaveOfficeScan(String planId) =>
-      '$baseUrl/MealPlan/$planId/save-office-scan';
   static String mealPlanReplaceItem(String planId, String itemId) =>
       '$baseUrl/MealPlan/$planId/items/$itemId/replace';
   static String get mealPlanDashboard => '$baseUrl/MealPlan/dashboard';

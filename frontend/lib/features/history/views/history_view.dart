@@ -672,91 +672,103 @@ class HistoryViewState extends State<HistoryView> {
   @override
   Widget build(BuildContext context) {
     final sections = _sections;
+    final isStandalone = ModalRoute.of(context)?.canPop ?? false;
 
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCalendar(),
-                  const SizedBox(height: 16),
-                  DashboardRangeSelector(
-                    selected: _dashboardRange,
-                    onChanged: _onDashboardRangeChanged,
-                  ),
-                  const SizedBox(height: 16),
-                  DailySummaryCard(
-                    summary: _effectiveSummary,
-                    title: _summaryCardTitle,
-                    isAverage: _dashboardRange != DashboardRange.day,
-                  ),
-                  const SizedBox(height: 16),
-                  CalorieTrendChart(
-                    days: _dashboard?.days ?? [],
-                    selectedDate: _selectedDate,
-                    onDayTap: (date) => _selectDate(date),
-                  ),
-                  const SizedBox(height: 16),
-                  WeightTrendChart(logs: _dashboard?.weightLogs ?? []),
-                  const SizedBox(height: 16),
-                  WeightLogsList(
-                    logs: _dashboard?.weightLogs ?? [],
-                    onEdit: _editWeightLog,
-                    onDelete: _deleteWeightLog,
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Nhật ký bữa ăn',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: isStandalone
+          ? AppBar(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.textDark,
+              elevation: 0,
+              title: const Text('Lịch sử hoạt động'),
+            )
+          : null,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(isStandalone),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildCalendar(),
+                    const SizedBox(height: 16),
+                    DashboardRangeSelector(
+                      selected: _dashboardRange,
+                      onChanged: _onDashboardRangeChanged,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildSearchBar(),
-                  const SizedBox(height: 16),
-                  _buildFilterChips(),
-                  const SizedBox(height: 24),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Center(
-                        child: CircularProgressIndicator(color: AppColors.primary),
+                    const SizedBox(height: 16),
+                    DailySummaryCard(
+                      summary: _effectiveSummary,
+                      title: _summaryCardTitle,
+                      isAverage: _dashboardRange != DashboardRange.day,
+                    ),
+                    const SizedBox(height: 16),
+                    CalorieTrendChart(
+                      days: _dashboard?.days ?? [],
+                      selectedDate: _selectedDate,
+                      onDayTap: (date) => _selectDate(date),
+                    ),
+                    const SizedBox(height: 16),
+                    WeightTrendChart(logs: _dashboard?.weightLogs ?? []),
+                    const SizedBox(height: 16),
+                    WeightLogsList(
+                      logs: _dashboard?.weightLogs ?? [],
+                      onEdit: _editWeightLog,
+                      onDelete: _deleteWeightLog,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Nhật ký bữa ăn',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
                       ),
-                    )
-                  else if (sections.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ...sections.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final section = entry.value;
-                      final isLast = index == sections.length - 1;
-                      return _TimelineSectionWidget(
-                        section: section,
-                        showLineBelow: !isLast,
-                        onDeleteMeal: _deleteMealLog,
-                        onEditMeal: _editMealLog,
-                        onOpenDetail: _openMealDetail,
-                        onCreateTemplate: _createTemplateFromLog,
-                      );
-                    }),
-                ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildSearchBar(),
+                    const SizedBox(height: 16),
+                    _buildFilterChips(),
+                    const SizedBox(height: 24),
+                    if (_loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
+                      )
+                    else if (sections.isEmpty)
+                      _buildEmptyState()
+                    else
+                      ...sections.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final section = entry.value;
+                        final isLast = index == sections.length - 1;
+                        return _TimelineSectionWidget(
+                          section: section,
+                          showLineBelow: !isLast,
+                          onDeleteMeal: _deleteMealLog,
+                          onEditMeal: _editMealLog,
+                          onOpenDetail: _openMealDetail,
+                          onCreateTemplate: _createTemplateFromLog,
+                        );
+                      }),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isStandalone) {
     final latestWeight = _dashboard?.weightLogs.isNotEmpty == true
         ? _dashboard!.weightLogs.last.weightKg
         : null;
@@ -768,14 +780,15 @@ class HistoryViewState extends State<HistoryView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Lịch sử hoạt động',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                if (!isStandalone)
+                  const Text(
+                    'Lịch sử hoạt động',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
                 if (latestWeight != null)
                   Text(
                     'Cân nặng gần nhất: ${latestWeight.toStringAsFixed(1)} kg',
@@ -1225,12 +1238,12 @@ class _MealCard extends StatelessWidget {
                         memCacheWidth: 56,
                         memCacheHeight: 56,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
+                        placeholder: (_, _) => Container(
                           width: 56,
                           height: 56,
                           color: Colors.grey[200],
                         ),
-                        errorWidget: (_, __, ___) => _imagePlaceholder(),
+                        errorWidget: (_, _, _) => _imagePlaceholder(),
                       )
                     : _imagePlaceholder(meal.isRecipe),
               ),

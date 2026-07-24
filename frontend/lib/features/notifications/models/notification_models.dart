@@ -1,3 +1,5 @@
+import '../../../core/i18n/api_message_translator.dart';
+
 enum NotificationType {
   mealReminder,
   prepReminder,
@@ -133,6 +135,11 @@ class AppNotification {
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()} tuần trước';
     return '${(diff.inDays / 30).floor()} tháng trước';
   }
+
+  String get displayTitle =>
+      ApiMessageTranslator.translateNotification(title);
+  String get displayBody =>
+      ApiMessageTranslator.translateNotification(body);
 }
 
 class NotificationAnalytics {

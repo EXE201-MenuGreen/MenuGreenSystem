@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../main/views/main_screen.dart';
-import '../../main/views/pt_main_screen.dart';
+import '../../coach/views/coach_main_screen.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../onboarding/views/onboarding_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
@@ -36,7 +36,7 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
       final profile = await ProfileRepository().getMyProfile()
           .timeout(const Duration(seconds: 8));
       final role = (profile?['role'] ?? '').toString().toLowerCase();
-      destination = role == 'coach' ? const PtMainScreen() : const MainScreen();
+      destination = role == 'coach' ? const CoachMainScreen() : const MainScreen();
     } catch (_) {
       destination = const MainScreen();
     }

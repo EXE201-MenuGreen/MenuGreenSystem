@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     /// <inheritdoc />
-    public partial class BaselineExistingDatabase : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
