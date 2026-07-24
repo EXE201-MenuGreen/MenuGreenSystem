@@ -1,0 +1,402 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.DataAccessLayer.Entities;
+using MenuGreen.DataAccessLayer.Interfaces;
+
+namespace MenuGreen.BusinessLogicLayer.Services
+{
+    /// <summary>
+    /// Coach-side weekly report service. Reads and writes
+    /// <see cref="PtReviewRequest"/>s created by connected Gymers, but
+    /// authenticates the caller via the <c>CoachConnection</c> table
+    /// (logged-in Coach user) instead of via a shared <c>ReviewToken</c>.
+    /// </summary>
+    public class CoachReviewService : ICoachReviewService
+    {
+        private static readonly JsonSerializerOptions JsonOpts = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        private readonly IUnitOfWork _unitOfWork;
+
+        public CoachReviewService(IUnitOfWork unitOfWork)
+        {
+            _unitOfWork = unitOfWork;
+        }
+
+        public async Task<IEnumerable<CoachReportSummary>> ListReportsAsync(
+            Guid coachId,
+            DateTime? weekStart,
+            string? month,
+            string? status,
+            Guid? clientId)
+        {
+            var connectedClientIds = await GetConnectedClientIdsAsync(coachId);
+            if (connectedClientIds.Count == 0)
+            {
+                return Array.Empty<CoachReportSummary>();
+            }
+
+            var scopedIds = clientId.HasValue && clientId.Value != Guid.Empty
+                ? new List<Guid> { clientId.Value }
+                : connectedClientIds;
+
+            // The connection scope and the requested client must overlap.
+            if (clientId.HasValue && !connectedClientIds.Contains(clientId.Value))
+            {
+                throw new UnauthorizedAccessException(
+                    "You do not have access to this student's reports.");
+            }
+
+            var requests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                scopedIds.Contains(r.UserId));
+
+            var filtered = requests.AsEnumerable();
+
+            if (weekStart.HasValue)
+            {
+                var ws = DateOnly.FromDateTime(weekStart.Value.Date);
+                filtered = filtered.Where(r => r.WeekStartDate == ws);
+            }
+            else if (!string.IsNullOrWhiteSpace(month))
+            {
+                if (DateTime.TryParse(month + "-01", out var monthStart))
+                {
+                    var ms = DateOnly.FromDateTime(monthStart);
+                    var me = ms.AddMonths(1).AddDays(-1);
+                    filtered = filtered.Where(r => r.WeekStartDate >= ms && r.WeekStartDate <= me);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var normalized = status.Trim();
+                filtered = filtered.Where(r =>
+                    string.Equals(r.Status, normalized, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var summaries = new List<CoachReportSummary>();
+            foreach (var req in filtered.OrderByDescending(r => r.CreatedAt))
+            {
+                var studentName = await GetStudentNameAsync(req.UserId);
+                var data = TryParseReportData(req.ReportDataJson);
+
+                summaries.Add(new CoachReportSummary
+                {
+                    ReportId = req.Id,
+                    ClientId = req.UserId,
+                    StudentName = studentName,
+                    WeekStartDate = req.WeekStartDate,
+                    WeekEndDate = req.WeekStartDate.AddDays(6),
+                    Status = req.Status,
+                    CreatedAt = req.CreatedAt,
+                    ReviewedAt = req.ReviewedAt,
+                    ActionedAt = req.ActionedAt,
+                    CheckInWeight = data?.CheckInWeight,
+                    TrainingDaysCount = data?.TrainingDaysCount,
+                    RequestType = data?.RequestType ?? "WeeklyReport"
+                });
+            }
+
+            return summaries;
+        }
+
+        public async Task<CoachReportDetailResponse> GetReportDetailAsync(
+            Guid coachId,
+            Guid reportId)
+        {
+            var req = await _unitOfWork.PtReviewRequests.GetByIdAsync(reportId)
+                ?? throw new Exception("Report not found.");
+
+            await EnsureConnectedAsync(coachId, req.UserId);
+
+            var studentName = await GetStudentNameAsync(req.UserId);
+            var reportData = TryParseReportData(req.ReportDataJson);
+            var suggestedChanges = TryParseSuggestedChanges(req.SuggestedChangesJson);
+
+            return new CoachReportDetailResponse
+            {
+                ReportId = req.Id,
+                ClientId = req.UserId,
+                StudentName = studentName,
+                WeekStartDate = req.WeekStartDate,
+                WeekEndDate = req.WeekStartDate.AddDays(6),
+                ExpiresAt = req.ExpiresAt,
+                Status = req.Status,
+                CreatedAt = req.CreatedAt,
+                PtComment = req.PtComment ?? string.Empty,
+                SuggestedCalorieTarget = req.SuggestedCalorieTarget,
+                SuggestedProteinTarget = req.SuggestedProteinTarget,
+                SuggestedChanges = suggestedChanges,
+                ReportData = reportData,
+                ReviewedAt = req.ReviewedAt,
+                ActionedAt = req.ActionedAt,
+                RequestType = reportData?.RequestType ?? "WeeklyReport",
+                CheckInWeight = reportData?.CheckInWeight,
+                CheckInBodyFat = reportData?.CheckInBodyFat,
+                TrainingDaysCount = reportData?.TrainingDaysCount,
+                BodyFeeling = reportData?.BodyFeeling,
+                StudentNote = reportData?.StudentNote
+            };
+        }
+
+        public async Task<CoachReportDetailResponse> SubmitReviewAsync(
+            Guid coachId,
+            Guid reportId,
+            PtSubmitCoachReviewRequest request)
+        {
+            var req = await _unitOfWork.PtReviewRequests.GetByIdAsync(reportId)
+                ?? throw new Exception("Report not found.");
+
+            await EnsureConnectedAsync(coachId, req.UserId);
+
+            if (req.Status != "Pending")
+            {
+                throw new Exception("This report has already been reviewed or closed.");
+            }
+
+            req.PtComment = request.Comment;
+            req.SuggestedCalorieTarget = request.SuggestedCalorieTarget;
+            req.SuggestedProteinTarget = request.SuggestedProteinTarget;
+
+            // Translate inline meal-plan adjustments into the standard
+            // PtSuggestedChangeDto shape so the existing Apply flow can pick
+            // them up later if the Gymer presses Apply, or they have already
+            // been pushed by ApplyInlineAdjustments below.
+            var changes = (request.AdjustMealPlanItems ?? new List<MealPlanAdjustmentItem>())
+                .Select(a => new PtSuggestedChangeDto
+                {
+                    DayOfWeek = a.PlannedDate.DayOfWeek.ToString(),
+                    MealType = a.MealType,
+                    Action = string.IsNullOrWhiteSpace(a.Action) ? "Replace" : a.Action,
+                    OldFoodId = null,
+                    NewFoodId = a.FoodId,
+                    NewRecipeId = a.RecipeId,
+                    Notes = null
+                })
+                .ToList();
+
+            req.SuggestedChangesJson = JsonSerializer.Serialize(changes, JsonOpts);
+            req.Status = "Reviewed";
+            req.ReviewedAt = DateTime.UtcNow;
+
+            _unitOfWork.PtReviewRequests.Update(req);
+            await _unitOfWork.CompleteAsync();
+
+            // Apply inline adjustments immediately so the Gymer sees the new
+            // plan without having to press Apply themselves.
+            if (request.AdjustMealPlanItems is { Count: > 0 })
+            {
+                await ApplyInlineAdjustmentsAsync(req.UserId, request.AdjustMealPlanItems);
+            }
+
+            return await GetReportDetailAsync(coachId, reportId);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Helpers
+        // ─────────────────────────────────────────────────────────────────────
+
+        private async Task<List<Guid>> GetConnectedClientIdsAsync(Guid coachId)
+        {
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.CoachId == coachId && c.Status == "Connected");
+            return connections.Select(c => c.ClientId).Distinct().ToList();
+        }
+
+        private async Task EnsureConnectedAsync(Guid coachId, Guid clientId)
+        {
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.CoachId == coachId
+                && c.ClientId == clientId
+                && c.Status == "Connected");
+            if (!connections.Any())
+            {
+                throw new UnauthorizedAccessException(
+                    "You do not have access to this student's reports.");
+            }
+        }
+
+        private async Task<string> GetStudentNameAsync(Guid clientId)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(clientId);
+            if (user == null) return "Student";
+            var profile = await _unitOfWork.Profiles.GetByIdAsync(clientId);
+            return profile?.FullName ?? user.Email ?? "Student";
+        }
+
+        private static WeeklyReportSnapshot? TryParseReportData(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                return JsonSerializer.Deserialize<WeeklyReportSnapshot>(json, JsonOpts);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static List<PtSuggestedChangeDto> TryParseSuggestedChanges(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return new();
+            try
+            {
+                return JsonSerializer.Deserialize<List<PtSuggestedChangeDto>>(json, JsonOpts)
+                    ?? new List<PtSuggestedChangeDto>();
+            }
+            catch
+            {
+                return new List<PtSuggestedChangeDto>();
+            }
+        }
+
+        /// <summary>
+        /// Pushes Coach inline meal-plan edits to the Gymer's actual meal plan.
+        /// Re-uses the same add / replace / remove semantics as the
+        /// token-based Apply flow but uses the exact <see cref="PlannedDate"/>
+        /// the Coach specified (no day-of-week translation needed).
+        /// </summary>
+        private async Task ApplyInlineAdjustmentsAsync(
+            Guid clientId,
+            List<MealPlanAdjustmentItem> adjustments)
+        {
+            foreach (var adj in adjustments)
+            {
+                var targetDate = adj.PlannedDate;
+                var mealType = NormalizeMealType(adj.MealType);
+                var action = (adj.Action ?? "Replace").Trim().ToLowerInvariant();
+
+                var plans = await _unitOfWork.MealPlanHeaders.FindAsync(h =>
+                    h.UserId == clientId
+                    && h.StartDate == targetDate
+                    && h.IsActive == true);
+                var planHeader = plans.OrderByDescending(h => h.UpdatedAt ?? h.CreatedAt).FirstOrDefault();
+
+                if (planHeader == null)
+                {
+                    planHeader = new MealPlanHeader
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = clientId,
+                        Title = $"Daily plan {targetDate:yyyy-MM-dd}",
+                        PlanType = "DAILY",
+                        StartDate = targetDate,
+                        EndDate = targetDate,
+                        TargetCalories = adj.TargetCalories ?? 2000,
+                        GeneratedBy = "PT_COACH_INLINE",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _unitOfWork.MealPlanHeaders.AddAsync(planHeader);
+                    await _unitOfWork.CompleteAsync();
+                }
+
+                var planItems = (await _unitOfWork.MealPlanItems.FindAsync(i =>
+                    i.MealPlanId == planHeader.Id)).ToList();
+
+                if (action == "remove")
+                {
+                    var target = planItems.FirstOrDefault(i =>
+                        NormalizeMealType(i.MealType ?? "") == mealType
+                        && (adj.ItemId == null || i.Id == adj.ItemId));
+                    if (target != null)
+                    {
+                        _unitOfWork.MealPlanItems.Remove(target);
+                    }
+                    continue;
+                }
+
+                if (action == "add" || action == "replace")
+                {
+                    var target = action == "replace"
+                        ? planItems.FirstOrDefault(i =>
+                            NormalizeMealType(i.MealType ?? "") == mealType
+                            && (adj.ItemId == null || i.Id == adj.ItemId))
+                        : null;
+
+                    if (target != null)
+                    {
+                        if (adj.FoodId.HasValue)
+                        {
+                            target.FoodId = adj.FoodId;
+                            target.RecipeId = null;
+                            var food = await _unitOfWork.Foods.GetByIdAsync(adj.FoodId.Value);
+                            if (food != null && food.CaloriesKcal.HasValue)
+                            {
+                                target.TargetCalories = (int?)food.CaloriesKcal.Value;
+                            }
+                        }
+                        else if (adj.RecipeId.HasValue)
+                        {
+                            target.RecipeId = adj.RecipeId;
+                            target.FoodId = null;
+                        }
+                        if (adj.TargetCalories.HasValue)
+                        {
+                            target.TargetCalories = adj.TargetCalories;
+                        }
+                        _unitOfWork.MealPlanItems.Update(target);
+                    }
+                    else
+                    {
+                        var newItem = new MealPlanItem
+                        {
+                            Id = Guid.NewGuid(),
+                            MealPlanId = planHeader.Id,
+                            MealType = mealType,
+                            FoodId = adj.FoodId,
+                            RecipeId = adj.RecipeId,
+                            PlannedDate = targetDate,
+                            ScheduledTime = mealType switch
+                            {
+                                "breakfast" => new TimeOnly(7, 30),
+                                "lunch" => new TimeOnly(12, 0),
+                                "dinner" => new TimeOnly(18, 30),
+                                _ => new TimeOnly(15, 0)
+                            },
+                            TargetCalories = adj.TargetCalories,
+                            IsCompleted = false,
+                            Origin = "user",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        if (adj.FoodId.HasValue)
+                        {
+                            var food = await _unitOfWork.Foods.GetByIdAsync(adj.FoodId.Value);
+                            if (food != null && food.CaloriesKcal.HasValue && newItem.TargetCalories == null)
+                            {
+                                newItem.TargetCalories = (int?)food.CaloriesKcal.Value;
+                            }
+                        }
+                        await _unitOfWork.MealPlanItems.AddAsync(newItem);
+                    }
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private static string NormalizeMealType(string mealType)
+        {
+            var normalized = (mealType ?? string.Empty).Trim().ToLowerInvariant();
+            return normalized switch
+            {
+                "breakfast" or "lunch" or "dinner" or "snack" => normalized,
+                "bữa sáng" or "bua sang" => "breakfast",
+                "bữa trưa" or "bua trua" => "lunch",
+                "bữa tối" or "bua toi" => "dinner",
+                "bữa phụ" or "bua phu" => "snack",
+                _ => normalized.Length > 0 ? normalized : "snack"
+            };
+        }
+    }
+}

@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MenuGreen.DataAccessLayer.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260723090709_AddPerformanceIndexes")]
-    partial class AddPerformanceIndexes
+    [Migration("20260723091704_Init")]
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1000,6 +1000,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateOnly?>("PlannedDate")
                         .HasColumnType("date");
 
@@ -1029,6 +1033,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("MealPlanId");
 
                     b.HasIndex("MealType");
+
+                    b.HasIndex("Origin");
 
                     b.HasIndex("PlannedDate");
 
@@ -1991,7 +1997,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.SubscriptionTransaction", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Amount")
@@ -2269,7 +2274,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.UserSubscription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledAt")
