@@ -21,6 +21,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
         /// </summary>
         public string? Origin { get; set; }
+
+        public string? CustomName { get; set; }
+        public double? QuantityG { get; set; }
     }
 
     public class MealPlanItemReplaceRequest

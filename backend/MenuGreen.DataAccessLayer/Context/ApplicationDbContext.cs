@@ -118,8 +118,9 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<CoachFeedback>().HasQueryFilter(cf => (cf.Client == null || EF.Property<DateTime?>(cf.Client, "DeletedAt") == null) && (cf.Coach == null || EF.Property<DateTime?>(cf.Coach, "DeletedAt") == null));
             modelBuilder.Entity<MealPlanItem>().HasQueryFilter(mpi => mpi.MealPlanHeader == null || mpi.MealPlanHeader.User == null || EF.Property<DateTime?>(mpi.MealPlanHeader.User, "DeletedAt") == null);
             modelBuilder.Entity<MealTemplateItem>().HasQueryFilter(mti => mti.MealTemplate == null || mti.MealTemplate.User == null || EF.Property<DateTime?>(mti.MealTemplate.User, "DeletedAt") == null);
-            modelBuilder.Entity<RecipeIngredient>().HasQueryFilter(ri => ri.Recipe == null || EF.Property<DateTime?>(ri.Recipe, "DeletedAt") == null);
-            modelBuilder.Entity<FoodAllergy>().HasQueryFilter(fa => fa.Food == null || EF.Property<DateTime?>(fa.Food, "DeletedAt") == null);
+            // Food/Recipe dùng IsActive thay vì DeletedAt — query filter không tham chiếu cột không tồn tại.
+            modelBuilder.Entity<RecipeIngredient>().HasQueryFilter(ri => true);
+            modelBuilder.Entity<FoodAllergy>().HasQueryFilter(fa => true);
             modelBuilder.Entity<MealPlanItemSubstitution>().HasQueryFilter(mpis => mpis.MealPlanItem == null || mpis.MealPlanItem.MealPlanHeader == null || mpis.MealPlanItem.MealPlanHeader.User == null || EF.Property<DateTime?>(mpis.MealPlanItem.MealPlanHeader.User, "DeletedAt") == null);
             modelBuilder.Entity<MealLogSubstitution>().HasQueryFilter(mls => mls.MealLog == null || mls.MealLog.User == null || EF.Property<DateTime?>(mls.MealLog.User, "DeletedAt") == null);
         }

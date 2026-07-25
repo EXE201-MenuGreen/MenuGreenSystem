@@ -12,6 +12,7 @@ import '../widgets/scan_decorations.dart';
 import '../widgets/scan_result_sheet.dart';
 import '../widgets/search_and_log_modal.dart';
 import '../widgets/suggested_dish_detail_sheet.dart';
+import '../widgets/result_feedback_dialog.dart';
 
 class IngredientScanScreen extends StatefulWidget {
   const IngredientScanScreen({super.key, this.officeMode = false});
@@ -194,74 +195,71 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     if (!mounted || result == null) return;
     if (result.action == 'cancelled') return; // Silent close (X / back)
 
-    final messenger = ScaffoldMessenger.of(context);
+    // Dùng Dialog ở root Navigator — không bị Sheet/Dialog/DatePicker che
     if (result.success) {
-      final successMessage = switch (result.action) {
-        'today' when widget.officeMode =>
-          'Món "${dish.tenMonAn}" đã được lưu vào Món ăn ưu tiên dùng cho bữa trưa hôm nay thành công',
-        'today' =>
-          'Món "${dish.tenMonAn}" đã được lưu vào trang dùng cho bữa trưa hôm nay thành công',
-        'plan' =>
-          'Đã thêm món "${dish.tenMonAn}" vào kế hoạch cơm hộp thành công',
-        'template' =>
-          'Đã lưu món "${dish.tenMonAn}" vào mẫu bữa ăn thành công',
-        _ => null,
-      };
-      if (successMessage == null) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(successMessage)),
-              ],
-            ),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      final (title, message) = _successInfo(result.action, dish, widget.officeMode);
+      await showResultFeedbackDialog(
+        context,
+        title: title,
+        message: message,
+        isSuccess: true,
+        actionLabel: 'Đóng',
+      );
     } else {
-      final errorMessage = switch (result.action) {
-        'today' when widget.officeMode =>
-          'Không thể lưu món "${dish.tenMonAn}" vào Món ăn ưu tiên dùng cho bữa trưa hôm nay. Vui lòng thử lại.',
-        'today' =>
-          'Không thể lưu món "${dish.tenMonAn}" vào bữa trưa hôm nay. Vui lòng thử lại.',
-        'plan' =>
-          'Không thể thêm món "${dish.tenMonAn}" vào kế hoạch cơm hộp. Vui lòng thử lại.',
-        'template' =>
-          'Không thể lưu món "${dish.tenMonAn}" vào mẫu bữa ăn. Vui lòng thử lại.',
-        _ => result.errorMessage ?? 'Món ăn chưa được lưu, vui lòng thử lại.',
-      };
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(child: Text(errorMessage)),
-              ],
-            ),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'ĐÓNG',
-              textColor: Colors.white,
-              onPressed: messenger.hideCurrentSnackBar,
-            ),
-          ),
-        );
+      final (title, message) = _errorInfo(result.action, dish, result.errorMessage, widget.officeMode);
+      await showResultFeedbackDialog(
+        context,
+        title: title,
+        message: message,
+        isSuccess: false,
+        actionLabel: 'Đóng',
+      );
     }
+  }
+
+  (String title, String message) _successInfo(String action, CvSuggestedDish dish, bool officeMode) {
+    return switch (action) {
+      'today' when officeMode => (
+        'Lưu thành công',
+        'Món "${dish.tenMonAn}" đã được đặt làm bữa trưa ưu tiên hôm nay.',
+      ),
+      'today' => (
+        'Lưu thành công',
+        'Món "${dish.tenMonAn}" đã được thêm vào nhật ký bữa ăn.',
+      ),
+      'plan' => (
+        'Thêm vào kế hoạch',
+        'Món "${dish.tenMonAn}" đã được thêm vào kế hoạch cơm hộp.',
+      ),
+      'template' => (
+        'Lưu thành công',
+        'Món "${dish.tenMonAn}" đã được lưu vào mẫu bữa ăn.',
+      ),
+      _ => ('Thành công', 'Thao tác đã hoàn tất.'),
+    };
+  }
+
+  (String title, String message) _errorInfo(String action, CvSuggestedDish dish, String? error, bool officeMode) {
+    final fallback = error ?? 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.';
+    return switch (action) {
+      'today' when officeMode => (
+        'Lưu thất bại',
+        'Không thể lưu "${dish.tenMonAn}" làm bữa trưa ưu tiên. $fallback',
+      ),
+      'today' => (
+        'Lưu thất bại',
+        'Không thể lưu "${dish.tenMonAn}" vào nhật ký bữa ăn. $fallback',
+      ),
+      'plan' => (
+        'Thêm thất bại',
+        'Không thể thêm "${dish.tenMonAn}" vào kế hoạch cơm hộp. $fallback',
+      ),
+      'template' => (
+        'Lưu thất bại',
+        'Không thể lưu "${dish.tenMonAn}" vào mẫu bữa ăn. $fallback',
+      ),
+      _ => ('Lỗi', fallback),
+    };
   }
 
   Future<bool> _useDishToday(
