@@ -16,6 +16,7 @@ class AddItemSheet extends StatefulWidget {
     required this.planId,
     required this.mealType,
     this.scheduledTime,
+    this.plannedDate,
     this.targetCalories,
     this.onItemAdded,
   });
@@ -23,6 +24,7 @@ class AddItemSheet extends StatefulWidget {
   final String planId;
   final MealType mealType;
   final DateTime? scheduledTime;
+  final DateTime? plannedDate;
   final int? targetCalories;
   final VoidCallback? onItemAdded;
 
@@ -32,6 +34,7 @@ class AddItemSheet extends StatefulWidget {
     required String planId,
     required MealType mealType,
     DateTime? scheduledTime,
+    DateTime? plannedDate,
     int? targetCalories,
     VoidCallback? onItemAdded,
   }) {
@@ -43,6 +46,7 @@ class AddItemSheet extends StatefulWidget {
         planId: planId,
         mealType: mealType,
         scheduledTime: scheduledTime,
+        plannedDate: plannedDate ?? DateTime.now(),
         targetCalories: targetCalories,
         onItemAdded: onItemAdded,
       ),
@@ -127,7 +131,7 @@ class _AddItemSheetState extends State<AddItemSheet> {
         final results = await _repository.searchRecipes(keyword: keyword);
         if (mounted) {
           setState(() {
-            _searchResults = results.cast<FoodItem>();
+            _searchResults = results;
             _isSearching = false;
           });
         }
@@ -170,14 +174,22 @@ class _AddItemSheetState extends State<AddItemSheet> {
   Future<void> _confirmAdd() async {
     HapticFeedback.mediumImpact();
 
+    final customName = _selectedFood?.nameVi ??
+        _selectedRecipe?.title ??
+        (_searchController.text.trim().isNotEmpty
+            ? _searchController.text.trim()
+            : null);
+
     final request = AddItemRequest(
       mealType: widget.mealType.value,
       scheduledTime: widget.scheduledTime,
+      plannedDate: widget.plannedDate ?? DateTime.now(),
       foodId: _selectedFood?.id,
       recipeId: _selectedRecipe?.id,
-      targetCalories: _estimatedCalories,
+      targetCalories: _estimatedCalories > 0 ? _estimatedCalories : 350,
       quantityG: _quantity.toDouble(),
       origin: 'user', // User tạo từ tab Kế hoạch
+      customName: customName,
     );
 
     Navigator.pop(context, request);
@@ -236,7 +248,9 @@ class _AddItemSheetState extends State<AddItemSheet> {
             ),
           ),
           // Bottom action
-          if (_selectedFood != null || _selectedRecipe != null)
+          if (_selectedFood != null ||
+              _selectedRecipe != null ||
+              _searchController.text.trim().isNotEmpty)
             _buildBottomAction(),
         ],
       ),

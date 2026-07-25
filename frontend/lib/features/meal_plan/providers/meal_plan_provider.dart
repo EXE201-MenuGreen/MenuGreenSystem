@@ -392,6 +392,22 @@ class MealPlanProvider extends ChangeNotifier {
     String? planId,
   }) async {
     if (!_pendingItemToggles.add(itemId)) return false;
+
+    // Optimistic UI update
+    if (_todayDashboard != null) {
+      final newItems = _todayDashboard!.plannedItems.map((item) {
+        if (item.id == itemId) {
+          return item.copyWith(
+            isCompleted: isCompleted,
+            status: isCompleted ? 'done' : 'planned',
+          );
+        }
+        return item;
+      }).toList();
+      _todayDashboard = _todayDashboard!.copyWith(plannedItems: newItems);
+      _safeNotify();
+    }
+
     try {
       _error = null;
       await _repository.toggleItem(itemId, isCompleted);
@@ -399,7 +415,8 @@ class MealPlanProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = ApiMessageTranslator.translate(e.toString());
-      notifyListeners();
+      await loadTodayDashboard();
+      _safeNotify();
       return false;
     } finally {
       _pendingItemToggles.remove(itemId);
@@ -413,6 +430,22 @@ class MealPlanProvider extends ChangeNotifier {
   }) async {
     final pendingItems = items.where((item) => !item.isDone).toList();
     if (pendingItems.isEmpty) return 0;
+
+    // Optimistic UI update for all pending items
+    if (_todayDashboard != null) {
+      final pendingIds = pendingItems.map((i) => i.id).toSet();
+      final newItems = _todayDashboard!.plannedItems.map((item) {
+        if (pendingIds.contains(item.id)) {
+          return item.copyWith(
+            isCompleted: true,
+            status: 'done',
+          );
+        }
+        return item;
+      }).toList();
+      _todayDashboard = _todayDashboard!.copyWith(plannedItems: newItems);
+      _safeNotify();
+    }
 
     _error = null;
     var completedCount = 0;
@@ -435,7 +468,7 @@ class MealPlanProvider extends ChangeNotifier {
     await _refreshAfterCompletionChange(planId: planId);
     if (firstError != null) {
       _error = ApiMessageTranslator.translate(firstError.toString());
-      notifyListeners();
+      _safeNotify();
     }
     return completedCount;
   }

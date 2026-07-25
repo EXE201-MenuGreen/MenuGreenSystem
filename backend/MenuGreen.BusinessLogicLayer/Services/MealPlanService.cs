@@ -196,12 +196,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = request.MealType,
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
-                PlannedDate = request.PlannedDate ?? plan.StartDate,
+                PlannedDate = request.PlannedDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)),
                 ScheduledTime = request.ScheduledTime,
                 TargetCalories = request.TargetCalories,
                 IsCompleted = request.IsCompleted,
                 CreatedAt = DateTime.UtcNow,
-                Origin = request.Origin
+                Origin = request.Origin,
+                CustomName = request.CustomName,
+                QuantityG = (decimal?)request.QuantityG
             };
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
@@ -221,6 +223,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.TargetCalories = request.TargetCalories;
             item.IsCompleted = request.IsCompleted;
             item.Origin = request.Origin;
+            item.CustomName = request.CustomName;
+            if (request.QuantityG.HasValue) item.QuantityG = (decimal?)request.QuantityG;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
             return await GetByIdAsync(planId, userId);
@@ -788,7 +792,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static void ValidateItem(MealPlanItemUpsertRequest item)
         {
-            if (item.FoodId == null && item.RecipeId == null) throw new Exception("Each meal plan item must have either FoodId or RecipeId.");
+            if (item.FoodId == null && item.RecipeId == null && string.IsNullOrWhiteSpace(item.CustomName))
+            {
+                throw new Exception("Each meal plan item must have either FoodId, RecipeId, or CustomName.");
+            }
         }
 
         private async Task<MealPlanResponse> MapAsync(MealPlanHeader entity)
