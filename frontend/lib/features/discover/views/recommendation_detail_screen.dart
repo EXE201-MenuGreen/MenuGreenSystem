@@ -471,12 +471,12 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                   memCacheWidth: 360,
                   memCacheHeight: 180,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
+                  placeholder: (_, _) => Container(
                     width: double.infinity,
                     height: 180,
                     color: Colors.grey[200],
                   ),
-                  errorWidget: (_, __, ___) => Container(
+                  errorWidget: (_, _, _) => Container(
                     width: double.infinity,
                     height: 180,
                     color: Colors.grey[200],

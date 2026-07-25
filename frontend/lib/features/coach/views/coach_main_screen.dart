@@ -736,10 +736,11 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab> {
                   ))
                     TextButton(
                       onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
                         try {
                           await _repo.markAllAsRead();
                           if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(
                               content: Text('Đã đánh dấu tất cả là đã đọc'),
                               duration: Duration(seconds: 2),
@@ -748,7 +749,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab> {
                         } catch (e) {
                           debugPrint('[_CoachNotificationsTab] markAll error: $e');
                           if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             SnackBar(
                               content: Text('Không thể đánh dấu: $e'),
                               backgroundColor: Colors.red,
@@ -828,8 +829,9 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab> {
                               onTap: () {
                                 if (source == 'notification') {
                                   final notifId = n['notifId']?.toString();
-                                  if (notifId != null && !isRead)
+                                  if (notifId != null && !isRead) {
                                     _markRead(notifId);
+                                  }
                                 }
                               },
                               child: Container(
@@ -1166,7 +1168,7 @@ class _CoachProfileTabState extends State<_CoachProfileTab> {
                         Expanded(
                           child: _buildStatCard(
                             icon: Icons.work_history,
-                            value: '$experience',
+                            value: experience,
                             label: 'Năm kinh nghiệm',
                             color: Colors.purple,
                           ),

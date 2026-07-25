@@ -1203,8 +1203,7 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     CustomName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     IngredientSnapshotJson = table.Column<string>(type: "jsonb", nullable: true),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Origin = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1642,44 +1641,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_foods_Category",
-                table: "foods",
-                column: "Category");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_foods_IsActive",
-                table: "foods",
-                column: "IsActive");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_foods_NameVi",
-                table: "foods",
-                column: "NameVi");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_foods_Region",
-                table: "foods",
-                column: "Region");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_goal_drift_alerts_UserId",
                 table: "goal_drift_alerts",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ingredients_Category",
-                table: "ingredients",
-                column: "Category");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ingredients_IsActive",
-                table: "ingredients",
-                column: "IsActive");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ingredients_NameVi",
-                table: "ingredients",
-                column: "NameVi");
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_log_substitutions_MealLogId",
@@ -1702,11 +1666,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 column: "FoodId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_meal_logs_LoggedAt",
-                table: "meal_logs",
-                column: "LoggedAt");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_meal_logs_MealPlanItemId",
                 table: "meal_logs",
                 column: "MealPlanItemId",
@@ -1722,11 +1681,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 name: "IX_meal_logs_UserId",
                 table: "meal_logs",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_meal_logs_UserId_LoggedAt",
-                table: "meal_logs",
-                columns: new[] { "UserId", "LoggedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_plan_headers_PlanType",
@@ -1772,11 +1726,6 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 name: "IX_meal_plan_items_MealType",
                 table: "meal_plan_items",
                 column: "MealType");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_meal_plan_items_Origin",
-                table: "meal_plan_items",
-                column: "Origin");
 
             migrationBuilder.CreateIndex(
                 name: "IX_meal_plan_items_PlannedDate",
@@ -1881,29 +1830,9 @@ namespace MenuGreen.DataAccessLayer.Migrations
                 column: "RecipeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_recipes_CreatedAt",
-                table: "recipes",
-                column: "CreatedAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_recipes_Difficulty",
-                table: "recipes",
-                column: "Difficulty");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_recipes_FoodId",
                 table: "recipes",
                 column: "FoodId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_recipes_IsActive",
-                table: "recipes",
-                column: "IsActive");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_recipes_MealType",
-                table: "recipes",
-                column: "MealType");
 
             migrationBuilder.CreateIndex(
                 name: "IX_recommendation_feedbacks_RecommendationId",

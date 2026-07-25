@@ -172,6 +172,23 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     );
   }
 
+  SubscriptionPlan? get _officePlan {
+    for (final plan in _plans) {
+      if (plan.featureGroup?.trim().toLowerCase() == 'office') return plan;
+    }
+    return const SubscriptionPlan(
+      id: '10000000-0000-0000-0000-000000000004',
+      name: 'Gói Office',
+      description:
+          'Nhắc uống nước và vận động định kỳ\nKế hoạch cơm hộp theo calo và ngân sách\nDanh sách đi chợ cho cả tuần',
+      durationDays: 36500,
+      priceVnd: 0,
+      featureGroup: 'office',
+      isActive: true,
+      tierLabel: 'Custom',
+    );
+  }
+
   List<SubscriptionPlan> get _regularPlans => _plans.where((plan) {
     final group = plan.featureGroup?.trim().toLowerCase();
     return group != 'gym' &&
@@ -223,13 +240,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   Future<void> _activateOfficeMode() async {
     if (_actionLoading) return;
 
-    SubscriptionPlan? officePlan;
-    for (final plan in _plans) {
-      if (plan.featureGroup?.trim().toLowerCase() == 'office') {
-        officePlan = plan;
-        break;
-      }
-    }
+    final officePlan = _officePlan;
     if (officePlan == null) {
       _showResult('Gói Office chưa được cấu hình trên hệ thống.', false);
       return;

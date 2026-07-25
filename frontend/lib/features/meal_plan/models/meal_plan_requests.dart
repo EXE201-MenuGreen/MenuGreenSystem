@@ -116,6 +116,7 @@ class CreateItemRequest {
   final int? targetCalories;
   final double? quantityG;
   final String? origin;
+  final String? customName;
 
   CreateItemRequest({
     required this.mealType,
@@ -125,6 +126,7 @@ class CreateItemRequest {
     this.targetCalories,
     this.quantityG,
     this.origin,
+    this.customName,
   });
 
   Map<String, dynamic> toJson() {
@@ -137,6 +139,7 @@ class CreateItemRequest {
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
       if (origin != null) 'origin': origin,
+      if (customName != null) 'customName': customName,
     };
   }
 }
@@ -168,6 +171,7 @@ class AddItemRequest {
   final int? targetCalories;
   final double? quantityG;
   final String? origin;
+  final String? customName;
 
   AddItemRequest({
     required this.mealType,
@@ -178,6 +182,7 @@ class AddItemRequest {
     this.targetCalories,
     this.quantityG,
     this.origin,
+    this.customName,
   });
 
   Map<String, dynamic> toJson() {
@@ -191,6 +196,7 @@ class AddItemRequest {
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
       if (origin != null) 'origin': origin,
+      if (customName != null) 'customName': customName,
     };
   }
 
@@ -207,6 +213,7 @@ class AddItemRequest {
       targetCalories: targetCalories,
       quantityG: quantityG,
       origin: origin,
+      customName: customName,
     );
   }
 }
@@ -261,6 +268,7 @@ enum ItemStatus {
 enum ItemOrigin {
   /// Item được tạo thủ công bởi user trong tab Kế hoạch
   user('user'),
+
   /// Item được tạo tự động bởi AI Gym Goals trong tab Mục tiêu
   gym('gym');
 
@@ -373,6 +381,7 @@ class OfficeScanMealRequest {
   final String customName;
   final String mealType;
   final DateTime plannedDate;
+  final DateTime? scheduledTime;
   final double quantityG;
   final double caloriesKcal;
   final double proteinG;
@@ -386,6 +395,7 @@ class OfficeScanMealRequest {
     required this.customName,
     required this.mealType,
     required this.plannedDate,
+    this.scheduledTime,
     required this.quantityG,
     required this.caloriesKcal,
     required this.proteinG,
@@ -401,6 +411,7 @@ class OfficeScanMealRequest {
       'customName': customName,
       'mealType': mealType,
       'plannedDate': _dateOnly(plannedDate),
+      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
       'quantityG': quantityG,
       'caloriesKcal': caloriesKcal,
       'proteinG': proteinG,
@@ -415,6 +426,9 @@ class OfficeScanMealRequest {
   static String _dateOnly(DateTime date) {
     return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
+
+  static String _timeOnly(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 }
 
 /// Office scan ingredient request

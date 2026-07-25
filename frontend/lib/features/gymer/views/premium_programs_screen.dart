@@ -1866,7 +1866,7 @@ class _ProgramPaymentSheet extends StatelessWidget {
                   memCacheWidth: 220,
                   memCacheHeight: 220,
                   fit: BoxFit.contain,
-                  placeholder: (_, __) => const SizedBox(
+                  placeholder: (_, _) => const SizedBox(
                     height: 120,
                     child: Center(child: CircularProgressIndicator()),
                   ),

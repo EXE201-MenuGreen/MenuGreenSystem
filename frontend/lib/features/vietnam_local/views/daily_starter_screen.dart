@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
 import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/discover_view.dart';
+import '../../meal_plan/views/meal_plan_screen.dart';
+import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/daily_starter_provider.dart';
 import '../widgets/info_card.dart';
 import '../widgets/section_header.dart';
-import 'daily_starter_personalization_screen.dart';
 
 /// Daily Starter — `2.12 Beginner Quick-Start` ("Hôm nay ăn gì?").
 ///
-/// Loads /DailyStarter/today + /DailyStarter/featured-meals and lets users
-/// quickly apply a featured food to today's meal plan via select-meal.
+/// For Free users: shows today's welcome + target calories, a list of
+/// suggested foods to browse, and offers self-service entry points
+/// (Discover, Meal Plan, Weight Log) instead of "one-tap add to plan"
+/// (which is a Casual feature).
 class DailyStarterScreen extends StatefulWidget {
   const DailyStarterScreen({super.key});
 
@@ -30,61 +33,6 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
     });
   }
 
-  Future<void> _applyFeatured(DailyStarterFood food) async {
-    final suggestedType = _guessMealType();
-    
-    final selectedType = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Chọn buổi ăn cho món này',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.wb_sunny_outlined, color: Colors.orange),
-              title: Text('Bữa sáng${suggestedType == 'Breakfast' ? ' (Gợi ý)' : ''}'),
-              onTap: () => Navigator.pop(ctx, 'Breakfast'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.wb_sunny, color: Colors.amber),
-              title: Text('Bữa trưa${suggestedType == 'Lunch' ? ' (Gợi ý)' : ''}'),
-              onTap: () => Navigator.pop(ctx, 'Lunch'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.nightlight_round, color: Colors.indigo),
-              title: Text('Bữa tối${suggestedType == 'Dinner' ? ' (Gợi ý)' : ''}'),
-              onTap: () => Navigator.pop(ctx, 'Dinner'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.local_pizza_outlined, color: Colors.green),
-              title: Text('Bữa phụ${suggestedType == 'Snack' ? ' (Gợi ý)' : ''}'),
-              onTap: () => Navigator.pop(ctx, 'Snack'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (selectedType == null || !mounted) return;
-
-    final provider = context.read<DailyStarterProvider>();
-    final result = await provider.selectMeal({
-      'meals': [
-        {
-          'foodId': food.id,
-          'mealType': selectedType,
-        },
-      ],
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ApiMessageTranslator.translate(result))),
-    );
-  }
-
   void _openFoodDetail(DailyStarterFood food) {
     if (food.id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,14 +45,6 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
       context,
       MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: food.id)),
     );
-  }
-
-  String _guessMealType() {
-    final hour = DateTime.now().hour;
-    if (hour < 10) return 'Breakfast';
-    if (hour < 14) return 'Lunch';
-    if (hour < 19) return 'Dinner';
-    return 'Snack';
   }
 
   @override
@@ -136,20 +76,25 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                   _buildHero(provider),
                   const SizedBox(height: 20),
                   const SectionHeader(
-                    title: 'Bữa nhanh gợi ý',
-                    subtitle: 'Món ăn phù hợp cho hôm nay',
+                    title: 'Gợi ý cho hôm nay',
+                    subtitle: 'Món ăn phù hợp với mục tiêu calo của bạn',
                     icon: Icons.bolt,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  _buildRandomBar(provider),
+                  const SizedBox(height: 8),
+                  if (provider.randomHighlight != null)
+                    _buildHighlightCard(provider),
+                  if (provider.randomHighlight != null) const SizedBox(height: 12),
                   _buildFeaturedList(provider),
                   const SizedBox(height: 24),
                   const SectionHeader(
-                    title: 'Hồ sơ cá nhân hóa',
-                    subtitle: 'Cập nhật chiều cao, cân nặng và sở thích ăn uống',
+                    title: 'Hoặc tự chọn món',
+                    subtitle: 'Chủ động tìm món, mở kế hoạch hoặc ghi nhanh',
                     icon: Icons.tune,
                   ),
                   const SizedBox(height: 12),
-                  _buildPersonalizationCard(provider),
+                  _buildSelfServiceActions(),
                   const SizedBox(height: 24),
                   if (provider.errorMessage != null)
                     Container(
@@ -202,6 +147,144 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
               ),
             )
           : null,
+    );
+  }
+
+  Widget _buildRandomBar(DailyStarterProvider provider) {
+    final remaining = provider.randomRemaining;
+    final canTap = remaining > 0 && !provider.isRandomPicking;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            remaining > 0
+                ? 'Còn $remaining/${DailyStarterProvider.randomDailyLimit} lượt gợi ý ngẫu nhiên hôm nay.'
+                : 'Đã dùng hết ${DailyStarterProvider.randomDailyLimit}/${DailyStarterProvider.randomDailyLimit} lượt hôm nay.',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: canTap
+              ? () async {
+                  final picked = await provider.pickRandomHighlight();
+                  if (picked == null && mounted) {
+                    final msg = provider.randomErrorMessage ??
+                        'Không thể gợi ý lúc này.';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(msg)),
+                    );
+                  }
+                }
+              : null,
+          icon: provider.isRandomPicking
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.casino, size: 18),
+          label: Text(remaining > 0 ? 'Random món' : 'Hết lượt'),
+          style: TextButton.styleFrom(
+            foregroundColor: remaining > 0
+                ? AppColors.primary
+                : AppColors.textSecondary,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHighlightCard(DailyStarterProvider provider) {
+    final food = provider.randomHighlight!;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.95, end: 1),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      builder: (context, scale, child) =>
+          Opacity(opacity: scale == 1 ? 1 : 0.85, child: child),
+      child: Material(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => _openFoodDetail(food),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade300, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade400,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.casino, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'Ngẫu nhiên',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        food.name.isEmpty ? 'Món gợi ý' : food.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: AppColors.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${food.caloriesKcal.toStringAsFixed(0)} kcal'
+                        ' • P ${food.proteinG.toStringAsFixed(0)}g'
+                        ' • C ${food.carbsG.toStringAsFixed(0)}g'
+                        ' • F ${food.fatG.toStringAsFixed(0)}g',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Bỏ gợi ý ngẫu nhiên',
+                  onPressed: provider.clearRandomHighlight,
+                  icon: const Icon(Icons.close, size: 18),
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -282,12 +365,13 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Thêm vào kế hoạch hôm nay',
-                        onPressed: () => _applyFeatured(food),
-                        icon: const Icon(
-                          Icons.add_circle_outline,
-                          color: AppColors.primary,
+                      TextButton.icon(
+                        onPressed: () => _openFoodDetail(food),
+                        icon: const Icon(Icons.chevron_right, size: 18),
+                        label: const Text('Xem chi tiết'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                       ),
                     ],
@@ -300,36 +384,135 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
     );
   }
 
-  Widget _buildPersonalizationCard(DailyStarterProvider provider) {
-    final p = provider.personalization;
-    final loading = provider.isPersonalizationLoading;
-    return InfoCard(
-      icon: Icons.manage_search,
-      title: 'Sở thích ăn uống',
-      subtitle: p == null
-          ? 'Đang tải...'
-          : 'Mục tiêu calo: ${p.targetCalories?.toStringAsFixed(0) ?? '—'} kcal'
-              ' • ${p.dietaryPreference ?? 'chưa thiết lập'}',
-      value: p == null ? null : '${p.allergenKeys.length} dị ứng',
-      footnote: p == null
-          ? null
-          : 'Chiều cao ${p.heightCm?.toStringAsFixed(0) ?? '—'} cm • '
-              'Cân nặng ${p.weightKg?.toStringAsFixed(1) ?? '—'} kg',
-      trailing: TextButton(
-        onPressed: loading
-            ? null
-            : () async {
-                final changed = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const DailyStarterPersonalizationScreen(),
-                  ),
-                );
-                if (changed == true && mounted) {
-                  await provider.refreshPersonalization();
-                }
-              },
-        child: const Text('Cập nhật'),
+  Widget _buildSelfServiceActions() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SelfServiceCard(
+                icon: Icons.search,
+                title: 'Tìm món theo ý thích',
+                subtitle: 'Lọc theo vùng miền, dị ứng',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const DiscoverView(isStandalone: true),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SelfServiceCard(
+                icon: Icons.calendar_today_outlined,
+                title: 'Kế hoạch hôm nay',
+                subtitle: 'Mở hoặc tạo kế hoạch ăn',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MealPlanScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SelfServiceCard(
+          icon: Icons.edit_note,
+          title: 'Ghi bữa ăn nhanh',
+          subtitle: 'Ước tính calo khi ăn ngoài',
+          onTap: () async {
+            await showMealLogSheet(context);
+          },
+          fullWidth: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _SelfServiceCard extends StatelessWidget {
+  const _SelfServiceCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.fullWidth = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool fullWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: fullWidth ? double.infinity : null,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.progressBackground),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppColors.textDark,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

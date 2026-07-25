@@ -190,6 +190,8 @@ class MealPlanItemDetail {
   final int? fatG;
   final double? quantityG;
   final int? estimatedPriceVnd;
+  final String? customName;
+
   /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
   /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
   final String? origin;
@@ -214,6 +216,7 @@ class MealPlanItemDetail {
     this.fatG,
     this.quantityG,
     this.estimatedPriceVnd,
+    this.customName,
     this.origin,
   });
 
@@ -243,13 +246,64 @@ class MealPlanItemDetail {
                   json['quantity'] ??
                   json['Quantity'])
               ?.toDouble(),
-      estimatedPriceVnd: _int(json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd']),
+      estimatedPriceVnd: _int(
+        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'],
+      ),
+      customName: (json['customName'] ?? json['CustomName'])?.toString(),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
     );
   }
 
+  MealPlanItemDetail copyWith({
+    String? id,
+    String? mealPlanId,
+    String? mealType,
+    String? foodId,
+    String? recipeId,
+    DateTime? plannedDate,
+    DateTime? scheduledTime,
+    int? targetCalories,
+    bool? isCompleted,
+    String? mealLogId,
+    String? foodName,
+    String? recipeName,
+    String? sourceEntityType,
+    String? status,
+    int? proteinG,
+    int? carbsG,
+    int? fatG,
+    double? quantityG,
+    int? estimatedPriceVnd,
+    String? customName,
+    String? origin,
+  }) {
+    return MealPlanItemDetail(
+      id: id ?? this.id,
+      mealPlanId: mealPlanId ?? this.mealPlanId,
+      mealType: mealType ?? this.mealType,
+      foodId: foodId ?? this.foodId,
+      recipeId: recipeId ?? this.recipeId,
+      plannedDate: plannedDate ?? this.plannedDate,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
+      targetCalories: targetCalories ?? this.targetCalories,
+      isCompleted: isCompleted ?? this.isCompleted,
+      mealLogId: mealLogId ?? this.mealLogId,
+      foodName: foodName ?? this.foodName,
+      recipeName: recipeName ?? this.recipeName,
+      sourceEntityType: sourceEntityType ?? this.sourceEntityType,
+      status: status ?? this.status,
+      proteinG: proteinG ?? this.proteinG,
+      carbsG: carbsG ?? this.carbsG,
+      fatG: fatG ?? this.fatG,
+      quantityG: quantityG ?? this.quantityG,
+      estimatedPriceVnd: estimatedPriceVnd ?? this.estimatedPriceVnd,
+      customName: customName ?? this.customName,
+      origin: origin ?? this.origin,
+    );
+  }
+
   String get displayName {
-    final name = (foodName ?? recipeName ?? '').trim();
+    final name = (foodName ?? recipeName ?? customName ?? '').trim();
     return name.isNotEmpty ? name : 'M?n trong k? ho?ch';
   }
 
@@ -460,6 +514,42 @@ class MealPlanDayDashboard {
       adherencePercent: rawAdherence > 1 ? rawAdherence / 100 : rawAdherence,
       plannedItems: plannedItems,
       completedItems: completedItems,
+    );
+  }
+
+  MealPlanDayDashboard copyWith({
+    DateTime? date,
+    int? plannedCalories,
+    int? actualCalories,
+    int? plannedProtein,
+    int? actualProtein,
+    int? plannedCarbs,
+    int? actualCarbs,
+    int? plannedFat,
+    int? actualFat,
+    int? completedMeals,
+    int? totalMeals,
+    double? adherencePercent,
+    List<MealPlanItemDetail>? plannedItems,
+    List<MealPlanItemDetail>? completedItems,
+  }) {
+    final updatedPlannedItems = plannedItems ?? this.plannedItems;
+    final updatedCompleted = updatedPlannedItems.where((i) => i.isDone).toList();
+    return MealPlanDayDashboard(
+      date: date ?? this.date,
+      plannedCalories: plannedCalories ?? this.plannedCalories,
+      actualCalories: actualCalories ?? this.actualCalories,
+      plannedProtein: plannedProtein ?? this.plannedProtein,
+      actualProtein: actualProtein ?? this.actualProtein,
+      plannedCarbs: plannedCarbs ?? this.plannedCarbs,
+      actualCarbs: actualCarbs ?? this.actualCarbs,
+      plannedFat: plannedFat ?? this.plannedFat,
+      actualFat: actualFat ?? this.actualFat,
+      completedMeals: completedMeals ?? updatedCompleted.length,
+      totalMeals: totalMeals ?? updatedPlannedItems.length,
+      adherencePercent: adherencePercent ?? this.adherencePercent,
+      plannedItems: updatedPlannedItems,
+      completedItems: completedItems ?? updatedCompleted,
     );
   }
 }

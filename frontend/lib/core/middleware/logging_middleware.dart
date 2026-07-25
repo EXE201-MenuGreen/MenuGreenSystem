@@ -2,6 +2,20 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 
+class AppLogger {
+  const AppLogger._();
+
+  static void error(String scope, Object error, StackTrace stackTrace) {
+    if (!kDebugMode) return;
+    developer.log(
+      'Operation failed',
+      name: scope,
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+}
+
 class ApiLoggingMiddleware {
   const ApiLoggingMiddleware();
 
@@ -10,12 +24,7 @@ class ApiLoggingMiddleware {
     developer.log('[API] -> $method ${_safeUri(uri)}', name: 'ApiClient');
   }
 
-  void logResponse(
-    String method,
-    Uri uri,
-    int statusCode,
-    Duration elapsed,
-  ) {
+  void logResponse(String method, Uri uri, int statusCode, Duration elapsed) {
     if (!kDebugMode) return;
     developer.log(
       '[API] <- $method ${_safeUri(uri)} $statusCode ${elapsed.inMilliseconds}ms',
@@ -37,7 +46,8 @@ class ApiLoggingMiddleware {
     final redacted = <String, String>{};
     for (final entry in uri.queryParameters.entries) {
       final key = entry.key.toLowerCase();
-      final isSensitive = key.contains('token') ||
+      final isSensitive =
+          key.contains('token') ||
           key.contains('password') ||
           key.contains('otp') ||
           key.contains('secret');

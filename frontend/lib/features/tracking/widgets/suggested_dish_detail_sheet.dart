@@ -8,6 +8,31 @@ typedef SuggestedDishAction = Future<bool> Function(
   double portionMultiplier,
 );
 
+/// Carries the result of the [SuggestedDishDetailSheet] back to the caller
+/// once the sheet pops, so the caller can show appropriate feedback.
+///
+/// - [success] = true  → the user committed an action that ran without error.
+/// - [success] = false → the user explicitly cancelled or some inline flow
+///   did not produce a confirmation (e.g. cancelled a "Replace lunch?"
+///   dialog). The sheet has already been dismissed; the caller is expected
+///   to surface a non-blocking "vui lòng thực hiện lại" hint if desired.
+class SheetActionResult {
+  const SheetActionResult({
+    required this.action,
+    required this.success,
+    this.errorMessage,
+  });
+
+  final String action;
+  final bool success;
+  final String? errorMessage;
+
+  factory SheetActionResult.cancelled() => const SheetActionResult(
+        action: 'cancelled',
+        success: false,
+      );
+}
+
 class SuggestedDishDetailSheet extends StatefulWidget {
   const SuggestedDishDetailSheet({
     super.key,
@@ -50,88 +75,146 @@ class _SuggestedDishDetailSheetState
       _actionFeedback = null;
       _feedbackIsError = false;
     });
+    var success = false;
+    String? errorMessage;
     try {
-      final completed = await callback(dish, _portionMultiplier);
-      if (!mounted) return;
-      if (completed) {
-        Navigator.pop(context, action);
-      } else {
-        setState(() {
-          _actionFeedback = 'Thao tác chưa được thực hiện.';
-          _feedbackIsError = false;
-        });
-      }
+      success = await callback(dish, _portionMultiplier);
     } catch (error) {
-      if (mounted) {
-        setState(() {
-          _actionFeedback = error
-              .toString()
-              .replaceFirst('Exception: ', '');
-          _feedbackIsError = true;
-        });
-      }
+      success = false;
+      errorMessage = error
+          .toString()
+          .replaceFirst('Exception: ', '');
     } finally {
       if (mounted) setState(() => _runningAction = null);
     }
+    if (!mounted) return;
+
+    if (success) {
+      Navigator.pop<SheetActionResult>(
+        context,
+        SheetActionResult(action: action, success: true),
+      );
+      return;
+    }
+
+    // Failure path: keep the sheet open so the user can retry, but surface
+    // a clear inline message + remember the error so the caller can show a
+    // snackbar if it pops the sheet via other means (back button / X).
+    final fallbackMessage =
+        'Món ăn chưa được lưu, vui lòng thực hiện lại.';
+    setState(() {
+      _actionFeedback = errorMessage ?? fallbackMessage;
+      _feedbackIsError = true;
+    });
+    // Also flash a snackbar so the user is sure the previous attempt failed
+    // even if the inline banner is below the fold.
+    _showActionSnackBar(
+      message: errorMessage ?? fallbackMessage,
+      isError: true,
+    );
+  }
+
+  void _showActionSnackBar({required String message, required bool isError}) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: isError ? Colors.redAccent : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: isError
+            ? SnackBarAction(
+                label: 'ĐÓNG',
+                textColor: Colors.white,
+                onPressed: messenger.hideCurrentSnackBar,
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _handleSheetDismissed() {
+    // The sheet is being popped (back gesture / X button). If the user has
+    // not finished any action, dismiss silently — no noisy error toasts.
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
   }
 
   @override
   Widget build(BuildContext context) {
     final isSafe = dish.isSafeForUser;
-    return SafeArea(
-      top: false,
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHandle(),
-            _buildHeader(),
-            const Divider(height: 1),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSafetyNotice(isSafe),
-                    const SizedBox(height: 18),
-                    Text(
-                      dish.tenMonAn,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
+    return PopScope(
+      canPop: _runningAction == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _handleSheetDismissed();
+      },
+      child: SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHandle(),
+              _buildHeader(),
+              const Divider(height: 1),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSafetyNotice(isSafe),
+                      const SizedBox(height: 18),
+                      Text(
+                        dish.tenMonAn,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textDark,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      dish.moTaNgan,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: 6),
+                      Text(
+                        dish.moTaNgan,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.45,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildPortionSelector(),
-                    const SizedBox(height: 18),
-                    _buildNutrition(),
-                    const SizedBox(height: 24),
-                    _buildIngredients(),
-                  ],
+                      const SizedBox(height: 20),
+                      _buildPortionSelector(),
+                      const SizedBox(height: 18),
+                      _buildNutrition(),
+                      const SizedBox(height: 24),
+                      _buildIngredients(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const Divider(height: 1),
-            _buildActions(isSafe),
-          ],
+              const Divider(height: 1),
+              _buildActions(isSafe),
+            ],
+          ),
         ),
       ),
     );
@@ -168,7 +251,7 @@ class _SuggestedDishDetailSheetState
           IconButton(
             tooltip: 'Đóng',
             onPressed: _runningAction == null
-                ? () => Navigator.pop(context)
+                ? () => Navigator.pop(context, SheetActionResult.cancelled())
                 : null,
             icon: const Icon(Icons.close),
           ),
@@ -389,28 +472,60 @@ class _SuggestedDishDetailSheetState
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
               decoration: BoxDecoration(
-                color: (_feedbackIsError ? Colors.redAccent : AppColors.primary)
-                    .withValues(alpha: 0.08),
+                color: (_feedbackIsError
+                        ? Colors.redAccent
+                        : AppColors.primary)
+                    .withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (_feedbackIsError
+                          ? Colors.redAccent
+                          : AppColors.primary)
+                      .withValues(alpha: 0.35),
+                ),
               ),
               child: Row(
                 children: [
                   Icon(
                     _feedbackIsError
                         ? Icons.error_outline
-                        : Icons.info_outline,
-                    size: 18,
+                        : Icons.check_circle_outline,
+                    size: 20,
                     color: _feedbackIsError
                         ? Colors.redAccent
                         : AppColors.primary,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       _actionFeedback!,
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                        color: _feedbackIsError
+                            ? Colors.redAccent
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Đóng thông báo',
+                    onPressed: () => setState(() {
+                      _actionFeedback = null;
+                      _feedbackIsError = false;
+                    }),
+                    icon: const Icon(Icons.close, size: 18),
+                    color: _feedbackIsError
+                        ? Colors.redAccent
+                        : AppColors.primary,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
                     ),
                   ),
                 ],

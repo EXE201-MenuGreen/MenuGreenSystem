@@ -26,6 +26,8 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<INutritionTrackingService, NutritionTrackingService>();
             services.AddScoped<IRecommendationService, RecommendationService>();
             services.AddScoped<IMealPlanService, MealPlanService>();
+            services.AddScoped<IGroceryListBuilderService, GroceryListBuilderService>();
+            services.AddScoped<IShoppingTripBuilderService, ShoppingTripBuilderService>();
             services.AddScoped<IBudgetRequestService, BudgetRequestService>();
             services.AddScoped<IMealTemplateService, MealTemplateService>();
             services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();

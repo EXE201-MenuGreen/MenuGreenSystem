@@ -399,6 +399,7 @@ class MealPlanRepository {
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Invalid response format');
     }
+    _invalidateCache();
     return ConvertToLogResult.fromJson(decoded);
   }
 
@@ -411,7 +412,9 @@ class MealPlanRepository {
     final today = DateTime(now.year, now.month, now.day);
     final queryDate = DateTime(date.year, date.month, date.day);
 
-    if (queryDate == today && _dashboardCache != null && _dashboardCacheTime != null) {
+    if (queryDate == today &&
+        _dashboardCache != null &&
+        _dashboardCacheTime != null) {
       if (now.difference(_dashboardCacheTime!) < _dashboardCacheDuration) {
         return _dashboardCache!;
       }
@@ -442,7 +445,8 @@ class MealPlanRepository {
   Future<MealPlanStreak> getStreaks() async {
     // Check cache
     if (_streaksCache != null && _streaksCacheTime != null) {
-      if (DateTime.now().difference(_streaksCacheTime!) < _streaksCacheDuration) {
+      if (DateTime.now().difference(_streaksCacheTime!) <
+          _streaksCacheDuration) {
         return _streaksCache!;
       }
     }
@@ -493,6 +497,10 @@ class MealPlanRepository {
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Invalid response format');
     }
+    // The endpoint makes the previous generated plan inactive and returns a
+    // new one. Keep the list cache in sync so a later refresh cannot restore
+    // the old plan on the Office roadmap.
+    _invalidateCache();
     return MealPlanDetail.fromJson(decoded);
   }
 
@@ -508,25 +516,40 @@ class MealPlanRepository {
     return decoded;
   }
 
-  /// Save office scan meal
-  Future<void> saveOfficeScanMeal(
+  /// Save an AI scan as a planned Office meal, without recording it as eaten.
+  Future<void> saveOfficeScanPlanItem(
     String planId,
     OfficeScanMealRequest request,
   ) async {
     final response = await _api.postJson(
-      ApiEndpoints.mealPlanSaveOfficeScan(planId),
+      ApiEndpoints.mealPlanScanPlanItems(planId),
       request.toJson(),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(_messageFromResponse(response));
     }
+    _invalidateCache();
+  }
+
+  /// Save today's AI scan as the priority lunch. It remains planned until
+  /// the user explicitly marks it as eaten.
+  Future<void> saveOfficePriorityLunch(
+    String planId,
+    OfficeScanMealRequest request,
+  ) async {
+    final response = await _api.postJson(
+      ApiEndpoints.mealPlanPriorityLunch(planId),
+      request.toJson(),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_messageFromResponse(response));
+    }
+    _invalidateCache();
   }
 
   /// Get budget status for a plan
   Future<Map<String, dynamic>> getBudgetStatus(String planId) async {
-    final response = await _api.get(
-      ApiEndpoints.mealPlanBudgetStatus(planId),
-    );
+    final response = await _api.get(ApiEndpoints.mealPlanBudgetStatus(planId));
     if (response.statusCode != 200 || response.body.isEmpty) {
       throw Exception(_messageFromResponse(response));
     }
