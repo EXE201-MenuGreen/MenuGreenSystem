@@ -52,7 +52,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(saved != null ? 'Đã lưu cài đặt thông báo.' : 'Không lưu được cài đặt.'),
+        content: Text(
+          saved != null
+              ? 'Đã cập nhật cài đặt thông báo thành công.'
+              : 'Không thể lưu cài đặt thông báo. Vui lòng thử lại sau.',
+        ),
       ),
     );
   }

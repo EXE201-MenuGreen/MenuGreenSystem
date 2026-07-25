@@ -180,6 +180,18 @@ class _AddItemSheetState extends State<AddItemSheet> {
             ? _searchController.text.trim()
             : null);
 
+    if (_selectedFood == null &&
+        _selectedRecipe == null &&
+        (customName == null || customName.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn món ăn, công thức hoặc nhập tên món.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final request = AddItemRequest(
       mealType: widget.mealType.value,
       scheduledTime: widget.scheduledTime,

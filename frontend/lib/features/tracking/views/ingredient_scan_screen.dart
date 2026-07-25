@@ -219,46 +219,37 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
 
   (String title, String message) _successInfo(String action, CvSuggestedDish dish, bool officeMode) {
     return switch (action) {
-      'today' when officeMode => (
-        'Lưu thành công',
-        'Món "${dish.tenMonAn}" đã được đặt làm bữa trưa ưu tiên hôm nay.',
-      ),
       'today' => (
         'Lưu thành công',
-        'Món "${dish.tenMonAn}" đã được thêm vào nhật ký bữa ăn.',
+        'Món ăn được lưu vào trang dùng cho bữa trưa hôm nay',
       ),
       'plan' => (
         'Thêm vào kế hoạch',
-        'Món "${dish.tenMonAn}" đã được thêm vào kế hoạch cơm hộp.',
+        'Đã thêm món ăn vào kế hoạch cơm hộp thành công',
       ),
       'template' => (
-        'Lưu thành công',
-        'Món "${dish.tenMonAn}" đã được lưu vào mẫu bữa ăn.',
+        'Lưu mẫu bữa ăn',
+        'Đã lưu món ăn vào mẫu bữa ăn thành công',
       ),
       _ => ('Thành công', 'Thao tác đã hoàn tất.'),
     };
   }
 
   (String title, String message) _errorInfo(String action, CvSuggestedDish dish, String? error, bool officeMode) {
-    final fallback = error ?? 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.';
     return switch (action) {
-      'today' when officeMode => (
-        'Lưu thất bại',
-        'Không thể lưu "${dish.tenMonAn}" làm bữa trưa ưu tiên. $fallback',
-      ),
       'today' => (
         'Lưu thất bại',
-        'Không thể lưu "${dish.tenMonAn}" vào nhật ký bữa ăn. $fallback',
+        'Không thể lưu món ăn dùng cho bữa trưa hôm nay. Vui lòng thực hiện lại.',
       ),
       'plan' => (
         'Thêm thất bại',
-        'Không thể thêm "${dish.tenMonAn}" vào kế hoạch cơm hộp. $fallback',
+        'Không thể thêm món ăn vào kế hoạch cơm hộp. Vui lòng thực hiện lại.',
       ),
       'template' => (
         'Lưu thất bại',
-        'Không thể lưu "${dish.tenMonAn}" vào mẫu bữa ăn. $fallback',
+        'Không thể lưu món ăn vào mẫu bữa ăn. Vui lòng thực hiện lại.',
       ),
-      _ => ('Lỗi', fallback),
+      _ => ('Lỗi', 'Thao tác chưa hoàn thành. Vui lòng thực hiện lại.'),
     };
   }
 
