@@ -23,9 +23,6 @@ CREATE TABLE user_premium_programs (
 CREATE UNIQUE INDEX "IX_user_premium_programs_UserId_ProgramId" ON user_premium_programs ("UserId", "ProgramId");
 
 -- Seed Data for user_premium_programs
-INSERT INTO user_premium_programs ("Id", "UserId", "ProgramId", "StartDate", "Status", "CurrentWeek", "CreatedAt", "UpdatedAt")
-VALUES
-('f2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000001', CURRENT_DATE - 10, 'Active', 2, now(), now())
-ON CONFLICT DO NOTHING;
+-- (No seed enrollment: real enrollments are created via /api/PremiumPrograms/{id}/checkout.)
 
 COMMIT;

@@ -559,7 +559,7 @@ if [ -n "$DB_CONN_PRECHECK" ]; then
       
       if [ "$TABLE_COUNT" -gt "10" ]; then
         echo "  Seeding __EFMigrationsHistory with baseline migration..."
-        SEED_RESULT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723154128_BaselineExistingDatabase', '8.0.11');" 2>&1)
+        SEED_RESULT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723091704_Init', '8.0.11');" 2>&1)
         if [ $? -eq 0 ]; then
           echo "  ✓ Baseline migration seeded. EF will skip table creation."
         else

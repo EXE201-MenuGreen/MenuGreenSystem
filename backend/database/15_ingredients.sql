@@ -45,6 +45,47 @@ VALUES
 ('ea000008-1111-2222-3333-444444444444', 'Mật ong', 'Honey', 'Gia vị/Dầu', 304, 0.3, 82.4, 0.0, 180000, 'g', 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=150', true, now()),
 ('ea000009-1111-2222-3333-444444444444', 'Hạt hạnh nhân', 'Almonds', 'Đậu/Hạt', 579, 21.0, 22.0, 49.0, 350000, 'g', 'https://images.unsplash.com/photo-1508061263366-f7e9f45a7b81?w=150', true, now()),
 ('ea000010-1111-2222-3333-444444444444', 'Nấm đùi gà', 'King oyster mushroom', 'Rau củ', 35, 2.5, 6.0, 0.3, 65000, 'g', 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=150', true, now())
-ON CONFLICT DO NOTHING;
+-- =============================================================================
+-- MenuGreen Seed Data - Extended Ingredients (Items 21-55)
+-- Added for extended recipes (ec000011-020) and skeleton recipes for popular
+-- Vietnamese dishes (Phở, Bún chả, Bún bò Huế, Mì quảng, Cơm tấm, ...)
+-- Idempotent: ON CONFLICT (Id) DO NOTHING via separate insert below.
+-- =============================================================================
+,('ea000021-1111-2222-3333-444444444444', 'Bánh mì Việt Nam', 'Vietnamese baguette', 'Tinh bột', 280, 9.0, 52.0, 4.5, 2.5, 8000, 'ổ', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=150', true, now())
+,('ea000022-1111-2222-3333-444444444444', 'Thịt nguội', 'Vietnamese cold cuts', 'Thịt/Cá', 250, 22.0, 2.0, 17.0, 0.0, 12000, 'g', 'https://images.unsplash.com/photo-1607623814075-e51df1bdc7f2?w=150', true, now())
+,('ea000023-1111-2222-3333-444444444444', 'Dưa leo', 'Cucumber', 'Rau củ', 16, 0.7, 3.6, 0.1, 0.5, 8000, 'g', 'https://images.unsplash.com/photo-1604977042946-1eecc30f269e?w=150', true, now())
+,('ea000024-1111-2222-3333-444444444444', 'Rau răm', 'Vietnamese coriander', 'Rau củ', 23, 2.0, 4.0, 0.5, 1.5, 30000, 'g', 'https://images.unsplash.com/photo-1628776279912-7b79b3ad9d2f?w=150', true, now())
+,('ea000025-1111-2222-3333-444444444444', 'Hành tây', 'Onion', 'Rau củ', 40, 1.1, 9.3, 0.1, 1.7, 15000, 'g', 'https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=150', true, now())
+,('ea000026-1111-2222-3333-444444444444', 'Bánh tráng', 'Rice paper', 'Tinh bột', 330, 0.5, 82.0, 0.2, 0.5, 5000, 'tờ', 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=150', true, now())
+,('ea000027-1111-2222-3333-444444444444', 'Tôm sú', 'Tiger shrimp', 'Thịt/Cá', 99, 24.0, 0.2, 0.3, 0.0, 220000, 'g', 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=150', true, now())
+,('ea000028-1111-2222-3333-444444444444', 'Thịt heo nạc', 'Lean pork', 'Thịt/Cá', 242, 26.0, 0.0, 15.0, 0.0, 95000, 'g', 'https://images.unsplash.com/photo-1606851094291-6efae152bb87?w=150', true, now())
+,('ea000029-1111-2222-3333-444444444444', 'Bún tươi', 'Fresh rice vermicelli', 'Tinh bột', 109, 1.8, 24.9, 0.2, 0.6, 18000, 'g', 'https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=150', true, now())
+,('ea000030-1111-2222-3333-444444444444', 'Rau thơm (húng quế)', 'Thai basil', 'Rau củ', 23, 3.2, 2.7, 0.6, 1.6, 40000, 'g', 'https://images.unsplash.com/photo-1597714026720-8f74c62310ba?w=150', true, now())
+,('ea000031-1111-2222-3333-444444444444', 'Gạo nếp', 'Sticky rice', 'Tinh bột', 97, 3.0, 21.0, 0.3, 0.6, 25000, 'g', 'https://images.unsplash.com/photo-1626078442495-7f3a9b9c8b0c?w=150', true, now())
+,('ea000032-1111-2222-3333-444444444444', 'Đậu xanh', 'Mung bean', 'Đậu/Hạt', 347, 21.0, 63.0, 1.2, 16.0, 22000, 'g', 'https://images.unsplash.com/photo-1611599537845-1c7aca0091c0?w=150', true, now())
+,('ea000033-1111-2222-3333-444444444444', 'Giò lụa', 'Vietnamese pork sausage', 'Thịt/Cá', 195, 19.0, 3.0, 12.0, 0.0, 90000, 'g', 'https://images.unsplash.com/photo-1606851094291-6efae152bb87?w=150', true, now())
+,('ea000034-1111-2222-3333-444444444444', 'Hành tím', 'Shallot', 'Rau củ', 72, 2.5, 16.8, 0.1, 3.2, 20000, 'g', 'https://images.unsplash.com/photo-1615477550927-65f7d4b5f3b0?w=150', true, now())
+,('ea000035-1111-2222-3333-444444444444', 'Sữa hạnh nhân', 'Almond milk', 'Trứng/Sữa', 17, 0.6, 0.6, 1.5, 0.3, 55000, 'ml', 'https://images.unsplash.com/photo-1605684954998-685c79d6a018?w=150', true, now())
+,('ea000036-1111-2222-3333-444444444444', 'Sữa chua Hy Lạp', 'Greek yogurt', 'Trứng/Sữa', 59, 10.0, 3.6, 0.4, 0.0, 28000, 'g', 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=150', true, now())
+,('ea000037-1111-2222-3333-444444444444', 'Hạt chia', 'Chia seeds', 'Đậu/Hạt', 486, 17.0, 42.0, 31.0, 34.0, 220000, 'g', 'https://images.unsplash.com/photo-1518671532528-7b2f5b2f0c1c?w=150', true, now())
+,('ea000038-1111-2222-3333-444444444444', 'Granola', 'Granola', 'Tinh bột', 489, 13.0, 64.0, 24.0, 7.0, 120000, 'g', 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=150', true, now())
+,('ea000039-1111-2222-3333-444444444444', 'Berries đông lạnh', 'Mixed berries', 'Trái cây', 50, 0.7, 12.0, 0.3, 4.0, 95000, 'g', 'https://images.unsplash.com/photo-1488900128323-21503983a07e?w=150', true, now())
+,('ea000040-1111-2222-3333-444444444444', 'Rosemary', 'Rosemary', 'Gia vị/Dầu', 131, 3.3, 20.7, 5.9, 14.1, 80000, 'g', 'https://images.unsplash.com/photo-1515586000433-45406d8e6662?w=150', true, now())
+,('ea000041-1111-2222-3333-444444444444', 'Ớt chuông', 'Bell pepper', 'Rau củ', 31, 1.0, 6.0, 0.3, 2.1, 28000, 'g', 'https://images.unsplash.com/photo-1525607551316-4a8e16d1f9ba?w=150', true, now())
+,('ea000042-1111-2222-3333-444444444444', 'Cà rốt', 'Carrot', 'Rau củ', 41, 0.9, 9.6, 0.2, 2.8, 12000, 'g', 'https://images.unsplash.com/photo-1582515073490-39981397c445?w=150', true, now())
+,('ea000043-1111-2222-3333-444444444444', 'Quinoa', 'Quinoa', 'Tinh bột', 120, 4.4, 21.3, 1.9, 2.8, 180000, 'g', 'https://images.unsplash.com/photo-1612257999691-c2c69c2e3f1b?w=150', true, now())
+,('ea000044-1111-2222-3333-444444444444', 'Rau mầm', 'Bean sprouts', 'Rau củ', 30, 3.0, 5.9, 0.2, 1.8, 18000, 'g', 'https://images.unsplash.com/photo-1602081115853-59c92b1b1f6e?w=150', true, now())
+,('ea000045-1111-2222-3333-444444444444', 'Tahini', 'Tahini', 'Gia vị/Dầu', 595, 17.0, 21.0, 54.0, 9.0, 220000, 'g', 'https://images.unsplash.com/photo-1593011951972-bd9ad65c1d0d?w=150', true, now())
+,('ea000046-1111-2222-3333-444444444444', 'Hạt é', 'Basil seeds', 'Đậu/Hạt', 23, 0.8, 2.0, 0.4, 4.0, 180000, 'g', 'https://images.unsplash.com/photo-1622480916113-9000ae6426f3?w=150', true, now())
+,('ea000047-1111-2222-3333-444444444444', 'Bột Acai', 'Acai powder', 'Trái cây', 533, 8.0, 52.0, 32.0, 33.0, 450000, 'g', 'https://images.unsplash.com/photo-1610276198568-eb6d0ff53e48?w=150', true, now())
+,('ea000048-1111-2222-3333-444444444444', 'Sữa dừa', 'Coconut milk', 'Trứng/Sữa', 230, 2.3, 5.5, 24.0, 2.2, 45000, 'ml', 'https://images.unsplash.com/photo-1612181027931-c4f2e6d2a3f3?w=150', true, now())
+,('ea000049-1111-2222-3333-444444444444', 'Dừa nạo', 'Shredded coconut', 'Trái cây', 660, 7.0, 24.0, 64.0, 16.0, 80000, 'g', 'https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=150', true, now())
+,('ea000050-1111-2222-3333-444444444444', 'Gừng tươi', 'Fresh ginger', 'Gia vị/Dầu', 80, 1.8, 18.0, 0.8, 2.0, 60000, 'g', 'https://images.unsplash.com/photo-1608032077018-c9aad9565d29?w=150', true, now())
+,('ea000051-1111-2222-3333-444444444444', 'Gạo tẻ', 'Long-grain rice', 'Tinh bột', 130, 2.7, 28.0, 0.3, 0.4, 18000, 'g', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150', true, now())
+,('ea000052-1111-2222-3333-444444444444', 'Dưa cải muối', 'Pickled mustard greens', 'Rau củ', 25, 1.5, 4.5, 0.3, 2.0, 25000, 'g', 'https://images.unsplash.com/photo-1626197031507-cd0a0a9c2d3f?w=150', true, now())
+,('ea000053-1111-2222-3333-444444444444', 'Đu đủ xanh', 'Green papaya', 'Trái cây', 43, 0.5, 10.8, 0.3, 1.8, 15000, 'g', 'https://images.unsplash.com/photo-1626197031507-cd0a0a9c2d3f?w=150', true, now())
+,('ea000054-1111-2222-3333-444444444444', 'Khô bò', 'Beef jerky', 'Thịt/Cá', 410, 33.0, 11.0, 25.0, 0.0, 280000, 'g', 'https://images.unsplash.com/photo-1606851094291-6efae152bb87?w=150', true, now())
+,('ea000055-1111-2222-3333-444444444444', 'Đậu phộng rang', 'Roasted peanuts', 'Đậu/Hạt', 567, 26.0, 16.0, 49.0, 8.0, 90000, 'g', 'https://images.unsplash.com/photo-1567892745478-b5d4d3a9b3e8?w=150', true, now())
+ON CONFLICT ("Id") DO NOTHING;
 
 COMMIT;
