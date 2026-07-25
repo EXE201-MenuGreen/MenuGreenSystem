@@ -723,6 +723,278 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
+        // ====================================================================
+        // Phase 8: Coach -> Gymer (PersonalProgram direction)
+        // ====================================================================
+
+        public async Task<CreatePersonalProgramResponse> CreatePersonalProgramAsync(Guid coachId, CreatePersonalProgramRequest request)
+        {
+            // 1. Validate coach has Connected relationship with client.
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.ClientId == request.ClientId
+                && c.CoachId == coachId
+                && c.Status == "Connected");
+            if (!connections.Any())
+            {
+                throw new Exception("You are not connected with this client.");
+            }
+
+            // 2. Check no pending program exists for this client (DB enforces via partial unique index too).
+            var existing = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == request.ClientId
+                && r.CreatedByRole == "Coach"
+                && r.Status == "Pending")).FirstOrDefault();
+            if (existing != null)
+            {
+                throw new Exception("Client already has a pending personal program. Please wait for them to respond before sending a new one.");
+            }
+
+            // 3. Validate client exists.
+            var client = await _unitOfWork.Users.GetByIdAsync(request.ClientId)
+                ?? throw new Exception("Client does not exist.");
+
+            // 4. Build snapshot JSON with all program data.
+            var snapshot = new PersonalProgramSnapshot
+            {
+                Title = request.Title,
+                Description = request.Description ?? string.Empty,
+                DurationWeeks = request.DurationWeeks,
+                WeekStartDate = request.WeekStartDate,
+                TargetCaloriesDaily = request.TargetCaloriesDaily,
+                TargetProteinG = request.TargetProteinG,
+                TargetCarbsG = request.TargetCarbsG,
+                TargetFatG = request.TargetFatG,
+                CoachComment = request.CoachComment ?? string.Empty,
+                SuggestedChanges = request.SuggestedChanges ?? new List<PtSuggestedChangeDto>()
+            };
+
+            // 5. Create PtReviewRequest row with CreatedByRole = "Coach".
+            var programId = Guid.NewGuid();
+            var programEntity = new PtReviewRequest
+            {
+                Id = programId,
+                UserId = request.ClientId,
+                WeekStartDate = request.WeekStartDate,
+                ReviewToken = Guid.NewGuid().ToString("N"),
+                ExpiresAt = DateTime.UtcNow.AddDays(30),
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow,
+                CreatedByRole = "Coach",
+                ReportDataJson = System.Text.Json.JsonSerializer.Serialize(snapshot, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                }),
+                PtComment = request.CoachComment,
+                SuggestedCalorieTarget = request.TargetCaloriesDaily,
+                SuggestedProteinTarget = request.TargetProteinG,
+                SuggestedCarbsTarget = request.TargetCarbsG,
+                SuggestedFatTarget = request.TargetFatG,
+                SuggestedChangesJson = System.Text.Json.JsonSerializer.Serialize(request.SuggestedChanges ?? new List<PtSuggestedChangeDto>(), new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                })
+            };
+
+            await _unitOfWork.PtReviewRequests.AddAsync(programEntity);
+            await _unitOfWork.CompleteAsync();
+
+            // 6. Notify the Gymer.
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = request.ClientId,
+                    Type = "COACH_PERSONAL_PROGRAM",
+                    Title = "PT đã gửi lộ trình cá nhân",
+                    Body = $"PT vừa gửi lộ trình \"{request.Title}\" ({request.DurationWeeks} tuần). Mở tab \"PT gửi tôi\" để xem chi tiết và chấp nhận."
+                });
+            }
+            catch
+            {
+                // Silence notification failure - PersonalProgram creation must not depend on notifications.
+            }
+
+            return new CreatePersonalProgramResponse
+            {
+                ProgramId = programId,
+                ClientId = request.ClientId,
+                CreatedAt = programEntity.CreatedAt
+            };
+        }
+
+        public async Task<PersonalProgramResponse> AcceptPersonalProgramAsync(Guid gymerId, Guid requestId)
+        {
+            var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
+                ?? throw new Exception("Personal program does not exist.");
+
+            if (requestEntity.UserId != gymerId)
+            {
+                throw new Exception("Access denied.");
+            }
+
+            if (requestEntity.CreatedByRole != "Coach")
+            {
+                throw new Exception("This request was not sent by your coach.");
+            }
+
+            if (requestEntity.Status != "Pending")
+            {
+                throw new Exception("Personal program has already been processed.");
+            }
+
+            var now = DateTime.UtcNow;
+
+            // Mark as Accepted.
+            requestEntity.Status = "Accepted";
+            requestEntity.AcceptedAt = now;
+            requestEntity.AcceptedByUserId = gymerId;
+            requestEntity.ActionedAt = now;
+            _unitOfWork.PtReviewRequests.Update(requestEntity);
+
+            // Apply targets to Gymer's HealthProfile (if exists).
+            var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == gymerId);
+            var healthProfile = healthProfiles.FirstOrDefault();
+            if (healthProfile != null && requestEntity.SuggestedCalorieTarget.HasValue)
+            {
+                healthProfile.TargetCalories = requestEntity.SuggestedCalorieTarget.Value;
+                if (requestEntity.SuggestedProteinTarget.HasValue)
+                    healthProfile.TargetProteinG = requestEntity.SuggestedProteinTarget.Value;
+                if (requestEntity.SuggestedCarbsTarget.HasValue)
+                    healthProfile.TargetCarbsG = requestEntity.SuggestedCarbsTarget.Value;
+                if (requestEntity.SuggestedFatTarget.HasValue)
+                    healthProfile.TargetFatG = requestEntity.SuggestedFatTarget.Value;
+                _unitOfWork.HealthProfiles.Update(healthProfile);
+            }
+
+            await _unitOfWork.CompleteAsync();
+
+            return await BuildPersonalProgramResponseAsync(requestEntity);
+        }
+
+        public async Task<IEnumerable<PersonalProgramResponse>> GetMyPersonalProgramsAsync(Guid gymerId)
+        {
+            var requests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == gymerId && r.CreatedByRole == "Coach"))
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            var list = new List<PersonalProgramResponse>();
+            foreach (var req in requests)
+            {
+                list.Add(await BuildPersonalProgramResponseAsync(req));
+            }
+            return list;
+        }
+
+        public async Task<IEnumerable<CoachSentProgramResponse>> GetCoachSentProgramsAsync(Guid coachId, Guid? clientId)
+        {
+            var requests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.CreatedByRole == "Coach"
+                && (clientId == null || r.UserId == clientId.Value)))
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            // Filter to only those sent by this coach (validate connection).
+            var filtered = new List<PtReviewRequest>();
+            foreach (var req in requests)
+            {
+                var hasConnection = (await _unitOfWork.CoachConnections.FindAsync(c =>
+                    c.ClientId == req.UserId && c.CoachId == coachId && c.Status == "Connected")).Any();
+                if (hasConnection)
+                {
+                    filtered.Add(req);
+                }
+            }
+
+            var list = new List<CoachSentProgramResponse>();
+            foreach (var req in filtered)
+            {
+                var client = await _unitOfWork.Users.GetByIdAsync(req.UserId);
+                var profile = await _unitOfWork.Profiles.GetByIdAsync(req.UserId);
+                var snapshot = TryParsePersonalProgramSnapshot(req.ReportDataJson);
+
+                list.Add(new CoachSentProgramResponse
+                {
+                    Id = req.Id,
+                    ClientId = req.UserId,
+                    ClientName = profile?.FullName ?? client?.Email ?? "Client",
+                    Title = snapshot?.Title ?? "Personal program",
+                    Description = snapshot?.Description,
+                    DurationWeeks = snapshot?.DurationWeeks ?? 0,
+                    WeekStartDate = req.WeekStartDate,
+                    TargetCaloriesDaily = snapshot?.TargetCaloriesDaily ?? 0,
+                    TargetProteinG = snapshot?.TargetProteinG ?? 0,
+                    TargetCarbsG = snapshot?.TargetCarbsG ?? 0,
+                    TargetFatG = snapshot?.TargetFatG ?? 0,
+                    Status = req.Status,
+                    CreatedAt = req.CreatedAt,
+                    AcceptedAt = req.AcceptedAt
+                });
+            }
+            return list;
+        }
+
+        private async Task<PersonalProgramResponse> BuildPersonalProgramResponseAsync(PtReviewRequest req)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(req.UserId);
+            var profile = await _unitOfWork.Profiles.GetByIdAsync(req.UserId);
+            var snapshot = TryParsePersonalProgramSnapshot(req.ReportDataJson);
+
+            return new PersonalProgramResponse
+            {
+                Id = req.Id,
+                ClientId = req.UserId,
+                ClientName = profile?.FullName ?? user?.Email ?? "Client",
+                Title = snapshot?.Title ?? "Personal program",
+                Description = snapshot?.Description,
+                DurationWeeks = snapshot?.DurationWeeks ?? 0,
+                WeekStartDate = req.WeekStartDate,
+                TargetCaloriesDaily = snapshot?.TargetCaloriesDaily ?? 0,
+                TargetProteinG = snapshot?.TargetProteinG ?? 0,
+                TargetCarbsG = snapshot?.TargetCarbsG ?? 0,
+                TargetFatG = snapshot?.TargetFatG ?? 0,
+                CoachComment = req.PtComment,
+                SuggestedChanges = ParseSuggestedChanges(req.SuggestedChangesJson),
+                Status = req.Status,
+                CreatedAt = req.CreatedAt,
+                AcceptedAt = req.AcceptedAt
+            };
+        }
+
+        private static PersonalProgramSnapshot? TryParsePersonalProgramSnapshot(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<PersonalProgramSnapshot>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static List<PtSuggestedChangeDto> ParseSuggestedChanges(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return new();
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<PtSuggestedChangeDto>>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                }) ?? new();
+            }
+            catch
+            {
+                return new();
+            }
+        }
+
         private static DateOnly? GetTargetDate(DateOnly nextWeekStartDate, string dayOfWeekStr)
         {
             var cleanStr = (dayOfWeekStr ?? string.Empty).Trim().ToLowerInvariant();
@@ -792,6 +1064,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public DriftAnalysisResponse DriftAnalysis { get; set; } = new();
         public List<WeightLogSnapshot> WeightLogs { get; set; } = new();
         public List<DailyMealsSnapshot> DailyMeals { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Phase 8: Snapshot JSON for PersonalProgram (Coach -> Gymer direction).
+    /// </summary>
+    public class PersonalProgramSnapshot
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int DurationWeeks { get; set; }
+        public DateOnly WeekStartDate { get; set; }
+        public int TargetCaloriesDaily { get; set; }
+        public int TargetProteinG { get; set; }
+        public int TargetCarbsG { get; set; }
+        public int TargetFatG { get; set; }
+        public string CoachComment { get; set; } = string.Empty;
+        public List<PtSuggestedChangeDto> SuggestedChanges { get; set; } = new();
     }
 
     public class HealthProfileSnapshot

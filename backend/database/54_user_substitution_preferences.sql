@@ -14,8 +14,8 @@ CREATE TABLE user_substitution_preferences (
     "CreatedAt" timestamp with time zone NOT NULL,
     CONSTRAINT "PK_user_substitution_preferences" PRIMARY KEY ("Id"),
     CONSTRAINT "FK_user_substitution_preferences_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_user_substitution_preferences_ingredients_OriginalIngredientId" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_user_substitution_preferences_ingredients_SubstituteIngredientId" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_user_sub_pref_original_ingredient" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_user_sub_pref_substitute_ingredient" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
 );
 
 -- Seed Data for user_substitution_preferences

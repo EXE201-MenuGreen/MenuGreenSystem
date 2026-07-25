@@ -53,7 +53,7 @@ Nhiều subscription đang hoạt động được hợp nhất. `free_features`
 | Kết nối Coach | `coach_access` |
 | AI chuyên biệt | `ai_features` |
 
-Gói `pro`, `premium`, `vip` hoặc `gold` theo dữ liệu cũ được quy đổi tương thích thành Casual + Gym/PT + Coach + AI. Gói `basic` không cộng quyền trả phí và được xem là Free.
+Gói `basic` không cộng quyền trả phí và được xem là Free. Trước 2026-07-24 các feature group `pro/premium/vip/gold` được quy đổi tương thích thành Casual + Gym/PT + Coach + AI; hiện tại nhánh mapping đã được gỡ khỏi `FeatureAccessResolver` vì dự án chỉ còn 4 gói Free, Casual, Gym/PT và Office.
 
 ### 2.3. Role và subscription
 
@@ -133,7 +133,7 @@ dotnet test MenuGreen.sln --no-restore
 
 Kết quả: **8/8 test pass**.
 
-- 5 unit test cho Free mặc định, subscription hết hạn/hủy, subscription tương lai, hợp nhất nhiều gói và tương thích gói Pro;
+- 5 unit test cho Free mặc định, subscription hết hạn/hủy, subscription tương lai, hợp nhất nhiều gói; nhánh test "tương thích gói Pro" đã được thay bằng test cho Casual active (vì nhánh Pro đã bị gỡ).
 - 3 integration test HTTP cho chưa xác thực nhận `401`, Free tải entitlement nhận `200`, Free gọi Lucky Wheel nhận `403`.
 
 Build hoàn tất không có lỗi. Các warning nullable/obsolete còn lại nằm ở code có sẵn trước workflow và không chặn build.

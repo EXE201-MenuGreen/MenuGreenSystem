@@ -39,9 +39,9 @@ Gói Casual hiện được thiết kế với `FeatureGroup = casual` và giá 
 2. Người dùng chọn một công cụ hoặc nút **Kích hoạt gói Casual 0đ**.
 3. Ứng dụng mở `UpgradePlanScreen`.
 4. Sau khi kích hoạt, frontend tải lại danh sách subscription active.
-5. `hasCasualSubscriptionAccess` chấp nhận gói `casual` hoặc `pro` còn hiệu lực.
+5. `hasCasualSubscriptionAccess` chấp nhận gói `casual` còn hiệu lực.
 
-Backend bảo vệ ba controller bằng policy `CasualOnly`. Policy này yêu cầu entitlement `casual_features`, được cấp khi subscription active có tên chứa `casual` hoặc `FeatureGroup` là `casual`/`pro`.
+Backend bảo vệ ba controller bằng policy `CasualOnly`. Policy này yêu cầu entitlement `casual_features`, được cấp khi subscription active có tên chứa `casual` hoặc `FeatureGroup` là `casual`. (Trước 2026-07-24 nhánh `pro` được chấp nhận cho tương thích ngược; hiện đã gỡ vì không còn bán gói `Pro` riêng.)
 
 > Lưu ý hiện trạng: seed Casual đang trùng ID với Gym/PT. Chi tiết được ghi trong `docs/casual_workflow_implementation_report.md`; luồng kích hoạt chưa được coi là ổn định cho đến khi sửa collision này.
 
@@ -212,7 +212,7 @@ POST /api/MicroLearning/cards/{id}/quiz/submit
 - Mood rescue hiện là nội dung local, còn Micro-Learning card là dữ liệu backend.
 - `CasualPackageCard` là khu vực đã kích hoạt; người chưa có quyền chủ yếu vào qua Casual Hub/paywall.
 - Office và Gym/PT là entitlement độc lập, không thuộc workflow này.
-- Gói `pro` hiện được chấp nhận cho Casual entitlement.
+- Hệ thống không còn gói `Pro` riêng; chỉ có Free, Casual, Gym/PT và Office. Để mở khóa nhóm tính năng Casual người dùng chỉ cần kích hoạt gói Casual.
 
 ## 9. Tệp nguồn chính
 

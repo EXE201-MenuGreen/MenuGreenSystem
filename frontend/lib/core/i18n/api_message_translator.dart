@@ -97,6 +97,18 @@ class ApiMessageTranslator {
         'Vui lòng thiết lập ngân sách trước khi tự động tạo lộ trình.',
     'Meal plan not found or access denied.':
         'Không tìm thấy lộ trình hoặc bạn không có quyền truy cập.',
+
+    // Phase 8: PersonalProgram (Coach -> Gymer direction)
+    'Personal program does not exist.':
+        'Không tìm thấy lộ trình cá nhân.',
+    'This request was not sent by your coach.':
+        'Yêu cầu này không được gửi từ PT của bạn.',
+    'Personal program has already been processed.':
+        'Lộ trình cá nhân đã được xử lý.',
+    'You are not connected with this client.':
+        'Bạn chưa kết nối với khách hàng này.',
+    'Client already has a pending personal program. Please wait for them to respond before sending a new one.':
+        'Khách hàng đang có lộ trình cá nhân chờ phản hồi. Vui lòng chờ họ xử lý trước khi gửi lộ trình mới.',
   };
 
   static final _macroExceeds = RegExp(

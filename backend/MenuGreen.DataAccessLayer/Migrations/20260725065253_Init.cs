@@ -830,7 +830,10 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     SuggestedCarbsTarget = table.Column<int>(type: "integer", nullable: true),
                     SuggestedChangesJson = table.Column<string>(type: "text", nullable: true),
                     ReviewedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ActionedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    ActionedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CreatedByRole = table.Column<string>(type: "text", nullable: false),
+                    AcceptedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    AcceptedByUserId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {

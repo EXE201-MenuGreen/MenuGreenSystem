@@ -158,8 +158,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return normalized switch
             {
                 "free" => "Free",
-                "premium" => "Premium",
-                "pro" => "Pro",
                 _ => "Custom"
             };
         }

@@ -9,6 +9,8 @@ import '../../subscription/models/subscription_models.dart';
 import '../repositories/premium_program_repository.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../widgets/route_approval_card.dart';
+import 'personal_program_detail_screen.dart';
 
 class PremiumProgramsScreen extends StatefulWidget {
   const PremiumProgramsScreen({super.key});
@@ -19,6 +21,7 @@ class PremiumProgramsScreen extends StatefulWidget {
 
 class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   final _repository = PremiumProgramRepository();
+  final _advancedRepository = AdvancedRepository();
 
   // Retained for the legacy catalogue widgets below.
   // ignore: unused_field
@@ -592,95 +595,61 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeProgram = _activeProgram;
-    final paidProgram = _paidProgram;
-    final completedPrograms = _completedPrograms;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF9),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Lộ trình Gymer',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.w800,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAF9),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const Text(
+            'Lộ trình Gymer',
+            style: TextStyle(
+              color: AppColors.textDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          actions: [
+            IconButton(
+              onPressed: _loading || _actionLoading ? null : _load,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+          bottom: const TabBar(
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 2.5,
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+            ),
+            tabs: [
+              Tab(text: 'Tôi gửi PT'),
+              Tab(text: 'PT gửi tôi'),
+            ],
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _loading || _actionLoading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
-          : RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: _load,
-              child: ListView(
+        body: _loading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
+            : TabBarView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 children: [
-                  _buildIntro(),
-                  if (activeProgram != null) ...[
-                    const SizedBox(height: 14),
-                    _buildActiveProgram(activeProgram),
-                  ] else if (paidProgram != null) ...[
-                    const SizedBox(height: 14),
-                    _buildPaidProgram(paidProgram),
-                  ] else if (_programs.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Chương trình đang mở',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._programs.map(
-                      (program) => _ProgramCard(
-                        program: program,
-                        busy: _actionLoading,
-                        onCheckout: () => _checkout(program),
-                      ),
-                    ),
-                  ],
-                  if (_customApprovedRoute != null) ...[
-                    const SizedBox(height: 14),
-                    _buildCustomApprovedRoute(_customApprovedRoute!),
-                  ] else ...[
-                    const SizedBox(height: 14),
-                    const _MessageCard(
-                      message: 'Chưa có lộ trình cá nhân nào được duyệt từ PT.',
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    _MessageCard(message: _error!),
-                  ],
-                  if (completedPrograms.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Lộ trình đã hoàn thành',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ...completedPrograms.map(_buildCompletedProgram),
-                  ],
+                  _SentRouteTab(
+                    refresh: _load,
+                    error: _error,
+                    advancedRepository: _advancedRepository,
+                  ),
+                  _ReceivedPersonalTab(
+                    refresh: _load,
+                    error: _error,
+                    onAcceptSuccess: _load,
+                  ),
                 ],
               ),
-            ),
+      ),
     );
   }
 
@@ -2157,4 +2126,269 @@ List<Map<String, dynamic>> _listValue(Map<String, dynamic> data, String key) {
 
 String _cleanError(Object error) {
   return error.toString().replaceFirst('Exception: ', '');
+}
+
+// =============================================================================
+// Phase 8: 2-tab journey UI
+// Tab 1: Tôi gửi PT  -> Gymer-side RouteApproval/WeeklyReport requests
+// Tab 2: PT gửi tôi -> Coach-side PersonalPrograms
+// =============================================================================
+
+class _SentRouteTab extends StatefulWidget {
+  const _SentRouteTab({
+    required this.refresh,
+    required this.error,
+    required this.advancedRepository,
+  });
+  final Future<void> Function() refresh;
+  final String? error;
+  final AdvancedRepository advancedRepository;
+
+  @override
+  State<_SentRouteTab> createState() => _SentRouteTabState();
+}
+
+class _SentRouteTabState extends State<_SentRouteTab> {
+  List<Map<String, dynamic>> _requests = const [];
+  bool _loading = true;
+  bool _actionLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final reqs = await widget.advancedRepository.ptRequests();
+      if (!mounted) return;
+      // Tab 1 = Gymer -> PT (CreatedByRole = "Gymer", default; RouteApproval or WeeklyReport).
+      final filtered = reqs.where((r) {
+        final rt = (r['requestType'] ?? '').toString().toLowerCase();
+        return rt.isEmpty || rt == 'weeklyreport' || rt == 'routeapproval';
+      }).toList();
+      setState(() {
+        _requests = filtered;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _apply(String id) async {
+    setState(() => _actionLoading = true);
+    try {
+      await widget.advancedRepository.ptAction(id, 'apply');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')),
+      );
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_cleanError(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_requests.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 80),
+            Icon(
+              Icons.assignment_rounded,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Bạn chưa gửi yêu cầu nào cho PT.\nHãy tạo báo cáo tuần để PT gợi ý điều chỉnh lộ trình dinh dưỡng.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13.5,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _requests.length + (widget.error != null ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (widget.error != null && index == _requests.length) {
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                widget.error!,
+                style: const TextStyle(color: Color(0xFFC62828)),
+              ),
+            );
+          }
+          final r = _requests[index];
+          return RouteApprovalCard(
+            request: r,
+            direction: 'sent',
+            onAction: () {
+              final status = (r['status'] ?? '').toString().toLowerCase();
+              if (status == 'reviewed') {
+                _apply(r['reportId'].toString());
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReceivedPersonalTab extends StatefulWidget {
+  const _ReceivedPersonalTab({
+    required this.refresh,
+    required this.error,
+    required this.onAcceptSuccess,
+  });
+  final Future<void> Function() refresh;
+  final String? error;
+  final Future<void> Function() onAcceptSuccess;
+
+  @override
+  State<_ReceivedPersonalTab> createState() => _ReceivedPersonalTabState();
+}
+
+class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
+  List<Map<String, dynamic>> _programs = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final programs = await AdvancedRepository().myPersonalPrograms();
+      if (!mounted) return;
+      setState(() {
+        _programs = programs;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openDetail(Map<String, dynamic> program) async {
+    final accepted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PersonalProgramDetailScreen(program: program),
+      ),
+    );
+    if (accepted == true) {
+      await _load();
+      await widget.onAcceptSuccess();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_programs.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 80),
+            Icon(
+              Icons.inbox_rounded,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'PT của bạn chưa gửi lộ trình cá nhân nào.\nKhi PT tạo lộ trình, nó sẽ xuất hiện ở đây để bạn xem và chấp nhận.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13.5,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _programs.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final p = _programs[index];
+          return RouteApprovalCard(
+            request: p,
+            direction: 'received',
+            onTap: () => _openDetail(p),
+            onAction: () {
+              final status = (p['status'] ?? '').toString().toLowerCase();
+              if (status == 'pending') {
+                _openDetail(p);
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
 }

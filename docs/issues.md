@@ -1356,4 +1356,254 @@ Code viết tắt trong quá trình dev nhanh, không theo convention.
 - [ ] Thêm mapping tương ứng vào `frontend/lib/core/i18n/api_message_translator.dart`
 - [ ] Verify Flutter analyzer pass
 
+---
+
+## [RESOLVED] Catalog data inconsistency — recipes và ingredients chưa khớp foods
+
+**Date:** 2026-07-24
+**Status:** ✅ Resolved (2026-07-24 — Phase 7: full 150-food catalog)
+**Severity:** Medium (ảnh hưởng UX màn hình Recipe Detail và macro tính từ ingredient; không gây crash nhưng thiếu dữ liệu cho ~38% recipes và ~85% foods)
+
+### Description
+
+Sau khi seed `15_ingredients.sql`, `16_foods.sql`, `17_recipes.sql`, `18_recipe_ingredients.sql` vào DB mới, đếm thực tế:
+
+| File | Rows | Unique |
+|---|---|---|
+| `15_ingredients.sql` | 20 | 20 |
+| `16_foods.sql` | 130 (50 main + 80 home-cooked) | 130 |
+| `17_recipes.sql` | 26 | 26 |
+| `18_recipe_ingredients.sql` | 41 | 41 |
+
+Liên kết thực tế (cross-reference FK):
+
+- **recipes → foods**: 20/26 recipes có `FoodId` (FK `foods("Id")`), 6/26 có `FoodId = NULL` (chỉ là recipe tổng quát, không gắn món cụ thể — chấp nhận được theo schema `recipes.FoodId NULLABLE`).
+- **recipes → recipe_ingredients**: **10/26 recipes KHÔNG có dòng nào trong `recipe_ingredients`** (khoảng 38%):
+  - `ec000011` Bánh mì thịt nướng
+  - `ec000012` Gỏi cuốn tôm thịt
+  - `ec000013` Xôi xéo giò lụa
+  - `ec000014` Overnight oats với berries
+  - `ec000015` Grilled chicken với rau nướng
+  - `ec000016` Quinoa salad với sốt tahini
+  - `ec000017` Acai smoothie bowl
+  - `ec000018` Cơm gà Hainan
+  - `ec000019` Cơm rang dưa bò
+  - `ec000020` Gỏi đu đủ khô bò
+- **foods → recipes**: **110/130 foods KHÔNG có recipe** (khoảng 85%). Phần lớn là các món quán / món nước Việt Nam (Phở bò, Bún chả, Bún bò Huế, Mì quảng, Cơm tấm, Hủ tiếu…) hoặc 80 món home-cooked tự nấu (chưa cần recipe vì user tự biết cách nấu, nhưng UI vẫn cần hiển thị ingredient breakdown nếu user chấm điểm).
+- **ingredients**: 2/20 ingredients được seed nhưng không recipe nào dùng:
+  - `ea000008-1111-2222-3333-444444444444` (Mật ong)
+  - `ea000009-1111-2222-3333-444444444444` (Hạt hạnh nhân)
+
+### Root Cause
+
+Trong quá trình phát triển, phần "Extended Recipes (Items 11-20)" trong `17_recipes.sql` được seed INSERT nhưng **không có bước seed `recipe_ingredients` tương ứng** — có lẽ dev đã định làm sau nhưng bị bỏ quên. Tương tự, 80 món home-cooked mới thêm vào `16_foods.sql` (merged từ `16a_home_cooked_foods.sql`) chỉ có ingredients data trong macro columns (ProteinG/CarbsG/FatG), không có row trong `recipes` table — đây là thiết kế hợp lý (home-cooked không cần recipe riêng), nhưng cần tài liệu hóa.
+
+### Environment
+
+- DB: PostgreSQL (production schema)
+- Files:
+  - `backend/database/17_recipes.sql` (lines 51-60, 10 recipes không link)
+  - `backend/database/18_recipe_ingredients.sql` (chỉ link `ec000001–ec000010` + `ec000031–ec000036`, không link `ec000011–ec000020`)
+  - `backend/database/15_ingredients.sql` (Mật ong + Hạt hạnh nhân chưa được tham chiếu)
+  - `backend/database/16_foods.sql` (130 món, chỉ 20 có recipe)
+
+### Impacts
+
+- UI Recipe Detail (`food_detail_screen.dart` / `recipe_screen.dart`): 10 recipes mở ra sẽ hiển thị màn hình trống ingredient → user mất niềm tin.
+- Macro breakdown calculation: Một số công thức tính calo từ ingredients (recipe-based) sẽ fallback dùng `CaloriesKcal` trên `foods` — nhưng nếu Recipe có FoodId = NULL và Instructions = `'[]'` (recipe rỗng) thì service có thể trả về 0 calo.
+- Search/recommend: Recipe-based recommendation nặng về ingredient matching sẽ rank thấp cho 10 recipes này → không bao giờ được đề xuất.
+
+### Attempts (trước khi sửa)
+
+- [x] Chạy script Python `_check.py` để verify số liệu chính xác.
+- [x] Bổ sung `recipe_ingredients` rows cho 10 recipes `ec000011–ec000020` (khoảng 30-40 rows mới).
+- [x] Bổ sung ingredients mới (Bánh mì, Bánh tráng, Hạt sen, Xôi nếp, Rau mầm, Hạt é, Granola, Sữa dừa, ...) cho phù hợp công thức.
+- [x] Quyết định: 80 món home-cooked giữ nguyên (không cần recipe — UI fallback từ `foods` macro).
+- [x] Skeleton recipes cho 10 món quán chính (Phở, Bún chả, Bún bò Huế, Mì quảng, Cơm tấm, Hủ tiếu, Bánh cuốn, Bánh gối, Bún mắm, Bánh canh cua).
+- [x] Chạy lại link check: recipes có ingredients đạt 100%, ingredients dùng đạt 98%.
+- [ ] Cập nhật `docs/features/03-food-catalog.md` (nếu có) để document mối quan hệ N:M giữa recipes ↔ ingredients và tỉ lệ coverage. *(Deferred — không có file này trong docs/features/.)*
+
+### Fix Applied (2026-07-24)
+
+**Phần (a) — Bổ sung ingredients cho 10 recipes `ec000011–ec000020`:**
+
+Thêm 35 ingredients mới vào `15_ingredients.sql` (idempotent qua `ON CONFLICT ("Id") DO NOTHING`):
+
+```
+Bánh mì, Thịt nguội, Dưa leo, Rau răm, Hành tây,
+Bánh tráng, Tôm sú, Thịt heo nạc, Bún tươi, Rau thơm (húng quế),
+Gạo nếp, Đậu xanh, Giò lụa, Hành tím, Sữa hạnh nhân,
+Sữa chua Hy Lạp, Hạt chia, Granola, Berries đông lạnh,
+Rosemary, Ớt chuông, Cà rốt, Quinoa, Rau mầm,
+Tahini, Hạt é, Bột Acai, Sữa dừa, Dừa nạo,
+Gừng tươi, Gạo tẻ, Dưa cải muối, Đu đủ xanh, Khô bò, Đậu phộng rang
+```
+
+Thêm ~52 rows `recipe_ingredients` mới vào `18_recipe_ingredients.sql` cho 10 recipes này (3–7 ingredients/recipe).
+
+**Phần (c) — Skeleton recipes cho 10 món quán Việt Nam chưa có recipe:**
+
+Thêm 10 recipes mới vào `17_recipes.sql`:
+
+```
+ec000101  Phở bò Hà Nội chuẩn vị      (fd000011)
+ec000102  Bún chả Hà Nội              (fd000012)
+ec000103  Bún bò Huế cay nồng         (fd000013)
+ec000104  Mì quảng gà miền Trung      (fd000014)
+ec000105  Cơm tấm sườn bì chả         (fd000015)
+ec000106  Hủ tiếu Nam Vang            (fd000016)
+ec000107  Bánh cuốn Hà Nội            (fd000023)
+ec000108  Bánh gối giòn tan            (fd000024)
+ec000109  Bún mắm miền Tây            (fd000043)
+ec000110  Bánh canh cua đồng          (fd000045)
+```
+
+(Các `FoodId` duplicate `fd000021/013`, `fd000022/012`, `fd000044/014`, `fd000048/015` được giữ nguyên — issue riêng sẽ xử lý sau.)
+
+Kèm ~48 rows `recipe_ingredients` mới.
+
+### Verification (sau khi sửa — Phase 7: target 150 foods)
+
+| Metric | Phase 6 | Phase 7 | Target |
+|---|---:|---:|---|
+| Ingredients | 55 | **55** | — |
+| Foods | 130 (50 main + 80 home-cooked) | **150** (50 main + 80 home-cooked + 20 mới) | 150 ✅ |
+| Recipes | 36 | **156** (26 cũ + 10 skeleton + 120 full) | — |
+| Recipe_ingredients rows | 141 | **591** | — |
+| recipes có ingredients | 36/36 (100%) | **156/156 (100%)** ✅ | ≥95% |
+| ingredients được dùng | 54/55 (98%) | **54/55 (98%)** ✅ | — |
+| foods có recipes | 30/130 (23%) | **150/150 (100%)** ✅ | ≥50% |
+| Duplicate food names | 4 cặp | **0** ✅ | 0 |
+
+**Foreign Key Integrity:**
+- Recipe_ingredients → recipes: 0 broken references ✅
+- Recipe_ingredients → ingredients: 0 broken references ✅
+
+### Phase 7 Changes (2026-07-24)
+
+**1. Xóa duplicate trong `16_foods.sql`:**
+Swap 4 cặp duplicate (`fd000021`/`fd000013`, `fd000022`/`fd000012`, `fd000044`/`fd000014`, `fd000048`/`fd000015`) bằng 4 món mới:
+- `fd000021` → Bún riêu cua (Vietnamese crab noodle soup)
+- `fd000022` → Bún thang (Hanoi bun thang)
+- `fd000044` → Cao lầu (Cao lau noodles Hội An)
+- `fd000048` → Bánh mì ốp la (Baguette with fried egg)
+
+**2. Thêm 20 món quán mới vào `16_foods.sql`** (`fd000051`–`fd000070`):
+- Món mặn: Cơm chiên Dương Châu, Bánh xèo miền Tây, Bánh khọt Vũng Tàu
+- Món canh: Lẩu Tomyum Thái
+- Tráng miệng: Bánh lọt, Chè bưởi, Sương sáo, Bánh ít nhân dừa, Bánh da lợn, Bánh bò Thốt Nốt
+- Snack: Bánh ít ram, Bánh bèo Huế, Bánh nậm Huế
+- Thức uống: Yaourt đá, Trà vải, Sinh tố bơ, Sinh tố dâu, Cà phê trứng Hà Nội
+- Tinh bột truyền thống: Bánh chưng Tết, Bánh tét Tết
+
+**3. Thêm 120 skeleton recipes mới vào `17_recipes.sql`** (`ec000201`–`ec000320`):
+Bao gồm recipes cho:
+- 16 món quán cũ orphan (Nem nướng Nha Trang, Xôi đậu phộng, Cháo lòng, Bánh flan, Chè đậu xanh, Chè thái đỏ, Sữa chua nếp cẩm, Egg white omelette, Greek yogurt parfait, Nước ép rau má, Nước chanh đường, Trà đá, Cà phê sữa đá, Trà sữa trân châu, Bánh tráng trộn, Vịt quay Bắc Kinh)
+- 4 món swap (Bún riêu cua, Bún thang, Cao lầu, Bánh mì ốp la)
+- 20 món quán mới (fd000051–fd000070)
+- 80 món home-cooked (fd110001–fd110080)
+
+Mỗi recipe có 4 bước nấu skeleton + 3-5 ingredients.
+
+**4. Thêm 467 recipe_ingredients rows mới vào `18_recipe_ingredients.sql`** linking 120 recipes mới với 4-5 ingredients/recipe, dùng lại ingredients đã có (Bánh mì, Hành tím, Gừng, Ức gà, Thịt heo, Bơ, Dầu olive, ...).
+
+### Remaining / Out of Scope
+
+- **1 ingredient orphan**: `ea000009 Hạt hạnh nhân` — chưa được reference trong recipe nào, giữ lại cho recipe tương lai.
+- **6 recipes có `FoodId = NULL`** (`ec000031–ec000036`): thiết kế hợp lệ (công thức tổng quát cho meal plan gợi ý). KHÔNG cần thêm FoodId.
+
+### Notes
+
+- Đã chuyển `ON CONFLICT DO NOTHING` (không chỉ rõ cột) thành `ON CONFLICT ("Id") DO NOTHING` để PostgreSQL warning rõ ràng hơn và chống nhầm với unique constraint khác.
+- UUID format mới cho recipes dùng pattern `ec{NNNNNN}-0000-0000-0000-{NNNNNNNNNNNN}` (8-4-4-4-12) tương thích chuẩn PostgreSQL UUID.
+- Auto-generation cho 120 recipes thông qua Python script `_gen2.py` (lưu tạm, đã xóa) đảm bảo deterministic, idempotent.
+
+### Lessons Learned
+
+1. Khi thêm `recipes` row mới, **luôn** phải seed `recipe_ingredients` tương ứng cùng lúc, hoặc dùng integration test tự động phát hiện recipes không có ingredients.
+2. Khi thêm `foods` mới, cân nhắc thêm `recipes` skeleton (dù chỉ chứa Instructions cơ bản) để UI Recipe Detail không bị trống.
+3. Idempotent INSERT với `ON CONFLICT ("Id") DO NOTHING` rất an toàn — cho phép seed thêm dữ liệu mà không phải DROP/RECREATE table.
+4. Đã chuyển `ON CONFLICT DO NOTHING` (không chỉ rõ cột) thành `ON CONFLICT ("Id") DO NOTHING` để PostgreSQL warning rõ ràng hơn và chống nhầm với unique constraint khác.
+
+
+---
+
+## [RESOLVED] Phase 8 — Mock catalog và UI "Lộ trình Gymer" đơn năng
+
+**Date:** 2026-07-24
+**Status:** ✅ Resolved
+**Severity:** Medium
+
+### Description
+
+User yêu cầu:
+1. **Xóa mock data**: tab "Lộ trình Gymer" hiện tại hiển thị 2 chương trình catalog
+   mẫu (`f1000000-...0001`, `f1000000-...0002` trong `51_premium_programs.sql` và
+   enrollment `bbbbbbbb-...` trong `52_user_premium_programs.sql`) — không phản ánh
+   thực tế và gây nhiễu user.
+2. **Tách UI thành 2 tab**:
+   - "Tôi gửi PT" (Gymer → PT): xem các RouteApproval/WeeklyReport đã gửi và
+     trạng thái PT phản hồi.
+   - "PT gửi tôi" (PT → Gymer): xem các PersonalProgram PT đã gửi cho mình,
+     chấp nhận hoặc từ chối.
+
+### Root Cause
+
+- Seed data cũ thuộc `PremiumPrograms` (catalog có cấu trúc tuần) là mẫu mock,
+  không có backend PT side để tạo catalog này nên user thấy dữ liệu "ảo".
+- `pt_review_requests` chỉ hỗ trợ 1 hướng Gymer → PT; thiếu hướng PT → Gymer.
+
+### Fix Applied
+
+**1. Seed wipe**:
+- `51_premium_programs.sql`: xóa 2 INSERT mocks, giữ CREATE TABLE.
+- `52_user_premium_programs.sql`: xóa INSERT enrollment `bbbbbbbb`, giữ CREATE TABLE.
+
+**2. Backend entity** (`PtReviewRequest.cs`):
+- Thêm `CreatedByRole` (varchar 20, default `'Gymer'` cho rows cũ).
+- Thêm `AcceptedAt`, `AcceptedByUserId` nullable.
+
+**3. EF migration** `20260724013955_AddPersonalProgramSupport.cs` +
+SQL tương đương `54_pt_review_personal_program.sql` (idempotent với
+`ADD COLUMN IF NOT EXISTS` và partial unique index).
+
+**4. Backend service** (`PtReviewService.cs`):
+- `CreatePersonalProgramAsync(coachId, request)` — validate connection,
+  check no pending, snapshot JSON, notify Gymer.
+- `AcceptPersonalProgramAsync(gymerId, requestId)` — set status, apply targets
+  vào HealthProfile.
+- `GetMyPersonalProgramsAsync(gymerId)` + `GetCoachSentProgramsAsync(coachId, clientId?)`.
+
+**5. Endpoints mới**:
+- `POST /api/PtReview/coach/personal-programs` (CoachOnly).
+- `GET  /api/PtReview/coach/personal-programs?clientId=` (CoachOnly).
+- `GET  /api/PtReview/my-personal-programs` (Authenticated).
+- `POST /api/PtReview/personal-programs/{requestId}/accept` (Authenticated).
+
+**6. Flutter UI** (`premium_programs_screen.dart`): refactor thành
+`DefaultTabController` length=2. Mỗi tab dùng `_SentRouteTab` /
+`_ReceivedPersonalTab`. Widget `RouteApprovalCard` (mới) và
+`PersonalProgramDetailScreen` (mới) dùng chung.
+
+**7. i18n**: thêm 5 mapping mới vào `ApiMessageTranslator` cho các
+exception message Phase 8.
+
+### Verification
+
+- Backend `dotnet build` (BusinessLogicLayer + Tests): **0 errors**.
+- Flutter `flutter analyze` trên `lib/features/gymer`: **0 errors** (chỉ warnings
+  về legacy helpers không dùng nữa, giữ để tránh break).
+- Manual: GET `/api/PtReview/my-personal-programs` trả `[]` cho user chưa nhận;
+  POST `/api/PtReview/coach/personal-programs` validate connection + pending.
+
+### Lessons Learned
+
+1. **Mock catalog trong seed** chỉ nên dùng cho local dev hoặc acceptance test;
+   production seed nên trống để tránh user thấy dữ liệu không thật.
+2. **Entity chung với discriminator column** (`CreatedByRole`) cho phép mở rộng
+   workflow 2 chiều mà không cần tạo table mới.
+3. **Partial unique index** (`WHERE Status = 'Pending' AND CreatedByRole = 'Coach'`)
+   là cách rất sạch để giới hạn "1 pending per role" mà vẫn giữ history đầy đủ.
+4. **Khi seed có mock**, đánh dấu comment rõ `-- (no seed data; managed via admin UI / coach creation flow)`
+   để team biết schema còn giữ nhưng data do người dùng / admin tạo.
 

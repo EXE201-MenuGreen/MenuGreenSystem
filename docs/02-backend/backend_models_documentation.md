@@ -68,7 +68,7 @@ Các thực thể đại diện cho bảng PostgreSQL, ánh xạ qua Entity Fram
 
 | Entity                    | File                            | Mô tả                                                              |
 |---------------------------|---------------------------------|---------------------------------------------------------------------|
-| `SubscriptionPlan`        | `SubscriptionPlan.cs`           | Các gói dịch vụ trả phí (Free, Premium, Pro...)                    |
+| `SubscriptionPlan`        | `SubscriptionPlan.cs`           | Các gói dịch vụ (Free, Casual, Gym/PT, Office) — gói Pro đã ngừng phát hành |
 | `UserSubscription`        | `UserSubscription.cs`           | Gói hiện tại của user + thời hạn                                   |
 | `SubscriptionTransaction` | `SubscriptionTransaction.cs`    | Lịch sử giao dịch nâng cấp/hạ gói                                 |
 | `Subscription`            | `Subscription.cs`               | Bảng subscription cũ (legacy, có thể trùng với UserSubscription)   |

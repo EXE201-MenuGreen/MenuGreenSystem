@@ -131,7 +131,7 @@ Chi tiết từng entity (fields, relationships): xem [`backend_models_documenta
 
 - Policies: `AdminOnly`, `UserOnly`, `CoachOnly`.
 - Controller admin bắt buộc role `Admin` (check qua policy `AdminOnly`).
-- API user thông thường bắt buộc `[Authorize]` + policy `UserOnly` (chấp nhận role `User`, `Admin`, `Free`, `Pro`).
+- API user thông thường bắt buộc `[Authorize]` + policy `UserOnly` (chấp nhận role `User`, `Admin`, `Free`, `Casual`, `Gymer`, `Office`, `Coach`). Role `Pro` đã được gỡ khỏi policy vì không còn bán gói `Pro` riêng.
 - API coach bắt buộc policy `CoachOnly` (chấp nhận role `Coach`, `Admin`).
 
 ### 3.4 Password hashing
