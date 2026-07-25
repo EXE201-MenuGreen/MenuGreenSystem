@@ -261,12 +261,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Cập nhật thông tin cá nhân thành công!'), backgroundColor: Colors.green),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại!'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Không thể cập nhật thông tin cá nhân. Vui lòng thử lại sau!'), backgroundColor: Colors.red),
       );
     }
   }

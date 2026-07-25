@@ -1379,7 +1379,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi khởi tạo: $e')));
+        ).showSnackBar(SnackBar(content: Text(ApiMessageTranslator.translate(e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
@@ -1406,7 +1406,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi làm sạch lộ trình: $e')));
+        ).showSnackBar(const SnackBar(content: Text('Không thể làm sạch lộ trình. Vui lòng thử lại sau.')));
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
@@ -1447,7 +1447,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi xóa món: $e')));
+        ).showSnackBar(const SnackBar(content: Text('Không thể xóa món ăn khỏi lộ trình. Vui lòng thử lại.')));
       }
     }
   }
@@ -1505,7 +1505,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi thêm món: $e')));
+        ).showSnackBar(const SnackBar(content: Text('Không thể thêm món ăn vào lộ trình. Vui lòng thử lại.')));
       }
     }
   }
@@ -1619,7 +1619,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi gửi PT: $e')));
+        ).showSnackBar(const SnackBar(content: Text('Không thể gửi lộ trình cho HLV. Vui lòng thử lại sau.')));
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);

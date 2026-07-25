@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/cv_suggested_dish.dart';
 
 typedef SuggestedDishAction = Future<bool> Function(
@@ -102,14 +103,15 @@ class _SuggestedDishDetailSheetState
     // snackbar if it pops the sheet via other means (back button / X).
     final fallbackMessage =
         'Món ăn chưa được lưu, vui lòng thực hiện lại.';
+    final cleanMessage = ApiMessageTranslator.translate(errorMessage ?? fallbackMessage);
     setState(() {
-      _actionFeedback = errorMessage ?? fallbackMessage;
+      _actionFeedback = cleanMessage;
       _feedbackIsError = true;
     });
     // Also flash a snackbar so the user is sure the previous attempt failed
     // even if the inline banner is below the fold.
     _showActionSnackBar(
-      message: errorMessage ?? fallbackMessage,
+      message: cleanMessage,
       isError: true,
     );
   }
@@ -128,7 +130,7 @@ class _SuggestedDishDetailSheetState
               size: 20,
             ),
             const SizedBox(width: 10),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(ApiMessageTranslator.translate(message))),
           ],
         ),
         backgroundColor: isError ? Colors.redAccent : AppColors.primary,
