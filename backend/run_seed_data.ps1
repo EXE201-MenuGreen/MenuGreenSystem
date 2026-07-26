@@ -6,7 +6,7 @@
 $DbContainer = "menugreen_db"
 $DbUser = "postgres"
 $DbName = "MenuGreenDb"
-$DbPassword = "123456"
+$DbPassword = "12345"
 $SeedDirName = "database"
 
 # Đường dẫn thư mục

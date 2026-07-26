@@ -126,6 +126,20 @@ class ApiMessageTranslator {
         'Bạn chưa kết nối với khách hàng này.',
     'Client already has a pending personal program. Please wait for them to respond before sending a new one.':
         'Khách hàng đang có lộ trình cá nhân chờ phản hồi. Vui lòng chờ họ xử lý trước khi gửi lộ trình mới.',
+
+    // Coach connection request notifications (English from CoachService.cs)
+    'New student connection request':
+        'Yêu cầu kết nối từ học viên mới',
+    'Connection request accepted':
+        'Yêu cầu kết nối đã được chấp nhận',
+    'Connection request rejected':
+        'Yêu cầu kết nối đã bị từ chối',
+    'New advice from Coach':
+        'Lời khuyên mới từ PT / Coach',
+    'Meal plan has been adjusted':
+        'Thực đơn đã được điều chỉnh',
+    'Nutrition targets have been updated':
+        'Chỉ số dinh dưỡng đã được cập nhật',
   };
 
   static final _macroExceeds = RegExp(

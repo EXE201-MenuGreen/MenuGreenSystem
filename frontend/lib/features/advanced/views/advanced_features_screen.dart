@@ -119,9 +119,18 @@ class _PtTabState extends State<_PtTab> {
     int selectedDays = 3;
     String selectedFeeling = 'Khỏe 😊';
 
-    if (!mounted) return;
+    if (!mounted) {
+      // Dispose controllers trước khi thoát để tránh leak khi widget
+      // đã bị unmount giữa lúc.
+      noteController.dispose();
+      weightController.dispose();
+      bodyFatController.dispose();
+      return;
+    }
 
-    final bool? shouldSubmit = await showDialog<bool>(
+    final bool? shouldSubmit;
+    try {
+      shouldSubmit = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Báo cáo & Check-in Tuần'),
@@ -261,6 +270,15 @@ class _PtTabState extends State<_PtTab> {
         ],
       ),
     );
+    } finally {
+      // Luôn dispose controllers khi dialog đóng (thành công hoặc huỷ)
+      // để tránh leak và lỗi "dependents.isEmpty is not true" khi widget
+      // TextField bị dispose cùng widget cha nhưng controller chưa được
+      // remove khỏi dependents.
+      noteController.dispose();
+      weightController.dispose();
+      bodyFatController.dispose();
+    }
 
     if (shouldSubmit != true) return;
 
@@ -709,6 +727,16 @@ class _BudgetTabState extends State<_BudgetTab> {
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    // Dispose TextEditingController để tránh
+    // "dependents.isEmpty is not true" khi TextField con vẫn còn dependent
+    // vào controller khi widget unmount.
+    amount.dispose();
+    minutes.dispose();
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -1205,6 +1233,17 @@ class _IngredientTabState extends State<_IngredientTab> {
       category = TextEditingController();
   List<Map<String, dynamic>> rows = [];
   bool safe = false, loading = false;
+
+  @override
+  void dispose() {
+    // Dispose TextEditingController để tránh
+    // "dependents.isEmpty is not true" khi TextField con vẫn còn dependent
+    // vào controller khi widget unmount.
+    search.dispose();
+    category.dispose();
+    super.dispose();
+  }
+
   Future<void> load() async {
     setState(() => loading = true);
     try {

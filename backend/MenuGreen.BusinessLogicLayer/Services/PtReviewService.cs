@@ -7,6 +7,7 @@ using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -15,16 +16,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPlannedVsActualService _plannedVsActualService;
         private readonly NotiServiceWrapper _notificationService;
+        private readonly ILogger<PtReviewService>? _logger;
 
         public PtReviewService(
             IUnitOfWork unitOfWork,
             IPlannedVsActualService plannedVsActualService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILogger<PtReviewService>? logger = null)
         {
             _unitOfWork = unitOfWork;
             _plannedVsActualService = plannedVsActualService;
             // Wrapped because INotificationService is injected and we can cast it
             _notificationService = new NotiServiceWrapper(notificationService);
+            _logger = logger;
         }
 
         public async Task<CreatePtReviewReportResponse> CreateReportAsync(Guid userId, CreatePtReviewReportRequest request)
@@ -188,6 +192,73 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.PtReviewRequests.AddAsync(ptReviewRequest);
             await _unitOfWork.CompleteAsync();
 
+            // Gửi notification cho PT và Gymer. Mỗi notification phải chạy độc
+            // lập với nhau để nếu một bên lỗi vẫn không ảnh hưởng bên còn lại.
+            // Trước đây toàn bộ khối đặt trong 1 try/catch lớn: khi gửi cho PT
+            // bị nuốt exception thì Gymer cũng không nhận được thông báo.
+            // FIX: tách 2 lần gửi, mỗi lần có try/atch riêng, đồng thời log lỗi
+            // để dễ truy vết (trước đây nuốt hoàn toàn không log).
+            string gymerName = "Học viên";
+            try
+            {
+                var gymerProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == userId)).FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(gymerProfile?.FullName))
+                {
+                    gymerName = gymerProfile!.FullName!;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "PtReview.CreateReport: cannot load gymer profile for userId={UserId}", userId);
+            }
+
+            // Tìm Coach (PT) đang Connected với Gymer này. Cố gắng lấy cả
+            // Status == "Connected" và "Approved" để phòng trường hợp seed data
+            // hoặc tích hợp khác dùng status khác.
+            Guid? coachId = null;
+            try
+            {
+                var connection = (await _unitOfWork.CoachConnections.FindAsync(c =>
+                    c.ClientId == userId &&
+                    (c.Status == "Connected" || c.Status == "Approved"))).FirstOrDefault();
+                if (connection != null && connection.CoachId != Guid.Empty)
+                {
+                    coachId = connection.CoachId;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "PtReview.CreateReport: cannot load coach connection for userId={UserId}", userId);
+            }
+
+            // 1) Gửi notification cho PT/Coach.
+            if (coachId.HasValue)
+            {
+                try
+                {
+                    await _notificationService.SendAsync(new NotificationSendRequest
+                    {
+                        UserId = coachId.Value,
+                        Type = "pt_review_request",
+                        Title = "Yêu cầu duyệt lộ trình từ học viên",
+                        Body = $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
+                        ScheduledAt = null
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "PtReview.CreateReport: failed to send notification to coach {CoachId}", coachId);
+                    // Không throw - để Gymer vẫn nhận được notification bên dưới.
+                }
+            }
+            else
+            {
+                _logger?.LogWarning(
+                    "PtReview.CreateReport: Gymer {UserId} chưa có Connected Coach — bỏ qua notification cho PT",
+                    userId);
+            }
+
+            // 2) Gửi notification cho Gymer (luôn luôn chạy).
             try
             {
                 await _notificationService.SendAsync(new NotificationSendRequest
@@ -195,12 +266,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     UserId = userId,
                     Type = "PT_REVIEW_SUBMITTED",
                     Title = "Đã gửi lộ trình cho PT",
-                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi."
+                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi.",
+                    ScheduledAt = null
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Silence notification failure
+                _logger?.LogError(ex, "PtReview.CreateReport: failed to send notification to gymer {UserId}", userId);
             }
 
             var shareLink = $"https://menugreen.vn/shared-report/{token}";

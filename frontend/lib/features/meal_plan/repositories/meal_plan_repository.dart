@@ -605,12 +605,38 @@ class MealPlanRepository {
 
   String _messageFromResponse(dynamic response) {
     try {
-      final decoded = jsonDecode(response.body as String);
-      if (decoded is Map && decoded['message'] != null) {
-        return ApiMessageTranslator.translate(decoded['message'].toString());
-      }
-      if (decoded is Map && decoded['Message'] != null) {
-        return ApiMessageTranslator.translate(decoded['Message'].toString());
+      if (response != null && response.body != null) {
+        final bodyStr = response.body.toString().trim();
+        if (bodyStr.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(bodyStr);
+            if (decoded is Map<String, dynamic>) {
+              if (decoded.containsKey('errors') && decoded['errors'] is Map) {
+                final errorsMap = decoded['errors'] as Map;
+                if (errorsMap.isNotEmpty) {
+                  final firstVal = errorsMap.values.first;
+                  if (firstVal is List && firstVal.isNotEmpty) {
+                    return ApiMessageTranslator.translate(firstVal.first.toString());
+                  }
+                  return ApiMessageTranslator.translate(firstVal.toString());
+                }
+              }
+              final rawMsg = decoded['message'] ??
+                  decoded['Message'] ??
+                  decoded['title'] ??
+                  decoded['Title'] ??
+                  decoded['detail'] ??
+                  decoded['Detail'] ??
+                  decoded['error'] ??
+                  decoded['Error'];
+              if (rawMsg != null && rawMsg.toString().isNotEmpty) {
+                return ApiMessageTranslator.translate(rawMsg.toString());
+              }
+            }
+          } catch (_) {}
+          final translated = ApiMessageTranslator.translate(bodyStr);
+          if (translated.isNotEmpty) return translated;
+        }
       }
     } catch (_) {}
     return 'Không thực hiện được thao tác kế hoạch bữa ăn.';
