@@ -252,7 +252,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     setState(() => _actionLoading = true);
     try {
       final alreadyActive =
-          _current?.isActive == true &&
+          _current?.isCurrentlyActive == true &&
           _current?.subscriptionPlanId == officePlan.id;
       if (!alreadyActive) {
         final subscriptionResult = await _repository.subscribe(

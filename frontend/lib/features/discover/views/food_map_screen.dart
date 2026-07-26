@@ -83,7 +83,8 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
   List<MapFoodPin> _allPins = [];
   final Set<String> _favoritePinIds = {};
 
-  static const LatLng _leVanVietCenter = LatLng(10.8458, 106.7792);
+  StreamSubscription<Position>? _positionSubscription;
+  bool _userMovedMapManually = false;
 
   @override
   void initState() {
@@ -93,7 +94,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
       _searchQuery = widget.initialKeyword!;
     }
     _loadFavoritesFromRepo();
-    _determinePosition();
+    _startLocationTracking();
   }
 
   Future<void> _loadFavoritesFromRepo() async {
@@ -115,15 +116,29 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _determinePosition() async {
+    setState(() => _userMovedMapManually = false);
+    await _startLocationTracking();
+    if (_currentPosition != null && mounted) {
+      final isCaliforniaEmulator = (_currentPosition!.latitude >= 37.40 && _currentPosition!.latitude <= 37.45) &&
+          (_currentPosition!.longitude >= -122.10 && _currentPosition!.longitude <= -122.05);
+      final target = isCaliforniaEmulator
+          ? const LatLng(10.7769, 106.7009)
+          : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+      _mapController.move(target, 15.0);
+    }
+  }
+
+  Future<void> _startLocationTracking() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _useFallbackLocation('Dịch vụ vị trí bị tắt. Sử dụng vị trí mặc định (Lê Văn Việt, Quận 9).');
+        _useFallbackLocation('Dịch vụ vị trí bị tắt.');
         return;
       }
 
@@ -131,7 +146,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _useFallbackLocation('Chưa cấp quyền vị trí. Sử dụng vị trí mặc định.');
+          _useFallbackLocation('Chưa cấp quyền vị trí.');
           return;
         }
       }
@@ -141,45 +156,99 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(
+      // 1. Get initial quick position
+      try {
+        final initialPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 6),
+          ),
+        );
+        _onNewLocationReceived(initialPos, isInitial: true);
+      } catch (_) {}
+
+      // 2. Start continuous real-time position stream
+      _positionSubscription?.cancel();
+      _positionSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          timeLimit: Duration(seconds: 8),
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
         ),
-      );
-
-      final isEmulatorDefault = (pos.latitude - 37.42).abs() < 0.1 && (pos.longitude - (-122.08)).abs() < 0.1;
-      
-      final double targetLat;
-      final double targetLng;
-
-      if (isEmulatorDefault) {
-        targetLat = _leVanVietCenter.latitude;
-        targetLng = _leVanVietCenter.longitude;
-      } else {
-        targetLat = pos.latitude;
-        targetLng = pos.longitude;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _currentPosition = pos;
-        _addressText = 'Đang xác định địa chỉ...';
+      ).listen((Position pos) {
+        _onNewLocationReceived(pos, isInitial: false);
       });
-
-      _generateNearbyFoodPins(targetLat, targetLng);
-      _mapController.move(LatLng(targetLat, targetLng), 15.0);
-
-      // Perform real-time reverse geocoding
-      final resolvedAddress = await _fetchAddressFromCoordinates(targetLat, targetLng);
-      if (mounted) {
-        setState(() {
-          _addressText = resolvedAddress;
-        });
-      }
     } catch (_) {
-      _useFallbackLocation('Sử dụng vị trí mặc định (Lê Văn Việt, Quận 9).');
+      _useFallbackLocation('Không thể xác định vị trí.');
     }
+  }
+
+  void _onNewLocationReceived(Position pos, {required bool isInitial}) async {
+    if (!mounted) return;
+
+    // Detect Android Emulator default virtual location (Mountain View, California)
+    final isCaliforniaEmulator = (pos.latitude >= 37.40 && pos.latitude <= 37.45) &&
+        (pos.longitude >= -122.10 && pos.longitude <= -122.05);
+
+    final double targetLat = isCaliforniaEmulator ? 10.7769 : pos.latitude;
+    final double targetLng = isCaliforniaEmulator ? 106.7009 : pos.longitude;
+
+    setState(() {
+      _currentPosition = pos;
+      _addressText = 'Đang xác định địa chỉ...';
+    });
+
+    _generateNearbyFoodPins(targetLat, targetLng);
+
+    if (isInitial || !_userMovedMapManually) {
+      _mapController.move(LatLng(targetLat, targetLng), 15.0);
+    }
+
+    final resolvedAddress = isCaliforniaEmulator
+        ? 'Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh'
+        : await _fetchAddressFromCoordinates(targetLat, targetLng);
+
+    if (mounted) {
+      setState(() {
+        _addressText = resolvedAddress;
+      });
+    }
+  }
+
+  Future<void> _searchLocationByName(String query) async {
+    if (query.trim().isEmpty) return;
+    try {
+      final encoded = Uri.encodeComponent(query.trim());
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?format=json&q=$encoded&countrycodes=vn&limit=1&accept-language=vi',
+      );
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'MenuGreenApp/1.0 (contact@menugreen.com)',
+      }).timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final List results = jsonDecode(response.body);
+        if (results.isNotEmpty) {
+          final first = results[0];
+          final lat = double.tryParse(first['lat']?.toString() ?? '');
+          final lng = double.tryParse(first['lon']?.toString() ?? '');
+          final displayName = first['display_name']?.toString() ?? query;
+
+          if (lat != null && lng != null && mounted) {
+            _userMovedMapManually = true;
+            _generateNearbyFoodPins(lat, lng);
+            _mapController.move(LatLng(lat, lng), 15.0);
+
+            final parts = displayName.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            final shortAddress = parts.length > 3 ? parts.take(3).join(', ') : displayName;
+
+            setState(() {
+              _addressText = shortAddress;
+            });
+            return;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<String> _fetchAddressFromCoordinates(double lat, double lng) async {
@@ -188,7 +257,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
         'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng&accept-language=vi&zoom=18',
       );
       final response = await http.get(uri, headers: {
-        'User-Agent': 'MenuGreenApp/1.0',
+        'User-Agent': 'MenuGreenApp/1.0 (contact@menugreen.com)',
       }).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200 && response.body.isNotEmpty) {
@@ -197,9 +266,9 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
           final address = data['address'];
           if (address is Map<String, dynamic>) {
             final road = (address['road'] ?? address['pedestrian'] ?? address['street'] ?? address['path'] ?? '').toString().trim();
-            final ward = (address['suburb'] ?? address['quarter'] ?? address['neighbourhood'] ?? address['village'] ?? '').toString().trim();
-            final district = (address['city_district'] ?? address['district'] ?? address['county'] ?? address['town'] ?? '').toString().trim();
-            final city = (address['city'] ?? address['state'] ?? address['province'] ?? '').toString().trim();
+            final ward = (address['suburb'] ?? address['quarter'] ?? address['neighbourhood'] ?? address['village'] ?? address['residential'] ?? '').toString().trim();
+            final district = (address['city_district'] ?? address['district'] ?? address['county'] ?? address['town'] ?? address['city'] ?? '').toString().trim();
+            final city = (address['state'] ?? address['province'] ?? '').toString().trim();
 
             final parts = <String>[];
             if (road.isNotEmpty) parts.add(road);
@@ -220,20 +289,20 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
 
   String _resolveFallbackDistrict(double lat, double lng) {
     if (lat >= 10.83 && lat <= 10.86 && lng >= 106.77 && lng <= 106.80) {
-      return 'Quán Lemon - Đường Lê Văn Việt, Phường Hiệp Phú, Quận 9, TP. Thủ Đức';
+      return 'Lê Văn Việt, Phường Tăng Nhơn Phú, Thành phố Thủ Đức';
     }
 
     if (lat >= 10.74 && lat <= 10.92 && lng >= 106.70 && lng <= 106.88) {
       if (lat >= 10.86 && lng >= 106.77) {
-        return 'Đường Linh Trung, Phường Linh Trung, TP. Thủ Đức';
+        return 'Linh Trung, Phường Linh Trung, Thành phố Thủ Đức';
       }
       if (lat >= 10.83 && lng >= 106.75) {
-        return 'Đường Võ Văn Ngân, Phường Bình Thọ, TP. Thủ Đức';
+        return 'Võ Văn Ngân, Phường Bình Thọ, Thành phố Thủ Đức';
       }
       if (lat >= 10.79 && lng >= 106.72) {
-        return 'Phường Thảo Điền, TP. Thủ Đức';
+        return 'Phường Thảo Điền, Thành phố Thủ Đức';
       }
-      return 'Quán Lemon - Đường Lê Văn Việt, Quận 9, TP. Thủ Đức';
+      return 'Lê Văn Việt, Phường Tăng Nhơn Phú, Thành phố Thủ Đức';
     }
 
     if (lat >= 10.76 && lat <= 10.79 && lng >= 106.68 && lng <= 106.71) {
@@ -257,8 +326,8 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
   void _useFallbackLocation(String msg) {
     if (!mounted) return;
     final fallbackPos = Position(
-      latitude: _leVanVietCenter.latitude,
-      longitude: _leVanVietCenter.longitude,
+      latitude: 10.7769,
+      longitude: 106.7009,
       timestamp: DateTime.now(),
       accuracy: 10,
       altitude: 0,
@@ -271,10 +340,10 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
 
     setState(() {
       _currentPosition = fallbackPos;
-      _addressText = 'Quán Lemon - Đường Lê Văn Việt, Quận 9, TP. Thủ Đức';
+      _addressText = 'Chưa xác định được GPS';
     });
     _generateNearbyFoodPins(fallbackPos.latitude, fallbackPos.longitude);
-    _mapController.move(_leVanVietCenter, 15.0);
+    _mapController.move(const LatLng(10.7769, 106.7009), 14.5);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
@@ -743,11 +812,15 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCaliforniaEmulator = _currentPosition != null &&
+        (_currentPosition!.latitude >= 37.40 && _currentPosition!.latitude <= 37.45) &&
+        (_currentPosition!.longitude >= -122.10 && _currentPosition!.longitude <= -122.05);
+
     final centerLatLng = _currentPosition != null
-        ? ((_currentPosition!.latitude - 37.42).abs() < 0.1
-            ? _leVanVietCenter
+        ? (isCaliforniaEmulator
+            ? const LatLng(10.7769, 106.7009)
             : LatLng(_currentPosition!.latitude, _currentPosition!.longitude))
-        : _leVanVietCenter;
+        : const LatLng(10.7769, 106.7009);
 
     final pinsToRender = _filteredPins;
 
@@ -764,6 +837,11 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                 initialZoom: 14.5,
                 minZoom: 5.0,
                 maxZoom: 18.0,
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
+                    _userMovedMapManually = true;
+                  }
+                },
                 onTap: (tapPosition, point) {
                   setState(() => _selectedPin = null);
                 },
@@ -896,7 +974,8 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                     foregroundColor: AppColors.primary,
                     elevation: 4,
                     onPressed: () {
-                      _mapController.move(centerLatLng, 15.5);
+                      _userMovedMapManually = false;
+                      _startLocationTracking();
                     },
                     child: const Icon(Icons.my_location_rounded),
                   ),
@@ -973,13 +1052,14 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: (val) => setState(() => _searchQuery = val),
+                  onSubmitted: (val) => _searchLocationByName(val),
                   style: GoogleFonts.beVietnamPro(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textDark,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Tìm món ăn trên bản đồ...',
+                    hintText: 'Tìm món ăn hoặc nhập địa điểm...',
                     hintStyle: GoogleFonts.beVietnamPro(
                       fontSize: 13.5,
                       color: Colors.grey.shade400,
@@ -991,7 +1071,13 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                   ),
                 ),
               ),
-              if (_searchQuery.isNotEmpty)
+              if (_searchQuery.isNotEmpty) ...[
+                IconButton(
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                  onPressed: () => _searchLocationByName(_searchQuery),
+                ),
                 IconButton(
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   padding: EdgeInsets.zero,
@@ -1001,6 +1087,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                     setState(() => _searchQuery = '');
                   },
                 ),
+              ],
               Container(
                 height: 18,
                 width: 1,

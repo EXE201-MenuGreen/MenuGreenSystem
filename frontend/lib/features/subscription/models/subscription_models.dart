@@ -157,7 +157,10 @@ class UserSubscription {
   bool get isCurrentlyActive {
     if (!isActive) return false;
     final expiration = endDate;
-    return expiration == null || expiration.isAfter(DateTime.now());
+    if (expiration == null) return true;
+    final nowUtc = DateTime.now().toUtc();
+    final expirationUtc = expiration.toUtc();
+    return expirationUtc.isAfter(nowUtc);
   }
 
   int realtimeDaysRemaining([DateTime? currentTime]) {
@@ -245,7 +248,14 @@ bool _pickBool(
 DateTime? _pickDate(Map<String, dynamic> json, String camel, String pascal) {
   final value = json[camel] ?? json[pascal];
   if (value == null) return null;
-  return DateTime.tryParse(value.toString());
+  final str = value.toString();
+  if (str.isEmpty) return null;
+  final parsed = DateTime.tryParse(str);
+  if (parsed == null) return null;
+  if (!parsed.isUtc && !str.endsWith('Z') && !str.contains('+')) {
+    return DateTime.tryParse('${str}Z')?.toUtc() ?? parsed.toUtc();
+  }
+  return parsed.toUtc();
 }
 
 String formatVnd(int amount) {
