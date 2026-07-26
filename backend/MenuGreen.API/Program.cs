@@ -86,6 +86,7 @@ builder
             .JsonNamingPolicy
             .CamelCase;
         options.JsonSerializerOptions.Converters.Add(new DateOnlyConverter());
+        options.JsonSerializerOptions.Converters.Add(new TimeOnlyConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
 
@@ -657,6 +658,38 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
     public override void Write(Utf8JsonWriter writer, DateOnly value, JsonSerializerOptions options)
     {
         writer.WriteStringValue(value.ToString(DateFormat));
+    }
+}
+
+public class TimeOnlyConverter : JsonConverter<TimeOnly>
+{
+    private const string TimeFormat = "HH:mm:ss";
+
+    public override TimeOnly Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+            return default;
+
+        var value = reader.GetString();
+        if (string.IsNullOrEmpty(value))
+            return default;
+
+        if (TimeOnly.TryParse(value, out var time))
+            return time;
+
+        if (DateTime.TryParse(value, out var dt))
+            return TimeOnly.FromDateTime(dt);
+
+        throw new JsonException($"Unable to parse \"{value}\" as TimeOnly.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, TimeOnly value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(TimeFormat));
     }
 }
 

@@ -178,7 +178,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
   Future<void> _loadBudget() async {
     try {
       final result = await _budgetRepository.budget();
-      if (mounted) setState(() => _budget = result);
+      if (mounted && result != null) setState(() => _budget = result);
     } catch (error) {
       _notice(error);
     } finally {
@@ -191,37 +191,33 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       final plans = await _mealPlanRepository.getPlans(isActive: true);
       final officePlans =
           plans
-              .where((plan) => plan.title.toLowerCase().contains('cơm hộp'))
+              .where((plan) {
+                final title = plan.title.toLowerCase();
+                final type = (plan.planType ?? '').toLowerCase();
+                return title.contains('cơm hộp') ||
+                    title.contains('office') ||
+                    title.contains('lunchbox') ||
+                    type.contains('office') ||
+                    type.contains('lunchbox') ||
+                    type.contains('budget');
+              })
               .toList()
             ..sort((a, b) {
               final aDate = a.startDate ?? DateTime(1970);
               final bDate = b.startDate ?? DateTime(1970);
-              return bDate.compareTo(aDate);
+              final cmp = bDate.compareTo(aDate);
+              if (cmp != 0) return cmp;
+              return b.id.compareTo(a.id);
             });
-      if (officePlans.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _plan = null;
-            _groceryList = null;
-            _budgetStatus = null;
-          });
-        }
-        return;
-      }
+
+      final targetList = officePlans.isNotEmpty ? officePlans : plans;
+      if (targetList.isEmpty) return;
 
       final detail = await _mealPlanRepository.getPlanDetail(
-        officePlans.first.id,
+        targetList.first.id,
       );
-      if (detail == null) {
-        if (mounted) {
-          setState(() {
-            _plan = null;
-            _groceryList = null;
-            _budgetStatus = null;
-          });
-        }
-        return;
-      }
+      if (detail == null) return;
+
       final results = await Future.wait([
         _mealPlanRepository.getGroceryList(detail.id),
         _mealPlanRepository.getBudgetStatus(detail.id),

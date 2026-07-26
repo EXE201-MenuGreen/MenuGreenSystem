@@ -145,6 +145,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         !f.EstimatedPriceVnd.HasValue || f.EstimatedPriceVnd.Value <= budget
                             ? 1
                             : 0;
+                    // Use a stable priority for "unknown price" so we never bubble
+                    // null-priced items above the cheapest known-priced ones.
+                    var priceRank = f.EstimatedPriceVnd ?? int.MaxValue;
                     var calorieDistance = Math.Abs((f.CaloriesKcal ?? 0) - mealCalorieTarget);
                     return new
                     {
@@ -153,6 +156,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         IsSafe = isSafe,
                         RegionScore = regionScore,
                         WithinBudget = withinBudget,
+                        PriceRank = priceRank,
                         CalorieDistance = calorieDistance,
                     };
                 })
@@ -162,11 +166,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     StringComparer.OrdinalIgnoreCase
                 )
                 .Select(g => g.First())
+                // Deterministic ordering: within-budget items first (cheapest first),
+                // then out-of-budget items (still cheapest first), with calorie fit
+                // and name as final tie-breakers.
                 .OrderByDescending(x => x.WithinBudget)
-                .ThenByDescending(x => x.RegionScore)
+                .ThenBy(x => x.PriceRank)
                 .ThenBy(x => x.CalorieDistance)
                 .ThenBy(x => x.Food.NameVi)
-                .Take(3)
+                .Take(10)
                 .Select(x => MapFoodToResponse(x.Food, x.Keys, userKeys))
                 .ToList();
         }
