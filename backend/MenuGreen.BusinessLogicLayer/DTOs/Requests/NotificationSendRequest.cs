@@ -21,6 +21,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [StringLength(1000)]
         public string Body { get; set; } = string.Empty;
 
+        [StringLength(500)]
+        public string? ActionUrl { get; set; }
+
         public DateTimeOffset? ScheduledAt { get; set; }
     }
 }

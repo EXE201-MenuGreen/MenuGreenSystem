@@ -1918,6 +1918,73 @@ Nhưng user tạo lộ trình "cho ngày hôm nay" với dropdown planType mặc
   - Tab "Tháng": `from = ngày 1`, `to = ngày cuối tháng 23:59:59.999`
   - Tab "Tất cả": `from = null`, `to = null`
 
+### Follow-up bug (2026-07-26)
+Sau khi fix filter planType, user báo tiếp 2 vấn đề:
+
+1. **Filter Ngày/Tuần/Tháng/Tất cả vẫn trả về cùng plan**, dù plan chỉ được tạo cho ngày 26/07.
+2. **UI hiển thị "26/07 – 02/08"** dù user chỉ tạo 1 plan cho ngày 26/07 (mong đợi "26/07" hoặc "26/07 – 26/07").
+
+**Root cause**:
+
+1. **Backend `GetClientMealPlansAsync` filter bằng overlap**:
+   ```csharp
+   query = query.Where(x => x.StartDate <= to.Value && x.EndDate >= from.Value);
+   ```
+   Một plan có `StartDate=26/07, EndDate=02/08` sẽ match với mọi range (Ngày/Tuần/Tháng) → trả về giống nhau.
+
+2. **Frontend `CoachCreateMealPlanScreen` dùng `showDateRangePicker`** cho mọi `planType`. Material mặc định range 1 tuần (Sun → Sun) khi user chỉ chạm 1 ngày → DB lưu `StartDate=26/07, EndDate=02/08` dù user muốn tạo lộ trình daily.
+
+**Fix Applied**:
+- [x] (2026-07-26) Backend `GetClientMealPlansAsync`: thay filter overlap → `StartDate ∈ [from, to]`
+      (dùng `x.StartDate >= from.Value && x.StartDate <= to.Value`).
+- [x] (2026-07-26) Frontend `CoachCreateMealPlanScreen`: thêm `DateTime? _singleDate`,
+      dùng `showDatePicker` khi `planType == 'daily'`, gán `EndDate = StartDate`.
+      Khi chuyển `planType` thì reset picker tương ứng.
+
+### Follow-up bug #2 (2026-07-26) — Filter vẫn trả cùng plan sau khi áp dụng StartDate range filter
+
+**Mô tả**: Sau khi backend fix #1, frontend vẫn "bấm filter nào cũng thấy plan DAILY 26/07 hiện ở mọi bucket Ngày/Tuần/Tháng/Tất cả".
+
+**Root cause (sai ngữ nghĩa filter)**: filter theo `StartDate ∈ [from, to]` không đúng với ý đồ "tab Lộ trình" của Coach — bucket Ngày/Tuần/Tháng/Tất cả thực chất là **loại plan (planType)**, không phải **khoảng thời gian calendar**. Plan DAILY 26/07 có `StartDate=26/07` → luôn ∈ [today..today+1year] → luôn match. Người dùng muốn **"Ngày" = chỉ plan DAILY, "Tuần" = chỉ plan WEEKLY, "Tháng" = chỉ plan MONTHLY, "Tất cả" = không lọc**.
+
+**Fix Applied**:
+- [x] (2026-07-26) Frontend `CoachMealPlanHistoryScreen._applyFilter()`:
+      thay logic filter range → filter theo `planType`:
+      ```dart
+      case _HistoryFilter.day:   planType = 'daily';   break;
+      case _HistoryFilter.week:  planType = 'weekly';  break;
+      case _HistoryFilter.month: planType = 'monthly'; break;
+      case _HistoryFilter.all:   planType = null;      break;
+      ```
+      gọi `provider.setFilters(planType: planType)` (không gửi `from/to`).
+- [x] (2026-07-26) Bỏ luôn state `DateTimeRange? _range`, `_pickDateRange()`, `_RangeHint`
+      và IconButton date_range trên AppBar vì không còn dùng range filter.
+- [ ] (chưa áp dụng) Backend: bỏ date-range filter trong `GetClientMealPlansAsync`?
+      Giữ lại để tương thích ngược / dùng cho trang khác.
+
+### Follow-up #3 (2026-07-26) — Crash `'_dependencies.isEmpty': is not true` sau khi "Duyệt & gửi"
+
+**Mô tả**: Sau khi bấm "Duyệt & gửi" trong `CoachMealPlanDetailScreen`, app crash với
+assertion `'_dependencies.isEmpty': is not true` ở Flutter framework `Overlay` (line ~6268)
+trong vòng vài giây rồi tắt.
+
+**Root cause**: trong `_submit()` thứ tự là
+```dart
+ScaffoldMessenger.of(context).showSnackBar(...);
+Navigator.pop(context, true);
+```
+SnackBar được insert vào Overlay của route hiện tại, nhưng ngay frame sau đó route bị
+pop → Overlay bị dispose → SnackBar đang animate chạm vào Overlay đã chết → assertion.
+
+**Fix Applied**:
+- [x] (2026-07-26) `coach_meal_plan_detail_screen.dart::_submit()`:
+      - Capture `final rootMessenger = ScaffoldMessenger.of(context);` TRƯỚC khi `await submitPlan`.
+      - Sau khi ok: gọi `Navigator.pop(context, true)` TRƯỚC, rồi `rootMessenger.showSnackBar(...)` SAU.
+      - Thêm `..hideCurrentSnackBar()` để tránh chồng SnackBar.
+      - Thống nhất luôn dùng `rootMessenger` (kể cả nhánh thất bại) để đảm bảo an toàn
+        ngay cả khi user pop thủ công giữa chừng.
+- [x] (2026-07-26) `_saveDraft()` không bị ảnh hưởng (chỉ show SnackBar, không pop).
+
 ---
 
 ## [RESOLVED] PT/Coach không nhận thông báo khi Gymer gửi lộ trình (pt_review_request)

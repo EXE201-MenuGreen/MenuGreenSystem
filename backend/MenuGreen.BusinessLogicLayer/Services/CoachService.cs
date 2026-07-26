@@ -582,6 +582,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("This meal plan does not belong to the specified student.");
             }
 
+            if (string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Lộ trình đã duyệt không thể chỉnh sửa. Hãy tạo lộ trình mới.");
+            }
+
             plan.Title = request.Title;
             plan.PlanType = request.PlanType;
             plan.StartDate = request.StartDate;
@@ -719,6 +724,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
+                Status = entity.Status,
+                ApprovedAt = entity.ApprovedAt,
                 IsActive = entity.IsActive,
                 TotalCalories = responseItems.Sum(x => x.TargetCalories ?? 0),
                 TotalProteinG = 0,
@@ -782,11 +789,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (from.HasValue && to.HasValue)
             {
-                query = query.Where(x => x.StartDate <= to.Value && x.EndDate >= from.Value);
+                // Filter theo ngày bắt đầu của plan (StartDate) nằm trong khoảng [from, to].
+                // Lý do: tab "Lộ trình" của Coach đang hiển thị các plan "được tạo vào"
+                // ngày/tuần/tháng đang xem, không phải các plan "trải dài qua" khoảng đó.
+                // Dùng overlap (StartDate <= to && EndDate >= from) sẽ trả về cùng plan
+                // cho mọi filter (ví dụ plan daily thực tế bị lưu StartDate=26/07, EndDate=02/08
+                // do picker mặc định 1 tuần), làm user tưởng filter không hoạt động.
+                query = query.Where(x => x.StartDate >= from.Value && x.StartDate <= to.Value);
             }
             else if (from.HasValue)
             {
-                query = query.Where(x => x.EndDate >= from.Value);
+                query = query.Where(x => x.StartDate >= from.Value);
             }
             else if (to.HasValue)
             {
@@ -851,6 +864,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 TargetCalories = request.TargetCalories,
                 GeneratedBy = "COACH",
+                Status = "Draft",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -881,17 +895,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _unitOfWork.CompleteAsync();
             }
 
-            var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
-            var coachName = coachProfile?.FullName ?? "Coach";
-            await _notificationService.SendAsync(new NotificationSendRequest
-            {
-                UserId = clientId,
-                Type = "meal_plan_created",
-                Title = "Lộ trình ăn uống mới từ PT",
-                Body = $"Coach {coachName} vừa tạo một lộ trình ăn uống mới cho bạn.",
-                ScheduledAt = null
-            });
-
             return await MapMealPlanAsync(plan);
         }
 
@@ -905,9 +908,54 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Meal plan not found.");
             }
 
+            if (string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Lộ trình này đã được duyệt và gửi cho học viên.");
+            }
+
+            var now = DateTime.UtcNow;
             plan.GeneratedBy = "COACH";
-            plan.UpdatedAt = DateTime.UtcNow;
+            plan.Status = "Approved";
+            plan.ApprovedAt = now;
+            plan.UpdatedAt = now;
             _unitOfWork.MealPlanHeaders.Update(plan);
+
+            // The Gymer-facing "Tôi gửi PT" tab is backed by PtReviewRequest,
+            // not MealPlanHeader. Mark the latest matching route request as
+            // Reviewed so it no longer remains "Chờ phản hồi".
+            var pendingRequests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == clientId
+                && r.Status == "Pending"
+                && r.CreatedByRole != "Coach"))
+                .Where(IsRouteApprovalRequest)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            PtReviewRequest? matchedRequest = null;
+            if (plan.StartDate.HasValue || plan.EndDate.HasValue)
+            {
+                var planStart = plan.StartDate ?? plan.EndDate!.Value;
+                var planEnd = plan.EndDate ?? plan.StartDate!.Value;
+                matchedRequest = pendingRequests.FirstOrDefault(r =>
+                    planStart <= r.WeekStartDate.AddDays(6)
+                    && planEnd >= r.WeekStartDate);
+            }
+            matchedRequest ??= pendingRequests.FirstOrDefault();
+
+            if (matchedRequest != null)
+            {
+                matchedRequest.Status = "Reviewed";
+                matchedRequest.ReviewedAt = now;
+                matchedRequest.PtComment = string.IsNullOrWhiteSpace(notes)
+                    ? "PT đã duyệt và gửi lộ trình dinh dưỡng."
+                    : notes.Trim();
+                if (plan.TargetCalories.HasValue)
+                {
+                    matchedRequest.SuggestedCalorieTarget = plan.TargetCalories;
+                }
+                _unitOfWork.PtReviewRequests.Update(matchedRequest);
+            }
+
             await _unitOfWork.CompleteAsync();
 
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
@@ -923,6 +971,33 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
 
             return await MapMealPlanAsync(plan);
+        }
+
+        private static bool IsRouteApprovalRequest(PtReviewRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.ReportDataJson))
+                {
+                    return true;
+                }
+
+                using var document = System.Text.Json.JsonDocument.Parse(request.ReportDataJson);
+                if (!document.RootElement.TryGetProperty("requestType", out var requestType))
+                {
+                    return true;
+                }
+
+                var value = requestType.GetString();
+                return string.IsNullOrWhiteSpace(value)
+                    || value.Equals("RouteApproval", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // Legacy requests did not always include requestType and were
+                // treated as RouteApproval by PtReviewService.
+                return true;
+            }
         }
 
         public async Task DeleteClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId)

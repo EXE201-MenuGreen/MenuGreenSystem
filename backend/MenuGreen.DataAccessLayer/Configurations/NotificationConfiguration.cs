@@ -14,6 +14,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.Title).HasMaxLength(200);
             builder.Property(x => x.Body).HasMaxLength(1000);
             builder.Property(x => x.Type).HasMaxLength(100);
+            builder.Property(x => x.ActionUrl).HasMaxLength(500);
             builder.Property(x => x.IsRead).HasDefaultValue(false);
             builder.Property(x => x.IsDismissed).HasDefaultValue(false);
             builder.Property(x => x.DismissedAt).HasColumnType("timestamp with time zone");

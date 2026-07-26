@@ -41,6 +41,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 isActive = true;
             }
             plans = plans.Where(x => x.IsActive == isActive.Value);
+            // Coach-created drafts are private working copies. The Gymer only
+            // receives them after the Coach submits and Status becomes Approved.
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                plans = plans.Where(x =>
+                    !string.Equals(x.Status, "Draft", StringComparison.OrdinalIgnoreCase));
+            }
 
             var results = new List<MealPlanResponse>();
             foreach (var plan in plans)
@@ -858,6 +865,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
+                Status = entity.Status,
+                ApprovedAt = entity.ApprovedAt,
                 IsActive = entity.IsActive,
                 TotalCalories = (int)Math.Round(totalCalories),
                 TotalProteinG = (int)Math.Round(totalProtein),
@@ -2034,6 +2043,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
                 x.UserId == userId
                 && x.IsActive
+                && x.Status != "Draft"
                 && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
                     ? x.StartDate == date
                     : (x.StartDate <= date && x.EndDate >= date)));

@@ -21,6 +21,13 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.GeneratedBy)
                 .HasMaxLength(50);
 
+            builder.Property(x => x.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Active");
+
+            builder.Property(x => x.ApprovedAt)
+                .HasColumnType("timestamp with time zone");
+
             builder.Property(x => x.IsActive)
                 .HasDefaultValue(true);
 
@@ -38,6 +45,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasIndex(x => x.UserId);
             builder.HasIndex(x => x.PlanType);
             builder.HasIndex(x => x.StartDate);
+            builder.HasIndex(x => x.Status);
         }
     }
 }

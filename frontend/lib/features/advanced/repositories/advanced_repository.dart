@@ -344,7 +344,7 @@ class AdvancedRepository {
   ) async => _map(
     _body(
       await _api.putJson(
-        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan/$planId',
         body,
       ),
     ),

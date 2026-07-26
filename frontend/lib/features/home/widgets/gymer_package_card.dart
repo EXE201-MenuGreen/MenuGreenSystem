@@ -5,7 +5,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 
 class GymerPackageCard extends StatelessWidget {
-  const GymerPackageCard({super.key});
+  const GymerPackageCard({super.key, this.routeBadgeCount = 0});
+
+  final int routeBadgeCount;
 
   static const _premiumGold = Color(0xFFD4A62A);
   static const _targetColor = Color(0xFF1B4332);
@@ -173,6 +175,9 @@ class GymerPackageCard extends StatelessWidget {
                     icon: action.icon,
                     label: action.label,
                     color: action.color,
+                    badgeCount: action.feature == GymerFeature.programs
+                        ? routeBadgeCount
+                        : 0,
                     onTap: () => _open(context, action.feature),
                   ),
                 ),
@@ -189,12 +194,14 @@ class _VipAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.badgeCount = 0,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final Color color;
+  final int badgeCount;
   final VoidCallback onTap;
 
   @override
@@ -215,21 +222,39 @@ class _VipAction extends StatelessWidget {
                 children: [
                   Icon(icon, size: 29, color: color),
                   Positioned(
-                    top: -1,
-                    right: 2,
+                    top: -3,
+                    right: 0,
                     child: Container(
-                      width: 17,
-                      height: 17,
+                      padding: badgeCount > 0
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            )
+                          : EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 17,
+                        minHeight: 17,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+                        color: badgeCount > 0 ? Colors.red : AppColors.primary,
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.white, width: 1.5),
                       ),
-                      child: const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 10,
-                        color: GymerPackageCard._premiumGold,
-                      ),
+                      alignment: Alignment.center,
+                      child: badgeCount > 0
+                          ? Text(
+                              badgeCount > 99 ? '99+' : '$badgeCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.workspace_premium_rounded,
+                              size: 10,
+                              color: GymerPackageCard._premiumGold,
+                            ),
                     ),
                   ),
                 ],
