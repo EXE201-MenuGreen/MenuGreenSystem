@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/location_service.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../../profile/views/allergies_screen.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
@@ -24,7 +26,8 @@ class DiscoverView extends StatefulWidget {
   State<DiscoverView> createState() => DiscoverViewState();
 }
 
-class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderStateMixin {
+class DiscoverViewState extends State<DiscoverView>
+    with SingleTickerProviderStateMixin {
   final _repository = FoodDiscoveryRepository();
   final _keywordController = TextEditingController();
   late final TabController _tabController;
@@ -52,6 +55,7 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   @override
   void initState() {
     super.initState();
+    context.read<FavoriteFoodProvider>().load();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
     _load(initial: true);
@@ -87,9 +91,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   Future<void> refreshAllergyStatus() async {
     _allergiesCached = null;
     try {
-      final hasAllergies = await _repository
-          .hasAllergiesConfigured()
-          .timeout(const Duration(seconds: 15));
+      final hasAllergies = await _repository.hasAllergiesConfigured().timeout(
+        const Duration(seconds: 15),
+      );
       if (!mounted) return;
       if (hasAllergies) _allergiesCached = true;
       setState(() => _hasAllergies = hasAllergies);
@@ -100,8 +104,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   String get _effectiveAllergyMode => _safeOnly ? 'hide' : _allergyMode;
 
-  String? get _keyword =>
-      _keywordController.text.trim().isEmpty ? null : _keywordController.text.trim();
+  String? get _keyword => _keywordController.text.trim().isEmpty
+      ? null
+      : _keywordController.text.trim();
 
   Future<void> _load({bool initial = false}) async {
     await _reloadLists(initial: initial, checkAllergy: true);
@@ -126,9 +131,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
     try {
       if (checkAllergy || _allergiesCached != true) {
-        final hasAllergies = await _repository
-            .hasAllergiesConfigured()
-            .timeout(const Duration(seconds: 15));
+        final hasAllergies = await _repository.hasAllergiesConfigured().timeout(
+          const Duration(seconds: 15),
+        );
         if (!mounted || gen != _loadGeneration) return;
         if (hasAllergies) _allergiesCached = true;
         setState(() => _hasAllergies = hasAllergies);
@@ -201,7 +206,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
     setState(() => _ingredientsLoading = true);
     try {
       final items = await _repository
-          .searchIngredients(keyword: _keyword, allergyMode: _effectiveAllergyMode)
+          .searchIngredients(
+            keyword: _keyword,
+            allergyMode: _effectiveAllergyMode,
+          )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
@@ -220,7 +228,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
   }
 
   Future<void> _openFoodFilters() async {
-    final result = await showDiscoverFoodFiltersSheet(context, initial: _foodFilters);
+    final result = await showDiscoverFoodFiltersSheet(
+      context,
+      initial: _foodFilters,
+    );
     if (result == null || !mounted) return;
     setState(() => _foodFilters = result);
     _scheduleReload();
@@ -294,7 +305,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                 children: [
                   if (widget.isStandalone)
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.textDark,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   const Expanded(
@@ -317,18 +331,26 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                         ),
                       );
                     },
-                    icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.auto_awesome,
+                      color: AppColors.primary,
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Món yêu thích',
                     onPressed: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const FavoritesScreen(),
+                        ),
                       );
                       _scheduleReload();
                     },
-                    icon: const Icon(Icons.favorite_border, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.favorite_border,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ],
               ),
@@ -348,8 +370,13 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                       _scheduleReload();
                     },
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 0,
+                  ),
                 ),
                 onSubmitted: (_) => _scheduleReload(),
               ),
@@ -381,9 +408,13 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                             ),
                           )
                         : Icon(
-                            _detectedRegion != null ? Icons.my_location : Icons.location_searching,
+                            _detectedRegion != null
+                                ? Icons.my_location
+                                : Icons.location_searching,
                             size: 16,
-                            color: _detectedRegion != null ? AppColors.primary : null,
+                            color: _detectedRegion != null
+                                ? AppColors.primary
+                                : null,
                           ),
                     label: Text(
                       _detectedRegion != null
@@ -425,7 +456,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
                   ),
                   ActionChip(
                     label: const Text('Tải lại'),
-                    onPressed: _refreshing ? null : () => _reloadLists(checkAllergy: false),
+                    onPressed: _refreshing
+                        ? null
+                        : () => _reloadLists(checkAllergy: false),
                   ),
                 ],
               ),
@@ -442,20 +475,27 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
               ],
             ),
             if (_refreshing)
-              const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+              const LinearProgressIndicator(
+                minHeight: 2,
+                color: AppColors.primary,
+              ),
             Expanded(
               child: _initialLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
                   : _error != null && _foods.isEmpty
-                      ? _buildError()
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildFoodList(),
-                            _buildRecipeList(),
-                            _buildIngredientList(),
-                          ],
-                        ),
+                  ? _buildError()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildFoodList(),
+                        _buildRecipeList(),
+                        _buildIngredientList(),
+                      ],
+                    ),
             ),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -523,19 +563,37 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final food = _foods[index];
-        return _FoodListTile(
-          food: food,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FoodDetailScreen(
-                  foodId: food.id,
-                  allergyMode: _effectiveAllergyMode,
+        return Consumer<FavoriteFoodProvider>(
+          builder: (context, favorites, _) => _FoodListTile(
+            food: food,
+            isFavorite: favorites.isFavorite(food.id),
+            isFavoriteBusy: favorites.isMutating(food.id),
+            onFavorite: () async {
+              final result = await favorites.toggle(
+                FavoriteFoodItem.fromFood(food),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: result.isSuccess
+                      ? AppColors.primary
+                      : Colors.red.shade700,
                 ),
-              ),
-            );
-          },
+              );
+            },
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FoodDetailScreen(
+                    foodId: food.id,
+                    allergyMode: _effectiveAllergyMode,
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -543,7 +601,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   Widget _buildRecipeList() {
     if (_recipesLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_recipes.isEmpty) {
       return const Center(child: Text('Không có công thức phù hợp.'));
@@ -559,7 +619,10 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          title: Text(recipe.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            recipe.title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -601,7 +664,9 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 
   Widget _buildIngredientList() {
     if (_ingredientsLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_ingredients.isEmpty) {
       return const Center(child: Text('Không có nguyên liệu phù hợp.'));
@@ -617,14 +682,18 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          title: Text(item.nameVi, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            item.nameVi,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 [
                   if (item.category != null) item.category!,
-                  if (item.caloriesKcal != null) '${item.caloriesKcal!.round()} kcal',
+                  if (item.caloriesKcal != null)
+                    '${item.caloriesKcal!.round()} kcal',
                   if (item.unitDefault != null) item.unitDefault!,
                 ].join(' · '),
               ),
@@ -660,10 +729,19 @@ class DiscoverViewState extends State<DiscoverView> with SingleTickerProviderSta
 }
 
 class _FoodListTile extends StatelessWidget {
-  const _FoodListTile({required this.food, required this.onTap});
+  const _FoodListTile({
+    required this.food,
+    required this.onTap,
+    required this.onFavorite,
+    required this.isFavorite,
+    required this.isFavoriteBusy,
+  });
 
   final FoodItem food;
   final VoidCallback onTap;
+  final VoidCallback onFavorite;
+  final bool isFavorite;
+  final bool isFavoriteBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -672,12 +750,17 @@ class _FoodListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      title: Text(food.nameVi, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        food.nameVi,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (food.caloriesKcal != null)
-            Text('${food.caloriesKcal!.round()} kcal · ${food.proteinG?.round() ?? 0}g đạm'),
+            Text(
+              '${food.caloriesKcal!.round()} kcal · ${food.proteinG?.round() ?? 0}g đạm',
+            ),
           if (food.matchedAllergens.isNotEmpty)
             Text(
               'Trùng: ${food.matchedAllergens.join(', ')}',
@@ -685,7 +768,28 @@ class _FoodListTile extends StatelessWidget {
             ),
         ],
       ),
-      trailing: AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
+          IconButton(
+            tooltip: isFavorite
+                ? 'B\u1ecf m\u00f3n kh\u1ecfi y\u00eau th\u00edch'
+                : 'Th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch',
+            onPressed: isFavoriteBusy ? null : onFavorite,
+            icon: isFavoriteBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : AppColors.primary,
+                  ),
+          ),
+        ],
+      ),
       onTap: onTap,
     );
   }

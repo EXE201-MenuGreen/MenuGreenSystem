@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../providers/recommendation_provider.dart';
-import '../repositories/food_discovery_repository.dart';
 import '../views/food_detail_screen.dart';
 import '../views/recipe_detail_screen.dart';
 import '../widgets/feedback_buttons.dart';
@@ -27,12 +27,13 @@ class RecommendationDetailScreen extends StatefulWidget {
   final RecommendationGenerateResponse? recommendationResponse;
 
   @override
-  State<RecommendationDetailScreen> createState() => _RecommendationDetailScreenState();
+  State<RecommendationDetailScreen> createState() =>
+      _RecommendationDetailScreenState();
 }
 
-class _RecommendationDetailScreenState extends State<RecommendationDetailScreen> {
+class _RecommendationDetailScreenState
+    extends State<RecommendationDetailScreen> {
   final _provider = RecommendationProvider();
-  final _favoriteRepository = FoodDiscoveryRepository();
 
   RecommendationDetail? _detail;
   String? _explanation;
@@ -46,6 +47,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   @override
   void initState() {
     super.initState();
+    context.read<FavoriteFoodProvider>().load();
     _loadData();
   }
 
@@ -123,7 +125,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isLiked ? 'Cảm ơn phản hồi tích cực!' : 'Cảm ơn phản hồi của bạn!',
+              isLiked
+                  ? 'Cảm ơn phản hồi tích cực!'
+                  : 'Cảm ơn phản hồi của bạn!',
             ),
           ),
         );
@@ -142,14 +146,18 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   Future<void> _applyToMealPlan() async {
-    final item = widget.recommendationItem ??
+    final item =
+        widget.recommendationItem ??
         widget.recommendationResponse?.items.firstOrNull;
 
     if (item == null) return;
 
     setState(() => _isApplyingToMealPlan = true);
 
-    final mealPlanProvider = Provider.of<MealPlanProvider>(context, listen: false);
+    final mealPlanProvider = Provider.of<MealPlanProvider>(
+      context,
+      listen: false,
+    );
 
     final request = AddItemRequest(
       mealType: _resolveMealType(item),
@@ -172,7 +180,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   Future<void> _toggleFavorite() async {
-    final item = widget.recommendationItem ??
+    final item =
+        widget.recommendationItem ??
         widget.recommendationResponse?.items.firstOrNull;
 
     if (item == null || !item.isFood) return;
@@ -180,15 +189,39 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     setState(() => _isTogglingFavorite = true);
 
     try {
-      final success = _isFavorite
-          ? await _favoriteRepository.removeFavorite(item.id)
-          : await _favoriteRepository.addFavorite(item.id);
+      final outcome = await context.read<FavoriteFoodProvider>().toggle(
+        FavoriteFoodItem(
+          foodId: item.id,
+          nameVi: item.name,
+          caloriesKcal: item.caloriesKcal,
+          proteinG: item.proteinG,
+          carbsG: item.carbsG,
+          fatG: item.fatG,
+          estimatedPriceVnd: item.estimatedPriceVnd,
+          imageUrl: item.imageUrl,
+        ),
+      );
+      final success = outcome.isSuccess;
 
       if (mounted) {
-        setState(() => _isFavorite = success ? !_isFavorite : _isFavorite);
+        setState(
+          () => _isFavorite = success ? outcome.isFavorite : _isFavorite,
+        );
+        if (!success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(outcome.message),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        }
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_isFavorite ? 'Đã thêm vào yêu thích' : 'Đã bỏ yêu thích')),
+            SnackBar(
+              content: Text(
+                _isFavorite ? 'Đã thêm vào yêu thích' : 'Đã bỏ yêu thích',
+              ),
+            ),
           );
         }
       }
@@ -203,7 +236,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
 
   String _resolveMealType(RecommendationItem item) {
     final lower = item.mealType?.toLowerCase() ?? '';
-    if (lower.contains('sáng') || lower.contains('breakfast')) return 'breakfast';
+    if (lower.contains('sáng') || lower.contains('breakfast')) {
+      return 'breakfast';
+    }
     if (lower.contains('trưa') || lower.contains('lunch')) return 'lunch';
     if (lower.contains('tối') || lower.contains('dinner')) return 'dinner';
     if (lower.contains('phụ') || lower.contains('snack')) return 'snack';
@@ -223,8 +258,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _loadError != null
-              ? _buildErrorState()
-              : _buildContent(),
+          ? _buildErrorState()
+          : _buildContent(),
     );
   }
 
@@ -235,28 +270,19 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade300,
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
               _loadError!,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red.shade700,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.red.shade700, fontSize: 16),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _loadData,
               icon: const Icon(Icons.refresh),
               label: const Text('Thử lại'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             ),
           ],
         ),
@@ -410,10 +436,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
           children: [
             Text(
               'Gợi ý ${_formatMealType(response.mealType)}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             if (response.targetCalories != null) ...[
               const SizedBox(height: 8),
@@ -431,7 +454,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                 color: AppColors.primary,
               ),
             ),
-            if (response.totalEstimatedCost != null || response.maxBudgetVnd != null) ...[
+            if (response.totalEstimatedCost != null ||
+                response.maxBudgetVnd != null) ...[
               const SizedBox(height: 8),
               Text(
                 [
@@ -516,16 +540,23 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: item.isFood ? Colors.blue.shade50 : Colors.orange.shade50,
+                              color: item.isFood
+                                  ? Colors.blue.shade50
+                                  : Colors.orange.shade50,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               item.isFood ? 'Món ăn' : 'Công thức',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: item.isFood ? Colors.blue : Colors.orange,
+                                color: item.isFood
+                                    ? Colors.blue
+                                    : Colors.orange,
                               ),
                             ),
                           ),
@@ -582,9 +613,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     return Card(
       elevation: 0,
       color: Colors.blue.shade50,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -607,10 +636,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
             const SizedBox(height: 12),
             Text(
               _explanation!,
-              style: TextStyle(
-                color: Colors.blue.shade900,
-                height: 1.5,
-              ),
+              style: TextStyle(color: Colors.blue.shade900, height: 1.5),
             ),
           ],
         ),
@@ -624,30 +650,29 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
       children: [
         Text(
           'Danh sách gợi ý (${items.length})',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ...items.map((item) => RecommendationItemTile(
-              item: item,
-              onTap: () {
-                if (item.isFood) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => FoodDetailScreen(foodId: item.id),
-                    ),
-                  );
-                } else {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => RecipeDetailScreen(recipeId: item.id),
-                    ),
-                  );
-                }
-              },
-            )),
+        ...items.map(
+          (item) => RecommendationItemTile(
+            item: item,
+            onTap: () {
+              if (item.isFood) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => FoodDetailScreen(foodId: item.id),
+                  ),
+                );
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => RecipeDetailScreen(recipeId: item.id),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
       ],
     );
   }
@@ -666,10 +691,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
           children: [
             const Text(
               'Thông tin dinh dưỡng',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -677,32 +699,81 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
               runSpacing: 16,
               children: [
                 if (item.caloriesKcal > 0)
-                  _buildNutrientItem('Calories', '${item.caloriesKcal.round()}', 'kcal', Colors.orange),
+                  _buildNutrientItem(
+                    'Calories',
+                    '${item.caloriesKcal.round()}',
+                    'kcal',
+                    Colors.orange,
+                  ),
                 if (item.proteinG > 0)
-                  _buildNutrientItem('Protein', '${item.proteinG.round()}', 'g', Colors.red),
+                  _buildNutrientItem(
+                    'Protein',
+                    '${item.proteinG.round()}',
+                    'g',
+                    Colors.red,
+                  ),
                 if (item.carbsG > 0)
-                  _buildNutrientItem('Carbs', '${item.carbsG.round()}', 'g', Colors.blue),
+                  _buildNutrientItem(
+                    'Carbs',
+                    '${item.carbsG.round()}',
+                    'g',
+                    Colors.blue,
+                  ),
                 if (item.fatG > 0)
-                  _buildNutrientItem('Chất béo', '${item.fatG.round()}', 'g', Colors.purple),
+                  _buildNutrientItem(
+                    'Chất béo',
+                    '${item.fatG.round()}',
+                    'g',
+                    Colors.purple,
+                  ),
                 if (item.fiberG > 0)
-                  _buildNutrientItem('Chất xơ', '${item.fiberG.round()}', 'g', Colors.teal),
+                  _buildNutrientItem(
+                    'Chất xơ',
+                    '${item.fiberG.round()}',
+                    'g',
+                    Colors.teal,
+                  ),
                 if (item.estimatedPriceVnd > 0)
-                  _buildNutrientItem('Chi phí', _formatPrice(item.estimatedPriceVnd), '', Colors.green),
+                  _buildNutrientItem(
+                    'Chi phí',
+                    _formatPrice(item.estimatedPriceVnd),
+                    '',
+                    Colors.green,
+                  ),
                 if (item.displayTimeMin > 0)
-                  _buildNutrientItem('Thời gian', '${item.displayTimeMin}', 'phút', Colors.indigo),
+                  _buildNutrientItem(
+                    'Thời gian',
+                    '${item.displayTimeMin}',
+                    'phút',
+                    Colors.indigo,
+                  ),
                 if (item.servings != null)
-                  _buildNutrientItem('Khẩu phần', '${item.servings}', 'người', Colors.brown),
+                  _buildNutrientItem(
+                    'Khẩu phần',
+                    '${item.servings}',
+                    'người',
+                    Colors.brown,
+                  ),
               ],
             ),
             if (item.difficulty != null || item.instructions != null) ...[
               const SizedBox(height: 20),
               if (item.difficulty != null)
-                Text('Độ khó: ${item.difficulty}', style: TextStyle(color: Colors.grey.shade700)),
+                Text(
+                  'Độ khó: ${item.difficulty}',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
               if (item.instructions != null) ...[
                 if (item.difficulty != null) const SizedBox(height: 12),
-                const Text('Hướng dẫn', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const Text(
+                  'Hướng dẫn',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 6),
-                Text(item.instructions!, style: TextStyle(color: Colors.grey.shade700, height: 1.5)),
+                Text(
+                  item.instructions!,
+                  style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+                ),
               ],
             ],
           ],
@@ -711,33 +782,37 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     );
   }
 
-  Widget _buildNutrientItem(String label, String value, String unit, Color color) {
+  Widget _buildNutrientItem(
+    String label,
+    String value,
+    String unit,
+    Color color,
+  ) {
     return SizedBox(
       width: 96,
       child: Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        Text(
-          unit.isNotEmpty ? '$label ($unit)' : label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
+          Text(
+            unit.isNotEmpty ? '$label ($unit)' : label,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }
 
   Widget _buildHistoryMetadata(RecommendationDetail detail) {
-    if (detail.type == null && detail.confidence == null && detail.input == null) {
+    if (detail.type == null &&
+        detail.confidence == null &&
+        detail.input == null) {
       return const SizedBox.shrink();
     }
 
@@ -752,10 +827,16 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Thông tin tạo gợi ý', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Thông tin tạo gợi ý',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             if (detail.type != null) ...[
               const SizedBox(height: 10),
-              Text('Loại: ${detail.type}', style: TextStyle(color: Colors.grey.shade700)),
+              Text(
+                'Loại: ${detail.type}',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
             ],
             if (detail.confidence != null) ...[
               const SizedBox(height: 6),
@@ -780,7 +861,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(color: color, height: 1.35))),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color, height: 1.35)),
+        ),
       ],
     );
   }
@@ -799,10 +882,7 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
           children: [
             const Text(
               'Bạn thấy gợi ý này như thế nào?',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             FeedbackButtons(
@@ -817,7 +897,8 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
   }
 
   Widget _buildActions() {
-    final currentItem = widget.recommendationItem ??
+    final currentItem =
+        widget.recommendationItem ??
         widget.recommendationResponse?.items.firstOrNull;
 
     if (widget.historyItem != null) {
@@ -831,10 +912,15 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.add),
-              label: Text(_isApplyingToMealPlan ? 'Đang thêm...' : 'Áp dụng vào kế hoạch'),
+              label: Text(
+                _isApplyingToMealPlan ? 'Đang thêm...' : 'Áp dụng vào kế hoạch',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -856,6 +942,9 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
     }
 
     final canFavorite = currentItem.isFood;
+    final isFavorite =
+        canFavorite &&
+        context.watch<FavoriteFoodProvider>().isFavorite(currentItem.id);
 
     return Row(
       children: [
@@ -872,14 +961,16 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                   )
                 : Icon(
                     canFavorite
-                        ? (_isFavorite ? Icons.favorite : Icons.favorite_border)
+                        ? (isFavorite ? Icons.favorite : Icons.favorite_border)
                         : Icons.block,
                   ),
-            label: Text(canFavorite
-                ? (_isFavorite ? 'Đã yêu thích' : 'Lưu')
-                : 'Chỉ hỗ trợ món ăn'),
+            label: Text(
+              canFavorite
+                  ? (isFavorite ? 'Đã yêu thích' : 'Lưu')
+                  : 'Chỉ hỗ trợ món ăn',
+            ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: canFavorite && _isFavorite ? Colors.red : null,
+              foregroundColor: canFavorite && isFavorite ? Colors.red : null,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -896,7 +987,10 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.add),
             label: Text(_isApplyingToMealPlan ? 'Đang thêm...' : 'Áp dụng'),
@@ -919,17 +1013,11 @@ class _RecommendationDetailScreenState extends State<RecommendationDetailScreen>
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],
     );
