@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../providers/recommendation_provider.dart';
 import '../widgets/quick_recommendation_card.dart';
 import '../widgets/recommendation_card.dart';
@@ -24,6 +25,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
   @override
   void initState() {
     super.initState();
+    context.read<FavoriteFoodProvider>().load();
     _loadData();
   }
 
@@ -52,8 +54,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
   void _openHistory() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (_) => const RecommendationHistoryScreen()),
+      MaterialPageRoute(builder: (_) => const RecommendationHistoryScreen()),
     );
   }
 
@@ -113,29 +114,29 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
     return ChangeNotifierProvider.value(
       value: _provider,
       child: Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Gợi ý cá nhân hóa'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppColors.textDark,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const _PersonalizedInsight(),
-            const SizedBox(height: 20),
-            _buildTodaySection(),
-            const SizedBox(height: 24),
-            _buildExploreSection(),
-            const SizedBox(height: 24),
-            _buildHistorySection(),
-            const SizedBox(height: 32),
-          ],
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Gợi ý cá nhân hóa'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: AppColors.textDark,
         ),
-      ),
+        body: RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const _PersonalizedInsight(),
+              const SizedBox(height: 20),
+              _buildTodaySection(),
+              const SizedBox(height: 24),
+              _buildExploreSection(),
+              const SizedBox(height: 24),
+              _buildHistorySection(),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -182,9 +183,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RecommendationDetailScreen(
-          recommendationItem: item,
-        ),
+        builder: (_) => RecommendationDetailScreen(recommendationItem: item),
       ),
     );
   }
@@ -266,10 +265,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
           ),
           child: Icon(icon, color: color),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
           subtitle,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
@@ -309,9 +305,9 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
             else if (provider.history.isEmpty)
               _buildEmptyHistory()
             else
-              ...provider.history.take(3).map(
-                    (item) => _buildHistoryItem(item),
-                  ),
+              ...provider.history
+                  .take(3)
+                  .map((item) => _buildHistoryItem(item)),
           ],
         );
       },
@@ -536,10 +532,10 @@ class _RecommendationTypeScreenState extends State<_RecommendationTypeScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildError()
-              : _items.isEmpty
-                  ? _buildEmpty()
-                  : _buildList(),
+          ? _buildError()
+          : _items.isEmpty
+          ? _buildEmpty()
+          : _buildList(),
     );
   }
 
@@ -587,18 +583,37 @@ class _RecommendationTypeScreenState extends State<_RecommendationTypeScreen> {
           final item = _items[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: RecommendationCard(
-              item: item,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RecommendationDetailScreen(
-                      recommendationItem: item,
+            child: Consumer<FavoriteFoodProvider>(
+              builder: (context, favorites, _) => RecommendationCard(
+                item: item,
+                isFavorite: item.isFood && favorites.isFavorite(item.id),
+                isFavoriteBusy: favorites.isMutating(item.id),
+                onFavorite: item.isFood
+                    ? () async {
+                        final result = await favorites.toggle(
+                          FavoriteFoodItem.fromRecommendation(item),
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result.message),
+                            backgroundColor: result.isSuccess
+                                ? AppColors.primary
+                                : Colors.red.shade700,
+                          ),
+                        );
+                      }
+                    : null,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          RecommendationDetailScreen(recommendationItem: item),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           );
         },

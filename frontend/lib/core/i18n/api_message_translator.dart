@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Dịch message tiếng Anh từ API sang tiếng Việt trước khi hiển thị cho user.
 class ApiMessageTranslator {
   ApiMessageTranslator._();
@@ -10,6 +12,15 @@ class ApiMessageTranslator {
     'Email is required.': 'Vui lòng nhập email.',
     'Invalid email format.': 'Email không đúng định dạng.',
     'Password is required.': 'Vui lòng nhập mật khẩu.',
+    'Invalid username or password.': 'Tên đăng nhập hoặc mật khẩu không chính xác.',
+    'Email already exists.': 'Email này đã được đăng ký tài khoản.',
+    'User not found.': 'Không tìm thấy thông tin tài khoản.',
+    'Unauthorized': 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+    'Unauthorized.': 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+    'Bad Request': 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại.',
+    'Internal Server Error': 'Máy chủ gặp sự cố. Vui lòng thử lại sau.',
+    'An error occurred while processing your request.':
+        'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.',
 
     // Not found / forbidden
     'Recipe not found.': 'Không tìm thấy công thức.',
@@ -29,6 +40,10 @@ class ApiMessageTranslator {
         'Mỗi bữa trong kế hoạch cần chọn món hoặc công thức.',
     'Meal plan item must have FoodId or RecipeId.':
         'Mục kế hoạch cần món ăn hoặc công thức.',
+    'FoodId, RecipeId, or CustomName is required.':
+        'Vui lòng chọn món ăn, công thức hoặc nhập tên món.',
+    'PlannedDate is required.': 'Vui lòng chọn ngày cho kế hoạch.',
+    'QuantityG must be greater than 0.': 'Khẩu phần ăn phải lớn hơn 0g.',
     'Meal reminder is disabled.': 'Đã tắt nhắc giờ ăn.',
     'Prep reminder is disabled.': 'Đã tắt nhắc chuẩn bị nấu.',
     'Weight log not found.': 'Không tìm thấy nhật ký cân nặng.',
@@ -42,7 +57,9 @@ class ApiMessageTranslator {
     'Cannot save AI profile. Please try again later.':
         'Không thể lưu hồ sơ AI. Vui lòng thử lại sau.',
     'Database schema is outdated. Please run migrations.':
-        'Cơ sở dữ liệu chưa cập nhật. Vui lòng chạy migration.',
+        'Cơ sở dữ liệu chưa cập nhật. Vui lòng thử lại sau.',
+    'Payment failed or cancelled.': 'Thanh toán không thành công hoặc đã bị hủy.',
+    'Cannot update a completed meal plan.': 'Không thể chỉnh sửa kế hoạch đã hoàn thành.',
 
     // Nutrition warnings (English from API)
     'Calorie intake deviates more than 10% from daily target.':
@@ -76,7 +93,7 @@ class ApiMessageTranslator {
     'Cannot mark a future meal as eaten.':
         'Không thể đánh dấu đã ăn cho bữa ăn trong tương lai.',
 
-    // PT Review / Coach weekly report (Phase 2)
+    // PT Review / Coach weekly report
     'Review request does not exist.':
         'Không tìm thấy yêu cầu đánh giá.',
     'Review request does not exist or token is invalid.':
@@ -90,7 +107,7 @@ class ApiMessageTranslator {
     'Access denied.':
         'Bạn không có quyền truy cập.',
 
-    // Coach Meal Plan (Phase 1)
+    // Coach Meal Plan
     'Meal plan items cannot be null.':
         'Danh sách món trong lộ trình không được để trống.',
     'Please set up a budget (Budget Request) before automatically generating a plan.':
@@ -124,34 +141,50 @@ class ApiMessageTranslator {
     'Fat': 'Chất béo',
   };
 
-  /// Dịch một message; giữ nguyên nếu đã là tiếng Việt hoặc rỗng.
+  /// Dịch một message; đảm bảo tuyệt đối KHÔNG bao giờ trả về chuỗi HTML, JSON hay mã lỗi stacktrace cho user.
   static String translate(String? message) {
     if (message == null) return '';
     var trimmed = message.trim();
-    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.isEmpty) return '';
 
-    // Strip exception prefixes
-    if (trimmed.startsWith('Exception: ')) {
-      trimmed = trimmed.substring('Exception: '.length).trim();
-    }
-    if (trimmed.startsWith('System.Exception: ')) {
-      trimmed = trimmed.substring('System.Exception: '.length).trim();
-    }
-    if (trimmed.startsWith('System.InvalidOperationException: ')) {
-      trimmed = trimmed.substring('System.InvalidOperationException: '.length).trim();
-    }
-    if (trimmed.startsWith('InvalidOperationException: ')) {
-      trimmed = trimmed.substring('InvalidOperationException: '.length).trim();
-    }
-    if (trimmed.startsWith('Bad Request: ')) {
-      trimmed = trimmed.substring('Bad Request: '.length).trim();
+    // 1. Kiểm tra & lọc bỏ hoàn toàn nếu là HTML
+    if (_isHtml(trimmed)) {
+      return 'Máy chủ đang gặp sự cố tạm thời. Vui lòng thử lại sau.';
     }
 
-    if (_looksVietnamese(trimmed)) return trimmed;
+    // 2. Loại bỏ các tiền tố Exception kỹ thuật
+    for (final prefix in [
+      'Exception: ',
+      'System.Exception: ',
+      'System.InvalidOperationException: ',
+      'InvalidOperationException: ',
+      'Bad Request: ',
+      'DioException: ',
+      'FormatException: ',
+    ]) {
+      if (trimmed.startsWith(prefix)) {
+        trimmed = trimmed.substring(prefix.length).trim();
+      }
+    }
 
+    // 3. Trích xuất nếu message có dạng JSON / ProblemDetails từ ASP.NET Core
+    final parsedJsonMessage = _tryParseJsonError(trimmed);
+    if (parsedJsonMessage != null && parsedJsonMessage.isNotEmpty) {
+      return parsedJsonMessage;
+    }
+
+    // 4. Tra từ điển chính xác
     final exact = _exact[trimmed] ?? _exact['$trimmed.'];
     if (exact != null) return exact;
 
+    // 5. Tra từ điển không phân biệt hoa thường
+    for (final entry in _exact.entries) {
+      if (entry.key.toLowerCase() == trimmed.toLowerCase()) {
+        return entry.value;
+      }
+    }
+
+    // 6. Khớp Regex cho dinh dưỡng macro
     final exceeds = _macroExceeds.firstMatch(trimmed);
     if (exceeds != null) {
       final label = _macroLabels[exceeds.group(1)] ?? exceeds.group(1)!;
@@ -164,7 +197,16 @@ class ApiMessageTranslator {
       return '$label thấp hơn mục tiêu (${below.group(2)}g / ${below.group(3)}g).';
     }
 
-    return trimmed;
+    // 7. Giữ nguyên nếu đã là câu tiếng Việt hoàn chỉnh
+    if (_looksVietnamese(trimmed)) return trimmed;
+
+    // 8. Lọc bỏ nếu chứa thuật ngữ kỹ thuật / StackTrace
+    if (_hasTechnicalTerms(trimmed)) {
+      return 'Hệ thống phản hồi không hợp lệ. Vui lòng thử lại sau.';
+    }
+
+    // 9. Fallback an toàn cho tiếng Anh chưa dịch: Trả về câu thông báo thân thiện
+    return 'Thao tác chưa hoàn thành. Vui lòng thử lại sau.';
   }
 
   static List<String> translateList(List<String> messages) {
@@ -178,15 +220,74 @@ class ApiMessageTranslator {
     if (trimmed.isEmpty) return trimmed;
     if (_looksVietnamese(trimmed)) return trimmed;
 
-    // Already translated exact messages
     final exact = _exact[trimmed];
     if (exact != null) return exact;
 
-    return trimmed;
+    return translate(trimmed);
+  }
+
+  static bool _isHtml(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('<!doctype') ||
+        lower.contains('<html') ||
+        lower.contains('<body') ||
+        lower.contains('<div') ||
+        lower.contains('<h1') ||
+        lower.contains('<head');
+  }
+
+  static String? _tryParseJsonError(String text) {
+    if (!text.startsWith('{') || !text.endsWith('}')) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        if (decoded.containsKey('errors') && decoded['errors'] is Map) {
+          final errorsMap = decoded['errors'] as Map;
+          if (errorsMap.isNotEmpty) {
+            final firstValue = errorsMap.values.first;
+            if (firstValue is List && firstValue.isNotEmpty) {
+              return translate(firstValue.first.toString());
+            }
+            return translate(firstValue.toString());
+          }
+        }
+        final msg = decoded['message'] ??
+            decoded['Message'] ??
+            decoded['title'] ??
+            decoded['Title'] ??
+            decoded['detail'] ??
+            decoded['Detail'];
+        if (msg != null && msg.toString().isNotEmpty) {
+          return translate(msg.toString());
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static bool _hasTechnicalTerms(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('exception') ||
+        lower.contains('socketexception') ||
+        lower.contains('formatexception') ||
+        lower.contains('dioexception') ||
+        lower.contains('nullreference') ||
+        lower.contains('invalidoperation') ||
+        lower.contains('stacktrace') ||
+        lower.contains('at system.') ||
+        lower.contains('http.response') ||
+        lower.contains('typeerror') ||
+        lower.contains('nosuchmethod') ||
+        lower.contains('bad request') ||
+        lower.contains('internal server error') ||
+        lower.contains('application/problem+json');
   }
 
   static bool _looksVietnamese(String text) {
-    return RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false)
-        .hasMatch(text);
+    return RegExp(
+      r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]',
+      caseSensitive: false,
+    ).hasMatch(text);
   }
 }
+

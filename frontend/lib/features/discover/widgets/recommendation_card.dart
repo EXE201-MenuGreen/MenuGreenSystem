@@ -8,11 +8,15 @@ class RecommendationCard extends StatelessWidget {
     required this.item,
     this.onTap,
     this.onFavorite,
+    this.isFavorite = false,
+    this.isFavoriteBusy = false,
   });
 
   final RecommendationItem item;
   final VoidCallback? onTap;
   final VoidCallback? onFavorite;
+  final bool isFavorite;
+  final bool isFavoriteBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -54,18 +58,9 @@ class RecommendationCard extends StatelessWidget {
                           '${item.caloriesKcal.round()} kcal',
                           Colors.orange,
                         ),
-                        _buildChip(
-                          'P ${item.proteinG.round()}g',
-                          Colors.red,
-                        ),
-                        _buildChip(
-                          'C ${item.carbsG.round()}g',
-                          Colors.blue,
-                        ),
-                        _buildChip(
-                          'F ${item.fatG.round()}g',
-                          Colors.purple,
-                        ),
+                        _buildChip('P ${item.proteinG.round()}g', Colors.red),
+                        _buildChip('C ${item.carbsG.round()}g', Colors.blue),
+                        _buildChip('F ${item.fatG.round()}g', Colors.purple),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -87,7 +82,8 @@ class RecommendationCard extends StatelessWidget {
                           ),
                         ],
                         if (item.estimatedPriceVnd > 0) ...[
-                          if (item.displayTimeMin > 0) const SizedBox(width: 12),
+                          if (item.displayTimeMin > 0)
+                            const SizedBox(width: 12),
                           Icon(
                             Icons.attach_money,
                             size: 14,
@@ -109,7 +105,10 @@ class RecommendationCard extends StatelessWidget {
                         item.matchReason!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
                     ],
                     if (item.hasAllergyWarning) ...[
@@ -134,9 +133,23 @@ class RecommendationCard extends StatelessWidget {
                   ],
                   if (onFavorite != null)
                     IconButton(
-                      onPressed: onFavorite,
-                      icon: const Icon(Icons.favorite_border, size: 20),
-                      color: Colors.grey,
+                      tooltip: isFavorite
+                          ? 'B\u1ecf m\u00f3n kh\u1ecfi y\u00eau th\u00edch'
+                          : 'Th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch',
+                      onPressed: isFavoriteBusy ? null : onFavorite,
+                      icon: isFavoriteBusy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              isFavorite
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 20,
+                            ),
+                      color: isFavorite ? Colors.red : Colors.grey,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -211,13 +224,7 @@ class RecommendationCard extends StatelessWidget {
               color: color,
             ),
           ),
-          Text(
-            'điểm',
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-            ),
-          ),
+          Text('điểm', style: TextStyle(fontSize: 10, color: color)),
         ],
       ),
     );

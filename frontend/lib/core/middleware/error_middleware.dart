@@ -44,46 +44,74 @@ class ApiErrorMiddleware {
     required Uri uri,
     required Future<http.Response> Function() request,
     required ApiLoggingMiddleware logger,
+    int maxRetries = 3,
   }) async {
     final stopwatch = Stopwatch()..start();
     logger.logRequest(method, uri);
 
-    try {
-      final response = await request();
-      stopwatch.stop();
-      logger.logResponse(method, uri, response.statusCode, stopwatch.elapsed);
-      return response;
-    } on TimeoutException catch (error) {
-      stopwatch.stop();
-      logger.logError(method, uri, error, stopwatch.elapsed);
-      throw ApiException(
-        type: ApiErrorType.timeout,
-        message: ErrorTranslator.timeout(),
-        cause: error,
-      );
-    } on http.ClientException catch (error) {
-      stopwatch.stop();
-      logger.logError(method, uri, error, stopwatch.elapsed);
-      throw ApiException(
-        type: ApiErrorType.noInternet,
-        message: ErrorTranslator.networkUnavailable(),
-        cause: error,
-      );
-    } catch (error) {
-      stopwatch.stop();
-      logger.logError(method, uri, error, stopwatch.elapsed);
-      if (error.runtimeType.toString().contains('SocketException')) {
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        final response = await request();
+
+        // Nếu server tạm thời quá tải/mất kết nối (502, 503, 504) và còn lượt thử
+        if ((response.statusCode == 502 ||
+                response.statusCode == 503 ||
+                response.statusCode == 504) &&
+            attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: attempt));
+          continue;
+        }
+
+        stopwatch.stop();
+        logger.logResponse(method, uri, response.statusCode, stopwatch.elapsed);
+        return response;
+      } on TimeoutException catch (error) {
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: attempt));
+          continue;
+        }
+        stopwatch.stop();
+        logger.logError(method, uri, error, stopwatch.elapsed);
+        throw ApiException(
+          type: ApiErrorType.timeout,
+          message: ErrorTranslator.timeout(),
+          cause: error,
+        );
+      } on http.ClientException catch (error) {
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: attempt));
+          continue;
+        }
+        stopwatch.stop();
+        logger.logError(method, uri, error, stopwatch.elapsed);
         throw ApiException(
           type: ApiErrorType.noInternet,
           message: ErrorTranslator.networkUnavailable(),
           cause: error,
         );
+      } catch (error) {
+        final isSocket = error.runtimeType.toString().contains('SocketException');
+        if (attempt < maxRetries && isSocket) {
+          await Future.delayed(Duration(seconds: attempt));
+          continue;
+        }
+        stopwatch.stop();
+        logger.logError(method, uri, error, stopwatch.elapsed);
+        if (isSocket) {
+          throw ApiException(
+            type: ApiErrorType.noInternet,
+            message: ErrorTranslator.networkUnavailable(),
+            cause: error,
+          );
+        }
+        throw ApiException(
+          type: ApiErrorType.unknown,
+          message: 'Đã xảy ra lỗi khi kết nối đến máy chủ.',
+          cause: error,
+        );
       }
-      throw ApiException(
-        type: ApiErrorType.unknown,
-        message: 'Đã xảy ra lỗi khi kết nối đến máy chủ.',
-        cause: error,
-      );
     }
   }
 
@@ -136,14 +164,42 @@ class ApiErrorMiddleware {
   }
 
   static String? extractServerMessage(String body) {
-    if (body.trim().isEmpty) return null;
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return null;
+
+    // Khai tử hoàn toàn nội dung HTML nếu server trả về trang HTML 500/502/504
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('<!doctype') ||
+        lower.contains('<html') ||
+        lower.contains('<body')) {
+      return null;
+    }
+
     try {
-      final decoded = jsonDecode(body);
+      final decoded = jsonDecode(trimmed);
       if (decoded is Map) {
-        final direct = decoded['message'] ?? decoded['Message'];
-        if (direct != null) return direct.toString();
-        final error = decoded['error'] ?? decoded['Error'];
-        if (error != null) return error.toString();
+        // Trích xuất lỗi Validation / ProblemDetails từ ASP.NET Core
+        if (decoded.containsKey('errors') && decoded['errors'] is Map) {
+          final errorsMap = decoded['errors'] as Map;
+          if (errorsMap.isNotEmpty) {
+            final firstVal = errorsMap.values.first;
+            if (firstVal is List && firstVal.isNotEmpty) {
+              return firstVal.first.toString();
+            }
+            return firstVal.toString();
+          }
+        }
+        final direct = decoded['message'] ??
+            decoded['Message'] ??
+            decoded['title'] ??
+            decoded['Title'] ??
+            decoded['detail'] ??
+            decoded['Detail'] ??
+            decoded['error'] ??
+            decoded['Error'];
+        if (direct != null && direct.toString().isNotEmpty) {
+          return direct.toString();
+        }
       }
     } catch (_) {
       return null;

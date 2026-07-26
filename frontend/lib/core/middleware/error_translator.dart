@@ -1,9 +1,11 @@
+import '../i18n/api_message_translator.dart';
+
 class ErrorTranslator {
   ErrorTranslator._();
 
   static String fromStatusCode(int statusCode, {String? serverMessage}) {
-    final message = serverMessage?.trim();
-    if (message != null && message.isNotEmpty) return message;
+    final message = ApiMessageTranslator.translate(serverMessage);
+    if (message.isNotEmpty) return message;
 
     switch (statusCode) {
       case 400:
