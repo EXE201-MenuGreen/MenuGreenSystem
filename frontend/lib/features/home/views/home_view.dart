@@ -79,12 +79,16 @@ class HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    refreshHeader();
-    refreshSubscriptionAccess();
-    _loadTodaySummary();
-    _loadMealPlanAdherence();
+    refreshAll();
     _loadTips();
     _notificationProvider.loadUnreadCount();
+  }
+
+  Future<void> refreshAll() async {
+    await refreshHeader();
+    await refreshSubscriptionAccess();
+    await _loadTodaySummary();
+    await _loadMealPlanAdherence();
   }
 
   Future<void> refreshHeader() async {

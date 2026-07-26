@@ -249,20 +249,43 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }).ToList();
         }
 
-        public async Task FavoriteAsync(Guid userId, Guid foodId)
+        public async Task<FavoriteFoodResponse> FavoriteAsync(Guid userId, Guid foodId)
         {
             var food = await _unitOfWork.Foods.GetByIdAsync(foodId) ?? throw new Exception("Food not found.");
-            var existing = await _db.FavoriteFoods.FirstOrDefaultAsync(x => x.UserId == userId && x.FoodId == foodId);
-            if (existing != null) return;
-
-            await _db.FavoriteFoods.AddAsync(new FavoriteFood
+            if (food.IsActive == false)
             {
-                UserId = userId,
-                FoodId = food.Id,
-                CreatedAt = DateTime.UtcNow
-            });
+                throw new InvalidOperationException("Food is inactive and cannot be added to favorites.");
+            }
 
-            await _db.SaveChangesAsync();
+            var existing = await _db.FavoriteFoods.FirstOrDefaultAsync(x => x.UserId == userId && x.FoodId == foodId);
+            var createdAt = existing?.CreatedAt ?? DateTime.UtcNow;
+
+            if (existing == null)
+            {
+                await _db.FavoriteFoods.AddAsync(new FavoriteFood
+                {
+                    UserId = userId,
+                    FoodId = food.Id,
+                    CreatedAt = createdAt
+                });
+
+                await _db.SaveChangesAsync();
+            }
+
+            return new FavoriteFoodResponse
+            {
+                FoodId = food.Id,
+                NameVi = food.NameVi,
+                NameEn = food.NameEn,
+                Category = food.Category,
+                CaloriesKcal = food.CaloriesKcal,
+                ProteinG = food.ProteinG,
+                CarbsG = food.CarbsG,
+                FatG = food.FatG,
+                EstimatedPriceVnd = food.EstimatedPriceVnd,
+                ImageUrl = food.ImageUrl,
+                CreatedAt = createdAt
+            };
         }
 
         public async Task UnfavoriteAsync(Guid userId, Guid foodId)

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
@@ -19,6 +20,7 @@ import 'change_password_screen.dart';
 import '../../notifications/views/notification_settings_screen.dart';
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../advanced/views/advanced_features_screen.dart';
+import '../../discover/providers/favorite_food_provider.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key, this.onProfileUpdated});
@@ -126,6 +128,7 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   void _handleLogout() async {
+    await context.read<FavoriteFoodProvider>().clearSession();
     await _profileRepo.logout();
     if (mounted) {
       Navigator.pushAndRemoveUntil(

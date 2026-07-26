@@ -41,6 +41,7 @@ class ApiEndpoints {
 
   static String get notificationHub => '$realtimeBaseUrl/notificationHub';
 
+  static String get health => '$baseUrl/Food';
   static String get login => '$baseUrl/Auth/login';
   static String get googleLogin => '$baseUrl/Auth/google';
   static String get register => '$baseUrl/Auth/register';

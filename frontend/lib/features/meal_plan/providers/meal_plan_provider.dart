@@ -6,9 +6,19 @@ import '../models/meal_plan_responses.dart';
 import '../repositories/meal_plan_repository.dart';
 import '../models/meal_plan_models.dart'; // Keep existing models for UserMealPlan
 
+import 'dart:async';
+import '../../../core/network/network_connectivity_service.dart';
+
 /// State management cho Meal Plan
 class MealPlanProvider extends ChangeNotifier {
+  MealPlanProvider() {
+    _reconnectSub = NetworkConnectivityService.instance.onReconnected.listen((_) {
+      refreshOnReconnected();
+    });
+  }
+
   final MealPlanRepository _repository = MealPlanRepository();
+  StreamSubscription<void>? _reconnectSub;
 
   // Disposed flag to prevent state updates after disposal
   bool _disposed = false;
@@ -29,6 +39,7 @@ class MealPlanProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _reconnectSub?.cancel();
     super.dispose();
   }
 
@@ -81,7 +92,7 @@ class MealPlanProvider extends ChangeNotifier {
       _plans = await _repository.getPlans(isActive: isActive);
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
     } finally {
       if (!silent) {
         _isLoading = false;
@@ -103,7 +114,7 @@ class MealPlanProvider extends ChangeNotifier {
       _currentPlan = await _repository.getPlanDetail(id);
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
     } finally {
       if (!silent) {
         _isLoadingDetail = false;
@@ -156,7 +167,7 @@ class MealPlanProvider extends ChangeNotifier {
         to ?? endOfMonth,
       );
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
     } finally {
       _isLoadingCompare = false;
       _safeNotify();
@@ -192,7 +203,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadPlans();
       return plan;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoading = false;
@@ -213,7 +224,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadPlans();
       return plan;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoading = false;
@@ -234,7 +245,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadPlans();
       return plan;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoading = false;
@@ -256,7 +267,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadPlans();
       return plan;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoading = false;
@@ -274,7 +285,7 @@ class MealPlanProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       notifyListeners();
       return false;
     }
@@ -293,7 +304,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadPlans();
       return plan;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoading = false;
@@ -317,7 +328,7 @@ class MealPlanProvider extends ChangeNotifier {
       await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoadingDetail = false;
@@ -340,7 +351,7 @@ class MealPlanProvider extends ChangeNotifier {
       await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       return null;
     } finally {
       _isLoadingDetail = false;
@@ -356,7 +367,7 @@ class MealPlanProvider extends ChangeNotifier {
       await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       notifyListeners();
       return false;
     }
@@ -374,7 +385,7 @@ class MealPlanProvider extends ChangeNotifier {
       await Future.wait([loadTodayDashboard(), loadPlans(silent: true)]);
       return item;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       notifyListeners();
       return null;
     }
@@ -392,6 +403,22 @@ class MealPlanProvider extends ChangeNotifier {
     String? planId,
   }) async {
     if (!_pendingItemToggles.add(itemId)) return false;
+
+    // Optimistic UI update
+    if (_todayDashboard != null) {
+      final newItems = _todayDashboard!.plannedItems.map((item) {
+        if (item.id == itemId) {
+          return item.copyWith(
+            isCompleted: isCompleted,
+            status: isCompleted ? 'done' : 'planned',
+          );
+        }
+        return item;
+      }).toList();
+      _todayDashboard = _todayDashboard!.copyWith(plannedItems: newItems);
+      _safeNotify();
+    }
+
     try {
       _error = null;
       await _repository.toggleItem(itemId, isCompleted);
@@ -399,7 +426,8 @@ class MealPlanProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = ApiMessageTranslator.translate(e.toString());
-      notifyListeners();
+      await loadTodayDashboard();
+      _safeNotify();
       return false;
     } finally {
       _pendingItemToggles.remove(itemId);
@@ -413,6 +441,22 @@ class MealPlanProvider extends ChangeNotifier {
   }) async {
     final pendingItems = items.where((item) => !item.isDone).toList();
     if (pendingItems.isEmpty) return 0;
+
+    // Optimistic UI update for all pending items
+    if (_todayDashboard != null) {
+      final pendingIds = pendingItems.map((i) => i.id).toSet();
+      final newItems = _todayDashboard!.plannedItems.map((item) {
+        if (pendingIds.contains(item.id)) {
+          return item.copyWith(
+            isCompleted: true,
+            status: 'done',
+          );
+        }
+        return item;
+      }).toList();
+      _todayDashboard = _todayDashboard!.copyWith(plannedItems: newItems);
+      _safeNotify();
+    }
 
     _error = null;
     var completedCount = 0;
@@ -435,7 +479,7 @@ class MealPlanProvider extends ChangeNotifier {
     await _refreshAfterCompletionChange(planId: planId);
     if (firstError != null) {
       _error = ApiMessageTranslator.translate(firstError.toString());
-      notifyListeners();
+      _safeNotify();
     }
     return completedCount;
   }
@@ -476,7 +520,7 @@ class MealPlanProvider extends ChangeNotifier {
       ]);
       return result;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       notifyListeners();
       return null;
     }
@@ -526,7 +570,7 @@ class MealPlanProvider extends ChangeNotifier {
       await loadTodayDashboard();
       return plan.items.isNotEmpty ? plan.items.first : null;
     } catch (e) {
-      _error = e.toString();
+      _setError(e);
       notifyListeners();
       return null;
     } finally {
@@ -540,6 +584,22 @@ class MealPlanProvider extends ChangeNotifier {
   }
 
   // ==================== Helpers ====================
+
+  void _setError(dynamic e) {
+    if (e == null) {
+      _error = null;
+    } else {
+      _error = ApiMessageTranslator.translate(e.toString());
+    }
+  }
+
+  /// Tự động tải lại dữ liệu khi máy chủ khôi phục kết nối
+  Future<void> refreshOnReconnected() async {
+    await loadAllForHome();
+    if (_currentPlan != null) {
+      await loadPlanDetail(_currentPlan!.id, silent: true);
+    }
+  }
 
   /// Clear error
   void clearError() {

@@ -8,6 +8,7 @@ import '../middleware/error_middleware.dart';
 import '../middleware/logging_middleware.dart';
 import 'api_endpoints.dart';
 import 'jwt_utils.dart';
+import 'network_connectivity_service.dart';
 import 'token_storage.dart';
 
 /// Shared HTTP client. It keeps auth refresh, timeout, logging and transport
@@ -216,13 +217,24 @@ class ApiClient {
     required Future<http.Response> Function() request,
   }) async {
     try {
-      return await ApiErrorMiddleware.guard(
+      final response = await ApiErrorMiddleware.guard(
         method: method,
         uri: uri,
         logger: _logger,
         request: request,
       );
+      if (response.statusCode >= 200 && response.statusCode < 500) {
+        NetworkConnectivityService.instance.reportConnectionSuccess();
+      } else if (response.statusCode >= 500) {
+        NetworkConnectivityService.instance.reportConnectionFailure();
+      }
+      return response;
     } on ApiException catch (error) {
+      if (error.type == ApiErrorType.noInternet ||
+          error.type == ApiErrorType.timeout ||
+          error.type == ApiErrorType.server) {
+        NetworkConnectivityService.instance.reportConnectionFailure();
+      }
       return ApiErrorMiddleware.responseFromException(error);
     }
   }

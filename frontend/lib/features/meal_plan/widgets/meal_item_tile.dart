@@ -18,6 +18,7 @@ class MealItemTile extends StatelessWidget {
     this.onSkip,
     this.onSwap,
     this.showActions = true,
+    this.useCard = true,
   });
 
   final MealPlanItemDetail item;
@@ -29,6 +30,7 @@ class MealItemTile extends StatelessWidget {
   final VoidCallback? onSkip;
   final VoidCallback? onSwap;
   final bool showActions;
+  final bool useCard;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +128,106 @@ class MealItemTile extends StatelessWidget {
   Widget _buildTile(BuildContext context) {
     final mealType = MealType.fromString(item.mealType);
 
+    final tileContent = InkWell(
+      onTap: onTap,
+      onLongPress: () => _showContextMenu(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            // Meal type icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getStatusColor().withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  mealType.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.displayName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                      decoration: item.isDone ? TextDecoration.lineThrough : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '${item.targetCalories ?? 0} kcal',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          decoration: item.isDone ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '•',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'P: ${item.proteinG ?? 0}g  C: ${item.carbsG ?? 0}g  F: ${item.fatG ?? 0}g',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary.withValues(alpha: 0.8),
+                          decoration: item.isDone ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      if (item.scheduledTime != null) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.access_time,
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _formatTime(item.scheduledTime!),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Status indicator
+            _buildStatusIndicator(),
+          ],
+        ),
+      ),
+    );
+
+    if (!useCard) {
+      return tileContent;
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       elevation: 0,
@@ -136,101 +238,7 @@ class MealItemTile extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: () => _showContextMenu(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Meal type icon
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _getStatusColor().withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    mealType.emoji,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.displayName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
-                        decoration: item.isDone ? TextDecoration.lineThrough : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '${item.targetCalories ?? 0} kcal',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                            decoration: item.isDone ? TextDecoration.lineThrough : null,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '•',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'P: ${item.proteinG ?? 0}g  C: ${item.carbsG ?? 0}g  F: ${item.fatG ?? 0}g',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary.withValues(alpha: 0.8),
-                            decoration: item.isDone ? TextDecoration.lineThrough : null,
-                          ),
-                        ),
-                        if (item.scheduledTime != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.access_time,
-                            size: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            _formatTime(item.scheduledTime!),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Status indicator
-              _buildStatusIndicator(),
-            ],
-          ),
-        ),
-      ),
+      child: tileContent,
     );
   }
 
@@ -477,8 +485,8 @@ class MealItemTile extends StatelessWidget {
   }
 }
 
-/// Planned meal card - hiển thị bữa ăn trong kế hoạch
-class PlannedMealCard extends StatelessWidget {
+/// Planned meal card - hiển thị bữa ăn trong kế hoạch (mỗi khối một vùng riêng, không có button Log tất cả)
+class PlannedMealCard extends StatefulWidget {
   const PlannedMealCard({
     super.key,
     required this.mealType,
@@ -491,7 +499,7 @@ class PlannedMealCard extends StatelessWidget {
     this.onEditItem,
     this.onDeleteItem,
     this.onSkipItem,
-    this.isExpanded = true,
+    this.initialExpanded = true,
   });
 
   final MealType mealType;
@@ -504,49 +512,77 @@ class PlannedMealCard extends StatelessWidget {
   final Function(MealPlanItemDetail)? onEditItem;
   final Function(MealPlanItemDetail)? onDeleteItem;
   final Function(MealPlanItemDetail)? onSkipItem;
-  final bool isExpanded;
+  final bool initialExpanded;
+
+  @override
+  State<PlannedMealCard> createState() => _PlannedMealCardState();
+}
+
+class _PlannedMealCardState extends State<PlannedMealCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initialExpanded;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final completedCount = items.where((i) => i.isDone).length;
-    final totalCount = items.length;
+    final completedCount = widget.items.where((i) => i.isDone).length;
+    final totalCount = widget.items.length;
     final allCompleted = totalCount > 0 && completedCount == totalCount;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
           color: allCompleted
-              ? Colors.green.withValues(alpha: 0.3)
-              : AppColors.progressBackground,
-          width: 1,
+              ? Colors.green.withValues(alpha: 0.35)
+              : AppColors.progressBackground.withValues(alpha: 0.8),
+          width: 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header - Mỗi khối một vùng riêng
           InkWell(
-            onTap: onAddItem,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(16),
+              bottom: Radius.circular(_isExpanded ? 0 : 16),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: (allCompleted ? Colors.green : AppColors.primary)
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
                       child: Text(
-                        mealType.emoji,
-                        style: const TextStyle(fontSize: 18),
+                        widget.mealType.emoji,
+                        style: const TextStyle(fontSize: 20),
                       ),
                     ),
                   ),
@@ -556,10 +592,10 @@ class PlannedMealCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          mealType.labelVi,
+                          widget.mealType.labelVi,
                           style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.textDark,
                           ),
                         ),
@@ -567,7 +603,7 @@ class PlannedMealCard extends StatelessWidget {
                         Text(
                           allCompleted
                               ? '✓ Đã hoàn thành'
-                              : '$completedCount/$totalCount bữa',
+                              : '$completedCount/$totalCount món',
                           style: TextStyle(
                             fontSize: 12,
                             color: allCompleted ? Colors.green : AppColors.textSecondary,
@@ -577,63 +613,77 @@ class PlannedMealCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (!allCompleted && onLogAll != null && items.isNotEmpty)
-                    TextButton(
-                      onPressed: onLogAll,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      child: const Text(
-                        'Log tất cả',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
                   IconButton(
-                    onPressed: onAddItem,
+                    onPressed: widget.onAddItem,
                     icon: const Icon(Icons.add_circle_outline),
                     color: AppColors.primary,
+                    iconSize: 24,
                     tooltip: 'Thêm món',
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                    icon: Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                    ),
+                    color: AppColors.textSecondary,
+                    iconSize: 26,
+                    tooltip: _isExpanded ? 'Thu gọn' : 'Xem tất cả món',
                   ),
                 ],
               ),
             ),
           ),
           // Items
-          if (items.isNotEmpty) ...[
-            const Divider(height: 1),
+          if (_isExpanded && widget.items.isNotEmpty) ...[
+            Divider(height: 1, color: AppColors.progressBackground.withValues(alpha: 0.7)),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1, indent: 56),
+              itemCount: widget.items.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                indent: 64,
+                endIndent: 16,
+                color: AppColors.progressBackground.withValues(alpha: 0.5),
+              ),
               itemBuilder: (context, index) {
-                final item = items[index];
+                final item = widget.items[index];
                 return MealItemTile(
                   item: item,
-                  onTap: () => onTapItem?.call(item),
-                  onLog: () => onMarkItemDone?.call(item),
-                  onConvertToLog: () => onConvertToLog?.call(item),
-                  onEdit: () => onEditItem?.call(item),
-                  onDelete: () => onDeleteItem?.call(item),
-                  onSkip: () => onSkipItem?.call(item),
+                  useCard: false,
+                  onTap: () => widget.onTapItem?.call(item),
+                  onLog: () => widget.onMarkItemDone?.call(item),
+                  onConvertToLog: () => widget.onConvertToLog?.call(item),
+                  onEdit: () => widget.onEditItem?.call(item),
+                  onDelete: () => widget.onDeleteItem?.call(item),
+                  onSkip: () => widget.onSkipItem?.call(item),
                 );
               },
             ),
           ],
           // Empty state
-          if (items.isEmpty)
+          if (_isExpanded && widget.items.isEmpty) ...[
+            Divider(height: 1, color: AppColors.progressBackground.withValues(alpha: 0.7)),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               child: Center(
                 child: Text(
                   'Chưa có bữa ăn nào',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    color: AppColors.textSecondary.withValues(alpha: 0.8),
                   ),
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

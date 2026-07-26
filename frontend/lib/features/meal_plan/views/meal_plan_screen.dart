@@ -582,7 +582,13 @@ class _TodayTab extends StatelessWidget {
       final success = await provider.deleteItem(item.mealPlanId ?? '', item.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? 'Đã xóa' : 'Không thể xóa')),
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Đã xóa món "${item.displayName}" khỏi kế hoạch thành công.'
+                  : 'Không thể xóa món ăn khỏi kế hoạch. Vui lòng thử lại.',
+            ),
+          ),
         );
       }
     }

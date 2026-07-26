@@ -124,8 +124,14 @@ namespace MenuGreen.API.Controllers
             if (!Guid.TryParse(userId, out var uid)) return Unauthorized();
             try
             {
-                await _foodService.FavoriteAsync(uid, id);
-                return Ok(new { Message = "Added to favorites successfully." });
+                var favorite = await _foodService.FavoriteAsync(uid, id);
+                return Ok(new
+                {
+                    FoodId = favorite.FoodId,
+                    IsFavorite = true,
+                    Item = favorite,
+                    Message = "Added to favorites successfully."
+                });
             }
             catch (Exception ex)
             {
@@ -144,7 +150,12 @@ namespace MenuGreen.API.Controllers
             try
             {
                 await _foodService.UnfavoriteAsync(uid, id);
-                return Ok(new { Message = "Removed from favorites successfully." });
+                return Ok(new
+                {
+                    FoodId = id,
+                    IsFavorite = false,
+                    Message = "Removed from favorites successfully."
+                });
             }
             catch (Exception ex)
             {
