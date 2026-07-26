@@ -32,6 +32,11 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
   }
 
   void _onScroll() {
+    // Đảm bảo widget còn mounted và _scrollController chưa dispose
+    // trước khi truy cập `.position` — nếu không sẽ throw assertion
+    // khi user back ra khỏi trang ngay lúc listener được fire.
+    if (!mounted) return;
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       context.read<NotificationProvider>().loadMore();

@@ -22,7 +22,7 @@ VALUES
 ('cccccccc-cccc-cccc-cccc-cccccccccccc', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('dddddddd-dddd-dddd-dddd-dddddddddddd', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
-('ffffffff-ffff-ffff-ffff-ffffffffffff', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
+('ffffffff-ffff-ffff-ffff-ffffffffffff', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '"gym"', now()),
 ('885810e8-168f-4608-a72e-e23a20dfd258', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('48069bd5-f29a-417d-bdeb-c00797968aca', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),
 ('9afb13a5-e5a1-4342-9ce1-33bf7cc1de70', '{"likes": ["salad", "smoothie", "ức gà"], "goals": ["lose weight"]}', '["fried foods", "fast food", "mỡ động vật"]', '{"meals_per_day": 3, "eating_speed": "moderate"}', now()),

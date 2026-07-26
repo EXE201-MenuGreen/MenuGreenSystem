@@ -146,7 +146,7 @@ Các món rescue, insight, calo và macro đang là dữ liệu tĩnh trong `Foo
 - `LuckyWheelController`: `CasualOnly`.
 - `DailyStarterController`: `Authorize` + `CasualOnly`.
 - `MicroLearningController`: `CasualOnly`.
-- Entitlement chấp nhận feature group `casual` hoặc `pro` còn hạn.
+- Entitlement chấp nhận feature group `casual` còn hạn. (Trước 2026-07-24 có thêm nhánh `pro` cho tương thích ngược; hiện đã gỡ.)
 
 ### Frontend
 

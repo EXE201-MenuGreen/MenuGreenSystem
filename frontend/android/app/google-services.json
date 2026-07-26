@@ -91,6 +91,14 @@
           }
         },
         {
+          "client_id": "709315528907-th40q44ip2j6jlf387aqb2vdojfde307.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menugreen.food",
+            "certificate_hash": "ce85cc9395ac7852f3973df862efaa2afbac4709"
+          }
+        },
+        {
           "client_id": "709315528907-sd0et9a55hqo9ksitbn3lg3jpvhmiqol.apps.googleusercontent.com",
           "client_type": 3
         }

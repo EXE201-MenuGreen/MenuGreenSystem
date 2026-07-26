@@ -1,7 +1,7 @@
 # 08. Subscription & Payment
 
 **Status:** API Done · UI Done (100%)
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-24
 
 **Related controllers:**
 - `backend/MenuGreen.API/Controllers/SubscriptionPlanController.cs` (Admin CRUD)
@@ -14,13 +14,15 @@
 
 **Related Flutter feature:** `frontend/lib/features/subscription/`
 
+> **2026-07-24 — Phạm vi gói:** MenuGreen hiện chỉ cung cấp **4 gói** chính: **Free (Cơ bản)**, **Casual**, **Gym/PT**, **Office**. Không còn bán gói `Pro` riêng; người dùng muốn trải nghiệm đầy đủ tính năng Casual + Gym/PT + Coach + AI cần kích hoạt cả hai gói Casual và Gym/PT.
+
 ---
 
 ## 1. Overview
 
 Quản lý gói thành viên và thanh toán qua cổng SePay:
 
-- **Subscription Plans** — CRUD gói (Free, Casual, Gym/PT, Pro) do Admin quản lý.
+- **Subscription Plans** — CRUD gói (Free, Casual, Gym/PT, Office) do Admin quản lý.
 - **User Subscription** — subscribe/renew/cancel gói (miễn phí active ngay, trả phí qua SePay).
 - **SePay Payment** — tạo QR thanh toán, webhook xác thực giao dịch.
 - **Feature Access** — quyền truy cập tính năng dựa trên subscription plan.
@@ -33,7 +35,7 @@ Quản lý gói thành viên và thanh toán qua cổng SePay:
 
 - Plans có các trường: `Name`, `PriceVnd`, `DurationDays`, `FeatureGroup`, `Features[]`, `IsActive`.
 - Admin có thể CRUD plans; user chỉ thấy plans active.
-- Plans được nhóm theo `FeatureGroup`: `free`, `casual`, `gym`, `office`, `pro`.
+- Plans được nhóm theo `FeatureGroup`: `free`, `casual`, `gym`, `office`.
 
 ### 2.2 Feature Groups & Access
 
@@ -45,7 +47,6 @@ Hệ thống `FeatureAccessResolver` quản lý quyền truy cập dựa trên s
 | `casual` | `casual_features` | Gói Casual - vòng quay, quick-log, micro-learning |
 | `office` | `office_features` | Gói Office - grocery list, scan meals, budget |
 | `gym` | `gym_features` + `coach_access` + `ai_features` | Gói Gym/PT - PT review, coach, AI |
-| `pro`/`premium`/`vip`/`gold` | Tất cả features | Full access |
 
 **Cơ chế hoạt động:**
 - Mỗi subscription có `FeatureGroup` xác định quyền truy cập.
@@ -69,9 +70,10 @@ Hệ thống `FeatureAccessResolver` quản lý quyền truy cập dựa trên s
 
 ### 2.5 Premium Features Gating
 
-- AI Assistant yêu cầu entitlement `ai_features` (Gym/PT hoặc Pro).
+- AI Assistant yêu cầu entitlement `ai_features` (Gym/PT).
 - Coach features yêu cầu entitlement `coach_access`.
 - Check entitlement tại backend qua `FeatureAccessService.HasEntitlementAsync()`.
+- Không còn gói "Pro" riêng: người dùng muốn full feature cần kích hoạt **cả Casual + Gym/PT** (hoặc dùng Office cộng thêm Gym/PT). `FeatureAccessResolver` không còn nhánh mapping `pro/premium/vip/gold`.
 
 ---
 
@@ -160,7 +162,7 @@ ProfileScreen
 SubscriptionPlan
 ├── Id, Name, Description
 ├── PriceVnd, DurationDays
-├── FeatureGroup (free/casual/gym/office/pro)
+├── FeatureGroup (free/casual/gym/office)
 ├── Features[] (string)
 ├── IsActive, DisplayOrder
 └── CreatedAt, UpdatedAt
@@ -214,14 +216,9 @@ if (group == "gym" || planName.Contains("gym"))
     entitlements.Add("gym_features");
     entitlements.Add("coach_access");
     entitlements.Add("ai_features");
-
-// Pro/Premium/VIP/Gold → tất cả features
-if (group == "pro" || planName.Contains("pro/premium/vip/gold"))
-    entitlements.Add("casual_features");
-    entitlements.Add("gym_features");
-    entitlements.Add("coach_access");
-    entitlements.Add("ai_features");
 ```
+
+> Không còn khối mapping riêng cho `pro/premium/vip/gold`. Người dùng muốn trải nghiệm đầy đủ phải kích hoạt cả gói Casual lẫn Gym/PT.
 
 ### 7.2 Using Feature Access in Backend
 
@@ -241,11 +238,32 @@ var access = await _featureAccessService.GetAsync(userId);
 
 | Script | Mô tả |
 |--------|--------|
-| `06_subscription_plans.sql` | Bảng subscription_plans |
-| `07_subscriptions.sql` | Bảng user_subscriptions |
-| `08_user_subscriptions.sql` | User subscription history |
+| `06_subscription_plans.sql` | Bảng subscription_plans (chỉ seed Free, Casual, Gym/PT, Office — 2 plan Pro đã xóa hẳn 2026-07-24) |
+| `07_subscriptions.sql` | Bảng subscriptions (seed dùng 4 gói chính) |
+| `08_user_subscriptions.sql` | Bảng user_subscriptions (seed dùng 4 gói chính) |
 | `57_gymer_subscription_plan.sql` | Gym/PT subscription plan (FeatureGroup='gym') |
 | `58_casual_subscription_plan.sql` | Casual subscription plan (FeatureGroup='casual') |
+
+> Hai plan `Pro Tháng/GYM` và `Pro Năm` đã được **xóa hẳn** khỏi `06_subscription_plans.sql` (2026-07-24). Các dòng INSERT tham chiếu trong `07_subscriptions.sql` và `08_user_subscriptions.sql` cũng đã được lọc bỏ. Nếu DB production cũ đã từng seed 2 plan Pro, cần chạy thêm migration dọn dẹp:
+>
+> ```sql
+> -- Migration dọn dẹp DB production cũ (chạy một lần, idempotent)
+> DELETE FROM user_subscriptions
+> WHERE "SubscriptionPlanId" IN (
+>     '10000000-0000-0000-0000-000000000002',
+>     '10000000-0000-0000-0000-000000000003'
+> );
+> DELETE FROM subscriptions
+> WHERE "PlanId" IN (
+>     '10000000-0000-0000-0000-000000000002',
+>     '10000000-0000-0000-0000-000000000003'
+> );
+> DELETE FROM subscription_plans
+> WHERE "Id" IN (
+>     '10000000-0000-0000-0000-000000000002',
+>     '10000000-0000-0000-0000-000000000003'
+> );
+> ```
 
 ---
 
@@ -266,3 +284,4 @@ var access = await _featureAccessService.GetAsync(userId);
 |------|-----------|
 | 2026-07-08 | Tạo file canonical |
 | 2026-07-23 | Thêm Feature Access system, endpoints `me/active` và `me/entitlements`, FeatureAccessResolver, FeatureGroup documentation |
+| 2026-07-24 | Bỏ gói `Pro` khỏi catalog và tài liệu. `FeatureAccessResolver` không còn map `pro/premium/vip/gold`. Hai plan `Pro Tháng/GYM` và `Pro Năm` đã được **xóa hẳn** khỏi `06_subscription_plans.sql` (cùng với các dòng seed tham chiếu trong `07_subscriptions.sql` và `08_user_subscriptions.sql`). Phạm vi hỗ trợ: **Free, Casual, Gym/PT, Office** |

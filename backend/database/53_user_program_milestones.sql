@@ -28,11 +28,7 @@ CREATE TABLE user_program_milestones (
 
 CREATE UNIQUE INDEX "IX_user_program_milestones_UserProgramId_WeekNumber" ON user_program_milestones ("UserProgramId", "WeekNumber");
 
--- Seed Data for user_program_milestones
-INSERT INTO user_program_milestones ("Id", "UserProgramId", "WeekNumber", "IsUnlocked", "IsCheckedIn", "WeightKg", "BodyFatPercent", "CheckInDate", "UnlockedAt", "CreatedAt")
-VALUES
-('f3000000-0000-0000-0000-000000000001', 'f2000000-0000-0000-0000-000000000001', 1, true, true, 71.00, 18.20, now() - interval '7 days', now() - interval '10 days', now() - interval '10 days'),
-('f3000000-0000-0000-0000-000000000002', 'f2000000-0000-0000-0000-000000000001', 2, true, false, NULL, NULL, NULL, now() - interval '3 days', now() - interval '10 days')
-ON CONFLICT DO NOTHING;
+-- No seed milestones: user_premium_programs intentionally has no seed
+-- enrollments, and milestones are created after a real enrollment exists.
 
 COMMIT;

@@ -24,6 +24,21 @@ class AdvancedRepository {
   Future<List<Map<String, dynamic>>> ptRequests() async => _list(
     _body(await _api.get('${ApiEndpoints.baseUrl}/PtReview/my-requests')),
   );
+
+  // Phase 8: PersonalProgram (Coach -> Gymer)
+  Future<List<Map<String, dynamic>>> myPersonalPrograms() async => _list(
+    _body(await _api.get('${ApiEndpoints.baseUrl}/PtReview/my-personal-programs')),
+  );
+
+  Future<Map<String, dynamic>> acceptPersonalProgram(String id) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/PtReview/personal-programs/$id/accept',
+        {},
+      ),
+    ),
+  );
+
   Future<Map<String, dynamic>> createPtReport(
     String weekStart,
     int expiry, {

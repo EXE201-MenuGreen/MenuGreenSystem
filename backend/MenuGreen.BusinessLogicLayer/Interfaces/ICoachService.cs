@@ -27,6 +27,11 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<HealthProfileResponse> AdjustClientHealthTargetsAsync(Guid coachId, Guid clientId, ClientHealthTargetsAdjustRequest request);
 
         // New client queries
+        Task<IEnumerable<MealPlanResponse>> GetClientMealPlansAsync(Guid coachId, Guid clientId, DateOnly? from, DateOnly? to, string? planType);
+        Task<MealPlanResponse> GetClientMealPlanDetailAsync(Guid coachId, Guid clientId, Guid planId);
+        Task<MealPlanResponse> CreateClientMealPlanAsync(Guid coachId, Guid clientId, MealPlanUpsertRequest request);
+        Task<MealPlanResponse> SubmitClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId, string? notes);
+        Task DeleteClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId);
         Task<MealPlanResponse?> GetClientMealPlanAsync(Guid coachId, Guid clientId, DateOnly date);
         Task<object> GetClientSuggestionsAsync(Guid coachId, Guid clientId, int targetCalories = 0, int top = 10);
         Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId);

@@ -42,22 +42,31 @@ class _CoachMealPlanHistoryScreenState
     final provider = context.read<CoachMealPlanProvider>();
     DateTime? from;
     DateTime? to;
+    // Filter theo khoảng ngày (time range), KHÔNG theo planType.
+    // Lý do: lộ trình "cho ngày hôm nay" có thể được tạo với
+    // planType là daily / weekly / custom tuỳ chọn người dùng.
+    // UI tab đang hiển thị lộ trình theo NGÀY / TUẦN / THÁNG
+    // (calendar bucket), không phải theo loại planType.
     switch (_filter) {
       case _HistoryFilter.day:
         final today = DateTime.now();
         from = DateTime(today.year, today.month, today.day);
-        to = DateTime(today.year, today.month, today.day);
+        // Bao trùm cả ngày hôm nay (đến 23:59:59.999).
+        to = DateTime(today.year, today.month, today.day, 23, 59, 59, 999);
         break;
       case _HistoryFilter.week:
         final now = DateTime.now();
         final monday = now.subtract(Duration(days: now.weekday - 1));
         from = DateTime(monday.year, monday.month, monday.day);
-        to = from.add(const Duration(days: 6));
+        // Bao trùm cả tuần từ thứ 2 đến chủ nhật (đến 23:59:59.999).
+        to = DateTime(monday.year, monday.month, monday.day + 6, 23, 59, 59, 999);
         break;
       case _HistoryFilter.month:
         final now = DateTime.now();
         from = DateTime(now.year, now.month, 1);
-        to = DateTime(now.year, now.month + 1, 0);
+        // DateTime(year, month+1, 0) → ngày cuối tháng hiện tại.
+        final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+        to = DateTime(now.year, now.month, lastDayOfMonth, 23, 59, 59, 999);
         break;
       case _HistoryFilter.all:
         from = null;
@@ -66,7 +75,15 @@ class _CoachMealPlanHistoryScreenState
     }
     if (_range != null) {
       from = _range!.start;
-      to = _range!.end;
+      to = DateTime(
+        _range!.end.year,
+        _range!.end.month,
+        _range!.end.day,
+        23,
+        59,
+        59,
+        999,
+      );
     }
     provider.setFilters(from: from, to: to);
   }
@@ -122,17 +139,18 @@ class _CoachMealPlanHistoryScreenState
   }
 
   Future<void> _pushCreate() async {
-    final created = await Navigator.of(context).push<bool>(
+    final provider = context.read<CoachMealPlanProvider>();
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => CoachCreateMealPlanScreen(
-          clientId: widget.clientId,
-          clientName: widget.clientName,
+        builder: (_) => ChangeNotifierProvider.value(
+          value: provider,
+          child: CoachCreateMealPlanScreen(
+            clientId: widget.clientId,
+            clientName: widget.clientName,
+          ),
         ),
       ),
     );
-    if (created == true && mounted) {
-      // Provider already refreshes after create; nothing to do.
-    }
   }
 }
 
@@ -277,11 +295,15 @@ class _PlanList extends StatelessWidget {
                     )
                   : null,
               onTap: () async {
+                final provider = context.read<CoachMealPlanProvider>();
                 await provider.loadPlanDetail(plan.id);
                 if (!context.mounted) return;
                 await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => CoachMealPlanDetailScreen(planId: plan.id),
+                    builder: (_) => ChangeNotifierProvider.value(
+                      value: provider,
+                      child: CoachMealPlanDetailScreen(planId: plan.id),
+                    ),
                   ),
                 );
               },

@@ -625,8 +625,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (scheduledAt <= DateTimeOffset.UtcNow)
             {
+                // Đánh dấu SentAt NGAY TRƯỚC khi gửi FCM để background job
+                // NotificationDispatchBackgroundService không pick notification
+                // này và gửi FCM lần 2 (gây duplicate push trên thiết bị).
+                // Trước đây SentAt được set SAU khi FCM call xong, tạo race
+                // condition với background job quét mỗi 1 phút.
+                notification.SentAt = DateTimeOffset.UtcNow;
+                _unitOfWork.Notifications.Update(notification);
+                await _unitOfWork.CompleteAsync();
+                response.SentAt = notification.SentAt;
+
                 var settings = await EnsureSettingsAsync(userId);
-                
+
                 if (settings.InAppEnabled)
                 {
                     try
@@ -645,22 +655,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     {
                         var data = $"{notification.Type}|{notification.Id}";
                         await _fcmService.SendToUserAsync(userId, title, body, data);
-                        notification.SentAt = DateTimeOffset.UtcNow;
-                        _unitOfWork.Notifications.Update(notification);
-                        await _unitOfWork.CompleteAsync();
-                        response.SentAt = notification.SentAt;
                     }
                     catch
                     {
-                        // Ignore
+                        // Ignore — SentAt đã được set ở trên, background job sẽ không pick lại.
                     }
-                }
-                else
-                {
-                    notification.SentAt = DateTimeOffset.UtcNow;
-                    _unitOfWork.Notifications.Update(notification);
-                    await _unitOfWork.CompleteAsync();
-                    response.SentAt = notification.SentAt;
                 }
 
                 try

@@ -1,20 +1,41 @@
-# 11. Premium Programs
+# 11. Premium Programs (Catalog)
 
-**Status:** API Done · UI Not Done
-**Last updated:** 2026-07-09
+**Status:** Deprecated / Removed Phase 8
+**Last updated:** 2026-07-24
 
 **Related controller:** `backend/MenuGreen.API/Controllers/PremiumProgramsController.cs`
 **Related service:** `backend/MenuGreen.BusinessLogicLayer/Services/PremiumProgramService.cs`
 
-**Related Flutter features:** Chưa có
+**Related Flutter features:** Catalog UI đã được gỡ (Phase 8). Đi đến
+`docs/features/15-pt-review.md` để xem flow **Lộ trình Gymer** mới (2 tab:
+"Tôi gửi PT" và "PT gửi tôi"), thay thế hoàn toàn catalog cũ.
 
 ---
 
-## 1. Overview
+## 1. Lý do deprecated (Phase 8)
 
-Chương trình Premium có cấu trúc (structured Premium programs) — khác với `SubscriptionPlan` chỉ là gói thuê bao, `PremiumPrograms` là các chương trình có **lộ trình theo tuần** với milestone, check-in, và graduation.
+- Catalog `premium_programs` (seed file `51_premium_programs.sql`) và bảng
+  enrollment `user_premium_programs` (seed file `52_user_premium_programs.sql`)
+  đã được **làm trống seed**. Không còn chương trình catalog mẫu nào.
+- UI mua "Chương trình Premium" đã được gỡ khỏi tab "Lộ trình Gymer".
+- Personal journey giữa Gymer ↔ Coach giờ chạy qua entity chung
+  `pt_review_requests` với `CreatedByRole ∈ {"Gymer", "Coach"}` — xem
+  `15-pt-review.md` §8 (PersonalProgram).
 
-Mục tiêu: tạo động lực cho user cam kết theo chương trình dài hạn (ví dụ: "Giảm 5kg trong 8 tuần"), thay vì chỉ subscribe để unlock tính năng.
+## 2. Schema vẫn còn (để tương thích cũ)
+
+Hai bảng `premium_programs` và `user_premium_programs` vẫn tồn tại trong DB.
+Phase 9+ có thể drop nếu user yêu cầu, nhưng hiện không dùng cho UI mới.
+
+---
+
+## 3. Lịch sử
+
+| Ngày       | Phiên bản | Ghi chú                                                                          |
+|------------|-----------|----------------------------------------------------------------------------------|
+| 2026-07-09 | 1.0       | API đầy đủ (CRUD + checkout/checkin/graduate).                                   |
+| 2026-07-24 | 2.0       | **Deprecated.** Seed wipe, UI gỡ. Chuyển sang flow `pt_review_requests`.         |
+
 
 ---
 

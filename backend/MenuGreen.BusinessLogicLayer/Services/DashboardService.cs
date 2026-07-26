@@ -30,8 +30,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 TotalUsers = users.TotalUsers,
                 ActiveUsers = users.ActiveUsers,
-                PremiumUsers = users.PremiumUsers,
-                ProUsers = users.ProUsers,
                 TotalRevenueVnd = revenue.TotalRevenueVnd,
                 TopFoods = topFoods,
                 GeneratedAt = System.DateTime.UtcNow
