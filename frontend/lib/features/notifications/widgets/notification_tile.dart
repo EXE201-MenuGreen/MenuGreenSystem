@@ -18,6 +18,21 @@ class NotificationTile extends StatelessWidget {
   });
 
   IconData get _icon {
+    switch (notification.normalizedType) {
+      case 'meal_plan_approved':
+      case 'pt_route_approval':
+        return Icons.verified_outlined;
+      case 'pt_review_request':
+        return Icons.assignment_outlined;
+      case 'coach_personal_program':
+        return Icons.route_outlined;
+      case 'weekly_report_submitted':
+        return Icons.rate_review_outlined;
+      case 'weekly_report_pending':
+        return Icons.hourglass_top_rounded;
+      case 'weekly_report_reviewed':
+        return Icons.fact_check_outlined;
+    }
     switch (notification.type) {
       case NotificationType.mealReminder:
         return Icons.restaurant_outlined;
@@ -42,6 +57,16 @@ class NotificationTile extends StatelessWidget {
 
   Color get _iconColor {
     if (!notification.isRead) {
+      if (notification.isRouteNotification) {
+        return notification.normalizedType == 'pt_review_request'
+            ? Colors.orange
+            : AppColors.primary;
+      }
+      if (notification.isWeeklyReportNotification) {
+        return notification.normalizedType == 'weekly_report_submitted'
+            ? Colors.orange
+            : AppColors.primary;
+      }
       switch (notification.type) {
         case NotificationType.mealReminder:
           return AppColors.primary;
@@ -105,10 +130,7 @@ class NotificationTile extends StatelessWidget {
                 ? Colors.white
                 : AppColors.primary.withValues(alpha: 0.05),
             border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
+              bottom: BorderSide(color: Colors.grey.shade200, width: 1),
             ),
           ),
           child: Row(
@@ -121,11 +143,7 @@ class NotificationTile extends StatelessWidget {
                   color: _iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  _icon,
-                  color: _iconColor,
-                  size: 22,
-                ),
+                child: Icon(_icon, color: _iconColor, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -139,8 +157,9 @@ class NotificationTile extends StatelessWidget {
                             notification.displayTitle,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight:
-                                  notification.isRead ? FontWeight.w500 : FontWeight.bold,
+                              fontWeight: notification.isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.bold,
                               color: notification.isRead
                                   ? AppColors.textSecondary
                                   : AppColors.textPrimary,
@@ -185,7 +204,7 @@ class NotificationTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            notification.type.label,
+                            notification.statusLabel,
                             style: TextStyle(
                               fontSize: 11,
                               color: _iconColor,
@@ -198,7 +217,9 @@ class NotificationTile extends StatelessWidget {
                           notification.timeAgo,
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary.withValues(alpha: 0.7),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                         ),
                       ],

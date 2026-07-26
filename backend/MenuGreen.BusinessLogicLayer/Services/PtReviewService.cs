@@ -33,9 +33,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<CreatePtReviewReportResponse> CreateReportAsync(Guid userId, CreatePtReviewReportRequest request)
         {
+            var requestType = string.IsNullOrWhiteSpace(request.RequestType)
+                ? "WeeklyReport"
+                : request.RequestType.Trim();
+            var isWeeklyReport = requestType.Equals(
+                "WeeklyReport",
+                StringComparison.OrdinalIgnoreCase);
+            var isRouteApproval = requestType.Equals(
+                "RouteApproval",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!isWeeklyReport && !isRouteApproval)
+            {
+                throw new Exception("Loại yêu cầu không hợp lệ.");
+            }
+
+            if (isWeeklyReport)
+            {
+                ValidateWeeklyReportWindow(request);
+
+                var sameWeekRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == userId && r.WeekStartDate == request.WeekStartDate);
+                if (sameWeekRequests.Any(r =>
+                    GetRequestType(r).Equals(
+                        "WeeklyReport",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new Exception(
+                        "Bạn đã gửi báo cáo cho tuần này. Mỗi tuần chỉ được gửi một báo cáo.");
+                }
+            }
+
             // 0. Check connection with PT
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
-                c.ClientId == userId && c.Status == "Connected");
+                c.ClientId == userId &&
+                (c.Status == "Connected" || c.Status == "Approved"));
             if (!connections.Any())
             {
                 throw new Exception("Bạn chưa Đăng ký kết nối với PT");
@@ -155,7 +187,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var snapshot = new WeeklyReportSnapshot
             {
-                RequestType = request.RequestType ?? "WeeklyReport",
+                RequestType = requestType,
                 WeekStartDate = weekStartDate,
                 StudentNote = request.StudentNote ?? string.Empty,
                 CheckInWeight = request.CheckInWeight,
@@ -239,9 +271,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     await _notificationService.SendAsync(new NotificationSendRequest
                     {
                         UserId = coachId.Value,
-                        Type = "pt_review_request",
-                        Title = "Yêu cầu duyệt lộ trình từ học viên",
-                        Body = $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
+                        Type = isWeeklyReport
+                            ? "weekly_report_submitted"
+                            : "pt_review_request",
+                        Title = isWeeklyReport
+                            ? "Báo cáo tuần mới từ học viên"
+                            : "Yêu cầu duyệt lộ trình từ học viên",
+                        Body = isWeeklyReport
+                            ? $"Học viên {gymerName} vừa gửi báo cáo tuần. Hãy xem các chỉ số và gửi đánh giá."
+                            : $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
+                        ActionUrl = isWeeklyReport
+                            ? $"coach_weekly_report:{reportId}"
+                            : null,
                         ScheduledAt = null
                     });
                 }
@@ -264,9 +305,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = userId,
-                    Type = "PT_REVIEW_SUBMITTED",
-                    Title = "Đã gửi lộ trình cho PT",
-                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi.",
+                    Type = isWeeklyReport
+                        ? "weekly_report_pending"
+                        : "PT_REVIEW_SUBMITTED",
+                    Title = isWeeklyReport
+                        ? "Đã gửi báo cáo tuần cho PT"
+                        : "Đã gửi lộ trình cho PT",
+                    Body = isWeeklyReport
+                        ? "Báo cáo tuần đã được gửi thành công. Trạng thái hiện tại: Chờ PT đánh giá."
+                        : "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi.",
+                    ActionUrl = isWeeklyReport
+                        ? $"gymer_weekly_report:{reportId}"
+                        : null,
                     ScheduledAt = null
                 });
             }
@@ -282,7 +332,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ReportId = reportId,
                 ShareLink = shareLink,
                 Token = token,
-                ExpiresAt = expiresAt
+                ExpiresAt = expiresAt,
+                WeekStartDate = weekStartDate,
+                RequestType = requestType,
+                Status = ptReviewRequest.Status,
+                CreatedAt = ptReviewRequest.CreatedAt
             };
         }
 
@@ -470,11 +524,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = requestEntity.UserId,
-                    Type = isRouteApproval ? "PT_ROUTE_APPROVAL" : "PT_REVIEW",
-                    Title = isRouteApproval ? "Lộ trình dinh dưỡng đã được duyệt" : "Feedback from your coach",
+                    Type = isRouteApproval
+                        ? "PT_ROUTE_APPROVAL"
+                        : "weekly_report_reviewed",
+                    Title = isRouteApproval
+                        ? "Lộ trình dinh dưỡng đã được duyệt"
+                        : "PT đã đánh giá báo cáo tuần",
                     Body = isRouteApproval 
                         ? "PT đã duyệt lộ trình dinh dưỡng của bạn. Hãy kiểm tra và áp dụng mục tiêu mới!" 
-                        : "Your PT has sent feedback for your weekly report. Check it out and update your nutrition plan!"
+                        : "PT đã gửi nhận xét và mục tiêu điều chỉnh. Hãy xem báo cáo để cập nhật kế hoạch.",
+                    ActionUrl = isRouteApproval
+                        ? null
+                        : $"gymer_weekly_report:{requestEntity.Id}"
                 });
             }
             catch
@@ -1086,6 +1147,64 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return null;
         }
 
+        private static void ValidateWeeklyReportWindow(
+            CreatePtReviewReportRequest request)
+        {
+            // Vietnam does not observe daylight saving time, so UTC+7 is
+            // deterministic on both Windows and Linux deployments.
+            var vietnamToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            if (vietnamToday.DayOfWeek != DayOfWeek.Sunday)
+            {
+                throw new Exception(
+                    "Báo cáo tuần chỉ được tạo vào Chủ nhật sau khi tuần đã kết thúc.");
+            }
+
+            var expectedWeekStart = vietnamToday.AddDays(-6);
+            if (request.WeekStartDate != expectedWeekStart)
+            {
+                throw new Exception(
+                    $"Ngày bắt đầu tuần phải là Thứ hai {expectedWeekStart:dd/MM/yyyy}.");
+            }
+
+            if (!request.CheckInWeight.HasValue)
+            {
+                throw new Exception("Vui lòng nhập cân nặng hiện tại.");
+            }
+
+            if (!request.TrainingDaysCount.HasValue)
+            {
+                throw new Exception("Vui lòng chọn số buổi đã tập trong tuần.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.BodyFeeling))
+            {
+                throw new Exception("Vui lòng chọn cảm nhận thể trạng.");
+            }
+        }
+
+        private static string GetRequestType(PtReviewRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ReportDataJson))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(
+                    request.ReportDataJson);
+                return document.RootElement.TryGetProperty(
+                    "requestType",
+                    out var property)
+                    ? property.GetString() ?? string.Empty
+                    : string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         private static string NormalizeMealType(string mealType)
         {
             var normalized = (mealType ?? string.Empty).Trim().ToLowerInvariant();
@@ -1114,6 +1233,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Type = request.Type,
                 Title = request.Title,
                 Body = request.Body,
+                ActionUrl = request.ActionUrl,
                 ScheduledAt = null
             };
             await _service.SendAsync(mapped);

@@ -13,7 +13,9 @@ import '../widgets/route_approval_card.dart';
 import 'personal_program_detail_screen.dart';
 
 class PremiumProgramsScreen extends StatefulWidget {
-  const PremiumProgramsScreen({super.key});
+  const PremiumProgramsScreen({super.key, this.initialTabIndex = 0});
+
+  final int initialTabIndex;
 
   @override
   State<PremiumProgramsScreen> createState() => _PremiumProgramsScreenState();
@@ -317,82 +319,82 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     final waist = TextEditingController();
     final hip = TextEditingController();
     final week = _intValue(active, 'currentWeek', fallback: 1);
-    
+
     bool submitted;
     try {
       submitted = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        backgroundColor: Colors.white,
-        builder: (context) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            4,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Check-in tuần $week',
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark,
-                ),
+            context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
+            backgroundColor: Colors.white,
+            builder: (context) => Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                4,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Cập nhật chỉ số để mở khóa tuần tiếp theo.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: weight,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Cân nặng (kg)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bodyFat,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Tỷ lệ mỡ (%) — không bắt buộc',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _measurementField(chest, 'Ngực (cm)')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _measurementField(waist, 'Eo (cm)')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _measurementField(hip, 'Hông (cm)')),
+                  Text(
+                    'Check-in tuần $week',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Cập nhật chỉ số để mở khóa tuần tiếp theo.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: weight,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Cân nặng (kg)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: bodyFat,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Tỷ lệ mỡ (%) — không bắt buộc',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _measurementField(chest, 'Ngực (cm)')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _measurementField(waist, 'Eo (cm)')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _measurementField(hip, 'Hông (cm)')),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                    child: const Text('Hoàn tất check-in'),
+                  ),
                 ],
               ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                ),
-                child: const Text('Hoàn tất check-in'),
-              ),
-            ],
-          ),
-        ),
+            ),
       ) ?? false;
     } finally {
       // Always dispose controllers to prevent memory leak
@@ -597,6 +599,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: widget.initialTabIndex.clamp(0, 1).toInt(),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAF9),
         appBar: AppBar(

@@ -211,6 +211,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     Id = Guid.NewGuid(), UserId = notification.UserId, Title = notification.Title,
                     Body = notification.Body, Type = notification.Type, IsRead = false,
+                    ActionUrl = notification.ActionUrl,
                     CreatedAt = DateTimeOffset.UtcNow, ScheduledAt = nextAt
                 });
                 result.NotificationsCreated++;
@@ -227,6 +228,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Title = notification.Title,
                 Body = notification.Body,
                 Type = notification.Type,
+                ActionUrl = notification.ActionUrl,
                 IsRead = notification.IsRead,
                 CreatedAt = notification.CreatedAt,
                 ScheduledAt = notification.ScheduledAt,
@@ -241,7 +243,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static string SerializeNotificationData(Notification notification)
         {
-            return $"{notification.Type}|{notification.Id}";
+            return string.IsNullOrWhiteSpace(notification.ActionUrl)
+                ? $"{notification.Type}|{notification.Id}"
+                : $"{notification.Type}|{notification.Id}|{notification.ActionUrl}";
         }
     }
 }

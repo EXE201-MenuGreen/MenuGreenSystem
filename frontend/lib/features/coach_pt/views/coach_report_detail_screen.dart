@@ -10,7 +10,7 @@ import '../coach_pt.dart';
 /// * Bottom half: form for the Coach's feedback and optional inline
 ///   meal-plan adjustments. Submitting triggers:
 ///   - Review is saved on the report;
-///   - Backend applies the inline adjustments to the Gymer's meal plan;
+///   - Gymer can review and apply/reject the proposed adjustments;
 ///   - Backend notifies the Gymer.
 class CoachReportDetailScreen extends StatefulWidget {
   const CoachReportDetailScreen({super.key, required this.reportId});
@@ -29,6 +29,18 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
   bool _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = context.read<CoachReportProvider>();
+      if (provider.selectedDetail?.summary.reportId != widget.reportId) {
+        provider.loadReportDetail(widget.reportId);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _commentCtrl.dispose();
     _calorieCtrl.dispose();
@@ -38,9 +50,9 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
 
   Future<void> _submit() async {
     if (_commentCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập nhận xét.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập nhận xét.')));
       return;
     }
     setState(() => _submitting = true);
@@ -50,16 +62,19 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
       suggestedProteinTarget: int.tryParse(_proteinCtrl.text.trim()),
       adjustments: List.unmodifiable(_adjustments),
     );
-    final ok = await context
-        .read<CoachReportProvider>()
-        .submitReview(widget.reportId, submission);
+    final ok = await context.read<CoachReportProvider>().submitReview(
+      widget.reportId,
+      submission,
+    );
     if (!mounted) return;
     setState(() => _submitting = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok
-            ? 'Đã gửi đánh giá. Học viên sẽ nhận thông báo.'
-            : 'Gửi thất bại. Vui lòng thử lại.'),
+        content: Text(
+          ok
+              ? 'Đã gửi đánh giá. Học viên sẽ nhận thông báo.'
+              : 'Gửi thất bại. Vui lòng thử lại.',
+        ),
       ),
     );
     if (ok) Navigator.of(context).pop();
@@ -90,8 +105,7 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
                     DropdownMenuItem(value: 'replace', child: Text('Thay')),
                     DropdownMenuItem(value: 'remove', child: Text('Xóa')),
                   ],
-                  onChanged: (v) =>
-                      setSheet(() => action = v ?? 'add'),
+                  onChanged: (v) => setSheet(() => action = v ?? 'add'),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -106,8 +120,7 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
                     DropdownMenuItem(value: 'dinner', child: Text('Tối')),
                     DropdownMenuItem(value: 'snack', child: Text('Phụ')),
                   ],
-                  onChanged: (v) =>
-                      setSheet(() => mealType = v ?? 'breakfast'),
+                  onChanged: (v) => setSheet(() => mealType = v ?? 'breakfast'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -156,18 +169,20 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
     final date = DateTime.tryParse(result.date);
     if (date == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ngày không hợp lệ.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ngày không hợp lệ.')));
       return;
     }
     setState(() {
-      _adjustments.add(MealPlanAdjustment(
-        action: result.action,
-        mealType: result.mealType,
-        plannedDate: date,
-        targetCalories: result.calories,
-      ));
+      _adjustments.add(
+        MealPlanAdjustment(
+          action: result.action,
+          mealType: result.mealType,
+          plannedDate: date,
+          targetCalories: result.calories,
+        ),
+      );
     });
   }
 
@@ -181,7 +196,9 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CoachReportProvider>();
-    if (provider.isLoadingDetail || provider.selectedDetail == null) {
+    if (provider.isLoadingDetail ||
+        provider.selectedDetail == null ||
+        provider.selectedDetail?.summary.reportId != widget.reportId) {
       return Scaffold(
         appBar: AppBar(title: const Text('Báo cáo')),
         body: const Center(child: CircularProgressIndicator()),
@@ -202,27 +219,28 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
     final detail = provider.selectedDetail!;
     final summary = detail.summary;
     final data = detail.reportData ?? const {};
-    final nutrition = (data['nutritionSummary'] ??
-            data['NutritionSummary'] ??
-            const {})
-        as Map<String, dynamic>;
+    final nutrition =
+        (data['nutritionSummary'] ?? data['NutritionSummary'] ?? const {})
+            as Map<String, dynamic>;
     final adherence =
         (data['adherenceScore'] ?? data['AdherenceScore'] ?? const {})
             as Map<String, dynamic>;
-    final weightLogs = (data['weightLogs'] ?? data['WeightLogs'] ?? const [])
-        as List;
+    final weightLogs =
+        (data['weightLogs'] ?? data['WeightLogs'] ?? const []) as List;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Báo cáo - ${summary.studentName}'),
-      ),
+      appBar: AppBar(title: Text('Báo cáo - ${summary.studentName}')),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: FilledButton.icon(
-            onPressed: _submitting ? null : _submit,
-            icon: const Icon(Icons.send),
-            label: const Text('Gửi đánh giá'),
+            onPressed: _submitting || !summary.isPending ? null : _submit,
+            icon: Icon(
+              summary.isPending ? Icons.send : Icons.check_circle_outline,
+            ),
+            label: Text(
+              summary.isPending ? 'Gửi đánh giá' : 'Báo cáo đã được đánh giá',
+            ),
           ),
         ),
       ),
@@ -233,7 +251,12 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
           const SizedBox(height: 16),
           _AdherenceCard(adherence: adherence),
           const SizedBox(height: 16),
-          _WeightLogsCard(logs: weightLogs.cast<Map>().map((e) => Map<String, dynamic>.from(e)).toList()),
+          _WeightLogsCard(
+            logs: weightLogs
+                .cast<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList(),
+          ),
           const SizedBox(height: 16),
           _ReviewForm(
             commentCtrl: _commentCtrl,
@@ -279,13 +302,24 @@ class _HeaderCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(summary.studentName,
-                style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              summary.studentName,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 4),
             Text(
               'Tuần: ${_fmt(summary.weekStartDate)} → '
               '${_fmt(summary.weekStartDate.add(const Duration(days: 6)))}',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Chip(
+              label: Text(switch (summary.status) {
+                CoachReportStatus.pending => 'Chờ đánh giá',
+                CoachReportStatus.reviewed => 'Đã đánh giá',
+                CoachReportStatus.applied => 'Gymer đã áp dụng',
+                CoachReportStatus.rejected => 'Gymer từ chối',
+              }),
             ),
             const SizedBox(height: 12),
             Row(
@@ -294,8 +328,7 @@ class _HeaderCard extends StatelessWidget {
                   Expanded(
                     child: _Stat(
                       label: 'Cân nặng',
-                      value:
-                          '${summary.checkInWeight!.toStringAsFixed(1)} kg',
+                      value: '${summary.checkInWeight!.toStringAsFixed(1)} kg',
                     ),
                   ),
                 if (summary.trainingDaysCount != null)
@@ -307,11 +340,17 @@ class _HeaderCard extends StatelessWidget {
                   ),
                 if (calories != null)
                   Expanded(
-                    child: _Stat(label: 'Calo TB', value: calories.toStringAsFixed(0)),
+                    child: _Stat(
+                      label: 'Calo TB',
+                      value: calories.toStringAsFixed(0),
+                    ),
                   ),
                 if (protein != null)
                   Expanded(
-                    child: _Stat(label: 'Đạm TB', value: protein.toStringAsFixed(0)),
+                    child: _Stat(
+                      label: 'Đạm TB',
+                      value: protein.toStringAsFixed(0),
+                    ),
                   ),
               ],
             ),
@@ -358,8 +397,7 @@ class _AdherenceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Độ tuân thủ',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text('Độ tuân thủ', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (score != null) ...[
               LinearProgressIndicator(
@@ -399,8 +437,10 @@ class _WeightLogsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Cân nặng trong tuần',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Cân nặng trong tuần',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             ...logs.map((l) {
               final kg = (l['weightKg'] ?? l['WeightKg'] ?? 0).toString();
@@ -439,8 +479,10 @@ class _ReviewForm extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Đánh giá của PT',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Đánh giá của PT',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: commentCtrl,
@@ -504,8 +546,10 @@ class _AdjustmentsCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text('Điều chỉnh lộ trình',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    'Điều chỉnh lộ trình',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 IconButton(
                   onPressed: onAdd,
@@ -515,31 +559,28 @@ class _AdjustmentsCard extends StatelessWidget {
               ],
             ),
             if (adjustments.isEmpty)
-              const Text('Không có điều chỉnh nào.',
-                  style: TextStyle(color: Colors.grey))
+              const Text(
+                'Không có điều chỉnh nào.',
+                style: TextStyle(color: Colors.grey),
+              )
             else
               Column(
-                children: adjustments
-                    .asMap()
-                    .entries
-                    .map((entry) {
-                      final a = entry.value;
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.swap_horiz),
-                        title: Text(
-                            '${a.action.toUpperCase()} ${a.mealType}'),
-                        subtitle: Text(
-                          '${a.plannedDate.day}/${a.plannedDate.month}/${a.plannedDate.year}'
-                          '${a.targetCalories != null ? " - ${a.targetCalories} kcal" : ""}',
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          onPressed: () => onRemove(a),
-                        ),
-                      );
-                    })
-                    .toList(),
+                children: adjustments.asMap().entries.map((entry) {
+                  final a = entry.value;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.swap_horiz),
+                    title: Text('${a.action.toUpperCase()} ${a.mealType}'),
+                    subtitle: Text(
+                      '${a.plannedDate.day}/${a.plannedDate.month}/${a.plannedDate.year}'
+                      '${a.targetCalories != null ? " - ${a.targetCalories} kcal" : ""}',
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () => onRemove(a),
+                    ),
+                  );
+                }).toList(),
               ),
           ],
         ),
