@@ -507,6 +507,64 @@ fi
 echo "=== Tag image for local use ==="
 sudo docker tag $IMAGE:main menugreen_api
 
+# =================================================================
+# MIGRATION GENERATION PHASE
+# In CI/CD-generated workflow, migrations are not in git.
+# We need to generate them on the server before deployment.
+# =================================================================
+echo "=== Generating EF Core Migrations ==="
+
+# Install dotnet-ef if not present
+if ! command -v dotnet-ef &> /dev/null && ! dotnet ef --version &> /dev/null; then
+  echo "Installing dotnet-ef tool..."
+  dotnet tool install --global dotnet-ef --version 9.0.0 || true
+  export PATH="$HOME/.dotnet/tools:$PATH"
+fi
+
+# Create migrations directory in app folder
+mkdir -p "$APP_DIR/MenuGreen.DataAccessLayer/Migrations"
+
+# Build DataAccessLayer to check for pending migrations
+cd /tmp
+if [ -d "MenuGreen.DataAccessLayer" ]; then
+  rm -rf MenuGreen.DataAccessLayer
+fi
+mkdir -p MenuGreen.DataAccessLayer
+
+# Copy source files for migration generation
+echo "Preparing source for migration generation..."
+cp -r backend/MenuGreen.DataAccessLayer/Context "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
+cp -r backend/MenuGreen.DataAccessLayer/Entities "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
+cp -r backend/MenuGreen.DataAccessLayer/Configurations "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
+cp -r backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
+cp -r backend/MenuGreen.API "$APP_DIR/" 2>/dev/null || true
+
+# Check if there are model changes that need migration
+cd "$APP_DIR"
+echo "Checking for pending migrations..."
+MIGRATION_OUTPUT=$(dotnet ef migrations list --project MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj 2>&1 || echo "Error checking migrations")
+
+if echo "$MIGRATION_OUTPUT" | grep -q "No migrations"; then
+  echo "No migrations needed - database schema is up to date"
+elif echo "$MIGRATION_OUTPUT" | grep -q "Error\|error"; then
+  echo "Warning: Could not check migrations: $MIGRATION_OUTPUT"
+  echo "Proceeding with deployment..."
+else
+  echo "Pending migrations found:"
+  echo "$MIGRATION_OUTPUT"
+  
+  # Generate migration with timestamp
+  TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+  echo "Generating migration: Auto_${TIMESTAMP}_SchemaUpdate"
+  
+  dotnet ef migrations add "Auto_${TIMESTAMP}_SchemaUpdate" \
+    --project MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
+    --startup-project MenuGreen.API \
+    --output-dir Migrations || {
+    echo "Migration generation skipped or failed (may already exist)"
+  }
+fi
+
 echo "=== Check / Seed EF Migration History ==="
 DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
 echo "  DEBUG: DB_CONN_PRECHECK: ${DB_CONN_PRECHECK:0:80}..."

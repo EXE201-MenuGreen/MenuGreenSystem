@@ -168,9 +168,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<UserSubscriptionResponse?> GetCurrentAsync(Guid userId)
         {
+            var now = DateTime.UtcNow;
             var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(x => x.UserId == userId);
             var current = subscriptions
-                .Where(x => x.Status is "Active" or "PendingPayment")
+                .Where(x => (x.Status == "Active" && x.EndDate > now) || x.Status == "PendingPayment")
                 .OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefault();
 
@@ -273,12 +274,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return plan.DurationDays.Value;
             }
 
-            // Office is a one-day trial: activation at 20/07 10:00 expires at
-            // 21/07 10:00. Never fall back to the legacy 100-year duration.
+            // Office subscription default duration is 30 days.
             if (string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase))
             {
-                return 1;
+                return 30;
             }
 
             // Existing Basic/free lifetime plans still use the non-nullable EndDate

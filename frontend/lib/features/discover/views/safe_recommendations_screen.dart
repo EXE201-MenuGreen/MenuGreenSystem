@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../repositories/recommendation_repository.dart';
 import 'food_detail_screen.dart';
 import 'recipe_detail_screen.dart';
 
 class SafeRecommendationsScreen extends StatefulWidget {
-  const SafeRecommendationsScreen({
-    super.key,
-    this.allergyMode = 'warn',
-  });
+  const SafeRecommendationsScreen({super.key, this.allergyMode = 'warn'});
 
   final String allergyMode;
 
   @override
-  State<SafeRecommendationsScreen> createState() => _SafeRecommendationsScreenState();
+  State<SafeRecommendationsScreen> createState() =>
+      _SafeRecommendationsScreenState();
 }
 
 class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
@@ -41,6 +41,7 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
   @override
   void initState() {
     super.initState();
+    context.read<FavoriteFoodProvider>().load();
     _tabController = TabController(length: 4, vsync: this);
     _loadTargetCalories();
     _loadTab(0);
@@ -58,7 +59,9 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
 
   Future<void> _loadTargetCalories() async {
     try {
-      final summary = await NutritionTrackingRepository().getDailySummary(DateTime.now());
+      final summary = await NutritionTrackingRepository().getDailySummary(
+        DateTime.now(),
+      );
       if (!mounted || summary == null) return;
       final target = summary.targetCalories.round();
       if (target > 0) setState(() => _targetCalories = target);
@@ -138,7 +141,8 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => FoodDetailScreen(foodId: foodId, allergyMode: widget.allergyMode),
+          builder: (_) =>
+              FoodDetailScreen(foodId: foodId, allergyMode: widget.allergyMode),
         ),
       );
     } else {
@@ -146,7 +150,10 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipeId: recipeId, allergyMode: widget.allergyMode),
+          builder: (_) => RecipeDetailScreen(
+            recipeId: recipeId,
+            allergyMode: widget.allergyMode,
+          ),
         ),
       );
     }
@@ -155,9 +162,9 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
   Future<void> _saveDailyMenuAsPlan() async {
     final plan = _dailyMenu;
     if (plan == null || plan.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có thực đơn để lưu.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Chưa có thực đơn để lưu.')));
       return;
     }
 
@@ -165,7 +172,9 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
     try {
       await _mealPlanRepository.createFromDailyMenu(
         plannedDate: DateTime.now(),
-        targetCalories: plan.targetCalories > 0 ? plan.targetCalories : _targetCalories,
+        targetCalories: plan.targetCalories > 0
+            ? plan.targetCalories
+            : _targetCalories,
         items: plan.items.map((e) => e.toPlanItemJson()).toList(),
       );
       if (!mounted) return;
@@ -213,7 +222,10 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Mục tiêu: $_targetCalories kcal/ngày', style: const TextStyle(fontSize: 12)),
+                      child: Text(
+                        'Mục tiêu: $_targetCalories kcal/ngày',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => _loadTab(_tabController.index),
@@ -236,7 +248,11 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
               Tab(text: 'Cả ngày'),
             ],
           ),
-          if (_loading) const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+          if (_loading)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.primary,
+            ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -279,11 +295,57 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            item.name,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Text(
             '${item.type} · ${item.caloriesKcal.round()} kcal · ${item.estimatedPriceVnd}đ · ${item.cookingTimeMin} phút',
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: Consumer<FavoriteFoodProvider>(
+            builder: (context, favorites, _) {
+              if (!item.isFood) return const Icon(Icons.chevron_right);
+              final isFavorite = favorites.isFavorite(item.id);
+              final isBusy = favorites.isMutating(item.id);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: isFavorite
+                        ? 'B\u1ecf m\u00f3n kh\u1ecfi y\u00eau th\u00edch'
+                        : 'Th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch',
+                    onPressed: isBusy
+                        ? null
+                        : () async {
+                            final result = await favorites.toggle(
+                              FavoriteFoodItem.fromRecommendation(item),
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(result.message),
+                                backgroundColor: result.isSuccess
+                                    ? AppColors.primary
+                                    : Colors.red.shade700,
+                              ),
+                            );
+                          },
+                    icon: isBusy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.red : AppColors.primary,
+                          ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              );
+            },
+          ),
           onTap: () => _openItem(item),
         );
       },
@@ -313,7 +375,10 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Icon(Icons.bookmark_add_outlined),
           label: const Text('Lưu làm kế hoạch hôm nay'),
@@ -327,8 +392,17 @@ class _SafeRecommendationsScreenState extends State<SafeRecommendationsScreen>
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: Colors.grey.shade200),
             ),
-            title: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-            subtitle: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            title: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            subtitle: Text(
+              item.name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
             trailing: Text('${item.targetCalories} kcal'),
             onTap: () => _openDailyItem(item),
           );

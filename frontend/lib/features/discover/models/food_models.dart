@@ -37,7 +37,10 @@ class _RecommendationJson {
       return value.isEmpty ? null : value;
     }
     if (raw is List) {
-      final value = raw.map((item) => item.toString().trim()).where((item) => item.isNotEmpty).join('\n');
+      final value = raw
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .join('\n');
       return value.isEmpty ? null : value;
     }
     return raw.toString();
@@ -78,11 +81,15 @@ class _RecommendationJson {
   }
 
   static DateTime date(dynamic raw, {DateTime? fallback}) {
-    return DateTime.tryParse(raw?.toString() ?? '') ?? fallback ?? DateTime.now();
+    return DateTime.tryParse(raw?.toString() ?? '') ??
+        fallback ??
+        DateTime.now();
   }
 
   static Map<String, dynamic> response(Map<String, dynamic> json) {
-    final wrapped = map(value(json, const ['data', 'Data', 'result', 'Result']));
+    final wrapped = map(
+      value(json, const ['data', 'Data', 'result', 'Result']),
+    );
     return wrapped.isEmpty ? json : {...json, ...wrapped};
   }
 }
@@ -143,25 +150,53 @@ class FoodItem {
       nameVi: (json['nameVi'] ?? json['NameVi'] ?? '').toString(),
       nameEn: json['nameEn']?.toString() ?? json['NameEn']?.toString(),
       category: json['category']?.toString() ?? json['Category']?.toString(),
-      description: json['description']?.toString() ?? json['Description']?.toString(),
-      caloriesKcal: _num(json['caloriesKcal'] ?? json['CaloriesKcal'] ?? json['calories_kcal']),
+      description:
+          json['description']?.toString() ?? json['Description']?.toString(),
+      caloriesKcal: _num(
+        json['caloriesKcal'] ?? json['CaloriesKcal'] ?? json['calories_kcal'],
+      ),
       proteinG: _num(json['proteinG'] ?? json['ProteinG'] ?? json['protein_g']),
       carbsG: _num(json['carbsG'] ?? json['CarbsG'] ?? json['carbs_g']),
       fatG: _num(json['fatG'] ?? json['FatG'] ?? json['fat_g']),
       fiberG: _num(json['fiberG'] ?? json['FiberG'] ?? json['fiber_g']),
       estimatedPriceVnd: _RecommendationJson.nullableInteger(
-        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'] ?? json['estimated_price_vnd'],
+        json['estimatedPriceVnd'] ??
+            json['EstimatedPriceVnd'] ??
+            json['estimated_price_vnd'],
       ),
       defaultServingG: _RecommendationJson.nullableInteger(
-        json['defaultServingG'] ?? json['DefaultServingG'] ?? json['default_serving_g'],
+        json['defaultServingG'] ??
+            json['DefaultServingG'] ??
+            json['default_serving_g'],
       ),
-      imageUrl: _RecommendationJson.text(json['imageUrl'] ?? json['ImageUrl'] ?? json['image_url']),
+      imageUrl: _RecommendationJson.text(
+        json['imageUrl'] ?? json['ImageUrl'] ?? json['image_url'],
+      ),
       region: _RecommendationJson.text(json['region'] ?? json['Region']),
-      isActive: _RecommendationJson.boolean(json['isActive'] ?? json['IsActive'] ?? json['is_active']),
-      allergenLabelsVi: listOf(json['allergenLabelsVi'] ?? json['AllergenLabelsVi'] ?? json['allergen_labels_vi']),
-      matchedAllergens: listOf(json['matchedAllergens'] ?? json['MatchedAllergens'] ?? json['matched_allergens']),
-      allergyRiskLevel: (json['allergyRiskLevel'] ?? json['AllergyRiskLevel'] ?? json['allergy_risk_level'] ?? 'none').toString(),
-      isSafeForUser: (json['isSafeForUser'] ?? json['IsSafeForUser'] ?? json['is_safe_for_user']) != false,
+      isActive: _RecommendationJson.boolean(
+        json['isActive'] ?? json['IsActive'] ?? json['is_active'],
+      ),
+      allergenLabelsVi: listOf(
+        json['allergenLabelsVi'] ??
+            json['AllergenLabelsVi'] ??
+            json['allergen_labels_vi'],
+      ),
+      matchedAllergens: listOf(
+        json['matchedAllergens'] ??
+            json['MatchedAllergens'] ??
+            json['matched_allergens'],
+      ),
+      allergyRiskLevel:
+          (json['allergyRiskLevel'] ??
+                  json['AllergyRiskLevel'] ??
+                  json['allergy_risk_level'] ??
+                  'none')
+              .toString(),
+      isSafeForUser:
+          (json['isSafeForUser'] ??
+              json['IsSafeForUser'] ??
+              json['is_safe_for_user']) !=
+          false,
     );
   }
 }
@@ -209,7 +244,8 @@ class RecipeItem {
   final String allergyRiskLevel;
   final bool isSafeForUser;
 
-  int get totalCalories => ingredients.fold(0, (sum, ing) => sum + (ing.caloriesKcal ?? 0).round());
+  int get totalCalories =>
+      ingredients.fold(0, (sum, ing) => sum + (ing.caloriesKcal ?? 0).round());
 
   factory RecipeItem.fromJson(Map<String, dynamic> json) {
     final rawIngredients = json['ingredients'] ?? json['Ingredients'];
@@ -221,30 +257,69 @@ class RecipeItem {
     return RecipeItem(
       id: _RecommendationJson.text(json['id'] ?? json['Id']) ?? '',
       title: _RecommendationJson.text(json['title'] ?? json['Title']) ?? '',
-      description: _RecommendationJson.text(json['description'] ?? json['Description']),
-      prepTimeMin: _RecommendationJson.nullableInteger(json['prepTimeMin'] ?? json['PrepTimeMin'] ?? json['prep_time_min']),
-      cookTimeMin: _RecommendationJson.nullableInteger(json['cookTimeMin'] ?? json['CookTimeMin'] ?? json['cook_time_min']),
-      totalTimeMin: _RecommendationJson.nullableInteger(json['totalTimeMin'] ?? json['TotalTimeMin'] ?? json['total_time_min']),
-      servings: _RecommendationJson.nullableInteger(json['servings'] ?? json['Servings']),
-      difficulty: _RecommendationJson.text(json['difficulty'] ?? json['Difficulty']),
-      mealType: _RecommendationJson.text(json['mealType'] ?? json['MealType'] ?? json['meal_type']),
-      estimatedPriceVnd: _RecommendationJson.nullableInteger(
-        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'] ?? json['estimated_price_vnd'],
+      description: _RecommendationJson.text(
+        json['description'] ?? json['Description'],
       ),
-      instructions: _RecommendationJson.text(json['instructions'] ?? json['Instructions']),
-      imageUrl: _RecommendationJson.text(json['imageUrl'] ?? json['ImageUrl'] ?? json['image_url']),
-      videoUrl: _RecommendationJson.text(json['videoUrl'] ?? json['VideoUrl'] ?? json['video_url']),
-      isActive: _RecommendationJson.boolean(json['isActive'] ?? json['IsActive'] ?? json['is_active']),
-      foodId: _RecommendationJson.text(json['foodId'] ?? json['FoodId'] ?? json['food_id']),
+      prepTimeMin: _RecommendationJson.nullableInteger(
+        json['prepTimeMin'] ?? json['PrepTimeMin'] ?? json['prep_time_min'],
+      ),
+      cookTimeMin: _RecommendationJson.nullableInteger(
+        json['cookTimeMin'] ?? json['CookTimeMin'] ?? json['cook_time_min'],
+      ),
+      totalTimeMin: _RecommendationJson.nullableInteger(
+        json['totalTimeMin'] ?? json['TotalTimeMin'] ?? json['total_time_min'],
+      ),
+      servings: _RecommendationJson.nullableInteger(
+        json['servings'] ?? json['Servings'],
+      ),
+      difficulty: _RecommendationJson.text(
+        json['difficulty'] ?? json['Difficulty'],
+      ),
+      mealType: _RecommendationJson.text(
+        json['mealType'] ?? json['MealType'] ?? json['meal_type'],
+      ),
+      estimatedPriceVnd: _RecommendationJson.nullableInteger(
+        json['estimatedPriceVnd'] ??
+            json['EstimatedPriceVnd'] ??
+            json['estimated_price_vnd'],
+      ),
+      instructions: _RecommendationJson.text(
+        json['instructions'] ?? json['Instructions'],
+      ),
+      imageUrl: _RecommendationJson.text(
+        json['imageUrl'] ?? json['ImageUrl'] ?? json['image_url'],
+      ),
+      videoUrl: _RecommendationJson.text(
+        json['videoUrl'] ?? json['VideoUrl'] ?? json['video_url'],
+      ),
+      isActive: _RecommendationJson.boolean(
+        json['isActive'] ?? json['IsActive'] ?? json['is_active'],
+      ),
+      foodId: _RecommendationJson.text(
+        json['foodId'] ?? json['FoodId'] ?? json['food_id'],
+      ),
       ingredients: rawIngredients is List
           ? rawIngredients
-              .whereType<Map<String, dynamic>>()
-              .map(RecipeIngredientItem.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(RecipeIngredientItem.fromJson)
+                .toList()
           : [],
-      matchedAllergens: listOf(json['matchedAllergens'] ?? json['MatchedAllergens'] ?? json['matched_allergens']),
-      allergyRiskLevel: (json['allergyRiskLevel'] ?? json['AllergyRiskLevel'] ?? json['allergy_risk_level'] ?? 'none').toString(),
-      isSafeForUser: (json['isSafeForUser'] ?? json['IsSafeForUser'] ?? json['is_safe_for_user']) != false,
+      matchedAllergens: listOf(
+        json['matchedAllergens'] ??
+            json['MatchedAllergens'] ??
+            json['matched_allergens'],
+      ),
+      allergyRiskLevel:
+          (json['allergyRiskLevel'] ??
+                  json['AllergyRiskLevel'] ??
+                  json['allergy_risk_level'] ??
+                  'none')
+              .toString(),
+      isSafeForUser:
+          (json['isSafeForUser'] ??
+              json['IsSafeForUser'] ??
+              json['is_safe_for_user']) !=
+          false,
     );
   }
 }
@@ -282,9 +357,14 @@ class IngredientItem {
       nameVi: (json['nameVi'] ?? json['NameVi'] ?? '').toString(),
       category: json['category']?.toString() ?? json['Category']?.toString(),
       caloriesKcal: c is num ? c.toDouble() : null,
-      unitDefault: json['unitDefault']?.toString() ?? json['UnitDefault']?.toString(),
-      matchedAllergens: listOf(json['matchedAllergens'] ?? json['MatchedAllergens']),
-      allergyRiskLevel: (json['allergyRiskLevel'] ?? json['AllergyRiskLevel'] ?? 'none').toString(),
+      unitDefault:
+          json['unitDefault']?.toString() ?? json['UnitDefault']?.toString(),
+      matchedAllergens: listOf(
+        json['matchedAllergens'] ?? json['MatchedAllergens'],
+      ),
+      allergyRiskLevel:
+          (json['allergyRiskLevel'] ?? json['AllergyRiskLevel'] ?? 'none')
+              .toString(),
       isSafeForUser: (json['isSafeForUser'] ?? json['IsSafeForUser']) != false,
     );
   }
@@ -378,32 +458,71 @@ class RecommendationItem {
 
   factory RecommendationItem.fromJson(Map<String, dynamic> json) {
     final nested = _RecommendationJson.map(
-      _RecommendationJson.value(json, const ['food', 'Food', 'recipe', 'Recipe', 'item', 'Item']),
+      _RecommendationJson.value(json, const [
+        'food',
+        'Food',
+        'recipe',
+        'Recipe',
+        'item',
+        'Item',
+      ]),
     );
     final data = {...nested, ...json};
     final isFood = _RecommendationJson.boolean(
       _RecommendationJson.value(data, const ['is_food', 'isFood', 'IsFood']),
     );
     final explicitType = _RecommendationJson.text(
-      _RecommendationJson.value(data, const ['type', 'Type', 'source_entity_type', 'sourceEntityType']),
+      _RecommendationJson.value(data, const [
+        'type',
+        'Type',
+        'source_entity_type',
+        'sourceEntityType',
+      ]),
     );
     final type = explicitType ?? (isFood == false ? 'Recipe' : 'Food');
 
     return RecommendationItem(
-      id: _RecommendationJson.text(
-            _RecommendationJson.value(data, const ['id', 'Id', 'food_id', 'foodId', 'FoodId', 'recipe_id', 'recipeId', 'RecipeId']),
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'id',
+              'Id',
+              'food_id',
+              'foodId',
+              'FoodId',
+              'recipe_id',
+              'recipeId',
+              'RecipeId',
+            ]),
           ) ??
           '',
-      name: _RecommendationJson.text(
-            _RecommendationJson.value(data, const ['name', 'Name', 'title', 'Title', 'name_vi', 'nameVi', 'NameVi']),
+      name:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'name',
+              'Name',
+              'title',
+              'Title',
+              'name_vi',
+              'nameVi',
+              'NameVi',
+            ]),
           ) ??
           '',
       type: type,
       caloriesKcal: _RecommendationJson.number(
-        _RecommendationJson.value(data, const ['calories_kcal', 'caloriesKcal', 'CaloriesKcal']),
+        _RecommendationJson.value(data, const [
+          'calories_kcal',
+          'caloriesKcal',
+          'CaloriesKcal',
+        ]),
       ),
       proteinG: _RecommendationJson.number(
-        _RecommendationJson.value(data, const ['protein_g', 'proteinG', 'ProteinG']),
+        _RecommendationJson.value(data, const [
+          'protein_g',
+          'proteinG',
+          'ProteinG',
+        ]),
       ),
       carbsG: _RecommendationJson.number(
         _RecommendationJson.value(data, const ['carbs_g', 'carbsG', 'CarbsG']),
@@ -415,25 +534,56 @@ class RecommendationItem {
         _RecommendationJson.value(data, const ['fiber_g', 'fiberG', 'FiberG']),
       ),
       estimatedPriceVnd: _RecommendationJson.integer(
-        _RecommendationJson.value(data, const ['estimated_price_vnd', 'estimatedPriceVnd', 'EstimatedPriceVnd', 'price_vnd', 'priceVnd']),
+        _RecommendationJson.value(data, const [
+          'estimated_price_vnd',
+          'estimatedPriceVnd',
+          'EstimatedPriceVnd',
+          'price_vnd',
+          'priceVnd',
+        ]),
       ),
       cookingTimeMin: _RecommendationJson.integer(
-        _RecommendationJson.value(data, const ['cooking_time_min', 'cookingTimeMin', 'CookingTimeMin', 'cook_time_min', 'cookTimeMin']),
+        _RecommendationJson.value(data, const [
+          'cooking_time_min',
+          'cookingTimeMin',
+          'CookingTimeMin',
+          'cook_time_min',
+          'cookTimeMin',
+        ]),
       ),
       prepTimeMin: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['prep_time_min', 'prepTimeMin', 'PrepTimeMin']),
+        _RecommendationJson.value(data, const [
+          'prep_time_min',
+          'prepTimeMin',
+          'PrepTimeMin',
+        ]),
       ),
       totalTimeMin: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['total_time_min', 'totalTimeMin', 'TotalTimeMin']),
+        _RecommendationJson.value(data, const [
+          'total_time_min',
+          'totalTimeMin',
+          'TotalTimeMin',
+        ]),
       ),
       servings: _RecommendationJson.nullableInteger(
         _RecommendationJson.value(data, const ['servings', 'Servings']),
       ),
       score: _RecommendationJson.score(
-        _RecommendationJson.value(data, const ['score', 'Score', 'confidence', 'Confidence']),
+        _RecommendationJson.value(data, const [
+          'score',
+          'Score',
+          'confidence',
+          'Confidence',
+        ]),
       ),
       mealType: _RecommendationJson.text(
-        _RecommendationJson.value(data, const ['meal_slot', 'mealSlot', 'meal_type', 'mealType', 'MealType']),
+        _RecommendationJson.value(data, const [
+          'meal_slot',
+          'mealSlot',
+          'meal_type',
+          'mealType',
+          'MealType',
+        ]),
       ),
       description: _RecommendationJson.text(
         _RecommendationJson.value(data, const ['description', 'Description']),
@@ -442,33 +592,67 @@ class RecommendationItem {
         _RecommendationJson.value(data, const ['instructions', 'Instructions']),
       ),
       imageUrl: _RecommendationJson.text(
-        _RecommendationJson.value(data, const ['image_url', 'imageUrl', 'ImageUrl']),
+        _RecommendationJson.value(data, const [
+          'image_url',
+          'imageUrl',
+          'ImageUrl',
+        ]),
       ),
       videoUrl: _RecommendationJson.text(
-        _RecommendationJson.value(data, const ['video_url', 'videoUrl', 'VideoUrl']),
+        _RecommendationJson.value(data, const [
+          'video_url',
+          'videoUrl',
+          'VideoUrl',
+        ]),
       ),
       difficulty: _RecommendationJson.text(
         _RecommendationJson.value(data, const ['difficulty', 'Difficulty']),
       ),
       allergenLabelsVi: _RecommendationJson.strings(
-        _RecommendationJson.value(data, const ['allergen_labels_vi', 'allergenLabelsVi', 'AllergenLabelsVi']),
+        _RecommendationJson.value(data, const [
+          'allergen_labels_vi',
+          'allergenLabelsVi',
+          'AllergenLabelsVi',
+        ]),
       ),
       matchedAllergens: _RecommendationJson.strings(
-        _RecommendationJson.value(data, const ['matched_allergens', 'matchedAllergens', 'MatchedAllergens']),
+        _RecommendationJson.value(data, const [
+          'matched_allergens',
+          'matchedAllergens',
+          'MatchedAllergens',
+        ]),
       ),
-      allergyRiskLevel: _RecommendationJson.text(
-            _RecommendationJson.value(data, const ['allergy_risk_level', 'allergyRiskLevel', 'AllergyRiskLevel']),
+      allergyRiskLevel:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'allergy_risk_level',
+              'allergyRiskLevel',
+              'AllergyRiskLevel',
+            ]),
           ) ??
           'none',
-      isSafeForUser: _RecommendationJson.boolean(
-            _RecommendationJson.value(data, const ['is_safe_for_user', 'isSafeForUser', 'IsSafeForUser']),
+      isSafeForUser:
+          _RecommendationJson.boolean(
+            _RecommendationJson.value(data, const [
+              'is_safe_for_user',
+              'isSafeForUser',
+              'IsSafeForUser',
+            ]),
           ) ??
           true,
       matchReason: _RecommendationJson.text(
-        _RecommendationJson.value(data, const ['match_reason', 'matchReason', 'MatchReason']),
+        _RecommendationJson.value(data, const [
+          'match_reason',
+          'matchReason',
+          'MatchReason',
+        ]),
       ),
       matchScore: _RecommendationJson.text(
-        _RecommendationJson.value(data, const ['match_score', 'matchScore', 'MatchScore']),
+        _RecommendationJson.value(data, const [
+          'match_score',
+          'matchScore',
+          'MatchScore',
+        ]),
       ),
     );
   }
@@ -496,9 +680,9 @@ class DailyMenuPlan {
           : (json['TotalCalories'] is int ? json['TotalCalories'] as int : 0),
       items: rawItems is List
           ? rawItems
-              .whereType<Map<String, dynamic>>()
-              .map(DailyMenuPlanItem.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(DailyMenuPlanItem.fromJson)
+                .toList()
           : [],
     );
   }
@@ -526,43 +710,78 @@ class DailyMenuPlanItem {
   final RecommendationItem? recommendation;
 
   bool get isFood =>
-      sourceEntityType.toLowerCase() == 'food' || (foodId != null && recipeId == null);
+      sourceEntityType.toLowerCase() == 'food' ||
+      (foodId != null && recipeId == null);
 
   factory DailyMenuPlanItem.fromJson(Map<String, dynamic> json) {
     final foodId = _RecommendationJson.text(
       _RecommendationJson.value(json, const ['food_id', 'foodId', 'FoodId']),
     );
     final recipeId = _RecommendationJson.text(
-      _RecommendationJson.value(json, const ['recipe_id', 'recipeId', 'RecipeId']),
+      _RecommendationJson.value(json, const [
+        'recipe_id',
+        'recipeId',
+        'RecipeId',
+      ]),
     );
     final recommendation = RecommendationItem.fromJson(json);
-    final source = _RecommendationJson.text(
-          _RecommendationJson.value(json, const ['source_entity_type', 'sourceEntityType', 'SourceEntityType', 'type', 'Type']),
+    final source =
+        _RecommendationJson.text(
+          _RecommendationJson.value(json, const [
+            'source_entity_type',
+            'sourceEntityType',
+            'SourceEntityType',
+            'type',
+            'Type',
+          ]),
         ) ??
         '';
     final inferredSource = source.isNotEmpty
         ? source
         : (foodId != null
-            ? 'Food'
-            : recipeId != null
-                ? 'Recipe'
-                : recommendation.type);
+              ? 'Food'
+              : recipeId != null
+              ? 'Recipe'
+              : recommendation.type);
 
     return DailyMenuPlanItem(
       id: recommendation.id,
-      name: _RecommendationJson.text(
-            _RecommendationJson.value(json, const ['food_name', 'foodName', 'FoodName', 'recipe_name', 'recipeName', 'RecipeName']),
+      name:
+          _RecommendationJson.text(
+            _RecommendationJson.value(json, const [
+              'food_name',
+              'foodName',
+              'FoodName',
+              'recipe_name',
+              'recipeName',
+              'RecipeName',
+            ]),
           ) ??
           recommendation.name,
-      mealType: _RecommendationJson.text(
-            _RecommendationJson.value(json, const ['meal_slot', 'mealSlot', 'meal_type', 'mealType', 'MealType']),
+      mealType:
+          _RecommendationJson.text(
+            _RecommendationJson.value(json, const [
+              'meal_slot',
+              'mealSlot',
+              'meal_type',
+              'mealType',
+              'MealType',
+            ]),
           ) ??
           'snack',
       foodId: foodId,
       recipeId: recipeId,
       sourceEntityType: inferredSource,
-      targetCalories: _RecommendationJson.nullableInteger(
-            _RecommendationJson.value(json, const ['target_calories', 'targetCalories', 'TargetCalories', 'calories_kcal', 'caloriesKcal', 'CaloriesKcal']),
+      targetCalories:
+          _RecommendationJson.nullableInteger(
+            _RecommendationJson.value(json, const [
+              'target_calories',
+              'targetCalories',
+              'TargetCalories',
+              'calories_kcal',
+              'caloriesKcal',
+              'CaloriesKcal',
+            ]),
           ) ??
           recommendation.caloriesKcal.round(),
       recommendation: recommendation.name.isEmpty ? null : recommendation,
@@ -617,7 +836,9 @@ class FoodSearchFilters {
     return FoodSearchFilters(
       minCalories: clearMinCalories ? null : (minCalories ?? this.minCalories),
       maxCalories: clearMaxCalories ? null : (maxCalories ?? this.maxCalories),
-      proteinLevel: clearProteinLevel ? null : (proteinLevel ?? this.proteinLevel),
+      proteinLevel: clearProteinLevel
+          ? null
+          : (proteinLevel ?? this.proteinLevel),
       maxPriceVnd: clearMaxPriceVnd ? null : (maxPriceVnd ?? this.maxPriceVnd),
       category: clearCategory ? null : (category ?? this.category),
     );
@@ -642,9 +863,11 @@ class RecipeIngredientItem {
   factory RecipeIngredientItem.fromJson(Map<String, dynamic> json) {
     final q = json['quantity'] ?? json['Quantity'];
     final nested = json['ingredient'] ?? json['Ingredient'];
-    String name = (json['ingredientName'] ?? json['IngredientName'] ?? '').toString();
+    String name = (json['ingredientName'] ?? json['IngredientName'] ?? '')
+        .toString();
     if (name.isEmpty && nested is Map<String, dynamic>) {
-      name = (nested['nameVi'] ?? nested['NameVi'] ?? nested['name'] ?? '').toString();
+      name = (nested['nameVi'] ?? nested['NameVi'] ?? nested['name'] ?? '')
+          .toString();
     }
     if (name.isEmpty) {
       name = (json['nameVi'] ?? json['NameVi'] ?? '').toString();
@@ -664,25 +887,77 @@ class FavoriteFoodItem {
   FavoriteFoodItem({
     required this.foodId,
     required this.nameVi,
+    this.nameEn,
+    this.category,
     this.caloriesKcal,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+    this.estimatedPriceVnd,
     this.imageUrl,
-    this.address,
+    this.createdAt,
   });
 
   final String foodId;
   final String nameVi;
+  final String? nameEn;
+  final String? category;
   final double? caloriesKcal;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
+  final int? estimatedPriceVnd;
   final String? imageUrl;
-  final String? address;
+  final DateTime? createdAt;
+
+  factory FavoriteFoodItem.fromFood(FoodItem food) {
+    return FavoriteFoodItem(
+      foodId: food.id,
+      nameVi: food.nameVi,
+      nameEn: food.nameEn,
+      category: food.category,
+      caloriesKcal: food.caloriesKcal,
+      proteinG: food.proteinG,
+      carbsG: food.carbsG,
+      fatG: food.fatG,
+      estimatedPriceVnd: food.estimatedPriceVnd,
+      imageUrl: food.imageUrl,
+    );
+  }
+
+  factory FavoriteFoodItem.fromRecommendation(RecommendationItem item) {
+    return FavoriteFoodItem(
+      foodId: item.id,
+      nameVi: item.name,
+      caloriesKcal: item.caloriesKcal,
+      proteinG: item.proteinG,
+      carbsG: item.carbsG,
+      fatG: item.fatG,
+      estimatedPriceVnd: item.estimatedPriceVnd,
+      imageUrl: item.imageUrl,
+    );
+  }
 
   factory FavoriteFoodItem.fromJson(Map<String, dynamic> json) {
     final c = json['caloriesKcal'] ?? json['CaloriesKcal'];
     return FavoriteFoodItem(
       foodId: (json['foodId'] ?? json['FoodId']).toString(),
       nameVi: (json['nameVi'] ?? json['NameVi'] ?? '').toString(),
+      nameEn: json['nameEn']?.toString() ?? json['NameEn']?.toString(),
+      category: json['category']?.toString() ?? json['Category']?.toString(),
       caloriesKcal: c is num ? c.toDouble() : null,
+      proteinG: _RecommendationJson.number(
+        json['proteinG'] ?? json['ProteinG'],
+      ),
+      carbsG: _RecommendationJson.number(json['carbsG'] ?? json['CarbsG']),
+      fatG: _RecommendationJson.number(json['fatG'] ?? json['FatG']),
+      estimatedPriceVnd: _RecommendationJson.nullableInteger(
+        json['estimatedPriceVnd'] ?? json['EstimatedPriceVnd'],
+      ),
       imageUrl: json['imageUrl']?.toString() ?? json['ImageUrl']?.toString(),
-      address: json['address']?.toString() ?? json['Address']?.toString(),
+      createdAt: DateTime.tryParse(
+        (json['createdAt'] ?? json['CreatedAt'] ?? '').toString(),
+      ),
     );
   }
 
@@ -690,9 +965,15 @@ class FavoriteFoodItem {
     return {
       'foodId': foodId,
       'nameVi': nameVi,
+      if (nameEn != null) 'nameEn': nameEn,
+      if (category != null) 'category': category,
       if (caloriesKcal != null) 'caloriesKcal': caloriesKcal,
+      if (proteinG != null) 'proteinG': proteinG,
+      if (carbsG != null) 'carbsG': carbsG,
+      if (fatG != null) 'fatG': fatG,
+      if (estimatedPriceVnd != null) 'estimatedPriceVnd': estimatedPriceVnd,
       if (imageUrl != null) 'imageUrl': imageUrl,
-      if (address != null) 'address': address,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     };
   }
 }
@@ -701,12 +982,7 @@ class FavoriteFoodItem {
 // RECOMMENDATION MODELS (Extended)
 // ============================================================================
 
-enum GenerateType {
-  general,
-  safe,
-  weeklyPlan,
-  budgetAware,
-}
+enum GenerateType { general, safe, weeklyPlan, budgetAware }
 
 extension GenerateTypeExtension on GenerateType {
   String get value {
@@ -738,11 +1014,11 @@ class RecommendationGenerateRequest {
   final bool excludeUserAllergies;
 
   Map<String, dynamic> toJson() => {
-        if (mealType != null) 'MealType': mealType,
-        if (targetCalories != null) 'TargetCalories': targetCalories,
-        'MaxResults': maxResults,
-        'ExcludeUserAllergies': excludeUserAllergies,
-      };
+    if (mealType != null) 'MealType': mealType,
+    if (targetCalories != null) 'TargetCalories': targetCalories,
+    'MaxResults': maxResults,
+    'ExcludeUserAllergies': excludeUserAllergies,
+  };
 }
 
 /// Request for safe (allergy-aware) recommendation.
@@ -758,10 +1034,10 @@ class SafeRecommendationRequest {
   final int maxResults;
 
   Map<String, dynamic> toJson() => {
-        if (mealType != null) 'MealType': mealType,
-        if (targetCalories != null) 'TargetCalories': targetCalories,
-        'MaxResults': maxResults,
-      };
+    if (mealType != null) 'MealType': mealType,
+    if (targetCalories != null) 'TargetCalories': targetCalories,
+    'MaxResults': maxResults,
+  };
 }
 
 /// Request for weekly meal plan generation.
@@ -779,11 +1055,11 @@ class WeeklyPlanRequest {
   final bool excludeUserAllergies;
 
   Map<String, dynamic> toJson() => {
-        'StartDate': startDate.toIso8601String().split('T').first,
-        'EndDate': endDate.toIso8601String().split('T').first,
-        if (dailyTargetCalories != null) 'DailyTargetCalories': dailyTargetCalories,
-        'ExcludeUserAllergies': excludeUserAllergies,
-      };
+    'StartDate': startDate.toIso8601String().split('T').first,
+    'EndDate': endDate.toIso8601String().split('T').first,
+    if (dailyTargetCalories != null) 'DailyTargetCalories': dailyTargetCalories,
+    'ExcludeUserAllergies': excludeUserAllergies,
+  };
 }
 
 /// Request for budget-aware recommendation.
@@ -803,12 +1079,12 @@ class BudgetAwareRequest {
   final bool excludeUserAllergies;
 
   Map<String, dynamic> toJson() => {
-        if (mealType != null) 'MealType': mealType,
-        if (maxBudgetVnd != null) 'MaxBudgetVnd': maxBudgetVnd,
-        if (targetCalories != null) 'TargetCalories': targetCalories,
-        'MaxResults': maxResults,
-        'ExcludeUserAllergies': excludeUserAllergies,
-      };
+    if (mealType != null) 'MealType': mealType,
+    if (maxBudgetVnd != null) 'MaxBudgetVnd': maxBudgetVnd,
+    if (targetCalories != null) 'TargetCalories': targetCalories,
+    'MaxResults': maxResults,
+    'ExcludeUserAllergies': excludeUserAllergies,
+  };
 }
 
 /// Request for previewing recommendation before saving.
@@ -828,12 +1104,12 @@ class RecommendationPreviewRequest {
   final List<String> preferenceTags;
 
   Map<String, dynamic> toJson() => {
-        if (mealType != null) 'MealType': mealType,
-        if (targetCalories != null) 'TargetCalories': targetCalories,
-        if (maxBudgetVnd != null) 'MaxBudgetVnd': maxBudgetVnd,
-        'ExcludeUserAllergies': excludeUserAllergies,
-        'PreferenceTags': preferenceTags,
-      };
+    if (mealType != null) 'MealType': mealType,
+    if (targetCalories != null) 'TargetCalories': targetCalories,
+    if (maxBudgetVnd != null) 'MaxBudgetVnd': maxBudgetVnd,
+    'ExcludeUserAllergies': excludeUserAllergies,
+    'PreferenceTags': preferenceTags,
+  };
 }
 
 /// Response from recommendation generation.
@@ -862,34 +1138,85 @@ class RecommendationGenerateResponse {
 
   factory RecommendationGenerateResponse.fromJson(Map<String, dynamic> json) {
     final data = _RecommendationJson.response(json);
-    final rawItems = _RecommendationJson.value(data, const ['items', 'Items', 'recommendations', 'Recommendations']);
+    final rawItems = _RecommendationJson.value(data, const [
+      'items',
+      'Items',
+      'recommendations',
+      'Recommendations',
+    ]);
     return RecommendationGenerateResponse(
-      id: _RecommendationJson.text(_RecommendationJson.value(data, const ['id', 'Id', 'request_id', 'requestId'])) ?? '',
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'id',
+              'Id',
+              'request_id',
+              'requestId',
+            ]),
+          ) ??
+          '',
       createdAt: _RecommendationJson.date(
-        _RecommendationJson.value(data, const ['created_at', 'createdAt', 'CreatedAt', 'generated_at', 'generatedAt']),
+        _RecommendationJson.value(data, const [
+          'created_at',
+          'createdAt',
+          'CreatedAt',
+          'generated_at',
+          'generatedAt',
+        ]),
       ),
-      mealType: _RecommendationJson.text(
-            _RecommendationJson.value(data, const ['meal_slot', 'mealSlot', 'meal_type', 'mealType', 'MealType']),
+      mealType:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'meal_slot',
+              'mealSlot',
+              'meal_type',
+              'mealType',
+              'MealType',
+            ]),
           ) ??
           'general',
       targetCalories: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['target_calories', 'targetCalories', 'TargetCalories']),
+        _RecommendationJson.value(data, const [
+          'target_calories',
+          'targetCalories',
+          'TargetCalories',
+        ]),
       ),
       totalCaloriesFromApi: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['total_calories', 'totalCalories', 'TotalCalories']),
+        _RecommendationJson.value(data, const [
+          'total_calories',
+          'totalCalories',
+          'TotalCalories',
+        ]),
       ),
       totalEstimatedCost: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['total_estimated_cost', 'totalEstimatedCost', 'TotalEstimatedCost']),
+        _RecommendationJson.value(data, const [
+          'total_estimated_cost',
+          'totalEstimatedCost',
+          'TotalEstimatedCost',
+        ]),
       ),
       maxBudgetVnd: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['max_budget_vnd', 'maxBudgetVnd', 'MaxBudgetVnd', 'budget_vnd', 'budgetVnd']),
+        _RecommendationJson.value(data, const [
+          'max_budget_vnd',
+          'maxBudgetVnd',
+          'MaxBudgetVnd',
+          'budget_vnd',
+          'budgetVnd',
+        ]),
       ),
-      mode: _RecommendationJson.text(_RecommendationJson.value(data, const ['mode', 'Mode', 'type', 'Type'])),
-      items: _RecommendationJson.maps(rawItems).map(RecommendationItem.fromJson).toList(),
+      mode: _RecommendationJson.text(
+        _RecommendationJson.value(data, const ['mode', 'Mode', 'type', 'Type']),
+      ),
+      items: _RecommendationJson.maps(
+        rawItems,
+      ).map(RecommendationItem.fromJson).toList(),
     );
   }
 
-  int get totalCalories => totalCaloriesFromApi ?? items.fold(0, (sum, item) => sum + item.caloriesKcal.round());
+  int get totalCalories =>
+      totalCaloriesFromApi ??
+      items.fold(0, (sum, item) => sum + item.caloriesKcal.round());
 }
 
 /// Weekly meal plan response.
@@ -910,18 +1237,53 @@ class WeeklyPlanResponse {
 
   factory WeeklyPlanResponse.fromJson(Map<String, dynamic> json) {
     final data = _RecommendationJson.response(json);
-    final rawDays = _RecommendationJson.value(data, const ['days', 'Days', 'weekly_plan', 'weeklyPlan', 'WeeklyPlan', 'plan', 'Plan']);
-    final days = _RecommendationJson.maps(rawDays).map(WeeklyPlanDay.fromJson).toList();
+    final rawDays = _RecommendationJson.value(data, const [
+      'days',
+      'Days',
+      'weekly_plan',
+      'weeklyPlan',
+      'WeeklyPlan',
+      'plan',
+      'Plan',
+    ]);
+    final days = _RecommendationJson.maps(
+      rawDays,
+    ).map(WeeklyPlanDay.fromJson).toList();
     return WeeklyPlanResponse(
-      id: _RecommendationJson.text(_RecommendationJson.value(data, const ['id', 'Id', 'request_id', 'requestId'])) ?? '',
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'id',
+              'Id',
+              'request_id',
+              'requestId',
+            ]),
+          ) ??
+          '',
       startDate: _RecommendationJson.date(
-        _RecommendationJson.value(data, const ['start_date', 'startDate', 'StartDate', 'date', 'Date']),
+        _RecommendationJson.value(data, const [
+          'start_date',
+          'startDate',
+          'StartDate',
+          'date',
+          'Date',
+        ]),
       ),
       endDate: _RecommendationJson.date(
-        _RecommendationJson.value(data, const ['end_date', 'endDate', 'EndDate']),
+        _RecommendationJson.value(data, const [
+          'end_date',
+          'endDate',
+          'EndDate',
+        ]),
       ),
       dailyTargetCalories: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['daily_target_calories', 'dailyTargetCalories', 'DailyTargetCalories', 'target_calories', 'targetCalories']),
+        _RecommendationJson.value(data, const [
+          'daily_target_calories',
+          'dailyTargetCalories',
+          'DailyTargetCalories',
+          'target_calories',
+          'targetCalories',
+        ]),
       ),
       days: days,
     );
@@ -941,18 +1303,42 @@ class WeeklyPlanDay {
   final List<DailyMenuPlanItem> meals;
 
   factory WeeklyPlanDay.fromJson(Map<String, dynamic> json) {
-    final rawMeals = _RecommendationJson.value(json, const ['meals', 'Meals', 'items', 'Items', 'recommendations', 'Recommendations']);
+    final rawMeals = _RecommendationJson.value(json, const [
+      'meals',
+      'Meals',
+      'items',
+      'Items',
+      'recommendations',
+      'Recommendations',
+    ]);
     return WeeklyPlanDay(
-      date: _RecommendationJson.date(_RecommendationJson.value(json, const ['date', 'Date', 'plan_date', 'planDate'])),
-      dayName: _RecommendationJson.text(
-            _RecommendationJson.value(json, const ['day_name', 'dayName', 'DayName', 'day_of_week', 'dayOfWeek']),
+      date: _RecommendationJson.date(
+        _RecommendationJson.value(json, const [
+          'date',
+          'Date',
+          'plan_date',
+          'planDate',
+        ]),
+      ),
+      dayName:
+          _RecommendationJson.text(
+            _RecommendationJson.value(json, const [
+              'day_name',
+              'dayName',
+              'DayName',
+              'day_of_week',
+              'dayOfWeek',
+            ]),
           ) ??
           'Day',
-      meals: _RecommendationJson.maps(rawMeals).map(DailyMenuPlanItem.fromJson).toList(),
+      meals: _RecommendationJson.maps(
+        rawMeals,
+      ).map(DailyMenuPlanItem.fromJson).toList(),
     );
   }
 
-  int get totalCalories => meals.fold(0, (sum, meal) => sum + meal.targetCalories);
+  int get totalCalories =>
+      meals.fold(0, (sum, meal) => sum + meal.targetCalories);
 }
 
 /// Budget-aware recommendation response.
@@ -973,20 +1359,51 @@ class BudgetAwareResponse {
 
   factory BudgetAwareResponse.fromJson(Map<String, dynamic> json) {
     final data = _RecommendationJson.response(json);
-    final rawItems = _RecommendationJson.value(data, const ['items', 'Items', 'recommendations', 'Recommendations']);
-    final items = _RecommendationJson.maps(rawItems).map(RecommendationItem.fromJson).toList();
+    final rawItems = _RecommendationJson.value(data, const [
+      'items',
+      'Items',
+      'recommendations',
+      'Recommendations',
+    ]);
+    final items = _RecommendationJson.maps(
+      rawItems,
+    ).map(RecommendationItem.fromJson).toList();
     return BudgetAwareResponse(
-      id: _RecommendationJson.text(_RecommendationJson.value(data, const ['id', 'Id', 'request_id', 'requestId'])) ?? '',
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'id',
+              'Id',
+              'request_id',
+              'requestId',
+            ]),
+          ) ??
+          '',
       maxBudgetVnd: _RecommendationJson.integer(
-        _RecommendationJson.value(data, const ['max_budget_vnd', 'maxBudgetVnd', 'MaxBudgetVnd', 'budget_vnd', 'budgetVnd']),
+        _RecommendationJson.value(data, const [
+          'max_budget_vnd',
+          'maxBudgetVnd',
+          'MaxBudgetVnd',
+          'budget_vnd',
+          'budgetVnd',
+        ]),
       ),
-      totalEstimatedCost: _RecommendationJson.nullableInteger(
-            _RecommendationJson.value(data, const ['total_estimated_cost', 'totalEstimatedCost', 'TotalEstimatedCost']),
+      totalEstimatedCost:
+          _RecommendationJson.nullableInteger(
+            _RecommendationJson.value(data, const [
+              'total_estimated_cost',
+              'totalEstimatedCost',
+              'TotalEstimatedCost',
+            ]),
           ) ??
           items.fold(0, (total, item) => total + item.estimatedPriceVnd),
       items: items,
       savingsVnd: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['savings_vnd', 'savingsVnd', 'SavingsVnd']),
+        _RecommendationJson.value(data, const [
+          'savings_vnd',
+          'savingsVnd',
+          'SavingsVnd',
+        ]),
       ),
     );
   }
@@ -1019,39 +1436,80 @@ class RecommendationHistoryItem {
   final RecommendationFeedback? feedback;
 
   factory RecommendationHistoryItem.fromJson(Map<String, dynamic> json) {
-    final summary = _RecommendationJson.text(_RecommendationJson.value(json, const ['summary', 'Summary']));
+    final summary = _RecommendationJson.text(
+      _RecommendationJson.value(json, const ['summary', 'Summary']),
+    );
     final payload = _RecommendationJson.map(summary);
     final data = {...json, ...payload};
-    final type = _RecommendationJson.text(_RecommendationJson.value(json, const ['type', 'Type']));
-    final rawItems = _RecommendationJson.value(data, const ['items', 'Items', 'recommendations', 'Recommendations']);
-    final mealType = _RecommendationJson.text(
-          _RecommendationJson.value(data, const ['meal_slot', 'mealSlot', 'meal_type', 'mealType', 'MealType']),
+    final type = _RecommendationJson.text(
+      _RecommendationJson.value(json, const ['type', 'Type']),
+    );
+    final rawItems = _RecommendationJson.value(data, const [
+      'items',
+      'Items',
+      'recommendations',
+      'Recommendations',
+    ]);
+    final mealType =
+        _RecommendationJson.text(
+          _RecommendationJson.value(data, const [
+            'meal_slot',
+            'mealSlot',
+            'meal_type',
+            'mealType',
+            'MealType',
+          ]),
         ) ??
         _mealTypeFromHistoryType(type);
 
     return RecommendationHistoryItem(
-      id: _RecommendationJson.text(_RecommendationJson.value(json, const ['id', 'Id'])) ?? '',
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(json, const ['id', 'Id']),
+          ) ??
+          '',
       mealType: mealType,
       createdAt: _RecommendationJson.date(
-        _RecommendationJson.value(json, const ['created_at', 'createdAt', 'CreatedAt']),
+        _RecommendationJson.value(json, const [
+          'created_at',
+          'createdAt',
+          'CreatedAt',
+        ]),
       ),
       targetCalories: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['target_calories', 'targetCalories', 'TargetCalories']),
+        _RecommendationJson.value(data, const [
+          'target_calories',
+          'targetCalories',
+          'TargetCalories',
+        ]),
       ),
-      itemCount: _RecommendationJson.nullableInteger(
-            _RecommendationJson.value(data, const ['item_count', 'itemCount', 'ItemCount']),
+      itemCount:
+          _RecommendationJson.nullableInteger(
+            _RecommendationJson.value(data, const [
+              'item_count',
+              'itemCount',
+              'ItemCount',
+            ]),
           ) ??
           _RecommendationJson.maps(rawItems).length,
       type: type,
       summary: summary,
-      confidence: _RecommendationJson.number(
-        _RecommendationJson.value(json, const ['confidence', 'Confidence']),
-        fallback: double.nan,
-      ).isNaN
+      confidence:
+          _RecommendationJson.number(
+            _RecommendationJson.value(json, const ['confidence', 'Confidence']),
+            fallback: double.nan,
+          ).isNaN
           ? null
-          : _RecommendationJson.number(_RecommendationJson.value(json, const ['confidence', 'Confidence'])),
+          : _RecommendationJson.number(
+              _RecommendationJson.value(json, const [
+                'confidence',
+                'Confidence',
+              ]),
+            ),
       feedback: json['feedback'] != null || json['Feedback'] != null
-          ? RecommendationFeedback.fromJson(json['feedback'] ?? json['Feedback'])
+          ? RecommendationFeedback.fromJson(
+              json['feedback'] ?? json['Feedback'],
+            )
           : null,
     );
   }
@@ -1086,29 +1544,70 @@ class RecommendationDetail {
   final RecommendationFeedback? feedback;
 
   factory RecommendationDetail.fromJson(Map<String, dynamic> json) {
-    final input = _RecommendationJson.text(_RecommendationJson.value(json, const ['input', 'Input']));
-    final output = _RecommendationJson.text(_RecommendationJson.value(json, const ['output', 'Output']));
+    final input = _RecommendationJson.text(
+      _RecommendationJson.value(json, const ['input', 'Input']),
+    );
+    final output = _RecommendationJson.text(
+      _RecommendationJson.value(json, const ['output', 'Output']),
+    );
     final inputData = _RecommendationJson.map(input);
     final outputData = _RecommendationJson.map(output);
     final data = {...json, ...inputData, ...outputData};
-    final rawItems = _RecommendationJson.value(data, const ['items', 'Items', 'recommendations', 'Recommendations']);
-    final confidenceRaw = _RecommendationJson.value(json, const ['confidence', 'Confidence']);
-    final confidence = confidenceRaw == null ? null : _RecommendationJson.number(confidenceRaw);
+    final rawItems = _RecommendationJson.value(data, const [
+      'items',
+      'Items',
+      'recommendations',
+      'Recommendations',
+    ]);
+    final confidenceRaw = _RecommendationJson.value(json, const [
+      'confidence',
+      'Confidence',
+    ]);
+    final confidence = confidenceRaw == null
+        ? null
+        : _RecommendationJson.number(confidenceRaw);
 
     return RecommendationDetail(
-      id: _RecommendationJson.text(_RecommendationJson.value(json, const ['id', 'Id'])) ?? '',
-      mealType: _RecommendationJson.text(
-            _RecommendationJson.value(data, const ['meal_slot', 'mealSlot', 'meal_type', 'mealType', 'MealType']),
+      id:
+          _RecommendationJson.text(
+            _RecommendationJson.value(json, const ['id', 'Id']),
           ) ??
-          _mealTypeFromHistoryType(_RecommendationJson.text(_RecommendationJson.value(json, const ['type', 'Type']))),
+          '',
+      mealType:
+          _RecommendationJson.text(
+            _RecommendationJson.value(data, const [
+              'meal_slot',
+              'mealSlot',
+              'meal_type',
+              'mealType',
+              'MealType',
+            ]),
+          ) ??
+          _mealTypeFromHistoryType(
+            _RecommendationJson.text(
+              _RecommendationJson.value(json, const ['type', 'Type']),
+            ),
+          ),
       createdAt: _RecommendationJson.date(
-        _RecommendationJson.value(json, const ['created_at', 'createdAt', 'CreatedAt']),
+        _RecommendationJson.value(json, const [
+          'created_at',
+          'createdAt',
+          'CreatedAt',
+        ]),
       ),
       targetCalories: _RecommendationJson.nullableInteger(
-        _RecommendationJson.value(data, const ['target_calories', 'targetCalories', 'TargetCalories']),
+        _RecommendationJson.value(data, const [
+          'target_calories',
+          'targetCalories',
+          'TargetCalories',
+        ]),
       ),
-      items: _RecommendationJson.maps(rawItems).map(RecommendationItem.fromJson).toList(),
-      type: _RecommendationJson.text(_RecommendationJson.value(json, const ['type', 'Type'])),
+      items: _RecommendationJson.maps(
+        rawItems,
+      ).map(RecommendationItem.fromJson).toList(),
+      type: _RecommendationJson.text(
+        _RecommendationJson.value(json, const ['type', 'Type']),
+      ),
       input: input,
       output: output,
       confidence: confidence,
@@ -1116,7 +1615,9 @@ class RecommendationDetail {
         _RecommendationJson.value(data, const ['explanation', 'Explanation']),
       ),
       feedback: json['feedback'] != null || json['Feedback'] != null
-          ? RecommendationFeedback.fromJson(json['feedback'] ?? json['Feedback'])
+          ? RecommendationFeedback.fromJson(
+              json['feedback'] ?? json['Feedback'],
+            )
           : null,
     );
   }
@@ -1144,25 +1645,40 @@ class RecommendationFeedback {
     );
     return RecommendationFeedback(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
-      recommendationId: (json['recommendationId'] ?? json['RecommendationId'] ?? '').toString(),
-      isLiked: _RecommendationJson.boolean(
-            _RecommendationJson.value(json, const ['isLiked', 'IsLiked', 'wouldRecommend', 'WouldRecommend']),
+      recommendationId:
+          (json['recommendationId'] ?? json['RecommendationId'] ?? '')
+              .toString(),
+      isLiked:
+          _RecommendationJson.boolean(
+            _RecommendationJson.value(json, const [
+              'isLiked',
+              'IsLiked',
+              'wouldRecommend',
+              'WouldRecommend',
+            ]),
           ) ??
           (rating == null || rating >= 3),
       comment: _RecommendationJson.text(
-        _RecommendationJson.value(json, const ['feedback', 'Feedback', 'comment', 'Comment']),
+        _RecommendationJson.value(json, const [
+          'feedback',
+          'Feedback',
+          'comment',
+          'Comment',
+        ]),
       ),
       submittedAt: DateTime.tryParse(
-            json['submittedAt']?.toString() ?? json['SubmittedAt']?.toString() ?? '',
-          ),
+        json['submittedAt']?.toString() ??
+            json['SubmittedAt']?.toString() ??
+            '',
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'RecommendationId': recommendationId,
-        'Rating': isLiked ? 5 : 1,
-        if (comment != null) 'Feedback': comment,
-      };
+    'RecommendationId': recommendationId,
+    'Rating': isLiked ? 5 : 1,
+    if (comment != null) 'Feedback': comment,
+  };
 }
 
 /// Feedback summary by meal type.
@@ -1178,13 +1694,21 @@ class FeedbackSummary {
   final int totalDisliked;
 
   factory FeedbackSummary.fromJson(Map<String, dynamic> json) {
-    final rawBreakdown = json['breakdown'] ?? json['Breakdown'] ?? json['byMealType'] ?? json['ByMealType'] ?? {};
+    final rawBreakdown =
+        json['breakdown'] ??
+        json['Breakdown'] ??
+        json['byMealType'] ??
+        json['ByMealType'] ??
+        {};
     final map = <String, FeedbackCount>{};
     if (rawBreakdown is Map) {
       rawBreakdown.forEach((key, value) {
         if (value is Map) {
           map[key.toString()] = FeedbackCount.fromJson(
-            value.map((entryKey, entryValue) => MapEntry(entryKey.toString(), entryValue)),
+            value.map(
+              (entryKey, entryValue) =>
+                  MapEntry(entryKey.toString(), entryValue),
+            ),
           );
         }
       });
@@ -1192,10 +1716,16 @@ class FeedbackSummary {
     return FeedbackSummary(
       breakdown: map,
       totalLiked: _RecommendationJson.integer(
-        json['totalLiked'] ?? json['TotalLiked'] ?? json['positiveCount'] ?? json['PositiveCount'],
+        json['totalLiked'] ??
+            json['TotalLiked'] ??
+            json['positiveCount'] ??
+            json['PositiveCount'],
       ),
       totalDisliked: _RecommendationJson.integer(
-        json['totalDisliked'] ?? json['TotalDisliked'] ?? json['negativeCount'] ?? json['NegativeCount'],
+        json['totalDisliked'] ??
+            json['TotalDisliked'] ??
+            json['negativeCount'] ??
+            json['NegativeCount'],
       ),
     );
   }
@@ -1210,8 +1740,15 @@ class FeedbackCount {
 
   factory FeedbackCount.fromJson(Map<String, dynamic> json) {
     return FeedbackCount(
-      liked: _RecommendationJson.integer(json['liked'] ?? json['Liked'] ?? json['positive'] ?? json['Positive']),
-      disliked: _RecommendationJson.integer(json['disliked'] ?? json['Disliked'] ?? json['negative'] ?? json['Negative']),
+      liked: _RecommendationJson.integer(
+        json['liked'] ?? json['Liked'] ?? json['positive'] ?? json['Positive'],
+      ),
+      disliked: _RecommendationJson.integer(
+        json['disliked'] ??
+            json['Disliked'] ??
+            json['negative'] ??
+            json['Negative'],
+      ),
     );
   }
 
@@ -1246,14 +1783,19 @@ class RecommendationScore {
       if (value.isNaN) return null;
       return value > 1 ? value / 100 : value;
     }
+
     return RecommendationScore(
       entityId: (json['entityId'] ?? json['EntityId'] ?? '').toString(),
       overallScore: numVal(json['overallScore'] ?? json['OverallScore']) ?? 0,
-      calorieScore: numVal(json['calorieScore'] ?? json['CaloriesScore'] ?? json['CalorieScore']),
+      calorieScore: numVal(
+        json['calorieScore'] ?? json['CaloriesScore'] ?? json['CalorieScore'],
+      ),
       macroScore: numVal(json['macroScore'] ?? json['MacroScore']),
       budgetScore: numVal(json['budgetScore'] ?? json['BudgetScore']),
       allergyScore: numVal(json['allergyScore'] ?? json['AllergyScore']),
-      preferenceScore: numVal(json['preferenceScore'] ?? json['PreferenceScore']),
+      preferenceScore: numVal(
+        json['preferenceScore'] ?? json['PreferenceScore'],
+      ),
     );
   }
 }
@@ -1269,9 +1811,7 @@ String _mealTypeFromHistoryType(String? type) {
 
 /// Smart cooking schedule.
 class SmartScheduleResponse {
-  SmartScheduleResponse({
-    required this.schedules,
-  });
+  SmartScheduleResponse({required this.schedules});
 
   final List<CookingScheduleItem> schedules;
 
@@ -1279,7 +1819,10 @@ class SmartScheduleResponse {
     final raw = json['schedules'] ?? json['Schedules'] ?? [];
     return SmartScheduleResponse(
       schedules: raw is List
-          ? raw.whereType<Map<String, dynamic>>().map(CookingScheduleItem.fromJson).toList()
+          ? raw
+                .whereType<Map<String, dynamic>>()
+                .map(CookingScheduleItem.fromJson)
+                .toList()
           : [],
     );
   }
@@ -1303,16 +1846,25 @@ class CookingScheduleItem {
     final rawSteps = json['steps'] ?? json['Steps'] ?? [];
     return CookingScheduleItem(
       mealType: (json['mealType'] ?? json['MealType'] ?? '').toString(),
-      cookByTime: DateTime.tryParse(
-            json['cookByTime']?.toString() ?? json['CookByTime']?.toString() ?? '',
+      cookByTime:
+          DateTime.tryParse(
+            json['cookByTime']?.toString() ??
+                json['CookByTime']?.toString() ??
+                '',
           ) ??
           DateTime.now(),
-      startPrepTime: DateTime.tryParse(
-            json['startPrepTime']?.toString() ?? json['StartPrepTime']?.toString() ?? '',
+      startPrepTime:
+          DateTime.tryParse(
+            json['startPrepTime']?.toString() ??
+                json['StartPrepTime']?.toString() ??
+                '',
           ) ??
           DateTime.now(),
       steps: rawSteps is List
-          ? rawSteps.whereType<Map<String, dynamic>>().map(CookingStep.fromJson).toList()
+          ? rawSteps
+                .whereType<Map<String, dynamic>>()
+                .map(CookingStep.fromJson)
+                .toList()
           : [],
     );
   }
@@ -1335,7 +1887,8 @@ class CookingStep {
   factory CookingStep.fromJson(Map<String, dynamic> json) {
     return CookingStep(
       stepOrder: json['stepOrder'] is int ? json['stepOrder'] as int : 0,
-      description: (json['description'] ?? json['Description'] ?? '').toString(),
+      description: (json['description'] ?? json['Description'] ?? '')
+          .toString(),
       durationMin: json['durationMin'] is int
           ? json['durationMin'] as int
           : (json['DurationMin'] is int ? json['DurationMin'] as int : 0),

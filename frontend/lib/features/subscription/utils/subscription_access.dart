@@ -1,10 +1,10 @@
 import '../models/subscription_models.dart';
 
 bool hasCasualSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
-  final now = DateTime.now();
+  final now = DateTime.now().toUtc();
   return subscriptions.any((subscription) {
     if (!subscription.isActive) return false;
-    final endDate = subscription.endDate;
+    final endDate = subscription.endDate?.toUtc();
     if (endDate != null && endDate.isBefore(now)) return false;
 
     final featureGroup = subscription.featureGroup?.trim().toLowerCase() ?? '';
@@ -16,10 +16,10 @@ bool hasCasualSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
 }
 
 bool hasGymerSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
-  final now = DateTime.now();
+  final now = DateTime.now().toUtc();
   return subscriptions.any((subscription) {
     if (!subscription.isActive) return false;
-    final endDate = subscription.endDate;
+    final endDate = subscription.endDate?.toUtc();
     if (endDate != null && endDate.isBefore(now)) return false;
 
     final featureGroup = subscription.featureGroup?.trim().toLowerCase() ?? '';
@@ -32,10 +32,10 @@ bool hasGymerSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
 }
 
 bool hasOfficeSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
-  final now = DateTime.now();
+  final now = DateTime.now().toUtc();
   return subscriptions.any((subscription) {
     if (!subscription.isActive) return false;
-    final endDate = subscription.endDate;
+    final endDate = subscription.endDate?.toUtc();
     if (endDate != null && endDate.isBefore(now)) return false;
 
     final featureGroup = subscription.featureGroup?.trim().toLowerCase() ?? '';
@@ -47,10 +47,10 @@ bool hasOfficeSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
 }
 
 bool hasAiVipSubscriptionAccess(Iterable<UserSubscription> subscriptions) {
-  final now = DateTime.now();
+  final now = DateTime.now().toUtc();
   return subscriptions.any((subscription) {
     if (!subscription.isActive) return false;
-    final endDate = subscription.endDate;
+    final endDate = subscription.endDate?.toUtc();
     if (endDate != null && endDate.isBefore(now)) return false;
 
     final featureGroup = subscription.featureGroup?.trim().toLowerCase() ?? '';

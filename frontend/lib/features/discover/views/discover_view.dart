@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/location_service.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../../profile/views/allergies_screen.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
 import '../widgets/discover_food_filters_sheet.dart';
@@ -45,8 +47,6 @@ class DiscoverViewState extends State<DiscoverView>
   List<FoodItem> _foods = [];
   List<RecipeItem> _recipes = [];
   List<IngredientItem> _ingredients = [];
-  Set<String> _favoriteFoodIds = <String>{};
-  final Set<String> _favoriteBusyIds = <String>{};
   int _loadGeneration = 0;
   bool _recipesLoaded = false;
   bool _ingredientsLoaded = false;
@@ -56,6 +56,7 @@ class DiscoverViewState extends State<DiscoverView>
   @override
   void initState() {
     super.initState();
+    context.read<FavoriteFoodProvider>().load();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
     _load(initial: true);
@@ -153,7 +154,6 @@ class DiscoverViewState extends State<DiscoverView>
         _initialLoading = false;
         _refreshing = false;
       });
-      unawaited(_refreshFavorites(generation: gen));
 
       if (_tabController.index == 1) {
         unawaited(_loadRecipes(generation: gen));
@@ -175,67 +175,6 @@ class DiscoverViewState extends State<DiscoverView>
         _refreshing = false;
       });
     }
-  }
-
-  Future<void> _refreshFavorites({int? generation}) async {
-    final gen = generation ?? _loadGeneration;
-    final favorites = await _repository.getFavorites().timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => <FavoriteFoodItem>[],
-    );
-    if (!mounted || gen != _loadGeneration) return;
-    setState(() {
-      _favoriteFoodIds = favorites.map((item) => item.foodId).toSet();
-    });
-  }
-
-  Future<void> _toggleFavorite(FoodItem food) async {
-    if (_favoriteBusyIds.contains(food.id)) return;
-
-    final wasFavorite = _favoriteFoodIds.contains(food.id);
-    setState(() => _favoriteBusyIds.add(food.id));
-
-    final ok = wasFavorite
-        ? await _repository.removeFavorite(food.id)
-        : await _repository.addFavorite(food.id);
-    if (!mounted) return;
-
-    setState(() {
-      _favoriteBusyIds.remove(food.id);
-      if (ok) {
-        if (wasFavorite) {
-          _favoriteFoodIds.remove(food.id);
-        } else {
-          _favoriteFoodIds.add(food.id);
-        }
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? wasFavorite
-                    ? 'Đã bỏ ${food.nameVi} khỏi mục yêu thích'
-                    : 'Đã thêm ${food.nameVi} vào mục yêu thích'
-              : 'Không thể cập nhật món yêu thích. Vui lòng thử lại.',
-        ),
-        backgroundColor: ok ? null : Colors.red,
-      ),
-    );
-  }
-
-  Future<void> _openFoodDetail(FoodItem food) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FoodDetailScreen(
-          foodId: food.id,
-          allergyMode: _effectiveAllergyMode,
-        ),
-      ),
-    );
-    if (mounted) await _refreshFavorites();
   }
 
   Future<void> _loadRecipes({int? generation}) async {
@@ -407,7 +346,7 @@ class DiscoverViewState extends State<DiscoverView>
                           builder: (_) => const FavoritesScreen(),
                         ),
                       );
-                      if (mounted) await _refreshFavorites();
+                      if (mounted) _scheduleReload();
                     },
                     icon: const Icon(
                       Icons.favorite_border,
@@ -643,12 +582,37 @@ class DiscoverViewState extends State<DiscoverView>
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final food = _foods[index];
-        return _FoodListTile(
-          food: food,
-          isFavorite: _favoriteFoodIds.contains(food.id),
-          favoriteBusy: _favoriteBusyIds.contains(food.id),
-          onFavorite: () => _toggleFavorite(food),
-          onTap: () => _openFoodDetail(food),
+        return Consumer<FavoriteFoodProvider>(
+          builder: (context, favorites, _) => _FoodListTile(
+            food: food,
+            isFavorite: favorites.isFavorite(food.id),
+            isFavoriteBusy: favorites.isMutating(food.id),
+            onFavorite: () async {
+              final result = await favorites.toggle(
+                FavoriteFoodItem.fromFood(food),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: result.isSuccess
+                      ? AppColors.primary
+                      : Colors.red.shade700,
+                ),
+              );
+            },
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FoodDetailScreen(
+                    foodId: food.id,
+                    allergyMode: _effectiveAllergyMode,
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -786,17 +750,17 @@ class DiscoverViewState extends State<DiscoverView>
 class _FoodListTile extends StatelessWidget {
   const _FoodListTile({
     required this.food,
-    required this.isFavorite,
-    required this.favoriteBusy,
-    required this.onFavorite,
     required this.onTap,
+    required this.onFavorite,
+    required this.isFavorite,
+    required this.isFavoriteBusy,
   });
 
   final FoodItem food;
-  final bool isFavorite;
-  final bool favoriteBusy;
-  final VoidCallback onFavorite;
   final VoidCallback onTap;
+  final VoidCallback onFavorite;
+  final bool isFavorite;
+  final bool isFavoriteBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -827,29 +791,22 @@ class _FoodListTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
-          if (favoriteBusy)
-            const Padding(
-              padding: EdgeInsets.all(14),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primary,
-                ),
-              ),
-            )
-          else
-            IconButton(
-              tooltip: isFavorite
-                  ? 'Bỏ khỏi mục yêu thích'
-                  : 'Thêm vào mục yêu thích',
-              onPressed: onFavorite,
-              icon: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : AppColors.primary,
-              ),
-            ),
+          IconButton(
+            tooltip: isFavorite
+                ? 'Bỏ món khỏi yêu thích'
+                : 'Thêm món vào yêu thích',
+            onPressed: isFavoriteBusy ? null : onFavorite,
+            icon: isFavoriteBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : AppColors.primary,
+                  ),
+          ),
         ],
       ),
       onTap: onTap,

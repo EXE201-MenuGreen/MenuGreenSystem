@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
-import '../repositories/food_discovery_repository.dart';
+import '../providers/favorite_food_provider.dart';
 import 'food_detail_screen.dart';
 
 import 'package:google_fonts/google_fonts.dart';
@@ -15,9 +16,7 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  final _repository = FoodDiscoveryRepository();
   List<FavoriteFoodItem> _items = [];
-  final Set<String> _removingIds = <String>{};
   bool _loading = true;
 
   @override
@@ -28,37 +27,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final items = await _repository.getFavorites();
+    final favorites = context.read<FavoriteFoodProvider>();
+    await favorites.load(forceRefresh: true);
     if (!mounted) return;
     setState(() {
-      _items = items;
+      _items = favorites.items;
       _loading = false;
     });
-  }
-
-  Future<void> _removeFavorite(FavoriteFoodItem item) async {
-    if (_removingIds.contains(item.foodId)) return;
-    setState(() => _removingIds.add(item.foodId));
-
-    final ok = await _repository.removeFavorite(item.foodId);
-    if (!mounted) return;
-    setState(() {
-      _removingIds.remove(item.foodId);
-      if (ok) {
-        _items.removeWhere((favorite) => favorite.foodId == item.foodId);
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Đã bỏ ${item.nameVi} khỏi mục yêu thích'
-              : 'Không thể bỏ món yêu thích. Vui lòng thử lại.',
-        ),
-        backgroundColor: ok ? null : Colors.red,
-      ),
-    );
   }
 
   @override
@@ -148,11 +123,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (item.address != null && item.address!.isNotEmpty)
+                        if (item.category != null && item.category!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
-                              '📍 ${item.address}',
+                              item.category!,
                               style: GoogleFonts.beVietnamPro(
                                 fontSize: 11.5,
                                 color: AppColors.primary,
@@ -177,23 +152,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     ),
                     trailing: IconButton(
                       tooltip: 'Bỏ khỏi mục yêu thích',
-                      icon: _removingIds.contains(item.foodId)
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.primary,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.favorite_rounded,
-                              color: Colors.red,
-                              size: 22,
-                            ),
-                      onPressed: _removingIds.contains(item.foodId)
-                          ? null
-                          : () => _removeFavorite(item),
+                      icon: const Icon(
+                        Icons.favorite_rounded,
+                        color: Colors.red,
+                        size: 22,
+                      ),
+                      onPressed: () async {
+                        final result = await context
+                            .read<FavoriteFoodProvider>()
+                            .toggle(item);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result.message),
+                            backgroundColor: result.isSuccess
+                                ? AppColors.primary
+                                : Colors.red.shade700,
+                          ),
+                        );
+                        await _load();
+                      },
                     ),
                     onTap: () {
                       Navigator.push(
