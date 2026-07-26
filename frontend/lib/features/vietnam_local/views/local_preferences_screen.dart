@@ -299,7 +299,7 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                               if (isGymPlan && e != 'gym') {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Gói cước Pro Tháng/GYM hiện tại của bạn chỉ áp dụng cho chế độ Gym / PT.'),
+                                    content: Text('Gói Gym/PT hiện tại của bạn chỉ áp dụng cho chế độ Gym / PT.'),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );

@@ -226,7 +226,7 @@ class ApiEndpoints {
   static String get subscriptionHistory =>
       '$baseUrl/UserSubscription/me/history';
 
-  // Premium Programs endpoints
+  // Premium Programs endpoints (catalog purchases - legacy; catalog seeded empty in Phase 8)
   static String get premiumPrograms => '$baseUrl/PremiumPrograms';
   static String premiumProgramCheckout(String id) =>
       '$baseUrl/PremiumPrograms/$id/checkout';
@@ -244,6 +244,29 @@ class ApiEndpoints {
       '$baseUrl/PremiumPrograms/my-programs/$userProgramId/wrap-up-report';
   static String premiumProgramCertificate(String userProgramId) =>
       '$baseUrl/PremiumPrograms/my-programs/$userProgramId/certificate';
+
+  // PT Review endpoints (Phase 8: split into Gymer-side + Coach-side)
+  static String get ptReviewMyRequests => '$baseUrl/PtReview/my-requests';
+  static String get ptReviewReports => '$baseUrl/PtReview/reports';
+  static String ptReviewResult(String requestId) =>
+      '$baseUrl/PtReview/requests/$requestId/result';
+  static String ptReviewApply(String requestId) =>
+      '$baseUrl/PtReview/requests/$requestId/apply';
+  static String ptReviewReject(String requestId) =>
+      '$baseUrl/PtReview/requests/$requestId/reject';
+  static String get ptReviewMyPersonalPrograms =>
+      '$baseUrl/PtReview/my-personal-programs';
+  static String ptReviewAcceptPersonalProgram(String requestId) =>
+      '$baseUrl/PtReview/personal-programs/$requestId/accept';
+
+  // Coach-side endpoints (Phase 8: coach creates PersonalProgram)
+  static String get coachCreatePersonalProgram =>
+      '$baseUrl/PtReview/coach/personal-programs';
+  static String coachListSentPersonalPrograms([String? clientId]) {
+    final base = '$baseUrl/PtReview/coach/personal-programs';
+    if (clientId == null || clientId.isEmpty) return base;
+    return '$base?clientId=$clientId';
+  }
 
   static String get sepayCreateOrder => '$baseUrl/payments/sepay/create-order';
   static String get sepayCreateRenewOrder =>

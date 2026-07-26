@@ -22,7 +22,7 @@ Hoàn thiện các mục 1–5 của `docs/workflow/gymer_workflow.md`, nối g�
 ### Gói Gym/PT và phân quyền
 
 - Seed plan **Gói Gym/PT** với `FeatureGroup = "gym"`, giá `0`, bốn nhóm quyền Mục tiêu/PT Review/Coach/Lộ trình.
-- `EntitlementHandler` kiểm tra toàn bộ subscription đang hoạt động và chấp nhận feature group `gym` hoặc `pro` cho tính năng Gymer.
+- `EntitlementHandler` kiểm tra toàn bộ subscription đang hoạt động và chấp nhận feature group `gym` cho tính năng Gymer. (Trước 2026-07-24 nhánh `pro` được chấp nhận cho tương thích ngược; hiện đã gỡ vì không còn bán gói `Pro` riêng.)
 - `UserSubscriptionService` ánh xạ gói Gym/PT sang role `Gymer` nhưng vẫn giữ nguyên ánh xạ Office và các gói khác.
 - `GET /api/UserSubscription/me/active` trả toàn bộ subscription đang hiệu lực, nên một user có thể đồng thời dùng Office, Gym và các gói khác mà không phụ thuộc gói mua gần nhất.
 - Migration: `20260716160000_AddGymerSubscriptionPlan.cs`.
@@ -63,7 +63,7 @@ Hoàn thiện các mục 1–5 của `docs/workflow/gymer_workflow.md`, nối g�
 ## Thay đổi Flutter
 
 - Trang chủ có card **GYMER VIP** nền trắng, viền xanh và bóng đổ đồng bộ khối quick action, đặt ngay phía trên **Hôm nay ăn gì/Kế hoạch ăn/Tính calo/Cân nặng**. Bốn icon dùng bảng màu xanh của ứng dụng; màu vàng chỉ làm điểm nhấn cho vương miện, kèm badge xanh **TRẢ PHÍ** để nhận diện gói Premium.
-- Dải **GYMER VIP** chỉ được render khi danh sách subscription có ít nhất một gói `gym/pro` đang active; tài khoản chưa mua, đang chờ thanh toán, đã hủy hoặc hết hạn sẽ không thấy dashboard này.
+- Dải **GYMER VIP** chỉ được render khi danh sách subscription có ít nhất một gói `gym` đang active; tài khoản chưa mua, đang chờ thanh toán, đã hủy hoặc hết hạn sẽ không thấy dashboard này. (Trước 2026-07-24 điều kiện còn bao gồm `pro`; hiện đã gỡ.)
 - Bốn tính năng Gym được tách khỏi Không gian Office và dẫn tới `GymerHubScreen`.
 - `UpgradePlanScreen` hiển thị card Gym/PT riêng với bốn icon, giá đọc từ backend và mặc định seed `0đ`.
 - `GymGoalsScreen` hiển thị chỉ số mục tiêu, cho phép ghi cân nặng/% mỡ và hiệu chỉnh xu hướng ngay trong luồng Gym.
@@ -74,7 +74,7 @@ Hoàn thiện các mục 1–5 của `docs/workflow/gymer_workflow.md`, nối g�
 
 - `dotnet build MenuGreen.sln --no-restore`: thành công, `0` lỗi; còn `2` warning cũ trong `AiAssistantService.cs` và `Program.cs`.
 - `flutter test --no-pub`: thành công, toàn bộ `17` tests passed.
-- Test subscription xác nhận user có nhiều gói vẫn thấy Gymer khi bất kỳ gói `gym/pro` nào active, và không thấy khi chỉ có Office hoặc gói Gym đã hủy.
+- Test subscription xác nhận user có nhiều gói vẫn thấy Gymer khi bất kỳ gói `gym` nào active, và không thấy khi chỉ có Office hoặc gói Gym đã hủy.
 - `flutter analyze --no-pub`: không có lỗi từ phần Gymer; còn `2` info cũ `unnecessary_underscores` trong `lucky_wheel_screen.dart`.
 - Widget test xác nhận gói Gymer được tách riêng, có bốn action và hiển thị ổn ở chiều rộng mobile `360px`.
 

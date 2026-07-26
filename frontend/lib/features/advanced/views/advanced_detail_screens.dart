@@ -43,93 +43,104 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
         newFood = TextEditingController(),
         newRecipe = TextEditingController();
     String action = 'Replace';
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Đề xuất thay đổi món'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: day,
-                  decoration: const InputDecoration(
-                    labelText: 'Ngày trong tuần, ví dụ Monday',
+    try {
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Đề xuất thay đổi món'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: day,
+                    decoration: const InputDecoration(
+                      labelText: 'Ngày trong tuần, ví dụ Monday',
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: meal,
-                  decoration: const InputDecoration(
-                    labelText: 'Bữa ăn, ví dụ Breakfast',
+                  TextField(
+                    controller: meal,
+                    decoration: const InputDecoration(
+                      labelText: 'Bữa ăn, ví dụ Breakfast',
+                    ),
                   ),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: action,
-                  items: const [
-                    DropdownMenuItem(value: 'Replace', child: Text('Thay món')),
-                    DropdownMenuItem(value: 'Add', child: Text('Thêm món')),
-                    DropdownMenuItem(value: 'Remove', child: Text('Bỏ món')),
-                  ],
-                  onChanged: (value) =>
-                      setDialogState(() => action = value ?? action),
-                ),
-                TextField(
-                  controller: notes,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Mô tả món thay đổi / ghi chú',
+                  DropdownButtonFormField<String>(
+                    initialValue: action,
+                    items: const [
+                      DropdownMenuItem(value: 'Replace', child: Text('Thay món')),
+                      DropdownMenuItem(value: 'Add', child: Text('Thêm món')),
+                      DropdownMenuItem(value: 'Remove', child: Text('Bỏ món')),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => action = value ?? action),
                   ),
-                ),
-                TextField(
-                  controller: oldFood,
-                  decoration: const InputDecoration(
-                    labelText: 'Food ID cũ (không bắt buộc)',
+                  TextField(
+                    controller: notes,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Mô tả món thay đổi / ghi chú',
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: newFood,
-                  decoration: const InputDecoration(
-                    labelText: 'Food ID mới (không bắt buộc)',
+                  TextField(
+                    controller: oldFood,
+                    decoration: const InputDecoration(
+                      labelText: 'Food ID cũ (không bắt buộc)',
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: newRecipe,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipe ID mới (không bắt buộc)',
+                  TextField(
+                    controller: newFood,
+                    decoration: const InputDecoration(
+                      labelText: 'Food ID mới (không bắt buộc)',
+                    ),
                   ),
-                ),
-              ],
+                  TextField(
+                    controller: newRecipe,
+                    decoration: const InputDecoration(
+                      labelText: 'Recipe ID mới (không bắt buộc)',
+                    ),
+                  ),
+                ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Thêm'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Hủy'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Thêm'),
-            ),
-          ],
         ),
-      ),
-    );
-    if (accepted == true &&
-        day.text.trim().isNotEmpty &&
-        meal.text.trim().isNotEmpty) {
-      setState(
-        () => changes.add({
-          'dayOfWeek': day.text.trim(),
-          'mealType': meal.text.trim(),
-          'action': action,
-          'notes': notes.text.trim(),
-          if (oldFood.text.trim().isNotEmpty) 'oldFoodId': oldFood.text.trim(),
-          if (newFood.text.trim().isNotEmpty) 'newFoodId': newFood.text.trim(),
-          if (newRecipe.text.trim().isNotEmpty)
-            'newRecipeId': newRecipe.text.trim(),
-        }),
       );
+      if (accepted == true &&
+          day.text.trim().isNotEmpty &&
+          meal.text.trim().isNotEmpty) {
+        setState(
+          () => changes.add({
+            'dayOfWeek': day.text.trim(),
+            'mealType': meal.text.trim(),
+            'action': action,
+            'notes': notes.text.trim(),
+            if (oldFood.text.trim().isNotEmpty) 'oldFoodId': oldFood.text.trim(),
+            if (newFood.text.trim().isNotEmpty) 'newFoodId': newFood.text.trim(),
+            if (newRecipe.text.trim().isNotEmpty)
+              'newRecipeId': newRecipe.text.trim(),
+          }),
+        );
+      }
+    } finally {
+      // Dispose controllers tạm dùng trong dialog — tránh leak và
+      // "dependents.isEmpty is not true" khi dialog bị đóng bất thường.
+      day.dispose();
+      meal.dispose();
+      notes.dispose();
+      oldFood.dispose();
+      newFood.dispose();
+      newRecipe.dispose();
     }
   }
 
@@ -158,11 +169,24 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
       });
       if (mounted) {
         showError(context, 'Đã gửi đánh giá');
-        Navigator.pop(context, true);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) showError(context, e);
     }
+  }
+
+  @override
+  void dispose() {
+    // Dispose tất cả TextEditingController để tránh
+    // "dependents.isEmpty is not true" khi back ra khỏi màn hình.
+    token.dispose();
+    comment.dispose();
+    calories.dispose();
+    protein.dispose();
+    super.dispose();
   }
 
   @override
@@ -300,11 +324,23 @@ class _CoachRegisterScreenState extends State<CoachRegisterScreen> {
       });
       if (mounted) {
         showError(context, 'Đăng ký coach thành công');
-        Navigator.pop(context, true);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) showError(context, e);
     }
+  }
+
+  @override
+  void dispose() {
+    specialty.dispose();
+    bio.dispose();
+    years.dispose();
+    price.dispose();
+    certificate.dispose();
+    super.dispose();
   }
 
   @override
@@ -951,6 +987,27 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     load();
   }
 
+  @override
+  void dispose() {
+    // Dispose tất cả TextEditingController để tránh lỗi
+    // "dependents.isEmpty is not true" khi TextField con vẫn còn dependent
+    // vào controller đã bị Flutter dispose cùng widget. Việc thiếu dispose
+    // override trước đây là nguyên nhân chính gây crash khi user bấm
+    // "Duyệt lộ trình" rồi back ra khỏi màn hình.
+    feedbackText.dispose();
+    cal.dispose();
+    protein.dispose();
+    carbs.dispose();
+    fat.dispose();
+    reviewComment.dispose();
+    reviewCalorie.dispose();
+    reviewProtein.dispose();
+    routeComment.dispose();
+    routeCalorie.dispose();
+    routeProtein.dispose();
+    super.dispose();
+  }
+
   Future<void> load() async {
     try {
       final dateStr =
@@ -1037,13 +1094,17 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         'suggestedChanges': <dynamic>[],
       });
 
-      reviewComment.clear();
-      reviewCalorie.clear();
-      reviewProtein.clear();
+      if (mounted) {
+        reviewComment.clear();
+        reviewCalorie.clear();
+        reviewProtein.clear();
+      }
 
       await load();
       if (mounted) {
-        Navigator.pop(context); // Close review dialog
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã gửi đánh giá tuần thành công!')),
         );
@@ -1136,13 +1197,21 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
         'suggestedChanges': <dynamic>[],
       });
 
-      routeComment.clear();
-      routeCalorie.clear();
-      routeProtein.clear();
+      // Chỉ reset form khi widget còn mounted (dialog chưa bị đóng bất thường).
+      if (mounted) {
+        routeComment.clear();
+        routeCalorie.clear();
+        routeProtein.clear();
+      }
 
       await load();
+
+      // Đóng dialog an toàn: chỉ pop nếu vẫn mounted (tránh Navigator pop nhầm
+      // route khác khi dialog đã được barrier-dismiss trong lúc await API).
       if (mounted) {
-        Navigator.pop(context); // Close review dialog
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đã duyệt lộ trình của học viên thành công!'),
@@ -1670,49 +1739,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                     child: ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.person,
-                                      color: Colors.blueAccent,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Hồ sơ sức khỏe của học viên',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Divider(),
-                                Text(
-                                  '• Chiều cao: ${valueOf(profile ?? {}, 'heightCm', '-')} cm  '
-                                  '• Cân nặng: ${valueOf(profile ?? {}, 'weightKg', '-')} kg\n'
-                                  '• BMI: ${valueOf(profile ?? {}, 'bmi', '-')}  '
-                                  '• Mục tiêu: ${valueOf(profile ?? {}, 'goal', '-')}\n'
-                                  '• Calo mục tiêu: ${valueOf(profile ?? {}, 'trainingDayTargetCalories', '-')} kcal\n'
-                                  '• Dị ứng: ${valueOf(profile ?? {}, 'allergies', 'Không có')}',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade800,
-                                    height: 1.5,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        _buildStudentHealthProfileCard(primaryColor),
                         const SizedBox(height: 16),
                         _buildReviewRequestsSection(primaryColor),
                         const SizedBox(height: 16),
@@ -2550,6 +2577,392 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     );
   }
 
+  /// Dịch giá trị Goal từ backend (HealthProfile.Goal) sang tiếng Việt.
+  /// Backend lưu các giá trị: "Maintain weight", "Lose weight",
+  /// "Gain weight", "Build muscle", "recomp" / "recomposition".
+  static String _translateGoal(String goal) {
+    if (goal.isEmpty) return 'Chưa đặt';
+    final g = goal.trim().toLowerCase();
+    switch (g) {
+      case 'maintain weight':
+      case 'maintain':
+      case 'maintainweight':
+        return 'Giữ cân';
+      case 'lose weight':
+      case 'loseweight':
+      case 'cut':
+      case 'weightloss':
+        return 'Giảm cân';
+      case 'gain weight':
+      case 'gainweight':
+      case 'bulk':
+      case 'weightgain':
+        return 'Tăng cân';
+      case 'build muscle':
+      case 'buildmuscle':
+      case 'gainmuscle':
+        return 'Tăng cơ';
+      case 'recomp':
+      case 'recomposition':
+        return 'Tái tạo cơ thể';
+      case 'healthy eating':
+      case 'healthyeating':
+        return 'Ăn uống lành mạnh';
+      case 'improve performance':
+      case 'improveperformance':
+        return 'Cải thiện thành tích';
+      default:
+        return goal;
+    }
+  }
+
+  /// Ưu tiên đọc `trainingDayTargetCalories` từ response (nếu backend trả
+  /// thêm), nếu không có thì fallback `targetCalories`.
+  /// Trả về '-' nếu cả hai đều rỗng.
+  String _resolveTrainingDayCalories(Map<String, dynamic> data, BuildContext _) {
+    final v = valueOf(data, 'trainingDayTargetCalories');
+    if (v.isNotEmpty && v != '-') return v;
+    final t = valueOf(data, 'targetCalories');
+    if (t.isNotEmpty && t != '-') return t;
+    return '-';
+  }
+
+  String _resolveRestDayCalories(Map<String, dynamic> data, BuildContext _) {
+    final v = valueOf(data, 'restDayTargetCalories');
+    if (v.isNotEmpty && v != '-') return v;
+    final t = valueOf(data, 'targetCalories');
+    if (t.isNotEmpty && t != '-') return t;
+    return '-';
+  }
+
+  Widget _buildStudentHealthProfileCard(Color primaryColor) {
+    final data = profile ?? {};
+    final height = valueOf(data, 'heightCm', '-');
+    final weight = valueOf(data, 'weightKg', '-');
+    final targetWeight = valueOf(data, 'targetWeightKg', '-');
+    final bodyFat = valueOf(data, 'bodyFatPercent', '-');
+    final bmi = valueOf(data, 'bmi', '-');
+    final goal = _translateGoal(valueOf(data, 'goal', ''));
+    final activityLevel = _translateActivityLevel(valueOf(data, 'activityLevel', ''));
+
+    final bmr = _resolveBmrKcal(data);
+    final tdee = _resolveTdeeKcal(data);
+    final targetCal = _resolveTrainingDayCalories(data, context);
+    final restCal = _resolveRestDayCalories(data, context);
+
+    final targetProtein = valueOf(data, 'targetProteinG', '-');
+    final targetCarbs = valueOf(data, 'targetCarbsG', '-');
+    final targetFat = valueOf(data, 'targetFatG', '-');
+
+    final rawAllergies = data['allergies'] ?? data['Allergies'];
+    List<String> allergiesList = [];
+    if (rawAllergies is List) {
+      allergiesList = rawAllergies.map((e) => e.toString()).where((e) => e.isNotEmpty && e != '[]').toList();
+    } else if (rawAllergies is String && rawAllergies.isNotEmpty && rawAllergies != '[]' && rawAllergies != 'Không có') {
+      allergiesList = [rawAllergies];
+    }
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [primaryColor, primaryColor.withValues(alpha: 0.85)],
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    child: const Icon(Icons.favorite, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hồ sơ sức khỏe của học viên',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Thông tin thể trạng & dinh dưỡng chi tiết',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ExpansionTile(
+              initiallyExpanded: true,
+              leading: const Icon(Icons.straighten, color: Colors.blue),
+              title: const Text(
+                'Chỉ số thể trạng cơ bản',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: Text(
+                'BMI: $bmi • Mục tiêu: $goal',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                _buildMetricGrid([
+                  _MetricItemData('Chiều cao', '$height cm', Icons.straighten, Colors.blue),
+                  _MetricItemData('Cân nặng', '$weight kg', Icons.monitor_weight_outlined, Colors.indigo),
+                  _MetricItemData('CN mục tiêu', '$targetWeight ${targetWeight != '-' ? 'kg' : ''}', Icons.flag_outlined, Colors.amber.shade800),
+                  _MetricItemData('BMI', bmi, Icons.calculate_outlined, Colors.teal),
+                  _MetricItemData('% Body Fat', '$bodyFat ${bodyFat != '-' ? '%' : ''}', Icons.pie_chart_outline, Colors.orange),
+                  _MetricItemData('Vận động', activityLevel, Icons.directions_run, Colors.purple),
+                ]),
+              ],
+            ),
+            const Divider(height: 1),
+            ExpansionTile(
+              initiallyExpanded: true,
+              leading: const Icon(Icons.local_fire_department, color: Colors.deepOrange),
+              title: const Text(
+                'Năng lượng & Calo tiêu thụ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Calo mục tiêu: $targetCal kcal/ngày',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                _buildMetricGrid([
+                  _MetricItemData('BMR (Cơ bản)', '$bmr kcal', Icons.bolt, Colors.amber),
+                  _MetricItemData('TDEE (Tổng/ngày)', '$tdee kcal', Icons.speed, Colors.deepOrange),
+                  _MetricItemData('Calo ngày tập', '$targetCal kcal', Icons.fitness_center, Colors.green),
+                  _MetricItemData('Calo ngày nghỉ', '$restCal kcal', Icons.bedtime_outlined, Colors.blueGrey),
+                ]),
+              ],
+            ),
+            const Divider(height: 1),
+            ExpansionTile(
+              initiallyExpanded: true,
+              leading: const Icon(Icons.restaurant_menu, color: Colors.green),
+              title: const Text(
+                'Chỉ số Dinh dưỡng (Macros)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Protein: ${targetProtein}g • Carbs: ${targetCarbs}g • Fat: ${targetFat}g',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildMacroBadge('Protein', '$targetProtein g', Colors.redAccent)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildMacroBadge('Carbs', '$targetCarbs g', Colors.orangeAccent)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildMacroBadge('Fat', '$targetFat g', Colors.lightBlue)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        allergiesList.isNotEmpty ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                        color: allergiesList.isNotEmpty ? Colors.redAccent : Colors.green,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Cảnh báo Dị ứng thực phẩm',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (allergiesList.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified, color: Colors.green, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Không có ghi nhận dị ứng thực phẩm',
+                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: allergiesList.map((allergy) {
+                        return Chip(
+                          avatar: const Icon(Icons.do_not_disturb_on, color: Colors.white, size: 16),
+                          label: Text(
+                            allergy,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          backgroundColor: Colors.redAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricGrid(List<_MetricItemData> items) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 2.6,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: item.color.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(item.icon, color: item.color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.label,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      item.value,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: item.color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMacroBadge(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  String _translateActivityLevel(String level) {
+    final lower = level.toLowerCase();
+    if (lower.contains('sedentary')) return 'Ít vận động';
+    if (lower.contains('lightly')) return 'Vận động nhẹ';
+    if (lower.contains('moderately')) return 'Vận động vừa';
+    if (lower.contains('very active')) return 'Vận động nhiều';
+    if (lower.contains('extra active')) return 'Cường độ cao';
+    return level.isNotEmpty ? level : '-';
+  }
+
+  String _resolveBmrKcal(Map<String, dynamic> data) {
+    final keys = ['bmrKcal', 'bmr', 'BmrKcal', 'Bmr'];
+    for (final key in keys) {
+      final val = data[key];
+      if (val != null) {
+        final str = val.toString().trim();
+        if (str.isNotEmpty && str != 'null' && str != '-') return str;
+      }
+    }
+    final height = double.tryParse(valueOf(data, 'heightCm'));
+    final weight = double.tryParse(valueOf(data, 'weightKg'));
+    if (height != null && weight != null && height > 0 && weight > 0) {
+      final bmrEst = (10 * weight + 6.25 * height - 200).round();
+      return '$bmrEst';
+    }
+    return '-';
+  }
+
+  String _resolveTdeeKcal(Map<String, dynamic> data) {
+    final keys = ['tdeeKcal', 'tdee', 'TdeeKcal', 'Tdee'];
+    for (final key in keys) {
+      final val = data[key];
+      if (val != null) {
+        final str = val.toString().trim();
+        if (str.isNotEmpty && str != 'null' && str != '-') return str;
+      }
+    }
+    final bmrStr = _resolveBmrKcal(data);
+    final bmrVal = double.tryParse(bmrStr);
+    if (bmrVal != null && bmrVal > 0) {
+      final tdeeEst = (bmrVal * 1.375).round();
+      return '$tdeeEst';
+    }
+    return '-';
+  }
+
   Widget _buildTargetsAdjustmentSection(Color primaryColor) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2940,11 +3353,23 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
       );
       if (mounted) {
         showError(context, 'Đã lưu nguyên liệu');
-        Navigator.pop(context, true);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) showError(context, e);
     }
+  }
+
+  @override
+  void dispose() {
+    // Dispose tất cả TextEditingController trong map `fields` để tránh
+    // "dependents.isEmpty is not true" khi back ra khỏi màn hình.
+    for (final controller in fields.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -3445,4 +3870,12 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
       Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
     ],
   );
+}
+
+class _MetricItemData {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  _MetricItemData(this.label, this.value, this.icon, this.color);
 }

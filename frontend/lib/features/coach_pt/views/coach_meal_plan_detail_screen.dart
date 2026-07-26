@@ -22,6 +22,7 @@ class CoachMealPlanDetailScreen extends StatefulWidget {
 
 class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
   bool _dirty = false;
+  String? _initializedPlanId;
   late final List<_DraftItem> _draft;
 
   @override
@@ -99,13 +100,21 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
         .read<CoachMealPlanProvider>()
         .submitPlan(widget.planId, notes: notes.isEmpty ? null : notes);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok
-            ? 'Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.'
-            : 'Gửi thất bại. Vui lòng thử lại.'),
-      ),
-    );
+    if (ok) {
+      setState(() => _dirty = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.'),
+        ),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gửi thất bại. Vui lòng thử lại.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -126,10 +135,13 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
       );
     }
 
-    _draft.clear();
-    final itemsByMeal = plan.itemsByMeal;
-    for (final entry in itemsByMeal.entries) {
-      _draft.addAll(entry.value.map(_DraftItem.fromItem));
+    if (_initializedPlanId != plan.header.id && !_dirty) {
+      _initializedPlanId = plan.header.id;
+      _draft.clear();
+      final itemsByMeal = plan.itemsByMeal;
+      for (final entry in itemsByMeal.entries) {
+        _draft.addAll(entry.value.map(_DraftItem.fromItem));
+      }
     }
 
     return Scaffold(

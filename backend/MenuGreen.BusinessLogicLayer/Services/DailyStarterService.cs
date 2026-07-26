@@ -633,7 +633,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (ingredient != null && ingredient.CaloriesKcal.HasValue)
                 {
                     var quantity = ri.Quantity ?? 1;
-                    totalCalories += ingredient.CaloriesKcal.Value * quantity;
+                    var scale = Helpers.NutritionMath.IngredientNutritionRatio(quantity, ri.Unit ?? ingredient.UnitDefault);
+                    totalCalories += (ingredient.CaloriesKcal.Value) * scale;
                 }
             }
 

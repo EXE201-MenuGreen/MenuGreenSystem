@@ -82,11 +82,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Func<IEnumerable<Notification>, Task>? beforeProcessing)
         {
             var now = DateTimeOffset.UtcNow;
+            // Cửa sổ an toàn: chỉ pick các notification đã được tạo cách đây > 5s.
+            // Lý do: NotificationService.CreateNotificationAsync đã set SentAt
+            // NGAY TRƯỚC khi gọi FCM (in-line push). Tuy nhiên, để tránh race
+            // condition còn sót (vd. notification vừa insert nhưng transaction
+            // chưa commit xong khi background job quét), ta giữ cửa sổ 5s để
+            // chắc chắn in-line đã xử lý trước.
+            var safetyWindow = now.AddSeconds(-5);
 
             var pendingNotifications = await _unitOfWork.Notifications.FindAsync(
                 n => n.SentAt == null
                      && n.ScheduledAt != null
                      && n.ScheduledAt <= now
+                     && n.CreatedAt <= safetyWindow
                      && !n.IsDismissed
                      && (n.Type == null || !n.Type.StartsWith("DISABLED_")));
 

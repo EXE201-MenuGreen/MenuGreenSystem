@@ -16,8 +16,8 @@ CREATE TABLE meal_plan_item_substitutions (
     "CreatedAt" timestamp with time zone NOT NULL,
     CONSTRAINT "PK_meal_plan_item_substitutions" PRIMARY KEY ("Id"),
     CONSTRAINT "FK_meal_plan_item_substitutions_meal_plan_items_MealPlanItemId" FOREIGN KEY ("MealPlanItemId") REFERENCES meal_plan_items ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_meal_plan_item_substitutions_ingredients_OriginalIngredientId" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_meal_plan_item_substitutions_ingredients_Sub_IngredientId" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_mpi_sub_original_ingredient" FOREIGN KEY ("OriginalIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_mpi_sub_substitute_ingredient" FOREIGN KEY ("SubstituteIngredientId") REFERENCES ingredients ("Id") ON DELETE CASCADE
 );
 
 -- Seed Data for meal_plan_item_substitutions

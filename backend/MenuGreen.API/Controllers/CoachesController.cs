@@ -377,6 +377,126 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>Coach gets history list of client meal plans.</summary>
+        [HttpGet("clients/{clientId:guid}/meal-plans")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientMealPlans(
+            Guid clientId,
+            [FromQuery] DateOnly? from,
+            [FromQuery] DateOnly? to,
+            [FromQuery] string? planType)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientMealPlansAsync(userId, clientId, from, to, planType);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Coach gets single client meal plan detail.</summary>
+        [HttpGet("clients/{clientId:guid}/meal-plans/{planId:guid}")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientMealPlanDetail(Guid clientId, Guid planId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientMealPlanDetailAsync(userId, clientId, planId);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Coach creates a new meal plan on behalf of a student.</summary>
+        [HttpPost("clients/{clientId:guid}/meal-plans")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> CreateClientMealPlan(Guid clientId, [FromBody] MealPlanUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.CreateClientMealPlanAsync(userId, clientId, request);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Coach submits / approves a meal plan for a student.</summary>
+        [HttpPost("clients/{clientId:guid}/meal-plans/{planId:guid}/submit")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> SubmitClientMealPlan(Guid clientId, Guid planId, [FromBody] CoachSubmitMealPlanRequest? request)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.SubmitClientMealPlanAsync(userId, clientId, planId, request?.Notes);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>Coach deletes / deactivates a client meal plan.</summary>
+        [HttpDelete("clients/{clientId:guid}/meal-plans/{planId:guid}")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> DeleteClientMealPlan(Guid clientId, Guid planId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                await _coachService.DeleteClientMealPlanAsync(userId, clientId, planId);
+                return Ok(new { Message = "Meal plan deleted successfully." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpGet("clients/{clientId:guid}/meal-plan")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]

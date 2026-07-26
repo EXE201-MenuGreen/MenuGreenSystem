@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -5,10 +7,13 @@ import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
 import '../../advanced/views/advanced_detail_screens.dart';
 import '../../auth/views/welcome_screen.dart';
+import '../../main/views/main_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../notifications/repositories/notification_repository.dart';
+import '../../notifications/models/notification_models.dart';
+import '../../../core/services/realtime_notification_service.dart';
 import '../../coach_pt/views/coach_meal_plan_select_client_screen.dart';
 import '../../coach_pt/views/coach_reports_tab_screen.dart';
 import '../providers/coach_badge_provider.dart';
@@ -27,6 +32,7 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
   int _currentIndex = 0;
 
   late final List<Widget> _pages;
+  final _profileRepo = ProfileRepository();
 
   @override
   void initState() {
@@ -38,6 +44,30 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
       const _CoachNotificationsTab(),
       const _CoachProfileTab(),
     ];
+    WidgetsBinding.instance.addPostFrameCallback((_) => _enforceRoleGuard());
+  }
+
+  /// Guard: nếu user hiện tại không phải role `coach` thì đẩy về MainScreen.
+  /// Tránh trường hợp deep-link / state persisted đưa Gymer vào CoachMainScreen.
+  Future<void> _enforceRoleGuard() async {
+    try {
+      final profile = await _profileRepo.getMyProfile().timeout(
+        const Duration(seconds: 6),
+      );
+      if (!mounted) return;
+      final role = (profile?['role'] ?? profile?['Role'] ?? '')
+          .toString()
+          .toLowerCase();
+      if (role != 'coach') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+          (_) => false,
+        );
+      }
+    } catch (_) {
+      // Không redirect trên lỗi mạng — để user thấy app bình thường.
+    }
   }
 
   @override
@@ -595,23 +625,95 @@ class _CoachNotificationsTab extends StatefulWidget {
   State<_CoachNotificationsTab> createState() => _CoachNotificationsTabState();
 }
 
-class _CoachNotificationsTabState extends State<_CoachNotificationsTab> {
+class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
+    with WidgetsBindingObserver {
   final _repo = NotificationRepository();
+  final _realtime = RealtimeNotificationService();
   List<Map<String, dynamic>> _notis = [];
   bool _loading = true;
+  Timer? _refreshTimer;
+  StreamSubscription<AppNotification>? _realtimeNotifSub;
+  StreamSubscription<int>? _realtimeCountSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    // Đảm bảo realtime connection đã được start. NotificationProvider ở main.dart
+    // cũng gọi start() nhưng có thể dispose nếu Provider bị unmount. Đảm bảo gọi
+    // lại tại đây để tab Coach luôn nhận SignalR push.
+    _realtime.start();
+    _subscribeRealtime();
+    // Auto refresh mỗi 60s — fix bug "Coach không thấy thông báo học viên đăng ký"
+    // khi student gửi request sau khi Coach đã mở tab Thông báo.
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _load(silent: true),
+    );
+  }
+
+  void _subscribeRealtime() {
+    _realtimeNotifSub = _realtime.notifications.listen((notification) {
+      if (!mounted) return;
+      _onRealtimeNotification(notification);
+    });
+    _realtimeCountSub = _realtime.unreadCounts.listen((count) {
+      if (!mounted) return;
+      context.read<CoachBadgeProvider>().setUnreadNotifCount(count);
+    });
+  }
+
+  void _onRealtimeNotification(AppNotification notification) {
+    // Dedupe theo id — tránh hiển thị trùng khi SignalR push lại hoặc khi
+    // _load() silent cũng pick notification này sau đó.
+    final exists = _notis.any((n) =>
+        (n['notifId']?.toString() ?? n['id']?.toString()) == notification.id);
+    if (exists) return;
+
+    setState(() {
+      _notis.insert(0, {
+        'id': notification.id,
+        'title': notification.title,
+        'body': notification.body,
+        'isRead': notification.isRead,
+        'createdAt': notification.createdAt.toIso8601String(),
+        'source': 'realtime',
+        'notifId': notification.id,
+        'displayTitle': notification.displayTitle,
+        'displayBody': notification.displayBody,
+      });
+    });
+    // Cập nhật badge ngay khi có notification mới qua SignalR — user mở app
+    // không cần vào tab Thông báo mới biết có notif mới.
+    final unread = _notis
+        .where((n) => n['isRead'] != true && n['IsRead'] != true)
+        .length;
+    context.read<CoachBadgeProvider>().setUnreadNotifCount(unread);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _realtimeNotifSub?.cancel();
+    _realtimeCountSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   int get _unreadCount =>
       _notis.where((n) => n['isRead'] != true && n['IsRead'] != true).length;
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
     if (!mounted) return;
-    setState(() => _loading = true);
+    if (!silent) setState(() => _loading = true);
     try {
       final notifications = await _repo.getNotifications(pageSize: 50);
 
@@ -820,18 +922,16 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab> {
                                       DateTime.now(),
                                 )
                               : 'Vừa xong';
-                          final source =
-                              n['source']?.toString() ?? 'notification';
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: GestureDetector(
                               onTap: () {
-                                if (source == 'notification') {
-                                  final notifId = n['notifId']?.toString();
-                                  if (notifId != null && !isRead) {
-                                    _markRead(notifId);
-                                  }
+                                final notifId = n['notifId']?.toString();
+                                if (notifId != null && !isRead) {
+                                  // Cả notification thường và realtime đều
+                                  // được tap-to-read (mark as read).
+                                  _markRead(notifId);
                                 }
                               },
                               child: Container(

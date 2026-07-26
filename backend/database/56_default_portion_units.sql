@@ -6,6 +6,19 @@
 
 BEGIN;
 
+CREATE TABLE IF NOT EXISTS default_portion_units (
+    "Id" uuid NOT NULL,
+    "UnitName" character varying(150) NOT NULL,
+    "GramsEquivalent" numeric(18,2) NOT NULL,
+    "Description" character varying(500) NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_default_portion_units" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_default_portion_units_UnitName"
+    ON default_portion_units ("UnitName");
+
 INSERT INTO default_portion_units ("Id", "UnitName", "GramsEquivalent", "Description", "IsActive", "CreatedAt")
 VALUES
     ('d0000001-0000-0000-0000-000000000001', 'chén', 150.00, 'Chén cơm, chén chấm gia vị thông thường (khoảng 150g)', true, NOW()),

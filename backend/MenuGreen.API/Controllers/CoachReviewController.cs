@@ -22,10 +22,12 @@ namespace MenuGreen.API.Controllers
     public class CoachReviewController : ControllerBase
     {
         private readonly ICoachReviewService _service;
+        private readonly IPtReviewService _ptReviewService;
 
-        public CoachReviewController(ICoachReviewService service)
+        public CoachReviewController(ICoachReviewService service, IPtReviewService ptReviewService)
         {
             _service = service;
+            _ptReviewService = ptReviewService;
         }
 
         /// <summary>
@@ -135,6 +137,57 @@ namespace MenuGreen.API.Controllers
             userId = Guid.Empty;
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Guid.TryParse(userIdString, out userId);
+        }
+
+        // ====================================================================
+        // Phase 8: Coach -> Gymer (PersonalProgram direction)
+        // ====================================================================
+
+        /// <summary>
+        /// POST /api/PtReview/coach/personal-programs
+        /// Coach creates a PersonalProgram and sends it to a connected client (Gymer).
+        /// Status starts at "Pending"; client will Accept or Reject.
+        /// </summary>
+        [HttpPost("personal-programs")]
+        public async Task<IActionResult> CreatePersonalProgram([FromBody] CreatePersonalProgramRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var coachId)) return Unauthorized();
+
+            try
+            {
+                var result = await _ptReviewService.CreatePersonalProgramAsync(coachId, request);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/PtReview/coach/personal-programs
+        /// Coach lists the PersonalPrograms they have sent to their clients.
+        /// Optional clientId filter to scope to a single client.
+        /// </summary>
+        [HttpGet("personal-programs")]
+        public async Task<IActionResult> ListSentPersonalPrograms([FromQuery] Guid? clientId)
+        {
+            if (!TryGetUserId(out var coachId)) return Unauthorized();
+
+            try
+            {
+                var result = await _ptReviewService.GetCoachSentProgramsAsync(coachId, clientId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
     }
 }
