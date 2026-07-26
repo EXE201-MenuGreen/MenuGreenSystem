@@ -37,7 +37,7 @@ Kết quả cần đạt:
 
 ### 2.2 Chưa thực hiện trong giai đoạn đầu
 
-- Hoàn tiền tự động qua ngân hàng.
+
 - Lưu thẻ hoặc trích nợ định kỳ.
 - Thanh toán nhiều loại tiền tệ.
 - Chia nhỏ một đơn thành nhiều lần chuyển khoản.
