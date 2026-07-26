@@ -48,6 +48,49 @@ Hai endpoint đang trả 200 không phản ánh đúng trạng thái API:
 
 Vì vậy dashboard giám sát có thể báo xanh trong khi API thật đang lỗi.
 
+### 2.1. Bằng chứng từ Network timeline do người dùng cung cấp
+
+Ảnh Network cho thấy chuỗi sau lặp lại liên tục:
+
+| Thời điểm | Request | Status |
+|---|---|---:|
+| 16:47:15.647 | `/api/Food` | 401 |
+| 16:47:15.648 | `/api/user-meal-plans/adherence` | 200 |
+| 16:47:15.775 | `/api/MealPlan/dashboard` | 500 |
+| 16:47:15.777 | `/api/MealPlan/streaks` | 500 |
+| 16:47:15.971 | `/api/Food` | 401 |
+| 16:47:15.974 | `/api/user-meal-plans/adherence` | 200 |
+| 16:47:16.017 | `/api/MealPlan/dashboard` | 500 |
+| 16:47:16.018 | `/api/MealPlan/streaks` | 500 |
+| 16:47:16.249 | `/api/Food` | 401 |
+| 16:47:16.254 | `/api/user-meal-plans/adherence` | 200 |
+| 16:47:16.331 | `/api/MealPlan/dashboard` | 500 |
+| 16:47:16.333 | `/api/MealPlan/streaks` | 500 |
+| 16:47:16.556 | `/api/Food` | 429 |
+| 16:47:16.562 | `/api/user-meal-plans/adherence` | 200 |
+| 16:47:16.606 | `/api/MealPlan/dashboard` | 429 |
+| 16:47:16.607 | `/api/MealPlan/streaks` | 500 |
+| 16:47:16.848–17.076 | Food, adherence, dashboard, streaks | 429 |
+
+Dashboard được gọi lại vào khoảng 242–335 ms/lần. Chỉ riêng bốn endpoint trong ảnh đã tạo khoảng 12 request trước 429 đầu tiên, trong chưa đầy một giây và chưa tính các request nằm ngoài vùng ảnh.
+
+Pattern này củng cố trực tiếp feedback loop:
+
+1. Dashboard/streaks trả 500.
+2. Dashboard fallback sang adherence và nhận 200.
+3. Server failure đồng thời kích hoạt health probe `/Food`, nhận 401.
+4. Cả adherence 200 và health probe 401 đều có thể chuyển trạng thái về `connected`.
+5. Sự kiện reconnect gọi lại dashboard/streaks.
+6. Sau vài vòng, limiter bắt đầu trả 429 cho toàn bộ nhóm endpoint.
+
+Đây không giống retry nội bộ thông thường của `ApiErrorMiddleware`, vì:
+
+- Middleware không retry status 500.
+- Retry transient đầu tiên của middleware phải chờ khoảng một giây.
+- Ảnh cho thấy cả nhóm API được khởi tạo lại chỉ sau khoảng 250–350 ms.
+
+Việc các response 401/429 có kiểu hiển thị khác response JSON 200/500 là một dấu hiệu rejection có thể xảy ra trước controller, nhưng chưa đủ để phân biệt chắc chắn Nginx, ASP.NET rate limiter hay Cloudflare. Cần đối chiếu `CF-RAY`, response headers và log cùng thời điểm.
+
 ## 3. Nguyên nhân gốc phía Frontend
 
 ### P0.1 – Feedback loop giữa lỗi API và sự kiện reconnect
