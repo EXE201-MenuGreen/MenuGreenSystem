@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../repositories/advanced_repository.dart';
+import '../utils/weekly_report_rules.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import 'advanced_detail_screens.dart';
 
@@ -9,10 +10,12 @@ class AdvancedFeaturesScreen extends StatelessWidget {
     super.key,
     this.gymerOnly = false,
     this.initialIndex = 0,
+    this.initialReportId,
   });
 
   final bool gymerOnly;
   final int initialIndex;
+  final String? initialReportId;
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +53,16 @@ class AdvancedFeaturesScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: gymerOnly
-              ? const [_PtTab(), _CoachTab(gymerMode: true)]
-              : const [
-                  _PtTab(),
-                  _BudgetTab(),
-                  _CoachTab(),
-                  _IngredientTab(),
-                  _UserTab(),
+              ? [
+                  _PtTab(initialReportId: initialReportId),
+                  const _CoachTab(gymerMode: true),
+                ]
+              : [
+                  _PtTab(initialReportId: initialReportId),
+                  const _BudgetTab(),
+                  const _CoachTab(),
+                  const _IngredientTab(),
+                  const _UserTab(),
                 ],
         ),
       ),
@@ -73,7 +79,9 @@ void _notice(BuildContext c, Object value) =>
     );
 
 class _PtTab extends StatefulWidget {
-  const _PtTab();
+  const _PtTab({this.initialReportId});
+
+  final String? initialReportId;
   @override
   State<_PtTab> createState() => _PtTabState();
 }
@@ -82,6 +90,20 @@ class _PtTabState extends State<_PtTab> {
   final repo = AdvancedRepository();
   List<Map<String, dynamic>> rows = [];
   bool loading = true;
+  bool _openedInitialReport = false;
+
+  bool get _isSunday => canCreateWeeklyReportOn(DateTime.now());
+
+  DateTime get _currentWeekMonday => weeklyReportWeekStart(DateTime.now());
+
+  bool get _hasCurrentWeekReport {
+    final weekStart = _currentWeekMonday.toIso8601String().substring(0, 10);
+    return rows.any(
+      (row) =>
+          _v(row, 'requestType').toLowerCase() == 'weeklyreport' &&
+          _v(row, 'weekStartDate').startsWith(weekStart),
+    );
+  }
   @override
   void initState() {
     super.initState();
@@ -94,10 +116,36 @@ class _PtTabState extends State<_PtTab> {
     } catch (e) {
       if (mounted) _notice(context, e);
     }
-    if (mounted) setState(() => loading = false);
+    if (!mounted) return;
+    setState(() => loading = false);
+
+    final reportId = widget.initialReportId;
+    if (!_openedInitialReport && reportId != null && reportId.isNotEmpty) {
+      _openedInitialReport = true;
+      final matching = rows.where(
+        (row) => _v(row, 'reportId') == reportId,
+      );
+      if (matching.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) showResult(matching.first);
+        });
+      }
+    }
   }
 
   Future<void> create() async {
+    if (!_isSunday) {
+      _notice(
+        context,
+        'Báo cáo tuần chỉ mở vào Chủ nhật, sau khi tuần đã kết thúc.',
+      );
+      return;
+    }
+    if (_hasCurrentWeekReport) {
+      _notice(context, 'Bạn đã gửi báo cáo cho tuần này.');
+      return;
+    }
+
     try {
       final coaches = await repo.myCoaches();
       final hasConnected = coaches.any((c) => _v(c, 'connectionStatus').toLowerCase() == 'connected');
@@ -110,18 +158,29 @@ class _PtTabState extends State<_PtTab> {
       return;
     }
 
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final monday = _currentWeekMonday;
 
     final noteController = TextEditingController();
     final weightController = TextEditingController();
     final bodyFatController = TextEditingController();
     int selectedDays = 3;
     String selectedFeeling = 'Khỏe 😊';
+    String submittedNote = '';
+    double? submittedWeight;
+    double? submittedBodyFat;
 
-    if (!mounted) return;
+    if (!mounted) {
+      // Dispose controllers trước khi thoát để tránh leak khi widget
+      // đã bị unmount giữa lúc.
+      noteController.dispose();
+      weightController.dispose();
+      bodyFatController.dispose();
+      return;
+    }
 
-    final bool? shouldSubmit = await showDialog<bool>(
+    final bool? shouldSubmit;
+    try {
+      shouldSubmit = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Báo cáo & Check-in Tuần'),
@@ -248,12 +307,30 @@ class _PtTabState extends State<_PtTab> {
           ),
           FilledButton(
             onPressed: () {
-              if (weightController.text.trim().isEmpty) {
+              final weight = double.tryParse(weightController.text.trim());
+              final bodyFat = bodyFatController.text.trim().isEmpty
+                  ? null
+                  : double.tryParse(bodyFatController.text.trim());
+              if (weight == null || weight < 20 || weight > 400) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Vui lòng nhập cân nặng hiện tại')),
+                  const SnackBar(
+                    content: Text('Cân nặng phải nằm trong khoảng 20–400 kg'),
+                  ),
                 );
                 return;
               }
+              if (bodyFatController.text.trim().isNotEmpty &&
+                  (bodyFat == null || bodyFat < 1 || bodyFat > 75)) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tỷ lệ mỡ phải nằm trong khoảng 1–75%'),
+                  ),
+                );
+                return;
+              }
+              submittedNote = noteController.text.trim();
+              submittedWeight = weight;
+              submittedBodyFat = bodyFat;
               Navigator.pop(ctx, true);
             },
             child: const Text('Gửi báo cáo'),
@@ -261,19 +338,25 @@ class _PtTabState extends State<_PtTab> {
         ],
       ),
     );
+    } finally {
+      // Luôn dispose controllers khi dialog đóng (thành công hoặc huỷ)
+      // để tránh leak và lỗi "dependents.isEmpty is not true" khi widget
+      // TextField bị dispose cùng widget cha nhưng controller chưa được
+      // remove khỏi dependents.
+      noteController.dispose();
+      weightController.dispose();
+      bodyFatController.dispose();
+    }
 
     if (shouldSubmit != true) return;
 
     try {
-      final double? w = double.tryParse(weightController.text.trim());
-      final double? bf = double.tryParse(bodyFatController.text.trim());
-
       final r = await repo.createPtReport(
         monday.toIso8601String().substring(0, 10),
         7,
-        studentNote: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-        checkInWeight: w,
-        checkInBodyFat: bf,
+        studentNote: submittedNote.isEmpty ? null : submittedNote,
+        checkInWeight: submittedWeight,
+        checkInBodyFat: submittedBodyFat,
         trainingDaysCount: selectedDays,
         bodyFeeling: selectedFeeling,
       );
@@ -516,14 +599,38 @@ class _PtTabState extends State<_PtTab> {
             padding: const EdgeInsets.all(16),
             children: [
               FilledButton.icon(
-                onPressed: create,
-                icon: const Icon(Icons.add_link),
-                label: const Text('Tạo báo cáo tuần này'),
+                onPressed: _isSunday && !_hasCurrentWeekReport
+                    ? create
+                    : null,
+                icon: Icon(
+                  _hasCurrentWeekReport
+                      ? Icons.check_circle_outline
+                      : Icons.calendar_today,
+                ),
+                label: Text(
+                  _hasCurrentWeekReport
+                      ? 'Đã gửi báo cáo tuần này'
+                      : _isSunday
+                      ? 'Tạo báo cáo tuần này'
+                      : 'Mở vào Chủ nhật',
+                ),
               ),
+              if (!_isSunday && !_hasCurrentWeekReport) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Bạn chỉ có thể tạo báo cáo vào Chủ nhật sau khi hoàn tất dữ liệu của cả tuần.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
-              if (rows.where((r) => _v(r, 'requestType').isEmpty || _v(r, 'requestType').toLowerCase() == 'weeklyreport').isEmpty)
+              if (rows.where((r) => _v(r, 'requestType').toLowerCase() == 'weeklyreport').isEmpty)
                 const Center(child: Text('Chưa có yêu cầu review')),
-              for (final r in rows.where((r) => _v(r, 'requestType').isEmpty || _v(r, 'requestType').toLowerCase() == 'weeklyreport'))
+              for (final r in rows.where((r) => _v(r, 'requestType').toLowerCase() == 'weeklyreport'))
                 Card(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   shape: RoundedRectangleBorder(
@@ -709,6 +816,16 @@ class _BudgetTabState extends State<_BudgetTab> {
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    // Dispose TextEditingController để tránh
+    // "dependents.isEmpty is not true" khi TextField con vẫn còn dependent
+    // vào controller khi widget unmount.
+    amount.dispose();
+    minutes.dispose();
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -1205,6 +1322,17 @@ class _IngredientTabState extends State<_IngredientTab> {
       category = TextEditingController();
   List<Map<String, dynamic>> rows = [];
   bool safe = false, loading = false;
+
+  @override
+  void dispose() {
+    // Dispose TextEditingController để tránh
+    // "dependents.isEmpty is not true" khi TextField con vẫn còn dependent
+    // vào controller khi widget unmount.
+    search.dispose();
+    category.dispose();
+    super.dispose();
+  }
+
   Future<void> load() async {
     setState(() => loading = true);
     try {

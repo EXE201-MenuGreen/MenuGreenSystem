@@ -12,7 +12,7 @@ import '../repositories/coach_report_repository.dart';
 ///   meals, weight logs) without refetching on every build.
 /// * [submitReview] POSTs review + optional inline adjustments; on success
 ///   it drops the cached detail (the report status has changed to Reviewed
-///   and the inline adjustments already pushed).
+///   and the Gymer can apply or reject the proposed adjustments).
 class CoachReportProvider extends ChangeNotifier {
   CoachReportProvider({CoachReportRepository? repository})
       : _repo = repository ?? CoachReportRepository();

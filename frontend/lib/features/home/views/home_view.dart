@@ -82,6 +82,13 @@ class HomeViewState extends State<HomeView> {
     refreshAll();
     _loadTips();
     _notificationProvider.loadUnreadCount();
+    _notificationProvider.loadNotifications(refresh: true);
+  }
+
+  @override
+  void dispose() {
+    _notificationProvider.dispose();
+    super.dispose();
   }
 
   Future<void> refreshAll() async {
@@ -360,9 +367,14 @@ class HomeViewState extends State<HomeView> {
               ],
               if (_featureAccess.hasGym) ...[
                 const SizedBox(height: 12),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: GymerPackageCard(),
+                  child: ListenableBuilder(
+                    listenable: _notificationProvider,
+                    builder: (context, _) => GymerPackageCard(
+                      routeBadgeCount: _notificationProvider.unreadRouteCount,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -522,7 +534,10 @@ class HomeViewState extends State<HomeView> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
-        ).then((_) => _notificationProvider.loadUnreadCount());
+        ).then((_) {
+          _notificationProvider.loadUnreadCount();
+          _notificationProvider.loadNotifications(refresh: true);
+        });
       },
     );
   }
@@ -582,9 +597,7 @@ class HomeViewState extends State<HomeView> {
     await _loadTodaySummary(userInitiated: false);
     widget.onTrackingUpdated?.call();
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã lưu bữa ăn vào Kế hoạch ăn uống và Lịch sử.'),
       ),

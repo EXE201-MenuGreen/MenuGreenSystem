@@ -75,28 +75,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     matchedPaidGroup = true;
                 }
 
-                if (
-                    group is "pro" or "premium" or "vip" or "gold"
-                    || planName.Contains("pro")
-                    || planName.Contains("premium")
-                    || planName.Contains("vip")
-                    || planName.Contains("gold")
-                )
-                {
-                    entitlements.Add(CasualFeatures);
-                    entitlements.Add(GymFeatures);
-                    entitlements.Add(CoachAccess);
-                    entitlements.Add(AiFeatures);
-                    featureGroups.Add("casual");
-                    featureGroups.Add("gym");
-                    featureGroups.Add("pro");
-                    matchedPaidGroup = true;
-                }
-
-                if (
-                    matchedPaidGroup
-                    && (!latestPaidExpiry.HasValue || endUtc > latestPaidExpiry.Value)
-                )
+                if (matchedPaidGroup && (!latestPaidExpiry.HasValue || endUtc > latestPaidExpiry.Value))
                 {
                     latestPaidExpiry = endUtc;
                 }

@@ -337,15 +337,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     return 'Tập: ${train ?? '—'} kcal • Nghỉ: ${rest ?? '—'} kcal';
   }
 
-  bool _hasGoalConfig(GymGoalProfile? p) {
-    if (p == null) return false;
-    return p.trainingDayTargetCalories != null ||
-        p.restDayTargetCalories != null ||
-        p.dailyDetails.isNotEmpty ||
-        p.weeklyDetails.isNotEmpty ||
-        p.monthlyDetails.isNotEmpty;
-  }
-
   Widget _buildRecalibrateCard(GymGoalsProvider provider) {
     final last = provider.lastRecalibration;
     return InfoCard(
@@ -435,7 +426,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    // Hiển thị items có origin = 'gym' hoặc null/empty (tương thích dữ liệu cũ)
     final gymItems =
         _todayPlan?.items
             .where(
@@ -450,7 +440,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner prompting user to initialize plan
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -504,150 +493,145 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           ),
-          if (_hasGoalConfig(provider.profile)) ...[
-            const SizedBox(height: 20),
-            const Text(
-              'Gợi ý thực đơn hôm nay từ AI:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+          const SizedBox(height: 20),
+          const Text(
+            'Gợi ý thực đơn hôm nay từ AI:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
-            const SizedBox(height: 10),
-            if (provider.planSuggestions.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.progressBackground),
-                ),
-                child: const Text(
-                  'Chưa có gợi ý thực đơn.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              )
-            else
-              Builder(
-                builder: (context) {
-                  final suggestions = provider.planSuggestions;
-                  const itemsPerPage = 5;
-                  final totalItems = suggestions.length;
-                  final totalPages = (totalItems / itemsPerPage).ceil();
+          ),
+          const SizedBox(height: 10),
+          if (provider.planSuggestions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.progressBackground),
+              ),
+              child: const Text(
+                'Chưa có gợi ý thực đơn.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Builder(
+              builder: (context) {
+                final suggestions = provider.planSuggestions;
+                const itemsPerPage = 5;
+                final totalItems = suggestions.length;
+                final totalPages = (totalItems / itemsPerPage).ceil();
 
-                  if (_suggestionPage >= totalPages) {
-                    _suggestionPage = (totalPages - 1)
-                        .clamp(0, totalItems)
-                        .toInt();
-                  }
+                if (_suggestionPage >= totalPages) {
+                  _suggestionPage = (totalPages - 1).clamp(0, totalItems).toInt();
+                }
 
-                  final startIndex = _suggestionPage * itemsPerPage;
-                  final endIndex = (startIndex + itemsPerPage).clamp(
-                    0,
-                    totalItems,
-                  );
-                  final currentPageItems = totalItems == 0
-                      ? []
-                      : suggestions.sublist(startIndex, endIndex);
+                final startIndex = _suggestionPage * itemsPerPage;
+                final endIndex = (startIndex + itemsPerPage).clamp(
+                  0,
+                  totalItems,
+                );
+                final currentPageItems = totalItems == 0
+                    ? []
+                    : suggestions.sublist(startIndex, endIndex);
 
-                  return Column(
-                    children: [
-                      for (final item in currentPageItems)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.progressBackground,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    item.type.toLowerCase().contains('recipe')
-                                        ? Icons.menu_book
-                                        : Icons.restaurant,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.name.isEmpty
-                                            ? 'Món gợi ý'
-                                            : item.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textDark,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                        'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                        'Điểm ${item.score.toStringAsFixed(1)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                return Column(
+                  children: [
+                    for (final item in currentPageItems)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.progressBackground,
                             ),
                           ),
-                        ),
-                      if (totalPages > 1) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              onPressed: _suggestionPage > 0
-                                  ? () => setState(() => _suggestionPage--)
-                                  : null,
-                              icon: const Icon(Icons.chevron_left),
-                            ),
-                            Text(
-                              'Trang ${_suggestionPage + 1} / $totalPages',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  item.type.toLowerCase().contains('recipe')
+                                      ? Icons.menu_book
+                                      : Icons.restaurant,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: _suggestionPage < totalPages - 1
-                                  ? () => setState(() => _suggestionPage++)
-                                  : null,
-                              icon: const Icon(Icons.chevron_right),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name.isEmpty
+                                          ? 'Món gợi ý'
+                                          : item.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                      'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                      'Điểm ${item.score.toStringAsFixed(1)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
+                    if (totalPages > 1) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _suggestionPage > 0
+                                ? () => setState(() => _suggestionPage--)
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text(
+                            'Trang ${_suggestionPage + 1} / $totalPages',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _suggestionPage < totalPages - 1
+                                ? () => setState(() => _suggestionPage++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
                     ],
-                  );
-                },
-              ),
-          ],
+                  ],
+                );
+              },
+            ),
         ],
       );
     }
@@ -805,10 +789,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ),
             ),
           ),
-        if (_hasGoalConfig(provider.profile)) ...[
-          const SizedBox(height: 32),
-          const Text(
-            'Danh sách món ăn gợi ý hôm nay từ AI:',
+        const SizedBox(height: 32),
+        const Text(
+          'Danh sách món ăn gợi ý hôm nay từ AI:',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1103,9 +1086,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               },
             ),
         ],
-      ],
-    );
-  }
+      );
+    }
 
   Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
     // Chỉ hiển thị items có origin = 'gym' (từ AI Gym Goals)
@@ -1253,7 +1235,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           // Add button
-          if (_hasGoalConfig(provider.profile) && !_isSentToPt)
+          if (!_isSentToPt)
             Padding(
               padding: const EdgeInsets.all(8),
               child: TextButton.icon(
@@ -1314,18 +1296,25 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
-    if (!_hasGoalConfig(provider.profile) || provider.planSuggestions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Bạn chưa cấu hình mục tiêu Gym / PT. Vui lòng thiết lập trước.',
-          ),
-        ),
-      );
-      return;
-    }
     setState(() => _loadingPlan = true);
     try {
+      if (provider.planSuggestions.isEmpty) {
+        await provider.loadPlan(top: 10);
+      }
+
+      if (provider.planSuggestions.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Hệ thống đang chuẩn bị gợi ý món. Vui lòng thử lại sau ít giây.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final list = <Map<String, dynamic>>[];
       final shuffled = List<LocalRecommendationItem>.from(
         provider.planSuggestions,
@@ -1336,8 +1325,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       for (final s in shuffled) {
         if (assignedCount >= 4) break;
 
-        final idStr = s.id.toString();
-        if (usedIds.contains(idStr)) continue;
+        final idStr = s.id.trim();
+        if (idStr.isEmpty || usedIds.contains(idStr)) continue;
         usedIds.add(idStr);
 
         String mealType = 'breakfast';
@@ -1349,30 +1338,43 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           mealType = 'snack';
         }
 
+        final isRecipe = s.type.toLowerCase().contains('recipe');
+
         list.add({
           'mealType': mealType,
-          'foodId': s.type.toLowerCase().contains('recipe')
-              ? null
-              : s.id.toString(),
-          'recipeId': s.type.toLowerCase().contains('recipe')
-              ? s.id.toString()
-              : null,
-          'targetCalories': s.caloriesKcal.round(),
-          'origin': 'gym', // Tạo bởi AI Gym Goals
+          'foodId': isRecipe ? null : idStr,
+          'recipeId': isRecipe ? idStr : null,
+          'targetCalories': (s.caloriesKcal > 0 && s.caloriesKcal < 3000)
+              ? s.caloriesKcal.round()
+              : 400,
+          'origin': 'gym',
         });
 
         assignedCount++;
       }
 
+      if (list.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Không tìm thấy món ăn hợp lệ để tạo lộ trình.')),
+          );
+        }
+        return;
+      }
+
+      final targetCal = provider.profile?.trainingDayTargetCalories ??
+          provider.profile?.restDayTargetCalories ??
+          2000;
+
       await MealPlanRepository().createFromDailyMenu(
         plannedDate: DateTime.now(),
-        targetCalories: provider.profile?.trainingDayTargetCalories ?? 2000,
+        targetCalories: targetCal,
         items: list,
       );
       await _loadTodayPlan();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Khởi tạo lộ trình thành công!')),
+          const SnackBar(content: Text('Khởi tạo lộ trình ăn uống thành công!')),
         );
       }
     } catch (e) {
@@ -1456,7 +1458,45 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     String mealType,
     LocalRecommendationItem item,
   ) async {
-    if (_todayPlan == null) return;
+    if (_todayPlan == null) {
+      final provider = context.read<GymGoalsProvider>();
+      final isRecipe = item.type.toLowerCase().contains('recipe');
+      final targetCal = provider.profile?.trainingDayTargetCalories ??
+          provider.profile?.restDayTargetCalories ??
+          2000;
+      try {
+        await MealPlanRepository().createFromDailyMenu(
+          plannedDate: DateTime.now(),
+          targetCalories: targetCal,
+          items: [
+            {
+              'mealType': mealType,
+              'foodId': isRecipe ? null : item.id,
+              'recipeId': isRecipe ? item.id : null,
+              'targetCalories': item.caloriesKcal.round() > 0
+                  ? item.caloriesKcal.round()
+                  : 400,
+              'origin': 'gym',
+            }
+          ],
+        );
+        await _loadTodayPlan();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã thêm món ăn vào lộ trình.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ApiMessageTranslator.translate(e.toString())),
+            ),
+          );
+        }
+      }
+      return;
+    }
 
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final tempItem = MealPlanItemModel(

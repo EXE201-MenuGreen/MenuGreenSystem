@@ -12,6 +12,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public DateOnly? EndDate { get; set; }
         public int? TargetCalories { get; set; }
         public string? GeneratedBy { get; set; }
+        public string Status { get; set; } = "Active";
+        public DateTime? ApprovedAt { get; set; }
         public bool IsActive { get; set; }
         public int TotalCalories { get; set; }
         public int TotalProteinG { get; set; }

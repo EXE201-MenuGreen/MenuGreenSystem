@@ -30,7 +30,6 @@ class CoachMealPlanHistoryScreen extends StatefulWidget {
 class _CoachMealPlanHistoryScreenState
     extends State<CoachMealPlanHistoryScreen> {
   _HistoryFilter _filter = _HistoryFilter.all;
-  DateTimeRange? _range;
 
   @override
   void initState() {
@@ -40,76 +39,42 @@ class _CoachMealPlanHistoryScreenState
 
   void _applyFilter() {
     final provider = context.read<CoachMealPlanProvider>();
-    DateTime? from;
-    DateTime? to;
+    // Filter theo planType trên DB (DAILY/WEEKLY/MONTHLY), không theo overlap range.
+    // Lý do: user than "tab Ngày" hiện vẫn thấy plan DAILY 26/07 dù bấm Tuần/Tháng/Tất cả.
+    // Filter theo range overlap với StartDate=26/07 sẽ match mọi bucket vì 26/07
+    // luôn nằm trong [today..today+1year]. Filter theo planType mới đúng ngữ nghĩa
+    // "Ngày = chỉ plan DAILY, Tuần = chỉ plan WEEKLY, ...".
+    String? planType;
     switch (_filter) {
       case _HistoryFilter.day:
-        final today = DateTime.now();
-        from = DateTime(today.year, today.month, today.day);
-        to = DateTime(today.year, today.month, today.day);
+        planType = 'daily';
         break;
       case _HistoryFilter.week:
-        final now = DateTime.now();
-        final monday = now.subtract(Duration(days: now.weekday - 1));
-        from = DateTime(monday.year, monday.month, monday.day);
-        to = from.add(const Duration(days: 6));
+        planType = 'weekly';
         break;
       case _HistoryFilter.month:
-        final now = DateTime.now();
-        from = DateTime(now.year, now.month, 1);
-        to = DateTime(now.year, now.month + 1, 0);
+        planType = 'monthly';
         break;
       case _HistoryFilter.all:
-        from = null;
-        to = null;
+        planType = null;
         break;
     }
-    if (_range != null) {
-      from = _range!.start;
-      to = _range!.end;
-    }
-    provider.setFilters(from: from, to: to);
-  }
-
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      initialDateRange: _range,
-    );
-    if (picked != null) {
-      setState(() => _range = picked);
-      _applyFilter();
-    }
+    provider.setFilters(planType: planType);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Lộ trình - ${widget.clientName}'),
-        actions: [
-          IconButton(
-            tooltip: 'Chọn khoảng ngày',
-            icon: const Icon(Icons.date_range),
-            onPressed: _pickDateRange,
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text('Lộ trình - ${widget.clientName}')),
       body: Column(
         children: [
           _FilterBar(
             value: _filter,
             onChanged: (v) {
-              setState(() {
-                _filter = v;
-                _range = null;
-              });
+              setState(() => _filter = v);
               _applyFilter();
             },
           ),
-          if (_range != null) _RangeHint(range: _range!),
           const Expanded(child: _PlanList()),
         ],
       ),
@@ -122,17 +87,18 @@ class _CoachMealPlanHistoryScreenState
   }
 
   Future<void> _pushCreate() async {
-    final created = await Navigator.of(context).push<bool>(
+    final provider = context.read<CoachMealPlanProvider>();
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => CoachCreateMealPlanScreen(
-          clientId: widget.clientId,
-          clientName: widget.clientName,
+        builder: (_) => ChangeNotifierProvider.value(
+          value: provider,
+          child: CoachCreateMealPlanScreen(
+            clientId: widget.clientId,
+            clientName: widget.clientName,
+          ),
         ),
       ),
     );
-    if (created == true && mounted) {
-      // Provider already refreshes after create; nothing to do.
-    }
   }
 }
 
@@ -175,28 +141,6 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
-class _RangeHint extends StatelessWidget {
-  const _RangeHint({required this.range});
-  final DateTimeRange range;
-
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          '${_fmt(range.start)} → ${_fmt(range.end)}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ),
-    );
-  }
-}
-
 class _PlanList extends StatelessWidget {
   const _PlanList();
 
@@ -207,10 +151,7 @@ class _PlanList extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.error != null && provider.plans.isEmpty) {
-      return _ErrorState(
-        message: provider.error!,
-        onRetry: provider.refresh,
-      );
+      return _ErrorState(message: provider.error!, onRetry: provider.refresh);
     }
     if (provider.plans.isEmpty) {
       return const _EmptyState();
@@ -232,20 +173,30 @@ class _PlanList extends StatelessWidget {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${plan.planType.toUpperCase()}'
-                      '${plan.startDate != null
-                          ? "  ·  ${_fmtRange(plan.startDate, plan.endDate)}"
-                          : ''}'),
+                  Text(
+                    plan.startDate != null
+                        ? '${plan.planType.toUpperCase()}  ·  ${_fmtPlanDate(plan.planType, plan.startDate, plan.endDate)}'
+                        : plan.planType.toUpperCase(),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _PlanStatusChip(status: plan.status),
+                  ),
                   if (plan.coachName != null && plan.coachName!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.badge_outlined,
-                              size: 14, color: Colors.green),
+                          const Icon(
+                            Icons.badge_outlined,
+                            size: 14,
+                            color: Colors.green,
+                          ),
                           const SizedBox(width: 4),
-                          Text('Bởi PT: ${plan.coachName}',
-                              style: Theme.of(context).textTheme.bodySmall),
+                          Text(
+                            'Bởi PT: ${plan.coachName}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ],
                       ),
                     ),
@@ -266,8 +217,10 @@ class _PlanList extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('${plan.targetCalories} kcal',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          '${plan.targetCalories} kcal',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         if (plan.totalItems != null)
                           Text(
                             '${plan.completedItems ?? 0}/${plan.totalItems} món',
@@ -277,13 +230,35 @@ class _PlanList extends StatelessWidget {
                     )
                   : null,
               onTap: () async {
+                final provider = context.read<CoachMealPlanProvider>();
+                final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
                 await provider.loadPlanDetail(plan.id);
-                if (!context.mounted) return;
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CoachMealPlanDetailScreen(planId: plan.id),
+                if (!messenger.mounted) return;
+                final detailRoute = MaterialPageRoute<bool>(
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: provider,
+                    child: CoachMealPlanDetailScreen(planId: plan.id),
                   ),
                 );
+                final submitted = await navigator.push<bool>(detailRoute);
+                // Navigator.push completes as soon as pop is requested, while
+                // the reverse transition may still keep the route's Overlay
+                // and provider dependents mounted. Wait for full teardown
+                // before refreshing state or showing a SnackBar.
+                await detailRoute.completed;
+                if (!messenger.mounted || submitted != true) return;
+                await provider.refresh();
+                if (!messenger.mounted) return;
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.',
+                      ),
+                    ),
+                  );
               },
             ),
           );
@@ -292,12 +267,60 @@ class _PlanList extends StatelessWidget {
     );
   }
 
-  static String _fmtRange(DateTime? start, DateTime? end) {
-    String d(DateTime x) =>
-        '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}';
-    if (start == null && end == null) return '';
-    if (start != null && end != null) return '${d(start)} – ${d(end)}';
-    return d(start ?? end!);
+  static String _dmy(DateTime x) =>
+      '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+
+  /// Format ngày hiển thị tuỳ theo loại plan (thêm năm cho rõ ràng):
+  /// - Daily   → chỉ 1 ngày  ("26/07/2026")
+  /// - Weekly  → range 7 ngày ("26/07/2026 – 01/08/2026")
+  /// - Monthly → range tháng   ("26/07/2026 – 25/08/2026")
+  /// - Custom / khác → range `start – end`
+  static String _fmtPlanDate(String planType, DateTime? start, DateTime? end) {
+    if (start == null) return '';
+    final type = planType.toLowerCase();
+    if (type == 'daily') {
+      // daily: start == end theo design (chỉ 1 ngày). Hiển thị 1 lần.
+      return _dmy(start);
+    }
+    if (end == null) return _dmy(start);
+    return '${_dmy(start)} – ${_dmy(end)}';
+  }
+}
+
+class _PlanStatusChip extends StatelessWidget {
+  const _PlanStatusChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.toLowerCase();
+    final approved = normalized == 'approved';
+    final label = switch (normalized) {
+      'approved' => 'Đã duyệt & gửi',
+      'draft' => 'Bản nháp',
+      _ => status,
+    };
+    final color = approved ? Colors.green : Colors.orange;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -308,7 +331,9 @@ class _EmptyState extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(top: 120),
       children: const [
-        Center(child: Icon(Icons.menu_book_outlined, size: 64, color: Colors.grey)),
+        Center(
+          child: Icon(Icons.menu_book_outlined, size: 64, color: Colors.grey),
+        ),
         SizedBox(height: 16),
         Text(
           'Học viên chưa có lộ trình nào trong khoảng đã chọn.',

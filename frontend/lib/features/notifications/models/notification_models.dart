@@ -15,14 +15,30 @@ enum NotificationType {
 extension NotificationTypeExtension on NotificationType {
   static NotificationType fromString(String? type) {
     final t = (type ?? '').toLowerCase();
-    if (t.contains('meal') && t.contains('remind')) return NotificationType.mealReminder;
-    if (t.contains('prep')) return NotificationType.prepReminder;
-    if (t.contains('subscription') || t.contains('expir')) return NotificationType.subscription;
-    if (t.contains('weight') || t.contains('scale')) return NotificationType.weightReminder;
-    if (t.contains('log') || t.contains('track')) return NotificationType.mealLogReminder;
-    if (t.contains('system') || t.contains('maintenance')) return NotificationType.system;
-    if (t.contains('achievement') || t.contains('badge')) return NotificationType.achievement;
-    if (t.contains('tip') || t.contains('suggest')) return NotificationType.tip;
+    if (t.contains('meal') && t.contains('remind')) {
+      return NotificationType.mealReminder;
+    }
+    if (t.contains('prep')) {
+      return NotificationType.prepReminder;
+    }
+    if (t.contains('subscription') || t.contains('expir')) {
+      return NotificationType.subscription;
+    }
+    if (t.contains('weight') || t.contains('scale')) {
+      return NotificationType.weightReminder;
+    }
+    if (t.contains('log') || t.contains('track')) {
+      return NotificationType.mealLogReminder;
+    }
+    if (t.contains('system') || t.contains('maintenance')) {
+      return NotificationType.system;
+    }
+    if (t.contains('achievement') || t.contains('badge')) {
+      return NotificationType.achievement;
+    }
+    if (t.contains('tip') || t.contains('suggest')) {
+      return NotificationType.tip;
+    }
     return NotificationType.other;
   }
 
@@ -54,6 +70,7 @@ class AppNotification {
   final String id;
   final String title;
   final String body;
+  final String rawType;
   final NotificationType type;
   final DateTime createdAt;
   final bool isRead;
@@ -65,6 +82,7 @@ class AppNotification {
     required this.id,
     required this.title,
     required this.body,
+    this.rawType = '',
     required this.type,
     required this.createdAt,
     required this.isRead,
@@ -74,13 +92,26 @@ class AppNotification {
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
+    final rawType = (json['type'] ?? json['Type'] ?? '').toString();
     return AppNotification(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       title: (json['title'] ?? json['Title'] ?? '').toString(),
-      body: (json['body'] ?? json['Body'] ?? json['message'] ?? json['Message'] ?? '').toString(),
-      type: NotificationTypeExtension.fromString(json['type'] ?? json['Type']),
-      createdAt: _parseDateTime(json['createdAt'] ?? json['CreatedAt'] ?? json['createdAt']),
-      isRead: json['isRead'] == true || json['IsRead'] == true || json['isRead'] == 'true',
+      body:
+          (json['body'] ??
+                  json['Body'] ??
+                  json['message'] ??
+                  json['Message'] ??
+                  '')
+              .toString(),
+      rawType: rawType,
+      type: NotificationTypeExtension.fromString(rawType),
+      createdAt: _parseDateTime(
+        json['createdAt'] ?? json['CreatedAt'] ?? json['createdAt'],
+      ),
+      isRead:
+          json['isRead'] == true ||
+          json['IsRead'] == true ||
+          json['isRead'] == 'true',
       actionUrl: (json['actionUrl'] ?? json['ActionUrl'])?.toString(),
       actionLabel: (json['actionLabel'] ?? json['ActionLabel'])?.toString(),
       metadata: json['metadata'] ?? json['Metadata'],
@@ -104,6 +135,7 @@ class AppNotification {
     String? id,
     String? title,
     String? body,
+    String? rawType,
     NotificationType? type,
     DateTime? createdAt,
     bool? isRead,
@@ -115,6 +147,7 @@ class AppNotification {
       id: id ?? this.id,
       title: title ?? this.title,
       body: body ?? this.body,
+      rawType: rawType ?? this.rawType,
       type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
       isRead: isRead ?? this.isRead,
@@ -136,10 +169,44 @@ class AppNotification {
     return '${(diff.inDays / 30).floor()} tháng trước';
   }
 
-  String get displayTitle =>
-      ApiMessageTranslator.translateNotification(title);
-  String get displayBody =>
-      ApiMessageTranslator.translateNotification(body);
+  String get displayTitle => ApiMessageTranslator.translateNotification(title);
+  String get displayBody => ApiMessageTranslator.translateNotification(body);
+
+  String get normalizedType =>
+      rawType.trim().toLowerCase().replaceAll('-', '_');
+
+  bool get isRouteNotification => const {
+    'meal_plan_approved',
+    'pt_route_approval',
+    'pt_review_request',
+    'coach_personal_program',
+  }.contains(normalizedType);
+
+  bool get isWeeklyReportNotification => const {
+    'weekly_report_submitted',
+    'weekly_report_pending',
+    'weekly_report_reviewed',
+  }.contains(normalizedType);
+
+  String get statusLabel {
+    switch (normalizedType) {
+      case 'meal_plan_approved':
+      case 'pt_route_approval':
+        return 'Đã duyệt';
+      case 'pt_review_request':
+        return 'Chờ duyệt';
+      case 'coach_personal_program':
+        return 'Lộ trình mới';
+      case 'weekly_report_submitted':
+        return 'Cần đánh giá';
+      case 'weekly_report_pending':
+        return 'Chờ PT đánh giá';
+      case 'weekly_report_reviewed':
+        return 'Đã đánh giá';
+      default:
+        return type.label;
+    }
+  }
 }
 
 class NotificationAnalytics {
@@ -166,10 +233,14 @@ class NotificationAnalytics {
       totalSent: _int(json['totalSent'] ?? json['TotalSent'] ?? 0),
       totalOpened: _int(json['totalOpened'] ?? json['TotalOpened'] ?? 0),
       totalClicked: _int(json['totalClicked'] ?? json['TotalClicked'] ?? 0),
-      totalActionCompleted: _int(json['totalActionCompleted'] ?? json['TotalActionCompleted'] ?? 0),
+      totalActionCompleted: _int(
+        json['totalActionCompleted'] ?? json['TotalActionCompleted'] ?? 0,
+      ),
       openRate: (json['openRate'] ?? json['OpenRate'] ?? 0).toDouble(),
       clickRate: (json['clickRate'] ?? json['ClickRate'] ?? 0).toDouble(),
-      actionCompletionRate: (json['actionCompletionRate'] ?? json['ActionCompletionRate'] ?? 0).toDouble(),
+      actionCompletionRate:
+          (json['actionCompletionRate'] ?? json['ActionCompletionRate'] ?? 0)
+              .toDouble(),
     );
   }
 
@@ -197,7 +268,8 @@ class NotificationChannel {
     return NotificationChannel(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       name: (json['name'] ?? json['Name'] ?? '').toString(),
-      description: (json['description'] ?? json['Description'] ?? '').toString(),
+      description: (json['description'] ?? json['Description'] ?? '')
+          .toString(),
       isEnabled: json['isEnabled'] == true || json['IsEnabled'] == true,
     );
   }

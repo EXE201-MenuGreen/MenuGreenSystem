@@ -32,6 +32,12 @@ class NotificationProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get error => _error;
   bool get hasUnread => _unreadCount > 0;
+  int get unreadRouteCount => _notifications
+      .where(
+        (notification) =>
+            !notification.isRead && notification.isRouteNotification,
+      )
+      .length;
 
   void _initRealtime() {
     _realtimeService = RealtimeNotificationService();
@@ -117,7 +123,7 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> loadUnreadCount() async {
     try {
       _unreadCount = await _repository.getUnreadCount();
-      if (_disposed) notifyListeners();
+      if (!_disposed) notifyListeners();
     } catch (_) {
       // Silent fail
     }
@@ -146,7 +152,9 @@ class NotificationProvider extends ChangeNotifier {
     final previousNotifications = List<AppNotification>.from(_notifications);
     final previousCount = _unreadCount;
 
-    _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+    _notifications = _notifications
+        .map((n) => n.copyWith(isRead: true))
+        .toList();
     _unreadCount = 0;
     notifyListeners();
 

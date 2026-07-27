@@ -28,6 +28,16 @@ namespace MenuGreen.DataAccessLayer.Entities
         public DateTime? ReviewedAt { get; set; }
         public DateTime? ActionedAt { get; set; }
 
+        // Phase 8: PersonalProgram support (PT -> Gymer direction)
+        // "Gymer" = user submitted a RouteApproval/WeeklyReport via /api/PtReview/reports.
+        // "Coach" = coach submitted a PersonalProgram via /api/PtReview/coach/personal-programs.
+        public string CreatedByRole { get; set; } = "Gymer";
+
+        // Set when Gymer accepts a PersonalProgram from coach.
+        // Nullable to preserve existing Gymer-side RouteApproval records.
+        public DateTime? AcceptedAt { get; set; }
+        public Guid? AcceptedByUserId { get; set; }
+
         // Navigation properties
         public virtual User? User { get; set; }
     }

@@ -34,6 +34,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
   int _step = 0;
   final _formKey = GlobalKey<FormState>();
   String _planType = 'weekly';
+  DateTime? _singleDate;
   DateTimeRange? _range;
   int? _targetCalories;
   final Map<String, List<_DraftItemDraft>> _itemsByMeal = {
@@ -44,9 +45,24 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
   };
   bool _submitting = false;
 
+  /// Loại plan 'daily' chỉ chọn 1 ngày (StartDate == EndDate) thay vì range 1 tuần.
+  /// Các loại khác (weekly/custom) vẫn dùng DateTimeRange.
+  bool get _isDaily => _planType == 'daily';
+
   String _defaultTitle() {
     final now = DateTime.now();
     return 'Lộ trình của ${widget.clientName} - ${now.day}/${now.month}/${now.year}';
+  }
+
+  Future<void> _pickDate() async {
+    final initial = _singleDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+      initialDate: initial,
+    );
+    if (picked != null) setState(() => _singleDate = picked);
   }
 
   Future<void> _pickRange() async {
@@ -60,7 +76,11 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
   }
 
   bool get _canNext {
-    if (_step == 0) return _range != null && _targetCalories != null;
+    if (_step == 0) {
+      // daily: cần _singleDate; weekly/custom: cần _range
+      if (_isDaily) return _singleDate != null && _targetCalories != null;
+      return _range != null && _targetCalories != null;
+    }
     if (_step == 1) {
       return _itemsByMeal.values.any((items) => items.isNotEmpty);
     }
@@ -80,11 +100,24 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
             ))
         .toList();
 
+    final DateTime startDate;
+    final DateTime endDate;
+    if (_isDaily) {
+      // daily: start == end (cùng 1 ngày) để UI Lộ trình hiển thị đúng "26/07"
+      // thay vì "26/07 – 02/08" như trước đây (do showDateRangePicker mặc định 1 tuần).
+      final d = _singleDate!;
+      startDate = DateTime(d.year, d.month, d.day);
+      endDate = startDate;
+    } else {
+      startDate = _range!.start;
+      endDate = _range!.end;
+    }
+
     final payload = ClientMealPlanPayload(
       title: _defaultTitle(),
       planType: _planType,
-      startDate: _range?.start,
-      endDate: _range?.end,
+      startDate: startDate,
+      endDate: endDate,
       targetCalories: _targetCalories,
       items: items,
     );
@@ -167,16 +200,34 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                       DropdownMenuItem(value: 'weekly', child: Text('Hàng tuần')),
                       DropdownMenuItem(value: 'custom', child: Text('Tùy chỉnh')),
                     ],
-                    onChanged: (v) => setState(() => _planType = v ?? 'weekly'),
+                    onChanged: (v) => setState(() {
+                      _planType = v ?? 'weekly';
+                      // Khi chuyển từ daily ↔ range, reset picker để tránh
+                      // dùng nhầm dữ liệu cũ (singleDate vs range).
+                      if (_isDaily && _range != null) {
+                        _range = null;
+                      } else if (!_isDaily && _singleDate != null) {
+                        _singleDate = null;
+                      }
+                    }),
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(_range == null
-                        ? 'Chọn khoảng ngày'
-                        : '${_fmt(_range!.start)} - ${_fmt(_range!.end)}'),
-                    onPressed: _pickRange,
-                  ),
+                  if (_isDaily)
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(_singleDate == null
+                          ? 'Chọn ngày'
+                          : 'Ngày: ${_fmt(_singleDate!)}'),
+                      onPressed: _pickDate,
+                    )
+                  else
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(_range == null
+                          ? 'Chọn khoảng ngày'
+                          : '${_fmt(_range!.start)} - ${_fmt(_range!.end)}'),
+                      onPressed: _pickRange,
+                    ),
                   const SizedBox(height: 12),
                   TextFormField(
                     decoration: const InputDecoration(
@@ -222,7 +273,10 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Loại: $_planType'),
-                if (_range != null) Text('Khoảng: ${_fmt(_range!.start)} - ${_fmt(_range!.end)}'),
+                if (_isDaily && _singleDate != null)
+                  Text('Ngày: ${_fmt(_singleDate!)}'),
+                if (!_isDaily && _range != null)
+                  Text('Khoảng: ${_fmt(_range!.start)} - ${_fmt(_range!.end)}'),
                 Text('Mục tiêu: $_targetCalories kcal/ngày'),
                 const SizedBox(height: 12),
                 for (final entry in _itemsByMeal.entries)
@@ -247,13 +301,14 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       builder: (_) => const _IngredientPickerSheet(),
     );
     if (pick != null && mounted) {
+      final DateTime? plannedDate = _isDaily ? _singleDate : _range?.start;
       setState(() {
         _itemsByMeal[mealType]!.add(_DraftItemDraft(
           mealType: mealType,
           foodId: pick.kind == _IngredientKind.food ? pick.id : null,
           recipeId: pick.kind == _IngredientKind.recipe ? pick.id : null,
           label: pick.name,
-          plannedDate: _range?.start,
+          plannedDate: plannedDate,
           scheduledTime: _mealDefaultTime(mealType),
         ));
       });

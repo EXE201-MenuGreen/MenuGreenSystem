@@ -8,6 +8,7 @@ using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -25,10 +26,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
         };
 
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<CoachReviewService> _logger;
 
-        public CoachReviewService(IUnitOfWork unitOfWork)
+        public CoachReviewService(
+            IUnitOfWork unitOfWork,
+            INotificationService notificationService,
+            ILogger<CoachReviewService> logger)
         {
             _unitOfWork = unitOfWork;
+            _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<CoachReportSummary>> ListReportsAsync(
@@ -85,8 +93,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var summaries = new List<CoachReportSummary>();
             foreach (var req in filtered.OrderByDescending(r => r.CreatedAt))
             {
-                var studentName = await GetStudentNameAsync(req.UserId);
                 var data = TryParseReportData(req.ReportDataJson);
+                if (!IsWeeklyReport(req, data))
+                {
+                    continue;
+                }
+
+                var studentName = await GetStudentNameAsync(req.UserId);
 
                 summaries.Add(new CoachReportSummary
                 {
@@ -119,6 +132,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var studentName = await GetStudentNameAsync(req.UserId);
             var reportData = TryParseReportData(req.ReportDataJson);
+            if (!IsWeeklyReport(req, reportData))
+            {
+                throw new Exception("Weekly report not found.");
+            }
             var suggestedChanges = TryParseSuggestedChanges(req.SuggestedChangesJson);
 
             return new CoachReportDetailResponse
@@ -157,6 +174,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await EnsureConnectedAsync(coachId, req.UserId);
 
+            var reportData = TryParseReportData(req.ReportDataJson);
+            if (!IsWeeklyReport(req, reportData))
+            {
+                throw new Exception("This request is not a weekly report.");
+            }
+
             if (req.Status != "Pending")
             {
                 throw new Exception("This report has already been reviewed or closed.");
@@ -190,11 +213,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.PtReviewRequests.Update(req);
             await _unitOfWork.CompleteAsync();
 
-            // Apply inline adjustments immediately so the Gymer sees the new
-            // plan without having to press Apply themselves.
-            if (request.AdjustMealPlanItems is { Count: > 0 })
+            try
             {
-                await ApplyInlineAdjustmentsAsync(req.UserId, request.AdjustMealPlanItems);
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = req.UserId,
+                    Type = "weekly_report_reviewed",
+                    Title = "PT đã đánh giá báo cáo tuần",
+                    Body = "PT đã gửi nhận xét và mục tiêu điều chỉnh. Hãy mở báo cáo để xem và cập nhật kế hoạch.",
+                    ActionUrl = $"gymer_weekly_report:{req.Id}"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to notify Gymer {UserId} after weekly report {ReportId} review.",
+                    req.UserId,
+                    req.Id);
             }
 
             return await GetReportDetailAsync(coachId, reportId);
@@ -207,7 +243,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private async Task<List<Guid>> GetConnectedClientIdsAsync(Guid coachId)
         {
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
-                c.CoachId == coachId && c.Status == "Connected");
+                c.CoachId == coachId &&
+                (c.Status == "Connected" || c.Status == "Approved"));
             return connections.Select(c => c.ClientId).Distinct().ToList();
         }
 
@@ -216,7 +253,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
                 c.CoachId == coachId
                 && c.ClientId == clientId
-                && c.Status == "Connected");
+                && (c.Status == "Connected" || c.Status == "Approved"));
             if (!connections.Any())
             {
                 throw new UnauthorizedAccessException(
@@ -243,6 +280,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 return null;
             }
+        }
+
+        private static bool IsWeeklyReport(
+            PtReviewRequest request,
+            WeeklyReportSnapshot? snapshot)
+        {
+            return (string.IsNullOrWhiteSpace(request.CreatedByRole) ||
+                    request.CreatedByRole.Equals(
+                        "Gymer",
+                        StringComparison.OrdinalIgnoreCase)) &&
+                string.Equals(
+                    snapshot?.RequestType,
+                    "WeeklyReport",
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         private static List<PtSuggestedChangeDto> TryParseSuggestedChanges(string? json)

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/notification_handler.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/empty_notification_state.dart';
 import '../widgets/notification_tile.dart';
@@ -10,7 +13,8 @@ class NotificationInboxScreen extends StatefulWidget {
   const NotificationInboxScreen({super.key});
 
   @override
-  State<NotificationInboxScreen> createState() => _NotificationInboxScreenState();
+  State<NotificationInboxScreen> createState() =>
+      _NotificationInboxScreenState();
 }
 
 class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
@@ -32,6 +36,11 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
   }
 
   void _onScroll() {
+    // Đảm bảo widget còn mounted và _scrollController chưa dispose
+    // trước khi truy cập `.position` — nếu không sẽ throw assertion
+    // khi user back ra khỏi trang ngay lúc listener được fire.
+    if (!mounted) return;
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       context.read<NotificationProvider>().loadMore();
@@ -50,14 +59,18 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
         actions: [
           Consumer<NotificationProvider>(
             builder: (context, provider, _) {
-              if (provider.notifications.isEmpty) return const SizedBox.shrink();
+              if (provider.notifications.isEmpty) {
+                return const SizedBox.shrink();
+              }
               return PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) {
                   if (value == 'mark_all_read') {
                     provider.markAllAsRead();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Đã đánh dấu tất cả đã đọc')),
+                      const SnackBar(
+                        content: Text('Đã đánh dấu tất cả đã đọc'),
+                      ),
                     );
                   }
                 },
@@ -104,7 +117,10 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
               children: [
                 if (provider.hasUnread)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     color: AppColors.primary.withValues(alpha: 0.05),
                     child: Row(
                       children: [
@@ -145,7 +161,9 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
-                    itemCount: provider.notifications.length + (provider.hasMore ? 1 : 0),
+                    itemCount:
+                        provider.notifications.length +
+                        (provider.hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index >= provider.notifications.length) {
                         return const Padding(
@@ -157,9 +175,13 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                       final notification = provider.notifications[index];
                       return NotificationTile(
                         notification: notification,
-                        onTap: () {
-                          provider.trackClick(notification.id);
-                          provider.markAsRead(notification.id);
+                        onTap: () async {
+                          unawaited(provider.trackClick(notification.id));
+                          unawaited(provider.markAsRead(notification.id));
+                          await NotificationHandler().handleAppNotificationTap(
+                            context,
+                            notification,
+                          );
                         },
                         onMarkAsRead: () {
                           provider.markAsRead(notification.id);

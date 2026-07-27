@@ -100,11 +100,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Distinct()
                 .ToList();
 
-            // Parallelize sync operations for better performance
+            // Sync sequentially to keep shared DbContext single-threaded and prevent InvalidOperationException
             if (logDates.Any())
             {
-                var syncTasks = logDates.Select(day => _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day));
-                await Task.WhenAll(syncTasks);
+                foreach (var day in logDates)
+                {
+                    await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, day);
+                }
             }
 
             var days = await BuildRangeSummariesAsync(userId, from, to, logs);

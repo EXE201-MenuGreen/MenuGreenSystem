@@ -10,6 +10,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string ShareLink { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }
+        public DateOnly WeekStartDate { get; set; }
+        public string RequestType { get; set; } = "WeeklyReport";
+        public string Status { get; set; } = "Pending";
+        public DateTime CreatedAt { get; set; }
     }
 
     public class PtReviewRequestDetailResponse

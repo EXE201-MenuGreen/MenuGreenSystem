@@ -40,9 +40,28 @@ class _MainScreenState extends State<MainScreen> {
   Offset? _aiButtonOffset;
   bool _hasAiVipAccess = false;
 
+  late final List<Widget> _pages;
+
   @override
   void initState() {
     super.initState();
+    _pages = [
+      DiscoverView(key: _discoverKey),
+      const SmartMealPlanRouterScreen(),
+      HomeView(
+        key: _homeKey,
+        onNavigateToTab: _selectTab,
+        onTrackingUpdated: () {
+          _homeKey.currentState?.reloadSummary();
+          _historyKey.currentState?.reloadData();
+        },
+      ),
+      HistoryView(
+        key: _historyKey,
+        onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
+      ),
+      ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
+    ];
     unawaited(_initPushNotifications());
     unawaited(_loadSubscriptionVisualState());
   }
@@ -71,24 +90,6 @@ class _MainScreenState extends State<MainScreen> {
       });
     }
   }
-
-  List<Widget> _buildPages() => [
-    DiscoverView(key: _discoverKey),
-    const SmartMealPlanRouterScreen(),
-    HomeView(
-      key: _homeKey,
-      onNavigateToTab: _selectTab,
-      onTrackingUpdated: () {
-        _homeKey.currentState?.reloadSummary();
-        _historyKey.currentState?.reloadData();
-      },
-    ),
-    HistoryView(
-      key: _historyKey,
-      onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
-    ),
-    ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
-  ];
 
   void _refreshHomeIfStale() {
     final last = _lastHomeRefreshAt;
@@ -147,7 +148,7 @@ class _MainScreenState extends State<MainScreen> {
               Positioned.fill(
                 child: IndexedStack(
                   index: _currentIndex,
-                  children: _buildPages(),
+                  children: _pages,
                 ),
               ),
               if (_currentIndex == _homeTab && _hasAiVipAccess)

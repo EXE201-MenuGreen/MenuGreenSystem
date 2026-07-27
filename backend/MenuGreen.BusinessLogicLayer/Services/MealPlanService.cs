@@ -41,6 +41,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 isActive = true;
             }
             plans = plans.Where(x => x.IsActive == isActive.Value);
+            // Coach-created drafts are private working copies. The Gymer only
+            // receives them after the Coach submits and Status becomes Approved.
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                plans = plans.Where(x =>
+                    !string.Equals(x.Status, "Draft", StringComparison.OrdinalIgnoreCase));
+            }
 
             var results = new List<MealPlanResponse>();
             foreach (var plan in plans)
@@ -811,8 +818,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // run concurrently. Batch each data set and await it sequentially.
             var foods = await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id));
             var recipes = await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id));
-            var foodDict = foods.ToDictionary(f => f.Id);
-            var recipeDict = recipes.ToDictionary(r => r.Id);
+            var foodDict = foods.GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
+            var recipeDict = recipes.GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
             var recipeMacrosDict = await GetRecipeMacrosBatchAsync(recipeIds);
             
             var responseItems = new List<MealPlanItemResponse>();
@@ -858,6 +865,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
+                Status = entity.Status,
+                ApprovedAt = entity.ApprovedAt,
                 IsActive = entity.IsActive,
                 TotalCalories = (int)Math.Round(totalCalories),
                 TotalProteinG = (int)Math.Round(totalProtein),
@@ -879,7 +888,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _ => (protein: 0m, carbs: 0m, fat: 0m, calories: 0m));
             if (ids.Count == 0) return macrosByRecipe;
 
-            var recipes = (await _unitOfWork.Recipes.FindAsync(r => ids.Contains(r.Id))).ToDictionary(r => r.Id);
+            var recipes = (await _unitOfWork.Recipes.FindAsync(r => ids.Contains(r.Id))).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
             var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(
                 item => ids.Contains(item.RecipeId));
             var ingredientIds = recipeIngredients
@@ -1871,6 +1880,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             else
             {
                 plan.Title = request.Title ?? plan.Title;
+                plan.PlanType = "DAILY";
+                plan.StartDate = request.PlannedDate;
+                plan.EndDate = request.PlannedDate;
                 plan.TargetCalories = request.TargetCalories ?? plan.TargetCalories;
                 plan.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.MealPlanHeaders.Update(plan);
@@ -2031,6 +2043,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
                 x.UserId == userId
                 && x.IsActive
+                && x.Status != "Draft"
                 && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
                     ? x.StartDate == date
                     : (x.StartDate <= date && x.EndDate >= date)));

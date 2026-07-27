@@ -218,7 +218,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<NotificationResponse> SendAsync(NotificationSendRequest request)
         {
-            return await CreateNotificationAsync(request.UserId, request.Type, request.Title, request.Body, request.ScheduledAt ?? DateTimeOffset.UtcNow);
+            return await CreateNotificationAsync(
+                request.UserId,
+                request.Type,
+                request.Title,
+                request.Body,
+                request.ScheduledAt ?? DateTimeOffset.UtcNow,
+                request.ActionUrl);
         }
 
         public async Task<IEnumerable<NotificationResponse>> SendBulkAsync(IEnumerable<NotificationSendRequest> requests)
@@ -603,7 +609,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return settings;
         }
 
-        private async Task<NotificationResponse> CreateNotificationAsync(Guid userId, string type, string title, string body, DateTimeOffset scheduledAt)
+        private async Task<NotificationResponse> CreateNotificationAsync(
+            Guid userId,
+            string type,
+            string title,
+            string body,
+            DateTimeOffset scheduledAt,
+            string? actionUrl = null)
         {
             var notification = new Notification
             {
@@ -612,6 +624,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Type = type,
                 Title = title,
                 Body = body,
+                ActionUrl = actionUrl,
                 IsRead = false,
                 CreatedAt = DateTimeOffset.UtcNow,
                 ScheduledAt = scheduledAt,
@@ -625,8 +638,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             if (scheduledAt <= DateTimeOffset.UtcNow)
             {
+                // Đánh dấu SentAt NGAY TRƯỚC khi gửi FCM để background job
+                // NotificationDispatchBackgroundService không pick notification
+                // này và gửi FCM lần 2 (gây duplicate push trên thiết bị).
+                // Trước đây SentAt được set SAU khi FCM call xong, tạo race
+                // condition với background job quét mỗi 1 phút.
+                notification.SentAt = DateTimeOffset.UtcNow;
+                _unitOfWork.Notifications.Update(notification);
+                await _unitOfWork.CompleteAsync();
+                response.SentAt = notification.SentAt;
+
                 var settings = await EnsureSettingsAsync(userId);
-                
+
                 if (settings.InAppEnabled)
                 {
                     try
@@ -643,24 +666,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     try
                     {
-                        var data = $"{notification.Type}|{notification.Id}";
+                        var data = SerializeNotificationData(notification);
                         await _fcmService.SendToUserAsync(userId, title, body, data);
-                        notification.SentAt = DateTimeOffset.UtcNow;
-                        _unitOfWork.Notifications.Update(notification);
-                        await _unitOfWork.CompleteAsync();
-                        response.SentAt = notification.SentAt;
                     }
                     catch
                     {
-                        // Ignore
+                        // Ignore — SentAt đã được set ở trên, background job sẽ không pick lại.
                     }
-                }
-                else
-                {
-                    notification.SentAt = DateTimeOffset.UtcNow;
-                    _unitOfWork.Notifications.Update(notification);
-                    await _unitOfWork.CompleteAsync();
-                    response.SentAt = notification.SentAt;
                 }
 
                 try
@@ -708,6 +720,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Title = notification.Title,
                 Body = notification.Body,
                 Type = notification.Type,
+                ActionUrl = notification.ActionUrl,
                 IsRead = notification.IsRead,
                 CreatedAt = notification.CreatedAt,
                 ScheduledAt = notification.ScheduledAt,
@@ -718,6 +731,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ClickedAt = notification.ClickedAt,
                 ActionCompletedAt = notification.ActionCompletedAt
             };
+        }
+
+        private static string SerializeNotificationData(Notification notification)
+        {
+            return string.IsNullOrWhiteSpace(notification.ActionUrl)
+                ? $"{notification.Type}|{notification.Id}"
+                : $"{notification.Type}|{notification.Id}|{notification.ActionUrl}";
         }
     }
 }
