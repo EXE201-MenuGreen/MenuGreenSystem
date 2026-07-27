@@ -616,12 +616,29 @@ if [ -n "$DB_CONN_PRECHECK" ]; then
       echo "  Found $TABLE_COUNT tables in database"
       
       if [ "$TABLE_COUNT" -gt "10" ]; then
-        echo "  Seeding __EFMigrationsHistory with baseline migration..."
-        SEED_RESULT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723091704_Init', '8.0.11');" 2>&1)
+        echo "  Seeding __EFMigrationsHistory with ALL baseline migrations..."
+        
+        # Insert ALL baseline migrations that were applied to this DB
+        # Order matters: older migrations first
+        PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "
+          INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") 
+          VALUES 
+            ('20260723055125_IntialDatabase', '9.0.0'),
+            ('20260723091704_Init', '9.0.0')
+          ON CONFLICT DO NOTHING;
+        " 2>&1
+        
         if [ $? -eq 0 ]; then
-          echo "  ✓ Baseline migration seeded. EF will skip table creation."
+          echo "  ✓ Baseline migrations seeded (2 records). EF will skip table creation."
         else
-          echo "  ! Seed failed: $SEED_RESULT"
+          echo "  ! Seed failed, trying individual inserts..."
+          # Try inserting each one separately (idempotent with ON CONFLICT)
+          PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723055125_IntialDatabase', '9.0.0') ON CONFLICT DO NOTHING;" 2>&1
+          PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260723091704_Init', '9.0.0') ON CONFLICT DO NOTHING;" 2>&1
+          
+          # Verify
+          SEEDED_COUNT=$(PGPASSWORD="$PGPASSWORD_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"__EFMigrationsHistory\";" 2>&1 | tr -d '[:space:]')
+          echo "  ✓ Seeded $SEEDED_COUNT migration(s) total"
         fi
       else
         echo "  No tables found. EF will create all tables on startup."
