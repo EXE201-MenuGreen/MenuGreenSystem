@@ -98,6 +98,9 @@ namespace MenuGreen.API.Controllers
 
         [HttpPost("webhook")]
         [AllowAnonymous]
+        [Consumes("application/json")]
+        [RequestSizeLimit(256 * 1024)]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("WebhookPolicy")]
         public async Task<IActionResult> Webhook()
         {
             try
@@ -107,18 +110,27 @@ namespace MenuGreen.API.Controllers
                 var timestamp = Request.Headers["X-SePay-Timestamp"].ToString();
                 var authorization = Request.Headers.Authorization.ToString();
 
+                if (signature.Length > 256 || timestamp.Length > 32 || authorization.Length > 512)
+                {
+                    return Unauthorized(
+                        new { success = false, message = "Invalid webhook authentication headers." }
+                    );
+                }
+
                 await _sepayPaymentService.ProcessWebhookAsync(rawBody, signature, timestamp, authorization);
 
                 // SePay only accepts exactly {"success": true} as success (see developer.sepay.vn).
                 return Ok(new { success = true });
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
-                return Unauthorized(new { success = false, message = ex.Message });
+                return Unauthorized(
+                    new { success = false, message = "Webhook authentication failed." }
+                );
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(new { success = false, message = "Invalid webhook request." });
             }
         }
 
@@ -128,7 +140,7 @@ namespace MenuGreen.API.Controllers
             Request.Body.Position = 0;
 
             using var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-            var rawBody = await reader.ReadToEndAsync();
+            var rawBody = await reader.ReadToEndAsync(HttpContext.RequestAborted);
             Request.Body.Position = 0;
             return rawBody;
         }

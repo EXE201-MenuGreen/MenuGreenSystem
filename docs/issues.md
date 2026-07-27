@@ -428,7 +428,7 @@ Health check Redis fail vì:
 
 Trong Docker Compose, containers giao tiếp qua **service name** không phải localhost. Thêm vào đó:
 
-- Redis yêu cầu password: `REDIS_PASSWORD="eH671/FNx4LyTMJcEXQJ"`
+- Redis yêu cầu password: `REDIS_PASSWORD="<set-in-secret-manager>"`
 - Connection string format đúng: `redis://:PASSWORD@HOST:PORT`
 
 ### Fix Required (Update in Doppler)
@@ -438,7 +438,7 @@ Trong Docker Compose, containers giao tiếp qua **service name** không phải 
 REDIS__CONNECTIONSTRING="redis://localhost:6379"
 
 # Sau (đúng)
-REDIS_URL="redis://:eH671/FNx4LyTMJcEXQJ@menugreen_redis:6379"
+REDIS_URL="redis://:${REDIS_PASSWORD}@menugreen_redis:6379"
 ```
 
 ### Files Changed

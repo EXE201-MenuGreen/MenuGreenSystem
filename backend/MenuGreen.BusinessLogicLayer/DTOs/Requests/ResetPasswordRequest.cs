@@ -6,15 +6,15 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         [Required(ErrorMessage = "Email is required.")]
         [EmailAddress(ErrorMessage = "Invalid email format.")]
+        [StringLength(254)]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "OTP code is required.")]
-        [MinLength(6, ErrorMessage = "OTP code must be 6 characters long.")]
-        [MaxLength(6, ErrorMessage = "OTP code must be 6 characters long.")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "OTP code must contain exactly 6 digits.")]
         public string OtpCode { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "New password is required.")]
-        [MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
+        [StringLength(128, MinimumLength = 12, ErrorMessage = "Password must be between 12 and 128 characters long.")]
         public string NewPassword { get; set; } = string.Empty;
     }
 }

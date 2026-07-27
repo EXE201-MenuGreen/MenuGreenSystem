@@ -6,10 +6,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         [Required(ErrorMessage = "Email is required.")]
         [EmailAddress(ErrorMessage = "Invalid email format.")]
+        [StringLength(254)]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required.")]
-        [MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
+        [StringLength(128, MinimumLength = 12, ErrorMessage = "Password must be between 12 and 128 characters long.")]
         public string Password { get; set; } = string.Empty;
     }
 }

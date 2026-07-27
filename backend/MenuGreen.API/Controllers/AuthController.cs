@@ -2,12 +2,14 @@ using System;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MenuGreen.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [AllowAnonymous]
     [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("AuthPolicy")]
     public class AuthController : ControllerBase
     {
@@ -30,13 +32,14 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.RegisterAsync(request);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { Message = ex.Message });
+                return BadRequest(new { Message = "Registration could not be completed." });
             }
         }
 
         [HttpPost("verify-otp")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("OtpPolicy")]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -48,9 +51,9 @@ namespace MenuGreen.API.Controllers
                     ? Ok(new { Message = "OTP verified successfully." })
                     : BadRequest(new { Message = "Invalid or expired OTP." });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { Message = ex.Message });
+                return BadRequest(new { Message = "OTP verification failed." });
             }
         }
 
@@ -65,13 +68,20 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.ForgotPasswordAsync(request);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { Message = ex.Message });
+                return Ok(
+                    new
+                    {
+                        Success = true,
+                        Message = "If the email exists, an OTP has been sent.",
+                    }
+                );
             }
         }
 
         [HttpPost("reset-password")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("OtpPolicy")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -81,9 +91,9 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.ResetPasswordAsync(request);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { Message = ex.Message });
+                return BadRequest(new { Message = "Invalid or expired password reset request." });
             }
         }
 
@@ -97,9 +107,9 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.LoginAsync(request);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return Unauthorized(new { Message = ex.Message });
+                return Unauthorized(new { Message = "Invalid email or password." });
             }
         }
 
@@ -113,9 +123,9 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.RefreshTokenAsync(request.RefreshToken);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return Unauthorized(new { Message = ex.Message });
+                return Unauthorized(new { Message = "Invalid or expired refresh token." });
             }
         }
 
@@ -129,9 +139,9 @@ namespace MenuGreen.API.Controllers
                 await _authService.LogoutAsync(request.RefreshToken);
                 return Ok(new { Message = "Logged out successfully." });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { Message = ex.Message });
+                return BadRequest(new { Message = "Logout could not be completed." });
             }
         }
 
@@ -145,9 +155,9 @@ namespace MenuGreen.API.Controllers
                 var response = await _authService.LoginWithGoogleAsync(request.IdToken);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return Unauthorized(new { Message = ex.Message });
+                return Unauthorized(new { Message = "Invalid or expired Google sign-in token." });
             }
         }
     }

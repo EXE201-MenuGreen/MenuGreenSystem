@@ -36,17 +36,40 @@ namespace MenuGreen.API.Middleware
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Bad request on {Path}", context.Request.Path);
-                await WriteAsync(context, HttpStatusCode.BadRequest, ex.Message, ex);
+                await WriteAsync(context, HttpStatusCode.BadRequest, "The request is invalid.", ex);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Malformed JSON on {Path}", context.Request.Path);
+                await WriteAsync(context, HttpStatusCode.BadRequest, "The JSON payload is invalid.", ex);
+            }
+            catch (BadHttpRequestException ex)
+            {
+                var status = Enum.IsDefined(typeof(HttpStatusCode), ex.StatusCode)
+                    ? (HttpStatusCode)ex.StatusCode
+                    : HttpStatusCode.BadRequest;
+                _logger.LogWarning(ex, "Rejected HTTP request on {Path}", context.Request.Path);
+                await WriteAsync(context, status, "The HTTP request is invalid.", ex);
             }
             catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Bad gateway on {Path}", context.Request.Path);
-                await WriteAsync(context, HttpStatusCode.BadGateway, ex.Message, ex);
+                await WriteAsync(
+                    context,
+                    HttpStatusCode.BadGateway,
+                    "A required upstream service is unavailable.",
+                    ex
+                );
             }
             catch (TimeoutException ex)
             {
                 _logger.LogError(ex, "Timeout on {Path}", context.Request.Path);
-                await WriteAsync(context, HttpStatusCode.GatewayTimeout, ex.Message, ex);
+                await WriteAsync(
+                    context,
+                    HttpStatusCode.GatewayTimeout,
+                    "A required upstream service timed out.",
+                    ex
+                );
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -56,10 +79,7 @@ namespace MenuGreen.API.Middleware
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception on {Method} {Path}", context.Request.Method, context.Request.Path);
-                // Show full error details for diagnostics - backend team can switch off later
-                // by setting "DetailedErrors": false in appsettings or via env var
-                var showDetailedErrors = _env.IsDevelopment()
-                    || string.Equals(Environment.GetEnvironmentVariable("SHOW_DETAILED_ERRORS"), "true", StringComparison.OrdinalIgnoreCase);
+                var showDetailedErrors = _env.IsDevelopment();
                 var msg = showDetailedErrors
                     ? ex.Message
                     : "An unexpected error occurred. Please try again later.";
@@ -78,8 +98,7 @@ namespace MenuGreen.API.Middleware
             context.Response.StatusCode = (int)status;
             context.Response.ContentType = "application/json";
 
-            var showDetailed = _env.IsDevelopment()
-                || string.Equals(Environment.GetEnvironmentVariable("SHOW_DETAILED_ERRORS"), "true", StringComparison.OrdinalIgnoreCase);
+            var showDetailed = _env.IsDevelopment();
 
             object body = showDetailed && ex != null
                 ? new
@@ -89,7 +108,11 @@ namespace MenuGreen.API.Middleware
                     StackTrace = ex.StackTrace?.Split('\n').Take(10).ToArray(),
                     InnerException = ex.InnerException?.Message
                 }
-                : (object)new { Message = message };
+                : (object)new
+                {
+                    Message = message,
+                    TraceId = context.TraceIdentifier,
+                };
 
             var json = JsonSerializer.Serialize(body, new JsonSerializerOptions
             {

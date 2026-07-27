@@ -1,5 +1,3 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
@@ -7,15 +5,13 @@ class ApiEndpoints {
   /// Backend local mặc định cho Android Emulator.
   static const String localBaseUrl = 'http://10.0.2.2:5000/api';
 
-  /// Ưu tiên: env file > environment variable > default
+  /// Build-time override: --dart-define=API_BASE_URL=https://host/api
   static String get baseUrl {
-    // 1. Check dotenv file first
-    final envUrl = dotenv.env['API_BASE_URL'];
-    if (envUrl != null && envUrl.trim().isNotEmpty) {
-      return _normalizeBaseUrl(envUrl);
+    const definedUrl = String.fromEnvironment('API_BASE_URL');
+    if (definedUrl.trim().isNotEmpty) {
+      return _normalizeBaseUrl(definedUrl);
     }
 
-    // 2. Fallback to default production
     return productionBaseUrl;
   }
 
@@ -42,6 +38,15 @@ class ApiEndpoints {
   static String get notificationHub => '$realtimeBaseUrl/notificationHub';
 
   static String get health => '$baseUrl/Food';
+  static String locationReverseGeocode(double latitude, double longitude) {
+    final uri = Uri.parse('$baseUrl/location/reverse-geocode').replace(
+      queryParameters: {
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+      },
+    );
+    return uri.toString();
+  }
   static String get login => '$baseUrl/Auth/login';
   static String get googleLogin => '$baseUrl/Auth/google';
   static String get register => '$baseUrl/Auth/register';

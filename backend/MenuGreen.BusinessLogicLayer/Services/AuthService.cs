@@ -70,7 +70,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                OtpCode = otp,
+                OtpCode = HashOtp(user.Id, otp),
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10)
             };
@@ -115,7 +115,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                RefreshToken = refreshToken,
+                RefreshToken = HashToken(refreshToken),
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             });
@@ -126,7 +126,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
         {
-            var session = (await _unitOfWork.Sessions.FindAsync(s => s.RefreshToken == refreshToken)).FirstOrDefault();
+            var refreshTokenHash = HashToken(refreshToken);
+            var session = (
+                await _unitOfWork.Sessions.FindAsync(s =>
+                    s.RefreshToken == refreshTokenHash || s.RefreshToken == refreshToken
+                )
+            ).FirstOrDefault();
             if (session == null || session.ExpiresAt < DateTime.UtcNow)
                 throw new Exception("Invalid or expired refresh token.");
 
@@ -139,7 +144,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var newAccessToken = GenerateJwtToken(user, roleName);
             var newRefreshToken = GenerateRefreshToken();
 
-            session.RefreshToken = newRefreshToken;
+            session.RefreshToken = HashToken(newRefreshToken);
             session.ExpiresAt = DateTime.UtcNow.AddDays(7);
             _unitOfWork.Sessions.Update(session);
             await _unitOfWork.CompleteAsync();
@@ -153,7 +158,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = (await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail)).FirstOrDefault();
             if (user == null) return false;
 
-            var verification = (await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.OtpCode == otpCode)).FirstOrDefault();
+            var expectedOtpHash = HashOtp(user.Id, otpCode);
+            var verification = (
+                await _unitOfWork.EmailVerifications.FindAsync(v =>
+                    v.UserId == user.Id && v.VerifiedAt == null
+                )
+            )
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefault(v =>
+                    FixedTimeEquals(v.OtpCode, expectedOtpHash)
+                    || FixedTimeEquals(v.OtpCode, otpCode)
+                );
             if (verification == null || verification.ExpiresAt < DateTime.UtcNow || verification.VerifiedAt != null) return false;
 
             user.EmailConfirmed = true;
@@ -187,7 +202,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                OtpCode = otp,
+                OtpCode = HashOtp(user.Id, otp),
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10)
             };
@@ -209,7 +224,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Email does not exist.");
             }
 
-            var verification = (await _unitOfWork.EmailVerifications.FindAsync(v => v.UserId == user.Id && v.OtpCode == request.OtpCode)).FirstOrDefault();
+            var expectedOtpHash = HashOtp(user.Id, request.OtpCode);
+            var verification = (
+                await _unitOfWork.EmailVerifications.FindAsync(v =>
+                    v.UserId == user.Id && v.VerifiedAt == null
+                )
+            )
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefault(v =>
+                    FixedTimeEquals(v.OtpCode, expectedOtpHash)
+                    || FixedTimeEquals(v.OtpCode, request.OtpCode)
+                );
             if (verification == null || verification.ExpiresAt < DateTime.UtcNow || verification.VerifiedAt != null)
             {
                 throw new Exception("Invalid or expired OTP.");
@@ -234,7 +259,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task LogoutAsync(string refreshToken)
         {
-            var session = (await _unitOfWork.Sessions.FindAsync(s => s.RefreshToken == refreshToken)).FirstOrDefault();
+            var refreshTokenHash = HashToken(refreshToken);
+            var session = (
+                await _unitOfWork.Sessions.FindAsync(s =>
+                    s.RefreshToken == refreshTokenHash || s.RefreshToken == refreshToken
+                )
+            ).FirstOrDefault();
             if (session == null) return;
             _unitOfWork.Sessions.Remove(session);
             await _unitOfWork.CompleteAsync();
@@ -355,7 +385,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                RefreshToken = refreshToken,
+                RefreshToken = HashToken(refreshToken),
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             });
@@ -381,13 +411,48 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return Convert.ToBase64String(randomNumber);
         }
 
+        private static string HashToken(string token)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return Convert.ToHexString(hash);
+        }
+
+        private string HashOtp(Guid userId, string otp)
+        {
+            var secretKey =
+                _configuration["JwtSettings:SecretKey"]
+                ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+                ?? throw new InvalidOperationException("JWT signing key is not configured.");
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
+            var hash = hmac.ComputeHash(
+                Encoding.UTF8.GetBytes($"{userId:N}:{otp}")
+            );
+
+            // The legacy database column is VARCHAR(20). Fifteen HMAC bytes encode
+            // to exactly 20 Base64 characters while retaining 120 bits of entropy.
+            return Convert.ToBase64String(hash, 0, 15);
+        }
+
+        private static bool FixedTimeEquals(string left, string right)
+        {
+            var leftBytes = Encoding.UTF8.GetBytes(left);
+            var rightBytes = Encoding.UTF8.GetBytes(right);
+            return leftBytes.Length == rightBytes.Length
+                && CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
+        }
+
         private string GenerateJwtToken(User user, string roleName)
         {
-            var secretKey = _configuration["JwtSettings:SecretKey"] 
-                            ?? Environment.GetEnvironmentVariable("JwtSettings__SecretKey") 
+            var secretKey = _configuration["JwtSettings:SecretKey"]
+                            ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
                             ?? throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
-            var key = Encoding.ASCII.GetBytes(secretKey);
-            var expiryMinutes = int.TryParse(_configuration["JwtSettings:ExpiryMinutes"], out var exp) ? exp : 120;
+            var key = Encoding.UTF8.GetBytes(secretKey);
+            var expiryMinutes = int.TryParse(
+                _configuration["JwtSettings:ExpiryMinutes"],
+                out var exp
+            )
+                ? Math.Clamp(exp, 5, 60)
+                : 60;
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
             {

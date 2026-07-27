@@ -6,7 +6,7 @@
 $DbContainer = "menugreen_db"
 $DbUser = "postgres"
 $DbName = "MenuGreenDb"
-$DbPassword = "12345"
+$DbPassword = $env:MENUGREEN_DB_PASSWORD
 $SeedDirName = "database"
 
 # Đường dẫn thư mục
@@ -62,6 +62,11 @@ if ($choice -eq "1") {
     Write-Host "`nHoan thanh import seed data tren Docker!" -ForegroundColor Green
 }
 elseif ($choice -eq "2") {
+    if ([string]::IsNullOrWhiteSpace($DbPassword)) {
+        Write-Error "Set MENUGREEN_DB_PASSWORD in the environment before using local psql mode."
+        exit 1
+    }
+
     # Thiết lập mật khẩu postgres tạm thời cho session và encoding UTF8
     $env:PGPASSWORD = $DbPassword
     $env:PGCLIENTENCODING = 'UTF8'

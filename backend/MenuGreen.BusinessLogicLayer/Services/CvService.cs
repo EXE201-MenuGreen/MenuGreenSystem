@@ -71,8 +71,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new ArgumentException($"Unsupported image type: {contentType}. Allowed: jpeg, png, webp.");
             }
 
-            var baseUrl = _configuration["CvService:BaseUrl"] ?? "https://vision.menugreen.food";
-            var apiKey = _configuration["CvService:ApiSecretKey"] ?? string.Empty;
+            var baseUrl =
+                _configuration["CvService:BaseUrl"]
+                ?? Environment.GetEnvironmentVariable("CV_SERVICE_BASE_URL")
+                ?? "https://vision.menugreen.food";
+            var apiKey =
+                _configuration["CvService:ApiSecretKey"]
+                ?? Environment.GetEnvironmentVariable("CV_SERVICE_API_SECRET_KEY")
+                ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {

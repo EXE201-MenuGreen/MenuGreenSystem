@@ -6,11 +6,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         [Required(ErrorMessage = "Email is required.")]
         [EmailAddress(ErrorMessage = "Invalid email format.")]
+        [StringLength(254)]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "OTP code is required.")]
-        [MinLength(6, ErrorMessage = "OTP code must be at least 6 characters long.")]
-        [MaxLength(6, ErrorMessage = "OTP code must be 6 characters long.")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "OTP code must contain exactly 6 digits.")]
         public string OtpCode { get; set; } = string.Empty;
     }
 }

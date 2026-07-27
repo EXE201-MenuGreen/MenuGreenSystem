@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../firebase_options.dart';
 import 'firebase_storage_service.dart';
 
 class FirebaseBootstrap {
@@ -25,9 +24,9 @@ class FirebaseBootstrap {
   static Future<void> _doInitialize() async {
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        ).timeout(
+        // Android reads public Firebase client settings from the generated
+        // resources produced by the ignored google-services.json file.
+        await Firebase.initializeApp().timeout(
           const Duration(seconds: 12),
           onTimeout: () {
             throw TimeoutException('Firebase.initializeApp');

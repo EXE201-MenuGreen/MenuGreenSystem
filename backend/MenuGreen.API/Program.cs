@@ -4,10 +4,13 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using MenuGreen.API.Security;
 using MenuGreen.BusinessLogicLayer;
 using MenuGreen.DataAccessLayer;
 using MenuGreen.DataAccessLayer.Context;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -27,6 +30,31 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 
 var builder = WebApplication.CreateBuilder(args);
 
+const long DefaultRequestBodyBytes = 1 * 1024 * 1024;
+const long MultipartRequestBodyBytes = 11 * 1024 * 1024;
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = DefaultRequestBodyBytes;
+    options.Limits.MaxRequestBufferSize = DefaultRequestBodyBytes;
+    options.Limits.MaxRequestHeaderCount = 100;
+    options.Limits.MaxRequestHeadersTotalSize = 32 * 1024;
+    options.Limits.MaxRequestLineSize = 8 * 1024;
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(15);
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = MultipartRequestBodyBytes;
+    options.ValueLengthLimit = 64 * 1024;
+    options.KeyLengthLimit = 256;
+    options.ValueCountLimit = 1_024;
+    options.MultipartHeadersCountLimit = 32;
+    options.MultipartHeadersLengthLimit = 16 * 1024;
+});
+
 // Windows Event Log requires elevated permissions on some development machines.
 // Keep local logging on console/debug so a denied Event Log write cannot stop API startup.
 if (builder.Environment.IsDevelopment())
@@ -36,6 +64,10 @@ if (builder.Environment.IsDevelopment())
     builder.Logging.AddDebug();
 }
 
+// Goong requires its API key in the query string. Suppress informational HttpClient
+// URL logging for that named client so the key cannot be copied into application logs.
+builder.Logging.AddFilter("System.Net.Http.HttpClient.Goong", LogLevel.Warning);
+
 var firebaseCredentialPath = builder.Configuration["Firebase:CredentialPath"];
 if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
 {
@@ -44,7 +76,14 @@ if (!string.IsNullOrWhiteSpace(firebaseCredentialPath))
         : Path.Combine(builder.Environment.ContentRootPath, firebaseCredentialPath);
     if (File.Exists(fullPath) && FirebaseApp.DefaultInstance == null)
     {
-        FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fullPath) });
+        FirebaseApp.Create(
+            new AppOptions
+            {
+                Credential = CredentialFactory
+                    .FromFile<ServiceAccountCredential>(fullPath)
+                    .ToGoogleCredential(),
+            }
+        );
     }
 }
 
@@ -69,6 +108,15 @@ else
 }
 
 builder.Services.AddBusinessLogicLayer();
+builder.Services.AddScoped<InputSecurityFilter>();
+builder.Services.AddHttpClient(
+    "Goong",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://rsapi.goong.io/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }
+);
 
 builder.Services.AddSignalR();
 builder.Services.AddScoped<
@@ -77,7 +125,7 @@ builder.Services.AddScoped<
 >();
 
 builder
-    .Services.AddControllers()
+    .Services.AddControllers(options => options.Filters.Add<InputSecurityFilter>())
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System
@@ -85,9 +133,41 @@ builder
             .Json
             .JsonNamingPolicy
             .CamelCase;
+        options.JsonSerializerOptions.MaxDepth = 32;
+        options.JsonSerializerOptions.AllowTrailingCommas = false;
+        options.JsonSerializerOptions.ReadCommentHandling = JsonCommentHandling.Disallow;
+        options.JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
         options.JsonSerializerOptions.Converters.Add(new DateOnlyConverter());
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyConverter());
     });
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context
+            .ModelState.Where(entry => entry.Value?.Errors.Count > 0)
+            .ToDictionary(
+                entry => entry.Key,
+                entry =>
+                    entry
+                        .Value!
+                        .Errors.Select(error =>
+                            string.IsNullOrWhiteSpace(error.ErrorMessage)
+                                ? "The supplied value is invalid."
+                                : error.ErrorMessage
+                        )
+                        .ToArray()
+            );
+
+        return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(
+            new Microsoft.AspNetCore.Mvc.ValidationProblemDetails(errors)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Request validation failed.",
+            }
+        );
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure authorization policies for role-based and entitlement-based access control.
@@ -98,6 +178,9 @@ builder.Services.AddScoped<
 
 builder.Services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy(
         "UserOnly",
@@ -163,22 +246,17 @@ builder.Services.AddAuthorization(options =>
 });
 
 
-// Configure CORS - Allow frontend domains
+// Configure CORS. Production never accepts wildcard or localhost origins.
 var isDevelopment = builder.Environment.IsDevelopment();
 var corsPolicyName = isDevelopment ? "AllowAll" : "ProductionPolicy";
 
-// Default allowed origins for production
 var defaultOrigins = new[]
 {
     "https://admin.menugreen.food",
     "https://www.menugreen.food",
     "https://menugreen.food",
-    "https://menu-green-system-ldw5frytu-johnny-dangs-projects.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:3001",
 };
 
-// Get origins from config/env, or use defaults
 var configuredOrigins =
     (
         builder.Configuration["AllowedOrigins"]
@@ -186,12 +264,27 @@ var configuredOrigins =
     )?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     ?? Array.Empty<string>();
 
-// Always merge: default origins + env-configured origins
-// This guarantees admin.menugreen.food is allowed regardless of env config
-var allowedOrigins = defaultOrigins.Concat(configuredOrigins).Distinct().ToArray();
+if (!isDevelopment && configuredOrigins.Any(origin => origin == "*"))
+{
+    throw new InvalidOperationException("Wildcard CORS origins are forbidden in production.");
+}
 
-// If wildcard is configured, keep all origins allowed
-var allowAnyOrigin = allowedOrigins.Contains("*");
+var invalidProductionOrigins = configuredOrigins.Where(origin =>
+    !Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+    || !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+    || !string.IsNullOrEmpty(uri.PathAndQuery.Trim('/'))
+);
+if (!isDevelopment && invalidProductionOrigins.Any())
+{
+    throw new InvalidOperationException(
+        "Every production CORS origin must be an HTTPS origin without a path."
+    );
+}
+
+var allowedOrigins = defaultOrigins
+    .Concat(configuredOrigins)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 
 builder.Services.AddCors(options =>
 {
@@ -199,25 +292,42 @@ builder.Services.AddCors(options =>
         corsPolicyName,
         policy =>
         {
-            if (isDevelopment || allowAnyOrigin)
+            if (isDevelopment)
             {
                 policy
                     .SetIsOriginAllowed(origin => true)
                     .AllowAnyMethod()
-                    .AllowAnyHeader()
-                    .AllowCredentials();
+                    .AllowAnyHeader();
             }
             else
             {
                 policy
                     .WithOrigins(allowedOrigins)
                     .AllowAnyMethod()
-                    .AllowAnyHeader()
-                    .AllowCredentials();
+                    .AllowAnyHeader();
             }
         }
     );
 });
+
+var trustProxyHeaders =
+    bool.TryParse(
+        builder.Configuration["TrustProxyHeaders"]
+            ?? Environment.GetEnvironmentVariable("TRUST_PROXY_HEADERS"),
+        out var parsedTrustProxyHeaders
+    ) && parsedTrustProxyHeaders;
+
+if (trustProxyHeaders)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 2;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 // 1. Configure Swagger to show Authorize button (Enter Token)
 builder.Services.AddSwaggerGen(c =>
@@ -253,13 +363,31 @@ builder.Services.AddSwaggerGen(c =>
     );
 });
 
-// 2. Configure JWT Authentication
-var secretKey = builder.Configuration["JwtSettings:SecretKey"];
+// 2. Configure JWT Authentication. Secret aliases support conventional deploy env names.
+var secretKey =
+    builder.Configuration["JwtSettings:SecretKey"]
+    ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 if (string.IsNullOrEmpty(secretKey))
 {
     throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
 }
-var key = Encoding.ASCII.GetBytes(secretKey);
+var key = Encoding.UTF8.GetBytes(secretKey);
+if (key.Length < 32)
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey must contain at least 32 bytes.");
+}
+
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
+var jwtAudience = builder.Configuration["JwtSettings:Audience"];
+if (
+    !isDevelopment
+    && (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudience))
+)
+{
+    throw new InvalidOperationException(
+        "JwtSettings:Issuer and JwtSettings:Audience are required in production."
+    );
+}
 
 builder
     .Services.AddAuthentication(options =>
@@ -269,16 +397,21 @@ builder
     })
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
+        options.RequireHttpsMetadata = !isDevelopment;
+        options.SaveToken = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Issuer"]),
-            ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-            ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["JwtSettings:Audience"]),
-            ValidAudience = builder.Configuration["JwtSettings:Audience"],
+            ValidateIssuer = !string.IsNullOrWhiteSpace(jwtIssuer),
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = !string.IsNullOrWhiteSpace(jwtAudience),
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            RequireSignedTokens = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         };
         options.Events = new JwtBearerEvents
         {
@@ -301,13 +434,41 @@ builder
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        if (
+            context.Lease.TryGetMetadata(
+                MetadataName.RetryAfter,
+                out var retryAfter
+            )
+        )
+        {
+            context.HttpContext.Response.Headers.RetryAfter = Math
+                .Ceiling(retryAfter.TotalSeconds)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new
+            {
+                type = "https://httpstatuses.com/429",
+                title = "Too many requests.",
+                status = StatusCodes.Status429TooManyRequests,
+            },
+            cancellationToken
+        );
+    };
 
     // 1. Global Limiter: 100 requests per 1 minute per IP
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
-        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+        var partitionKey =
+            httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown-client";
         return RateLimitPartition.GetFixedWindowLimiter(
-            ipAddress,
+            partitionKey,
             _ => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
@@ -377,6 +538,25 @@ builder.Services.AddRateLimiter(options =>
             );
         }
     );
+
+    // 5. Payment webhooks: tolerate provider retries while limiting abuse.
+    options.AddPolicy(
+        "WebhookPolicy",
+        httpContext =>
+        {
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                ipAddress,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 60,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }
+            );
+        }
+    );
 });
 
 // Health Checks
@@ -408,6 +588,11 @@ if (!string.IsNullOrWhiteSpace(healthCheckRedisConnection))
 }
 
 var app = builder.Build();
+
+if (trustProxyHeaders)
+{
+    app.UseForwardedHeaders();
+}
 
 // Global exception handler - must be first in pipeline
 app.UseMiddleware<MenuGreen.API.Middleware.GlobalExceptionHandler>();
@@ -480,30 +665,20 @@ if (!app.Environment.IsDevelopment())
         var unknownInHistory = applied.Where(id => !known.Contains(id)).ToList();
         if (unknownInHistory.Count > 0)
         {
-            logger.LogWarning(
+            logger.LogCritical(
                 "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. "
-                    + "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
+                    + "Startup is being stopped. Roll back the image or reconcile the migration history through an approved database change.",
                 unknownInHistory.Count,
                 string.Join(", ", unknownInHistory)
             );
 
-            // AUTO-FIX: Remove unknown migrations from history since they don't exist in this DLL
-            logger.LogInformation(
-                "[MIGRATION] Auto-removing {Count} unknown migration(s) from __EFMigrationsHistory.",
-                unknownInHistory.Count
-            );
-            foreach (var unknownId in unknownInHistory)
-            {
-                db.Database.ExecuteSqlRaw(
-                    "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
-                    unknownId);
-                logger.LogInformation("[MIGRATION] Removed: {MigrationId}", unknownId);
-            }
-
-            // Refresh applied/pending lists
-            applied = db.Database.GetAppliedMigrations().ToList();
-            pending = db.Database.GetPendingMigrations().ToList();
+            throw new InvalidOperationException(
+                "Database migration history contains entries unknown to this application build.");
         }
+    }
+    catch (InvalidOperationException)
+    {
+        throw;
     }
     catch (Exception ex)
     {
@@ -550,23 +725,134 @@ if (!app.Environment.IsDevelopment())
 
 // Configure the HTTP request pipeline.
 
-app.UseSwagger();
-app.UseSwaggerUI();
+var enableSwagger =
+    app.Environment.IsDevelopment()
+    || (
+        bool.TryParse(
+            builder.Configuration["EnableSwagger"]
+                ?? Environment.GetEnvironmentVariable("ENABLE_SWAGGER"),
+            out var parsedEnableSwagger
+        ) && parsedEnableSwagger
+    );
+if (enableSwagger)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-// Prometheus metrics endpoint
-app.UseMetricServer(); // /metrics endpoint
-app.UseHttpMetrics(); // Auto-instrument HTTP requests
+var enableMetrics =
+    app.Environment.IsDevelopment()
+    || (
+        bool.TryParse(
+            builder.Configuration["AspNetCoreMetrics"]
+                ?? Environment.GetEnvironmentVariable("ASPNETCORE_METRICS"),
+            out var parsedEnableMetrics
+        ) && parsedEnableMetrics
+    );
+var metricsAuthToken =
+    builder.Configuration["Metrics:AuthToken"]
+    ?? Environment.GetEnvironmentVariable("METRICS_AUTH_TOKEN");
 
-// Enable CORS
-app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
+if (enableMetrics && !app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(metricsAuthToken))
+{
+    throw new InvalidOperationException(
+        "METRICS_AUTH_TOKEN is required when production metrics are enabled."
+    );
+}
+
+if (enableMetrics)
+{
+    app.UseWhen(
+        context => context.Request.Path.Equals("/metrics", StringComparison.OrdinalIgnoreCase),
+        metricsApp =>
+            metricsApp.Use(async (context, next) =>
+            {
+                if (!app.Environment.IsDevelopment())
+                {
+                    var suppliedToken = context.Request.Headers["X-Metrics-Key"].ToString();
+                    if (
+                        suppliedToken.Length is 0 or > 512
+                        || !FixedTimeEquals(suppliedToken, metricsAuthToken!)
+                    )
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+                }
+
+                await next();
+            })
+    );
+    app.UseMetricServer();
+    app.UseHttpMetrics();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var headers = context.Response.Headers;
+        headers.XContentTypeOptions = "nosniff";
+        headers.XFrameOptions = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)";
+
+        if (!app.Environment.IsDevelopment())
+        {
+            headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
+            if (context.Request.IsHttps)
+            {
+                headers.StrictTransportSecurity = "max-age=31536000; includeSubDomains";
+            }
+        }
+
+        if (
+            context.Request.Path.StartsWithSegments("/api/Auth")
+            || context.Response.StatusCode >= StatusCodes.Status400BadRequest
+        )
+        {
+            headers.CacheControl = "no-store";
+            headers.Pragma = "no-cache";
+        }
+
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
+
+app.Use(async (context, next) =>
+{
+    var requestLimit = context.Request.Path.StartsWithSegments("/api/Cv/analyze")
+        ? MultipartRequestBodyBytes
+        : DefaultRequestBodyBytes;
+
+    if (context.Request.ContentLength > requestLimit)
+    {
+        context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(
+            new
+            {
+                type = "https://httpstatuses.com/413",
+                title = "Request payload is too large.",
+                status = StatusCodes.Status413PayloadTooLarge,
+                maxBytes = requestLimit,
+            },
+            context.RequestAborted
+        );
+        return;
+    }
+
+    await next();
+});
 
 // HTTPS redirection handled by reverse proxy (nginx in docker-compose)
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseRateLimiter();
-}
+app.UseRouting();
+app.UseCors(isDevelopment ? "AllowAll" : "ProductionPolicy");
 app.UseAuthentication(); // MUST BE BEFORE UseAuthorization
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -581,22 +867,31 @@ app.MapHealthChecks(
         ResponseWriter = async (context, report) =>
         {
             context.Response.ContentType = "application/json";
-            var result = new
+            if (!app.Environment.IsDevelopment())
             {
-                status = report.Status.ToString(),
-                checks = report.Entries.Select(e => new
+                await context.Response.WriteAsJsonAsync(
+                    new { status = report.Status.ToString() }
+                );
+                return;
+            }
+
+            await context.Response.WriteAsJsonAsync(
+                new
                 {
-                    name = e.Key,
-                    status = e.Value.Status.ToString(),
-                    description = e.Value.Description,
-                    duration = e.Value.Duration.TotalMilliseconds,
-                }),
-                totalDuration = report.TotalDuration.TotalMilliseconds,
-            };
-            await context.Response.WriteAsJsonAsync(result);
+                    status = report.Status.ToString(),
+                    checks = report.Entries.Select(e => new
+                    {
+                        name = e.Key,
+                        status = e.Value.Status.ToString(),
+                        description = e.Value.Description,
+                        duration = e.Value.Duration.TotalMilliseconds,
+                    }),
+                    totalDuration = report.TotalDuration.TotalMilliseconds,
+                }
+            );
         },
     }
-);
+).AllowAnonymous();
 
 app.MapHealthChecks(
     "/health/ready",
@@ -609,14 +904,25 @@ app.MapHealthChecks(
             await context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
         },
     }
-);
+).AllowAnonymous();
 
 app.MapHealthChecks(
     "/health/live",
     new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false }
-);
+).AllowAnonymous();
 
 app.Run();
+
+static bool FixedTimeEquals(string supplied, string expected)
+{
+    var suppliedBytes = Encoding.UTF8.GetBytes(supplied);
+    var expectedBytes = Encoding.UTF8.GetBytes(expected);
+    return suppliedBytes.Length == expectedBytes.Length
+        && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            suppliedBytes,
+            expectedBytes
+        );
+}
 
 public class DateOnlyConverter : JsonConverter<DateOnly>
 {

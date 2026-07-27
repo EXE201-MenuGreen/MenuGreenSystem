@@ -17,14 +17,8 @@ if (keystorePropertiesFile.exists()) {
 val hasReleaseSigningConfig =
     listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
         .all { !keystoreProperties.getProperty(it).isNullOrBlank() }
-
-// Load environment variables from .env file securely
-val envProperties = Properties()
-val envFile = rootProject.file("../.env")
-if (envFile.exists()) {
-    envFile.inputStream().use { envProperties.load(it) }
-}
-val mapApiKey = envProperties.getProperty("GOONG_API_KEY") ?: envProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
+val allowDebugReleaseSigning =
+    System.getenv("ALLOW_DEBUG_RELEASE_SIGNING")?.equals("true", ignoreCase = true) == true
 
 android {
     namespace = "com.menugreen.food"
@@ -59,7 +53,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapApiKey
         // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
         ndk {
             // no abiFilters override here - let --target-platform drive it
@@ -78,18 +71,28 @@ android {
 
     buildTypes {
         release {
-            signingConfig =
-                if (hasReleaseSigningConfig) {
-                    signingConfigs.getByName("release")
-                } else {
-                    signingConfigs.getByName("debug")
-                }
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            } else if (allowDebugReleaseSigning) {
+                // Explicit opt-in for disposable LAN/test artifacts only.
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { it.name.contains("Release", ignoreCase = true) }
+    if (releaseRequested && !hasReleaseSigningConfig && !allowDebugReleaseSigning) {
+        throw GradleException(
+            "Release signing is not configured. Provide android/key.properties or explicitly set " +
+                "ALLOW_DEBUG_RELEASE_SIGNING=true for a disposable LAN/test build.",
+        )
     }
 }
 

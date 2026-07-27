@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -159,9 +160,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var payload = JsonSerializer.Deserialize<SepayIncomingWebhookPayload>(rawBody, WebhookJsonOptions)
                 ?? throw new Exception("Invalid SePay webhook payload.");
 
-            if (payload.Id <= 0)
+            var validationResults = new List<ValidationResult>();
+            if (
+                !Validator.TryValidateObject(
+                    payload,
+                    new ValidationContext(payload),
+                    validationResults,
+                    validateAllProperties: true
+                )
+            )
             {
-                throw new Exception("Invalid SePay transaction id.");
+                throw new ArgumentException("Invalid SePay webhook payload.");
             }
 
             if (!string.Equals(payload.TransferType, "in", StringComparison.OrdinalIgnoreCase))
@@ -242,7 +251,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TransferContent = transferContent,
                 TransactionTime = transactionTime,
                 Status = "CONFIRMED",
-                RawPayloadJson = rawBody,
+                // Do not persist the full provider payload: it can contain bank PII
+                // and is not needed after the verified fields above are recorded.
+                RawPayloadJson = null,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 

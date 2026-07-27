@@ -215,7 +215,7 @@ docker-compose up -d --build
 |---|---|---|
 | `POSTGRES_DB` | `MenuGreenDb` | Tên database |
 | `POSTGRES_USER` | `postgres` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password |
+| `POSTGRES_PASSWORD` | *(required)* | PostgreSQL password; keep it in your local environment or secret manager |
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
 | `JWT_SECRET_KEY` | (required) | JWT secret key (min 32 chars) |
 | `JWT_ISSUER` | `MenuGreenAPI` | JWT issuer |

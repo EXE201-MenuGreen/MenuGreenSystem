@@ -10,8 +10,10 @@ services:
       - ASPNETCORE_URLS=http://+:5000
       - GIT_SHA=${GIT_SHA:-manual}
       - Firebase__CredentialPath=${FIREBASE_CREDENTIAL_PATH:-/etc/secrets/firebase-adminsdk.json}
+      - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
     ports:
-      - "5000:5000"
+      # Only the host Nginx reverse proxy may reach Kestrel directly.
+      - "127.0.0.1:5000:5000"
     networks:
       - menugreen-net
     restart: unless-stopped

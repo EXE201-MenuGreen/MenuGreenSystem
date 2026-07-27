@@ -181,14 +181,6 @@ case "${1:-help}" in
         echo -e "${BLUE}=== Verify Database Schema ===${NC}"
         echo ""
         
-        # Get connection string from appsettings
-        CONN_STR=$(grep -oP 'DefaultConnection.*?\K([^;]+)' MenuGreen.API/appsettings.json 2>/dev/null || echo "")
-        
-        if [ -z "$CONN_STR" ]; then
-            echo -e "${YELLOW}Could not read connection string. Using default.${NC}"
-            CONN_STR="Host=localhost;Database=menugreen_dev;Username=postgres;Password=postgres"
-        fi
-        
         echo "Checking database tables..."
         
         # List tables

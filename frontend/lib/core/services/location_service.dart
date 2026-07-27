@@ -1,12 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
+
+import '../network/api_client.dart';
+import '../network/api_endpoints.dart';
 
 class LocationService {
-  static String get _goongApiKey => dotenv.env['GOONG_API_KEY'] ?? '';
-
   /// Xác định vị trí tọa độ hiện tại và xin quyền nếu cần
   static Future<Position> getCurrentPosition() async {
     bool serviceEnabled;
@@ -41,40 +39,15 @@ class LocationService {
 
   /// Gọi Goong API Reverse Geocoding để lấy thông tin Tỉnh/Thành phố
   static Future<String?> getProvinceFromCoordinates(double lat, double lng) async {
-    if (_goongApiKey.isEmpty) {
-      debugPrint('CẢNH BÁO: Chưa cấu hình GOONG_API_KEY. Vui lòng thêm key này vào tệp .env tại gốc thư mục frontend.');
-      return null;
-    }
-    final url = Uri.parse(
-      'https://rsapi.goong.io/Geocode?latlng=$lat,$lng&api_key=$_goongApiKey',
-    );
-
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await ApiClient().get(
+        ApiEndpoints.locationReverseGeocode(lat, lng),
+      );
       if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body);
-      final results = data['results'];
-      if (results is! List || results.isEmpty) return null;
-
-      // Tìm kiếm trong components của kết quả đầu tiên
-      final components = results.first['address_components'];
-      if (components is! List) return null;
-
-      for (var component in components) {
-        final types = component['types'];
-        if (types is List && types.contains('administrative_area_level_1')) {
-          return component['long_name'] as String?;
-        }
-      }
-      
-      // Fallback: Tìm qua formatted_address nếu không tìm thấy component
-      final formattedAddress = results.first['formatted_address'] as String?;
-      if (formattedAddress != null && formattedAddress.isNotEmpty) {
-        final parts = formattedAddress.split(',');
-        if (parts.length >= 2) {
-          return parts[parts.length - 2].trim(); // Phần tử kế cuối thường là Tỉnh/Thành
-        }
+      if (data is Map<String, dynamic>) {
+        return data['province']?.toString();
       }
     } catch (_) {
       // Bỏ qua lỗi kết nối

@@ -22,16 +22,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task SendVerificationEmailAsync(string toEmail, string otpCode)
         {
-            var apiKey = _configuration["Resend:ApiKey"];
-            if (string.IsNullOrEmpty(apiKey))
+            var apiKey =
+                _configuration["Resend:ApiKey"]
+                ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                Console.WriteLine("\n==========================================================");
-                Console.WriteLine($"🌱 [MOCK EMAIL] Verification OTP for {toEmail}: {otpCode}");
-                Console.WriteLine("==========================================================\n");
-                return;
+                throw new InvalidOperationException(
+                    "Email delivery is not configured. Set Resend__ApiKey or RESEND_API_KEY."
+                );
             }
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
             var fromEmail = _configuration["Resend:FromEmail"];
             var fromName = _configuration["Resend:FromName"];
@@ -56,21 +55,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     </div>"
             };
 
-            await SendAsync(payload);
+            await SendAsync(payload, apiKey);
         }
 
         public async Task SendForgotPasswordEmailAsync(string toEmail, string otpCode)
         {
-            var apiKey = _configuration["Resend:ApiKey"];
-            if (string.IsNullOrEmpty(apiKey))
+            var apiKey =
+                _configuration["Resend:ApiKey"]
+                ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                Console.WriteLine("\n==========================================================");
-                Console.WriteLine($"🔑 [MOCK EMAIL] Forgot Password OTP for {toEmail}: {otpCode}");
-                Console.WriteLine("==========================================================\n");
-                return;
+                throw new InvalidOperationException(
+                    "Email delivery is not configured. Set Resend__ApiKey or RESEND_API_KEY."
+                );
             }
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
             var fromEmail = _configuration["Resend:FromEmail"];
             var fromName = _configuration["Resend:FromName"];
@@ -95,18 +93,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     </div>"
             };
 
-            await SendAsync(payload);
+            await SendAsync(payload, apiKey);
         }
 
-        private async Task SendAsync(object payload)
+        private async Task SendAsync(object payload, string apiKey)
         {
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("https://api.resend.com/emails", content);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = content;
+            using var response = await _httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Failed to send email via Resend: {error}");
+                throw new HttpRequestException(
+                    $"Email provider returned HTTP {(int)response.StatusCode}."
+                );
             }
         }
     }

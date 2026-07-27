@@ -25,6 +25,8 @@ concurrency:
 env:
   FLUTTER_VERSION: 3.44.7
   API_BASE_URL: ${{ inputs.api_base_url || vars.ANDROID_API_BASE_URL || 'http://192.168.100.211:5000/api' }}
+  # This workflow publishes a disposable LAN artifact, never a store release.
+  ALLOW_DEBUG_RELEASE_SIGNING: "true"
 
 jobs:
   build-apk:
@@ -51,11 +53,19 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Create build-time configuration
+      - name: Materialize Firebase client configuration
         env:
-          GOONG_API_KEY: ${{ secrets.GOONG_API_KEY }}
+          FIREBASE_CONFIG_B64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          printf 'GOONG_API_KEY=%s\n' "$GOONG_API_KEY" > .env
+          if [ -z "$FIREBASE_CONFIG_B64" ]; then
+            echo "::error::FIREBASE_GOOGLE_SERVICES_JSON_BASE64 is not configured"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_CONFIG_B64" | base64 --decode > android/app/google-services.json
+          jq -e . android/app/google-services.json >/dev/null
+
+      - name: Create debug signing key
+        run: |
           keytool -genkeypair \
             -keystore android/app/debug.keystore \
             -storepass android \
