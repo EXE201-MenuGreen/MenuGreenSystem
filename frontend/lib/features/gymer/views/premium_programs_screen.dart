@@ -656,6 +656,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildIntro() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -926,6 +927,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCustomApprovedRoute(Map<String, dynamic> route) {
     final weekStart = _value(route, 'weekStartDate');
     final comment = _value(route, 'ptComment');
@@ -2025,6 +2027,7 @@ class _ActiveMetric extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MessageCard extends StatelessWidget {
   const _MessageCard({required this.message});
   final String message;
@@ -2154,6 +2157,7 @@ class _SentRouteTab extends StatefulWidget {
 class _SentRouteTabState extends State<_SentRouteTab> {
   List<Map<String, dynamic>> _requests = const [];
   bool _loading = true;
+  // ignore: unused_field
   bool _actionLoading = false;
 
   @override
@@ -2247,7 +2251,7 @@ class _SentRouteTabState extends State<_SentRouteTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _requests.length + (widget.error != null ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           if (widget.error != null && index == _requests.length) {
             return Container(
@@ -2376,7 +2380,7 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _programs.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final p = _programs[index];
           return RouteApprovalCard(

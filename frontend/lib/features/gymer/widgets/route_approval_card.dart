@@ -145,7 +145,7 @@ class RouteApprovalCard extends StatelessWidget {
                     if (calories != null)
                       _TargetChip(
                         icon: Icons.local_fire_department_rounded,
-                        label: '${calories} kcal',
+                        label: '$calories kcal',
                         color: const Color(0xFFE65100),
                       ),
                     if (calories != null && protein != null)
@@ -153,7 +153,7 @@ class RouteApprovalCard extends StatelessWidget {
                     if (protein != null)
                       _TargetChip(
                         icon: Icons.fitness_center_rounded,
-                        label: '${protein}g protein',
+                        label: '$protein g protein',
                         color: AppColors.primary,
                       ),
                   ],
@@ -208,7 +208,7 @@ class RouteApprovalCard extends StatelessWidget {
   static String _formatDate(String iso) {
     try {
       final d = DateTime.parse(iso).toLocal();
-      final pad = (int n) => n.toString().padLeft(2, '0');
+      String pad(int n) => n.toString().padLeft(2, '0');
       return '${pad(d.day)}/${pad(d.month)}/${d.year} ${pad(d.hour)}:${pad(d.minute)}';
     } catch (_) {
       return iso;
