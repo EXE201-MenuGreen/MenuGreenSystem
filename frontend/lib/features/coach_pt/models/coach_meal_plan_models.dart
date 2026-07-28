@@ -11,6 +11,18 @@
 /// ----------------------------------------------------------------------------
 library;
 
+String coachMealPlanStatusLabel(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'approved' => 'Đã duyệt & gửi',
+    'draft' => 'Bản nháp',
+    'active' => 'Chưa duyệt',
+    'pending' || 'submitted' => 'Chờ duyệt',
+    'pendingacceptance' => 'Chờ Gymer chấp nhận',
+    'rejected' => 'Gymer đã từ chối',
+    _ => status,
+  };
+}
+
 class CoachMealPlanListItem {
   CoachMealPlanListItem({
     required this.id,
@@ -45,6 +57,7 @@ class CoachMealPlanListItem {
   final DateTime? approvedAt;
 
   bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isPendingAcceptance => status.toLowerCase() == 'pendingacceptance';
 
   factory CoachMealPlanListItem.fromJson(Map<String, dynamic> j) {
     final items = (j['items'] as List?) ?? const [];
@@ -144,6 +157,7 @@ class CoachMealPlanHeader {
   final DateTime? approvedAt;
 
   bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isPendingAcceptance => status.toLowerCase() == 'pendingacceptance';
 
   factory CoachMealPlanHeader.fromJson(Map<String, dynamic> j) {
     return CoachMealPlanHeader(

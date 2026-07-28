@@ -50,6 +50,8 @@ class NotificationHandler {
   static const String _prefixProfile = 'profile:';
   static const String _prefixCoachWeeklyReport = 'coach_weekly_report:';
   static const String _prefixGymerWeeklyReport = 'gymer_weekly_report:';
+  static const String _prefixGymerRouteApproval = 'gymer_route_approval:';
+  static const String _prefixGymerPersonalProgram = 'gymer_personal_program:';
 
   NotificationAction parseNotificationData(Map<String, dynamic> data) {
     final deepLink = data['deepLink'] ?? data['link'] ?? data['url'];
@@ -89,7 +91,7 @@ class NotificationHandler {
       case 'pt_route_approval':
         return NotificationAction(
           type: NotificationActionType.openGymerPrograms,
-          id: notificationId?.toString(),
+          id: data['reportId']?.toString(),
           tabIndex: 0,
         );
       case 'coach_personal_program':
@@ -146,6 +148,22 @@ class NotificationHandler {
       return NotificationAction(
         type: NotificationActionType.openGymerWeeklyReport,
         id: id,
+      );
+    }
+    if (deepLink.startsWith(_prefixGymerRouteApproval)) {
+      final id = deepLink.substring(_prefixGymerRouteApproval.length);
+      return NotificationAction(
+        type: NotificationActionType.openGymerPrograms,
+        id: id,
+        tabIndex: 0,
+      );
+    }
+    if (deepLink.startsWith(_prefixGymerPersonalProgram)) {
+      final id = deepLink.substring(_prefixGymerPersonalProgram.length);
+      return NotificationAction(
+        type: NotificationActionType.openGymerPrograms,
+        id: id,
+        tabIndex: 1,
       );
     }
     if (deepLink.startsWith(_prefixMealPlan)) {
@@ -273,7 +291,10 @@ class NotificationHandler {
         return const ProfileView();
 
       case NotificationActionType.openGymerPrograms:
-        return PremiumProgramsScreen(initialTabIndex: action.tabIndex ?? 0);
+        return PremiumProgramsScreen(
+          initialTabIndex: action.tabIndex ?? 0,
+          initialRequestId: action.id,
+        );
 
       case NotificationActionType.openCoachWorkspace:
         return CoachMainScreen(initialIndex: action.tabIndex ?? 1);

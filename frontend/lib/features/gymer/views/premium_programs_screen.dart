@@ -11,11 +11,17 @@ import '../../advanced/repositories/advanced_repository.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../widgets/route_approval_card.dart';
 import 'personal_program_detail_screen.dart';
+import 'route_approval_detail_screen.dart';
 
 class PremiumProgramsScreen extends StatefulWidget {
-  const PremiumProgramsScreen({super.key, this.initialTabIndex = 0});
+  const PremiumProgramsScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialRequestId,
+  });
 
   final int initialTabIndex;
+  final String? initialRequestId;
 
   @override
   State<PremiumProgramsScreen> createState() => _PremiumProgramsScreenState();
@@ -71,13 +77,32 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       if (!mounted) return;
 
       final reqs = results[2] as List<dynamic>;
-      // Find if there is an active/reviewed/applied RouteApproval request
-      final activeReq = reqs.firstWhere((r) {
-        final status = (r['status'] ?? '').toString().toLowerCase();
-        final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+      bool isApprovedRoute(dynamic request) {
+        final status = (request['status'] ?? '').toString().toLowerCase();
+        final reqType = (request['requestType'] ?? '').toString().toLowerCase();
         return (status == 'reviewed' || status == 'applied') &&
             (reqType.isEmpty || reqType == 'routeapproval');
-      }, orElse: () => <String, dynamic>{});
+      }
+
+      final requestedId = widget.initialRequestId;
+      final requestedRoute = requestedId == null || requestedId.isEmpty
+          ? <String, dynamic>{}
+          : reqs.firstWhere(
+              (request) =>
+                  isApprovedRoute(request) &&
+                  (request['reportId'] ?? '').toString() == requestedId,
+              orElse: () => <String, dynamic>{},
+            );
+
+      // Fallback for old notifications that do not contain a request deep-link.
+      final activeReq = requestedRoute.isNotEmpty
+          ? requestedRoute
+          : reqs.firstWhere((r) {
+              final status = (r['status'] ?? '').toString().toLowerCase();
+              final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+              return (status == 'reviewed' || status == 'applied') &&
+                  (reqType.isEmpty || reqType == 'routeapproval');
+            }, orElse: () => <String, dynamic>{});
 
       Map<String, dynamic>? routeDetail;
       if (activeReq.isNotEmpty) {
@@ -322,7 +347,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
     bool submitted;
     try {
-      submitted = await showModalBottomSheet<bool>(
+      submitted =
+          await showModalBottomSheet<bool>(
             context: context,
             isScrollControlled: true,
             showDragHandle: true,
@@ -395,7 +421,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 ],
               ),
             ),
-      ) ?? false;
+          ) ??
+          false;
     } finally {
       // Always dispose controllers to prevent memory leak
       weight.dispose();
@@ -623,10 +650,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
             unselectedLabelColor: AppColors.textSecondary,
             indicatorColor: AppColors.primary,
             indicatorWeight: 2.5,
-            labelStyle: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13.5,
-            ),
+            labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             tabs: [
               Tab(text: 'Tôi gửi PT'),
               Tab(text: 'PT gửi tôi'),
@@ -649,6 +673,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                     refresh: _load,
                     error: _error,
                     onAcceptSuccess: _load,
+                    initialRequestId: widget.initialTabIndex == 1
+                        ? widget.initialRequestId
+                        : null,
                   ),
                 ],
               ),
@@ -2187,15 +2214,15 @@ class _SentRouteTabState extends State<_SentRouteTab> {
     try {
       await widget.advancedRepository.ptAction(id, 'apply');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')));
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_cleanError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_cleanError(error))));
     } finally {
       if (mounted) setState(() => _actionLoading = false);
     }
@@ -2266,6 +2293,18 @@ class _SentRouteTabState extends State<_SentRouteTab> {
           return RouteApprovalCard(
             request: r,
             direction: 'sent',
+            onTap: () {
+              final requestId = (r['reportId'] ?? '').toString();
+              if (requestId.isEmpty) return;
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RouteApprovalDetailScreen(
+                    requestId: requestId,
+                    initialSummary: r,
+                  ),
+                ),
+              );
+            },
             onAction: () {
               final status = (r['status'] ?? '').toString().toLowerCase();
               if (status == 'reviewed') {
@@ -2284,10 +2323,12 @@ class _ReceivedPersonalTab extends StatefulWidget {
     required this.refresh,
     required this.error,
     required this.onAcceptSuccess,
+    this.initialRequestId,
   });
   final Future<void> Function() refresh;
   final String? error;
   final Future<void> Function() onAcceptSuccess;
+  final String? initialRequestId;
 
   @override
   State<_ReceivedPersonalTab> createState() => _ReceivedPersonalTabState();
@@ -2296,6 +2337,7 @@ class _ReceivedPersonalTab extends StatefulWidget {
 class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
   List<Map<String, dynamic>> _programs = const [];
   bool _loading = true;
+  bool _openedInitialRequest = false;
 
   @override
   void initState() {
@@ -2312,6 +2354,18 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         _programs = programs;
         _loading = false;
       });
+      final initialId = widget.initialRequestId;
+      if (!_openedInitialRequest && initialId != null && initialId.isNotEmpty) {
+        final match = programs.where(
+          (program) => (program['id'] ?? '').toString() == initialId,
+        );
+        if (match.isNotEmpty) {
+          _openedInitialRequest = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openDetail(match.first);
+          });
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -2345,11 +2399,7 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             const SizedBox(height: 80),
-            Icon(
-              Icons.inbox_rounded,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
+            Icon(Icons.inbox_rounded, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             const Center(
               child: Padding(

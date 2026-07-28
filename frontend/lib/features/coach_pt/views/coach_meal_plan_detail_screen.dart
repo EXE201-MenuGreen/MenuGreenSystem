@@ -9,8 +9,7 @@ import '../coach_pt.dart';
 /// * Tapping a meal item opens an inline edit sheet (Delete / Replace).
 /// * Adding a new item pushes a bottom sheet that picks a food/recipe from the
 ///   ingredient catalog (using the existing `/Ingredient/search` endpoint).
-/// * The bottom action bar offers "Lưu nháp" and "Duyệt & gửi" (which calls
-///   `submitClientMealPlan` server-side and notifies the Gymer).
+/// * The bottom action bar lets PT send a draft for Gymer acceptance.
 class CoachMealPlanDetailScreen extends StatefulWidget {
   const CoachMealPlanDetailScreen({super.key, required this.planId});
   final String planId;
@@ -132,6 +131,12 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
     }
 
     final isApproved = plan.header.isApproved;
+    final isPendingAcceptance = plan.header.isPendingAcceptance;
+    final isReadOnly = isApproved || isPendingAcceptance;
+    final sendsForAcceptance = {
+      'draft',
+      'rejected',
+    }.contains(plan.header.status.toLowerCase());
 
     return Scaffold(
       appBar: AppBar(
@@ -139,7 +144,7 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
           plan.header.title.isNotEmpty ? plan.header.title : 'Lộ trình',
         ),
         actions: [
-          if (_dirty && !isApproved)
+          if (_dirty && !isReadOnly)
             IconButton(
               tooltip: 'Lưu nháp',
               icon: const Icon(Icons.save_outlined),
@@ -156,6 +161,12 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
                   icon: Icon(Icons.check_circle),
                   label: Text('Đã duyệt & gửi cho học viên'),
                 )
+              : isPendingAcceptance
+              ? FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.hourglass_top),
+                  label: const Text('Đang chờ Gymer chấp nhận'),
+                )
               : Row(
                   children: [
                     if (_dirty)
@@ -171,7 +182,11 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
                       flex: 2,
                       child: FilledButton.icon(
                         icon: const Icon(Icons.send),
-                        label: const Text('Duyệt & gửi'),
+                        label: Text(
+                          sendsForAcceptance
+                              ? 'Gửi Gymer duyệt'
+                              : 'Duyệt & gửi',
+                        ),
                         onPressed: _submit,
                       ),
                     ),
@@ -184,10 +199,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
         children: [
           _Header(plan: plan),
           const SizedBox(height: 16),
-          ..._buildMealSections(context, plan, readOnly: isApproved),
+          ..._buildMealSections(context, plan, readOnly: isReadOnly),
         ],
       ),
-      floatingActionButton: isApproved
+      floatingActionButton: isReadOnly
           ? null
           : FloatingActionButton(
               heroTag: 'addMealItem',
@@ -464,11 +479,7 @@ class _PlanApprovalChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
     final approved = normalized == 'approved';
-    final label = switch (normalized) {
-      'approved' => 'Đã duyệt & gửi',
-      'draft' => 'Bản nháp',
-      _ => status,
-    };
+    final label = coachMealPlanStatusLabel(status);
     final color = approved ? Colors.green : Colors.orange;
 
     return Chip(

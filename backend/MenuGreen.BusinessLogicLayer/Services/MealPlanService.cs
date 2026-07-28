@@ -1857,7 +1857,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
         {
             ValidateItems(request.Items);
-            var plan = await FindDailyPlanAsync(userId, request.PlannedDate);
+            // Mutations must only reuse an exact DAILY plan. The read helper
+            // may fall back to a weekly/monthly plan covering the date; using
+            // that fallback here would convert an older approved range into a
+            // daily plan and incorrectly preserve its approval state.
+            var plan = await FindExactDailyPlanAsync(userId, request.PlannedDate);
             if (plan == null)
             {
                 plan = new MealPlanHeader
@@ -1870,6 +1874,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     EndDate = request.PlannedDate,
                     TargetCalories = request.TargetCalories,
                     GeneratedBy = "USER",
+                    Status = "Active",
+                    ApprovedAt = null,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -1884,6 +1890,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 plan.StartDate = request.PlannedDate;
                 plan.EndDate = request.PlannedDate;
                 plan.TargetCalories = request.TargetCalories ?? plan.TargetCalories;
+                // Any Gymer-side change creates a new revision that must be
+                // reviewed again. Do not keep the approval of an older version.
+                plan.GeneratedBy = "USER";
+                plan.Status = "Active";
+                plan.ApprovedAt = null;
                 plan.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.MealPlanHeaders.Update(plan);
                 await _unitOfWork.CompleteAsync();
@@ -2044,6 +2055,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 x.UserId == userId
                 && x.IsActive
                 && x.Status != "Draft"
+                && x.Status != "PendingAcceptance"
+                && x.Status != "Rejected"
                 && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
                     ? x.StartDate == date
                     : (x.StartDate <= date && x.EndDate >= date)));
@@ -2051,6 +2064,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return plans.OrderByDescending(x => (x.PlanType == null || x.PlanType.ToUpper() == "DAILY") ? 1 : 0)
                         .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                         .FirstOrDefault();
+        }
+
+        private async Task<MealPlanHeader?> FindExactDailyPlanAsync(
+            Guid userId,
+            DateOnly date)
+        {
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId
+                && x.IsActive
+                && x.Status != "Draft"
+                && (x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
+                && x.StartDate == date);
+
+            return plans
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .FirstOrDefault();
         }
 
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)

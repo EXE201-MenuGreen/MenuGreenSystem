@@ -461,7 +461,12 @@ namespace MenuGreen.API.Controllers
 
             try
             {
-                var result = await _coachService.SubmitClientMealPlanAsync(userId, clientId, planId, request?.Notes);
+                var result = await _coachService.SubmitClientMealPlanAsync(
+                    userId,
+                    clientId,
+                    planId,
+                    request
+                );
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
@@ -522,13 +527,55 @@ namespace MenuGreen.API.Controllers
         [HttpGet("clients/{clientId:guid}/suggestions")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
-        public async Task<IActionResult> GetClientSuggestions(Guid clientId, [FromQuery] int targetCalories = 0, [FromQuery] int top = 10)
+        public async Task<IActionResult> GetClientSuggestions(
+            Guid clientId,
+            [FromQuery] DateOnly? date = null,
+            [FromQuery] int targetCalories = 0,
+            [FromQuery] int? minCalories = null,
+            [FromQuery] int? maxCalories = null,
+            [FromQuery] int top = 10)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
 
             try
             {
-                var result = await _coachService.GetClientSuggestionsAsync(userId, clientId, targetCalories, top);
+                var result = await _coachService.GetClientSuggestionsAsync(
+                    userId,
+                    clientId,
+                    date,
+                    targetCalories,
+                    minCalories,
+                    maxCalories,
+                    top
+                );
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("clients/{clientId:guid}/gym-config")]
+        [Authorize]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetClientGymConfiguration(
+            Guid clientId,
+            [FromQuery] DateOnly? date = null)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                var result = await _coachService.GetClientGymConfigurationAsync(
+                    userId,
+                    clientId,
+                    date
+                );
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)

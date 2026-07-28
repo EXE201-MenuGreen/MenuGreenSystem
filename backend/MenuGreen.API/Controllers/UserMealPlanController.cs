@@ -26,7 +26,7 @@ namespace MenuGreen.API.Controllers
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
             var plan = await _service.GetByDateAsync(userId, date);
-            if (plan == null) return NotFound(new { Message = "Meal plan not found." });
+            if (plan == null) return NoContent();
             return Ok(plan);
         }
 
