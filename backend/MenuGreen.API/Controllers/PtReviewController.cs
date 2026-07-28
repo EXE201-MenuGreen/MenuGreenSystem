@@ -199,6 +199,25 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Reject a PersonalProgram sent by the connected coach.
+        /// </summary>
+        [HttpPost("personal-programs/{requestId}/reject")]
+        [Authorize]
+        public async Task<IActionResult> RejectPersonalProgram(Guid requestId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                var result = await _service.RejectPersonalProgramAsync(userId, requestId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;

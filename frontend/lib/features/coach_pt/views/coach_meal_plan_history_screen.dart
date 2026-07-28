@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../coach_pt.dart';
-import '../providers/coach_meal_plan_provider.dart';
 import 'coach_create_meal_plan_screen.dart';
 import 'coach_meal_plan_detail_screen.dart';
 
@@ -255,7 +254,7 @@ class _PlanList extends StatelessWidget {
                   ..showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.',
+                        'Đã gửi lộ trình. Gymer sẽ nhận thông báo để xem và chấp nhận.',
                       ),
                     ),
                   );
@@ -296,11 +295,7 @@ class _PlanStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
     final approved = normalized == 'approved';
-    final label = switch (normalized) {
-      'approved' => 'Đã duyệt & gửi',
-      'draft' => 'Bản nháp',
-      _ => status,
-    };
+    final label = coachMealPlanStatusLabel(status);
     final color = approved ? Colors.green : Colors.orange;
 
     return Align(

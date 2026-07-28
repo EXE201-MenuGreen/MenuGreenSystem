@@ -11,5 +11,11 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         [StringLength(500)]
         public string? Notes { get; set; }
+
+        [Range(0, 6000)]
+        public int? MinCalories { get; set; }
+
+        [Range(0, 6000)]
+        public int? MaxCalories { get; set; }
     }
 }

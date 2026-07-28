@@ -11,7 +11,7 @@ import '../repositories/coach_meal_plan_repository.dart';
 /// [clearSelection] is called), the cache is dropped.
 class CoachMealPlanProvider extends ChangeNotifier {
   CoachMealPlanProvider({CoachMealPlanRepository? repository})
-      : _repo = repository ?? CoachMealPlanRepository();
+    : _repo = repository ?? CoachMealPlanRepository();
 
   final CoachMealPlanRepository _repo;
 
@@ -135,7 +135,12 @@ class CoachMealPlanProvider extends ChangeNotifier {
   }
 
   /// Submit / approve the plan and notify the Gymer.
-  Future<bool> submitPlan(String planId, {String? notes}) async {
+  Future<bool> submitPlan(
+    String planId, {
+    String? notes,
+    int? minCalories,
+    int? maxCalories,
+  }) async {
     final clientId = _clientId;
     if (clientId == null) return false;
     try {
@@ -143,6 +148,8 @@ class CoachMealPlanProvider extends ChangeNotifier {
         clientId,
         planId,
         notes: notes,
+        minCalories: minCalories,
+        maxCalories: maxCalories,
       );
       _selectedPlan = submitted;
       notifyListeners();
@@ -152,6 +159,60 @@ class CoachMealPlanProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> createAndSubmitPlan(
+    ClientMealPlanPayload payload, {
+    String? notes,
+    int? minCalories,
+    int? maxCalories,
+  }) async {
+    final clientId = _clientId;
+    if (clientId == null) return false;
+    try {
+      final created = await _repo.createClientMealPlan(clientId, payload);
+      final submitted = await _repo.submitClientMealPlan(
+        clientId,
+        created.header.id,
+        notes: notes,
+        minCalories: minCalories,
+        maxCalories: maxCalories,
+      );
+      _selectedPlan = submitted;
+      notifyListeners();
+      await _refresh();
+      return true;
+    } catch (error) {
+      _error = error.toString();
+      notifyListeners();
+      await _refresh();
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> loadSuggestions({
+    required DateTime date,
+    required int targetCalories,
+    int? minCalories,
+    int? maxCalories,
+    int top = 20,
+  }) async {
+    final clientId = _clientId;
+    if (clientId == null) return const [];
+    return _repo.getClientSuggestions(
+      clientId,
+      date: date,
+      targetCalories: targetCalories,
+      minCalories: minCalories,
+      maxCalories: maxCalories,
+      top: top,
+    );
+  }
+
+  Future<Map<String, dynamic>?> loadClientGymConfig(DateTime date) async {
+    final clientId = _clientId;
+    if (clientId == null) return null;
+    return _repo.getClientGymConfig(clientId, date);
   }
 
   Future<bool> deletePlan(String planId) async {
@@ -170,11 +231,7 @@ class CoachMealPlanProvider extends ChangeNotifier {
     }
   }
 
-  void setFilters({
-    DateTime? from,
-    DateTime? to,
-    String? planType,
-  }) {
+  void setFilters({DateTime? from, DateTime? to, String? planType}) {
     _rangeFrom = from;
     _rangeTo = to;
     _planTypeFilter = planType;

@@ -6,6 +6,15 @@ import 'package:frontend/features/coach_pt/views/coach_meal_plan_history_screen.
 import 'package:provider/provider.dart';
 
 void main() {
+  test('an active Gymer plan is shown as not approved', () {
+    expect(coachMealPlanStatusLabel('Active'), 'Chưa duyệt');
+    expect(coachMealPlanStatusLabel('Approved'), 'Đã duyệt & gửi');
+    expect(
+      coachMealPlanStatusLabel('PendingAcceptance'),
+      'Chờ Gymer chấp nhận',
+    );
+  });
+
   testWidgets(
     'submitting a plan tears down dialog and detail route before SnackBar',
     (tester) async {
@@ -42,7 +51,9 @@ void main() {
       expect(provider.submitCalls, 1);
       expect(provider.refreshCalls, 1);
       expect(
-        find.text('Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.'),
+        find.text(
+          'Đã gửi lộ trình. Gymer sẽ nhận thông báo để xem và chấp nhận.',
+        ),
         findsOneWidget,
       );
     },
@@ -144,7 +155,12 @@ class _FakeCoachMealPlanProvider extends CoachMealPlanProvider {
   void setFilters({DateTime? from, DateTime? to, String? planType}) {}
 
   @override
-  Future<bool> submitPlan(String planId, {String? notes}) async {
+  Future<bool> submitPlan(
+    String planId, {
+    String? notes,
+    int? minCalories,
+    int? maxCalories,
+  }) async {
     submitCalls++;
     return true;
   }
