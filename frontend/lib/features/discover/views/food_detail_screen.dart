@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../widgets/allergy_risk_badge.dart';
@@ -27,6 +29,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   FoodItem? _food;
   List<RecipeItem> _recipes = [];
   bool _loading = true;
+  // Legacy local flag is retained only while the screen is mounted; the shared
+  // provider below is the authoritative state used by the UI.
   bool _isFavorite = false;
   bool _favoriteBusy = false;
 
@@ -38,14 +42,17 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final food = await _repository.getFoodById(widget.foodId, allergyMode: widget.allergyMode);
+    final favorites = context.read<FavoriteFoodProvider>();
+    final food = await _repository.getFoodById(
+      widget.foodId,
+      allergyMode: widget.allergyMode,
+    );
     final recipes = await _repository.getFoodRecipes(widget.foodId);
-    final favorites = await _repository.getFavorites();
+    await favorites.load();
     if (!mounted) return;
     setState(() {
       _food = food;
       _recipes = recipes;
-      _isFavorite = favorites.any((f) => f.foodId == widget.foodId);
       _loading = false;
     });
   }
@@ -53,20 +60,34 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   Future<void> _toggleFavorite() async {
     if (_favoriteBusy) return;
     setState(() => _favoriteBusy = true);
-    final ok = _isFavorite
-        ? await _repository.removeFavorite(widget.foodId)
-        : await _repository.addFavorite(widget.foodId);
+    final food = _food;
+    if (food == null) {
+      setState(() => _favoriteBusy = false);
+      return;
+    }
+    final result = await context.read<FavoriteFoodProvider>().toggle(
+      FavoriteFoodItem.fromFood(food),
+    );
+    final ok = result.isSuccess;
     if (!mounted) return;
     if (ok) {
       setState(() {
-        _isFavorite = !_isFavorite;
+        _isFavorite = result.isFavorite;
         _favoriteBusy = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isFavorite ? 'Đã thêm yêu thích' : 'Đã bỏ yêu thích')),
+        SnackBar(
+          content: Text(_isFavorite ? 'Đã thêm yêu thích' : 'Đã bỏ yêu thích'),
+        ),
       );
     } else {
       setState(() => _favoriteBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -80,20 +101,32 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
         elevation: 0,
         title: const Text('Chi tiết món'),
         actions: [
-          IconButton(
-            onPressed: _favoriteBusy ? null : _toggleFavorite,
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.red : AppColors.primary,
-            ),
+          Consumer<FavoriteFoodProvider>(
+            builder: (context, favorites, _) {
+              final isFavorite = favorites.isFavorite(widget.foodId);
+              final isBusy =
+                  _favoriteBusy || favorites.isMutating(widget.foodId);
+              return IconButton(
+                tooltip: isFavorite
+                    ? 'B\u1ecf m\u00f3n kh\u1ecfi y\u00eau th\u00edch'
+                    : 'Th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch',
+                onPressed: isBusy ? null : _toggleFavorite,
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : AppColors.primary,
+                ),
+              );
+            },
           ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : _food == null
-              ? const Center(child: Text('Không tìm thấy món.'))
-              : _buildBody(_food!),
+          ? const Center(child: Text('Không tìm thấy món.'))
+          : _buildBody(_food!),
     );
   }
 
@@ -109,7 +142,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
               Expanded(
                 child: Text(
                   food.nameVi,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               AllergyRiskBadge(riskLevel: food.allergyRiskLevel),
@@ -159,7 +195,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           ],
           const SizedBox(height: 16),
           if (food.description != null && food.description!.isNotEmpty)
-            Text(food.description!, style: const TextStyle(color: AppColors.textSecondary)),
+            Text(
+              food.description!,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
           const SizedBox(height: 16),
           _buildNutritionSection(food),
           const SizedBox(height: 16),
@@ -171,32 +210,47 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (food.defaultServingG != null) _chip('${food.defaultServingG}g / khẩu phần'),
-                if (food.estimatedPriceVnd != null) _chip(_formatPrice(food.estimatedPriceVnd!)),
+                if (food.defaultServingG != null)
+                  _chip('${food.defaultServingG}g / khẩu phần'),
+                if (food.estimatedPriceVnd != null)
+                  _chip(_formatPrice(food.estimatedPriceVnd!)),
                 if (food.category != null) _chip(food.category!),
                 if (food.region != null) _chip(food.region!),
               ],
             ),
           if (food.allergenLabelsVi.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Text('Thành phần dị ứng ghi nhận', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Thành phần dị ứng ghi nhận',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
-              children: food.allergenLabelsVi.map((l) => Chip(label: Text(l))).toList(),
+              children: food.allergenLabelsVi
+                  .map((l) => Chip(label: Text(l)))
+                  .toList(),
             ),
           ],
           const SizedBox(height: 24),
-          const Text('Công thức liên quan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Công thức liên quan',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           if (_recipes.isEmpty)
-            const Text('Chưa có công thức.', style: TextStyle(color: AppColors.textSecondary))
+            const Text(
+              'Chưa có công thức.',
+              style: TextStyle(color: AppColors.textSecondary),
+            )
           else
             ..._recipes.map(
               (r) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(r.title),
-                subtitle: r.prepTimeMin != null ? Text('${r.prepTimeMin} phút') : null,
+                subtitle: r.prepTimeMin != null
+                    ? Text('${r.prepTimeMin} phút')
+                    : null,
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
@@ -250,8 +304,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             'Bạn vẫn muốn ghi nhật ký?',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Vẫn ghi')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Vẫn ghi'),
+            ),
           ],
         ),
       );
@@ -285,7 +345,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAF9),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.15),
+            ),
           ),
           child: Column(
             children: [

@@ -18,19 +18,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<UserDashboardMetricsResponse> GetSummaryAsync()
         {
             var users = await _unitOfWork.Users.GetAllAsync();
-            var subscriptions = await _unitOfWork.UserSubscriptions.GetAllAsync();
-
-            var premiumPlanIds = (await _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == "Premium" && x.IsActive == true)).Select(x => x.Id).ToHashSet();
-            var proPlanIds = (await _unitOfWork.SubscriptionPlans.FindAsync(x => x.Name == "Pro" && x.IsActive == true)).Select(x => x.Id).ToHashSet();
-
-            var activeSubscriptions = subscriptions.Where(x => x.Status == "Active");
-
             return new UserDashboardMetricsResponse
             {
                 TotalUsers = users.Count(),
-                ActiveUsers = users.Count(x => x.IsActive),
-                PremiumUsers = activeSubscriptions.Count(x => premiumPlanIds.Contains(x.SubscriptionPlanId)),
-                ProUsers = activeSubscriptions.Count(x => proPlanIds.Contains(x.SubscriptionPlanId))
+                ActiveUsers = users.Count(x => x.IsActive)
             };
         }
     }

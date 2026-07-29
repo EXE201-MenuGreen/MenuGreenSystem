@@ -194,6 +194,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     return group != 'gym' &&
         group != 'casual' &&
         group != 'office' &&
+        group != 'pro' &&
         !plan.isBaselineFree;
   }).toList();
 
@@ -252,7 +253,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     setState(() => _actionLoading = true);
     try {
       final alreadyActive =
-          _current?.isActive == true &&
+          _current?.isCurrentlyActive == true &&
           _current?.subscriptionPlanId == officePlan.id;
       if (!alreadyActive) {
         final subscriptionResult = await _repository.subscribe(
@@ -402,9 +403,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                     _buildCurrentCard(),
                     const SizedBox(height: 16),
                     _UpgradeHeroCard(
-                      title: 'Nâng cấp\nMenuGreen Pro',
+                      title: 'Chọn gói dịch vụ',
                       subtitle:
-                          'Chọn gói phù hợp để mở khóa tính năng dinh dưỡng nâng cao.',
+                          'MenuGreen có 4 gói: Free (Cơ bản), Casual, Gym/PT và Office. Kích hoạt gói phù hợp để mở khóa tính năng.',
                       onPress: () {},
                     ),
                     const SizedBox(height: 16),

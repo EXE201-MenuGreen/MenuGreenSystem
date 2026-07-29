@@ -51,12 +51,12 @@ if ($choice -eq "1") {
         Write-Host "[$count/$($files.Count)] Dang chay $($file.Name)..." -ForegroundColor Yellow
         
         # Pipe nội dung file SQL trực tiếp vao psql trong container
-        Get-Content $file.FullName -Raw -Encoding UTF8 | docker exec -i $DbContainer psql -U $DbUser -d $DbName
+        Get-Content $file.FullName -Raw -Encoding UTF8 |
+            docker exec -i $DbContainer psql -v ON_ERROR_STOP=1 -U $DbUser -d $DbName
         
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Loi khi chay file $($file.Name)"
-            $continue = Read-Host "Ban co muon tiep tuc chay cac file con lai? (y/n)"
-            if ($continue -ne "y") { break }
+            Write-Error "Seed that bai tai file $($file.Name). Da dung de tranh loi day chuyen."
+            exit 1
         }
     }
     Write-Host "`nHoan thanh import seed data tren Docker!" -ForegroundColor Green
@@ -94,12 +94,13 @@ elseif ($choice -eq "2") {
         Write-Host "[$count/$($files.Count)] Dang chay $($file.Name)..." -ForegroundColor Yellow
         
         # Chạy lệnh psql
-        psql -U $DbUser -d $DbName -f $file.FullName
+        psql -v ON_ERROR_STOP=1 -U $DbUser -d $DbName -f $file.FullName
         
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Loi khi chay file $($file.Name)"
-            $continue = Read-Host "Ban co muon tiep tuc chay cac file con lai? (y/n)"
-            if ($continue -ne "y") { break }
+            Write-Error "Seed that bai tai file $($file.Name). Da dung de tranh loi day chuyen."
+            $env:PGPASSWORD = $null
+            $env:PGCLIENTENCODING = $null
+            exit 1
         }
     }
     # Xoá mật khẩu và encoding sau khi chay
@@ -117,10 +118,9 @@ elseif ($choice -eq "3") {
     foreach ($file in $files) {
         $content = Get-Content $file.FullName -Raw -Encoding UTF8
         
-        # Loại bỏ các lenh BEGIN; va COMMIT; cua tung file don le
-        # de bao boc toan bo bang 1 transaction duy nhat cho toc do nhanh nhat
-        $content = $content -replace "(?i)^\s*BEGIN\s*;\s*", ""
-        $content = $content -replace "(?i)^\s*COMMIT\s*;\s*", ""
+        # Loại bỏ các dòng BEGIN;/COMMIT; độc lập của từng file để toàn bộ
+        # file gộp thực sự chạy trong một transaction duy nhất.
+        $content = $content -replace "(?im)^\s*(BEGIN|COMMIT)\s*;\s*(\r?\n|$)", ""
         
         $combinedContent += "-- ==================================================`n"
         $combinedContent += "-- Table: $($file.Name)`n"

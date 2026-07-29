@@ -29,8 +29,8 @@ CREATE TABLE user_subscriptions (
 -- Seed dữ liệu mẫu cho 4 gói chính (không còn Pro).
 INSERT INTO user_subscriptions ("Id", "UserId", "SubscriptionPlanId", "Status", "StartDate", "EndDate", "CancelledAt", "RenewedAt", "CreatedAt", "UpdatedAt")
 VALUES
-('00e3373b-a66f-4ae4-acf1-873d4f21e735', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '10000000-0000-0000-0000-000000000005', 'Active', now() - interval '15 days', now() + interval '350 days', NULL, NULL, now() - interval '20 days', now() - interval '20 days'),
-('5a589d0c-0879-4211-bcde-b80d8f872a2c', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '10000000-0000-0000-0000-000000000006', 'Active', now() - interval '15 days', now() + interval '350 days', NULL, NULL, now() - interval '20 days', now() - interval '20 days'),
+('00e3373b-a66f-4ae4-acf1-873d4f21e735', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '10000000-0000-0000-0000-000000000006', 'Active', now() - interval '15 days', now() + interval '350 days', NULL, NULL, now() - interval '20 days', now() - interval '20 days'),
+('5a589d0c-0879-4211-bcde-b80d8f872a2c', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '10000000-0000-0000-0000-000000000005', 'Active', now() - interval '15 days', now() + interval '350 days', NULL, NULL, now() - interval '20 days', now() - interval '20 days'),
 ('137a2257-8c0b-4b56-b4fa-be8da55e7c14', '586209d0-d3c4-43a4-bba7-5d4c73b37bc1', '10000000-0000-0000-0000-000000000004', 'Active', now() - interval '15 days', now() + interval '15 days', NULL, NULL, now() - interval '20 days', now() - interval '20 days')
 ON CONFLICT DO NOTHING;
 

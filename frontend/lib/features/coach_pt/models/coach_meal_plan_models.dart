@@ -11,6 +11,18 @@
 /// ----------------------------------------------------------------------------
 library;
 
+String coachMealPlanStatusLabel(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'approved' => 'Đã duyệt & gửi',
+    'draft' => 'Bản nháp',
+    'active' => 'Chưa duyệt',
+    'pending' || 'submitted' => 'Chờ duyệt',
+    'pendingacceptance' => 'Chờ Gymer chấp nhận',
+    'rejected' => 'Gymer đã từ chối',
+    _ => status,
+  };
+}
+
 class CoachMealPlanListItem {
   CoachMealPlanListItem({
     required this.id,
@@ -25,6 +37,8 @@ class CoachMealPlanListItem {
     this.totalItems,
     this.completedItems,
     this.isActive = true,
+    this.status = 'Active',
+    this.approvedAt,
   });
 
   final String id;
@@ -39,6 +53,11 @@ class CoachMealPlanListItem {
   final int? totalItems;
   final int? completedItems;
   final bool isActive;
+  final String status;
+  final DateTime? approvedAt;
+
+  bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isPendingAcceptance => status.toLowerCase() == 'pendingacceptance';
 
   factory CoachMealPlanListItem.fromJson(Map<String, dynamic> j) {
     final items = (j['items'] as List?) ?? const [];
@@ -52,15 +71,15 @@ class CoachMealPlanListItem {
       planType: (j['planType'] ?? j['PlanType'] ?? '') as String,
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
-      targetCalories:
-          (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
-      totalCalories:
-          (j['totalCalories'] ?? j['TotalCalories']) as int?,
+      totalCalories: (j['totalCalories'] ?? j['TotalCalories']) as int?,
       totalItems: items.length,
       completedItems: completed,
       isActive: (j['isActive'] ?? j['IsActive'] ?? true) as bool,
+      status: (j['status'] ?? j['Status'] ?? 'Active').toString(),
+      approvedAt: _parseDateTime(j['approvedAt'] ?? j['ApprovedAt']),
     );
   }
 }
@@ -84,7 +103,10 @@ class CoachMealPlanDetail {
     final header = CoachMealPlanHeader.fromJson(j);
     final raw = (j['items'] ?? j['Items']) as List? ?? const [];
     final items = raw
-        .map((e) => CoachMealPlanItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              CoachMealPlanItem.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
 
     final grouped = <String, List<CoachMealPlanItem>>{
@@ -118,6 +140,8 @@ class CoachMealPlanHeader {
     this.targetCalories,
     this.coachId,
     this.coachName,
+    this.status = 'Active',
+    this.approvedAt,
   });
 
   final String id;
@@ -129,6 +153,11 @@ class CoachMealPlanHeader {
   final int? targetCalories;
   final String? coachId;
   final String? coachName;
+  final String status;
+  final DateTime? approvedAt;
+
+  bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isPendingAcceptance => status.toLowerCase() == 'pendingacceptance';
 
   factory CoachMealPlanHeader.fromJson(Map<String, dynamic> j) {
     return CoachMealPlanHeader(
@@ -138,10 +167,11 @@ class CoachMealPlanHeader {
       isActive: (j['isActive'] ?? j['IsActive'] ?? true) as bool,
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
-      targetCalories:
-          (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
+      status: (j['status'] ?? j['Status'] ?? 'Active').toString(),
+      approvedAt: _parseDateTime(j['approvedAt'] ?? j['ApprovedAt']),
     );
   }
 }
@@ -195,8 +225,7 @@ class CoachMealPlanItem {
       recipeId: (j['recipeId'] ?? j['RecipeId'])?.toString(),
       plannedDate: _parseDate(j['plannedDate'] ?? j['PlannedDate']),
       scheduledTime: (j['scheduledTime'] ?? j['ScheduledTime'])?.toString(),
-      targetCalories:
-          (j['targetCalories'] ?? j['TargetCalories'] ?? 0) as int,
+      targetCalories: (j['targetCalories'] ?? j['TargetCalories'] ?? 0) as int,
       isCompleted: (j['isCompleted'] ?? j['IsCompleted'] ?? false) as bool,
       proteinG: _num(j['proteinG'] ?? j['ProteinG'])?.toDouble(),
       carbsG: _num(j['carbsG'] ?? j['CarbsG'])?.toDouble(),
@@ -207,6 +236,12 @@ class CoachMealPlanItem {
 
 /// Convert server JSON to Flutter DateTime (returns null if invalid).
 DateTime? _parseDate(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is String) return DateTime.tryParse(raw);
+  return null;
+}
+
+DateTime? _parseDateTime(dynamic raw) {
   if (raw == null) return null;
   if (raw is String) return DateTime.tryParse(raw);
   return null;

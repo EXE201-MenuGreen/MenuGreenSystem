@@ -108,7 +108,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var tokens = await _unitOfWork.DeviceTokens.FindAsync(
                 x => x.UserId == userId && x.IsActive);
 
-            var tokenList = tokens.ToList();
+            // Dedupe và loại bỏ token quá cũ: nếu một user đăng nhập trên nhiều
+            // thiết bị (hoặc token đã rotate mà token cũ chưa được deactivate),
+            // FCM sẽ gửi push đến MỖI token. Điều này khiến user nhận 2+ push
+            // cho cùng 1 notification (vẫn chỉ 1 record trong tab Thông báo).
+            // - Distinct: tránh trùng token trong DB hiếm gặp.
+            // - LastUsedAt > 30 ngày: skip token coi như đã chết (rotation / user
+            //   đã logout thiết bị đó).
+            var tokenList = tokens
+                .Where(t => t.LastUsedAt.HasValue && (DateTime.UtcNow - t.LastUsedAt.Value).TotalDays <= 30)
+                .GroupBy(t => t.Token)
+                .Select(g => g.OrderByDescending(t => t.LastUsedAt ?? DateTime.MinValue).First())
+                .ToList();
+
             if (tokenList.Count == 0)
             {
                 return new FcmSendResponse
@@ -124,7 +136,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<FcmSendResponse> SendToUsersAsync(IEnumerable<Guid> userIds, string title, string body, string? data = null)
         {
-            var allTokens = new List<string>();
+            var allTokens = new List<DeviceToken>();
             var usersWithoutToken = 0;
 
             foreach (var userId in userIds)
@@ -132,7 +144,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var tokens = await _unitOfWork.DeviceTokens.FindAsync(
                     x => x.UserId == userId && x.IsActive);
 
-                var tokenList = tokens.Select(x => x.Token).ToList();
+                // Dedupe token quá cũ và trùng lặp (xem comment ở SendToUserAsync).
+                var tokenList = tokens
+                    .Where(t => t.LastUsedAt.HasValue && (DateTime.UtcNow - t.LastUsedAt.Value).TotalDays <= 30)
+                    .GroupBy(t => t.Token)
+                    .Select(g => g.OrderByDescending(t => t.LastUsedAt ?? DateTime.MinValue).First())
+                    .ToList();
+
                 if (tokenList.Count == 0)
                 {
                     usersWithoutToken++;
@@ -153,7 +171,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 };
             }
 
-            var result = await SendFcmMessageAsync(allTokens.Distinct().ToList(), title, body, data);
+            var distinctTokens = allTokens
+                .GroupBy(t => t.Token)
+                .Select(g => g.OrderByDescending(t => t.LastUsedAt ?? DateTime.MinValue).First())
+                .ToList();
+
+            var result = await SendFcmMessageAsync(distinctTokens.Select(x => x.Token).ToList(), title, body, data);
             result.FailureCount += usersWithoutToken;
             return result;
         }

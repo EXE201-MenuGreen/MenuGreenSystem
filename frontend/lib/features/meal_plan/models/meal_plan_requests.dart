@@ -116,6 +116,7 @@ class CreateItemRequest {
   final int? targetCalories;
   final double? quantityG;
   final String? origin;
+  final String? customName;
 
   CreateItemRequest({
     required this.mealType,
@@ -125,6 +126,7 @@ class CreateItemRequest {
     this.targetCalories,
     this.quantityG,
     this.origin,
+    this.customName,
   });
 
   Map<String, dynamic> toJson() {
@@ -137,6 +139,7 @@ class CreateItemRequest {
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
       if (origin != null) 'origin': origin,
+      if (customName != null) 'customName': customName,
     };
   }
 }
@@ -168,6 +171,7 @@ class AddItemRequest {
   final int? targetCalories;
   final double? quantityG;
   final String? origin;
+  final String? customName;
 
   AddItemRequest({
     required this.mealType,
@@ -178,6 +182,7 @@ class AddItemRequest {
     this.targetCalories,
     this.quantityG,
     this.origin,
+    this.customName,
   });
 
   Map<String, dynamic> toJson() {
@@ -191,6 +196,7 @@ class AddItemRequest {
       if (targetCalories != null) 'targetCalories': targetCalories,
       if (quantityG != null) 'quantityG': quantityG,
       if (origin != null) 'origin': origin,
+      if (customName != null) 'customName': customName,
     };
   }
 
@@ -207,6 +213,7 @@ class AddItemRequest {
       targetCalories: targetCalories,
       quantityG: quantityG,
       origin: origin,
+      customName: customName,
     );
   }
 }

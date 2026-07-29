@@ -309,11 +309,12 @@ class GymGoalsRepository {
     );
   }
 
-  Future<ApiResult<List<LocalRecommendationItem>>> getPlan({
+  Future<ApiResult<GymPlanSuggestions>> getPlan({
+    required DateTime date,
     int? targetCalories,
     int? top,
   }) async {
-    final params = <String, String>{};
+    final params = <String, String>{'date': _formatDateOnly(date)};
     if (targetCalories != null && targetCalories > 0) {
       params['targetCalories'] = '$targetCalories';
     }
@@ -323,22 +324,22 @@ class GymGoalsRepository {
     ).replace(queryParameters: params);
     final result = await _http._exec(() => _api.get(url.toString()));
     if (!result.success) {
-      return ApiResult<List<LocalRecommendationItem>>(
+      return ApiResult<GymPlanSuggestions>(
         success: false,
         message: result.message,
       );
     }
-    final raw = result.data;
-    final list = raw is List
-        ? raw
-        : (raw is Map<String, dynamic> && raw['items'] is List
-              ? raw['items'] as List
-              : <dynamic>[]);
-    final data = list
-        .whereType<Map>()
-        .map((e) => LocalRecommendationItem.fromJson(e.cast<String, dynamic>()))
-        .toList();
-    return ApiResult<List<LocalRecommendationItem>>(success: true, data: data);
+    try {
+      return ApiResult<GymPlanSuggestions>(
+        success: true,
+        data: GymPlanSuggestions.fromJson(result.data, fallbackDate: date),
+      );
+    } catch (_) {
+      return const ApiResult<GymPlanSuggestions>(
+        success: false,
+        message: 'Không đọc được dữ liệu gợi ý theo ngày.',
+      );
+    }
   }
 
   Future<ApiResult<GymRecalibrationResult>> recalibrate({

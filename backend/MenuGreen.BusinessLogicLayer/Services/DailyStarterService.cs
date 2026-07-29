@@ -145,6 +145,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         !f.EstimatedPriceVnd.HasValue || f.EstimatedPriceVnd.Value <= budget
                             ? 1
                             : 0;
+                    // Use a stable priority for "unknown price" so we never bubble
+                    // null-priced items above the cheapest known-priced ones.
+                    var priceRank = f.EstimatedPriceVnd ?? int.MaxValue;
                     var calorieDistance = Math.Abs((f.CaloriesKcal ?? 0) - mealCalorieTarget);
                     return new
                     {
@@ -153,6 +156,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         IsSafe = isSafe,
                         RegionScore = regionScore,
                         WithinBudget = withinBudget,
+                        PriceRank = priceRank,
                         CalorieDistance = calorieDistance,
                     };
                 })
@@ -162,11 +166,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     StringComparer.OrdinalIgnoreCase
                 )
                 .Select(g => g.First())
+                // Deterministic ordering: within-budget items first (cheapest first),
+                // then out-of-budget items (still cheapest first), with calorie fit
+                // and name as final tie-breakers.
                 .OrderByDescending(x => x.WithinBudget)
-                .ThenByDescending(x => x.RegionScore)
+                .ThenBy(x => x.PriceRank)
                 .ThenBy(x => x.CalorieDistance)
                 .ThenBy(x => x.Food.NameVi)
-                .Take(3)
+                .Take(10)
                 .Select(x => MapFoodToResponse(x.Food, x.Keys, userKeys))
                 .ToList();
         }
@@ -471,12 +478,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var limit = request.Top > 0 ? request.Top : 10;
-            var random = new Random();
+            var recommendationDate =
+                request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var seedBytes = userId.ToByteArray();
+            var seed =
+                BitConverter.ToInt32(seedBytes, 0)
+                ^ recommendationDate.DayNumber
+                ^ request.TargetCalories.Value;
+            var random = new Random(seed);
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
             var previousPlanIds = await _db
                 .MealPlanHeaders.AsNoTracking()
-                .Where(x => x.UserId == userId && x.IsActive && x.StartDate < today)
+                .Where(x =>
+                    x.UserId == userId
+                    && x.IsActive
+                    && x.StartDate < recommendationDate
+                )
                 .Select(x => x.Id)
                 .ToListAsync();
 
@@ -532,8 +549,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     .ToListAsync();
             }
 
-            var randomFoodIds = activeFoodIds.OrderBy(x => random.Next()).Take(30).ToList();
-            var randomRecipeIds = activeRecipeIds.OrderBy(x => random.Next()).Take(30).ToList();
+            var randomFoodIds = activeFoodIds
+                .OrderBy(x => x)
+                .OrderBy(x => random.Next())
+                .Take(30)
+                .ToList();
+            var randomRecipeIds = activeRecipeIds
+                .OrderBy(x => x)
+                .OrderBy(x => random.Next())
+                .Take(30)
+                .ToList();
 
             var foods = await _db
                 .Foods.AsNoTracking()
@@ -547,7 +572,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var itemsList = new List<RecommendationItemResponse>();
 
-            foreach (var food in foods)
+            foreach (var food in foods.OrderBy(x => x.Id))
             {
                 itemsList.Add(
                     new RecommendationItemResponse
@@ -567,7 +592,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 );
             }
 
-            foreach (var recipe in recipes)
+            foreach (var recipe in recipes.OrderBy(x => x.Id))
             {
                 var calories = 450;
                 try
@@ -594,8 +619,50 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 );
             }
 
-            var shuffledItems = itemsList
-                .OrderBy(x => random.Next())
+            var dailyTargetCalories = request.TargetCalories.Value;
+            var typicalMealCalories = dailyTargetCalories / 4m;
+            var maximumUsefulItemCalories = Math.Max(300m, dailyTargetCalories * 0.45m);
+            List<RecommendationItemResponse> candidates;
+
+            if (request.MinCalories.HasValue || request.MaxCalories.HasValue)
+            {
+                var minimumCalories = Math.Max(0, request.MinCalories ?? 0);
+                var maximumCalories = request.MaxCalories ?? int.MaxValue;
+                candidates = minimumCalories <= maximumCalories
+                    ? itemsList
+                        .Where(x =>
+                            x.CaloriesKcal >= minimumCalories
+                            && x.CaloriesKcal <= maximumCalories)
+                        .ToList()
+                    : new List<RecommendationItemResponse>();
+            }
+            else
+            {
+                var calorieMatchedItems = itemsList
+                    .Where(x =>
+                        x.CaloriesKcal > 0
+                        && x.CaloriesKcal <= maximumUsefulItemCalories)
+                    .ToList();
+                var fallbackMaximumCalories = Math.Max(800m, dailyTargetCalories);
+                candidates = calorieMatchedItems.Count > 0
+                    ? calorieMatchedItems
+                    : itemsList
+                        .Where(x =>
+                            x.CaloriesKcal > 0
+                            && x.CaloriesKcal <= fallbackMaximumCalories)
+                        .ToList();
+            }
+
+            var shuffledItems = candidates
+                .Select(x => new
+                {
+                    Item = x,
+                    CalorieDistance = Math.Abs(x.CaloriesKcal - typicalMealCalories),
+                    TieBreaker = random.Next()
+                })
+                .OrderBy(x => x.CalorieDistance)
+                .ThenBy(x => x.TieBreaker)
+                .Select(x => x.Item)
                 .GroupBy(x => x.Id)
                 .Select(g => g.First())
                 .Take(limit)
@@ -626,7 +693,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (ingredient != null && ingredient.CaloriesKcal.HasValue)
                 {
                     var quantity = ri.Quantity ?? 1;
-                    totalCalories += ingredient.CaloriesKcal.Value * quantity;
+                    var scale = Helpers.NutritionMath.IngredientNutritionRatio(quantity, ri.Unit ?? ingredient.UnitDefault);
+                    totalCalories += (ingredient.CaloriesKcal.Value) * scale;
                 }
             }
 

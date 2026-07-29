@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -425,10 +426,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                 HeightCm = health?.HeightCm,
                 WeightKg = health?.WeightKg,
+                TargetWeightKg = health?.TargetWeightKg,
                 BodyFatPercent = health?.BodyFatPercent,
                 ActivityLevel = health?.ActivityLevel,
                 Goal = health?.Goal,
                 Bmi = health?.Bmi,
+                BmrKcal = health?.BmrKcal,
+                TdeeKcal = health?.TdeeKcal,
                 TargetCalories = health?.TargetCalories,
                 TargetProteinG = health?.TargetProteinG,
                 TargetCarbsG = health?.TargetCarbsG,
@@ -579,6 +583,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("This meal plan does not belong to the specified student.");
             }
 
+            if (string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Lộ trình đã duyệt không thể chỉnh sửa. Hãy tạo lộ trình mới.");
+            }
+
             plan.Title = request.Title;
             plan.PlanType = request.PlanType;
             plan.StartDate = request.StartDate;
@@ -701,15 +710,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 });
             }
 
+            var resolvedPlanType = entity.PlanType;
+            if (entity.StartDate == entity.EndDate || (entity.Title != null && entity.Title.StartsWith("Daily plan", StringComparison.OrdinalIgnoreCase)))
+            {
+                resolvedPlanType = "DAILY";
+            }
+            var resolvedStatus = IsApprovalOutdated(entity)
+                ? "Active"
+                : entity.Status;
+
             return new MealPlanResponse
             {
                 Id = entity.Id,
                 Title = entity.Title ?? string.Empty,
-                PlanType = entity.PlanType,
+                PlanType = resolvedPlanType ?? "DAILY",
                 StartDate = entity.StartDate,
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
+                Status = resolvedStatus,
+                ApprovedAt = resolvedStatus == "Approved" ? entity.ApprovedAt : null,
                 IsActive = entity.IsActive,
                 TotalCalories = responseItems.Sum(x => x.TargetCalories ?? 0),
                 TotalProteinG = 0,
@@ -764,27 +784,643 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return streak;
         }
 
+        public async Task<IEnumerable<MealPlanResponse>> GetClientMealPlansAsync(Guid coachId, Guid clientId, DateOnly? from, DateOnly? to, string? planType)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == clientId && x.IsActive);
+            var query = plans.AsEnumerable();
+
+            if (from.HasValue && to.HasValue)
+            {
+                // Filter theo ngày bắt đầu của plan (StartDate) nằm trong khoảng [from, to].
+                // Lý do: tab "Lộ trình" của Coach đang hiển thị các plan "được tạo vào"
+                // ngày/tuần/tháng đang xem, không phải các plan "trải dài qua" khoảng đó.
+                // Dùng overlap (StartDate <= to && EndDate >= from) sẽ trả về cùng plan
+                // cho mọi filter (ví dụ plan daily thực tế bị lưu StartDate=26/07, EndDate=02/08
+                // do picker mặc định 1 tuần), làm user tưởng filter không hoạt động.
+                query = query.Where(x => x.StartDate >= from.Value && x.StartDate <= to.Value);
+            }
+            else if (from.HasValue)
+            {
+                query = query.Where(x => x.StartDate >= from.Value);
+            }
+            else if (to.HasValue)
+            {
+                query = query.Where(x => x.StartDate <= to.Value);
+            }
+
+            if (!string.IsNullOrEmpty(planType))
+            {
+                var targetType = planType.Trim().ToUpperInvariant();
+                if (targetType == "DAILY")
+                {
+                    query = query.Where(x =>
+                        string.Equals(x.PlanType, "DAILY", StringComparison.OrdinalIgnoreCase) ||
+                        x.StartDate == x.EndDate ||
+                        (x.Title != null && x.Title.StartsWith("Daily plan", StringComparison.OrdinalIgnoreCase)));
+                }
+                else if (targetType == "WEEKLY")
+                {
+                    query = query.Where(x =>
+                        string.Equals(x.PlanType, "WEEKLY", StringComparison.OrdinalIgnoreCase) &&
+                        x.StartDate != x.EndDate &&
+                        !(x.Title != null && x.Title.StartsWith("Daily plan", StringComparison.OrdinalIgnoreCase)));
+                }
+                else if (targetType == "MONTHLY")
+                {
+                    query = query.Where(x =>
+                        string.Equals(x.PlanType, "MONTHLY", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            var responses = new List<MealPlanResponse>();
+            foreach (var plan in query.OrderByDescending(p => p.StartDate).ThenByDescending(p => p.CreatedAt))
+            {
+                responses.Add(await MapMealPlanAsync(plan));
+            }
+            return responses;
+        }
+
+        public async Task<MealPlanResponse> GetClientMealPlanDetailAsync(Guid coachId, Guid clientId, Guid planId)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
+            if (plan == null || plan.UserId != clientId)
+            {
+                throw new Exception("Meal plan not found.");
+            }
+            return await MapMealPlanAsync(plan);
+        }
+
+        public async Task<MealPlanResponse> CreateClientMealPlanAsync(Guid coachId, Guid clientId, MealPlanUpsertRequest request)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+
+            var plan = new MealPlanHeader
+            {
+                Id = Guid.NewGuid(),
+                UserId = clientId,
+                Title = request.Title ?? $"Client plan {request.StartDate:yyyy-MM-dd}",
+                PlanType = request.PlanType ?? "DAILY",
+                StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                TargetCalories = request.TargetCalories,
+                GeneratedBy = "COACH",
+                Status = "Draft",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.MealPlanHeaders.AddAsync(plan);
+            await _unitOfWork.CompleteAsync();
+
+            if (request.Items != null && request.Items.Any())
+            {
+                foreach (var item in request.Items)
+                {
+                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
+                    {
+                        Id = Guid.NewGuid(),
+                        MealPlanId = plan.Id,
+                        MealType = item.MealType,
+                        FoodId = item.FoodId,
+                        RecipeId = item.RecipeId,
+                        PlannedDate = item.PlannedDate ?? plan.StartDate,
+                        ScheduledTime = item.ScheduledTime,
+                        TargetCalories = item.TargetCalories,
+                        IsCompleted = false,
+                        Origin = "coach",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                await _unitOfWork.CompleteAsync();
+            }
+
+            return await MapMealPlanAsync(plan);
+        }
+
+        public async Task<MealPlanResponse> SubmitClientMealPlanAsync(
+            Guid coachId,
+            Guid clientId,
+            Guid planId,
+            CoachSubmitMealPlanRequest? request)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
+            if (plan == null || plan.UserId != clientId)
+            {
+                throw new Exception("Meal plan not found.");
+            }
+
+            if (
+                string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase)
+                && !IsApprovalOutdated(plan)
+            )
+            {
+                throw new Exception("Lộ trình này đã được duyệt và gửi cho học viên.");
+            }
+            if (
+                string.Equals(
+                    plan.Status,
+                    "PendingAcceptance",
+                    StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                throw new Exception("Lộ trình đang chờ Gymer chấp nhận.");
+            }
+
+            // A plan created by the PT must be accepted by the Gymer before it
+            // becomes active. Keep the existing Gymer -> PT approval path below
+            // for plans originally created by the student.
+            if (string.Equals(plan.GeneratedBy, "COACH", StringComparison.OrdinalIgnoreCase))
+            {
+                var mappedPlan = await MapMealPlanAsync(plan);
+                var health = (await _unitOfWork.HealthProfiles.FindAsync(
+                    item => item.UserId == clientId
+                )).FirstOrDefault();
+                var startDate =
+                    plan.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+                var endDate = plan.EndDate ?? startDate;
+                var durationDays = Math.Max(1, endDate.DayNumber - startDate.DayNumber + 1);
+                var durationWeeks = Math.Clamp(
+                    (int)Math.Ceiling(durationDays / 7d),
+                    1,
+                    52
+                );
+                var targetCalories =
+                    plan.TargetCalories ?? health?.TargetCalories ?? 2000;
+
+                await _ptReviewService.CreatePersonalProgramAsync(
+                    coachId,
+                    new CreatePersonalProgramRequest
+                    {
+                        ClientId = clientId,
+                        Title = plan.Title ?? $"Lộ trình {startDate:dd/MM/yyyy}",
+                        Description =
+                            $"Lộ trình {plan.PlanType ?? "DAILY"} từ "
+                            + $"{startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
+                        DurationWeeks = durationWeeks,
+                        WeekStartDate = startDate,
+                        TargetCaloriesDaily = targetCalories,
+                        MinCalories = request?.MinCalories,
+                        MaxCalories = request?.MaxCalories,
+                        TargetProteinG = Math.Clamp(
+                            health?.TargetProteinG ?? 120,
+                            20,
+                            400
+                        ),
+                        TargetCarbsG = Math.Clamp(
+                            health?.TargetCarbsG ?? 250,
+                            50,
+                            600
+                        ),
+                        TargetFatG = Math.Clamp(
+                            health?.TargetFatG ?? 70,
+                            20,
+                            250
+                        ),
+                        CoachComment = request?.Notes,
+                        MealPlanId = plan.Id,
+                        PlanType = plan.PlanType,
+                        StartDate = startDate,
+                        EndDate = endDate,
+                        Meals = mappedPlan.Items.Select(item =>
+                            new PersonalProgramMealDto
+                            {
+                                Id = item.Id,
+                                PlannedDate = item.PlannedDate ?? startDate,
+                                MealType = item.MealType ?? "snack",
+                                FoodId = item.FoodId,
+                                FoodName = item.FoodName,
+                                RecipeId = item.RecipeId,
+                                RecipeName = item.RecipeName,
+                                TargetCalories = item.TargetCalories
+                            }
+                        ).ToList()
+                    }
+                );
+
+                return await MapMealPlanAsync(plan);
+            }
+
+            var now = DateTime.UtcNow;
+            plan.GeneratedBy = "COACH";
+            plan.Status = "Approved";
+            plan.ApprovedAt = now;
+            plan.UpdatedAt = now;
+            _unitOfWork.MealPlanHeaders.Update(plan);
+
+            // The Gymer-facing "Tôi gửi PT" tab is backed by PtReviewRequest,
+            // not MealPlanHeader. Mark the latest matching route request as
+            // Reviewed so it no longer remains "Chờ phản hồi".
+            var pendingRequests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == clientId
+                && r.Status == "Pending"
+                && r.CreatedByRole != "Coach"))
+                .Where(IsRouteApprovalRequest)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            PtReviewRequest? matchedRequest = null;
+            if (plan.StartDate.HasValue || plan.EndDate.HasValue)
+            {
+                var planStart = plan.StartDate ?? plan.EndDate!.Value;
+                var planEnd = plan.EndDate ?? plan.StartDate!.Value;
+                matchedRequest = pendingRequests.FirstOrDefault(r =>
+                    planStart <= r.WeekStartDate.AddDays(6)
+                    && planEnd >= r.WeekStartDate);
+            }
+            matchedRequest ??= pendingRequests.FirstOrDefault();
+
+            if (matchedRequest != null)
+            {
+                matchedRequest.Status = "Reviewed";
+                matchedRequest.ReviewedAt = now;
+                matchedRequest.PtComment = string.IsNullOrWhiteSpace(request?.Notes)
+                    ? "PT đã duyệt và gửi lộ trình dinh dưỡng."
+                    : request!.Notes!.Trim();
+                if (plan.TargetCalories.HasValue)
+                {
+                    matchedRequest.SuggestedCalorieTarget = plan.TargetCalories;
+                }
+                _unitOfWork.PtReviewRequests.Update(matchedRequest);
+            }
+
+            await _unitOfWork.CompleteAsync();
+
+            var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
+            var coachName = coachProfile?.FullName ?? "Coach";
+            var noteMsg = !string.IsNullOrWhiteSpace(request?.Notes)
+                ? $" Lời nhắn: {request!.Notes}"
+                : "";
+            await _notificationService.SendAsync(new NotificationSendRequest
+            {
+                UserId = clientId,
+                Type = "meal_plan_approved",
+                Title = "PT đã duyệt lộ trình ăn uống",
+                Body = $"Coach {coachName} đã duyệt lộ trình ăn uống của bạn.{noteMsg}",
+                ScheduledAt = null,
+                ActionUrl = matchedRequest == null
+                    ? null
+                    : $"gymer_route_approval:{matchedRequest.Id}"
+            });
+
+            return await MapMealPlanAsync(plan);
+        }
+
+        private static bool IsApprovalOutdated(MealPlanHeader plan)
+        {
+            return string.Equals(
+                    plan.Status,
+                    "Approved",
+                    StringComparison.OrdinalIgnoreCase)
+                && plan.ApprovedAt.HasValue
+                && plan.UpdatedAt.HasValue
+                && plan.UpdatedAt.Value > plan.ApprovedAt.Value;
+        }
+
+        private static bool IsRouteApprovalRequest(PtReviewRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.ReportDataJson))
+                {
+                    return true;
+                }
+
+                using var document = System.Text.Json.JsonDocument.Parse(request.ReportDataJson);
+                if (!document.RootElement.TryGetProperty("requestType", out var requestType))
+                {
+                    return true;
+                }
+
+                var value = requestType.GetString();
+                return string.IsNullOrWhiteSpace(value)
+                    || value.Equals("RouteApproval", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // Legacy requests did not always include requestType and were
+                // treated as RouteApproval by PtReviewService.
+                return true;
+            }
+        }
+
+        public async Task DeleteClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+
+            var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
+            if (plan == null || plan.UserId != clientId)
+            {
+                throw new Exception("Meal plan not found.");
+            }
+
+            plan.IsActive = false;
+            plan.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.MealPlanHeaders.Update(plan);
+            await _unitOfWork.CompleteAsync();
+        }
+
         public async Task<MealPlanResponse?> GetClientMealPlanAsync(Guid coachId, Guid clientId, DateOnly date)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
             return await _mealPlanService.GetByDateAsync(clientId, date);
         }
 
-        public async Task<object> GetClientSuggestionsAsync(Guid coachId, Guid clientId, int targetCalories = 0, int top = 10)
+        public async Task<object> GetClientSuggestionsAsync(
+            Guid coachId,
+            Guid clientId,
+            DateOnly? date,
+            int targetCalories = 0,
+            int? minCalories = null,
+            int? maxCalories = null,
+            int top = 10)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
-            
+            if (
+                minCalories.HasValue
+                && maxCalories.HasValue
+                && minCalories.Value > maxCalories.Value
+            )
+            {
+                throw new Exception("Calo tối thiểu không được lớn hơn calo tối đa.");
+            }
+
+            var planDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
             if (targetCalories == 0)
             {
                 var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault();
                 targetCalories = health?.TargetCalories ?? 2000;
+                var scoped = await ResolveClientGymConfigurationAsync(
+                    clientId,
+                    planDate
+                );
+                targetCalories = scoped.TargetCalories ?? targetCalories;
+                minCalories ??= scoped.MinCalories;
+                maxCalories ??= scoped.MaxCalories;
+            }
+
+            if (minCalories.HasValue && targetCalories < minCalories.Value)
+            {
+                targetCalories = minCalories.Value;
+            }
+            if (maxCalories.HasValue && targetCalories > maxCalories.Value)
+            {
+                targetCalories = maxCalories.Value;
             }
 
             return await _dailyStarterService.GetRecommendationsAsync(clientId, new RecommendationRequest
             {
                 TargetCalories = targetCalories > 0 ? targetCalories : null,
+                MinCalories = minCalories,
+                MaxCalories = maxCalories,
+                Date = planDate,
                 Top = top
             });
+        }
+
+        public async Task<object> GetClientGymConfigurationAsync(
+            Guid coachId,
+            Guid clientId,
+            DateOnly? date)
+        {
+            await EnsureAccessAllowedAsync(coachId, clientId);
+            var planDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var health = (await _unitOfWork.HealthProfiles.FindAsync(
+                item => item.UserId == clientId
+            )).FirstOrDefault();
+            var scoped = await ResolveClientGymConfigurationAsync(
+                clientId,
+                planDate
+            );
+            var target = scoped.TargetCalories ?? health?.TargetCalories ?? 2000;
+            if (scoped.MinCalories.HasValue && target < scoped.MinCalories.Value)
+                target = scoped.MinCalories.Value;
+            if (scoped.MaxCalories.HasValue && target > scoped.MaxCalories.Value)
+                target = scoped.MaxCalories.Value;
+
+            return new
+            {
+                Date = planDate.ToString("yyyy-MM-dd"),
+                TargetCalories = target,
+                scoped.MinCalories,
+                scoped.MaxCalories,
+                scoped.HasConfiguration,
+                scoped.Scope
+            };
+        }
+
+        private async Task<ClientGymConfiguration> ResolveClientGymConfigurationAsync(
+            Guid clientId,
+            DateOnly date)
+        {
+            var profile = (await _unitOfWork.UserAiProfiles.FindAsync(
+                item => item.UserId == clientId
+            )).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(profile?.Preferences))
+            {
+                return new ClientGymConfiguration();
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(profile.Preferences);
+                var root = document.RootElement;
+                var dateString = date.ToString("yyyy-MM-dd");
+                var monday = date.AddDays(
+                    -(7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7
+                );
+                var weekString = monday.ToString("yyyy-MM-dd");
+                var monthString = date.ToString("yyyy-MM");
+
+                var schedule =
+                    root.TryGetProperty("weeklyTrainingSchedule", out var scheduleNode)
+                    && scheduleNode.ValueKind == JsonValueKind.String
+                        ? scheduleNode.GetString() ?? string.Empty
+                        : string.Empty;
+                var isTraining = schedule
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(day => day.Trim())
+                    .Contains(
+                        date.DayOfWeek.ToString(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+
+                int? target = null;
+                int? min = null;
+                int? max = null;
+                var hasConfiguration = false;
+                var scope = "profile";
+
+                if (
+                    TryFindScopedElement(
+                        root,
+                        "dailyDetails",
+                        "dateString",
+                        dateString,
+                        out var daily)
+                )
+                {
+                    hasConfiguration = true;
+                    scope = "day";
+                    if (
+                        daily.TryGetProperty("isTraining", out var trainingNode)
+                        && (
+                            trainingNode.ValueKind == JsonValueKind.True
+                            || trainingNode.ValueKind == JsonValueKind.False
+                        )
+                    )
+                    {
+                        isTraining = trainingNode.GetBoolean();
+                    }
+                    if (TryReadInt32(daily, "customCalories", out var value))
+                        target = value;
+                    if (TryReadInt32(daily, "minCalories", out value))
+                        min = value;
+                    if (TryReadInt32(daily, "maxCalories", out value))
+                        max = value;
+                }
+
+                if (
+                    TryFindScopedElement(
+                        root,
+                        "weeklyDetails",
+                        "weekStartDateString",
+                        weekString,
+                        out var weekly)
+                )
+                {
+                    hasConfiguration = true;
+                    if (scope == "profile") scope = "week";
+                    if (
+                        target == null
+                        && TryReadInt32(weekly, "customCalories", out var value)
+                    )
+                        target = value;
+                    if (min == null && TryReadInt32(weekly, "minCalories", out value))
+                        min = value;
+                    if (max == null && TryReadInt32(weekly, "maxCalories", out value))
+                        max = value;
+                }
+
+                if (
+                    TryFindScopedElement(
+                        root,
+                        "monthlyDetails",
+                        "monthString",
+                        monthString,
+                        out var monthly)
+                )
+                {
+                    hasConfiguration = true;
+                    if (scope == "profile") scope = "month";
+                    if (
+                        target == null
+                        && TryReadInt32(monthly, "customCalories", out var value)
+                    )
+                        target = value;
+                    if (min == null && TryReadInt32(monthly, "minCalories", out value))
+                        min = value;
+                    if (max == null && TryReadInt32(monthly, "maxCalories", out value))
+                        max = value;
+                }
+
+                if (target == null)
+                {
+                    if (
+                        isTraining
+                        && TryReadInt32(
+                            root,
+                            "trainingDayTargetCalories",
+                            out var trainingCalories)
+                    )
+                        target = trainingCalories;
+                    else if (
+                        !isTraining
+                        && TryReadInt32(
+                            root,
+                            "restDayTargetCalories",
+                            out var restCalories)
+                    )
+                        target = restCalories;
+
+                    if (min == null && TryReadInt32(root, "minCalories", out var value))
+                        min = value;
+                    if (max == null && TryReadInt32(root, "maxCalories", out value))
+                        max = value;
+                }
+
+                return new ClientGymConfiguration
+                {
+                    TargetCalories = target,
+                    MinCalories = min,
+                    MaxCalories = max,
+                    HasConfiguration = hasConfiguration,
+                    Scope = scope
+                };
+            }
+            catch (JsonException)
+            {
+                return new ClientGymConfiguration();
+            }
+        }
+
+        private static bool TryFindScopedElement(
+            JsonElement root,
+            string arrayName,
+            string keyName,
+            string keyValue,
+            out JsonElement matched)
+        {
+            matched = default;
+            if (
+                !root.TryGetProperty(arrayName, out var array)
+                || array.ValueKind != JsonValueKind.Array
+            )
+            {
+                return false;
+            }
+
+            foreach (var item in array.EnumerateArray())
+            {
+                if (
+                    item.ValueKind == JsonValueKind.Object
+                    && item.TryGetProperty(keyName, out var key)
+                    && key.ValueKind == JsonValueKind.String
+                    && key.GetString() == keyValue
+                )
+                {
+                    matched = item;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryReadInt32(
+            JsonElement parent,
+            string propertyName,
+            out int value)
+        {
+            value = default;
+            return parent.ValueKind == JsonValueKind.Object
+                && parent.TryGetProperty(propertyName, out var property)
+                && property.ValueKind == JsonValueKind.Number
+                && property.TryGetInt32(out value);
+        }
+
+        private sealed class ClientGymConfiguration
+        {
+            public int? TargetCalories { get; init; }
+            public int? MinCalories { get; init; }
+            public int? MaxCalories { get; init; }
+            public bool HasConfiguration { get; init; }
+            public string Scope { get; init; } = "profile";
         }
 
         public async Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId)

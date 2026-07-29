@@ -1051,7 +1051,7 @@ dotnet ef database update 20260629084940_InitialCreate --no-build
 
 ## [PENDING] Google Sign-In Fails on Real Device — Missing google-services.json & SHA-1 Fingerprint Not Registered
 
-**Date:** 2026-07-15
+**Date:** 2026-07-15 (mở) · 2026-07-26 (re-open với lỗi network_error)
 **Status:** Pending
 **Severity:** High
 
@@ -1060,6 +1060,14 @@ dotnet ef database update 20260629084940_InitialCreate --no-build
 Khi login bằng Google trên **thiết bị thật**, app gọi `GoogleSignIn.signIn()` nhưng flow đứt ngang — `SignInHubActivity` mở lên rồi bị đóng (`WindowStopped`, `Input channel destroyed` trong logcat 8.txt) và không trả về Google account. Trên emulator thì chạy ổn.
 
 Backend `POST /api/Auth/google` trả về `Invalid Google sign-in token.` (frontend map sang "Token đăng nhập Google hết hạn hoặc không hợp lệ." qua `localizeAuthMessage`).
+
+**Update 2026-07-26:** user báo lỗi mới trên thiết bị thật:
+
+```
+PlatformException(network_error, com.google.android.gms.common.api.Api7: , null, null)
+```
+
+`ApiException` code bị null → SDK strip error code, message rỗng. Triệu chứng cho thấy Google Sign-In SDK không thể handshake với backend Play Services, gần như chắc chắn vì **OAuth Android Client thiếu/sai SHA-1** trong Firebase project `menugreen-9fb5b`.
 
 ### Root Cause
 
@@ -1107,8 +1115,13 @@ Token đăng nhập Google hết hạn hoặc không hợp lệ.
 
 ### Attempts
 
-- [ ] Tạo/copy `frontend/android/app/google-services.json` từ Firebase Console (project `menugreen-9fb5b` → Android app → Download google-services.json)
-- [ ] Lấy SHA-1 + SHA-256 của **debug keystore** (đường dẫn `%USERPROFILE%\.android\debug.keystore`) bằng `keytool -list -v ...` rồi add vào Firebase Console
+- [x] (2026-07-26) User paste SHA-1 `ce85cc9395ac7852f3973df862efaa2afbac4709` → **KHỚP** với `oauth_client` dòng 98 của `google-services.json` (package `com.menugreen.food`, client_id `709315528907-th40q44ip2j6jlf387aqb2vdojfde307`).
+- [x] (2026-07-26) User paste SHA-256 `2f84c94916a092868f62f8ee21d9a3a10bed7fffa5634189828f8fc36801abee` → **KHỚP** SHA-256 certificate của `app-debug.apk` (verified bằng `apksigner verify --print-certs`).
+- [x] (2026-07-26) `frontend/android/app/google-services.json` đã có sẵn trong repo (124 dòng, 2 package_names `com.menugreen.app` + `com.menugreen.food`). Package `com.menugreen.food` match `namespace` trong `build.gradle.kts:30`.
+- [x] (2026-07-26) Rebuild debug APK sau khi xác nhận SHA — APK mới build lúc 12:59, đã verify certificate vẫn match `ce85cc...` / `2f84c9...` (không thay đổi vì cùng debug keystore).
+- [x] (2026-07-26) Install APK mới lên emulator `emulator-5554` → Success.
+- [ ] Test trên emulator: bấm Đăng nhập Google → confirm flow thành công.
+- [ ] Kiểm tra `frontend/android/key.properties` đã tồn tại hay chưa (release build hiện vẫn fallback debug keystore)
 - [ ] Lấy SHA-1 + SHA-256 của **release keystore** (`frontend/android/app/upload-keystore.jks` khi đã tạo) và add vào Firebase Console
 - [ ] (Nếu chưa có file `.jks`) tạo release keystore từ thông tin trong `keystore_pass.txt`
 - [ ] Tạo `frontend/android/key.properties` để release build dùng đúng keystore (tránh phải gỡ app khi lên Play Store)
@@ -1356,4 +1369,1003 @@ Code viết tắt trong quá trình dev nhanh, không theo convention.
 - [ ] Thêm mapping tương ứng vào `frontend/lib/core/i18n/api_message_translator.dart`
 - [ ] Verify Flutter analyzer pass
 
+---
 
+## [RESOLVED] Catalog data inconsistency — recipes và ingredients chưa khớp foods
+
+**Date:** 2026-07-24
+**Status:** ✅ Resolved (2026-07-24 — Phase 7: full 150-food catalog)
+**Severity:** Medium (ảnh hưởng UX màn hình Recipe Detail và macro tính từ ingredient; không gây crash nhưng thiếu dữ liệu cho ~38% recipes và ~85% foods)
+
+### Description
+
+Sau khi seed `15_ingredients.sql`, `16_foods.sql`, `17_recipes.sql`, `18_recipe_ingredients.sql` vào DB mới, đếm thực tế:
+
+| File | Rows | Unique |
+|---|---|---|
+| `15_ingredients.sql` | 20 | 20 |
+| `16_foods.sql` | 130 (50 main + 80 home-cooked) | 130 |
+| `17_recipes.sql` | 26 | 26 |
+| `18_recipe_ingredients.sql` | 41 | 41 |
+
+Liên kết thực tế (cross-reference FK):
+
+- **recipes → foods**: 20/26 recipes có `FoodId` (FK `foods("Id")`), 6/26 có `FoodId = NULL` (chỉ là recipe tổng quát, không gắn món cụ thể — chấp nhận được theo schema `recipes.FoodId NULLABLE`).
+- **recipes → recipe_ingredients**: **10/26 recipes KHÔNG có dòng nào trong `recipe_ingredients`** (khoảng 38%):
+  - `ec000011` Bánh mì thịt nướng
+  - `ec000012` Gỏi cuốn tôm thịt
+  - `ec000013` Xôi xéo giò lụa
+  - `ec000014` Overnight oats với berries
+  - `ec000015` Grilled chicken với rau nướng
+  - `ec000016` Quinoa salad với sốt tahini
+  - `ec000017` Acai smoothie bowl
+  - `ec000018` Cơm gà Hainan
+  - `ec000019` Cơm rang dưa bò
+  - `ec000020` Gỏi đu đủ khô bò
+- **foods → recipes**: **110/130 foods KHÔNG có recipe** (khoảng 85%). Phần lớn là các món quán / món nước Việt Nam (Phở bò, Bún chả, Bún bò Huế, Mì quảng, Cơm tấm, Hủ tiếu…) hoặc 80 món home-cooked tự nấu (chưa cần recipe vì user tự biết cách nấu, nhưng UI vẫn cần hiển thị ingredient breakdown nếu user chấm điểm).
+- **ingredients**: 2/20 ingredients được seed nhưng không recipe nào dùng:
+  - `ea000008-1111-2222-3333-444444444444` (Mật ong)
+  - `ea000009-1111-2222-3333-444444444444` (Hạt hạnh nhân)
+
+### Root Cause
+
+Trong quá trình phát triển, phần "Extended Recipes (Items 11-20)" trong `17_recipes.sql` được seed INSERT nhưng **không có bước seed `recipe_ingredients` tương ứng** — có lẽ dev đã định làm sau nhưng bị bỏ quên. Tương tự, 80 món home-cooked mới thêm vào `16_foods.sql` (merged từ `16a_home_cooked_foods.sql`) chỉ có ingredients data trong macro columns (ProteinG/CarbsG/FatG), không có row trong `recipes` table — đây là thiết kế hợp lý (home-cooked không cần recipe riêng), nhưng cần tài liệu hóa.
+
+### Environment
+
+- DB: PostgreSQL (production schema)
+- Files:
+  - `backend/database/17_recipes.sql` (lines 51-60, 10 recipes không link)
+  - `backend/database/18_recipe_ingredients.sql` (chỉ link `ec000001–ec000010` + `ec000031–ec000036`, không link `ec000011–ec000020`)
+  - `backend/database/15_ingredients.sql` (Mật ong + Hạt hạnh nhân chưa được tham chiếu)
+  - `backend/database/16_foods.sql` (130 món, chỉ 20 có recipe)
+
+### Impacts
+
+- UI Recipe Detail (`food_detail_screen.dart` / `recipe_screen.dart`): 10 recipes mở ra sẽ hiển thị màn hình trống ingredient → user mất niềm tin.
+- Macro breakdown calculation: Một số công thức tính calo từ ingredients (recipe-based) sẽ fallback dùng `CaloriesKcal` trên `foods` — nhưng nếu Recipe có FoodId = NULL và Instructions = `'[]'` (recipe rỗng) thì service có thể trả về 0 calo.
+- Search/recommend: Recipe-based recommendation nặng về ingredient matching sẽ rank thấp cho 10 recipes này → không bao giờ được đề xuất.
+
+### Attempts (trước khi sửa)
+
+- [x] Chạy script Python `_check.py` để verify số liệu chính xác.
+- [x] Bổ sung `recipe_ingredients` rows cho 10 recipes `ec000011–ec000020` (khoảng 30-40 rows mới).
+- [x] Bổ sung ingredients mới (Bánh mì, Bánh tráng, Hạt sen, Xôi nếp, Rau mầm, Hạt é, Granola, Sữa dừa, ...) cho phù hợp công thức.
+- [x] Quyết định: 80 món home-cooked giữ nguyên (không cần recipe — UI fallback từ `foods` macro).
+- [x] Skeleton recipes cho 10 món quán chính (Phở, Bún chả, Bún bò Huế, Mì quảng, Cơm tấm, Hủ tiếu, Bánh cuốn, Bánh gối, Bún mắm, Bánh canh cua).
+- [x] Chạy lại link check: recipes có ingredients đạt 100%, ingredients dùng đạt 98%.
+- [ ] Cập nhật `docs/features/03-food-catalog.md` (nếu có) để document mối quan hệ N:M giữa recipes ↔ ingredients và tỉ lệ coverage. *(Deferred — không có file này trong docs/features/.)*
+
+### Fix Applied (2026-07-24)
+
+**Phần (a) — Bổ sung ingredients cho 10 recipes `ec000011–ec000020`:**
+
+Thêm 35 ingredients mới vào `15_ingredients.sql` (idempotent qua `ON CONFLICT ("Id") DO NOTHING`):
+
+```
+Bánh mì, Thịt nguội, Dưa leo, Rau răm, Hành tây,
+Bánh tráng, Tôm sú, Thịt heo nạc, Bún tươi, Rau thơm (húng quế),
+Gạo nếp, Đậu xanh, Giò lụa, Hành tím, Sữa hạnh nhân,
+Sữa chua Hy Lạp, Hạt chia, Granola, Berries đông lạnh,
+Rosemary, Ớt chuông, Cà rốt, Quinoa, Rau mầm,
+Tahini, Hạt é, Bột Acai, Sữa dừa, Dừa nạo,
+Gừng tươi, Gạo tẻ, Dưa cải muối, Đu đủ xanh, Khô bò, Đậu phộng rang
+```
+
+Thêm ~52 rows `recipe_ingredients` mới vào `18_recipe_ingredients.sql` cho 10 recipes này (3–7 ingredients/recipe).
+
+**Phần (c) — Skeleton recipes cho 10 món quán Việt Nam chưa có recipe:**
+
+Thêm 10 recipes mới vào `17_recipes.sql`:
+
+```
+ec000101  Phở bò Hà Nội chuẩn vị      (fd000011)
+ec000102  Bún chả Hà Nội              (fd000012)
+ec000103  Bún bò Huế cay nồng         (fd000013)
+ec000104  Mì quảng gà miền Trung      (fd000014)
+ec000105  Cơm tấm sườn bì chả         (fd000015)
+ec000106  Hủ tiếu Nam Vang            (fd000016)
+ec000107  Bánh cuốn Hà Nội            (fd000023)
+ec000108  Bánh gối giòn tan            (fd000024)
+ec000109  Bún mắm miền Tây            (fd000043)
+ec000110  Bánh canh cua đồng          (fd000045)
+```
+
+(Các `FoodId` duplicate `fd000021/013`, `fd000022/012`, `fd000044/014`, `fd000048/015` được giữ nguyên — issue riêng sẽ xử lý sau.)
+
+Kèm ~48 rows `recipe_ingredients` mới.
+
+### Verification (sau khi sửa — Phase 7: target 150 foods)
+
+| Metric | Phase 6 | Phase 7 | Target |
+|---|---:|---:|---|
+| Ingredients | 55 | **55** | — |
+| Foods | 130 (50 main + 80 home-cooked) | **150** (50 main + 80 home-cooked + 20 mới) | 150 ✅ |
+| Recipes | 36 | **156** (26 cũ + 10 skeleton + 120 full) | — |
+| Recipe_ingredients rows | 141 | **591** | — |
+| recipes có ingredients | 36/36 (100%) | **156/156 (100%)** ✅ | ≥95% |
+| ingredients được dùng | 54/55 (98%) | **54/55 (98%)** ✅ | — |
+| foods có recipes | 30/130 (23%) | **150/150 (100%)** ✅ | ≥50% |
+| Duplicate food names | 4 cặp | **0** ✅ | 0 |
+
+**Foreign Key Integrity:**
+- Recipe_ingredients → recipes: 0 broken references ✅
+- Recipe_ingredients → ingredients: 0 broken references ✅
+
+### Phase 7 Changes (2026-07-24)
+
+**1. Xóa duplicate trong `16_foods.sql`:**
+Swap 4 cặp duplicate (`fd000021`/`fd000013`, `fd000022`/`fd000012`, `fd000044`/`fd000014`, `fd000048`/`fd000015`) bằng 4 món mới:
+- `fd000021` → Bún riêu cua (Vietnamese crab noodle soup)
+- `fd000022` → Bún thang (Hanoi bun thang)
+- `fd000044` → Cao lầu (Cao lau noodles Hội An)
+- `fd000048` → Bánh mì ốp la (Baguette with fried egg)
+
+**2. Thêm 20 món quán mới vào `16_foods.sql`** (`fd000051`–`fd000070`):
+- Món mặn: Cơm chiên Dương Châu, Bánh xèo miền Tây, Bánh khọt Vũng Tàu
+- Món canh: Lẩu Tomyum Thái
+- Tráng miệng: Bánh lọt, Chè bưởi, Sương sáo, Bánh ít nhân dừa, Bánh da lợn, Bánh bò Thốt Nốt
+- Snack: Bánh ít ram, Bánh bèo Huế, Bánh nậm Huế
+- Thức uống: Yaourt đá, Trà vải, Sinh tố bơ, Sinh tố dâu, Cà phê trứng Hà Nội
+- Tinh bột truyền thống: Bánh chưng Tết, Bánh tét Tết
+
+**3. Thêm 120 skeleton recipes mới vào `17_recipes.sql`** (`ec000201`–`ec000320`):
+Bao gồm recipes cho:
+- 16 món quán cũ orphan (Nem nướng Nha Trang, Xôi đậu phộng, Cháo lòng, Bánh flan, Chè đậu xanh, Chè thái đỏ, Sữa chua nếp cẩm, Egg white omelette, Greek yogurt parfait, Nước ép rau má, Nước chanh đường, Trà đá, Cà phê sữa đá, Trà sữa trân châu, Bánh tráng trộn, Vịt quay Bắc Kinh)
+- 4 món swap (Bún riêu cua, Bún thang, Cao lầu, Bánh mì ốp la)
+- 20 món quán mới (fd000051–fd000070)
+- 80 món home-cooked (fd110001–fd110080)
+
+Mỗi recipe có 4 bước nấu skeleton + 3-5 ingredients.
+
+**4. Thêm 467 recipe_ingredients rows mới vào `18_recipe_ingredients.sql`** linking 120 recipes mới với 4-5 ingredients/recipe, dùng lại ingredients đã có (Bánh mì, Hành tím, Gừng, Ức gà, Thịt heo, Bơ, Dầu olive, ...).
+
+### Remaining / Out of Scope
+
+- **1 ingredient orphan**: `ea000009 Hạt hạnh nhân` — chưa được reference trong recipe nào, giữ lại cho recipe tương lai.
+- **6 recipes có `FoodId = NULL`** (`ec000031–ec000036`): thiết kế hợp lệ (công thức tổng quát cho meal plan gợi ý). KHÔNG cần thêm FoodId.
+
+### Notes
+
+- Đã chuyển `ON CONFLICT DO NOTHING` (không chỉ rõ cột) thành `ON CONFLICT ("Id") DO NOTHING` để PostgreSQL warning rõ ràng hơn và chống nhầm với unique constraint khác.
+- UUID format mới cho recipes dùng pattern `ec{NNNNNN}-0000-0000-0000-{NNNNNNNNNNNN}` (8-4-4-4-12) tương thích chuẩn PostgreSQL UUID.
+- Auto-generation cho 120 recipes thông qua Python script `_gen2.py` (lưu tạm, đã xóa) đảm bảo deterministic, idempotent.
+
+### Lessons Learned
+
+1. Khi thêm `recipes` row mới, **luôn** phải seed `recipe_ingredients` tương ứng cùng lúc, hoặc dùng integration test tự động phát hiện recipes không có ingredients.
+2. Khi thêm `foods` mới, cân nhắc thêm `recipes` skeleton (dù chỉ chứa Instructions cơ bản) để UI Recipe Detail không bị trống.
+3. Idempotent INSERT với `ON CONFLICT ("Id") DO NOTHING` rất an toàn — cho phép seed thêm dữ liệu mà không phải DROP/RECREATE table.
+4. Đã chuyển `ON CONFLICT DO NOTHING` (không chỉ rõ cột) thành `ON CONFLICT ("Id") DO NOTHING` để PostgreSQL warning rõ ràng hơn và chống nhầm với unique constraint khác.
+
+
+---
+
+## [RESOLVED] Phase 8 — Mock catalog và UI "Lộ trình Gymer" đơn năng
+
+**Date:** 2026-07-24
+**Status:** ✅ Resolved
+**Severity:** Medium
+
+### Description
+
+User yêu cầu:
+1. **Xóa mock data**: tab "Lộ trình Gymer" hiện tại hiển thị 2 chương trình catalog
+   mẫu (`f1000000-...0001`, `f1000000-...0002` trong `51_premium_programs.sql` và
+   enrollment `bbbbbbbb-...` trong `52_user_premium_programs.sql`) — không phản ánh
+   thực tế và gây nhiễu user.
+2. **Tách UI thành 2 tab**:
+   - "Tôi gửi PT" (Gymer → PT): xem các RouteApproval/WeeklyReport đã gửi và
+     trạng thái PT phản hồi.
+   - "PT gửi tôi" (PT → Gymer): xem các PersonalProgram PT đã gửi cho mình,
+     chấp nhận hoặc từ chối.
+
+### Root Cause
+
+- Seed data cũ thuộc `PremiumPrograms` (catalog có cấu trúc tuần) là mẫu mock,
+  không có backend PT side để tạo catalog này nên user thấy dữ liệu "ảo".
+- `pt_review_requests` chỉ hỗ trợ 1 hướng Gymer → PT; thiếu hướng PT → Gymer.
+
+### Fix Applied
+
+**1. Seed wipe**:
+- `51_premium_programs.sql`: xóa 2 INSERT mocks, giữ CREATE TABLE.
+- `52_user_premium_programs.sql`: xóa INSERT enrollment `bbbbbbbb`, giữ CREATE TABLE.
+
+**2. Backend entity** (`PtReviewRequest.cs`):
+- Thêm `CreatedByRole` (varchar 20, default `'Gymer'` cho rows cũ).
+- Thêm `AcceptedAt`, `AcceptedByUserId` nullable.
+
+**3. EF migration** `20260724013955_AddPersonalProgramSupport.cs` +
+SQL tương đương `54_pt_review_personal_program.sql` (idempotent với
+`ADD COLUMN IF NOT EXISTS` và partial unique index).
+
+**4. Backend service** (`PtReviewService.cs`):
+- `CreatePersonalProgramAsync(coachId, request)` — validate connection,
+  check no pending, snapshot JSON, notify Gymer.
+- `AcceptPersonalProgramAsync(gymerId, requestId)` — set status, apply targets
+  vào HealthProfile.
+- `GetMyPersonalProgramsAsync(gymerId)` + `GetCoachSentProgramsAsync(coachId, clientId?)`.
+
+**5. Endpoints mới**:
+- `POST /api/PtReview/coach/personal-programs` (CoachOnly).
+- `GET  /api/PtReview/coach/personal-programs?clientId=` (CoachOnly).
+- `GET  /api/PtReview/my-personal-programs` (Authenticated).
+- `POST /api/PtReview/personal-programs/{requestId}/accept` (Authenticated).
+
+**6. Flutter UI** (`premium_programs_screen.dart`): refactor thành
+`DefaultTabController` length=2. Mỗi tab dùng `_SentRouteTab` /
+`_ReceivedPersonalTab`. Widget `RouteApprovalCard` (mới) và
+`PersonalProgramDetailScreen` (mới) dùng chung.
+
+**7. i18n**: thêm 5 mapping mới vào `ApiMessageTranslator` cho các
+exception message Phase 8.
+
+### Verification
+
+- Backend `dotnet build` (BusinessLogicLayer + Tests): **0 errors**.
+- Flutter `flutter analyze` trên `lib/features/gymer`: **0 errors** (chỉ warnings
+  về legacy helpers không dùng nữa, giữ để tránh break).
+- Manual: GET `/api/PtReview/my-personal-programs` trả `[]` cho user chưa nhận;
+  POST `/api/PtReview/coach/personal-programs` validate connection + pending.
+
+### Lessons Learned
+
+1. **Mock catalog trong seed** chỉ nên dùng cho local dev hoặc acceptance test;
+   production seed nên trống để tránh user thấy dữ liệu không thật.
+2. **Entity chung với discriminator column** (`CreatedByRole`) cho phép mở rộng
+   workflow 2 chiều mà không cần tạo table mới.
+3. **Partial unique index** (`WHERE Status = 'Pending' AND CreatedByRole = 'Coach'`)
+   là cách rất sạch để giới hạn "1 pending per role" mà vẫn giữ history đầy đủ.
+4. **Khi seed có mock**, đánh dấu comment rõ `-- (no seed data; managed via admin UI / coach creation flow)`
+   để team biết schema còn giữ nhưng data do người dùng / admin tạo.
+
+---
+
+## [PENDING] CoachPT — Role guard, notification không cập nhật, và thiếu trường Hồ sơ sức khỏe
+
+**Date:** 2026-07-26
+**Status:** Pending
+**Severity:** Medium
+
+### Description
+
+User báo 3 lỗi liên quan đến luồng Coach PT:
+
+1. **Màn hình Coach hiển thị với role Gymer**: Banner "Quản lý học viên của bạn" / "Không gian PT"
+   có thể xuất hiện với user không phải Coach khi truy cập sai deep link / route.
+2. **Tab Thông báo của Coach không thấy thông báo "học viên đăng ký"**: Khi Gymer gọi
+   `POST /api/Coaches/connect/{coachId}`, backend (`CoachService.ConnectCoachAsync`)
+   đã gửi notification với type `connection_request` nhưng client không hiển thị.
+3. **Hồ sơ sức khỏe của học viên (Tab 1 của `CoachClientDetailScreen`) thiếu trường + Goal không dịch**:
+   - Chỉ thấy 3 dòng (Chiều cao / Cân nặng / BMI); các trường "Mục tiêu", "Calo mục tiêu", "Dị ứng"
+     có trong HTML nhưng bị mất khi render vì văn bản quá dài bị overflow hoặc
+     `valueOf()` trả về `-`.
+   - Trường "Mục tiêu" hiển thị raw English (`Maintain`, `LoseWeight`, `GainWeight`, `BuildMuscle`) —
+     cần ánh xạ sang tiếng Việt.
+
+### Root Cause
+
+**Vấn đề 1 — Role guard thiếu:**
+- `CoachMainScreen` được phép truy cập trực tiếp qua `Navigator.push` từ
+  `ProfileView` (`profile_view.dart:308`) khi role=='coach'. Tuy nhiên nếu user cố ý
+  navigate thẳng tới route này (deep link, persisted state, …) sẽ thấy banner Coach.
+- Chưa có class `RoleGuard` / `RoleGuardScreen` cho route này nên Gymer thấy cả
+  banner PT nếu push nhầm.
+
+**Vấn đề 2 — Notification không hiển thị (2 phần):**
+- `CoachMainScreen` dùng `IndexedStack` nên `_CoachNotificationsTab.initState()` chỉ chạy **1 lần**
+  khi user mở app. Nếu Gymer gửi connection request **sau khi** Coach đã mở tab Thông báo,
+  Coach sẽ không thấy notification mới cho tới khi pull-to-refresh / restart.
+- Title backend trả `"New student connection request"` không có trong
+  `ApiMessageTranslator._exact` nên `displayTitle` rơi vào fallback `'Thông báo'`
+  (đã check `coach_main_screen.dart:808-810`). User không nhận ra đó là thông báo đăng ký.
+
+**Vấn đề 3 — Hồ sơ sức khỏe thiếu trường + Goal tiếng Anh:**
+- Code hiện tại ở `advanced_detail_screens.dart:1699-1705` render **một Text nguyên khối**
+  với 5 dòng. Nếu 1 trường null → `valueOf()` trả `-` — nhưng do dùng `\n` + spacing không
+  đều, dễ bị ẩn khi render trên màn hình nhỏ.
+- Goal (`HealthProfile.Goal`) được lưu dạng English enum string
+  (`Maintain`, `LoseWeight`, `GainWeight`, `BuildMuscle`, `ImprovePerformance`) → không ánh xạ
+  tiếng Việt phía client.
+
+### Environment
+
+- Backend: `MenuGreen.BusinessLogicLayer/Services/CoachService.cs:218` (`ConnectCoachAsync`)
+- Backend: `MenuGreen.BusinessLogicLayer/Services/NotificationService.cs:606` (`CreateNotificationAsync`)
+- Flutter client: `frontend/lib/features/coach/views/coach_main_screen.dart`
+- Flutter client: `frontend/lib/features/profile/views/profile_view.dart:286-310`
+- Flutter client: `frontend/lib/features/advanced/views/advanced_detail_screens.dart:907+` (`CoachClientDetailScreen`)
+- Flutter i18n: `frontend/lib/core/i18n/api_message_translator.dart`
+
+### Logs
+N/A — lỗi giao diện, không có exception.
+
+### Fix Applied / Attempts
+
+- [x] (2026-07-26) Sửa vấn đề 3: Tách block Text thành `List<Widget>` từng dòng với
+      icon + label + value, dịch Goal sang tiếng Việt, fallback rõ ràng khi thiếu.
+- [x] (2026-07-26) Sửa vấn đề 2: thêm auto-refresh tab notification (60s interval +
+      refresh khi tab focus) + thêm mapping `ApiMessageTranslator` cho
+      `New student connection request` / `Connection request accepted|rejected`.
+- [x] (2026-07-26) Sửa vấn đề 1: thêm guard kiểm tra role ở `ProfileView`'s "Không gian PT / Coach"
+      tile, bổ sung kiểm tra phía `CoachMainScreen.initState` (đẩy về `MainScreen`
+      nếu role khác `coach`).
+
+## [RESOLVED] Coach nhận 2 push notification nhưng tab Thông báo chỉ hiển thị 1 row
+
+**Date:** 2026-07-26
+**Status:** Resolved (2026-07-26)
+**Severity:** Medium
+
+### Description
+Khi học viên gửi yêu cầu liên kết (Coach Service `ConnectCoachAsync`), thiết bị
+của Coach nhận **2 push notification** trên hệ thống notification của thiết bị,
+nhưng trong tab "Thông báo" của màn hình Coach chỉ thấy **1 record** (1 row).
+Tức là DB `Notifications` chỉ có 1 bản ghi (đúng), nhưng FCM được gửi 2 lần
+cho cùng 1 notification.
+
+### Root Cause
+Có **hai nguồn gửi FCM** cho cùng một notification:
+
+1. **In-line push** trong `NotificationService.CreateNotificationAsync`
+   (`backend/MenuGreen.BusinessLogicLayer/Services/NotificationService.cs:626-664`):
+   - Khi `scheduledAt <= UtcNow` (hầu hết notification real-time), service tự gọi
+     `_fcmService.SendToUserAsync` ngay khi tạo notification.
+   - Sau khi gọi FCM, code cập nhật `SentAt = UtcNow` (line 660-664 cho case
+     `PushEnabled = false`, line 648-651 cho case `PushEnabled = true` thì cập
+     nhật đúng).
+
+2. **Background job** `NotificationDispatchBackgroundService` chạy mỗi 1 phút
+   (`backend/MenuGreen.BusinessLogicLayer/BackgroundJobs/NotificationDispatchBackgroundService.cs`)
+   gọi `NotificationDispatcherService.DispatchDueNotificationsAsync`
+   (line 86-91): lọc `SentAt == null && ScheduledAt <= now && !IsDismissed`.
+   - Nếu notification được tạo trong khoảng giữa 2 lần quét của background job
+     và `CreateNotificationAsync` chưa kịp set `SentAt`, background job sẽ pick
+     và gửi lại FCM lần 2.
+   - Race condition: notification vừa được insert vào DB (`SentAt = null`), cùng
+     lúc `CreateNotificationAsync` chưa chạy xong (do I/O FCM chậm) → background
+     job đọc thấy `SentAt == null` → gửi FCM. Sau đó `CreateNotificationAsync`
+     set `SentAt` → nhưng FCM đã gửi 2 lần.
+
+Ngoài ra, nếu user có **nhiều FCM token IsActive = true** (đăng nhập Coach trên
+nhiều thiết bị, hoặc token cũ chưa bị deactivate khi refresh), mỗi token sẽ
+nhận 1 push → 1 notification DB có thể tạo nhiều push trên nhiều thiết bị.
+
+### Environment
+- Backend: `MenuGreen.BusinessLogicLayer/Services/NotificationService.cs:606-678`
+- Backend: `MenuGreen.BusinessLogicLayer/Services/NotificationDispatcherService.cs:81-211`
+- Backend: `MenuGreen.BusinessLogicLayer/BackgroundJobs/NotificationDispatchBackgroundService.cs`
+- Backend: `MenuGreen.BusinessLogicLayer/Services/FcmService.cs:106-123`
+- Backend: `MenuGreen.BusinessLogicLayer/Services/CoachService.cs:218-225`
+
+### Logs
+N/A — push duplicate không tạo log lỗi.
+
+### Attempts / Fix Applied
+- [x] Phân tích luồng: `ConnectCoachAsync` → `NotificationService.SendAsync` →
+      `CreateNotificationAsync` (1 record) → FCM gọi inline + background job
+      cùng gửi.
+- [x] (2026-07-26) **Fix 1** — `NotificationService.CreateNotificationAsync`:
+      set `SentAt = UtcNow` NGAY TRƯỚC khi gọi FCM (in-line). Trước đây `SentAt`
+      chỉ được set SAU khi FCM call xong, tạo race condition với background job
+      quét mỗi 1 phút. Bây giờ background job sẽ không pick notification này
+      vì `SentAt != null`.
+- [x] (2026-07-26) **Fix 2** — `NotificationDispatcherService.DispatchPendingAsync`:
+      thêm filter `CreatedAt <= now.AddSeconds(-5)` (cửa sổ an toàn 5 giây) để
+      bỏ qua notification vừa tạo. Defense in depth: dù fix 1 đã giải quyết race,
+      cửa sổ 5s đảm bảo in-line đã xử lý xong trước khi background job pick.
+- [x] (2026-07-26) **Fix 3** — `FcmService.SendToUserAsync` + `SendToUsersAsync`:
+      dedupe token theo `Token` (giữ token có `LastUsedAt` mới nhất) và skip
+      token có `LastUsedAt` > 30 ngày (coi như token đã chết do rotation /
+      user logout thiết bị). Tránh tình trạng user nhận N push cho 1 notification
+      khi có nhiều FCM token active cùng lúc.
+- [x] (2026-07-26) Build `MenuGreen.BusinessLogicLayer`: 0 error, 3 warning
+      (không liên quan đến fix).
+
+## [RESOLVED] "dependents.isEmpty is not true" khi Duyệt lộ trình trên Coach
+
+**Date:** 2026-07-26
+**Status:** Resolved (2026-07-26)
+**Severity:** High
+
+### Description
+Khi PT bấm "Duyệt lộ trình" trong `CoachClientDetailScreen` → mở dialog nhập
+nhận xét → bấm "Duyệt lộ trình" → app crash với exception
+`dependents.isEmpty is not true` (throw từ `flutter/lib/src/widgets/editable_text.dart`
+khi `TextEditingController.dispose()` được gọi nhưng TextField con vẫn còn
+dependent chưa được detach).
+
+### Root Cause
+`_CoachClientDetailScreenState` (`frontend/lib/features/advanced/views/advanced_detail_screens.dart:915`)
+khai báo 10 `TextEditingController` (`feedbackText`, `cal`, `protein`, `carbs`,
+`fat`, `reviewComment`, `reviewCalorie`, `reviewProtein`, `routeComment`,
+`routeCalorie`, `routeProtein`) nhưng **không có `dispose()` override**.
+
+Khi user back ra khỏi màn hình:
+1. Widget tree dispose → các TextField (dependent của controller) gọi
+   `_detach()` khỏi controller.
+2. Controller KHÔNG được dispose → memory leak.
+3. Khi user mở dialog lần 2 → controller cũ được gắn vào TextField mới → sau
+   khi submit + Navigator.pop(context) có thể nhảy nhầm route khi dialog đã
+   bị barrier-dismiss trong lúc await API → TextField bị dispose trước
+   controller → throw `dependents.isEmpty is not true`.
+
+Tương tự với `_SharedPtReviewScreenState` và `_CoachRegisterScreenState` (cùng
+pattern: TextEditingController không dispose).
+
+### Environment
+- Frontend: `frontend/lib/features/advanced/views/advanced_detail_screens.dart`
+  - `_CoachClientDetailScreenState` (line 915)
+  - `_SharedPtReviewScreenState` (line 26)
+  - `_CoachRegisterScreenState` (line 275)
+  - `_IngredientEditScreenState` (line 3243)
+
+### Logs
+```
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════
+The following assertion was thrown while finalizing the widget tree:
+dependents.isEmpty is not true
+```
+
+### Attempts / Fix Applied
+- [x] (2026-07-26) **Fix 1** — `_CoachClientDetailScreenState`: thêm `dispose()`
+      override để dispose 10 `TextEditingController` trước `super.dispose()`.
+- [x] (2026-07-26) **Fix 2** — `_SharedPtReviewScreenState`: thêm `dispose()`
+      override để dispose 4 controller. Đồng thời wrap `addChange()` trong
+      try/finally để dispose các controller tạm (day, meal, notes, oldFood,
+      newFood, newRecipe) sau khi dialog đóng.
+- [x] (2026-07-26) **Fix 3** — `_CoachRegisterScreenState`: thêm `dispose()`
+      override để dispose 5 controller (specialty, bio, years, price,
+      certificate).
+- [x] (2026-07-26) **Fix 4** — `_IngredientEditScreenState`: thêm `dispose()`
+      override để dispose 10 controller trong map `fields`.
+- [x] (2026-07-26) **Fix 5** — `submitRouteApproval` + `submitWeeklyReview` +
+      `submit` (SharedPtReview) + `save` (CoachRegister) + `save`
+      (IngredientEdit): thay `Navigator.pop(context)` bằng
+      `Navigator.of(context, rootNavigator: true).pop(...)` có check
+      `Navigator.of(context).canPop()` trước khi pop, tránh pop nhầm route
+      khác khi dialog đã bị barrier-dismiss trong lúc await API.
+- [x] (2026-07-26) `flutter analyze lib/features/advanced/views/advanced_detail_screens.dart`:
+      No issues found.
+
+
+---
+
+## [PENDING] dependents.isEmpty is not true — Tab Thông báo crash khi Duyệt & gửi
+
+**Date:** 2026-07-26
+**Status:** ⏳ Fixing (advanced_features_screen.dart + notification_inbox_screen.dart)
+**Severity:** High
+
+### Description
+
+Sau khi user bấm "Duyệt & gửi" trong tab Lộ trình, màn hình thông báo (NotificationInboxScreen) bị crash với stack trace `dependents.isEmpty is not true` ở `_TextEditingController._debugAssertCanAddOrRemove`.
+
+Stack trace:
+```
+_EditableText
+_TextEditingController._debugAssertCanAddOrRemove
+Element.inflateWidget (framework.dart:6268)
+Element.updateChild
+Element.update
+ListenableBuilder.build (MyNotificationPage build phase)
+```
+
+### Root Cause
+
+TextEditingController được tạo local trong method (không phải field), đưa cho TextField trong dialog, nhưng không được dispose sau khi dialog đóng → memory leak → dependents.isEmpty assertion fail ở frame build sau khi widget cha rebuild.
+
+### Environment
+- Frontend: `frontend/lib/features/advanced/views/advanced_features_screen.dart`
+  - `_PtTabState.create()` (line 100) — 3 controllers tạo local (noteController, weightController, bodyFatController) KHÔNG dispose
+  - `_BudgetTabState` (line 701) — 2 field controllers (amount, minutes) nhưng KHÔNG có dispose()
+  - `_IngredientTabState` (line 1202) — 2 field controllers (search, category) nhưng KHÔNG có dispose()
+- Frontend: `frontend/lib/features/notifications/views/notification_inbox_screen.dart`
+  - `_onScroll()` (line 34) — không check mounted trước khi truy cập `_scrollController.position` → có thể crash nếu scroll listener fire sau dispose
+
+### Logs
+```
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════
+The following assertion was thrown while finalizing the widget tree:
+dependents.isEmpty is not true
+The relevant error causing widget was:
+ListenableBuilder
+_MyNotificationPage
+```
+
+### Attempts / Fix Applied
+- [x] (2026-07-26) **Fix 1** — `_PtTabState.create()`: wrap `showDialog` trong try/finally để dispose 3 controllers sau khi dialog đóng (cả huỷ hay submit).
+- [x] (2026-07-26) **Fix 2** — `_BudgetTabState`: thêm `dispose()` override để dispose `amount` + `minutes`.
+- [x] (2026-07-26) **Fix 3** — `_IngredientTabState`: thêm `dispose()` override để dispose `search` + `category`.
+- [x] (2026-07-26) **Fix 4** — `_NotificationInboxScreenState._onScroll`: thêm check `mounted` và `_scrollController.hasClients` trước khi đọc `.position` — tránh crash khi listener vẫn được fire sau dispose.
+- [x] (2026-07-26) `flutter analyze` 3 file đã sửa: No issues found.
+
+### Truy vấn DB Notifications (xác nhận logic filter)
+Tổng 37 records trong bảng `notifications`:
+- `coach@menugreen.app` (coach): 1 notif (khớp với UI)
+- `gymer@menugreen.app` (gymer): 8 notifs (khớp với UI khi đăng nhập gymer)
+- Các user khác: 2 notifs/user
+
+→ Backend `GetNotificationsAsync` không pagination, trả về toàn bộ records
+→ Frontend `getNotifications(?page=X&pageSize=Y)` gửi nhưng backend ignore → vẫn trả đúng.
+
+---
+
+## [PENDING] Tab Ngày/Tuần/Tháng trong Lộ trình Coach — filter theo planType sai
+
+**Date:** 2026-07-26
+**Status:** ⏳ Fixed
+**Severity:** Medium
+
+### Description
+
+CoachMainScreen → tab "Lộ trình" → chọn Gymer → tab "Ngày" không hiển thị lộ trình "Lộ trình cho ngày hôm nay" mặc dù đã tạo. Tab "Tuần" lại hiển thị.
+
+### Root Cause
+
+Logic `_HistoryFilter` trong `coach_meal_plan_history_screen.dart` filter theo `planType` thay vì date range:
+- Tab "Ngày" → `planType = 'DAILY'`
+- Tab "Tuần" → `planType = 'WEEKLY'`
+- Tab "Tháng" → `planType = 'MONTHLY'`
+
+Nhưng user tạo lộ trình "cho ngày hôm nay" với dropdown planType mặc định là `'weekly'` → DB lưu `PlanType = 'weekly'` → tab Ngày filter `planType = 'DAILY'` → không match → list rỗng.
+
+### Fix Applied
+- [x] (2026-07-26) Bỏ filter `planType`, chỉ filter theo date range:
+  - Tab "Ngày": `from = today 00:00`, `to = today 23:59:59.999`
+  - Tab "Tuần": `from = Monday 00:00`, `to = Sunday 23:59:59.999`
+  - Tab "Tháng": `from = ngày 1`, `to = ngày cuối tháng 23:59:59.999`
+  - Tab "Tất cả": `from = null`, `to = null`
+
+### Follow-up bug (2026-07-26)
+Sau khi fix filter planType, user báo tiếp 2 vấn đề:
+
+1. **Filter Ngày/Tuần/Tháng/Tất cả vẫn trả về cùng plan**, dù plan chỉ được tạo cho ngày 26/07.
+2. **UI hiển thị "26/07 – 02/08"** dù user chỉ tạo 1 plan cho ngày 26/07 (mong đợi "26/07" hoặc "26/07 – 26/07").
+
+**Root cause**:
+
+1. **Backend `GetClientMealPlansAsync` filter bằng overlap**:
+   ```csharp
+   query = query.Where(x => x.StartDate <= to.Value && x.EndDate >= from.Value);
+   ```
+   Một plan có `StartDate=26/07, EndDate=02/08` sẽ match với mọi range (Ngày/Tuần/Tháng) → trả về giống nhau.
+
+2. **Frontend `CoachCreateMealPlanScreen` dùng `showDateRangePicker`** cho mọi `planType`. Material mặc định range 1 tuần (Sun → Sun) khi user chỉ chạm 1 ngày → DB lưu `StartDate=26/07, EndDate=02/08` dù user muốn tạo lộ trình daily.
+
+**Fix Applied**:
+- [x] (2026-07-26) Backend `GetClientMealPlansAsync`: thay filter overlap → `StartDate ∈ [from, to]`
+      (dùng `x.StartDate >= from.Value && x.StartDate <= to.Value`).
+- [x] (2026-07-26) Frontend `CoachCreateMealPlanScreen`: thêm `DateTime? _singleDate`,
+      dùng `showDatePicker` khi `planType == 'daily'`, gán `EndDate = StartDate`.
+      Khi chuyển `planType` thì reset picker tương ứng.
+
+### Follow-up bug #2 (2026-07-26) — Filter vẫn trả cùng plan sau khi áp dụng StartDate range filter
+
+**Mô tả**: Sau khi backend fix #1, frontend vẫn "bấm filter nào cũng thấy plan DAILY 26/07 hiện ở mọi bucket Ngày/Tuần/Tháng/Tất cả".
+
+**Root cause (sai ngữ nghĩa filter)**: filter theo `StartDate ∈ [from, to]` không đúng với ý đồ "tab Lộ trình" của Coach — bucket Ngày/Tuần/Tháng/Tất cả thực chất là **loại plan (planType)**, không phải **khoảng thời gian calendar**. Plan DAILY 26/07 có `StartDate=26/07` → luôn ∈ [today..today+1year] → luôn match. Người dùng muốn **"Ngày" = chỉ plan DAILY, "Tuần" = chỉ plan WEEKLY, "Tháng" = chỉ plan MONTHLY, "Tất cả" = không lọc**.
+
+**Fix Applied**:
+- [x] (2026-07-26) Frontend `CoachMealPlanHistoryScreen._applyFilter()`:
+      thay logic filter range → filter theo `planType`:
+      ```dart
+      case _HistoryFilter.day:   planType = 'daily';   break;
+      case _HistoryFilter.week:  planType = 'weekly';  break;
+      case _HistoryFilter.month: planType = 'monthly'; break;
+      case _HistoryFilter.all:   planType = null;      break;
+      ```
+      gọi `provider.setFilters(planType: planType)` (không gửi `from/to`).
+- [x] (2026-07-26) Bỏ luôn state `DateTimeRange? _range`, `_pickDateRange()`, `_RangeHint`
+      và IconButton date_range trên AppBar vì không còn dùng range filter.
+- [ ] (chưa áp dụng) Backend: bỏ date-range filter trong `GetClientMealPlansAsync`?
+      Giữ lại để tương thích ngược / dùng cho trang khác.
+
+### Follow-up #3 (2026-07-26) — Crash `'_dependencies.isEmpty': is not true` sau khi "Duyệt & gửi"
+
+**Mô tả**: Sau khi bấm "Duyệt & gửi" trong `CoachMealPlanDetailScreen`, app crash với
+assertion `'_dependencies.isEmpty': is not true` ở Flutter framework `Overlay` (line ~6268)
+trong vòng vài giây rồi tắt.
+
+**Root cause**: trong `_submit()` thứ tự là
+```dart
+ScaffoldMessenger.of(context).showSnackBar(...);
+Navigator.pop(context, true);
+```
+SnackBar được insert vào Overlay của route hiện tại, nhưng ngay frame sau đó route bị
+pop → Overlay bị dispose → SnackBar đang animate chạm vào Overlay đã chết → assertion.
+
+**Fix Applied**:
+- [x] (2026-07-26) `coach_meal_plan_detail_screen.dart::_submit()`:
+      - Capture `final rootMessenger = ScaffoldMessenger.of(context);` TRƯỚC khi `await submitPlan`.
+      - Sau khi ok: gọi `Navigator.pop(context, true)` TRƯỚC, rồi `rootMessenger.showSnackBar(...)` SAU.
+      - Thêm `..hideCurrentSnackBar()` để tránh chồng SnackBar.
+      - Thống nhất luôn dùng `rootMessenger` (kể cả nhánh thất bại) để đảm bảo an toàn
+        ngay cả khi user pop thủ công giữa chừng.
+- [x] (2026-07-26) `_saveDraft()` không bị ảnh hưởng (chỉ show SnackBar, không pop).
+
+---
+
+## [RESOLVED] PT/Coach không nhận thông báo khi Gymer gửi lộ trình (pt_review_request)
+
+**Date:** 2026-07-26
+**Status:** ✅ Fix applied (`PtReviewService.CreateReportAsync`)
+**Severity:** High
+
+### Description
+
+Khi Gymer bấm "Gửi báo cáo" trong tab "Lộ trình" → `POST /api/PtReview/reports` chạy
+thành công (`PtReviewRequest` được tạo trong DB, Gymer nhận được notification
+`PT_REVIEW_SUBMITTED`), **nhưng Coach/PT không nhận được bất kỳ thông báo nào**.
+
+User nói: "vấn đề khi gửi lộ trình từ Gymer qua PT không có thông báo đến PT hay sao".
+
+### Database inspection
+
+Truy vấn bảng `notifications`:
+
+```
+SELECT "Type", COUNT(*) FROM notifications WHERE "UserId" = '<coach_id>' GROUP BY "Type";
+-- Kết quả: chỉ có 1 record "connection_request" (từ khi Gymer gửi connect)
+-- KHÔNG có "pt_review_request"
+```
+
+Trong khi Gymer (`UserId = gymer@menugreen.app`) có `PT_REVIEW_SUBMITTED` được tạo
+đúng thời điểm `PtReviewRequest` được tạo → backend ĐÃ chạy đến notification
+thứ 2 (dòng 208-214), nhưng notification thứ nhất cho Coach (dòng 199-206)
+KHÔNG xuất hiện trong DB.
+
+### Root Cause
+
+1. **`PtReviewService.CreateReportAsync`** chỉ filter theo `Status == "Connected"`
+   duy nhất. Nếu seed data hoặc tích hợp sau này dùng status khác (vd. `"Approved"`)
+   → block `if (connection != null && connection.CoachId != Guid.Empty)` bị skip
+   → Coach không nhận notification.
+
+2. **Toàn bộ khối notification nằm trong MỘT `try { ... } catch { /* silence */ }`**
+   - Nếu dòng 196 (load connection) hoặc dòng 199 (gửi notification cho Coach)
+     ném ra bất kỳ exception nào, catch sẽ nuốt hoàn toàn, đồng thời block Gymer
+     (dòng 208-214) bên dưới cũng KHÔNG chạy nữa → cả hai bên đều không nhận.
+   - Không có log → không thể truy vết nguyên nhân thực.
+
+3. Không có `ILogger<PtReviewService>` trong service → không có log khi lỗi.
+
+### Environment
+- Backend: `backend/MenuGreen.BusinessLogicLayer/Services/PtReviewService.cs`
+  - `CreateReportAsync` (line 191-219 trước fix).
+- DB confirm: `notifications` cho coach `77777777-...` chỉ có 1 row
+  `connection_request`, KHÔNG có `pt_review_request`.
+
+### Logs
+```
+# Backend console output trước fix — không có log nào liên quan vì catch nuốt sạch.
+# Truy vấn DB sau khi Gymer gửi report:
+SELECT "Type", "Title", "CreatedAt", u."Email"
+FROM notifications n LEFT JOIN users u ON u."Id" = n."UserId"
+WHERE n."UserId" = '77777777-7777-7777-7777-777777777777';
+-- → chỉ thấy connection_request, KHÔNG thấy pt_review_request
+```
+
+### Attempts / Fix Applied
+- [x] (2026-07-26) **Fix 1 — Inject `ILogger<PtReviewService>`** (optional) vào
+      constructor để có thể log lỗi. Backend đã có `builder.Logging.AddConsole()`
+      trong Program.cs nên chỉ cần thêm field + param.
+- [x] (2026-07-26) **Fix 2 — Tách 2 try/catch riêng** cho 2 notification (Gymer
+      + Coach), mỗi bên log warning/error riêng → không bên nào nuốt bên kia.
+- [x] (2026-07-26) **Fix 3 — Mở rộng filter** Status: chấp nhận cả `"Connected"`
+      và `"Approved"` cho `Status == ...` → phòng seed data / tích hợp sau này.
+- [x] (2026-07-26) **Fix 4 — Log warning** khi Gymer chưa có Connected Coach
+      thay vì im lặng skip → dễ truy vết sau này.
+- [x] (2026-07-26) Build `MenuGreen.BusinessLogicLayer`: 0 error.
+- [x] (2026-07-26) Test bằng cách start `MenuGreen.API.exe` local với
+      `ConnectionStrings__DefaultConnection=Host=localhost;...`, log cho thấy
+      background services start OK, không có startup crash do thêm `ILogger`
+      (optional parameter).
+
+### Verification
+- Code mới sẽ ghi DB row `Type='pt_review_request'` cho Coach ngay khi Gymer
+  submit PT Review Report (sau khi backend production được redeploy với DLL
+  mới). Trước khi redeploy, tab Notification của Coach chỉ hiện 1 thông báo
+  là đúng với dữ liệu DB hiện tại.
+- Frontend `_CoachNotificationsTab` đã subscribe realtime SignalR và không
+  filter theo `notification.type` → notification `pt_review_request` sẽ tự
+  động hiển thị trên tab Thông báo của Coach khi DB được populate.
+- `ApiMessageTranslator.translateNotification()` nhận diện title tiếng Việt
+  (`"Yêu cầu duyệt lộ trình từ học viên"`) qua `_looksVietnamese()` → giữ
+  nguyên khi hiển thị cho user.
+
+---
+
+## [RESOLVED] API 403 — `grocery-list` & `budget-status` chặn Gymer
+
+**Date:** 2026-07-28
+**Status:** ✅ Resolved (Phương án A)
+**Severity:** Medium
+
+### Description
+
+Hai endpoint trả về HTTP 403 Forbidden khi user đăng nhập với role `Gymer`:
+
+- `GET http://10.0.2.2:5000/api/MealPlan/{id}/grocery-list`
+- `GET http://10.0.2.2:5000/api/MealPlan/{id}/budget-status`
+
+Với cùng `id = ee8bb747-45d4-41bf-a522-2384ef74e18c`, các endpoint khác của
+`MealPlanController` (GetById, GetAll, Dashboard, …) đều trả 200 OK cho tài
+khoản Gymer, nên vấn đề nằm ở policy authorization chứ không phải quyền sở hữu
+meal plan.
+
+### Root Cause
+
+Trong `backend/MenuGreen.API/Controllers/MealPlanController.cs`, hai endpoint
+này bị gắn thêm `[Authorize(Policy = "OfficeFeatures")]` ở cấp method (ngoài
+`[Authorize(Policy = "UserOnly")]` ở cấp controller):
+
+```csharp
+[HttpGet("{id:guid}/budget-status")]
+[Authorize(Policy = "OfficeFeatures")]   // ❌ chặn Gymer
+public async Task<IActionResult> GetBudgetStatus(Guid id) { ... }
+
+[HttpGet("{id:guid}/grocery-list")]
+[Authorize(Policy = "OfficeFeatures")]   // ❌ chặn Gymer
+public async Task<IActionResult> GetGroceryList(Guid id) { ... }
+```
+
+Policy `"OfficeFeatures"` được khai báo trong `Program.cs` yêu cầu
+entitlement `"office_features"`:
+
+```csharp
+options.AddPolicy(
+    "OfficeFeatures",
+    policy => policy.Requirements.Add(
+        new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+    )
+);
+```
+
+Và `FeatureAccessResolver` (`backend/MenuGreen.BusinessLogicLayer/Services/
+FeatureAccessResolver.cs`) chỉ cấp `OfficeFeatures` khi user có subscription
+thuộc `featureGroup == "office"` HOẶC plan name chứa chuỗi `"office"`:
+
+```csharp
+if (group == "office" || planName.Contains("office"))
+{
+    entitlements.Add(OfficeFeatures);
+    ...
+}
+```
+
+Gymer user có `featureGroup = "gym"` → entitlements chỉ gồm
+`GymFeatures / CoachAccess / AiFeatures / FreeFeatures`, **không có**
+`OfficeFeatures`. Khi `EntitlementHandler` kiểm tra
+`HasEntitlementAsync(userId, "office_features")` trả về false → policy fail →
+trả 403.
+
+### Environment
+
+- Backend: `backend/MenuGreen.API`
+- Endpoint: `GET /api/MealPlan/{id}/grocery-list`, `GET /api/MealPlan/{id}/budget-status`
+- Role test: `Gymer` (đăng nhập bằng tài khoản Gym/PT subscription)
+- Reproduction: gọi 2 endpoint trên với token của Gymer → 403 Forbidden
+
+### Logs
+
+```
+GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/grocery-list
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope"
+
+GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/budget-status
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope"
+```
+
+### Attempts
+
+- [x] Xác nhận các endpoint khác trong `MealPlanController` (GetById, GetAll,
+      Dashboard, Compare, Streaks, AdherenceScores, Alternatives) đều không
+      gắn `OfficeFeatures` → 200 OK cho Gymer. Đúng là do policy ở method.
+- [x] Đối chiếu policy `"OfficeFeatures"` với `FeatureAccessResolver` →
+      `office_features` chỉ cấp cho subscription nhóm `office`, Gymer nhóm
+      `gym` không có.
+
+### Fix Applied — Phương án A
+
+**Người dùng chọn Phương án A**: gỡ `[Authorize(Policy = "OfficeFeatures")]`
+ở 2 method `GetBudgetStatus` và `GetGroceryList`. Hai method thừa hưởng
+`[Authorize(Policy = "UserOnly")]` ở cấp controller (chấp nhận
+`Admin / User / Free / Casual / Gymer / Office / Coach`) → Gymer, Casual,
+Office, Free đều truy cập được. Logic vẫn dùng `userId` từ claim `NameIdentifier`
+trong `TryGetUserId()` → service `_service.GetBudgetStatusAsync(id, userId)`
+và `_service.GetGroceryListAsync(id, userId)` vẫn đảm bảo user chỉ truy
+xuất plan của mình.
+
+**Diff** (`backend/MenuGreen.API/Controllers/MealPlanController.cs`):
+
+```diff
+ [HttpGet("{id:guid}/budget-status")]
+-[Authorize(Policy = "OfficeFeatures")]
+ public async Task<IActionResult> GetBudgetStatus(Guid id)
+
+ [HttpGet("{id:guid}/grocery-list")]
+-[Authorize(Policy = "OfficeFeatures")]
+ public async Task<IActionResult> GetGroceryList(Guid id)
+```
+
+### Verification — Build
+
+Sau khi sửa, chạy build solution:
+
+```
+$ dotnet build MenuGreen.sln -nologo -clp:NoSummary
+  MenuGreen.DataAccessLayer -> ...\MenuGreen.DataAccessLayer.dll
+  MenuGreen.BusinessLogicLayer -> ...\MenuGreen.BusinessLogicLayer.dll
+  MenuGreen.API -> ...\MenuGreen.API.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.76
+```
+
+Build sạch — không phát sinh warning/error compile mới. Chỉ có các warning
+CS86xx cũ trong `MealPlanService.cs`, `AiAssistantService.cs`,
+`GymGoalsController.cs`, `Program.cs` không liên quan đến thay đổi này.
+
+### Verification — Runtime (TODO chưa làm)
+
+- [ ] Khởi động lại `MenuGreen.API` qua Visual Studio (PID 25620 đã được tắt
+      để build copy file).
+- [ ] Vẫy call lại 2 endpoint với token của Gymer:
+      `GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/grocery-list`
+      `GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/budget-status`
+      → kỳ vọng `200 OK` + payload JSON thay vì 403.
+- [ ] Đồng thời verify user không phải chủ plan (Gymer khác) vẫn bị
+      `BadRequest`/`Unauthorized` do logic `_service` kiểm tra ownership,
+      để chắc chắn không vô tình mở quyền truy cập chéo.
+
+### Lessons Learned
+
+- Phân biệt rõ policy **role-based** (`UserOnly`, `GymerOnly`) và policy
+  **entitlement-based** (`OfficeFeatures`, `GymFeatures`). Method-level
+  attribute cộng dồn với controller-level attribute → phải đọc cả hai.
+- Khi thấy 403 ở một endpoint nhưng 200 ở endpoint khác cùng controller, tra
+  `[Authorize(...)]` attribute ngay tại method đó — phổ biến là copy/paste từ
+  Office-only endpoint sang nhưng quên gỡ policy.
+
+---
+
+## [PENDING] 404 `user-meal-plans/by-date-range` + 401 `/api/Food` trong màn hình thông báo Gymer
+
+**Date:** 2026-07-28
+**Status:** Pending — chờ xác nhận nguồn URL lỗi từ user
+**Severity:** Medium
+
+### Description
+
+User báo cáo trong app Flutter Gymer khi mở danh sách thông báo (Notification
+Inbox), network log hiển thị các request trả về lỗi:
+
+| URL | Status |
+|-----|--------|
+| `GET /api/notifications/user-roles` | không rõ |
+| `GET /api/MealPlan/ee8bb747-.../notifications` | không rõ |
+| `GET /api/Food?...` | **401** |
+| `GET /api/user-meal-plans/by-date-range?startDate=2026-07-23&endDate=2026-07-25` | **404** |
+| `GET /api/notifications/...` | không rõ |
+
+User lưu ý: các ngày 23-25/07 không có meal plan nào → 404 là đúng hành vi
+backend (trả `NotFound` khi `GetByDateAsync` không tìm thấy). Tuy nhiên cần
+xác nhận vì sao app lại gọi 2 endpoint trên từ màn hình thông báo.
+
+### Root Cause Investigation
+
+Sau khi tra cứu toàn bộ codebase (`backend/MenuGreen.API` + `frontend/lib`
++ `frontend-web/`):
+
+1. **`GET /api/Food`** — endpoint này tồn tại (`FoodController.Search`). Policy
+   `UserOnly` chấp nhận role `Gymer` (`Program.cs:102-104`) → không thể trả
+   401 do thiếu quyền. Nguyên nhân 401 nhiều khả năng là **JWT access token
+   hết hạn** (`exp - now <= 60s`) + **refresh token cũng đã hết hạn**
+   → `ApiClient._sendWithAuthRetry` (`frontend/lib/core/network/api_client.dart:174-212`)
+   retry một lần với `_refreshTokenOnce()`; nếu refresh fail thì
+   `_storage.clear()` và trả response gốc (status 401).
+
+2. **`GET /api/user-meal-plans/by-date-range`** — **endpoint này KHÔNG TỒN TẠI
+   trong codebase**. `UserMealPlanController`
+   (`backend/MenuGreen.API/Controllers/UserMealPlanController.cs`) chỉ có route
+   `GET ""` (`/api/user-meal-plans`) với query `?date=YYYY-MM-DD`. Không có
+   route nào dạng `by-date-range`, `range`, hay chấp nhận `startDate` + `endDate`.
+   Tra trong cả `frontend-web/` cũng không có code nào gọi endpoint này.
+
+3. **`GET /api/notifications/user-roles`** — cũng **không tồn tại**. Backend
+   `NotificationController` route là `api/[controller]` = `api/Notification`
+   (PascalCase), không có sub-route `user-roles`. Tra cả `frontend/` lẫn
+   `frontend-web/` cũng không có code nào gọi endpoint này.
+
+4. **`GET /api/MealPlan/{id}/notifications`** — `MealPlanController` không có
+   route này. Notification liên quan meal plan được backend gắn qua
+   `Notification` entity + SignalR push, không qua REST endpoint này.
+
+5. **Màn hình `notification_inbox_screen.dart` (`features/notifications/`)**
+   chỉ gọi `GET /api/Notification?page=&pageSize=` qua
+   `NotificationRepository.getNotifications()` (line 89-104). Không gọi
+   `/api/Food`, `/api/user-meal-plans/by-date-range`,
+   `/api/notifications/user-roles`, hay `/api/MealPlan/{id}/notifications`.
+
+6. **`notification_handler.dart`** parse deeplink từ FCM `RemoteMessage.data`
+   (line 54-205) — handler chỉ mở screen (`MealPlanDetailScreen`,
+   `PremiumProgramsScreen`, `AdvancedFeaturesScreen`, …) chứ không tự gọi
+   các URL trên.
+
+### Khả năng cao nhất
+
+URL trong network log thuộc về **một phiên debug cũ** hoặc **được gõ thủ công
+trên Postman/Charles proxy** trong quá trình user kiểm thử backend, không
+phải request thật do Flutter app gửi đi. App hiện tại không có code nào gọi
+các endpoint lạ này.
+
+Nếu user khẳng định đây là log app thật (đã chọn "inbox-auto" qua form hỏi),
+cần điều tra thêm các nguồn sau:
+
+- Build cache Flutter cũ (`.dart_tool/`, `build/`) — gỡ `flutter clean` rồi
+  build lại.
+- Một widget con nằm trong cây widget của notification inbox (preview, deep
+  link tile, rich preview) gọi ngầm API.
+- Một `dio`/`http` middleware đang tự log replay request debug cũ.
+
+### Environment
+
+- Frontend: `frontend/lib` (Flutter)
+- Backend: `backend/MenuGreen.API`
+- Endpoint 401: `GET /api/Food?...`
+- Endpoint 404: `GET /api/user-meal-plans/by-date-range?startDate=2026-07-23&endDate=2026-07-25`
+- Role: `Gymer`
+- Màn hình user thao tác: Notification Inbox
+
+### Logs
+
+```
+GET http://10.0.2.2:5000/api/notifications/user-roles
+GET http://10.0.2.2:5000/api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/notifications
+GET http://10.0.2.2:5000/api/Food?...                          -> 401
+GET http://10.0.2.2:5000/api/user-meal-plans/by-date-range
+  ?startDate=2026-07-23&endDate=2026-07-25                    -> 404
+GET http://10.0.2.2:5000/api/notifications/...
+```
+
+### Attempts
+
+- [x] Grep toàn bộ codebase (`backend/`, `frontend/`, `frontend-web/`) tìm
+      `by-date-range`, `user-roles`, `user-meal-plans/...` ngoài các route đã
+      đăng ký trong `UserMealPlanController`. Không có.
+- [x] Grep toàn bộ frontend tìm call site gọi `/api/Food` từ màn hình thông
+      báo. Chỉ thấy trong `create_meal_plan_screen.dart` (tạo meal plan, gọi
+      `FoodDiscoveryRepository.searchFoods()`) — không liên quan tới
+      notification inbox.
+- [x] Đối chiếu với `notification_handler.dart`: các action handler
+      (`meal_plan_approved`, `pt_route_approval`, `coach_personal_program`)
+      chỉ `Navigator.push` tới `PremiumProgramsScreen` /
+      `AdvancedFeaturesScreen`, không trigger HTTP call lạ.
+- [x] Đối chiếu `NotificationProvider.loadNotifications()` chỉ gọi
+      `GET /api/Notification?page=&pageSize=`.
+
+### Next Steps — Cần user xác nhận
+
+1. Mở Flutter app, mở DevTools → Network tab → mở notification inbox ngay
+   bây giờ → chụp log mới. Nếu log mới KHÔNG còn 5 URL trên → log cũ là từ
+   build cache cũ hoặc Postman. Trong trường hợp đó vấn đề đã được giải
+   quyết ngầm và chỉ cần `flutter clean && flutter run`.
+2. Nếu log mới vẫn xuất hiện 5 URL trên → xem stack trace của HTTP request:
+   trong DevTools, click vào request lỗi → tab "Initiator" hoặc "Stack" →
+   cho biết widget/code nào trigger.
+3. Sau khi biết call site thật, có thể đề xuất một trong các phương án:
+   - **Nếu** là do màn hình con của notification inbox load preview meal plan
+     ngày 23-25: handle null gracefully + hiển thị empty state thay vì throw
+     → bỏ qua lỗi 404 trong UI.
+   - **Nếu** là `/api/Food` 401: xử lý trong `ApiClient` để refresh token
+     retry robust hơn (hiện tại chỉ retry 1 lần), hoặc show login screen khi
+     cả refresh lẫn access đều fail.
+   - **Nếu** là do build cũ: chạy `flutter clean && flutter pub get &&
+     flutter run`.

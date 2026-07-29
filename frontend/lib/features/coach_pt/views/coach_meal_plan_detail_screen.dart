@@ -9,8 +9,7 @@ import '../coach_pt.dart';
 /// * Tapping a meal item opens an inline edit sheet (Delete / Replace).
 /// * Adding a new item pushes a bottom sheet that picks a food/recipe from the
 ///   ingredient catalog (using the existing `/Ingredient/search` endpoint).
-/// * The bottom action bar offers "Lưu nháp" and "Duyệt & gửi" (which calls
-///   `submitClientMealPlan` server-side and notifies the Gymer).
+/// * The bottom action bar lets PT send a draft for Gymer acceptance.
 class CoachMealPlanDetailScreen extends StatefulWidget {
   const CoachMealPlanDetailScreen({super.key, required this.planId});
   final String planId;
@@ -22,6 +21,7 @@ class CoachMealPlanDetailScreen extends StatefulWidget {
 
 class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
   bool _dirty = false;
+  String? _initializedPlanId;
   late final List<_DraftItem> _draft;
 
   @override
@@ -40,7 +40,7 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
     if (!_dirty) setState(() => _dirty = true);
   }
 
-  Future<void> _saveDraft() async {
+  Future<bool> _saveDraft() async {
     final payload = ClientMealPlanPayload(
       title: _plan!.header.title,
       planType: _plan!.header.planType,
@@ -49,63 +49,58 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
       targetCalories: _plan!.header.targetCalories,
       items: _draft.map((d) => d.toPayload()).toList(),
     );
-    final ok = await context
-        .read<CoachMealPlanProvider>()
-        .updatePlan(widget.planId, payload);
-    if (!mounted) return;
+    final ok = await context.read<CoachMealPlanProvider>().updatePlan(
+      widget.planId,
+      payload,
+    );
+    if (!mounted) return false;
     if (ok) {
       setState(() => _dirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã lưu nháp lộ trình.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã lưu nháp lộ trình.')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lưu thất bại. Vui lòng thử lại.')),
       );
     }
+    return ok;
   }
 
   Future<void> _submit() async {
-    if (_dirty) await _saveDraft();
+    if (_dirty && !await _saveDraft()) return;
     if (!mounted) return;
-    final controller = TextEditingController();
-    final notes = await showDialog<String?>(
+    final dialogRoute = DialogRoute<String?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Duyệt & gửi cho học viên'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Ghi chú cho học viên (tuỳ chọn)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Huỷ'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Gửi'),
-          ),
-        ],
-      ),
+      builder: (_) => const _SubmitPlanDialog(),
     );
-    controller.dispose();
+    final notes = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<String?>(dialogRoute);
+    // The route's popped future completes before its reverse animation and
+    // Overlay teardown. Do not submit/pop the detail route while the dialog is
+    // still deactivating.
+    await dialogRoute.completed;
     if (notes == null || !mounted) return;
-    final ok = await context
-        .read<CoachMealPlanProvider>()
-        .submitPlan(widget.planId, notes: notes.isEmpty ? null : notes);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok
-            ? 'Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.'
-            : 'Gửi thất bại. Vui lòng thử lại.'),
-      ),
+    final ok = await context.read<CoachMealPlanProvider>().submitPlan(
+      widget.planId,
+      notes: notes.isEmpty ? null : notes,
     );
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _dirty = false);
+      // Let the previous route own the success SnackBar. Showing a SnackBar
+      // from this route while it is being removed can leave Overlay
+      // dependents attached during deactivation.
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Gửi thất bại. Vui lòng thử lại.')),
+        );
+    }
   }
 
   @override
@@ -126,19 +121,30 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
       );
     }
 
-    _draft.clear();
-    final itemsByMeal = plan.itemsByMeal;
-    for (final entry in itemsByMeal.entries) {
-      _draft.addAll(entry.value.map(_DraftItem.fromItem));
+    if (_initializedPlanId != plan.header.id && !_dirty) {
+      _initializedPlanId = plan.header.id;
+      _draft.clear();
+      final itemsByMeal = plan.itemsByMeal;
+      for (final entry in itemsByMeal.entries) {
+        _draft.addAll(entry.value.map(_DraftItem.fromItem));
+      }
     }
+
+    final isApproved = plan.header.isApproved;
+    final isPendingAcceptance = plan.header.isPendingAcceptance;
+    final isReadOnly = isApproved || isPendingAcceptance;
+    final sendsForAcceptance = {
+      'draft',
+      'rejected',
+    }.contains(plan.header.status.toLowerCase());
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(plan.header.title.isNotEmpty
-            ? plan.header.title
-            : 'Lộ trình'),
+        title: Text(
+          plan.header.title.isNotEmpty ? plan.header.title : 'Lộ trình',
+        ),
         actions: [
-          if (_dirty)
+          if (_dirty && !isReadOnly)
             IconButton(
               tooltip: 'Lưu nháp',
               icon: const Icon(Icons.save_outlined),
@@ -149,27 +155,43 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              if (_dirty)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Lưu nháp'),
-                    onPressed: _saveDraft,
-                  ),
+          child: isApproved
+              ? FilledButton.icon(
+                  onPressed: null,
+                  icon: Icon(Icons.check_circle),
+                  label: Text('Đã duyệt & gửi cho học viên'),
+                )
+              : isPendingAcceptance
+              ? FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.hourglass_top),
+                  label: const Text('Đang chờ Gymer chấp nhận'),
+                )
+              : Row(
+                  children: [
+                    if (_dirty)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.save_outlined),
+                          label: const Text('Lưu nháp'),
+                          onPressed: _saveDraft,
+                        ),
+                      ),
+                    if (_dirty) const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.send),
+                        label: Text(
+                          sendsForAcceptance
+                              ? 'Gửi Gymer duyệt'
+                              : 'Duyệt & gửi',
+                        ),
+                        onPressed: _submit,
+                      ),
+                    ),
+                  ],
                 ),
-              if (_dirty) const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.send),
-                  label: const Text('Duyệt & gửi'),
-                  onPressed: _submit,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
       body: ListView(
@@ -177,18 +199,24 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
         children: [
           _Header(plan: plan),
           const SizedBox(height: 16),
-          ..._buildMealSections(context, plan),
+          ..._buildMealSections(context, plan, readOnly: isReadOnly),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'addMealItem',
-        onPressed: () => _showAddItemSheet(context),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: isReadOnly
+          ? null
+          : FloatingActionButton(
+              heroTag: 'addMealItem',
+              onPressed: () => _showAddItemSheet(context),
+              child: const Icon(Icons.add),
+            ),
     );
   }
 
-  List<Widget> _buildMealSections(BuildContext context, CoachMealPlanDetail plan) {
+  List<Widget> _buildMealSections(
+    BuildContext context,
+    CoachMealPlanDetail plan, {
+    required bool readOnly,
+  }) {
     const mealOrder = [
       ('breakfast', 'Bữa sáng'),
       ('lunch', 'Bữa trưa'),
@@ -198,15 +226,19 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
     final sections = <Widget>[];
     for (final entry in mealOrder) {
       final items = _draft.where((d) => d.mealType == entry.$1).toList();
-      sections.add(_MealSection(
-        title: entry.$2,
-        items: items,
-        onEdit: _editItem,
-        onDelete: (it) {
-          setState(() => _draft.remove(it));
-          _markDirty();
-        },
-      ));
+      sections.add(
+        _MealSection(
+          title: entry.$2,
+          items: items,
+          onEdit: readOnly ? null : _editItem,
+          onDelete: readOnly
+              ? null
+              : (it) {
+                  setState(() => _draft.remove(it));
+                  _markDirty();
+                },
+        ),
+      );
       sections.add(const SizedBox(height: 16));
     }
     return sections;
@@ -226,8 +258,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Xóa khỏi lộ trình',
-                  style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Xóa khỏi lộ trình',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
           ],
@@ -272,8 +306,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Thêm món mới',
-                    style: Theme.of(ctx).textTheme.titleMedium),
+                Text(
+                  'Thêm món mới',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: mealType,
@@ -282,7 +318,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
                     border: OutlineInputBorder(),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                    DropdownMenuItem(
+                      value: 'breakfast',
+                      child: Text('Bữa sáng'),
+                    ),
                     DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
                     DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
                     DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
@@ -311,19 +350,66 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
     );
     if (result != null && mounted) {
       setState(() {
-        _draft.add(_DraftItem(
-          id: null,
-          mealType: result.mealType,
-          foodId:
-              result.pick.kind == _IngredientKind.food ? result.pick.id : null,
-          recipeId: result.pick.kind == _IngredientKind.recipe
-              ? result.pick.id
-              : null,
-          displayName: result.pick.name,
-        ));
+        _draft.add(
+          _DraftItem(
+            id: null,
+            mealType: result.mealType,
+            foodId: result.pick.kind == _IngredientKind.food
+                ? result.pick.id
+                : null,
+            recipeId: result.pick.kind == _IngredientKind.recipe
+                ? result.pick.id
+                : null,
+            displayName: result.pick.name,
+          ),
+        );
       });
       _markDirty();
     }
+  }
+}
+
+class _SubmitPlanDialog extends StatefulWidget {
+  const _SubmitPlanDialog();
+
+  @override
+  State<_SubmitPlanDialog> createState() => _SubmitPlanDialogState();
+}
+
+class _SubmitPlanDialogState extends State<_SubmitPlanDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    // The controller is disposed together with the dialog's TextField, after
+    // the dialog route has finished deactivating.
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Duyệt & gửi cho học viên'),
+      content: TextField(
+        controller: _controller,
+        maxLines: 3,
+        decoration: const InputDecoration(
+          labelText: 'Ghi chú cho học viên (tuỳ chọn)',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Huỷ'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Gửi'),
+        ),
+      ],
+    );
   }
 }
 
@@ -341,22 +427,33 @@ class _Header extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(plan.header.title,
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    plan.header.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-                Text('${plan.header.targetCalories ?? '-'} kcal',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  '${plan.header.targetCalories ?? '-'} kcal',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Loại: ${plan.header.planType}',
-                style: Theme.of(context).textTheme.bodySmall),
-            if (plan.header.startDate != null && plan.header.endDate != null)
+            Text(
+              'Loại: ${plan.header.planType}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (plan.header.startDate != null)
               Text(
-                'Từ ${plan.header.startDate!.day}/${plan.header.startDate!.month}/${plan.header.startDate!.year}'
-                ' đến ${plan.header.endDate!.day}/${plan.header.endDate!.month}/${plan.header.endDate!.year}',
+                _fmtPlanDate(
+                  plan.header.planType,
+                  plan.header.startDate,
+                  plan.header.endDate,
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            const SizedBox(height: 8),
+            _PlanApprovalChip(status: plan.header.status),
             if (plan.header.coachName != null &&
                 plan.header.coachName!.isNotEmpty)
               Padding(
@@ -373,6 +470,31 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _PlanApprovalChip extends StatelessWidget {
+  const _PlanApprovalChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.toLowerCase();
+    final approved = normalized == 'approved';
+    final label = coachMealPlanStatusLabel(status);
+    final color = approved ? Colors.green : Colors.orange;
+
+    return Chip(
+      avatar: Icon(
+        approved ? Icons.check_circle : Icons.edit_note,
+        size: 16,
+        color: color,
+      ),
+      label: Text(label),
+      side: BorderSide(color: color.withValues(alpha: 0.35)),
+      backgroundColor: color.withValues(alpha: 0.08),
+    );
+  }
+}
+
 class _MealSection extends StatelessWidget {
   const _MealSection({
     required this.title,
@@ -383,8 +505,8 @@ class _MealSection extends StatelessWidget {
 
   final String title;
   final List<_DraftItem> items;
-  final Future<void> Function(_DraftItem) onEdit;
-  final void Function(_DraftItem) onDelete;
+  final Future<void> Function(_DraftItem)? onEdit;
+  final void Function(_DraftItem)? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -399,17 +521,21 @@ class _MealSection extends StatelessWidget {
             if (items.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Chưa có món. Bấm + để thêm.',
-                    style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  'Chưa có món. Bấm + để thêm.',
+                  style: TextStyle(color: Colors.grey),
+                ),
               )
             else
               Column(
                 children: items
-                    .map((it) => _DraftItemTile(
-                          item: it,
-                          onTap: () => onEdit(it),
-                          onDelete: () => onDelete(it),
-                        ))
+                    .map(
+                      (it) => _DraftItemTile(
+                        item: it,
+                        onTap: onEdit == null ? null : () => onEdit!(it),
+                        onDelete: onDelete == null ? null : () => onDelete!(it),
+                      ),
+                    )
                     .toList(),
               ),
           ],
@@ -426,8 +552,8 @@ class _DraftItemTile extends StatelessWidget {
     required this.onDelete,
   });
   final _DraftItem item;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -439,11 +565,13 @@ class _DraftItemTile extends StatelessWidget {
       ),
       title: Text(item.displayName),
       subtitle: Text(item.recipeId != null ? 'Công thức' : 'Món'),
-      trailing: IconButton(
-        tooltip: 'Xoá',
-        icon: const Icon(Icons.close, color: Colors.red),
-        onPressed: onDelete,
-      ),
+      trailing: onDelete == null
+          ? const Icon(Icons.lock_outline, color: Colors.grey)
+          : IconButton(
+              tooltip: 'Xoá',
+              icon: const Icon(Icons.close, color: Colors.red),
+              onPressed: onDelete,
+            ),
       onTap: onTap,
     );
   }
@@ -459,12 +587,12 @@ class _DraftItem {
   });
 
   factory _DraftItem.fromItem(CoachMealPlanItem it) => _DraftItem(
-        id: it.id,
-        mealType: it.mealType.toLowerCase(),
-        foodId: it.foodId,
-        recipeId: it.recipeId,
-        displayName: it.displayName,
-      );
+    id: it.id,
+    mealType: it.mealType.toLowerCase(),
+    foodId: it.foodId,
+    recipeId: it.recipeId,
+    displayName: it.displayName,
+  );
 
   String? id;
   final String mealType;
@@ -473,19 +601,15 @@ class _DraftItem {
   String displayName;
 
   ClientMealPlanItemPayload toPayload() => ClientMealPlanItemPayload(
-        id: id,
-        mealType: mealType,
-        foodId: foodId,
-        recipeId: recipeId,
-      );
+    id: id,
+    mealType: mealType,
+    foodId: foodId,
+    recipeId: recipeId,
+  );
 }
 
 class _IngredientPick {
-  _IngredientPick({
-    required this.id,
-    required this.name,
-    required this.kind,
-  });
+  _IngredientPick({required this.id, required this.name, required this.kind});
   final String id;
   final String name;
   final _IngredientKind kind;
@@ -502,8 +626,7 @@ class _AddItemResult {
 class _IngredientPickerSheet extends StatefulWidget {
   const _IngredientPickerSheet();
   @override
-  State<_IngredientPickerSheet> createState() =>
-      _IngredientPickerSheetState();
+  State<_IngredientPickerSheet> createState() => _IngredientPickerSheetState();
 }
 
 class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
@@ -542,15 +665,18 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
-          constraints:
-              BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Chọn món / công thức',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Chọn món / công thức',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _controller,
@@ -567,8 +693,10 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
-                    child: Text('Gõ và nhấn Enter để tìm kiếm.',
-                        style: TextStyle(color: Colors.grey)),
+                    child: Text(
+                      'Gõ và nhấn Enter để tìm kiếm.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ),
                 ),
               if (_results.isNotEmpty)
@@ -578,14 +706,14 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                     itemCount: _results.length,
                     itemBuilder: (context, index) {
                       final it = _results[index];
-                      final name =
-                          (it['name'] ?? it['Name'] ?? 'Món').toString();
-                      final id =
-                          (it['id'] ?? it['Id'] ?? '').toString();
+                      final name = (it['name'] ?? it['Name'] ?? 'Món')
+                          .toString();
+                      final id = (it['id'] ?? it['Id'] ?? '').toString();
                       return ListTile(
                         title: Text(name),
-                        subtitle: Text((it['category'] ?? it['Category'] ?? '')
-                            .toString()),
+                        subtitle: Text(
+                          (it['category'] ?? it['Category'] ?? '').toString(),
+                        ),
                         onTap: () => Navigator.pop(
                           context,
                           _IngredientPick(
@@ -622,4 +750,20 @@ class _ErrorState extends StatelessWidget {
       ),
     );
   }
+}
+
+String _dmy(DateTime x) =>
+    '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+
+/// Format hiển thị ngày của plan tuỳ theo planType (thêm năm cho rõ ràng):
+/// - Daily   → "26/07/2026"
+/// - Weekly  → "26/07/2026 – 01/08/2026"
+/// - Monthly → "26/07/2026 – 25/08/2026"
+/// - Custom / khác → range `start – end`
+String _fmtPlanDate(String planType, DateTime? start, DateTime? end) {
+  if (start == null) return '';
+  final type = planType.toLowerCase();
+  if (type == 'daily') return _dmy(start);
+  if (end == null) return _dmy(start);
+  return '${_dmy(start)} – ${_dmy(end)}';
 }

@@ -12,6 +12,7 @@ CREATE TABLE notifications (
     "Title" character varying(200) NULL,
     "Body" character varying(1000) NULL,
     "Type" character varying(100) NULL,
+    "ActionUrl" character varying(500) NULL,
     "IsRead" boolean NOT NULL DEFAULT false,
     "CreatedAt" timestamp with time zone NOT NULL,
     "ScheduledAt" timestamp with time zone NULL,

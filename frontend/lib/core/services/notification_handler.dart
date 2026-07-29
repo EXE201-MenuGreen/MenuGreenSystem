@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../../features/notifications/views/notification_inbox_screen.dart';
 import '../../features/meal_plan/views/meal_plan_detail_screen.dart';
 import '../../features/profile/views/profile_view.dart';
+import '../../features/coach/views/coach_main_screen.dart';
+import '../../features/coach_pt/views/coach_report_detail_screen.dart';
+import '../../features/advanced/views/advanced_features_screen.dart';
+import '../../features/gymer/views/premium_programs_screen.dart';
+import '../../features/notifications/models/notification_models.dart';
 import '../../core/i18n/api_message_translator.dart';
 
 enum NotificationActionType {
@@ -12,6 +17,10 @@ enum NotificationActionType {
   openRecipe,
   openProfile,
   openSubscription,
+  openGymerPrograms,
+  openCoachWorkspace,
+  openCoachWeeklyReport,
+  openGymerWeeklyReport,
   custom,
 }
 
@@ -19,11 +28,13 @@ class NotificationAction {
   final NotificationActionType type;
   final String? id;
   final String? deepLink;
+  final int? tabIndex;
 
   NotificationAction({
     required this.type,
     this.id,
     this.deepLink,
+    this.tabIndex,
   });
 }
 
@@ -37,6 +48,10 @@ class NotificationHandler {
   static const String _prefixNotification = 'notification:';
   static const String _prefixSubscription = 'subscription:';
   static const String _prefixProfile = 'profile:';
+  static const String _prefixCoachWeeklyReport = 'coach_weekly_report:';
+  static const String _prefixGymerWeeklyReport = 'gymer_weekly_report:';
+  static const String _prefixGymerRouteApproval = 'gymer_route_approval:';
+  static const String _prefixGymerPersonalProgram = 'gymer_personal_program:';
 
   NotificationAction parseNotificationData(Map<String, dynamic> data) {
     final deepLink = data['deepLink'] ?? data['link'] ?? data['url'];
@@ -45,9 +60,52 @@ class NotificationHandler {
       return _parseDeepLink(deepLink);
     }
 
-    final type = data['type'] ?? data['action'];
+    var type = data['type'] ?? data['Type'] ?? data['action'];
+    dynamic notificationId = data['id'] ?? data['notificationId'];
+    final customData = data['custom_data'] ?? data['customData'];
+    if ((type == null || type.toString().isEmpty) &&
+        customData is String &&
+        customData.isNotEmpty) {
+      final parts = customData.split('|');
+      type = parts.first;
+      if (parts.length > 1) notificationId = parts[1];
+      if (parts.length > 2) {
+        return _parseDeepLink(parts.sublist(2).join('|'));
+      }
+    }
 
     switch (type?.toString().toLowerCase()) {
+      case 'weekly_report_submitted':
+        return NotificationAction(
+          type: NotificationActionType.openCoachWorkspace,
+          id: notificationId?.toString(),
+          tabIndex: 2,
+        );
+      case 'weekly_report_pending':
+      case 'weekly_report_reviewed':
+        return NotificationAction(
+          type: NotificationActionType.openGymerWeeklyReport,
+          id: data['reportId']?.toString(),
+        );
+      case 'meal_plan_approved':
+      case 'pt_route_approval':
+        return NotificationAction(
+          type: NotificationActionType.openGymerPrograms,
+          id: data['reportId']?.toString(),
+          tabIndex: 0,
+        );
+      case 'coach_personal_program':
+        return NotificationAction(
+          type: NotificationActionType.openGymerPrograms,
+          id: notificationId?.toString(),
+          tabIndex: 1,
+        );
+      case 'pt_review_request':
+        return NotificationAction(
+          type: NotificationActionType.openCoachWorkspace,
+          id: notificationId?.toString(),
+          tabIndex: 1,
+        );
       case 'meal_plan':
       case 'mealplan':
         return NotificationAction(
@@ -71,26 +129,63 @@ class NotificationHandler {
           id: data['id'],
         );
       case 'profile':
-        return NotificationAction(
-          type: NotificationActionType.openProfile,
-        );
+        return NotificationAction(type: NotificationActionType.openProfile);
       default:
         return NotificationAction(type: NotificationActionType.openApp);
     }
   }
 
   NotificationAction _parseDeepLink(String deepLink) {
+    if (deepLink.startsWith(_prefixCoachWeeklyReport)) {
+      final id = deepLink.substring(_prefixCoachWeeklyReport.length);
+      return NotificationAction(
+        type: NotificationActionType.openCoachWeeklyReport,
+        id: id,
+      );
+    }
+    if (deepLink.startsWith(_prefixGymerWeeklyReport)) {
+      final id = deepLink.substring(_prefixGymerWeeklyReport.length);
+      return NotificationAction(
+        type: NotificationActionType.openGymerWeeklyReport,
+        id: id,
+      );
+    }
+    if (deepLink.startsWith(_prefixGymerRouteApproval)) {
+      final id = deepLink.substring(_prefixGymerRouteApproval.length);
+      return NotificationAction(
+        type: NotificationActionType.openGymerPrograms,
+        id: id,
+        tabIndex: 0,
+      );
+    }
+    if (deepLink.startsWith(_prefixGymerPersonalProgram)) {
+      final id = deepLink.substring(_prefixGymerPersonalProgram.length);
+      return NotificationAction(
+        type: NotificationActionType.openGymerPrograms,
+        id: id,
+        tabIndex: 1,
+      );
+    }
     if (deepLink.startsWith(_prefixMealPlan)) {
       final id = deepLink.substring(_prefixMealPlan.length);
-      return NotificationAction(type: NotificationActionType.openMealPlan, id: id);
+      return NotificationAction(
+        type: NotificationActionType.openMealPlan,
+        id: id,
+      );
     }
     if (deepLink.startsWith(_prefixRecipe)) {
       final id = deepLink.substring(_prefixRecipe.length);
-      return NotificationAction(type: NotificationActionType.openRecipe, id: id);
+      return NotificationAction(
+        type: NotificationActionType.openRecipe,
+        id: id,
+      );
     }
     if (deepLink.startsWith(_prefixNotification)) {
       final id = deepLink.substring(_prefixNotification.length);
-      return NotificationAction(type: NotificationActionType.openNotifications, id: id);
+      return NotificationAction(
+        type: NotificationActionType.openNotifications,
+        id: id,
+      );
     }
     if (deepLink.startsWith(_prefixSubscription)) {
       return NotificationAction(type: NotificationActionType.openSubscription);
@@ -121,7 +216,10 @@ class NotificationHandler {
       return NotificationAction(type: NotificationActionType.openSubscription);
     }
 
-    return NotificationAction(type: NotificationActionType.openApp, deepLink: deepLink);
+    return NotificationAction(
+      type: NotificationActionType.openApp,
+      deepLink: deepLink,
+    );
   }
 
   String? _extractIdFromUrl(String url) {
@@ -159,9 +257,9 @@ class NotificationHandler {
   }
 
   Widget buildDestinationScreen(
-    NotificationAction action,
-    RemoteMessage message,
-  ) {
+    NotificationAction action, [
+    RemoteMessage? message,
+  ]) {
     switch (action.type) {
       case NotificationActionType.openNotifications:
         return const NotificationInboxScreen();
@@ -177,8 +275,10 @@ class NotificationHandler {
 
       case NotificationActionType.openRecipe:
         return _DefaultDestinationScreen(
-          title: message.notification?.title ?? 'Công thức',
-          message: message.notification?.body ?? 'Không tìm thấy thông tin công thức',
+          title: message?.notification?.title ?? 'Công thức',
+          message:
+              message?.notification?.body ??
+              'Không tìm thấy thông tin công thức',
         );
 
       case NotificationActionType.openSubscription:
@@ -189,6 +289,28 @@ class NotificationHandler {
 
       case NotificationActionType.openProfile:
         return const ProfileView();
+
+      case NotificationActionType.openGymerPrograms:
+        return PremiumProgramsScreen(
+          initialTabIndex: action.tabIndex ?? 0,
+          initialRequestId: action.id,
+        );
+
+      case NotificationActionType.openCoachWorkspace:
+        return CoachMainScreen(initialIndex: action.tabIndex ?? 1);
+
+      case NotificationActionType.openCoachWeeklyReport:
+        if (action.id != null && action.id!.isNotEmpty) {
+          return CoachReportDetailScreen(reportId: action.id!);
+        }
+        return const CoachMainScreen(initialIndex: 2);
+
+      case NotificationActionType.openGymerWeeklyReport:
+        return AdvancedFeaturesScreen(
+          gymerOnly: true,
+          initialIndex: 0,
+          initialReportId: action.id,
+        );
 
       case NotificationActionType.custom:
         return const _DefaultDestinationScreen(
@@ -204,13 +326,31 @@ class NotificationHandler {
     }
   }
 
-  void showInAppNotification(
+  Future<bool> handleAppNotificationTap(
     BuildContext context,
-    RemoteMessage message,
-  ) {
+    AppNotification notification,
+  ) async {
+    final action = parseNotificationData({
+      'type': notification.rawType,
+      'id': notification.id,
+      if (notification.actionUrl != null) 'deepLink': notification.actionUrl,
+    });
+    if (action.type == NotificationActionType.openApp) return false;
+
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => buildDestinationScreen(action)));
+    return true;
+  }
+
+  void showInAppNotification(BuildContext context, RemoteMessage message) {
     // Translate notification title/body if coming from backend (English).
-    final title = ApiMessageTranslator.translateNotification(message.notification?.title);
-    final body = ApiMessageTranslator.translateNotification(message.notification?.body);
+    final title = ApiMessageTranslator.translateNotification(
+      message.notification?.title,
+    );
+    final body = ApiMessageTranslator.translateNotification(
+      message.notification?.body,
+    );
 
     if (title.isEmpty && body.isEmpty) return;
 
@@ -221,10 +361,7 @@ class NotificationHandler {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (title.isNotEmpty)
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
             if (body.isNotEmpty) Text(body),
           ],
         ),
@@ -243,10 +380,7 @@ class _DefaultDestinationScreen extends StatelessWidget {
   final String title;
   final String message;
 
-  const _DefaultDestinationScreen({
-    required this.title,
-    required this.message,
-  });
+  const _DefaultDestinationScreen({required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {

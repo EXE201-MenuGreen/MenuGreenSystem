@@ -603,6 +603,187 @@ class GymGoalProfile {
       'monthlyDetails': monthlyDetails.map((e) => e.toJson()).toList(),
     };
   }
+
+  /// Resolves the configuration that applies to [date] using the same
+  /// precedence as the backend: Day -> Week -> Month -> general targets.
+  GymResolvedConfiguration resolveForDate(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final dateString =
+        '${normalized.year.toString().padLeft(4, '0')}-'
+        '${normalized.month.toString().padLeft(2, '0')}-'
+        '${normalized.day.toString().padLeft(2, '0')}';
+    final monday = normalized.subtract(Duration(days: normalized.weekday - 1));
+    final weekString =
+        '${monday.year.toString().padLeft(4, '0')}-'
+        '${monday.month.toString().padLeft(2, '0')}-'
+        '${monday.day.toString().padLeft(2, '0')}';
+    final monthString =
+        '${normalized.year.toString().padLeft(4, '0')}-'
+        '${normalized.month.toString().padLeft(2, '0')}';
+
+    GymDayDetail? day;
+    for (final item in dailyDetails) {
+      if (item.dateString == dateString) {
+        day = item;
+        break;
+      }
+    }
+
+    GymWeeklyDetail? week;
+    for (final item in weeklyDetails) {
+      if (item.weekStartDateString == weekString) {
+        week = item;
+        break;
+      }
+    }
+
+    GymMonthlyDetail? month;
+    for (final item in monthlyDetails) {
+      if (item.monthString == monthString) {
+        month = item;
+        break;
+      }
+    }
+
+    final scheduledTraining = weeklyTrainingSchedule
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .contains(_englishWeekday(normalized.weekday));
+    final isTraining = day?.isTraining ?? scheduledTraining;
+    final scopedTarget =
+        day?.customCalories ?? week?.customCalories ?? month?.customCalories;
+    final scopedMin =
+        day?.minCalories ?? week?.minCalories ?? month?.minCalories;
+    final scopedMax =
+        day?.maxCalories ?? week?.maxCalories ?? month?.maxCalories;
+
+    return GymResolvedConfiguration(
+      hasScopedConfiguration: day != null || week != null || month != null,
+      scope: day != null
+          ? GymConfigurationScope.day
+          : week != null
+          ? GymConfigurationScope.week
+          : month != null
+          ? GymConfigurationScope.month
+          : GymConfigurationScope.general,
+      isTraining: isTraining,
+      targetCalories:
+          scopedTarget ??
+          (isTraining ? trainingDayTargetCalories : restDayTargetCalories),
+      minCalories: scopedMin ?? (scopedTarget == null ? minCalories : null),
+      maxCalories: scopedMax ?? (scopedTarget == null ? maxCalories : null),
+      minProteinG:
+          day?.minProteinG ??
+          week?.minProteinG ??
+          month?.minProteinG ??
+          minProteinG,
+      maxProteinG:
+          day?.maxProteinG ??
+          week?.maxProteinG ??
+          month?.maxProteinG ??
+          maxProteinG,
+      notes:
+          day?.customNotes ?? week?.customNotes ?? month?.customNotes ?? notes,
+    );
+  }
+
+  static String _englishWeekday(int weekday) {
+    return switch (weekday) {
+      DateTime.monday => 'monday',
+      DateTime.tuesday => 'tuesday',
+      DateTime.wednesday => 'wednesday',
+      DateTime.thursday => 'thursday',
+      DateTime.friday => 'friday',
+      DateTime.saturday => 'saturday',
+      DateTime.sunday => 'sunday',
+      _ => '',
+    };
+  }
+}
+
+enum GymConfigurationScope { general, month, week, day }
+
+@immutable
+class GymResolvedConfiguration {
+  const GymResolvedConfiguration({
+    required this.hasScopedConfiguration,
+    required this.scope,
+    required this.isTraining,
+    this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.minProteinG,
+    this.maxProteinG,
+    this.notes,
+  });
+
+  final bool hasScopedConfiguration;
+  final GymConfigurationScope scope;
+  final bool isTraining;
+  final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final int? minProteinG;
+  final int? maxProteinG;
+  final String? notes;
+}
+
+@immutable
+class GymPlanSuggestions {
+  const GymPlanSuggestions({
+    required this.date,
+    required this.hasConfiguration,
+    required this.items,
+    this.targetCalories,
+  });
+
+  final DateTime date;
+  final bool hasConfiguration;
+  final int? targetCalories;
+  final List<LocalRecommendationItem> items;
+
+  factory GymPlanSuggestions.fromJson(
+    dynamic json, {
+    required DateTime fallbackDate,
+  }) {
+    if (json is List) {
+      return GymPlanSuggestions(
+        date: fallbackDate,
+        hasConfiguration: true,
+        items: json
+            .whereType<Map>()
+            .map(
+              (item) => LocalRecommendationItem.fromJson(
+                item.cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    final map = json is Map
+        ? json.cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final rawItems = map['items'] ?? map['Items'];
+    final dateValue = (map['date'] ?? map['Date'])?.toString();
+    return GymPlanSuggestions(
+      date: DateTime.tryParse(dateValue ?? '') ?? fallbackDate,
+      hasConfiguration:
+          map['hasConfiguration'] == true || map['HasConfiguration'] == true,
+      targetCalories:
+          _int(map, 'targetCalories') ?? _int(map, 'TargetCalories'),
+      items: rawItems is List
+          ? rawItems
+                .whereType<Map>()
+                .map(
+                  (item) => LocalRecommendationItem.fromJson(
+                    item.cast<String, dynamic>(),
+                  ),
+                )
+                .toList()
+          : const [],
+    );
+  }
 }
 
 @immutable

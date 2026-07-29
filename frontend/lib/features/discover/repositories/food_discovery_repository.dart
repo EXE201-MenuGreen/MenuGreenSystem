@@ -5,14 +5,46 @@ import '../../../core/middleware/logging_middleware.dart';
 import '../../../core/middleware/query_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/token_storage.dart';
 import '../models/food_models.dart';
+
+class FavoriteFoodsLoadResult {
+  const FavoriteFoodsLoadResult({
+    required this.items,
+    required this.isFromCache,
+    this.message,
+  });
+
+  final List<FavoriteFoodItem> items;
+  final bool isFromCache;
+  final String? message;
+}
+
+class FavoriteFoodMutationResult {
+  const FavoriteFoodMutationResult.success({
+    required this.isFavorite,
+    this.item,
+    this.message,
+  }) : isSuccess = true;
+
+  const FavoriteFoodMutationResult.failure({required this.message})
+    : isSuccess = false,
+      isFavorite = false,
+      item = null;
+
+  final bool isSuccess;
+  final bool isFavorite;
+  final FavoriteFoodItem? item;
+  final String? message;
+}
 
 class FoodDiscoveryRepository {
   FoodDiscoveryRepository({ApiClient? apiClient})
     : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
-  static const String _favStorageKey = 'user_favorite_foods_cache';
+  final TokenStorage _tokenStorage = TokenStorage();
+  static const String _favStorageKeyPrefix = 'favorite_foods_cache';
 
   Future<List<FoodItem>> searchFoods({
     String? keyword,
@@ -136,88 +168,211 @@ class FoodDiscoveryRepository {
   }
 
   Future<List<FavoriteFoodItem>> getFavorites() async {
-    final List<FavoriteFoodItem> result = [];
-    final Set<String> existingIds = {};
+    return (await fetchFavorites()).items;
+  }
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getStringList(_favStorageKey) ?? [];
-      for (final s in raw) {
-        final map = jsonDecode(s);
-        if (map is Map<String, dynamic>) {
-          final item = FavoriteFoodItem.fromJson(map);
-          if (existingIds.add(item.foodId)) {
-            result.add(item);
-          }
-        }
-      }
-    } catch (_) {}
-
+  /// The API is authoritative. A user-scoped cache is used only on network failure.
+  Future<FavoriteFoodsLoadResult> fetchFavorites({
+    bool allowCacheFallback = true,
+  }) async {
     try {
       final response = await _api.get(ApiEndpoints.foodFavorites);
-      if (response.statusCode == 200 && response.body.isNotEmpty) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
-        if (decoded is List) {
-          for (final raw in decoded.whereType<Map<String, dynamic>>()) {
-            final item = FavoriteFoodItem.fromJson(raw);
-            if (existingIds.add(item.foodId)) {
-              result.add(item);
-            }
-          }
+        if (decoded is! List) {
+          return const FavoriteFoodsLoadResult(
+            items: [],
+            isFromCache: false,
+            message: 'Dá»¯ liá»‡u mÃ³n yÃªu thÃ­ch khÃ´ng há»£p lá»‡.',
+          );
         }
+        final items = decoded
+            .whereType<Map<String, dynamic>>()
+            .map(FavoriteFoodItem.fromJson)
+            .toList();
+        await cacheFavorites(items);
+        return FavoriteFoodsLoadResult(items: items, isFromCache: false);
       }
-    } catch (_) {}
-
-    return result;
+      return _loadFavoriteCacheOrFailure(
+        'KhÃ´ng thá»ƒ táº£i mÃ³n yÃªu thÃ­ch. Vui lÃ²ng thá»­ láº¡i.',
+        allowCacheFallback,
+      );
+    } catch (error, stack) {
+      AppLogger.error('FoodDiscoveryRepository.fetchFavorites', error, stack);
+      return _loadFavoriteCacheOrFailure(
+        'KhÃ´ng cÃ³ káº¿t ná»‘i máº¡ng. Vui lÃ²ng thá»­ láº¡i.',
+        allowCacheFallback,
+      );
+    }
   }
 
-  Future<bool> saveFavoriteItem(FavoriteFoodItem item) async {
+  Future<FavoriteFoodMutationResult> addFavorite(String foodId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList(_favStorageKey) ?? [];
-      list.removeWhere((s) {
-        try {
-          final map = jsonDecode(s);
-          return map['foodId'] == item.foodId;
-        } catch (_) {
-          return false;
-        }
-      });
-      list.insert(0, jsonEncode(item.toJson()));
-      await prefs.setStringList(_favStorageKey, list);
-    } catch (_) {}
-
-    try {
-      await _api.postJson(ApiEndpoints.foodFavorite(item.foodId), {});
-    } catch (_) {}
-    return true;
+      final response = await _api.postJson(
+        ApiEndpoints.foodFavorite(foodId),
+        {},
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return FavoriteFoodMutationResult.failure(
+          message: _favoriteErrorMessage(
+            response.body,
+            'KhÃ´ng thá»ƒ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+          ),
+        );
+      }
+      final decoded = _decodeMap(response.body);
+      final rawItem = decoded?['item'] ?? decoded?['Item'];
+      return FavoriteFoodMutationResult.success(
+        isFavorite: true,
+        item: rawItem is Map<String, dynamic>
+            ? FavoriteFoodItem.fromJson(rawItem)
+            : null,
+        message: 'ÄÃ£ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+      );
+    } catch (error, stack) {
+      AppLogger.error('FoodDiscoveryRepository.addFavorite', error, stack);
+      return const FavoriteFoodMutationResult.failure(
+        message:
+            'KhÃ´ng cÃ³ káº¿t ná»‘i máº¡ng. KhÃ´ng thá»ƒ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+      );
+    }
   }
 
-  Future<bool> addFavorite(String foodId) async {
+  Future<bool> legacyAddFavorite(String foodId) async {
     return saveFavoriteItem(
       FavoriteFoodItem(foodId: foodId, nameVi: 'Món ăn yêu thích'),
     );
   }
 
   Future<bool> removeFavorite(String foodId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList(_favStorageKey) ?? [];
-      list.removeWhere((s) {
-        try {
-          final map = jsonDecode(s);
-          return map['foodId'] == foodId;
-        } catch (_) {
-          return false;
-        }
-      });
-      await prefs.setStringList(_favStorageKey, list);
-    } catch (_) {}
+    return (await removeFavoriteResult(foodId)).isSuccess;
+  }
 
+  Future<FavoriteFoodMutationResult> removeFavoriteResult(String foodId) async {
     try {
-      await _api.delete(ApiEndpoints.foodFavorite(foodId));
+      final response = await _api.delete(ApiEndpoints.foodFavorite(foodId));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return FavoriteFoodMutationResult.failure(
+          message: _favoriteErrorMessage(
+            response.body,
+            'Kh\u00f4ng th\u1ec3 b\u1ecf m\u00f3n y\u00eau th\u00edch.',
+          ),
+        );
+      }
+      return const FavoriteFoodMutationResult.success(
+        isFavorite: false,
+        message: '\u0110\u00e3 b\u1ecf m\u00f3n kh\u1ecfi y\u00eau th\u00edch.',
+      );
+    } catch (error, stack) {
+      AppLogger.error('FoodDiscoveryRepository.removeFavorite', error, stack);
+      return const FavoriteFoodMutationResult.failure(
+        message:
+            'Kh\u00f4ng c\u00f3 k\u1ebft n\u1ed1i m\u1ea1ng. Kh\u00f4ng th\u1ec3 b\u1ecf m\u00f3n y\u00eau th\u00edch.',
+      );
+    }
+  }
+
+  Future<bool> saveFavoriteItem(FavoriteFoodItem item) async {
+    return (await addFavorite(item.foodId)).isSuccess;
+  }
+
+  Future<void> cacheFavorites(List<FavoriteFoodItem> items) async {
+    try {
+      final key = await _favoriteCacheKey();
+      if (key == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        key,
+        items.map((item) => jsonEncode(item.toJson())).toList(),
+      );
     } catch (_) {}
-    return true;
+  }
+
+  Future<void> clearFavoriteCache() async {
+    try {
+      final key = await _favoriteCacheKey();
+      if (key == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    } catch (_) {}
+  }
+
+  Future<FavoriteFoodsLoadResult> _loadFavoriteCacheOrFailure(
+    String message,
+    bool allowCacheFallback,
+  ) async {
+    if (!allowCacheFallback) {
+      return FavoriteFoodsLoadResult(
+        items: const [],
+        isFromCache: false,
+        message: message,
+      );
+    }
+    try {
+      final key = await _favoriteCacheKey();
+      if (key == null) {
+        return FavoriteFoodsLoadResult(
+          items: const [],
+          isFromCache: false,
+          message: message,
+        );
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(key) ?? const [];
+      final items = raw
+          .map(_decodeMap)
+          .whereType<Map<String, dynamic>>()
+          .map(FavoriteFoodItem.fromJson)
+          .toList();
+      if (items.isNotEmpty) {
+        return FavoriteFoodsLoadResult(
+          items: items,
+          isFromCache: true,
+          message: message,
+        );
+      }
+    } catch (_) {}
+    return FavoriteFoodsLoadResult(
+      items: const [],
+      isFromCache: false,
+      message: message,
+    );
+  }
+
+  Future<String?> _favoriteCacheKey() async {
+    final userId = await _tokenStorage.getUserId();
+    if (userId == null || userId.isEmpty) return null;
+    return '$_favStorageKeyPrefix:$userId';
+  }
+
+  Map<String, dynamic>? _decodeMap(String raw) {
+    if (raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) {
+        return decoded.map((key, value) => MapEntry('$key', value));
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  String _favoriteErrorMessage(String raw, String fallback) {
+    final decoded = _decodeMap(raw);
+    final message = decoded?['message'] ?? decoded?['Message'];
+    final value = message?.toString().trim();
+    if (value == null || value.isEmpty) return fallback;
+    final normalized = value.toLowerCase();
+    if (normalized.contains('food not found')) {
+      return 'M\u00f3n \u0103n kh\u00f4ng c\u00f2n t\u1ed3n t\u1ea1i.';
+    }
+    if (normalized.contains('inactive')) {
+      return 'M\u00f3n \u0103n n\u00e0y hi\u1ec7n kh\u00f4ng th\u1ec3 \u0111\u01b0\u1ee3c l\u01b0u.';
+    }
+    if (normalized.contains('unauthorized')) {
+      return 'Phi\u00ean \u0111\u0103ng nh\u1eadp \u0111\u00e3 h\u1ebft h\u1ea1n. Vui l\u00f2ng \u0111\u0103ng nh\u1eadp l\u1ea1i.';
+    }
+    return value;
   }
 
   Future<List<IngredientItem>> searchIngredients({

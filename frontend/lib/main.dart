@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/widgets/connection_status_banner.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/network_status_provider.dart';
 import 'core/services/push_notification_provider.dart';
@@ -22,6 +23,7 @@ import 'features/vietnam_local/providers/local_preferences_provider.dart';
 import 'features/vietnam_local/providers/planned_vs_actual_provider.dart';
 import 'features/vietnam_local/providers/food_capture_provider.dart';
 import 'features/vietnam_local/providers/ingredient_substitution_provider.dart';
+import 'features/discover/providers/favorite_food_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -48,7 +50,8 @@ Future<void> main() async {
 
   // Check if app was launched from a notification (terminated state).
   await FirebaseBootstrap.initialize();
-  _pendingInitialNotification = await FirebaseMessaging.instance.getInitialMessage();
+  _pendingInitialNotification = await FirebaseMessaging.instance
+      .getInitialMessage();
 
   runApp(const MyApp());
 
@@ -80,15 +83,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PlannedVsActualProvider()),
         ChangeNotifierProvider(create: (_) => FoodCaptureProvider()),
         ChangeNotifierProvider(create: (_) => IngredientSubstitutionProvider()),
+        ChangeNotifierProvider(create: (_) => FavoriteFoodProvider()),
       ],
       child: MaterialApp(
         title: 'MenuGreen',
         debugShowCheckedModeBanner: false,
         locale: const Locale('vi', 'VN'),
-        supportedLocales: const [
-          Locale('vi', 'VN'),
-          Locale('en', 'US'),
-        ],
+        supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -98,6 +99,11 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
           useMaterial3: true,
         ),
+        builder: (context, child) {
+          return ConnectionStatusBanner(
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const SplashScreen(),
       ),
     );

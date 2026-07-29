@@ -41,6 +41,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 isActive = true;
             }
             plans = plans.Where(x => x.IsActive == isActive.Value);
+            // Coach-created drafts are private working copies. The Gymer only
+            // receives them after the Coach submits and Status becomes Approved.
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                plans = plans.Where(x =>
+                    !string.Equals(x.Status, "Draft", StringComparison.OrdinalIgnoreCase));
+            }
 
             var results = new List<MealPlanResponse>();
             foreach (var plan in plans)
@@ -196,12 +203,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MealType = request.MealType,
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
-                PlannedDate = request.PlannedDate ?? plan.StartDate,
+                PlannedDate = request.PlannedDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)),
                 ScheduledTime = request.ScheduledTime,
                 TargetCalories = request.TargetCalories,
                 IsCompleted = request.IsCompleted,
                 CreatedAt = DateTime.UtcNow,
-                Origin = request.Origin
+                Origin = request.Origin,
+                CustomName = request.CustomName,
+                QuantityG = (decimal?)request.QuantityG
             };
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
@@ -221,6 +230,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.TargetCalories = request.TargetCalories;
             item.IsCompleted = request.IsCompleted;
             item.Origin = request.Origin;
+            item.CustomName = request.CustomName;
+            if (request.QuantityG.HasValue) item.QuantityG = (decimal?)request.QuantityG;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
             return await GetByIdAsync(planId, userId);
@@ -788,7 +799,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static void ValidateItem(MealPlanItemUpsertRequest item)
         {
-            if (item.FoodId == null && item.RecipeId == null) throw new Exception("Each meal plan item must have either FoodId or RecipeId.");
+            if (item.FoodId == null && item.RecipeId == null && string.IsNullOrWhiteSpace(item.CustomName))
+            {
+                throw new Exception("Each meal plan item must have either FoodId, RecipeId, or CustomName.");
+            }
         }
 
         private async Task<MealPlanResponse> MapAsync(MealPlanHeader entity)
@@ -804,8 +818,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // run concurrently. Batch each data set and await it sequentially.
             var foods = await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id));
             var recipes = await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id));
-            var foodDict = foods.ToDictionary(f => f.Id);
-            var recipeDict = recipes.ToDictionary(r => r.Id);
+            var foodDict = foods.GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
+            var recipeDict = recipes.GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
             var recipeMacrosDict = await GetRecipeMacrosBatchAsync(recipeIds);
             
             var responseItems = new List<MealPlanItemResponse>();
@@ -851,6 +865,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
                 GeneratedBy = entity.GeneratedBy,
+                Status = entity.Status,
+                ApprovedAt = entity.ApprovedAt,
                 IsActive = entity.IsActive,
                 TotalCalories = (int)Math.Round(totalCalories),
                 TotalProteinG = (int)Math.Round(totalProtein),
@@ -872,7 +888,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _ => (protein: 0m, carbs: 0m, fat: 0m, calories: 0m));
             if (ids.Count == 0) return macrosByRecipe;
 
-            var recipes = (await _unitOfWork.Recipes.FindAsync(r => ids.Contains(r.Id))).ToDictionary(r => r.Id);
+            var recipes = (await _unitOfWork.Recipes.FindAsync(r => ids.Contains(r.Id))).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
             var recipeIngredients = await _unitOfWork.RecipeIngredients.FindAsync(
                 item => ids.Contains(item.RecipeId));
             var ingredientIds = recipeIngredients
@@ -1841,7 +1857,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
         {
             ValidateItems(request.Items);
-            var plan = await FindDailyPlanAsync(userId, request.PlannedDate);
+            // Mutations must only reuse an exact DAILY plan. The read helper
+            // may fall back to a weekly/monthly plan covering the date; using
+            // that fallback here would convert an older approved range into a
+            // daily plan and incorrectly preserve its approval state.
+            var plan = await FindExactDailyPlanAsync(userId, request.PlannedDate);
             if (plan == null)
             {
                 plan = new MealPlanHeader
@@ -1854,6 +1874,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     EndDate = request.PlannedDate,
                     TargetCalories = request.TargetCalories,
                     GeneratedBy = "USER",
+                    Status = "Active",
+                    ApprovedAt = null,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -1864,7 +1886,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             else
             {
                 plan.Title = request.Title ?? plan.Title;
+                plan.PlanType = "DAILY";
+                plan.StartDate = request.PlannedDate;
+                plan.EndDate = request.PlannedDate;
                 plan.TargetCalories = request.TargetCalories ?? plan.TargetCalories;
+                // Any Gymer-side change creates a new revision that must be
+                // reviewed again. Do not keep the approval of an older version.
+                plan.GeneratedBy = "USER";
+                plan.Status = "Active";
+                plan.ApprovedAt = null;
                 plan.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.MealPlanHeaders.Update(plan);
                 await _unitOfWork.CompleteAsync();
@@ -2024,6 +2054,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
                 x.UserId == userId
                 && x.IsActive
+                && x.Status != "Draft"
+                && x.Status != "PendingAcceptance"
+                && x.Status != "Rejected"
                 && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
                     ? x.StartDate == date
                     : (x.StartDate <= date && x.EndDate >= date)));
@@ -2031,6 +2064,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return plans.OrderByDescending(x => (x.PlanType == null || x.PlanType.ToUpper() == "DAILY") ? 1 : 0)
                         .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                         .FirstOrDefault();
+        }
+
+        private async Task<MealPlanHeader?> FindExactDailyPlanAsync(
+            Guid userId,
+            DateOnly date)
+        {
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId
+                && x.IsActive
+                && x.Status != "Draft"
+                && (x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
+                && x.StartDate == date);
+
+            return plans
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .FirstOrDefault();
         }
 
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)

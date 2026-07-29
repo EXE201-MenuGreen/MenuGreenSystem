@@ -1,5 +1,6 @@
 using System;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -124,9 +125,17 @@ namespace MenuGreen.API.Controllers
         /// Get suggested nutrition plan based on goal mode and target calories.
         /// </summary>
         [HttpGet("plan")]
-        public async Task<IActionResult> GetPlan([FromQuery] int targetCalories = 0, [FromQuery] int top = 10)
+        public async Task<IActionResult> GetPlan(
+            [FromQuery] DateOnly? date = null,
+            [FromQuery] int targetCalories = 0,
+            [FromQuery] int top = 10)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            var planDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var hasApplicableConfiguration = targetCalories > 0;
+            int? minCaloriesOverride = null;
+            int? maxCaloriesOverride = null;
 
             if (targetCalories == 0)
             {
@@ -140,25 +149,22 @@ namespace MenuGreen.API.Controllers
                 {
                     try
                     {
-                        using var doc = System.Text.Json.JsonDocument.Parse(profile.Preferences);
+                        using var doc = JsonDocument.Parse(profile.Preferences);
                         var root = doc.RootElement;
 
                         string schedule = root.TryGetProperty("weeklyTrainingSchedule", out var scheduleProp) ? (scheduleProp.GetString() ?? "") : "";
-                        var today = DateTime.UtcNow.AddHours(7);
-                        var todayDay = today.DayOfWeek.ToString();
+                        var todayDay = planDate.DayOfWeek.ToString();
                         bool isTrainingDay = schedule.Contains(todayDay, StringComparison.OrdinalIgnoreCase);
 
-                        var todayDateStr = today.ToString("yyyy-MM-dd");
+                        var todayDateStr = planDate.ToString("yyyy-MM-dd");
 
-                        int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
-                        var monday = today.AddDays(-1 * diff).Date;
+                        int diff = (7 + (planDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+                        var monday = planDate.AddDays(-1 * diff);
                         string weekStartStr = monday.ToString("yyyy-MM-dd");
 
-                        string monthStr = today.ToString("yyyy-MM");
+                        string monthStr = planDate.ToString("yyyy-MM");
 
                         int? resolvedCalories = null;
-                        int? minCaloriesOverride = null;
-                        int? maxCaloriesOverride = null;
                         bool foundConfig = false;
 
                         // 1. Check dailyDetails
@@ -168,22 +174,28 @@ namespace MenuGreen.API.Controllers
                             {
                                 if (element.TryGetProperty("dateString", out var dateStrProp) && dateStrProp.GetString() == todayDateStr)
                                 {
-                                    if (element.TryGetProperty("isTraining", out var isTrainProp))
+                                    if (
+                                        element.TryGetProperty("isTraining", out var isTrainProp)
+                                        && (
+                                            isTrainProp.ValueKind == JsonValueKind.True
+                                            || isTrainProp.ValueKind == JsonValueKind.False
+                                        )
+                                    )
                                     {
                                         isTrainingDay = isTrainProp.GetBoolean();
                                     }
                                     
-                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    if (TryReadInt32(element, "customCalories", out var customCalVal))
                                     {
                                         resolvedCalories = customCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    if (TryReadInt32(element, "minCalories", out var minCalVal))
                                     {
                                         minCaloriesOverride = minCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    if (TryReadInt32(element, "maxCalories", out var maxCalVal))
                                     {
                                         maxCaloriesOverride = maxCalVal;
                                     }
@@ -195,23 +207,23 @@ namespace MenuGreen.API.Controllers
                         }
 
                         // 2. Check weeklyDetails
-                        if (!foundConfig && root.TryGetProperty("weeklyDetails", out var weeklyDetailsProp) && weeklyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        if (root.TryGetProperty("weeklyDetails", out var weeklyDetailsProp) && weeklyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
                             foreach (var element in weeklyDetailsProp.EnumerateArray())
                             {
                                 if (element.TryGetProperty("weekStartDateString", out var weekStartProp) && weekStartProp.GetString() == weekStartStr)
                                 {
-                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    if (resolvedCalories == null && TryReadInt32(element, "customCalories", out var customCalVal))
                                     {
                                         resolvedCalories = customCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    if (minCaloriesOverride == null && TryReadInt32(element, "minCalories", out var minCalVal))
                                     {
                                         minCaloriesOverride = minCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    if (maxCaloriesOverride == null && TryReadInt32(element, "maxCalories", out var maxCalVal))
                                     {
                                         maxCaloriesOverride = maxCalVal;
                                     }
@@ -223,23 +235,23 @@ namespace MenuGreen.API.Controllers
                         }
 
                         // 3. Check monthlyDetails
-                        if (!foundConfig && root.TryGetProperty("monthlyDetails", out var monthlyDetailsProp) && monthlyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        if (root.TryGetProperty("monthlyDetails", out var monthlyDetailsProp) && monthlyDetailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
                             foreach (var element in monthlyDetailsProp.EnumerateArray())
                             {
                                 if (element.TryGetProperty("monthString", out var monthProp) && monthProp.GetString() == monthStr)
                                 {
-                                    if (element.TryGetProperty("customCalories", out var customCalProp) && customCalProp.TryGetInt32(out var customCalVal))
+                                    if (resolvedCalories == null && TryReadInt32(element, "customCalories", out var customCalVal))
                                     {
                                         resolvedCalories = customCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("minCalories", out var minCalProp) && minCalProp.TryGetInt32(out var minCalVal))
+                                    if (minCaloriesOverride == null && TryReadInt32(element, "minCalories", out var minCalVal))
                                     {
                                         minCaloriesOverride = minCalVal;
                                     }
                                     
-                                    if (element.TryGetProperty("maxCalories", out var maxCalProp) && maxCalProp.TryGetInt32(out var maxCalVal))
+                                    if (maxCaloriesOverride == null && TryReadInt32(element, "maxCalories", out var maxCalVal))
                                     {
                                         maxCaloriesOverride = maxCalVal;
                                     }
@@ -253,11 +265,11 @@ namespace MenuGreen.API.Controllers
                         // 4. Default weekly/rest day fallback
                         if (resolvedCalories == null)
                         {
-                            if (isTrainingDay && root.TryGetProperty("trainingDayTargetCalories", out var trainCalProp) && trainCalProp.TryGetInt32(out var trainCal))
+                            if (isTrainingDay && TryReadInt32(root, "trainingDayTargetCalories", out var trainCal))
                             {
                                 resolvedCalories = trainCal;
                             }
-                            else if (!isTrainingDay && root.TryGetProperty("restDayTargetCalories", out var restCalProp) && restCalProp.TryGetInt32(out var restCal))
+                            else if (!isTrainingDay && TryReadInt32(root, "restDayTargetCalories", out var restCal))
                             {
                                 resolvedCalories = restCal;
                             }
@@ -268,12 +280,13 @@ namespace MenuGreen.API.Controllers
                             targetCalories = resolvedCalories.Value;
                         }
 
-                        // Apply global guardrails if not overridden
-                        if (minCaloriesOverride == null && root.TryGetProperty("minCalories", out var minCalPropGlobal) && minCalPropGlobal.TryGetInt32(out var minCalG))
+                        // A scoped calorie target is authoritative. Only use legacy/global
+                        // guardrails when the scoped configuration did not set a target.
+                        if (resolvedCalories == null && minCaloriesOverride == null && TryReadInt32(root, "minCalories", out var minCalG))
                         {
                             minCaloriesOverride = minCalG;
                         }
-                        if (maxCaloriesOverride == null && root.TryGetProperty("maxCalories", out var maxCalPropGlobal) && maxCalPropGlobal.TryGetInt32(out var maxCalG))
+                        if (resolvedCalories == null && maxCaloriesOverride == null && TryReadInt32(root, "maxCalories", out var maxCalG))
                         {
                             maxCaloriesOverride = maxCalG;
                         }
@@ -286,16 +299,45 @@ namespace MenuGreen.API.Controllers
                         {
                             targetCalories = maxCaloriesOverride.Value;
                         }
+
+                        hasApplicableConfiguration = foundConfig;
                     }
-                    catch { }
+                    catch (Exception ex) when (
+                        ex is JsonException || ex is InvalidOperationException
+                    )
+                    {
+                        hasApplicableConfiguration = false;
+                    }
                 }
             }
 
-            return Ok(await _dailyStarterService.GetRecommendationsAsync(userId, new RecommendationRequest
+            if (!hasApplicableConfiguration)
             {
-                TargetCalories = targetCalories > 0 ? targetCalories : null,
+                return Ok(new
+                {
+                    Date = planDate.ToString("yyyy-MM-dd"),
+                    HasConfiguration = false,
+                    TargetCalories = (int?)null,
+                    Items = Array.Empty<object>()
+                });
+            }
+
+            var items = await _dailyStarterService.GetRecommendationsAsync(userId, new RecommendationRequest
+            {
+                Date = planDate,
+                TargetCalories = targetCalories,
+                MinCalories = minCaloriesOverride,
+                MaxCalories = maxCaloriesOverride,
                 Top = top
-            }));
+            });
+
+            return Ok(new
+            {
+                Date = planDate.ToString("yyyy-MM-dd"),
+                HasConfiguration = true,
+                TargetCalories = targetCalories,
+                Items = items
+            });
         }
 
         /// <summary>
@@ -321,11 +363,11 @@ namespace MenuGreen.API.Controllers
                 {
                     using var preferences = System.Text.Json.JsonDocument.Parse(profile.Preferences);
                     var root = preferences.RootElement;
-                    if (root.TryGetProperty("targetWeightKg", out var targetWeight) && targetWeight.TryGetDecimal(out var parsedWeight))
+                    if (TryReadDecimal(root, "targetWeightKg", out var parsedWeight))
                     {
                         targetWeightKg = parsedWeight;
                     }
-                    if (root.TryGetProperty("targetBodyFatPercent", out var targetFat) && targetFat.TryGetDecimal(out var parsedFat))
+                    if (TryReadDecimal(root, "targetBodyFatPercent", out var parsedFat))
                     {
                         targetBodyFatPercent = parsedFat;
                     }
@@ -468,6 +510,30 @@ namespace MenuGreen.API.Controllers
             userId = Guid.Empty;
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Guid.TryParse(userIdString, out userId);
+        }
+
+        private static bool TryReadInt32(
+            JsonElement parent,
+            string propertyName,
+            out int value)
+        {
+            value = default;
+            return parent.ValueKind == JsonValueKind.Object
+                && parent.TryGetProperty(propertyName, out var property)
+                && property.ValueKind == JsonValueKind.Number
+                && property.TryGetInt32(out value);
+        }
+
+        private static bool TryReadDecimal(
+            JsonElement parent,
+            string propertyName,
+            out decimal value)
+        {
+            value = default;
+            return parent.ValueKind == JsonValueKind.Object
+                && parent.TryGetProperty(propertyName, out var property)
+                && property.ValueKind == JsonValueKind.Number
+                && property.TryGetDecimal(out value);
         }
     }
 

@@ -24,6 +24,32 @@ class AdvancedRepository {
   Future<List<Map<String, dynamic>>> ptRequests() async => _list(
     _body(await _api.get('${ApiEndpoints.baseUrl}/PtReview/my-requests')),
   );
+
+  // Phase 8: PersonalProgram (Coach -> Gymer)
+  Future<List<Map<String, dynamic>>> myPersonalPrograms() async => _list(
+    _body(
+      await _api.get('${ApiEndpoints.baseUrl}/PtReview/my-personal-programs'),
+    ),
+  );
+
+  Future<Map<String, dynamic>> acceptPersonalProgram(String id) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/PtReview/personal-programs/$id/accept',
+        {},
+      ),
+    ),
+  );
+
+  Future<Map<String, dynamic>> rejectPersonalProgram(String id) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/PtReview/personal-programs/$id/reject',
+        {},
+      ),
+    ),
+  );
+
   Future<Map<String, dynamic>> createPtReport(
     String weekStart,
     int expiry, {
@@ -202,28 +228,58 @@ class AdvancedRepository {
     ),
   );
 
-  Future<Map<String, dynamic>?> clientMealPlan(String clientId, String dateString) async {
+  Future<Map<String, dynamic>?> clientMealPlan(
+    String clientId,
+    String dateString,
+  ) async {
     final response = await _api.get(
       '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan?date=$dateString',
     );
-    if (response.statusCode == 404 || response.body.isEmpty || response.body == 'null') {
+    if (response.statusCode == 404 ||
+        response.body.isEmpty ||
+        response.body == 'null') {
       return null;
     }
     return _map(_body(response));
   }
 
-  Future<List<Map<String, dynamic>>> clientSuggestions(String clientId, {int? targetCalories, int? top}) async {
+  Future<List<Map<String, dynamic>>> clientSuggestions(
+    String clientId, {
+    DateTime? date,
+    int? targetCalories,
+    int? minCalories,
+    int? maxCalories,
+    int? top,
+  }) async {
     final params = <String, String>{};
+    if (date != null) params['date'] = _dateOnly(date);
     if (targetCalories != null) params['targetCalories'] = '$targetCalories';
+    if (minCalories != null) params['minCalories'] = '$minCalories';
+    if (maxCalories != null) params['maxCalories'] = '$maxCalories';
     if (top != null) params['top'] = '$top';
-    final uri = Uri.parse('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/suggestions')
-        .replace(queryParameters: params);
+    final uri = Uri.parse(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/suggestions',
+    ).replace(queryParameters: params);
     return _list(_body(await _api.get(uri.toString())));
   }
 
-  Future<List<Map<String, dynamic>>> clientReviewRequests(String clientId) async => _list(
+  Future<Map<String, dynamic>> clientGymConfig(
+    String clientId,
+    DateTime date,
+  ) async {
+    final uri = Uri.parse(
+      '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/gym-config',
+    ).replace(queryParameters: {'date': _dateOnly(date)});
+    return _map(_body(await _api.get(uri.toString())));
+  }
+
+  Future<List<Map<String, dynamic>>> clientReviewRequests(
+    String clientId,
+  ) async => _list(
     _body(
-      await _api.get('${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/review-requests'),
+      await _api.get(
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/review-requests',
+      ),
     ),
   );
 
@@ -329,7 +385,7 @@ class AdvancedRepository {
   ) async => _map(
     _body(
       await _api.putJson(
-        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plan/$planId',
         body,
       ),
     ),
@@ -339,16 +395,25 @@ class AdvancedRepository {
     String clientId,
     String planId, {
     String? notes,
+    int? minCalories,
+    int? maxCalories,
   }) async => _map(
     _body(
       await _api.postJson(
         '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId/submit',
-        {?notes == null ? null : 'notes': notes},
+        {
+          ?notes == null ? null : 'notes': notes,
+          ?minCalories == null ? null : 'minCalories': minCalories,
+          ?maxCalories == null ? null : 'maxCalories': maxCalories,
+        },
       ),
     ),
   );
 
-  Future<void> deleteClientMealPlan(String clientId, String planId) async => _body(
+  Future<void> deleteClientMealPlan(
+    String clientId,
+    String planId,
+  ) async => _body(
     await _api.delete(
       '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/meal-plans/$planId',
     ),

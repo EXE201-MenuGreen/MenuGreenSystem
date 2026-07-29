@@ -75,7 +75,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final provider = context.read<GymGoalsProvider>();
       await provider.loadProfile();
       if (!mounted) return;
-      await provider.loadPlan(top: 10);
+      await provider.loadPlan(date: DateTime.now(), top: 10);
       await _loadTodayPlan();
       await _checkPtRequestStatus();
     });
@@ -225,7 +225,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     color: AppColors.primary,
                     onRefresh: () async {
                       await provider.loadProfile();
-                      await provider.loadPlan(top: 10);
+                      await provider.loadPlan(date: DateTime.now(), top: 10);
                       await _loadTodayPlan();
                     },
                     child: ListView(
@@ -238,7 +238,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                             provider.profile?.goalMode ?? 'maintain',
                           ),
                           subtitle: _scheduleSummary(provider.profile),
-                          value: _calorieSummary(provider.profile),
+                          value: _calorieSummary(provider),
                           footnote:
                               'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
                           trailing: TextButton(
@@ -323,27 +323,44 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   String _scheduleSummary(GymGoalProfile? p) {
     if (p == null) return 'Đang tải cấu hình...';
+    final resolved = p.resolveForDate(DateTime.now());
+    if (resolved.scope == GymConfigurationScope.day) {
+      return resolved.isTraining ? 'Hôm nay: Tập luyện' : 'Hôm nay: Nghỉ ngơi';
+    }
     final schedule = p.weeklyTrainingSchedule.trim();
+    if (schedule.isEmpty && resolved.hasScopedConfiguration) {
+      final scopeLabel = resolved.scope == GymConfigurationScope.week
+          ? 'tuần này'
+          : 'tháng này';
+      return 'Đã thiết lập cấu hình $scopeLabel';
+    }
     if (schedule.isEmpty) return 'Chưa thiết lập lịch tập';
     return 'Ngày tập: $schedule'
         '${p.restDaysPerWeek != null ? ' • Nghỉ ${p.restDaysPerWeek} ngày/tuần' : ''}';
   }
 
-  String _calorieSummary(GymGoalProfile? p) {
+  String _calorieSummary(GymGoalsProvider provider) {
+    final p = provider.profile;
     if (p == null) return '—';
+    final resolved = p.resolveForDate(DateTime.now());
+    final target = provider.hasPlanConfiguration
+        ? provider.planTargetCalories ?? resolved.targetCalories
+        : resolved.targetCalories;
+    final min = resolved.minCalories;
+    final max = resolved.maxCalories;
+
+    final parts = <String>[
+      if (target != null) '$target kcal',
+      if (min != null && max != null) 'Khoảng $min–$max kcal',
+      if (min != null && max == null) 'Từ $min kcal',
+      if (min == null && max != null) 'Tối đa $max kcal',
+    ];
+    if (parts.isNotEmpty) return parts.join(' • ');
+
     final train = p.trainingDayTargetCalories;
     final rest = p.restDayTargetCalories;
     if (train == null && rest == null) return 'Chưa thiết lập';
     return 'Tập: ${train ?? '—'} kcal • Nghỉ: ${rest ?? '—'} kcal';
-  }
-
-  bool _hasGoalConfig(GymGoalProfile? p) {
-    if (p == null) return false;
-    return p.trainingDayTargetCalories != null ||
-        p.restDayTargetCalories != null ||
-        p.dailyDetails.isNotEmpty ||
-        p.weeklyDetails.isNotEmpty ||
-        p.monthlyDetails.isNotEmpty;
   }
 
   Widget _buildRecalibrateCard(GymGoalsProvider provider) {
@@ -435,7 +452,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    // Hiển thị items có origin = 'gym' hoặc null/empty (tương thích dữ liệu cũ)
     final gymItems =
         _todayPlan?.items
             .where(
@@ -450,7 +466,6 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner prompting user to initialize plan
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -473,9 +488,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.',
-                  style: TextStyle(
+                Text(
+                  provider.hasPlanConfiguration
+                      ? 'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.'
+                      : 'Hãy cấu hình Ngày, Tuần hoặc Tháng áp dụng cho hôm nay trước.',
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -483,7 +500,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                  onPressed: () => _initializePlanFromSuggestions(provider),
+                  onPressed: provider.hasPlanConfiguration
+                      ? () => _initializePlanFromSuggestions(provider)
+                      : () => _openEditor(context, provider.profile),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -495,159 +514,168 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  icon: const Icon(Icons.flash_on, size: 14),
-                  label: const Text(
-                    'Khởi tạo lộ trình',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  icon: Icon(
+                    provider.hasPlanConfiguration
+                        ? Icons.flash_on
+                        : Icons.settings_outlined,
+                    size: 14,
+                  ),
+                  label: Text(
+                    provider.hasPlanConfiguration
+                        ? 'Khởi tạo lộ trình'
+                        : 'Cấu hình hôm nay',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          if (_hasGoalConfig(provider.profile)) ...[
-            const SizedBox(height: 20),
-            const Text(
-              'Gợi ý thực đơn hôm nay từ AI:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+          const SizedBox(height: 20),
+          const Text(
+            'Gợi ý thực đơn hôm nay từ AI:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
-            const SizedBox(height: 10),
-            if (provider.planSuggestions.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.progressBackground),
-                ),
-                child: const Text(
-                  'Chưa có gợi ý thực đơn.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              )
-            else
-              Builder(
-                builder: (context) {
-                  final suggestions = provider.planSuggestions;
-                  const itemsPerPage = 5;
-                  final totalItems = suggestions.length;
-                  final totalPages = (totalItems / itemsPerPage).ceil();
+          ),
+          const SizedBox(height: 10),
+          if (provider.planSuggestions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.progressBackground),
+              ),
+              child: Text(
+                provider.hasPlanConfiguration
+                    ? 'Chưa có gợi ý thực đơn cho hôm nay.'
+                    : 'Hôm nay chưa có cấu hình Ngày, Tuần hoặc Tháng nên chưa tạo gợi ý.',
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Builder(
+              builder: (context) {
+                final suggestions = provider.planSuggestions;
+                const itemsPerPage = 5;
+                final totalItems = suggestions.length;
+                final totalPages = (totalItems / itemsPerPage).ceil();
 
-                  if (_suggestionPage >= totalPages) {
-                    _suggestionPage = (totalPages - 1)
-                        .clamp(0, totalItems)
-                        .toInt();
-                  }
+                if (_suggestionPage >= totalPages) {
+                  _suggestionPage = (totalPages - 1)
+                      .clamp(0, totalItems)
+                      .toInt();
+                }
 
-                  final startIndex = _suggestionPage * itemsPerPage;
-                  final endIndex = (startIndex + itemsPerPage).clamp(
-                    0,
-                    totalItems,
-                  );
-                  final currentPageItems = totalItems == 0
-                      ? []
-                      : suggestions.sublist(startIndex, endIndex);
+                final startIndex = _suggestionPage * itemsPerPage;
+                final endIndex = (startIndex + itemsPerPage).clamp(
+                  0,
+                  totalItems,
+                );
+                final currentPageItems = totalItems == 0
+                    ? []
+                    : suggestions.sublist(startIndex, endIndex);
 
-                  return Column(
-                    children: [
-                      for (final item in currentPageItems)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.progressBackground,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    item.type.toLowerCase().contains('recipe')
-                                        ? Icons.menu_book
-                                        : Icons.restaurant,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.name.isEmpty
-                                            ? 'Món gợi ý'
-                                            : item.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textDark,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                        'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                        'Điểm ${item.score.toStringAsFixed(1)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                return Column(
+                  children: [
+                    for (final item in currentPageItems)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.progressBackground,
                             ),
                           ),
-                        ),
-                      if (totalPages > 1) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              onPressed: _suggestionPage > 0
-                                  ? () => setState(() => _suggestionPage--)
-                                  : null,
-                              icon: const Icon(Icons.chevron_left),
-                            ),
-                            Text(
-                              'Trang ${_suggestionPage + 1} / $totalPages',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  item.type.toLowerCase().contains('recipe')
+                                      ? Icons.menu_book
+                                      : Icons.restaurant,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: _suggestionPage < totalPages - 1
-                                  ? () => setState(() => _suggestionPage++)
-                                  : null,
-                              icon: const Icon(Icons.chevron_right),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name.isEmpty
+                                          ? 'Món gợi ý'
+                                          : item.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                      'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                      'Điểm ${item.score.toStringAsFixed(1)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
+                    if (totalPages > 1) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _suggestionPage > 0
+                                ? () => setState(() => _suggestionPage--)
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text(
+                            'Trang ${_suggestionPage + 1} / $totalPages',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _suggestionPage < totalPages - 1
+                                ? () => setState(() => _suggestionPage++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
                     ],
-                  );
-                },
-              ),
-          ],
+                  ],
+                );
+              },
+            ),
         ],
       );
     }
@@ -805,304 +833,293 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ),
             ),
           ),
-        if (_hasGoalConfig(provider.profile)) ...[
-          const SizedBox(height: 32),
-          const Text(
-            'Danh sách món ăn gợi ý hôm nay từ AI:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+        const SizedBox(height: 32),
+        const Text(
+          'Danh sách món ăn gợi ý hôm nay từ AI:',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        if (provider.planSuggestions.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.progressBackground),
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          if (provider.planSuggestions.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.progressBackground),
-              ),
-              child: const Text(
-                'Chưa có gợi ý thực đơn.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            )
-          else
-            Builder(
-              builder: (context) {
-                // Chỉ check gym items để so sánh với suggestions
-                final gymItems =
-                    _todayPlan?.items
-                        .where(
-                          (x) =>
-                              x.origin == null ||
-                              x.origin!.isEmpty ||
-                              x.origin?.toLowerCase() == 'gym',
-                        )
-                        .toList() ??
-                    [];
-                final addedIds = gymItems
-                    .map(
-                      (x) =>
-                          (x.foodId ?? x.recipeId ?? '').trim().toLowerCase(),
-                    )
-                    .where((s) => s.isNotEmpty)
-                    .toSet();
+            child: const Text(
+              'Chưa có gợi ý thực đơn.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          Builder(
+            builder: (context) {
+              // Chỉ check gym items để so sánh với suggestions
+              final gymItems =
+                  _todayPlan?.items
+                      .where(
+                        (x) =>
+                            x.origin == null ||
+                            x.origin!.isEmpty ||
+                            x.origin?.toLowerCase() == 'gym',
+                      )
+                      .toList() ??
+                  [];
+              final addedIds = gymItems
+                  .map(
+                    (x) => (x.foodId ?? x.recipeId ?? '').trim().toLowerCase(),
+                  )
+                  .where((s) => s.isNotEmpty)
+                  .toSet();
 
-                debugPrint('GymGoals: gym items size = ${gymItems.length}');
-                for (final x in gymItems) {
-                  debugPrint(
-                    'GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}, origin=${x.origin}',
-                  );
-                }
-                debugPrint('GymGoals: addedIds: $addedIds');
-
-                final remainingSuggestions = provider.planSuggestions
-                    .where((x) => !addedIds.contains(x.id.trim().toLowerCase()))
-                    .toList();
-
+              debugPrint('GymGoals: gym items size = ${gymItems.length}');
+              for (final x in gymItems) {
                 debugPrint(
-                  'GymGoals: remainingSuggestions size = ${remainingSuggestions.length}',
+                  'GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}, origin=${x.origin}',
                 );
+              }
+              debugPrint('GymGoals: addedIds: $addedIds');
 
-                if (remainingSuggestions.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.progressBackground),
-                    ),
-                    child: const Text(
-                      'Đã thêm tất cả món gợi ý vào lộ trình hôm nay.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  );
-                }
+              final remainingSuggestions = provider.planSuggestions
+                  .where((x) => !addedIds.contains(x.id.trim().toLowerCase()))
+                  .toList();
 
-                const itemsPerPage = 5;
-                final totalItems = remainingSuggestions.length;
-                final totalPages = (totalItems / itemsPerPage).ceil();
+              debugPrint(
+                'GymGoals: remainingSuggestions size = ${remainingSuggestions.length}',
+              );
 
-                if (_activeSuggestionPage >= totalPages) {
-                  _activeSuggestionPage = (totalPages - 1)
-                      .clamp(0, totalItems)
-                      .toInt();
-                }
-
-                final startIndex = _activeSuggestionPage * itemsPerPage;
-                final endIndex = (startIndex + itemsPerPage).clamp(
-                  0,
-                  totalItems,
+              if (remainingSuggestions.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.progressBackground),
+                  ),
+                  child: const Text(
+                    'Đã thêm tất cả món gợi ý vào lộ trình hôm nay.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 );
-                final currentPageItems = totalItems == 0
-                    ? []
-                    : remainingSuggestions.sublist(startIndex, endIndex);
+              }
 
-                return Column(
-                  children: [
-                    for (final item in currentPageItems) ...[
-                      Builder(
-                        builder: (context) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.progressBackground,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.02),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+              const itemsPerPage = 5;
+              final totalItems = remainingSuggestions.length;
+              final totalPages = (totalItems / itemsPerPage).ceil();
+
+              if (_activeSuggestionPage >= totalPages) {
+                _activeSuggestionPage = (totalPages - 1)
+                    .clamp(0, totalItems)
+                    .toInt();
+              }
+
+              final startIndex = _activeSuggestionPage * itemsPerPage;
+              final endIndex = (startIndex + itemsPerPage).clamp(0, totalItems);
+              final currentPageItems = totalItems == 0
+                  ? []
+                  : remainingSuggestions.sublist(startIndex, endIndex);
+
+              return Column(
+                children: [
+                  for (final item in currentPageItems) ...[
+                    Builder(
+                      builder: (context) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.progressBackground,
                               ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () {
-                                    final bool isFood = !item.type
-                                        .toLowerCase()
-                                        .contains('recipe');
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => isFood
-                                            ? FoodDetailScreen(foodId: item.id)
-                                            : RecipeDetailScreen(
-                                                recipeId: item.id,
-                                              ),
-                                      ),
-                                    );
-                                  },
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary.withValues(
-                                              alpha: 0.12,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  final bool isFood = !item.type
+                                      .toLowerCase()
+                                      .contains('recipe');
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => isFood
+                                          ? FoodDetailScreen(foodId: item.id)
+                                          : RecipeDetailScreen(
+                                              recipeId: item.id,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            item.type.toLowerCase().contains(
-                                                  'recipe',
-                                                )
-                                                ? Icons.menu_book
-                                                : Icons.restaurant,
-                                            color: AppColors.primary,
-                                            size: 18,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.name.isEmpty
-                                                    ? 'Món gợi ý'
-                                                    : item.name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.textDark,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                                'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                                'Điểm ${item.score.toStringAsFixed(1)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        if (!_isSentToPt)
-                                          PopupMenuButton<String>(
-                                            icon: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primary
-                                                    .withValues(alpha: 0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Icons.add,
-                                                    size: 14,
-                                                    color: AppColors.primary,
-                                                  ),
-                                                  SizedBox(width: 2),
-                                                  Text(
-                                                    'Gán',
-                                                    style: TextStyle(
-                                                      color: AppColors.primary,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            onSelected: (mealType) =>
-                                                _addPlanItem(mealType, item),
-                                            itemBuilder: (context) => [
-                                              const PopupMenuItem(
-                                                value: 'breakfast',
-                                                child: Text('Bữa sáng'),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'lunch',
-                                                child: Text('Bữa trưa'),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'dinner',
-                                                child: Text('Bữa tối'),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'snack',
-                                                child: Text(
-                                                  'Bữa phụ / Ăn thêm',
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                      ],
                                     ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          item.type.toLowerCase().contains(
+                                                'recipe',
+                                              )
+                                              ? Icons.menu_book
+                                              : Icons.restaurant,
+                                          color: AppColors.primary,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.name.isEmpty
+                                                  ? 'Món gợi ý'
+                                                  : item.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textDark,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
+                                              'P ${item.proteinG.toStringAsFixed(0)}g • '
+                                              'Điểm ${item.score.toStringAsFixed(1)}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (!_isSentToPt)
+                                        PopupMenuButton<String>(
+                                          icon: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.add,
+                                                  size: 14,
+                                                  color: AppColors.primary,
+                                                ),
+                                                SizedBox(width: 2),
+                                                Text(
+                                                  'Gán',
+                                                  style: TextStyle(
+                                                    color: AppColors.primary,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          onSelected: (mealType) =>
+                                              _addPlanItem(mealType, item),
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'breakfast',
+                                              child: Text('Bữa sáng'),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'lunch',
+                                              child: Text('Bữa trưa'),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'dinner',
+                                              child: Text('Bữa tối'),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'snack',
+                                              child: Text('Bữa phụ / Ăn thêm'),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (totalPages > 1) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed: _activeSuggestionPage > 0
-                                ? () => setState(() => _activeSuggestionPage--)
-                                : null,
-                            icon: const Icon(Icons.chevron_left),
                           ),
-                          Text(
-                            'Trang ${_activeSuggestionPage + 1} / $totalPages',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _activeSuggestionPage < totalPages - 1
-                                ? () => setState(() => _activeSuggestionPage++)
-                                : null,
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ],
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ],
-                );
-              },
-            ),
-        ],
+                  if (totalPages > 1) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          onPressed: _activeSuggestionPage > 0
+                              ? () => setState(() => _activeSuggestionPage--)
+                              : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text(
+                          'Trang ${_activeSuggestionPage + 1} / $totalPages',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _activeSuggestionPage < totalPages - 1
+                              ? () => setState(() => _activeSuggestionPage++)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
       ],
     );
   }
@@ -1253,7 +1270,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           // Add button
-          if (_hasGoalConfig(provider.profile) && !_isSentToPt)
+          if (!_isSentToPt)
             Padding(
               padding: const EdgeInsets.all(8),
               child: TextButton.icon(
@@ -1314,18 +1331,25 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
-    if (!_hasGoalConfig(provider.profile) || provider.planSuggestions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Bạn chưa cấu hình mục tiêu Gym / PT. Vui lòng thiết lập trước.',
-          ),
-        ),
-      );
-      return;
-    }
     setState(() => _loadingPlan = true);
     try {
+      if (provider.planSuggestions.isEmpty) {
+        await provider.loadPlan(date: DateTime.now(), top: 10);
+      }
+
+      if (provider.planSuggestions.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Hệ thống đang chuẩn bị gợi ý món. Vui lòng thử lại sau ít giây.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final list = <Map<String, dynamic>>[];
       final shuffled = List<LocalRecommendationItem>.from(
         provider.planSuggestions,
@@ -1336,8 +1360,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       for (final s in shuffled) {
         if (assignedCount >= 4) break;
 
-        final idStr = s.id.toString();
-        if (usedIds.contains(idStr)) continue;
+        final idStr = s.id.trim();
+        if (idStr.isEmpty || usedIds.contains(idStr)) continue;
         usedIds.add(idStr);
 
         String mealType = 'breakfast';
@@ -1349,37 +1373,57 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           mealType = 'snack';
         }
 
+        final isRecipe = s.type.toLowerCase().contains('recipe');
+
         list.add({
           'mealType': mealType,
-          'foodId': s.type.toLowerCase().contains('recipe')
-              ? null
-              : s.id.toString(),
-          'recipeId': s.type.toLowerCase().contains('recipe')
-              ? s.id.toString()
-              : null,
-          'targetCalories': s.caloriesKcal.round(),
-          'origin': 'gym', // Tạo bởi AI Gym Goals
+          'foodId': isRecipe ? null : idStr,
+          'recipeId': isRecipe ? idStr : null,
+          'targetCalories': (s.caloriesKcal > 0 && s.caloriesKcal < 3000)
+              ? s.caloriesKcal.round()
+              : 400,
+          'origin': 'gym',
         });
 
         assignedCount++;
       }
 
+      if (list.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không tìm thấy món ăn hợp lệ để tạo lộ trình.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final targetCal = provider.planTargetCalories;
+      if (targetCal == null) {
+        throw StateError(
+          'Hôm nay chưa có cấu hình calo áp dụng. Vui lòng cấu hình trước.',
+        );
+      }
+
       await MealPlanRepository().createFromDailyMenu(
         plannedDate: DateTime.now(),
-        targetCalories: provider.profile?.trainingDayTargetCalories ?? 2000,
+        targetCalories: targetCal,
         items: list,
       );
       await _loadTodayPlan();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Khởi tạo lộ trình thành công!')),
+          const SnackBar(
+            content: Text('Khởi tạo lộ trình ăn uống thành công!'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi khởi tạo: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ApiMessageTranslator.translate(e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
@@ -1404,9 +1448,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi làm sạch lộ trình: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể làm sạch lộ trình. Vui lòng thử lại sau.'),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
@@ -1445,9 +1491,13 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         );
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi xóa món: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể xóa món ăn khỏi lộ trình. Vui lòng thử lại.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -1456,7 +1506,55 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     String mealType,
     LocalRecommendationItem item,
   ) async {
-    if (_todayPlan == null) return;
+    if (_todayPlan == null) {
+      final provider = context.read<GymGoalsProvider>();
+      final isRecipe = item.type.toLowerCase().contains('recipe');
+      final targetCal = provider.planTargetCalories;
+      if (targetCal == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Hôm nay chưa có cấu hình calo áp dụng. Vui lòng cấu hình trước.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      try {
+        await MealPlanRepository().createFromDailyMenu(
+          plannedDate: DateTime.now(),
+          targetCalories: targetCal,
+          items: [
+            {
+              'mealType': mealType,
+              'foodId': isRecipe ? null : item.id,
+              'recipeId': isRecipe ? item.id : null,
+              'targetCalories': item.caloriesKcal.round() > 0
+                  ? item.caloriesKcal.round()
+                  : 400,
+              'origin': 'gym',
+            },
+          ],
+        );
+        await _loadTodayPlan();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã thêm món ăn vào lộ trình.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ApiMessageTranslator.translate(e.toString())),
+            ),
+          );
+        }
+      }
+      return;
+    }
 
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final tempItem = MealPlanItemModel(
@@ -1503,9 +1601,13 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         _todayPlan!.items.removeWhere((x) => x.id == tempId);
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi thêm món: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể thêm món ăn vào lộ trình. Vui lòng thử lại.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -1617,9 +1719,13 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi gửi PT: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể gửi lộ trình cho HLV. Vui lòng thử lại sau.',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
@@ -1638,7 +1744,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final provider = context.read<GymGoalsProvider>();
       final ok = await provider.save(updated);
       if (!ok) return;
-      await provider.loadPlan(top: 10);
+      await provider.loadPlan(date: DateTime.now(), top: 10);
     }
   }
 }

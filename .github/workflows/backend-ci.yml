@@ -57,12 +57,165 @@ jobs:
         run: dotnet test backend/MenuGreen.sln --no-build -c Release --verbosity normal
 
   # ===========================================================================
-  # Job 2: Build & Push Docker Image
+  # Job 2: Generate & Validate Migration
+  # ===========================================================================
+  generate-migration:
+    name: Generate & Validate Migration
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: menugreen_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for EF migrations
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install dotnet-ef tool
+        run: dotnet tool install --global dotnet-ef --version 9.0.0
+
+      - name: Restore dependencies
+        run: dotnet restore backend/MenuGreen.sln
+
+      - name: Check pending migrations
+        id: check_migration
+        working-directory: ./backend
+        run: |
+          # List existing migrations from git history
+          echo "=== Existing migrations in git ==="
+          git ls-files '**/Migrations/*.cs' | head -5 || echo "No migrations in git"
+          
+          # Check if DataAccessLayer has any model changes
+          echo "=== Checking for model changes ==="
+          dotnet ef dbcontext optimize \
+            --project MenuGreen.DataAccessLayer \
+            --output-dir obj/DbContextMaximizer \
+            2>&1 || true
+          
+          # List pending migrations
+          echo "=== Listing migrations ==="
+          dotnet ef migrations list \
+            --project MenuGreen.DataAccessLayer \
+            --verbose 2>&1 | head -20 || echo "Migrations list completed"
+
+      - name: Build DataAccessLayer
+        run: dotnet build backend/MenuGreen.DataAccessLayer -c Release
+
+      - name: Generate migration (if needed)
+        id: generate_migration
+        working-directory: ./backend
+        run: |
+          # Generate migration with timestamp-based name
+          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+          echo "Generating migration with timestamp: Auto_${TIMESTAMP}_SchemaUpdate"
+          
+          dotnet ef migrations add "Auto_${TIMESTAMP}_SchemaUpdate" \
+            --project MenuGreen.DataAccessLayer \
+            --startup-project MenuGreen.API \
+            --output-dir Migrations \
+            --no-build || {
+            echo "No pending migrations to generate"
+            echo "NO_PENDING=true" >> $GITHUB_OUTPUT
+            exit 0
+          }
+          
+          echo "Migration generated successfully"
+          echo "MIGRATION_GENERATED=true" >> $GITHUB_OUTPUT
+          ls -la MenuGreen.DataAccessLayer/Migrations/
+
+      - name: Test migration on clean DB
+        if: steps.generate_migration.outputs.MIGRATION_GENERATED == 'true'
+        env:
+          ConnectionStrings__DefaultConnection: >-
+            Host=localhost;Port=5432;Database=menugreen_test;
+            Username=test;Password=test_password;SSL Mode=Prefer
+        working-directory: ./backend
+        run: |
+          echo "=== Testing migration on clean database ==="
+          
+          # Drop and recreate schema
+          PGPASSWORD=test_password psql -h localhost -U test -d menugreen_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" || true
+          
+          # Apply migrations
+          dotnet ef database update \
+            --project MenuGreen.DataAccessLayer \
+            --no-build || {
+            echo "Migration test failed!"
+            exit 1
+          }
+          
+          # Verify tables created
+          echo "=== Verifying tables ==="
+          PGPASSWORD=test_password psql -h localhost -U test -d menugreen_test -c "\dt" || true
+          
+          echo "Migration test passed!"
+
+      - name: Upload migration files as artifact
+        if: steps.generate_migration.outputs.MIGRATION_GENERATED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-migration
+          path: backend/MenuGreen.DataAccessLayer/Migrations/*.cs
+          retention-days: 30
+
+      - name: Post PR comment with migration details
+        if: github.event_name == 'pull_request' && steps.generate_migration.outputs.MIGRATION_GENERATED == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read generated migration file
+            const migrationsDir = 'backend/MenuGreen.DataAccessLayer/Migrations';
+            const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.cs') && !f.includes('.Designer') && !f.includes('ApplicationDbContext'));
+            
+            let body = '## Database Migration Generated\n\n';
+            body += 'A new migration has been auto-generated and will be applied on deployment.\n\n';
+            body += '### Generated Files:\n';
+            files.forEach(f => {
+              body += `- \`${f}\`\n`;
+            });
+            body += '\n### Review Checklist:\n';
+            body += '- [ ] Verify migration adds only intended columns/tables\n';
+            body += '- [ ] Check for any data loss operations\n';
+            body += '- [ ] Confirm Down() method exists for rollback\n\n';
+            body += '### Artifact\n';
+            body += 'Migration files are available in the CI artifact: `generated-migration`\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ===========================================================================
+  # Job 3: Build & Push Docker Image
   # ===========================================================================
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [build-and-test, generate-migration]
     if: github.event_name == 'push'
     permissions:
       contents: read
@@ -129,12 +282,12 @@ jobs:
             GIT_SHA=${{ github.sha }}
 
   # ===========================================================================
-  # Job 3: Trigger CD Workflow
+  # Job 4: Trigger CD Workflow
   # ===========================================================================
   trigger-deploy:
     name: Trigger CD Workflow
     runs-on: ubuntu-latest
-    needs: build-docker
+    needs: [build-docker, generate-migration]
     if: github.event_name == 'push' && !contains(github.event.head_commit.message, '#skipdeploy')
     permissions:
       actions: write

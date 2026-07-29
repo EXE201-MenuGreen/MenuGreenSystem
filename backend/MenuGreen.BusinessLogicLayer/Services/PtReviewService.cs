@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
@@ -15,23 +17,58 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPlannedVsActualService _plannedVsActualService;
         private readonly NotiServiceWrapper _notificationService;
+        private readonly ILogger<PtReviewService>? _logger;
 
         public PtReviewService(
             IUnitOfWork unitOfWork,
             IPlannedVsActualService plannedVsActualService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILogger<PtReviewService>? logger = null)
         {
             _unitOfWork = unitOfWork;
             _plannedVsActualService = plannedVsActualService;
             // Wrapped because INotificationService is injected and we can cast it
             _notificationService = new NotiServiceWrapper(notificationService);
+            _logger = logger;
         }
 
         public async Task<CreatePtReviewReportResponse> CreateReportAsync(Guid userId, CreatePtReviewReportRequest request)
         {
+            var requestType = string.IsNullOrWhiteSpace(request.RequestType)
+                ? "WeeklyReport"
+                : request.RequestType.Trim();
+            var isWeeklyReport = requestType.Equals(
+                "WeeklyReport",
+                StringComparison.OrdinalIgnoreCase);
+            var isRouteApproval = requestType.Equals(
+                "RouteApproval",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!isWeeklyReport && !isRouteApproval)
+            {
+                throw new Exception("Loại yêu cầu không hợp lệ.");
+            }
+
+            if (isWeeklyReport)
+            {
+                ValidateWeeklyReportWindow(request);
+
+                var sameWeekRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == userId && r.WeekStartDate == request.WeekStartDate);
+                if (sameWeekRequests.Any(r =>
+                    GetRequestType(r).Equals(
+                        "WeeklyReport",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new Exception(
+                        "Bạn đã gửi báo cáo cho tuần này. Mỗi tuần chỉ được gửi một báo cáo.");
+                }
+            }
+
             // 0. Check connection with PT
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
-                c.ClientId == userId && c.Status == "Connected");
+                c.ClientId == userId &&
+                (c.Status == "Connected" || c.Status == "Approved"));
             if (!connections.Any())
             {
                 throw new Exception("Bạn chưa Đăng ký kết nối với PT");
@@ -151,7 +188,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var snapshot = new WeeklyReportSnapshot
             {
-                RequestType = request.RequestType ?? "WeeklyReport",
+                RequestType = requestType,
                 WeekStartDate = weekStartDate,
                 StudentNote = request.StudentNote ?? string.Empty,
                 CheckInWeight = request.CheckInWeight,
@@ -188,19 +225,105 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.PtReviewRequests.AddAsync(ptReviewRequest);
             await _unitOfWork.CompleteAsync();
 
+            // Gửi notification cho PT và Gymer. Mỗi notification phải chạy độc
+            // lập với nhau để nếu một bên lỗi vẫn không ảnh hưởng bên còn lại.
+            // Trước đây toàn bộ khối đặt trong 1 try/catch lớn: khi gửi cho PT
+            // bị nuốt exception thì Gymer cũng không nhận được thông báo.
+            // FIX: tách 2 lần gửi, mỗi lần có try/atch riêng, đồng thời log lỗi
+            // để dễ truy vết (trước đây nuốt hoàn toàn không log).
+            string gymerName = "Học viên";
+            try
+            {
+                var gymerProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == userId)).FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(gymerProfile?.FullName))
+                {
+                    gymerName = gymerProfile!.FullName!;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "PtReview.CreateReport: cannot load gymer profile for userId={UserId}", userId);
+            }
+
+            // Tìm Coach (PT) đang Connected với Gymer này. Cố gắng lấy cả
+            // Status == "Connected" và "Approved" để phòng trường hợp seed data
+            // hoặc tích hợp khác dùng status khác.
+            Guid? coachId = null;
+            try
+            {
+                var connection = (await _unitOfWork.CoachConnections.FindAsync(c =>
+                    c.ClientId == userId &&
+                    (c.Status == "Connected" || c.Status == "Approved"))).FirstOrDefault();
+                if (connection != null && connection.CoachId != Guid.Empty)
+                {
+                    coachId = connection.CoachId;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "PtReview.CreateReport: cannot load coach connection for userId={UserId}", userId);
+            }
+
+            // 1) Gửi notification cho PT/Coach.
+            if (coachId.HasValue)
+            {
+                try
+                {
+                    await _notificationService.SendAsync(new NotificationSendRequest
+                    {
+                        UserId = coachId.Value,
+                        Type = isWeeklyReport
+                            ? "weekly_report_submitted"
+                            : "pt_review_request",
+                        Title = isWeeklyReport
+                            ? "Báo cáo tuần mới từ học viên"
+                            : "Yêu cầu duyệt lộ trình từ học viên",
+                        Body = isWeeklyReport
+                            ? $"Học viên {gymerName} vừa gửi báo cáo tuần. Hãy xem các chỉ số và gửi đánh giá."
+                            : $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
+                        ActionUrl = isWeeklyReport
+                            ? $"coach_weekly_report:{reportId}"
+                            : null,
+                        ScheduledAt = null
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "PtReview.CreateReport: failed to send notification to coach {CoachId}", coachId);
+                    // Không throw - để Gymer vẫn nhận được notification bên dưới.
+                }
+            }
+            else
+            {
+                _logger?.LogWarning(
+                    "PtReview.CreateReport: Gymer {UserId} chưa có Connected Coach — bỏ qua notification cho PT",
+                    userId);
+            }
+
+            // 2) Gửi notification cho Gymer (luôn luôn chạy).
             try
             {
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = userId,
-                    Type = "PT_REVIEW_SUBMITTED",
-                    Title = "Đã gửi lộ trình cho PT",
-                    Body = "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi."
+                    Type = isWeeklyReport
+                        ? "weekly_report_pending"
+                        : "PT_REVIEW_SUBMITTED",
+                    Title = isWeeklyReport
+                        ? "Đã gửi báo cáo tuần cho PT"
+                        : "Đã gửi lộ trình cho PT",
+                    Body = isWeeklyReport
+                        ? "Báo cáo tuần đã được gửi thành công. Trạng thái hiện tại: Chờ PT đánh giá."
+                        : "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi.",
+                    ActionUrl = isWeeklyReport
+                        ? $"gymer_weekly_report:{reportId}"
+                        : null,
+                    ScheduledAt = null
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Silence notification failure
+                _logger?.LogError(ex, "PtReview.CreateReport: failed to send notification to gymer {UserId}", userId);
             }
 
             var shareLink = $"https://menugreen.vn/shared-report/{token}";
@@ -210,7 +333,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ReportId = reportId,
                 ShareLink = shareLink,
                 Token = token,
-                ExpiresAt = expiresAt
+                ExpiresAt = expiresAt,
+                WeekStartDate = weekStartDate,
+                RequestType = requestType,
+                Status = ptReviewRequest.Status,
+                CreatedAt = ptReviewRequest.CreatedAt
             };
         }
 
@@ -398,11 +525,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = requestEntity.UserId,
-                    Type = isRouteApproval ? "PT_ROUTE_APPROVAL" : "PT_REVIEW",
-                    Title = isRouteApproval ? "Lộ trình dinh dưỡng đã được duyệt" : "Feedback from your coach",
+                    Type = isRouteApproval
+                        ? "PT_ROUTE_APPROVAL"
+                        : "weekly_report_reviewed",
+                    Title = isRouteApproval
+                        ? "Lộ trình dinh dưỡng đã được duyệt"
+                        : "PT đã đánh giá báo cáo tuần",
                     Body = isRouteApproval 
                         ? "PT đã duyệt lộ trình dinh dưỡng của bạn. Hãy kiểm tra và áp dụng mục tiêu mới!" 
-                        : "Your PT has sent feedback for your weekly report. Check it out and update your nutrition plan!"
+                        : "PT đã gửi nhận xét và mục tiêu điều chỉnh. Hãy xem báo cáo để cập nhật kế hoạch.",
+                    ActionUrl = isRouteApproval
+                        ? $"gymer_route_approval:{requestEntity.Id}"
+                        : $"gymer_weekly_report:{requestEntity.Id}"
                 });
             }
             catch
@@ -723,6 +857,527 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
+        // ====================================================================
+        // Phase 8: Coach -> Gymer (PersonalProgram direction)
+        // ====================================================================
+
+        public async Task<CreatePersonalProgramResponse> CreatePersonalProgramAsync(Guid coachId, CreatePersonalProgramRequest request)
+        {
+            // 1. Validate coach has Connected relationship with client.
+            var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
+                c.ClientId == request.ClientId
+                && c.CoachId == coachId
+                && c.Status == "Connected");
+            if (!connections.Any())
+            {
+                throw new Exception("You are not connected with this client.");
+            }
+            if (
+                request.MinCalories.HasValue
+                && request.MaxCalories.HasValue
+                && request.MinCalories.Value > request.MaxCalories.Value
+            )
+            {
+                throw new Exception("Calo tối thiểu không được lớn hơn calo tối đa.");
+            }
+
+            // 2. Check no pending program exists for this client (DB enforces via partial unique index too).
+            var existing = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == request.ClientId
+                && r.CreatedByRole == "Coach"
+                && r.Status == "Pending")).FirstOrDefault();
+            if (existing != null)
+            {
+                throw new Exception("Client already has a pending personal program. Please wait for them to respond before sending a new one.");
+            }
+
+            // 3. Validate client exists.
+            var client = await _unitOfWork.Users.GetByIdAsync(request.ClientId)
+                ?? throw new Exception("Client does not exist.");
+
+            MealPlanHeader? mealPlan = null;
+            if (request.MealPlanId.HasValue)
+            {
+                mealPlan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(
+                    request.MealPlanId.Value
+                );
+                if (mealPlan == null || mealPlan.UserId != request.ClientId)
+                {
+                    throw new Exception("Lộ trình món ăn không tồn tại.");
+                }
+                if (!mealPlan.IsActive)
+                {
+                    throw new Exception("Lộ trình món ăn đã ngừng hoạt động.");
+                }
+            }
+
+            // 4. Build snapshot JSON with all program data.
+            var snapshot = new PersonalProgramSnapshot
+            {
+                Title = request.Title,
+                Description = request.Description ?? string.Empty,
+                DurationWeeks = request.DurationWeeks,
+                WeekStartDate = request.WeekStartDate,
+                TargetCaloriesDaily = request.TargetCaloriesDaily,
+                MinCalories = request.MinCalories,
+                MaxCalories = request.MaxCalories,
+                TargetProteinG = request.TargetProteinG,
+                TargetCarbsG = request.TargetCarbsG,
+                TargetFatG = request.TargetFatG,
+                CoachComment = request.CoachComment ?? string.Empty,
+                SuggestedChanges = request.SuggestedChanges ?? new List<PtSuggestedChangeDto>(),
+                MealPlanId = request.MealPlanId,
+                PlanType = request.PlanType ?? mealPlan?.PlanType ?? "DAILY",
+                StartDate = request.StartDate ?? mealPlan?.StartDate ?? request.WeekStartDate,
+                EndDate = request.EndDate ?? mealPlan?.EndDate ?? request.WeekStartDate,
+                Meals = request.Meals ?? new List<PersonalProgramMealDto>()
+            };
+
+            // 5. Create PtReviewRequest row with CreatedByRole = "Coach".
+            var programId = Guid.NewGuid();
+            var now = DateTime.UtcNow;
+            var programEntity = new PtReviewRequest
+            {
+                Id = programId,
+                UserId = request.ClientId,
+                WeekStartDate = request.WeekStartDate,
+                ReviewToken = Guid.NewGuid().ToString("N"),
+                ExpiresAt = DateTime.UtcNow.AddDays(30),
+                Status = "Pending",
+                CreatedAt = now,
+                CreatedByRole = "Coach",
+                ReportDataJson = System.Text.Json.JsonSerializer.Serialize(snapshot, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                }),
+                PtComment = request.CoachComment,
+                SuggestedCalorieTarget = request.TargetCaloriesDaily,
+                SuggestedProteinTarget = request.TargetProteinG,
+                SuggestedCarbsTarget = request.TargetCarbsG,
+                SuggestedFatTarget = request.TargetFatG,
+                SuggestedChangesJson = System.Text.Json.JsonSerializer.Serialize(request.SuggestedChanges ?? new List<PtSuggestedChangeDto>(), new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                })
+            };
+
+            await _unitOfWork.PtReviewRequests.AddAsync(programEntity);
+            if (mealPlan != null)
+            {
+                mealPlan.GeneratedBy = "COACH";
+                mealPlan.Status = "PendingAcceptance";
+                mealPlan.ApprovedAt = null;
+                mealPlan.UpdatedAt = now;
+                _unitOfWork.MealPlanHeaders.Update(mealPlan);
+            }
+            await _unitOfWork.CompleteAsync();
+
+            // 6. Notify the Gymer.
+            try
+            {
+                await _notificationService.SendAsync(new NotificationSendRequest
+                {
+                    UserId = request.ClientId,
+                    Type = "COACH_PERSONAL_PROGRAM",
+                    Title = "PT đã gửi lộ trình cá nhân",
+                    Body = $"PT vừa gửi lộ trình \"{request.Title}\" ({request.DurationWeeks} tuần). Mở tab \"PT gửi tôi\" để xem chi tiết và chấp nhận.",
+                    ActionUrl = $"gymer_personal_program:{programId}"
+                });
+            }
+            catch
+            {
+                // Silence notification failure - PersonalProgram creation must not depend on notifications.
+            }
+
+            return new CreatePersonalProgramResponse
+            {
+                ProgramId = programId,
+                ClientId = request.ClientId,
+                CreatedAt = programEntity.CreatedAt
+            };
+        }
+
+        public async Task<PersonalProgramResponse> AcceptPersonalProgramAsync(Guid gymerId, Guid requestId)
+        {
+            var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
+                ?? throw new Exception("Personal program does not exist.");
+
+            if (requestEntity.UserId != gymerId)
+            {
+                throw new Exception("Access denied.");
+            }
+
+            if (requestEntity.CreatedByRole != "Coach")
+            {
+                throw new Exception("This request was not sent by your coach.");
+            }
+
+            if (requestEntity.Status != "Pending")
+            {
+                throw new Exception("Personal program has already been processed.");
+            }
+
+            var now = DateTime.UtcNow;
+            var snapshot = TryParsePersonalProgramSnapshot(requestEntity.ReportDataJson);
+
+            // Mark as Accepted.
+            requestEntity.Status = "Accepted";
+            requestEntity.AcceptedAt = now;
+            requestEntity.AcceptedByUserId = gymerId;
+            requestEntity.ActionedAt = now;
+            _unitOfWork.PtReviewRequests.Update(requestEntity);
+
+            if (snapshot?.MealPlanId != null)
+            {
+                var mealPlan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(
+                    snapshot.MealPlanId.Value
+                );
+                if (mealPlan == null || mealPlan.UserId != gymerId)
+                {
+                    throw new Exception("Lộ trình món ăn đính kèm không tồn tại.");
+                }
+
+                mealPlan.Status = "Approved";
+                mealPlan.ApprovedAt = now;
+                mealPlan.UpdatedAt = now;
+                _unitOfWork.MealPlanHeaders.Update(mealPlan);
+
+                await ApplyScopedGymConfigurationAsync(
+                    gymerId,
+                    snapshot,
+                    requestEntity.PtComment
+                );
+            }
+            else
+            {
+                // Backward compatibility for legacy PersonalPrograms that only
+                // contained general macro targets and no concrete meal plan.
+                var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(
+                    hp => hp.UserId == gymerId
+                );
+                var healthProfile = healthProfiles.FirstOrDefault();
+                if (healthProfile != null && requestEntity.SuggestedCalorieTarget.HasValue)
+                {
+                    healthProfile.TargetCalories = requestEntity.SuggestedCalorieTarget.Value;
+                    if (requestEntity.SuggestedProteinTarget.HasValue)
+                        healthProfile.TargetProteinG = requestEntity.SuggestedProteinTarget.Value;
+                    if (requestEntity.SuggestedCarbsTarget.HasValue)
+                        healthProfile.TargetCarbsG = requestEntity.SuggestedCarbsTarget.Value;
+                    if (requestEntity.SuggestedFatTarget.HasValue)
+                        healthProfile.TargetFatG = requestEntity.SuggestedFatTarget.Value;
+                    _unitOfWork.HealthProfiles.Update(healthProfile);
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+
+            return await BuildPersonalProgramResponseAsync(requestEntity);
+        }
+
+        public async Task<PersonalProgramResponse> RejectPersonalProgramAsync(
+            Guid gymerId,
+            Guid requestId)
+        {
+            var requestEntity = await _unitOfWork.PtReviewRequests.GetByIdAsync(requestId)
+                ?? throw new Exception("Personal program does not exist.");
+
+            if (requestEntity.UserId != gymerId)
+            {
+                throw new Exception("Access denied.");
+            }
+            if (requestEntity.CreatedByRole != "Coach")
+            {
+                throw new Exception("This request was not sent by your coach.");
+            }
+            if (requestEntity.Status != "Pending")
+            {
+                throw new Exception("Personal program has already been processed.");
+            }
+
+            var now = DateTime.UtcNow;
+            requestEntity.Status = "Rejected";
+            requestEntity.ActionedAt = now;
+            _unitOfWork.PtReviewRequests.Update(requestEntity);
+
+            var snapshot = TryParsePersonalProgramSnapshot(requestEntity.ReportDataJson);
+            if (snapshot?.MealPlanId != null)
+            {
+                var mealPlan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(
+                    snapshot.MealPlanId.Value
+                );
+                if (mealPlan != null && mealPlan.UserId == gymerId)
+                {
+                    mealPlan.Status = "Rejected";
+                    mealPlan.ApprovedAt = null;
+                    mealPlan.UpdatedAt = now;
+                    _unitOfWork.MealPlanHeaders.Update(mealPlan);
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+            return await BuildPersonalProgramResponseAsync(requestEntity);
+        }
+
+        public async Task<IEnumerable<PersonalProgramResponse>> GetMyPersonalProgramsAsync(Guid gymerId)
+        {
+            var requests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == gymerId && r.CreatedByRole == "Coach"))
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            var list = new List<PersonalProgramResponse>();
+            foreach (var req in requests)
+            {
+                list.Add(await BuildPersonalProgramResponseAsync(req));
+            }
+            return list;
+        }
+
+        public async Task<IEnumerable<CoachSentProgramResponse>> GetCoachSentProgramsAsync(Guid coachId, Guid? clientId)
+        {
+            var requests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.CreatedByRole == "Coach"
+                && (clientId == null || r.UserId == clientId.Value)))
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+
+            // Filter to only those sent by this coach (validate connection).
+            var filtered = new List<PtReviewRequest>();
+            foreach (var req in requests)
+            {
+                var hasConnection = (await _unitOfWork.CoachConnections.FindAsync(c =>
+                    c.ClientId == req.UserId && c.CoachId == coachId && c.Status == "Connected")).Any();
+                if (hasConnection)
+                {
+                    filtered.Add(req);
+                }
+            }
+
+            var list = new List<CoachSentProgramResponse>();
+            foreach (var req in filtered)
+            {
+                var client = await _unitOfWork.Users.GetByIdAsync(req.UserId);
+                var profile = await _unitOfWork.Profiles.GetByIdAsync(req.UserId);
+                var snapshot = TryParsePersonalProgramSnapshot(req.ReportDataJson);
+
+                list.Add(new CoachSentProgramResponse
+                {
+                    Id = req.Id,
+                    ClientId = req.UserId,
+                    ClientName = profile?.FullName ?? client?.Email ?? "Client",
+                    Title = snapshot?.Title ?? "Personal program",
+                    Description = snapshot?.Description,
+                    DurationWeeks = snapshot?.DurationWeeks ?? 0,
+                    WeekStartDate = req.WeekStartDate,
+                    TargetCaloriesDaily = snapshot?.TargetCaloriesDaily ?? 0,
+                    MinCalories = snapshot?.MinCalories,
+                    MaxCalories = snapshot?.MaxCalories,
+                    TargetProteinG = snapshot?.TargetProteinG ?? 0,
+                    TargetCarbsG = snapshot?.TargetCarbsG ?? 0,
+                    TargetFatG = snapshot?.TargetFatG ?? 0,
+                    Status = req.Status,
+                    CreatedAt = req.CreatedAt,
+                    AcceptedAt = req.AcceptedAt,
+                    MealPlanId = snapshot?.MealPlanId,
+                    PlanType = snapshot?.PlanType ?? "DAILY",
+                    StartDate = snapshot?.StartDate ?? req.WeekStartDate,
+                    EndDate = snapshot?.EndDate ?? req.WeekStartDate,
+                    MealCount = snapshot?.Meals.Count ?? 0
+                });
+            }
+            return list;
+        }
+
+        private async Task ApplyScopedGymConfigurationAsync(
+            Guid gymerId,
+            PersonalProgramSnapshot snapshot,
+            string? coachComment)
+        {
+            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(
+                profile => profile.UserId == gymerId
+            )).FirstOrDefault();
+
+            JsonObject preferences;
+            try
+            {
+                preferences = string.IsNullOrWhiteSpace(aiProfile?.Preferences)
+                    ? new JsonObject()
+                    : JsonNode.Parse(aiProfile.Preferences!) as JsonObject
+                        ?? new JsonObject();
+            }
+            catch
+            {
+                preferences = new JsonObject();
+            }
+
+            var planType = (snapshot.PlanType ?? "DAILY").Trim().ToUpperInvariant();
+            var startDate = snapshot.StartDate == default
+                ? snapshot.WeekStartDate
+                : snapshot.StartDate;
+
+            string arrayName;
+            string keyName;
+            string keyValue;
+            if (planType == "MONTHLY")
+            {
+                arrayName = "monthlyDetails";
+                keyName = "monthString";
+                keyValue = startDate.ToString("yyyy-MM");
+            }
+            else if (planType == "WEEKLY")
+            {
+                arrayName = "weeklyDetails";
+                keyName = "weekStartDateString";
+                keyValue = startDate.ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                arrayName = "dailyDetails";
+                keyName = "dateString";
+                keyValue = startDate.ToString("yyyy-MM-dd");
+            }
+
+            var details = preferences[arrayName] as JsonArray;
+            if (details == null)
+            {
+                details = new JsonArray();
+                preferences[arrayName] = details;
+            }
+
+            JsonObject? detail = null;
+            foreach (var node in details)
+            {
+                if (
+                    node is JsonObject candidate
+                    && candidate[keyName]?.GetValue<string>() == keyValue
+                )
+                {
+                    detail = candidate;
+                    break;
+                }
+            }
+
+            if (detail == null)
+            {
+                detail = new JsonObject { [keyName] = keyValue };
+                details.Add(detail);
+            }
+
+            detail["customCalories"] = snapshot.TargetCaloriesDaily;
+            if (snapshot.MinCalories.HasValue)
+            {
+                detail["minCalories"] = snapshot.MinCalories.Value;
+            }
+            if (snapshot.MaxCalories.HasValue)
+            {
+                detail["maxCalories"] = snapshot.MaxCalories.Value;
+            }
+            if (!string.IsNullOrWhiteSpace(coachComment))
+            {
+                detail["customNotes"] = coachComment.Trim();
+            }
+
+            if (planType == "DAILY" && detail["isTraining"] == null)
+            {
+                var schedule =
+                    preferences["weeklyTrainingSchedule"]?.GetValue<string>()
+                    ?? string.Empty;
+                detail["dayOfWeek"] = startDate.DayOfWeek.ToString();
+                detail["isTraining"] = schedule
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(day => day.Trim())
+                    .Contains(
+                        startDate.DayOfWeek.ToString(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+            }
+
+            if (aiProfile == null)
+            {
+                aiProfile = new UserAiProfile
+                {
+                    UserId = gymerId,
+                    Preferences = preferences.ToJsonString(),
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.UserAiProfiles.AddAsync(aiProfile);
+            }
+            else
+            {
+                aiProfile.Preferences = preferences.ToJsonString();
+                aiProfile.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.UserAiProfiles.Update(aiProfile);
+            }
+        }
+
+        private async Task<PersonalProgramResponse> BuildPersonalProgramResponseAsync(PtReviewRequest req)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(req.UserId);
+            var profile = await _unitOfWork.Profiles.GetByIdAsync(req.UserId);
+            var snapshot = TryParsePersonalProgramSnapshot(req.ReportDataJson);
+
+            return new PersonalProgramResponse
+            {
+                Id = req.Id,
+                ClientId = req.UserId,
+                ClientName = profile?.FullName ?? user?.Email ?? "Client",
+                Title = snapshot?.Title ?? "Personal program",
+                Description = snapshot?.Description,
+                DurationWeeks = snapshot?.DurationWeeks ?? 0,
+                WeekStartDate = req.WeekStartDate,
+                TargetCaloriesDaily = snapshot?.TargetCaloriesDaily ?? 0,
+                MinCalories = snapshot?.MinCalories,
+                MaxCalories = snapshot?.MaxCalories,
+                TargetProteinG = snapshot?.TargetProteinG ?? 0,
+                TargetCarbsG = snapshot?.TargetCarbsG ?? 0,
+                TargetFatG = snapshot?.TargetFatG ?? 0,
+                CoachComment = req.PtComment,
+                SuggestedChanges = ParseSuggestedChanges(req.SuggestedChangesJson),
+                MealPlanId = snapshot?.MealPlanId,
+                PlanType = snapshot?.PlanType ?? "DAILY",
+                StartDate = snapshot?.StartDate ?? req.WeekStartDate,
+                EndDate = snapshot?.EndDate ?? req.WeekStartDate,
+                Meals = snapshot?.Meals ?? new List<PersonalProgramMealDto>(),
+                Status = req.Status,
+                CreatedAt = req.CreatedAt,
+                AcceptedAt = req.AcceptedAt
+            };
+        }
+
+        private static PersonalProgramSnapshot? TryParsePersonalProgramSnapshot(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<PersonalProgramSnapshot>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static List<PtSuggestedChangeDto> ParseSuggestedChanges(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return new();
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<PtSuggestedChangeDto>>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                }) ?? new();
+            }
+            catch
+            {
+                return new();
+            }
+        }
+
         private static DateOnly? GetTargetDate(DateOnly nextWeekStartDate, string dayOfWeekStr)
         {
             var cleanStr = (dayOfWeekStr ?? string.Empty).Trim().ToLowerInvariant();
@@ -740,6 +1395,64 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 return nextWeekStartDate.AddDays(offset);
             }
             return null;
+        }
+
+        private static void ValidateWeeklyReportWindow(
+            CreatePtReviewReportRequest request)
+        {
+            // Vietnam does not observe daylight saving time, so UTC+7 is
+            // deterministic on both Windows and Linux deployments.
+            var vietnamToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            if (vietnamToday.DayOfWeek != DayOfWeek.Sunday)
+            {
+                throw new Exception(
+                    "Báo cáo tuần chỉ được tạo vào Chủ nhật sau khi tuần đã kết thúc.");
+            }
+
+            var expectedWeekStart = vietnamToday.AddDays(-6);
+            if (request.WeekStartDate != expectedWeekStart)
+            {
+                throw new Exception(
+                    $"Ngày bắt đầu tuần phải là Thứ hai {expectedWeekStart:dd/MM/yyyy}.");
+            }
+
+            if (!request.CheckInWeight.HasValue)
+            {
+                throw new Exception("Vui lòng nhập cân nặng hiện tại.");
+            }
+
+            if (!request.TrainingDaysCount.HasValue)
+            {
+                throw new Exception("Vui lòng chọn số buổi đã tập trong tuần.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.BodyFeeling))
+            {
+                throw new Exception("Vui lòng chọn cảm nhận thể trạng.");
+            }
+        }
+
+        private static string GetRequestType(PtReviewRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ReportDataJson))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(
+                    request.ReportDataJson);
+                return document.RootElement.TryGetProperty(
+                    "requestType",
+                    out var property)
+                    ? property.GetString() ?? string.Empty
+                    : string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         private static string NormalizeMealType(string mealType)
@@ -770,6 +1483,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Type = request.Type,
                 Title = request.Title,
                 Body = request.Body,
+                ActionUrl = request.ActionUrl,
                 ScheduledAt = null
             };
             await _service.SendAsync(mapped);
@@ -792,6 +1506,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public DriftAnalysisResponse DriftAnalysis { get; set; } = new();
         public List<WeightLogSnapshot> WeightLogs { get; set; } = new();
         public List<DailyMealsSnapshot> DailyMeals { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Phase 8: Snapshot JSON for PersonalProgram (Coach -> Gymer direction).
+    /// </summary>
+    public class PersonalProgramSnapshot
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int DurationWeeks { get; set; }
+        public DateOnly WeekStartDate { get; set; }
+        public int TargetCaloriesDaily { get; set; }
+        public int? MinCalories { get; set; }
+        public int? MaxCalories { get; set; }
+        public int TargetProteinG { get; set; }
+        public int TargetCarbsG { get; set; }
+        public int TargetFatG { get; set; }
+        public string CoachComment { get; set; } = string.Empty;
+        public List<PtSuggestedChangeDto> SuggestedChanges { get; set; } = new();
+        public Guid? MealPlanId { get; set; }
+        public string PlanType { get; set; } = "DAILY";
+        public DateOnly StartDate { get; set; }
+        public DateOnly EndDate { get; set; }
+        public List<PersonalProgramMealDto> Meals { get; set; } = new();
     }
 
     public class HealthProfileSnapshot

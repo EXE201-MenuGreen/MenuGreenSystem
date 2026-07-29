@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../models/food_models.dart';
+import '../providers/favorite_food_provider.dart';
 import '../providers/recommendation_provider.dart';
 import '../widgets/recommendation_card.dart';
 import 'recommendation_detail_screen.dart';
@@ -14,6 +17,12 @@ class BudgetAwareScreen extends StatefulWidget {
 
 class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
   final _provider = RecommendationProvider();
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<FavoriteFoodProvider>().load();
+  }
 
   String? _selectedMealType;
   int _maxBudgetVnd = 100000;
@@ -38,9 +47,7 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
         elevation: 0,
         foregroundColor: AppColors.textDark,
       ),
-      body: _provider.budgetPlan == null
-          ? _buildConfigForm()
-          : _buildResult(),
+      body: _provider.budgetPlan == null ? _buildConfigForm() : _buildResult(),
     );
   }
 
@@ -61,10 +68,7 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
               children: [
                 const Text(
                   'Ngân sách tối đa',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -92,11 +96,17 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
                   children: [
                     Text(
                       '20K',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                     Text(
                       '500K',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -118,10 +128,7 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
               children: [
                 const Text(
                   'Bữa ăn',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -225,7 +232,10 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.search),
             label: Text(_provider.isGenerating ? 'Đang tìm...' : 'Tìm gợi ý'),
@@ -305,25 +315,43 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
         const SizedBox(height: 24),
         const Text(
           'Gợi ý tiết kiệm',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ...plan.items.map((item) => RecommendationCard(
+        ...plan.items.map(
+          (item) => Consumer<FavoriteFoodProvider>(
+            builder: (context, favorites, _) => RecommendationCard(
               item: item,
+              isFavorite: item.isFood && favorites.isFavorite(item.id),
+              isFavoriteBusy: favorites.isMutating(item.id),
+              onFavorite: item.isFood
+                  ? () async {
+                      final result = await favorites.toggle(
+                        FavoriteFoodItem.fromRecommendation(item),
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result.message),
+                          backgroundColor: result.isSuccess
+                              ? AppColors.primary
+                              : Colors.red.shade700,
+                        ),
+                      );
+                    }
+                  : null,
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => RecommendationDetailScreen(
-                      recommendationItem: item,
-                    ),
+                    builder: (_) =>
+                        RecommendationDetailScreen(recommendationItem: item),
                   ),
                 );
               },
-            )),
+            ),
+          ),
+        ),
         const SizedBox(height: 24),
         Row(
           children: [
@@ -362,9 +390,9 @@ class _BudgetAwareScreenState extends State<BudgetAwareScreen> {
     if (!mounted) return;
     setState(() {});
     if (_provider.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: ${_provider.error}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi: ${_provider.error}')));
     }
   }
 

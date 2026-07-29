@@ -240,7 +240,7 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã sao chép $label'),
+        content: Text('Đã sao chép $label thành công'),
         backgroundColor: AppColors.primary,
         duration: const Duration(seconds: 2),
       ),

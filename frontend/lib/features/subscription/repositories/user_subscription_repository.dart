@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/jwt_utils.dart';
@@ -220,14 +221,7 @@ class UserSubscriptionRepository {
   }
 
   String _extractErrorMessage(String body) {
-    if (body.isEmpty) return 'Yêu cầu thất bại';
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        final message = decoded['message'] ?? decoded['Message'];
-        if (message != null) return message.toString();
-      }
-    } catch (_) {}
-    return 'Yêu cầu thất bại';
+    if (body.isEmpty) return 'Thao tác thất bại. Vui lòng thử lại sau.';
+    return ApiMessageTranslator.translate(body);
   }
 }
