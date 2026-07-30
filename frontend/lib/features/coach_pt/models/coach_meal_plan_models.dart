@@ -31,6 +31,9 @@ class CoachMealPlanListItem {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.coachId,
     this.coachName,
     this.totalCalories,
@@ -47,6 +50,9 @@ class CoachMealPlanListItem {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final String? coachId;
   final String? coachName;
   final int? totalCalories;
@@ -72,6 +78,9 @@ class CoachMealPlanListItem {
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
       targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      minCalories: (j['minCalories'] ?? j['MinCalories']) as int?,
+      maxCalories: (j['maxCalories'] ?? j['MaxCalories']) as int?,
+      coachNotes: (j['coachNotes'] ?? j['CoachNotes'])?.toString(),
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
       totalCalories: (j['totalCalories'] ?? j['TotalCalories']) as int?,
@@ -138,6 +147,9 @@ class CoachMealPlanHeader {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.coachId,
     this.coachName,
     this.status = 'Active',
@@ -151,6 +163,9 @@ class CoachMealPlanHeader {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final String? coachId;
   final String? coachName;
   final String status;
@@ -168,6 +183,9 @@ class CoachMealPlanHeader {
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
       targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      minCalories: (j['minCalories'] ?? j['MinCalories']) as int?,
+      maxCalories: (j['maxCalories'] ?? j['MaxCalories']) as int?,
+      coachNotes: (j['coachNotes'] ?? j['CoachNotes'])?.toString(),
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
       status: (j['status'] ?? j['Status'] ?? 'Active').toString(),

@@ -14,6 +14,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class PtReviewService : IPtReviewService
     {
+        private const int VietnamUtcOffsetHours = 7;
+
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPlannedVsActualService _plannedVsActualService;
         private readonly NotiServiceWrapper _notificationService;
@@ -75,7 +77,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var weekStartDate = request.WeekStartDate;
-            var weekEndDate = weekStartDate.AddDays(6);
+            // RouteApproval is the approval request for one daily plan.
+            // WeeklyReport remains a seven-day snapshot.
+            var weekEndDate = isRouteApproval
+                ? weekStartDate
+                : weekStartDate.AddDays(6);
 
             // 1. Load Health Profile
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
@@ -99,8 +105,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var drift = await _plannedVsActualService.GetDriftAnalysisAsync(userId, weekStartDate, weekEndDate);
 
             // 3. Fetch weight logs
-            var startDateTime = weekStartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-            var endDateTime = weekEndDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            var startDateTime = weekStartDate
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var endDateTime = weekEndDate
+                .ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
             var weightLogs = await _unitOfWork.WeightLogs.FindAsync(w => w.UserId == userId && w.RecordedAt >= startDateTime && w.RecordedAt <= endDateTime);
             var weightLogsList = weightLogs.Select(w => new WeightLogSnapshot
             {
@@ -110,8 +120,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }).ToList();
 
             // 4. Load daily meals details (planned and actual)
-            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId && h.StartDate >= weekStartDate && h.StartDate <= weekEndDate);
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(h =>
+                h.UserId == userId
+                && h.StartDate <= weekEndDate
+                && h.EndDate >= weekStartDate);
             var planIds = plans.Select(p => p.Id).ToList();
+            var configuredPlan = SelectPlanForDate(plans, weekStartDate);
+            var configuredTargets = await ResolveGymTargetsAsync(
+                userId,
+                weekStartDate);
             var planItems = planIds.Any()
                 ? (await _unitOfWork.MealPlanItems.FindAsync(i => planIds.Contains(i.MealPlanId))).ToList()
                 : new List<MealPlanItem>();
@@ -136,7 +153,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 : new Dictionary<Guid, Recipe>();
 
             var dailyMeals = new List<DailyMealsSnapshot>();
-            for (int i = 0; i < 7; i++)
+            var snapshotDayCount = isRouteApproval ? 1 : 7;
+            for (int i = 0; i < snapshotDayCount; i++)
             {
                 var currentDate = weekStartDate.AddDays(i);
                 var dayMeals = new DailyMealsSnapshot { Date = currentDate };
@@ -162,7 +180,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
 
                 // Actual Logs for this day
-                var logsForDay = mealLogs.Where(log => log.LoggedAt.HasValue && DateOnly.FromDateTime(log.LoggedAt.Value) == currentDate).ToList();
+                var logsForDay = mealLogs.Where(log =>
+                    log.LoggedAt.HasValue
+                    && DateOnly.FromDateTime(
+                        log.LoggedAt.Value.AddHours(VietnamUtcOffsetHours)) == currentDate)
+                    .ToList();
                 foreach (var log in logsForDay)
                 {
                     foods.TryGetValue(log.FoodId ?? Guid.Empty, out var food);
@@ -190,6 +212,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 RequestType = requestType,
                 WeekStartDate = weekStartDate,
+                TargetCaloriesDaily =
+                    configuredTargets.TargetCalories
+                    ?? configuredPlan?.TargetCalories,
+                MinCalories =
+                    configuredTargets.MinCalories
+                    ?? configuredPlan?.MinCalories,
+                MaxCalories =
+                    configuredTargets.MaxCalories
+                    ?? configuredPlan?.MaxCalories,
                 StudentNote = request.StudentNote ?? string.Empty,
                 CheckInWeight = request.CheckInWeight,
                 CheckInBodyFat = request.CheckInBodyFat,
@@ -359,6 +390,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
+            await RefreshMealCompletionAsync(reportData);
+            await RefreshConfiguredTargetsAsync(request, reportData);
+            var effectiveDate = reportData == null
+                ? request.WeekStartDate
+                : ResolveReportDate(request, reportData);
 
             var suggestedChanges = new List<PtSuggestedChangeDto>();
             if (!string.IsNullOrEmpty(request.SuggestedChangesJson))
@@ -373,25 +409,32 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 ReportId = request.Id,
                 StudentName = studentName,
-                WeekStartDate = request.WeekStartDate,
+                WeekStartDate = effectiveDate,
                 ExpiresAt = request.ExpiresAt,
                 Status = request.Status,
                 CreatedAt = request.CreatedAt,
                 PtComment = request.PtComment ?? string.Empty,
                 SuggestedCalorieTarget = request.SuggestedCalorieTarget,
                 SuggestedProteinTarget = request.SuggestedProteinTarget,
+                ConfiguredCalorieTarget = reportData?.TargetCaloriesDaily,
+                ConfiguredMinCalories = reportData?.MinCalories,
+                ConfiguredMaxCalories = reportData?.MaxCalories,
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = request.ReviewedAt,
                 ActionedAt = request.ActionedAt,
                 ReviewToken = request.ReviewToken,
-                RequestType = reportData?.RequestType ?? ""
+                RequestType = reportData?.RequestType ?? "",
+                CreatedByRole = request.CreatedByRole
             };
         }
 
         public async Task<IEnumerable<PtReviewRequestDetailResponse>> GetMyRequestsAsync(Guid userId)
         {
-            var requests = await _unitOfWork.PtReviewRequests.FindAsync(x => x.UserId == userId);
+            // This endpoint represents the Gymer -> PT direction only.
+            // Coach-created PersonalPrograms have their own /my-personal-programs endpoint.
+            var requests = await _unitOfWork.PtReviewRequests.FindAsync(
+                x => x.UserId == userId && x.CreatedByRole != "Coach");
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             var profile = user != null ? await _unitOfWork.Profiles.GetByIdAsync(userId) : null;
             var studentName = profile?.FullName ?? user?.Email ?? "Student";
@@ -414,10 +457,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 int? trainingDaysCount = null;
                 string? bodyFeeling = null;
                 string? studentNote = null;
+                WeeklyReportSnapshot? reportData = null;
                 try
                 {
                     if (!string.IsNullOrEmpty(req.ReportDataJson))
                     {
+                        reportData = System.Text.Json.JsonSerializer.Deserialize<WeeklyReportSnapshot>(
+                            req.ReportDataJson,
+                            new System.Text.Json.JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                            });
                         using var doc = System.Text.Json.JsonDocument.Parse(req.ReportDataJson);
                         if (doc.RootElement.TryGetProperty("requestType", out var prop))
                         {
@@ -446,24 +496,39 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     }
                 }
                 catch {}
+                var isRouteApproval = requestType.Equals(
+                    "RouteApproval",
+                    StringComparison.OrdinalIgnoreCase);
+                var effectiveDate = isRouteApproval
+                    ? DateOnly.FromDateTime(
+                        DateTime.SpecifyKind(req.CreatedAt, DateTimeKind.Utc)
+                            .AddHours(VietnamUtcOffsetHours))
+                    : req.WeekStartDate;
+                var configuredTargets = await ResolveGymTargetsAsync(
+                    req.UserId,
+                    effectiveDate);
 
                 list.Add(new PtReviewRequestDetailResponse
                 {
                     ReportId = req.Id,
                     StudentName = studentName,
-                    WeekStartDate = req.WeekStartDate,
+                    WeekStartDate = effectiveDate,
                     ExpiresAt = req.ExpiresAt,
                     Status = req.Status,
                     CreatedAt = req.CreatedAt,
                     PtComment = req.PtComment ?? string.Empty,
                     SuggestedCalorieTarget = req.SuggestedCalorieTarget,
                     SuggestedProteinTarget = req.SuggestedProteinTarget,
+                    ConfiguredCalorieTarget = configuredTargets.TargetCalories,
+                    ConfiguredMinCalories = configuredTargets.MinCalories,
+                    ConfiguredMaxCalories = configuredTargets.MaxCalories,
                     SuggestedChanges = suggestedChanges,
                     ReportData = null, // Skip heavy report details in list view
                     ReviewedAt = req.ReviewedAt,
                     ActionedAt = req.ActionedAt,
                     ReviewToken = req.ReviewToken,
                     RequestType = requestType,
+                    CreatedByRole = req.CreatedByRole,
                     CheckInWeight = checkInWeight,
                     CheckInBodyFat = checkInBodyFat,
                     TrainingDaysCount = trainingDaysCount,
@@ -563,6 +628,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
+            await RefreshMealCompletionAsync(reportData);
+            await RefreshConfiguredTargetsAsync(requestEntity, reportData);
+            var effectiveDate = reportData == null
+                ? requestEntity.WeekStartDate
+                : ResolveReportDate(requestEntity, reportData);
 
             var suggestedChanges = new List<PtSuggestedChangeDto>();
             if (!string.IsNullOrEmpty(requestEntity.SuggestedChangesJson))
@@ -577,13 +647,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 ReportId = requestEntity.Id,
                 StudentName = studentName,
-                WeekStartDate = requestEntity.WeekStartDate,
+                WeekStartDate = effectiveDate,
                 ExpiresAt = requestEntity.ExpiresAt,
                 Status = requestEntity.Status,
                 CreatedAt = requestEntity.CreatedAt,
                 PtComment = requestEntity.PtComment ?? string.Empty,
                 SuggestedCalorieTarget = requestEntity.SuggestedCalorieTarget,
                 SuggestedProteinTarget = requestEntity.SuggestedProteinTarget,
+                ConfiguredCalorieTarget = reportData?.TargetCaloriesDaily,
+                ConfiguredMinCalories = reportData?.MinCalories,
+                ConfiguredMaxCalories = reportData?.MaxCalories,
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = requestEntity.ReviewedAt,
@@ -592,7 +665,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CheckInBodyFat = reportData?.CheckInBodyFat,
                 TrainingDaysCount = reportData?.TrainingDaysCount,
                 BodyFeeling = reportData?.BodyFeeling,
-                StudentNote = reportData?.StudentNote
+                StudentNote = reportData?.StudentNote,
+                CreatedByRole = requestEntity.CreatedByRole
             };
         }
 
@@ -980,7 +1054,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     UserId = request.ClientId,
                     Type = "COACH_PERSONAL_PROGRAM",
                     Title = "PT đã gửi lộ trình cá nhân",
-                    Body = $"PT vừa gửi lộ trình \"{request.Title}\" ({request.DurationWeeks} tuần). Mở tab \"PT gửi tôi\" để xem chi tiết và chấp nhận.",
+                    Body = $"PT vừa gửi lộ trình \"{request.Title}\" ({GetPersonalProgramDurationLabel(snapshot)}). Mở tab \"PT gửi tôi\" để xem chi tiết và chấp nhận.",
                     ActionUrl = $"gymer_personal_program:{programId}"
                 });
             }
@@ -1468,6 +1542,268 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _ => normalized.Length > 0 ? normalized : "snack"
             };
         }
+
+        private static string GetPersonalProgramDurationLabel(
+            PersonalProgramSnapshot snapshot)
+        {
+            if (snapshot.PlanType.Equals(
+                    "DAILY",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return "1 ngày";
+            }
+
+            var inclusiveDays =
+                snapshot.EndDate.DayNumber - snapshot.StartDate.DayNumber + 1;
+            if (snapshot.PlanType.Equals(
+                    "MONTHLY",
+                    StringComparison.OrdinalIgnoreCase)
+                && inclusiveDays > 0)
+            {
+                return $"{inclusiveDays} ngày";
+            }
+
+            return $"{Math.Max(snapshot.DurationWeeks, 1)} tuần";
+        }
+
+        private async Task RefreshMealCompletionAsync(
+            WeeklyReportSnapshot? reportData)
+        {
+            if (reportData == null) return;
+
+            var snapshotItems = reportData.DailyMeals
+                .SelectMany(day => day.PlannedItems)
+                .Where(item => item.Id != Guid.Empty)
+                .ToList();
+            if (snapshotItems.Count == 0) return;
+
+            var itemIds = snapshotItems.Select(item => item.Id).Distinct().ToList();
+            var currentItems = await _unitOfWork.MealPlanItems.FindAsync(
+                item => itemIds.Contains(item.Id));
+            var completionById = currentItems.ToDictionary(
+                item => item.Id,
+                item => item.IsCompleted);
+
+            foreach (var snapshotItem in snapshotItems)
+            {
+                if (completionById.TryGetValue(snapshotItem.Id, out var isCompleted))
+                {
+                    snapshotItem.IsCompleted = isCompleted;
+                }
+            }
+        }
+
+        private async Task RefreshConfiguredTargetsAsync(
+            PtReviewRequest request,
+            WeeklyReportSnapshot? reportData)
+        {
+            if (reportData == null) return;
+
+            var targetDate = ResolveReportDate(request, reportData);
+            var configuredTargets = await ResolveGymTargetsAsync(
+                request.UserId,
+                targetDate);
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(plan =>
+                plan.UserId == request.UserId
+                && plan.IsActive
+                && plan.Status != "Draft"
+                && plan.StartDate <= targetDate
+                && (plan.EndDate ?? plan.StartDate) >= targetDate);
+            var configuredPlan = SelectPlanForDate(plans, targetDate);
+
+            reportData.TargetCaloriesDaily =
+                configuredTargets.TargetCalories
+                ?? configuredPlan?.TargetCalories;
+            reportData.MinCalories =
+                configuredTargets.MinCalories
+                ?? configuredPlan?.MinCalories;
+            reportData.MaxCalories =
+                configuredTargets.MaxCalories
+                ?? configuredPlan?.MaxCalories;
+        }
+
+        private async Task<ConfiguredGymTargets> ResolveGymTargetsAsync(
+            Guid userId,
+            DateOnly date)
+        {
+            var profile = (await _unitOfWork.UserAiProfiles.FindAsync(
+                item => item.UserId == userId
+            )).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(profile?.Preferences))
+            {
+                return new ConfiguredGymTargets();
+            }
+
+            JsonObject preferences;
+            try
+            {
+                preferences = JsonNode.Parse(profile.Preferences!) as JsonObject
+                    ?? new JsonObject();
+            }
+            catch
+            {
+                return new ConfiguredGymTargets();
+            }
+
+            var dateString = date.ToString("yyyy-MM-dd");
+            var monday = date.AddDays(
+                -(7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7);
+            var weekString = monday.ToString("yyyy-MM-dd");
+            var monthString = date.ToString("yyyy-MM");
+
+            var daily = FindScopedConfiguration(
+                preferences,
+                "dailyDetails",
+                "dateString",
+                dateString);
+            var weekly = FindScopedConfiguration(
+                preferences,
+                "weeklyDetails",
+                "weekStartDateString",
+                weekString);
+            var monthly = FindScopedConfiguration(
+                preferences,
+                "monthlyDetails",
+                "monthString",
+                monthString);
+
+            var target =
+                ReadInt(daily, "customCalories")
+                ?? ReadInt(weekly, "customCalories")
+                ?? ReadInt(monthly, "customCalories");
+            var min =
+                ReadInt(daily, "minCalories")
+                ?? ReadInt(weekly, "minCalories")
+                ?? ReadInt(monthly, "minCalories");
+            var max =
+                ReadInt(daily, "maxCalories")
+                ?? ReadInt(weekly, "maxCalories")
+                ?? ReadInt(monthly, "maxCalories");
+
+            if (!target.HasValue)
+            {
+                var isTraining =
+                    ReadBool(daily, "isTraining")
+                    ?? IsScheduledTrainingDay(preferences, date.DayOfWeek);
+                target = isTraining
+                    ? ReadInt(preferences, "trainingDayTargetCalories")
+                    : ReadInt(preferences, "restDayTargetCalories");
+                min ??= ReadInt(preferences, "minCalories");
+                max ??= ReadInt(preferences, "maxCalories");
+            }
+
+            return new ConfiguredGymTargets
+            {
+                TargetCalories = target,
+                MinCalories = min,
+                MaxCalories = max
+            };
+        }
+
+        private static JsonObject? FindScopedConfiguration(
+            JsonObject preferences,
+            string arrayName,
+            string keyName,
+            string keyValue)
+        {
+            if (preferences[arrayName] is not JsonArray details) return null;
+            return details
+                .OfType<JsonObject>()
+                .FirstOrDefault(item =>
+                    item[keyName]?.GetValue<string>() == keyValue);
+        }
+
+        private static int? ReadInt(JsonObject? source, string key)
+        {
+            if (source?[key] is not JsonValue value) return null;
+            if (value.TryGetValue<int>(out var integer)) return integer;
+            if (
+                value.TryGetValue<string>(out var text)
+                && int.TryParse(text, out integer)
+            )
+            {
+                return integer;
+            }
+            return null;
+        }
+
+        private static bool? ReadBool(JsonObject? source, string key)
+        {
+            if (
+                source?[key] is JsonValue value
+                && value.TryGetValue<bool>(out var result)
+            )
+            {
+                return result;
+            }
+            return null;
+        }
+
+        private static bool IsScheduledTrainingDay(
+            JsonObject preferences,
+            DayOfWeek dayOfWeek)
+        {
+            var schedule =
+                preferences["weeklyTrainingSchedule"]?.GetValue<string>()
+                ?? string.Empty;
+            return schedule
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(day => day.Trim())
+                .Contains(
+                    dayOfWeek.ToString(),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static DateOnly ResolveReportDate(
+            PtReviewRequest request,
+            WeeklyReportSnapshot reportData)
+        {
+            if (!reportData.RequestType.Equals(
+                    "RouteApproval",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return request.WeekStartDate;
+            }
+
+            var createdDate = DateOnly.FromDateTime(
+                DateTime.SpecifyKind(request.CreatedAt, DateTimeKind.Utc)
+                    .AddHours(VietnamUtcOffsetHours));
+            if (reportData.DailyMeals.Any(day => day.Date == createdDate))
+            {
+                return createdDate;
+            }
+
+            if (reportData.DailyMeals.Count == 1)
+            {
+                return reportData.DailyMeals[0].Date;
+            }
+
+            return request.WeekStartDate;
+        }
+
+        private static MealPlanHeader? SelectPlanForDate(
+            IEnumerable<MealPlanHeader> plans,
+            DateOnly date)
+        {
+            return plans
+                .Where(plan =>
+                    plan.StartDate <= date
+                    && (plan.EndDate ?? plan.StartDate) >= date)
+                .OrderByDescending(plan =>
+                    (plan.PlanType ?? string.Empty).Equals(
+                        "DAILY",
+                        StringComparison.OrdinalIgnoreCase)
+                    && plan.StartDate == date)
+                .ThenByDescending(plan => plan.UpdatedAt ?? plan.CreatedAt)
+                .FirstOrDefault();
+        }
+
+        private sealed class ConfiguredGymTargets
+        {
+            public int? TargetCalories { get; init; }
+            public int? MinCalories { get; init; }
+            public int? MaxCalories { get; init; }
+        }
     }
 
     // A lightweight wrapper to send notifications safely
@@ -1495,6 +1831,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         public string RequestType { get; set; } = "WeeklyReport";
         public DateOnly WeekStartDate { get; set; }
+        public int? TargetCaloriesDaily { get; set; }
+        public int? MinCalories { get; set; }
+        public int? MaxCalories { get; set; }
         public string StudentNote { get; set; } = string.Empty;
         public decimal? CheckInWeight { get; set; }
         public decimal? CheckInBodyFat { get; set; }

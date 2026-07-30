@@ -14,10 +14,12 @@ import '../../advanced/repositories/advanced_repository.dart';
 import '../../notifications/repositories/notification_repository.dart';
 import '../../notifications/models/notification_models.dart';
 import '../../../core/services/realtime_notification_service.dart';
+import '../../../core/services/notification_handler.dart';
 import '../../coach_pt/views/coach_meal_plan_select_client_screen.dart';
 import '../../coach_pt/views/coach_report_detail_screen.dart';
 import '../../coach_pt/views/coach_reports_tab_screen.dart';
 import '../../coach_pt/providers/coach_report_provider.dart';
+import '../../coach_chat/views/coach_chat_screen.dart';
 import '../providers/coach_badge_provider.dart';
 import 'coach_profile_edit_screen.dart';
 
@@ -221,6 +223,7 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
   List<Map<String, dynamic>> _clients = [];
   List<Map<String, dynamic>> _pending = [];
   bool _loading = true;
+  int _clientsPage = 0;
 
   @override
   void initState() {
@@ -387,13 +390,51 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                       ),
                     ),
                   )
-                else
+                else ...[
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (_, i) => _clientCard(_clients[i]),
-                      childCount: _clients.length,
+                      (_, i) {
+                        final index = _clientsPage * 6 + i;
+                        if (index >= _clients.length) return const SizedBox.shrink();
+                        return _clientCard(_clients[index]);
+                      },
+                      childCount: (_clients.length - _clientsPage * 6).clamp(0, 6),
                     ),
                   ),
+                  if (_clients.length > 6)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                              onPressed: _clientsPage > 0
+                                  ? () => setState(() => _clientsPage--)
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Trang ${_clientsPage + 1} / ${(_clients.length / 6).ceil()}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                              onPressed: (_clientsPage + 1) * 6 < _clients.length
+                                  ? () => setState(() => _clientsPage++)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ],
@@ -613,6 +654,24 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                         ),
                       ),
                   ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Nhắn tin với học viên',
+                onPressed: clientId.isEmpty
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CoachChatScreen(
+                            partnerId: clientId,
+                            partnerName: name,
+                          ),
+                        ),
+                      ),
+                icon: const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: _coachPrimary,
                 ),
               ),
               const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
@@ -989,12 +1048,22 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: GestureDetector(
-                              onTap: () {
+                              onTap: () async {
                                 final notifId = n['notifId']?.toString();
                                 if (notifId != null && !isRead) {
                                   unawaited(_markRead(notifId));
                                 }
-                                if (notificationType == 'pt_review_request') {
+                                if (notificationType == 'coach_chat_message') {
+                                  final notification = AppNotification.fromJson(
+                                    n,
+                                  );
+                                  await NotificationHandler()
+                                      .handleAppNotificationTap(
+                                        context,
+                                        notification,
+                                      );
+                                } else if (notificationType ==
+                                    'pt_review_request') {
                                   widget.onOpenTab(1);
                                 } else if (notificationType ==
                                     'weekly_report_submitted') {

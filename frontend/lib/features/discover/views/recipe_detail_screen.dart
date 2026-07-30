@@ -26,6 +26,7 @@ class RecipeDetailScreen extends StatefulWidget {
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   final _repository = FoodDiscoveryRepository();
   RecipeItem? _recipe;
+  Map<String, double> _nutrition = const {};
   bool _loading = true;
 
   @override
@@ -35,13 +36,18 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Future<void> _load() async {
-    final recipe = await _repository.getRecipeById(
-      widget.recipeId,
-      allergyMode: widget.allergyMode,
-    );
+    final results = await Future.wait([
+      _repository.getRecipeById(
+        widget.recipeId,
+        allergyMode: widget.allergyMode,
+      ),
+      _repository.getRecipeNutrition(widget.recipeId),
+    ]);
+    final recipe = results[0] as RecipeItem?;
     if (!mounted) return;
     setState(() {
       _recipe = recipe;
+      _nutrition = results[1] as Map<String, double>;
       _loading = false;
     });
   }
@@ -57,10 +63,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         title: const Text('Công thức'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : _recipe == null
-              ? const Center(child: Text('Không tìm thấy công thức.'))
-              : _buildBody(_recipe!),
+          ? const Center(child: Text('Không tìm thấy công thức.'))
+          : _buildBody(_recipe!),
     );
   }
 
@@ -79,7 +87,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               Expanded(
                 child: Text(
                   recipe.title,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               AllergyRiskBadge(riskLevel: recipe.allergyRiskLevel),
@@ -129,7 +140,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           ],
           if (recipe.description != null && recipe.description!.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(recipe.description!, style: const TextStyle(color: AppColors.textSecondary)),
+            Text(
+              recipe.description!,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
           ],
           if (_hasMetadata(recipe)) ...[
             const SizedBox(height: 16),
@@ -137,19 +151,48 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (recipe.totalCalories > 0) _chip('${recipe.totalCalories} kcal'),
-                if (recipe.prepTimeMin != null) _chip('Sơ chế ${recipe.prepTimeMin} phút'),
-                if (recipe.cookTimeMin != null) _chip('Nấu ${recipe.cookTimeMin} phút'),
-                if (recipe.totalTimeMin != null) _chip('Tổng ${recipe.totalTimeMin} phút'),
-                if (recipe.servings != null) _chip('${recipe.servings} khẩu phần'),
+                if (recipe.totalCalories > 0)
+                  _chip('${recipe.totalCalories} kcal'),
+                if (recipe.prepTimeMin != null)
+                  _chip('Sơ chế ${recipe.prepTimeMin} phút'),
+                if (recipe.cookTimeMin != null)
+                  _chip('Nấu ${recipe.cookTimeMin} phút'),
+                if (recipe.totalTimeMin != null)
+                  _chip('Tổng ${recipe.totalTimeMin} phút'),
+                if (recipe.servings != null)
+                  _chip('${recipe.servings} khẩu phần'),
                 if (recipe.difficulty != null) _chip(recipe.difficulty!),
                 if (recipe.mealType != null) _chip(recipe.mealType!),
-                if (recipe.estimatedPriceVnd != null) _chip(_formatPrice(recipe.estimatedPriceVnd!)),
+                if (recipe.estimatedPriceVnd != null)
+                  _chip(_formatPrice(recipe.estimatedPriceVnd!)),
+              ],
+            ),
+          ],
+          if (_nutrition.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Text(
+              'Dinh dưỡng mỗi khẩu phần',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _chip('${_nutritionValue('caloriesKcal')} kcal'),
+                _chip('Protein ${_nutritionValue('proteinG')}g'),
+                _chip('Carb ${_nutritionValue('carbsG')}g'),
+                _chip('Fat ${_nutritionValue('fatG')}g'),
+                if ((_nutrition['fiberG'] ?? 0) > 0)
+                  _chip('Chất xơ ${_nutritionValue('fiberG')}g'),
               ],
             ),
           ],
           const SizedBox(height: 16),
-          const Text('Nguyên liệu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Nguyên liệu',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           if (recipe.ingredients.isEmpty)
             Container(
@@ -158,18 +201,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.orange.withValues(alpha: 0.2),
-                ),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
               ),
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: Colors.deepOrange,
-                  ),
+                  Icon(Icons.info_outline, size: 20, color: Colors.deepOrange),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -249,6 +286,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
+  String _nutritionValue(String key) =>
+      (_nutrition[key] ?? 0).round().toString();
+
   Future<void> _logMeal(RecipeItem recipe) async {
     if (recipe.allergyRiskLevel == 'high') {
       final proceed = await showDialog<bool>(
@@ -261,8 +301,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             'Bạn vẫn muốn ghi nhật ký?',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Vẫn ghi')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Vẫn ghi'),
+            ),
           ],
         ),
       );
@@ -283,7 +329,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   String _formatIngredientLine(RecipeIngredientItem item) {
-    final name = item.ingredientName.trim().isEmpty ? 'Nguyên liệu' : item.ingredientName.trim();
+    final name = item.ingredientName.trim().isEmpty
+        ? 'Nguyên liệu'
+        : item.ingredientName.trim();
     final qty = item.quantity == item.quantity.roundToDouble()
         ? item.quantity.toStringAsFixed(0)
         : item.quantity.toStringAsFixed(1);
@@ -334,10 +382,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   String _removeStepPrefix(String value) {
     return value
         .replaceFirst(
-          RegExp(
-            r'^(?:Bước|Buoc)\s*\d+\s*[:.)-]?\s*',
-            caseSensitive: false,
-          ),
+          RegExp(r'^(?:Bước|Buoc)\s*\d+\s*[:.)-]?\s*', caseSensitive: false),
           '',
         )
         .trim();
@@ -356,9 +401,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         decoration: BoxDecoration(
           color: AppColors.primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.16),
-          ),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

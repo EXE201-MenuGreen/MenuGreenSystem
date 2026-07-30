@@ -1666,11 +1666,6 @@ class _CoachCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$experienceYears năm • ${priceVnd.isEmpty ? "Thỏa thuận" : "$priceVnd đ"}',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
-                    ),
                   ],
                 ),
               ),

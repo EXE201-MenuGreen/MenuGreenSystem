@@ -18,19 +18,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IMealPlanService _mealPlanService;
         private readonly IDailyStarterService _dailyStarterService;
         private readonly IPtReviewService _ptReviewService;
+        private readonly IRecipeService _recipeService;
 
         public CoachService(
             IUnitOfWork unitOfWork, 
             INotificationService notificationService,
             IMealPlanService mealPlanService,
             IDailyStarterService dailyStarterService,
-            IPtReviewService ptReviewService)
+            IPtReviewService ptReviewService,
+            IRecipeService recipeService)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
             _mealPlanService = mealPlanService;
             _dailyStarterService = dailyStarterService;
             _ptReviewService = ptReviewService;
+            _recipeService = recipeService;
         }
 
         public async Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice)
@@ -593,6 +596,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             plan.StartDate = request.StartDate;
             plan.EndDate = request.EndDate;
             plan.TargetCalories = request.TargetCalories;
+            plan.MinCalories = request.MinCalories;
+            plan.MaxCalories = request.MaxCalories;
+            plan.CoachNotes = request.CoachNotes?.Trim();
             plan.GeneratedBy = "COACH";
             plan.UpdatedAt = DateTime.UtcNow;
 
@@ -690,6 +696,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (item.FoodId.HasValue) food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                 if (item.RecipeId.HasValue) recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
                 var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
+                var calories = item.TargetCalories;
+                decimal? protein = item.ProteinG;
+                decimal? carbs = item.CarbsG;
+                decimal? fat = item.FatG;
+
+                if (food != null)
+                {
+                    calories ??= (int)Math.Round(food.CaloriesKcal ?? 0);
+                    protein ??= food.ProteinG;
+                    carbs ??= food.CarbsG;
+                    fat ??= food.FatG;
+                }
+                else if (recipe != null)
+                {
+                    var nutrition = await _recipeService.GetNutritionAsync(recipe.Id);
+                    calories ??= (int)Math.Round(nutrition.CaloriesKcal);
+                    protein ??= nutrition.ProteinG;
+                    carbs ??= nutrition.CarbsG;
+                    fat ??= nutrition.FatG;
+                }
 
                 responseItems.Add(new MealPlanItemResponse
                 {
@@ -700,7 +726,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     RecipeId = item.RecipeId,
                     PlannedDate = item.PlannedDate,
                     ScheduledTime = item.ScheduledTime,
-                    TargetCalories = item.TargetCalories,
+                    TargetCalories = calories,
+                    ProteinG = protein,
+                    CarbsG = carbs,
+                    FatG = fat,
                     IsCompleted = item.IsCompleted,
                     FoodName = food?.NameVi,
                     RecipeName = recipe?.Title,
@@ -727,14 +756,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 StartDate = entity.StartDate,
                 EndDate = entity.EndDate,
                 TargetCalories = entity.TargetCalories,
+                MinCalories = entity.MinCalories,
+                MaxCalories = entity.MaxCalories,
+                CoachNotes = entity.CoachNotes,
                 GeneratedBy = entity.GeneratedBy,
                 Status = resolvedStatus,
                 ApprovedAt = resolvedStatus == "Approved" ? entity.ApprovedAt : null,
                 IsActive = entity.IsActive,
                 TotalCalories = responseItems.Sum(x => x.TargetCalories ?? 0),
-                TotalProteinG = 0,
-                TotalCarbsG = 0,
-                TotalFatG = 0,
+                TotalProteinG = (int)Math.Round(responseItems.Sum(x => x.ProteinG ?? 0)),
+                TotalCarbsG = (int)Math.Round(responseItems.Sum(x => x.CarbsG ?? 0)),
+                TotalFatG = (int)Math.Round(responseItems.Sum(x => x.FatG ?? 0)),
                 Items = responseItems
             };
         }
@@ -867,6 +899,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 TargetCalories = request.TargetCalories,
+                MinCalories = request.MinCalories,
+                MaxCalories = request.MaxCalories,
+                CoachNotes = request.CoachNotes?.Trim(),
                 GeneratedBy = "COACH",
                 Status = "Draft",
                 IsActive = true,
@@ -953,6 +988,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 );
                 var targetCalories =
                     plan.TargetCalories ?? health?.TargetCalories ?? 2000;
+                var minCalories = request?.MinCalories ?? plan.MinCalories;
+                var maxCalories = request?.MaxCalories ?? plan.MaxCalories;
+                var coachNotes = string.IsNullOrWhiteSpace(request?.Notes)
+                    ? plan.CoachNotes
+                    : request!.Notes!.Trim();
 
                 await _ptReviewService.CreatePersonalProgramAsync(
                     coachId,
@@ -966,8 +1006,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         DurationWeeks = durationWeeks,
                         WeekStartDate = startDate,
                         TargetCaloriesDaily = targetCalories,
-                        MinCalories = request?.MinCalories,
-                        MaxCalories = request?.MaxCalories,
+                        MinCalories = minCalories,
+                        MaxCalories = maxCalories,
                         TargetProteinG = Math.Clamp(
                             health?.TargetProteinG ?? 120,
                             20,
@@ -983,7 +1023,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             20,
                             250
                         ),
-                        CoachComment = request?.Notes,
+                        CoachComment = coachNotes,
                         MealPlanId = plan.Id,
                         PlanType = plan.PlanType,
                         StartDate = startDate,
@@ -998,7 +1038,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                                 FoodName = item.FoodName,
                                 RecipeId = item.RecipeId,
                                 RecipeName = item.RecipeName,
-                                TargetCalories = item.TargetCalories
+                                TargetCalories = item.TargetCalories,
+                                ProteinG = item.ProteinG,
+                                CarbsG = item.CarbsG,
+                                FatG = item.FatG
                             }
                         ).ToList()
                     }

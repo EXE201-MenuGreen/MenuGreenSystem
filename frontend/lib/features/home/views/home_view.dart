@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/token_storage.dart';
 import '../../discover/views/food_detail_screen.dart';
@@ -12,6 +13,7 @@ import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../../meal_plan/views/meal_plan_today_screen.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/views/notification_inbox_screen.dart';
+import '../../coach_chat/providers/coach_chat_provider.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/models/subscription_models.dart';
@@ -83,6 +85,9 @@ class HomeViewState extends State<HomeView> {
     _loadTips();
     _notificationProvider.loadUnreadCount();
     _notificationProvider.loadNotifications(refresh: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CoachChatProvider>().loadPartners();
+    });
   }
 
   @override
@@ -371,8 +376,11 @@ class HomeViewState extends State<HomeView> {
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: ListenableBuilder(
                     listenable: _notificationProvider,
-                    builder: (context, _) => GymerPackageCard(
-                      routeBadgeCount: _notificationProvider.unreadRouteCount,
+                    builder: (context, _) => Consumer<CoachChatProvider>(
+                      builder: (context, chat, _) => GymerPackageCard(
+                        routeBadgeCount: _notificationProvider.unreadRouteCount,
+                        chatBadgeCount: chat.unreadCount,
+                      ),
                     ),
                   ),
                 ),

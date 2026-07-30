@@ -51,6 +51,7 @@ namespace MenuGreen.DataAccessLayer.Interfaces
         IGenericRepository<Entities.CoachProfile> CoachProfiles { get; }
         IGenericRepository<Entities.CoachConnection> CoachConnections { get; }
         IGenericRepository<Entities.CoachFeedback> CoachFeedbacks { get; }
+        IGenericRepository<Entities.CoachChatMessage> CoachChatMessages { get; }
         IGenericRepository<Entities.PtReviewRequest> PtReviewRequests { get; }
         IGenericRepository<Entities.DeviceToken> DeviceTokens { get; }
         

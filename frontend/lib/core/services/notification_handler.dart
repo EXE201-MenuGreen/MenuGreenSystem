@@ -7,6 +7,7 @@ import '../../features/coach/views/coach_main_screen.dart';
 import '../../features/coach_pt/views/coach_report_detail_screen.dart';
 import '../../features/advanced/views/advanced_features_screen.dart';
 import '../../features/gymer/views/premium_programs_screen.dart';
+import '../../features/coach_chat/views/coach_chat_screen.dart';
 import '../../features/notifications/models/notification_models.dart';
 import '../../core/i18n/api_message_translator.dart';
 
@@ -21,6 +22,7 @@ enum NotificationActionType {
   openCoachWorkspace,
   openCoachWeeklyReport,
   openGymerWeeklyReport,
+  openCoachChat,
   custom,
 }
 
@@ -52,9 +54,16 @@ class NotificationHandler {
   static const String _prefixGymerWeeklyReport = 'gymer_weekly_report:';
   static const String _prefixGymerRouteApproval = 'gymer_route_approval:';
   static const String _prefixGymerPersonalProgram = 'gymer_personal_program:';
+  static const String _prefixCoachChat = 'chat:';
 
   NotificationAction parseNotificationData(Map<String, dynamic> data) {
-    final deepLink = data['deepLink'] ?? data['link'] ?? data['url'];
+    final deepLink =
+        data['deepLink'] ??
+        data['DeepLink'] ??
+        data['actionUrl'] ??
+        data['ActionUrl'] ??
+        data['link'] ??
+        data['url'];
 
     if (deepLink != null && deepLink is String && deepLink.isNotEmpty) {
       return _parseDeepLink(deepLink);
@@ -106,6 +115,15 @@ class NotificationHandler {
           id: notificationId?.toString(),
           tabIndex: 1,
         );
+      case 'coach_chat_message':
+        return NotificationAction(
+          type: NotificationActionType.openCoachChat,
+          id:
+              data['partnerId']?.toString() ??
+              data['PartnerId']?.toString() ??
+              data['senderId']?.toString() ??
+              data['SenderId']?.toString(),
+        );
       case 'meal_plan':
       case 'mealplan':
         return NotificationAction(
@@ -140,6 +158,13 @@ class NotificationHandler {
       final id = deepLink.substring(_prefixCoachWeeklyReport.length);
       return NotificationAction(
         type: NotificationActionType.openCoachWeeklyReport,
+        id: id,
+      );
+    }
+    if (deepLink.startsWith(_prefixCoachChat)) {
+      final id = deepLink.substring(_prefixCoachChat.length);
+      return NotificationAction(
+        type: NotificationActionType.openCoachChat,
         id: id,
       );
     }
@@ -310,6 +335,15 @@ class NotificationHandler {
           gymerOnly: true,
           initialIndex: 0,
           initialReportId: action.id,
+        );
+
+      case NotificationActionType.openCoachChat:
+        if (action.id != null && action.id!.isNotEmpty) {
+          return CoachChatScreen(partnerId: action.id!);
+        }
+        return const _DefaultDestinationScreen(
+          title: 'Tin nhắn PT – Gymer',
+          message: 'Không tìm thấy cuộc trò chuyện.',
         );
 
       case NotificationActionType.custom:

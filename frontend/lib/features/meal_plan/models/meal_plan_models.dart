@@ -24,7 +24,10 @@ class UserMealPlan {
       startDate: (json['startDate'] ?? json['StartDate'])?.toString(),
       targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
       items: rawItems is List
-          ? rawItems.whereType<Map<String, dynamic>>().map(MealPlanItemModel.fromJson).toList()
+          ? rawItems
+                .whereType<Map<String, dynamic>>()
+                .map(MealPlanItemModel.fromJson)
+                .toList()
           : [],
     );
   }
@@ -44,6 +47,9 @@ class MealPlanItemModel {
     this.scheduledTime,
     this.sourceEntityType,
     this.origin,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
   });
 
   final String id;
@@ -57,6 +63,10 @@ class MealPlanItemModel {
   final String? mealLogId;
   final String? scheduledTime;
   final String? sourceEntityType;
+  final int? proteinG;
+  final int? carbsG;
+  final int? fatG;
+
   /// Nguồn gốc của item: "user" = tạo tay ở tab Kế hoạch,
   /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
   final String? origin;
@@ -67,7 +77,8 @@ class MealPlanItemModel {
   }
 
   bool get isFood =>
-      (sourceEntityType ?? '').toLowerCase() == 'food' || (foodId != null && recipeId == null);
+      (sourceEntityType ?? '').toLowerCase() == 'food' ||
+      (foodId != null && recipeId == null);
 
   factory MealPlanItemModel.fromJson(Map<String, dynamic> json) {
     return MealPlanItemModel(
@@ -80,11 +91,23 @@ class MealPlanItemModel {
       foodName: (json['foodName'] ?? json['FoodName'])?.toString(),
       recipeName: (json['recipeName'] ?? json['RecipeName'])?.toString(),
       mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
-      scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])?.toString(),
-      sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])?.toString(),
+      scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])
+          ?.toString(),
+      sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])
+          ?.toString(),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
+      proteinG: _nullableInt(json['proteinG'] ?? json['ProteinG']),
+      carbsG: _nullableInt(json['carbsG'] ?? json['CarbsG']),
+      fatG: _nullableInt(json['fatG'] ?? json['FatG']),
     );
   }
+}
+
+int? _nullableInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.round();
+  return int.tryParse(value.toString());
 }
 
 class MealPlanAdherence {

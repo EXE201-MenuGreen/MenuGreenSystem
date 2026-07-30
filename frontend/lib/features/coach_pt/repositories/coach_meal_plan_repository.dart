@@ -123,6 +123,9 @@ class ClientMealPlanPayload {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.isActive = true,
     this.items = const [],
   });
@@ -132,6 +135,9 @@ class ClientMealPlanPayload {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final bool isActive;
   final List<ClientMealPlanItemPayload> items;
 
@@ -141,6 +147,10 @@ class ClientMealPlanPayload {
     if (startDate != null) 'startDate': _date(startDate!),
     if (endDate != null) 'endDate': _date(endDate!),
     if (targetCalories != null) 'targetCalories': targetCalories,
+    if (minCalories != null) 'minCalories': minCalories,
+    if (maxCalories != null) 'maxCalories': maxCalories,
+    if (coachNotes != null && coachNotes!.trim().isNotEmpty)
+      'coachNotes': coachNotes!.trim(),
     'isActive': isActive,
     if (items.isNotEmpty) 'items': items.map((i) => i.toJson()).toList(),
   };

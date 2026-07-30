@@ -70,6 +70,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
             services.AddScoped<ICoachService, CoachService>();
             services.AddScoped<ICoachReviewService, CoachReviewService>();
+            services.AddScoped<ICoachChatService, CoachChatService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();
             services.AddHttpClient<IEmailService, EmailService>();

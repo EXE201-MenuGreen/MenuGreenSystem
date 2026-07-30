@@ -5,10 +5,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'fcm_repository.dart';
 
 typedef NotificationCallback = void Function(RemoteMessage message);
-typedef NotificationTapCallback = void Function(RemoteMessage message, String? deepLink);
+typedef NotificationTapCallback =
+    void Function(RemoteMessage message, String? deepLink);
 
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
@@ -27,10 +29,11 @@ class PushNotificationService {
     NotificationCallback? onForegroundMessage,
     NotificationTapCallback? onNotificationTap,
   }) async {
-    if (_isInitialized) return true;
-
+    // Callers may move from Login -> Gymer/Coach workspace. Always refresh
+    // callbacks so a notification tap never retains a disposed screen context.
     _onForegroundMessage = onForegroundMessage;
     _onNotificationTap = onNotificationTap;
+    if (_isInitialized) return true;
 
     try {
       // Request permission
@@ -42,10 +45,14 @@ class PushNotificationService {
       }
 
       // Handle foreground messages
-      _foregroundSubscription = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      _foregroundSubscription = FirebaseMessaging.onMessage.listen(
+        _handleForegroundMessage,
+      );
 
       // Handle notification tap (app was in background)
-      _backgroundSubscription = FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      _backgroundSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+        _handleMessageOpenedApp,
+      );
 
       // Check if app was launched from notification
       final initialMessage = await _messaging.getInitialMessage();
@@ -54,8 +61,12 @@ class PushNotificationService {
       }
 
       // Listen for token refresh
-      _tokenRefreshSubscription = FcmRepository.onTokenRefresh.listen((newToken) {
-        debugPrint('[FCM] Token refreshed: ${newToken.length > 20 ? '${newToken.substring(0, 20)}...' : newToken}');
+      _tokenRefreshSubscription = FcmRepository.onTokenRefresh.listen((
+        newToken,
+      ) {
+        debugPrint(
+          '[FCM] Token refreshed: ${newToken.length > 20 ? '${newToken.substring(0, 20)}...' : newToken}',
+        );
         _onTokenRefresh(newToken);
       });
 
@@ -124,9 +135,11 @@ class PushNotificationService {
   }
 
   Future<void> _onTokenRefresh(String newToken) async {
-    final safeToken = newToken.length > 20 ? '${newToken.substring(0, 20)}...' : newToken;
+    final safeToken = newToken.length > 20
+        ? '${newToken.substring(0, 20)}...'
+        : newToken;
     debugPrint('[FCM] Token refreshed: $safeToken');
-    
+
     final deviceInfo = await _getDeviceInfo();
     await _fcmRepository.registerToken(
       token: newToken,
