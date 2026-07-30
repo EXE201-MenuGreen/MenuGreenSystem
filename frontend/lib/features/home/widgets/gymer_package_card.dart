@@ -5,14 +5,20 @@ import '../../../core/constants/app_colors.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 
 class GymerPackageCard extends StatelessWidget {
-  const GymerPackageCard({super.key, this.routeBadgeCount = 0});
+  const GymerPackageCard({
+    super.key,
+    this.routeBadgeCount = 0,
+    this.chatBadgeCount = 0,
+  });
 
   final int routeBadgeCount;
+  final int chatBadgeCount;
 
   static const _premiumGold = Color(0xFFD4A62A);
   static const _targetColor = Color(0xFF1B4332);
   static const _reviewColor = Color(0xFF0077B6);
   static const _programColor = Color(0xFF059669);
+  static const _chatColor = Color(0xFF7C3AED);
 
   void _open(BuildContext context, [GymerFeature? feature]) {
     Navigator.push(
@@ -42,6 +48,12 @@ class GymerPackageCard extends StatelessWidget {
             label: 'Lộ trình',
             color: _programColor,
             feature: GymerFeature.programs,
+          ),
+          (
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Chat với PT',
+            color: _chatColor,
+            feature: GymerFeature.chat,
           ),
         ];
 
@@ -177,6 +189,8 @@ class GymerPackageCard extends StatelessWidget {
                     color: action.color,
                     badgeCount: action.feature == GymerFeature.programs
                         ? routeBadgeCount
+                        : action.feature == GymerFeature.chat
+                        ? chatBadgeCount
                         : 0,
                     onTap: () => _open(context, action.feature),
                   ),

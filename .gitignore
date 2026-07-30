@@ -537,6 +537,12 @@ backend/MenuGreen.DataAccessLayer/Migrations/
 # Exception: keep an empty .gitkeep to maintain folder structure
 !backend/MenuGreen.DataAccessLayer/Migrations/.gitkeep
 
+# Runtime hotfix migration: must ship with the API so Database.Migrate() can
+# repair existing databases that were not initialized through seed SQL.
+!backend/MenuGreen.DataAccessLayer/Migrations/
+!backend/MenuGreen.DataAccessLayer/Migrations/20260730045504_SyncMealPlanCoachFieldsAndChat.cs
+!backend/MenuGreen.DataAccessLayer/Migrations/20260730045504_SyncMealPlanCoachFieldsAndChat.Designer.cs
+
 # Flutter build artifacts (do NOT push)
 frontend/app-release.aab
 frontend/app-debug.apk

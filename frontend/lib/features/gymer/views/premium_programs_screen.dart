@@ -628,33 +628,54 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       length: 2,
       initialIndex: widget.initialTabIndex.clamp(0, 1).toInt(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAF9),
+        backgroundColor: const Color(0xFFF9FAFB),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
+          scrolledUnderElevation: 0.5,
           title: const Text(
             'Lộ trình Gymer',
             style: TextStyle(
-              color: AppColors.textDark,
+              color: Color(0xFF111827),
               fontWeight: FontWeight.w800,
+              fontSize: 18,
             ),
           ),
           actions: [
             IconButton(
               onPressed: _loading || _actionLoading ? null : _load,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF374151)),
+              tooltip: 'Làm mới',
             ),
           ],
-          bottom: const TabBar(
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primary,
-            indicatorWeight: 2.5,
-            labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-            tabs: [
-              Tab(text: 'Tôi gửi PT'),
-              Tab(text: 'PT gửi tôi'),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                ),
+              ),
+              child: const TabBar(
+                labelColor: AppColors.primary,
+                unselectedLabelColor: Color(0xFF6B7280),
+                indicatorColor: AppColors.primary,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                tabs: [
+                  Tab(text: 'Tôi gửi PT'),
+                  Tab(text: 'PT gửi tôi'),
+                ],
+              ),
+            ),
           ),
         ),
         body: _loading
@@ -2197,6 +2218,10 @@ class _SentRouteTabState extends State<_SentRouteTab> {
       // Tab 1 = Gymer -> PT (CreatedByRole = "Gymer", default; RouteApproval or WeeklyReport).
       final filtered = reqs.where((r) {
         final rt = (r['requestType'] ?? '').toString().toLowerCase();
+        final createdByRole = (r['createdByRole'] ?? '')
+            .toString()
+            .toLowerCase();
+        if (createdByRole == 'coach') return false;
         return rt.isEmpty || rt == 'weeklyreport' || rt == 'routeapproval';
       }).toList();
       setState(() {
@@ -2241,26 +2266,41 @@ class _SentRouteTabState extends State<_SentRouteTab> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
           children: [
-            const SizedBox(height: 80),
-            Icon(
-              Icons.assignment_rounded,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'Bạn chưa gửi yêu cầu nào cho PT.\nHãy tạo báo cáo tuần để PT gợi ý điều chỉnh lộ trình dinh dưỡng.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.5,
-                    height: 1.5,
-                  ),
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.assignment_rounded,
+                  size: 36,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Chưa gửi yêu cầu lộ trình',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Hãy tạo báo cáo tuần để PT kiểm tra tiến độ và gợi ý điều chỉnh lộ trình dinh dưỡng phù hợp cho bạn.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
           ],
@@ -2274,7 +2314,7 @@ class _SentRouteTabState extends State<_SentRouteTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _requests.length + (widget.error != null ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (widget.error != null && index == _requests.length) {
             return Container(
@@ -2397,22 +2437,41 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
           children: [
-            const SizedBox(height: 80),
-            Icon(Icons.inbox_rounded, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'PT của bạn chưa gửi lộ trình cá nhân nào.\nKhi PT tạo lộ trình, nó sẽ xuất hiện ở đây để bạn xem và chấp nhận.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.5,
-                    height: 1.5,
-                  ),
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.inbox_rounded,
+                  size: 36,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Chưa có lộ trình từ PT',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Khi PT của bạn tạo lộ trình dinh dưỡng cá nhân, lộ trình sẽ xuất hiện tại đây để bạn xem và chấp nhận.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
           ],
@@ -2426,7 +2485,7 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _programs.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final p = _programs[index];
           return RouteApprovalCard(

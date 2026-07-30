@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../utils/personal_program_period.dart';
 
-/// Phase 8: Reusable card widget for the 2-tab Gymer journey screen.
-/// Shows a PtReviewRequest with status, targets, week, and action button.
+/// Reusable card widget for the 2-tab Gymer journey screen ("Lộ trình Gymer").
 ///
 /// Tabs:
 /// - Tab 1 ("Tôi gửi PT"): user creates report, status Pending -> Reviewed -> Applied/Rejected
-///   Action: "Apply" (Tab 1) when status == Reviewed.
+///   Action: "Áp dụng gợi ý" (Tab 1) when status == Reviewed.
 /// - Tab 2 ("PT gửi tôi"): coach sends PersonalProgram, status Pending -> Accepted/Rejected
 ///   Action: "Chấp nhận" (Tab 2) when status == Pending.
 class RouteApprovalCard extends StatelessWidget {
@@ -39,153 +39,269 @@ class RouteApprovalCard extends StatelessWidget {
         : (request['requestType']?.toString() == 'RouteApproval'
               ? 'Yêu cầu duyệt lộ trình'
               : 'Báo cáo tuần');
-    final description = (request['description'] ??
-            request['ptComment'] ??
-            request['coachComment'] ??
-            '')
-        .toString();
+    final description =
+        (request['description'] ??
+                request['ptComment'] ??
+                request['coachComment'] ??
+                '')
+            .toString();
     final weekStart = request['weekStartDate']?.toString() ?? '';
-    final calories = request['suggestedCalorieTarget'];
+    final isRouteApproval =
+        request['requestType']?.toString().toLowerCase() == 'routeapproval';
+    final calories = isRouteApproval
+        ? request['configuredCalorieTarget']
+        : request['suggestedCalorieTarget'];
     final protein = request['suggestedProteinTarget'];
     final createdAt = request['createdAt']?.toString();
-    final durationWeeks = request['durationWeeks'];
+    final periodLabel = direction == 'received'
+        ? PersonalProgramPeriod.periodLabel(request)
+        : weekStart.isEmpty
+        ? ''
+        : isRouteApproval
+        ? 'Ngày ${PersonalProgramPeriod.formatDate(weekStart)}'
+        : 'Tuần ${PersonalProgramPeriod.formatDate(weekStart)}';
+    final durationLabel = direction == 'received'
+        ? PersonalProgramPeriod.durationLabel(request)
+        : '';
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200, width: 0.8),
+    final isReceived = direction == 'received';
+    final actionLabel = _primaryActionLabel(status, direction);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    direction == 'received'
-                        ? Icons.assignment_ind_rounded
-                        : Icons.send_rounded,
-                    size: 18,
-                    color: direction == 'received'
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14.5,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ),
-                  _StatusChip(status: status, direction: direction),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (weekStart.isNotEmpty)
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row: Icon Badge + Title + Status Chip
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.calendar_today_rounded,
-                      size: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Tuần $weekStart',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isReceived
+                            ? AppColors.primary.withValues(alpha: 0.1)
+                            : const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isReceived
+                            ? Icons.assignment_ind_rounded
+                            : Icons.send_rounded,
+                        size: 20,
+                        color: isReceived
+                            ? AppColors.primary
+                            : const Color(0xFF2563EB),
                       ),
                     ),
-                    if (durationWeeks != null && durationWeeks > 0) ...[
-                      const SizedBox(width: 10),
-                      const Icon(
-                        Icons.timer_outlined,
-                        size: 13,
-                        color: AppColors.textSecondary,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: Color(0xFF111827),
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _StatusChip(status: status, direction: direction),
+                  ],
+                ),
+
+                // Period & Duration row
+                if (periodLabel.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 13.5,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          periodLabel,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                      if (durationLabel.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 12.5,
+                                color: Colors.grey.shade700,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                durationLabel,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+
+                // Description box if available
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                    ),
+                    child: Text(
+                      description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.grey.shade700,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Target Calorie & Protein Chips
+                if (calories != null || protein != null) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (calories != null)
+                        _TargetChip(
+                          icon: Icons.local_fire_department_rounded,
+                          label: '$calories kcal',
+                          bgColor: const Color(0xFFFFF7ED),
+                          textColor: const Color(0xFFEA580C),
+                          borderColor: const Color(0xFFFFEDD5),
+                        ),
+                      if (protein != null)
+                        _TargetChip(
+                          icon: Icons.fitness_center_rounded,
+                          label: '${protein}g protein',
+                          bgColor: const Color(0xFFECFDF5),
+                          textColor: const Color(0xFF059669),
+                          borderColor: const Color(0xFFA7F3D0),
+                        ),
+                    ],
+                  ),
+                ],
+
+                // Action button if actionable
+                if (actionLabel != null) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: onAction,
+                      icon: Icon(
+                        isReceived
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.auto_awesome_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        actionLabel,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Creation timestamp
+                if (createdAt != null && createdAt.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: Colors.grey.shade400,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '$durationWeeks tuần',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        'Tạo lúc ${_formatDate(createdAt)}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
-                  ],
-                ),
-              if (description.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
                   ),
-                ),
+                ],
               ],
-              if (calories != null || protein != null) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    if (calories != null)
-                      _TargetChip(
-                        icon: Icons.local_fire_department_rounded,
-                        label: '${calories} kcal',
-                        color: const Color(0xFFE65100),
-                      ),
-                    if (calories != null && protein != null)
-                      const SizedBox(width: 8),
-                    if (protein != null)
-                      _TargetChip(
-                        icon: Icons.fitness_center_rounded,
-                        label: '${protein}g protein',
-                        color: AppColors.primary,
-                      ),
-                  ],
-                ),
-              ],
-              if (_primaryActionLabel(status, direction) != null) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: direction == 'received'
-                          ? AppColors.primary
-                          : AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                    ),
-                    onPressed: onAction,
-                    child: Text(_primaryActionLabel(status, direction)!),
-                  ),
-                ),
-              ],
-              if (createdAt != null && createdAt.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Tạo lúc ${_formatDate(createdAt)}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -208,7 +324,7 @@ class RouteApprovalCard extends StatelessWidget {
   static String _formatDate(String iso) {
     try {
       final d = DateTime.parse(iso).toLocal();
-      final pad = (int n) => n.toString().padLeft(2, '0');
+      String pad(int n) => n.toString().padLeft(2, '0');
       return '${pad(d.day)}/${pad(d.month)}/${d.year} ${pad(d.hour)}:${pad(d.minute)}';
     } catch (_) {
       return iso;
@@ -224,28 +340,70 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = status.toLowerCase();
-    final (label, color) = switch (s) {
-      'pending' => ('Chờ phản hồi', const Color(0xFFFFA000)),
-      'reviewed' => ('Đã duyệt', AppColors.primary),
-      'accepted' => ('Đã chấp nhận', const Color(0xFF2E7D32)),
-      'applied' => ('Đã áp dụng', const Color(0xFF2E7D32)),
-      'rejected' => ('Đã từ chối', const Color(0xFFD32F2F)),
-      _ => (status, AppColors.textSecondary),
+    final (label, bgColor, textColor, borderColor) = switch (s) {
+      'pending' => (
+        'Chờ phản hồi',
+        const Color(0xFFFFFBEB),
+        const Color(0xFFB45309),
+        const Color(0xFFFDE68A),
+      ),
+      'reviewed' => (
+        'Đã duyệt',
+        const Color(0xFFECFDF5),
+        const Color(0xFF047857),
+        const Color(0xFFA7F3D0),
+      ),
+      'accepted' => (
+        'Đã chấp nhận',
+        const Color(0xFFECFDF5),
+        const Color(0xFF047857),
+        const Color(0xFFA7F3D0),
+      ),
+      'applied' => (
+        'Đã áp dụng',
+        const Color(0xFFECFDF5),
+        const Color(0xFF047857),
+        const Color(0xFFA7F3D0),
+      ),
+      'rejected' => (
+        'Đã từ chối',
+        const Color(0xFFFEF2F2),
+        const Color(0xFFB91C1C),
+        const Color(0xFFFECACA),
+      ),
+      _ => (
+        status,
+        const Color(0xFFF3F4F6),
+        AppColors.textSecondary,
+        const Color(0xFFE5E7EB),
+      ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 0.8),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: textColor),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -255,31 +413,36 @@ class _TargetChip extends StatelessWidget {
   const _TargetChip({
     required this.icon,
     required this.label,
-    required this.color,
+    required this.bgColor,
+    required this.textColor,
+    required this.borderColor,
   });
   final IconData icon;
   final String label;
-  final Color color;
+  final Color bgColor;
+  final Color textColor;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
+          Icon(icon, size: 13.5, color: textColor),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: color,
+              fontWeight: FontWeight.w700,
+              color: textColor,
             ),
           ),
         ],

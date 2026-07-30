@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/navigation/app_navigator.dart';
 import 'core/widgets/connection_status_banner.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/network_status_provider.dart';
@@ -24,6 +25,7 @@ import 'features/vietnam_local/providers/planned_vs_actual_provider.dart';
 import 'features/vietnam_local/providers/food_capture_provider.dart';
 import 'features/vietnam_local/providers/ingredient_substitution_provider.dart';
 import 'features/discover/providers/favorite_food_provider.dart';
+import 'features/coach_chat/providers/coach_chat_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -84,8 +86,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FoodCaptureProvider()),
         ChangeNotifierProvider(create: (_) => IngredientSubstitutionProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteFoodProvider()),
+        ChangeNotifierProvider(create: (_) => CoachChatProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: AppNavigator.key,
         title: 'MenuGreen',
         debugShowCheckedModeBanner: false,
         locale: const Locale('vi', 'VN'),

@@ -1,15 +1,32 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../repositories/advanced_repository.dart';
 import '../../notifications/repositories/notification_repository.dart';
 import '../../notifications/models/notification_models.dart';
-import '../../coach_pt/coach_pt.dart';
-import '../../coach_pt/views/coach_reports_tab_screen.dart';
+import '../../coach_chat/views/coach_chat_screen.dart';
+import '../../../core/services/notification_handler.dart';
 
 String valueOf(Map<String, dynamic> data, String key, [String fallback = '']) =>
     (data[key] ?? data[key[0].toUpperCase() + key.substring(1)] ?? fallback)
         .toString();
+
+bool routeRequestMatchesDate(
+  Map<String, dynamic> request,
+  DateTime selectedDate,
+) {
+  String key(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  final selectedKey = key(selectedDate);
+  if (valueOf(request, 'weekStartDate').startsWith(selectedKey)) return true;
+
+  // Compatibility for RouteApproval requests created before they started
+  // storing the exact requested day (they stored the Monday of that week).
+  final createdAt = DateTime.tryParse(valueOf(request, 'createdAt'))?.toLocal();
+  return createdAt != null && key(createdAt) == selectedKey;
+}
 
 void showError(BuildContext context, Object error) =>
     ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +85,10 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
                   DropdownButtonFormField<String>(
                     initialValue: action,
                     items: const [
-                      DropdownMenuItem(value: 'Replace', child: Text('Thay món')),
+                      DropdownMenuItem(
+                        value: 'Replace',
+                        child: Text('Thay món'),
+                      ),
                       DropdownMenuItem(value: 'Add', child: Text('Thêm món')),
                       DropdownMenuItem(value: 'Remove', child: Text('Bỏ món')),
                     ],
@@ -125,8 +145,10 @@ class _SharedPtReviewScreenState extends State<SharedPtReviewScreen> {
             'mealType': meal.text.trim(),
             'action': action,
             'notes': notes.text.trim(),
-            if (oldFood.text.trim().isNotEmpty) 'oldFoodId': oldFood.text.trim(),
-            if (newFood.text.trim().isNotEmpty) 'newFoodId': newFood.text.trim(),
+            if (oldFood.text.trim().isNotEmpty)
+              'oldFoodId': oldFood.text.trim(),
+            if (newFood.text.trim().isNotEmpty)
+              'newFoodId': newFood.text.trim(),
             if (newRecipe.text.trim().isNotEmpty)
               'newRecipeId': newRecipe.text.trim(),
           }),
@@ -510,7 +532,9 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
   Future<String> _computeAdherence() async {
     try {
       final connected = rows
-          .where((r) => valueOf(r, 'connectionStatus').toLowerCase() == 'connected')
+          .where(
+            (r) => valueOf(r, 'connectionStatus').toLowerCase() == 'connected',
+          )
           .toList();
       if (connected.isEmpty) return '—';
       double total = 0;
@@ -521,7 +545,8 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
         try {
           final nutrition = await repo.clientNutrition(id);
           for (final day in nutrition) {
-            final target = (day['targetCalories'] ?? day['TargetCalories'] ?? 0);
+            final target =
+                (day['targetCalories'] ?? day['TargetCalories'] ?? 0);
             final actual = (day['totalCalories'] ?? day['TotalCalories'] ?? 0);
             if (target is num && target > 0 && actual is num) {
               total += (actual / target).clamp(0.0, 1.5);
@@ -549,9 +574,18 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
-  void _handleNotificationTap(AppNotification noti) {
+  Future<void> _handleNotificationTap(AppNotification noti) async {
     // Mark as read via API
     _notificationRepo.markAsRead(noti.id);
+
+    if (noti.normalizedType == 'coach_chat_message') {
+      final handled = await NotificationHandler().handleAppNotificationTap(
+        context,
+        noti,
+      );
+      if (handled) return;
+      if (!mounted) return;
+    }
 
     // Try to deep-link to a client if the notification body mentions one
     final matchingClient = rows.firstWhere(
@@ -569,9 +603,9 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(noti.body)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(noti.body)));
     }
   }
 
@@ -625,7 +659,11 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
                             Colors.orange,
                           ),
                           const SizedBox(width: 12),
-                          _buildStatCard('Tuân thủ calo', _adherenceText, Colors.green),
+                          _buildStatCard(
+                            'Tuân thủ calo',
+                            _adherenceText,
+                            Colors.green,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -664,11 +702,16 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
                             Center(
                               child: Column(
                                 children: [
-                                  Icon(Icons.notifications_off_outlined,
-                                      size: 48, color: Colors.grey),
+                                  Icon(
+                                    Icons.notifications_off_outlined,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
                                   SizedBox(height: 12),
-                                  Text('Chưa có thông báo nào',
-                                      style: TextStyle(color: Colors.grey)),
+                                  Text(
+                                    'Chưa có thông báo nào',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
                                 ],
                               ),
                             ),
@@ -732,7 +775,9 @@ class _CoachClientsScreenState extends State<CoachClientsScreen>
                                     Icons.arrow_forward_ios,
                                     size: 12,
                                   ),
-                                  onTap: () => _handleNotificationTap(noti),
+                                  onTap: () {
+                                    _handleNotificationTap(noti);
+                                  },
                                 ),
                               ),
                             ),
@@ -1714,10 +1759,27 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final primaryColor = theme.primaryColor;
 
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text(valueOf(widget.client, 'fullName')),
+          actions: [
+            IconButton(
+              tooltip: 'Nhắn tin với học viên',
+              onPressed: id.isEmpty
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CoachChatScreen(
+                          partnerId: id,
+                          partnerName: valueOf(widget.client, 'fullName'),
+                        ),
+                      ),
+                    ),
+              icon: const Icon(Icons.chat_bubble_outline_rounded),
+            ),
+          ],
           bottom: TabBar(
             indicatorColor: primaryColor,
             labelColor: primaryColor,
@@ -1725,7 +1787,6 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
             tabs: const [
               Tab(icon: Icon(Icons.person), text: 'Hồ sơ cá nhân'),
               Tab(icon: Icon(Icons.restaurant), text: 'Lộ trình & Gợi ý'),
-              Tab(icon: Icon(Icons.assessment), text: 'Báo cáo tuần'),
             ],
           ),
         ),
@@ -1746,8 +1807,6 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                         _buildTrendsSection(),
                         const SizedBox(height: 16),
                         _buildTargetsAdjustmentSection(primaryColor),
-                        const SizedBox(height: 16),
-                        _buildChatBoardSection(primaryColor),
                       ],
                     ),
                   ),
@@ -1764,23 +1823,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       ],
                     ),
                   ),
-
-                  // Tab 3: Báo cáo tuần — nhúng CoachReportsTabScreen đã lọc
-                  // theo clientId của học viên hiện tại.
-                  _buildCoachReportsTab(),
                 ],
               ),
       ),
-    );
-  }
-
-  Widget _buildCoachReportsTab() {
-    final clientId = id;
-    final clientName = valueOf(widget.client, 'fullName',
-        valueOf(widget.client, 'clientName'));
-    return ChangeNotifierProvider(
-      create: (_) => CoachReportProvider(),
-      child: CoachReportsTabScreen(clientId: clientId, clientName: clientName),
     );
   }
 
@@ -1801,7 +1846,8 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
           (r) =>
               valueOf(r, 'status').toLowerCase() == 'pending' &&
               (valueOf(r, 'requestType').isEmpty ||
-                  valueOf(r, 'requestType').toLowerCase() == 'routeapproval'),
+                  valueOf(r, 'requestType').toLowerCase() == 'routeapproval') &&
+              routeRequestMatchesDate(r, _selectedDate),
         )
         .toList();
     final hasPendingReview = pendingReqs.isNotEmpty;
@@ -2619,7 +2665,10 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
   /// Ưu tiên đọc `trainingDayTargetCalories` từ response (nếu backend trả
   /// thêm), nếu không có thì fallback `targetCalories`.
   /// Trả về '-' nếu cả hai đều rỗng.
-  String _resolveTrainingDayCalories(Map<String, dynamic> data, BuildContext _) {
+  String _resolveTrainingDayCalories(
+    Map<String, dynamic> data,
+    BuildContext _,
+  ) {
     final v = valueOf(data, 'trainingDayTargetCalories');
     if (v.isNotEmpty && v != '-') return v;
     final t = valueOf(data, 'targetCalories');
@@ -2643,7 +2692,9 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final bodyFat = valueOf(data, 'bodyFatPercent', '-');
     final bmi = valueOf(data, 'bmi', '-');
     final goal = _translateGoal(valueOf(data, 'goal', ''));
-    final activityLevel = _translateActivityLevel(valueOf(data, 'activityLevel', ''));
+    final activityLevel = _translateActivityLevel(
+      valueOf(data, 'activityLevel', ''),
+    );
 
     final bmr = _resolveBmrKcal(data);
     final tdee = _resolveTdeeKcal(data);
@@ -2657,8 +2708,14 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     final rawAllergies = data['allergies'] ?? data['Allergies'];
     List<String> allergiesList = [];
     if (rawAllergies is List) {
-      allergiesList = rawAllergies.map((e) => e.toString()).where((e) => e.isNotEmpty && e != '[]').toList();
-    } else if (rawAllergies is String && rawAllergies.isNotEmpty && rawAllergies != '[]' && rawAllergies != 'Không có') {
+      allergiesList = rawAllergies
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty && e != '[]')
+          .toList();
+    } else if (rawAllergies is String &&
+        rawAllergies.isNotEmpty &&
+        rawAllergies != '[]' &&
+        rawAllergies != 'Không có') {
       allergiesList = [rawAllergies];
     }
 
@@ -2681,7 +2738,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    child: const Icon(Icons.favorite, color: Colors.white, size: 22),
+                    child: const Icon(
+                      Icons.favorite,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -2699,10 +2760,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                         SizedBox(height: 2),
                         Text(
                           'Thông tin thể trạng & dinh dưỡng chi tiết',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),
@@ -2721,22 +2779,58 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                 'BMI: $bmi • Mục tiêu: $goal',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              childrenPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
               children: [
                 _buildMetricGrid([
-                  _MetricItemData('Chiều cao', '$height cm', Icons.straighten, Colors.blue),
-                  _MetricItemData('Cân nặng', '$weight kg', Icons.monitor_weight_outlined, Colors.indigo),
-                  _MetricItemData('CN mục tiêu', '$targetWeight ${targetWeight != '-' ? 'kg' : ''}', Icons.flag_outlined, Colors.amber.shade800),
-                  _MetricItemData('BMI', bmi, Icons.calculate_outlined, Colors.teal),
-                  _MetricItemData('% Body Fat', '$bodyFat ${bodyFat != '-' ? '%' : ''}', Icons.pie_chart_outline, Colors.orange),
-                  _MetricItemData('Vận động', activityLevel, Icons.directions_run, Colors.purple),
+                  _MetricItemData(
+                    'Chiều cao',
+                    '$height cm',
+                    Icons.straighten,
+                    Colors.blue,
+                  ),
+                  _MetricItemData(
+                    'Cân nặng',
+                    '$weight kg',
+                    Icons.monitor_weight_outlined,
+                    Colors.indigo,
+                  ),
+                  _MetricItemData(
+                    'CN mục tiêu',
+                    '$targetWeight ${targetWeight != '-' ? 'kg' : ''}',
+                    Icons.flag_outlined,
+                    Colors.amber.shade800,
+                  ),
+                  _MetricItemData(
+                    'BMI',
+                    bmi,
+                    Icons.calculate_outlined,
+                    Colors.teal,
+                  ),
+                  _MetricItemData(
+                    '% Body Fat',
+                    '$bodyFat ${bodyFat != '-' ? '%' : ''}',
+                    Icons.pie_chart_outline,
+                    Colors.orange,
+                  ),
+                  _MetricItemData(
+                    'Vận động',
+                    activityLevel,
+                    Icons.directions_run,
+                    Colors.purple,
+                  ),
                 ]),
               ],
             ),
             const Divider(height: 1),
             ExpansionTile(
               initiallyExpanded: true,
-              leading: const Icon(Icons.local_fire_department, color: Colors.deepOrange),
+              leading: const Icon(
+                Icons.local_fire_department,
+                color: Colors.deepOrange,
+              ),
               title: const Text(
                 'Năng lượng & Calo tiêu thụ',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -2745,13 +2839,36 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                 'Calo mục tiêu: $targetCal kcal/ngày',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              childrenPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
               children: [
                 _buildMetricGrid([
-                  _MetricItemData('BMR (Cơ bản)', '$bmr kcal', Icons.bolt, Colors.amber),
-                  _MetricItemData('TDEE (Tổng/ngày)', '$tdee kcal', Icons.speed, Colors.deepOrange),
-                  _MetricItemData('Calo ngày tập', '$targetCal kcal', Icons.fitness_center, Colors.green),
-                  _MetricItemData('Calo ngày nghỉ', '$restCal kcal', Icons.bedtime_outlined, Colors.blueGrey),
+                  _MetricItemData(
+                    'BMR (Cơ bản)',
+                    '$bmr kcal',
+                    Icons.bolt,
+                    Colors.amber,
+                  ),
+                  _MetricItemData(
+                    'TDEE (Tổng/ngày)',
+                    '$tdee kcal',
+                    Icons.speed,
+                    Colors.deepOrange,
+                  ),
+                  _MetricItemData(
+                    'Calo ngày tập',
+                    '$targetCal kcal',
+                    Icons.fitness_center,
+                    Colors.green,
+                  ),
+                  _MetricItemData(
+                    'Calo ngày nghỉ',
+                    '$restCal kcal',
+                    Icons.bedtime_outlined,
+                    Colors.blueGrey,
+                  ),
                 ]),
               ],
             ),
@@ -2767,15 +2884,36 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                 'Protein: ${targetProtein}g • Carbs: ${targetCarbs}g • Fat: ${targetFat}g',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              childrenPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
               children: [
                 Row(
                   children: [
-                    Expanded(child: _buildMacroBadge('Protein', '$targetProtein g', Colors.redAccent)),
+                    Expanded(
+                      child: _buildMacroBadge(
+                        'Protein',
+                        '$targetProtein g',
+                        Colors.redAccent,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildMacroBadge('Carbs', '$targetCarbs g', Colors.orangeAccent)),
+                    Expanded(
+                      child: _buildMacroBadge(
+                        'Carbs',
+                        '$targetCarbs g',
+                        Colors.orangeAccent,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildMacroBadge('Fat', '$targetFat g', Colors.lightBlue)),
+                    Expanded(
+                      child: _buildMacroBadge(
+                        'Fat',
+                        '$targetFat g',
+                        Colors.lightBlue,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -2790,14 +2928,21 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   Row(
                     children: [
                       Icon(
-                        allergiesList.isNotEmpty ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                        color: allergiesList.isNotEmpty ? Colors.redAccent : Colors.green,
+                        allergiesList.isNotEmpty
+                            ? Icons.warning_amber_rounded
+                            : Icons.check_circle_outline,
+                        color: allergiesList.isNotEmpty
+                            ? Colors.redAccent
+                            : Colors.green,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       const Text(
                         'Cảnh báo Dị ứng thực phẩm',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -2805,11 +2950,16 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   if (allergiesList.isEmpty)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: const Row(
                         children: [
@@ -2817,7 +2967,11 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                           SizedBox(width: 6),
                           Text(
                             'Không có ghi nhận dị ứng thực phẩm',
-                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -2828,14 +2982,24 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                       runSpacing: 8,
                       children: allergiesList.map((allergy) {
                         return Chip(
-                          avatar: const Icon(Icons.do_not_disturb_on, color: Colors.white, size: 16),
+                          avatar: const Icon(
+                            Icons.do_not_disturb_on,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                           label: Text(
                             allergy,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                           backgroundColor: Colors.redAccent,
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -2879,13 +3043,20 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
                   children: [
                     Text(
                       item.label,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade700,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       item.value,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: item.color),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: item.color,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2909,9 +3080,23 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
       ),
       child: Column(
         children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -3045,115 +3230,7 @@ class _CoachClientDetailScreenState extends State<CoachClientDetailScreen> {
     );
   }
 
-  Widget _buildChatBoardSection(Color primaryColor) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.chat_bubble_outline, color: Colors.blueAccent),
-                SizedBox(width: 8),
-                Text(
-                  'Khung trao đổi nhanh với học viên',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ],
-            ),
-            const Divider(),
-            if (feedbacks.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'Chưa có tin nhắn nào trao đổi.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-              )
-            else
-              Container(
-                constraints: const BoxConstraints(maxHeight: 180),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: feedbacks
-                      .map(
-                        (f) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  valueOf(f, 'content'),
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      valueOf(f, 'coachName').isNotEmpty
-                                          ? valueOf(f, 'coachName')
-                                          : 'PT/Coach',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: primaryColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      valueOf(f, 'createdAt'),
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: feedbackText,
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập tin nhắn/lời khuyên...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.send, color: primaryColor),
-                  onPressed: sendFeedback,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
 
 class IngredientDetailScreen extends StatefulWidget {
@@ -3493,7 +3570,8 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
           (r) =>
               _v(r, 'status').toLowerCase() == 'pending' &&
               (_v(r, 'requestType').isEmpty ||
-                  _v(r, 'requestType').toLowerCase() == 'routeapproval'),
+                  _v(r, 'requestType').toLowerCase() == 'routeapproval') &&
+              routeRequestMatchesDate(r, widget.selectedDate),
         )
         .toList();
 
@@ -3637,21 +3715,53 @@ class _DayReviewSheetState extends State<_DayReviewSheet> {
                                   '${_v(item, 'targetCalories')} kcal · ${_v(item, 'plannedDate')}',
                                   style: const TextStyle(fontSize: 11),
                                 ),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                  onPressed: _working
-                                      ? null
-                                      : () async {
-                                          setState(() => _working = true);
-                                          await widget.onDeleteItem(item);
-                                          if (mounted) {
-                                            setState(() => _working = false);
-                                          }
-                                        },
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Tooltip(
+                                      message:
+                                          _v(
+                                                item,
+                                                'isCompleted',
+                                              ).toLowerCase() ==
+                                              'true'
+                                          ? 'Gymer đã ăn'
+                                          : 'Gymer chưa đánh dấu đã ăn',
+                                      child: Icon(
+                                        _v(item, 'isCompleted').toLowerCase() ==
+                                                'true'
+                                            ? Icons.check_circle_rounded
+                                            : Icons.radio_button_unchecked,
+                                        color:
+                                            _v(
+                                                  item,
+                                                  'isCompleted',
+                                                ).toLowerCase() ==
+                                                'true'
+                                            ? Colors.green
+                                            : Colors.grey.shade400,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                      onPressed: _working
+                                          ? null
+                                          : () async {
+                                              setState(() => _working = true);
+                                              await widget.onDeleteItem(item);
+                                              if (mounted) {
+                                                setState(
+                                                  () => _working = false,
+                                                );
+                                              }
+                                            },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

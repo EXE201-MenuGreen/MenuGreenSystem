@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../advanced/repositories/advanced_repository.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../discover/repositories/food_discovery_repository.dart';
+import '../../discover/views/food_detail_screen.dart';
+import '../../discover/views/recipe_detail_screen.dart';
 import '../coach_pt.dart';
 
 /// Coach edits a specific Gymer's meal plan.
@@ -47,6 +50,9 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
       startDate: _plan!.header.startDate,
       endDate: _plan!.header.endDate,
       targetCalories: _plan!.header.targetCalories,
+      minCalories: _plan!.header.minCalories,
+      maxCalories: _plan!.header.maxCalories,
+      coachNotes: _plan!.header.coachNotes,
       items: _draft.map((d) => d.toPayload()).toList(),
     );
     final ok = await context.read<CoachMealPlanProvider>().updatePlan(
@@ -139,55 +145,114 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
     }.contains(plan.header.status.toLowerCase());
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        foregroundColor: const Color(0xFF111827),
         title: Text(
-          plan.header.title.isNotEmpty ? plan.header.title : 'Lộ trình',
+          plan.header.title.isNotEmpty ? plan.header.title : 'Lộ trình ăn uống',
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: Color(0xFF111827),
+          ),
         ),
         actions: [
           if (_dirty && !isReadOnly)
             IconButton(
               tooltip: 'Lưu nháp',
-              icon: const Icon(Icons.save_outlined),
+              icon: const Icon(Icons.save_outlined, color: Color(0xFF374151)),
               onPressed: _saveDraft,
             ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: isApproved
-              ? FilledButton.icon(
-                  onPressed: null,
-                  icon: Icon(Icons.check_circle),
-                  label: Text('Đã duyệt & gửi cho học viên'),
+              ? SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.check_circle_rounded, size: 20),
+                    label: const Text(
+                      'Đã duyệt & gửi cho học viên',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      disabledBackgroundColor: const Color(0xFFE5E7EB),
+                      disabledForegroundColor: const Color(0xFF6B7280),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 )
               : isPendingAcceptance
-              ? FilledButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.hourglass_top),
-                  label: const Text('Đang chờ Gymer chấp nhận'),
+              ? SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.hourglass_top_rounded, size: 20),
+                    label: const Text(
+                      'Đang chờ Gymer chấp nhận',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      disabledBackgroundColor: const Color(0xFFFEF3C7),
+                      disabledForegroundColor: const Color(0xFFB45309),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 )
               : Row(
                   children: [
                     if (_dirty)
                       Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.save_outlined),
-                          label: const Text('Lưu nháp'),
-                          onPressed: _saveDraft,
+                        child: SizedBox(
+                          height: 46,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.save_outlined, size: 18),
+                            label: const Text('Lưu nháp'),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: _saveDraft,
+                          ),
                         ),
                       ),
                     if (_dirty) const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.send),
-                        label: Text(
-                          sendsForAcceptance
-                              ? 'Gửi Gymer duyệt'
-                              : 'Duyệt & gửi',
+                      child: SizedBox(
+                        height: 46,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.send_rounded, size: 18),
+                          label: Text(
+                            sendsForAcceptance
+                                ? 'Gửi Gymer duyệt'
+                                : 'Duyệt & gửi',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: _submit,
                         ),
-                        onPressed: _submit,
                       ),
                     ),
                   ],
@@ -206,8 +271,14 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
           ? null
           : FloatingActionButton(
               heroTag: 'addMealItem',
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               onPressed: () => _showAddItemSheet(context),
-              child: const Icon(Icons.add),
+              child: const Icon(Icons.add_rounded, size: 24),
             ),
     );
   }
@@ -231,17 +302,23 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
           title: entry.$2,
           items: items,
           onEdit: readOnly ? null : _editItem,
-          onDelete: readOnly
-              ? null
-              : (it) {
-                  setState(() => _draft.remove(it));
-                  _markDirty();
-                },
+          onView: _openItemDetail,
         ),
       );
       sections.add(const SizedBox(height: 16));
     }
     return sections;
+  }
+
+  void _openItemDetail(_DraftItem item) {
+    final Widget? screen = item.foodId != null
+        ? FoodDetailScreen(foodId: item.foodId!)
+        : item.recipeId != null
+        ? RecipeDetailScreen(recipeId: item.recipeId!)
+        : null;
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
   }
 
   Future<void> _editItem(_DraftItem item) async {
@@ -279,6 +356,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
           item.foodId = pick.kind == _IngredientKind.food ? pick.id : null;
           item.recipeId = pick.kind == _IngredientKind.recipe ? pick.id : null;
           item.displayName = pick.name;
+          item.targetCalories = pick.calories;
+          item.proteinG = pick.proteinG;
+          item.carbsG = pick.carbsG;
+          item.fatG = pick.fatG;
         });
         _markDirty();
       }
@@ -361,6 +442,10 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
                 ? result.pick.id
                 : null,
             displayName: result.pick.name,
+            targetCalories: result.pick.calories,
+            proteinG: result.pick.proteinG,
+            carbsG: result.pick.carbsG,
+            fatG: result.pick.fatG,
           ),
         );
       });
@@ -416,57 +501,212 @@ class _SubmitPlanDialogState extends State<_SubmitPlanDialog> {
 class _Header extends StatelessWidget {
   const _Header({required this.plan});
   final CoachMealPlanDetail plan;
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    plan.header.title,
-                    style: Theme.of(context).textTheme.titleMedium,
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.12),
+            AppColors.primary.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.25),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  plan.header.title.isNotEmpty ? plan.header.title : 'Lộ trình',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF065F46),
                   ),
                 ),
+              ),
+              if (plan.header.targetCalories != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5.5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      width: 0.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 14.5,
+                        color: Color(0xFFEA580C),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${plan.header.targetCalories} kcal',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              Text(
+                'Loại: ${plan.header.planType.toUpperCase()}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              if (plan.header.startDate != null)
                 Text(
-                  '${plan.header.targetCalories ?? '-'} kcal',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  _fmtPlanDate(
+                    plan.header.planType,
+                    plan.header.startDate,
+                    plan.header.endDate,
+                  ),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+            ],
+          ),
+          if (plan.header.minCalories != null ||
+              plan.header.maxCalories != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Khoảng mỗi món: ${plan.header.minCalories ?? 0} - '
+              '${plan.header.maxCalories ?? 'không giới hạn'} kcal',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+          if (plan.header.coachNotes?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Ghi chú PT: ${plan.header.coachNotes!.trim()}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF374151),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _PlanApprovalChip(status: plan.header.status),
+              if (plan.header.coachName != null &&
+                  plan.header.coachName!.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.badge_outlined,
+                        size: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'PT ${plan.header.coachName}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Loại: ${plan.header.planType}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (plan.header.startDate != null)
-              Text(
-                _fmtPlanDate(
-                  plan.header.planType,
-                  plan.header.startDate,
-                  plan.header.endDate,
-                ),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            const SizedBox(height: 8),
-            _PlanApprovalChip(status: plan.header.status),
-            if (plan.header.coachName != null &&
-                plan.header.coachName!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Chip(
-                  avatar: const Icon(Icons.badge_outlined, size: 16),
-                  label: Text('Tạo bởi PT ${plan.header.coachName}'),
-                ),
-              ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  static String _dmy(DateTime x) =>
+      '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+
+  static String _fmtPlanDate(String planType, DateTime? start, DateTime? end) {
+    if (start == null) return '';
+    final type = planType.toLowerCase();
+    if (type == 'daily') {
+      return _dmy(start);
+    }
+    if (end == null) return _dmy(start);
+    return '${_dmy(start)} – ${_dmy(end)}';
   }
 }
 
@@ -477,20 +717,63 @@ class _PlanApprovalChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = status.toLowerCase();
-    final approved = normalized == 'approved';
-    final label = coachMealPlanStatusLabel(status);
-    final color = approved ? Colors.green : Colors.orange;
-
-    return Chip(
-      avatar: Icon(
-        approved ? Icons.check_circle : Icons.edit_note,
-        size: 16,
-        color: color,
+    final s = status.toLowerCase();
+    final (label, bgColor, textColor, borderColor) = switch (s) {
+      'approved' => (
+        'Đã duyệt & gửi',
+        const Color(0xFFECFDF5),
+        const Color(0xFF047857),
+        const Color(0xFFA7F3D0),
       ),
-      label: Text(label),
-      side: BorderSide(color: color.withValues(alpha: 0.35)),
-      backgroundColor: color.withValues(alpha: 0.08),
+      'pending' || 'pendingacceptance' => (
+        'Chờ Gymer chấp nhận',
+        const Color(0xFFFFFBEB),
+        const Color(0xFFB45309),
+        const Color(0xFFFDE68A),
+      ),
+      'rejected' => (
+        'Đã từ chối',
+        const Color(0xFFFEF2F2),
+        const Color(0xFFB91C1C),
+        const Color(0xFFFECACA),
+      ),
+      _ => (
+        coachMealPlanStatusLabel(status),
+        const Color(0xFFF3F4F6),
+        const Color(0xFF4B5563),
+        const Color(0xFFE5E7EB),
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -500,47 +783,140 @@ class _MealSection extends StatelessWidget {
     required this.title,
     required this.items,
     required this.onEdit,
-    required this.onDelete,
+    required this.onView,
   });
 
   final String title;
   final List<_DraftItem> items;
   final Future<void> Function(_DraftItem)? onEdit;
-  final void Function(_DraftItem)? onDelete;
+  final void Function(_DraftItem) onView;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final (bgColor, textColor, borderColor, iconData) = _sectionColors(title);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor, width: 0.8),
+                  ),
+                  child: Icon(iconData, size: 16, color: textColor),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${items.length} món',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             if (items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'Chưa có món. Bấm + để thêm.',
-                  style: TextStyle(color: Colors.grey),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(
+                    'Chưa có món nào. Bấm nút + để thêm món.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Colors.grey.shade500,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                 ),
               )
             else
               Column(
-                children: items
-                    .map(
-                      (it) => _DraftItemTile(
-                        item: it,
-                        onTap: onEdit == null ? null : () => onEdit!(it),
-                        onDelete: onDelete == null ? null : () => onDelete!(it),
-                      ),
-                    )
-                    .toList(),
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    _DraftItemTile(
+                      item: items[i],
+                      onTap: () => onView(items[i]),
+                      onEdit: onEdit == null ? null : () => onEdit!(items[i]),
+                    ),
+                    if (i < items.length - 1)
+                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  ],
+                ],
               ),
           ],
         ),
       ),
+    );
+  }
+
+  static (Color, Color, Color, IconData) _sectionColors(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('sáng')) {
+      return (
+        const Color(0xFFFFF7ED),
+        const Color(0xFFEA580C),
+        const Color(0xFFFFEDD5),
+        Icons.wb_sunny_rounded,
+      );
+    }
+    if (t.contains('trưa')) {
+      return (
+        const Color(0xFFECFDF5),
+        const Color(0xFF059669),
+        const Color(0xFFA7F3D0),
+        Icons.restaurant_rounded,
+      );
+    }
+    if (t.contains('tối')) {
+      return (
+        const Color(0xFFEFF6FF),
+        const Color(0xFF2563EB),
+        const Color(0xFFBFDBFE),
+        Icons.nightlight_round,
+      );
+    }
+    return (
+      const Color(0xFFF5F3FF),
+      const Color(0xFF7C3AED),
+      const Color(0xFFDDD6FE),
+      Icons.bakery_dining_rounded,
     );
   }
 }
@@ -549,30 +925,72 @@ class _DraftItemTile extends StatelessWidget {
   const _DraftItemTile({
     required this.item,
     required this.onTap,
-    required this.onDelete,
+    required this.onEdit,
   });
   final _DraftItem item;
   final VoidCallback? onTap;
-  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-        child: const Icon(Icons.restaurant),
-      ),
-      title: Text(item.displayName),
-      subtitle: Text(item.recipeId != null ? 'Công thức' : 'Món'),
-      trailing: onDelete == null
-          ? const Icon(Icons.lock_outline, color: Colors.grey)
-          : IconButton(
-              tooltip: 'Xoá',
-              icon: const Icon(Icons.close, color: Colors.red),
-              onPressed: onDelete,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        leading: CircleAvatar(
+          radius: 18,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          child: const Icon(
+            Icons.restaurant_rounded,
+            size: 18,
+            color: AppColors.primary,
+          ),
+        ),
+        title: Text(
+          item.displayName,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: Color(0xFF111827),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Text(
+            '${item.targetCalories ?? 0} kcal'
+            '${item.proteinG == null ? '' : ' · P ${item.proteinG!.round()}g'}'
+            '${item.carbsG == null ? '' : ' · C ${item.carbsG!.round()}g'}'
+            '${item.fatG == null ? '' : ' · F ${item.fatG!.round()}g'}'
+            '\nChạm để xem chi tiết và công thức',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: Colors.grey.shade600,
             ),
-      onTap: onTap,
+          ),
+        ),
+        isThreeLine: true,
+        trailing: onEdit == null
+            ? Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
+              )
+            : IconButton(
+                tooltip: 'Chỉnh sửa / thay món',
+                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF374151)),
+                onPressed: onEdit,
+              ),
+        onTap: onTap,
+      ),
     );
   }
 }
@@ -584,6 +1002,12 @@ class _DraftItem {
     this.foodId,
     this.recipeId,
     required this.displayName,
+    this.plannedDate,
+    this.scheduledTime,
+    this.targetCalories,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
   });
 
   factory _DraftItem.fromItem(CoachMealPlanItem it) => _DraftItem(
@@ -592,6 +1016,12 @@ class _DraftItem {
     foodId: it.foodId,
     recipeId: it.recipeId,
     displayName: it.displayName,
+    plannedDate: it.plannedDate,
+    scheduledTime: it.scheduledTime,
+    targetCalories: it.targetCalories,
+    proteinG: it.proteinG,
+    carbsG: it.carbsG,
+    fatG: it.fatG,
   );
 
   String? id;
@@ -599,20 +1029,41 @@ class _DraftItem {
   String? foodId;
   String? recipeId;
   String displayName;
+  DateTime? plannedDate;
+  String? scheduledTime;
+  int? targetCalories;
+  double? proteinG;
+  double? carbsG;
+  double? fatG;
 
   ClientMealPlanItemPayload toPayload() => ClientMealPlanItemPayload(
     id: id,
     mealType: mealType,
     foodId: foodId,
     recipeId: recipeId,
+    plannedDate: plannedDate,
+    scheduledTime: scheduledTime,
+    targetCalories: targetCalories,
   );
 }
 
 class _IngredientPick {
-  _IngredientPick({required this.id, required this.name, required this.kind});
+  _IngredientPick({
+    required this.id,
+    required this.name,
+    required this.kind,
+    this.calories,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+  });
   final String id;
   final String name;
   final _IngredientKind kind;
+  final int? calories;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
 }
 
 enum _IngredientKind { food, recipe }
@@ -630,7 +1081,7 @@ class _IngredientPickerSheet extends StatefulWidget {
 }
 
 class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
-  final _repo = AdvancedRepository();
+  final _repo = FoodDiscoveryRepository();
   final _controller = TextEditingController();
   List<Map<String, dynamic>> _results = const [];
   bool _loading = false;
@@ -648,8 +1099,33 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
     }
     setState(() => _loading = true);
     try {
-      final raw = await _repo.ingredients(q, false);
-      _results = raw.take(20).toList();
+      final results = await Future.wait([
+        _repo.searchFoods(keyword: q),
+        _repo.searchRecipes(keyword: q),
+      ]);
+      _results = [
+        ...(results[0] as List).map(
+          (item) => {
+            'id': (item as dynamic).id,
+            'name': item.nameVi,
+            'type': 'food',
+            'category': item.category,
+            'caloriesKcal': item.caloriesKcal,
+            'proteinG': item.proteinG,
+            'carbsG': item.carbsG,
+            'fatG': item.fatG,
+          },
+        ),
+        ...(results[1] as List).map(
+          (item) => {
+            'id': (item as dynamic).id,
+            'name': item.title,
+            'type': 'recipe',
+            'category': 'Công thức',
+            'caloriesKcal': item.totalCalories,
+          },
+        ),
+      ].take(20).toList();
     } catch (_) {
       _results = const [];
     } finally {
@@ -709,17 +1185,26 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                       final name = (it['name'] ?? it['Name'] ?? 'Món')
                           .toString();
                       final id = (it['id'] ?? it['Id'] ?? '').toString();
+                      final calories = _int(it['caloriesKcal']);
+                      final kind = it['type'] == 'recipe'
+                          ? _IngredientKind.recipe
+                          : _IngredientKind.food;
                       return ListTile(
                         title: Text(name),
                         subtitle: Text(
-                          (it['category'] ?? it['Category'] ?? '').toString(),
+                          '${(it['category'] ?? it['Category'] ?? '').toString()}'
+                          '${calories == null ? '' : ' · $calories kcal'}',
                         ),
                         onTap: () => Navigator.pop(
                           context,
                           _IngredientPick(
                             id: id,
                             name: name,
-                            kind: _IngredientKind.food,
+                            kind: kind,
+                            calories: calories,
+                            proteinG: _double(it['proteinG']),
+                            carbsG: _double(it['carbsG']),
+                            fatG: _double(it['fatG']),
                           ),
                         ),
                       );
@@ -731,6 +1216,16 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
         ),
       ),
     );
+  }
+
+  static int? _int(dynamic value) {
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static double? _double(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 }
 
@@ -752,18 +1247,4 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-String _dmy(DateTime x) =>
-    '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
 
-/// Format hiển thị ngày của plan tuỳ theo planType (thêm năm cho rõ ràng):
-/// - Daily   → "26/07/2026"
-/// - Weekly  → "26/07/2026 – 01/08/2026"
-/// - Monthly → "26/07/2026 – 25/08/2026"
-/// - Custom / khác → range `start – end`
-String _fmtPlanDate(String planType, DateTime? start, DateTime? end) {
-  if (start == null) return '';
-  final type = planType.toLowerCase();
-  if (type == 'daily') return _dmy(start);
-  if (end == null) return _dmy(start);
-  return '${_dmy(start)} – ${_dmy(end)}';
-}

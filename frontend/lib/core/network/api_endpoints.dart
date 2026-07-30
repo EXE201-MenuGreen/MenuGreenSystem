@@ -40,6 +40,12 @@ class ApiEndpoints {
   }
 
   static String get notificationHub => '$realtimeBaseUrl/notificationHub';
+  static String get coachChatPartners => '$baseUrl/coach-chat/partners';
+  static String coachChatMessages(String partnerId) =>
+      '$baseUrl/coach-chat/$partnerId/messages';
+  static String coachChatRead(String partnerId) =>
+      '$baseUrl/coach-chat/$partnerId/read';
+  static String get coachChatUnreadCount => '$baseUrl/coach-chat/unread-count';
 
   static String get health => '$baseUrl/Food';
   static String get login => '$baseUrl/Auth/login';
@@ -74,6 +80,7 @@ class ApiEndpoints {
   static String recipeById(String id) => '$baseUrl/Recipe/$id';
   static String recipeIngredients(String id) =>
       '$baseUrl/Recipe/$id/ingredients';
+  static String recipeNutrition(String id) => '$baseUrl/Recipe/$id/nutrition';
   static String mealPlanScanMeals(String planId) =>
       '$baseUrl/MealPlan/$planId/scan-meals';
   static String mealPlanScanPlanItems(String planId) =>
