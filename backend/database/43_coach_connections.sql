@@ -22,7 +22,7 @@ CREATE TABLE coach_connections (
 -- Seed Data for coach_connections
 INSERT INTO coach_connections ("Id", "ClientId", "CoachId", "Status", "IsAccessGranted", "CreatedAt", "UpdatedAt")
 VALUES
-('80000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Connected', true, now() - interval '10 days', now() - interval '10 days')
+('80000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '77777777-7777-7777-7777-777777777777', 'Connected', true, now() - interval '10 days', now() - interval '10 days')
 ON CONFLICT DO NOTHING;
 
 COMMIT;

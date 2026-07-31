@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../utils/personal_program_period.dart';
+import '../utils/route_approval_period.dart';
 
 /// Reusable card widget for the 2-tab Gymer journey screen ("Lộ trình Gymer").
 ///
@@ -33,58 +34,74 @@ class RouteApprovalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String value(String key) => PersonalProgramPeriod.value(request, key);
+
     final status = (request['status'] ?? '').toString();
+    final requestType = value('requestType');
+    final isRouteApproval = requestType.trim().toLowerCase() == 'routeapproval';
     final title = direction == 'received'
         ? (request['title']?.toString() ?? 'Lộ trình cá nhân từ PT')
-        : (request['requestType']?.toString() == 'RouteApproval'
-              ? 'Yêu cầu duyệt lộ trình'
-              : 'Báo cáo tuần');
+        : (isRouteApproval ? 'Yêu cầu duyệt lộ trình' : 'Báo cáo tuần');
     final description =
         (request['description'] ??
                 request['ptComment'] ??
                 request['coachComment'] ??
                 '')
             .toString();
-    final weekStart = request['weekStartDate']?.toString() ?? '';
-    final isRouteApproval =
-        request['requestType']?.toString().toLowerCase() == 'routeapproval';
+    final weekStart = value('weekStartDate');
     final calories = isRouteApproval
         ? request['configuredCalorieTarget']
         : request['suggestedCalorieTarget'];
     final protein = request['suggestedProteinTarget'];
     final createdAt = request['createdAt']?.toString();
+    final sentScope = RouteApprovalPeriod.normalizeScope(
+      requestType: requestType,
+      configurationScope: value('configurationScope'),
+    );
+    final sentStart = DateTime.tryParse(
+      value('configurationStartDate').isNotEmpty
+          ? value('configurationStartDate')
+          : weekStart,
+    );
+    final sentEnd = DateTime.tryParse(value('configurationEndDate'));
     final periodLabel = direction == 'received'
         ? PersonalProgramPeriod.periodLabel(request)
-        : weekStart.isEmpty
+        : sentStart == null
         ? ''
-        : isRouteApproval
-        ? 'Ngày ${PersonalProgramPeriod.formatDate(weekStart)}'
-        : 'Tuần ${PersonalProgramPeriod.formatDate(weekStart)}';
+        : RouteApprovalPeriod.periodLabel(
+            scope: sentScope,
+            start: sentStart,
+            end: sentEnd,
+          );
     final durationLabel = direction == 'received'
         ? PersonalProgramPeriod.durationLabel(request)
         : '';
 
     final isReceived = direction == 'received';
-    final actionLabel = _primaryActionLabel(status, direction);
+    final actionLabel = _primaryActionLabel(
+      status,
+      direction,
+      isRouteApproval: isRouteApproval,
+    );
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade100, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF1A7A4A).withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -96,25 +113,34 @@ class RouteApprovalCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        color: isReceived
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF135A37), Color(0xFF1A7A4A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF1A7A4A,
+                            ).withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Icon(
                         isReceived
                             ? Icons.assignment_ind_rounded
                             : Icons.send_rounded,
                         size: 20,
-                        color: isReceived
-                            ? AppColors.primary
-                            : const Color(0xFF2563EB),
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         title,
@@ -123,6 +149,7 @@ class RouteApprovalCard extends StatelessWidget {
                           fontSize: 15,
                           color: Color(0xFF111827),
                           height: 1.2,
+                          letterSpacing: -0.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -229,17 +256,17 @@ class RouteApprovalCard extends StatelessWidget {
                         _TargetChip(
                           icon: Icons.local_fire_department_rounded,
                           label: '$calories kcal',
-                          bgColor: const Color(0xFFFFF7ED),
-                          textColor: const Color(0xFFEA580C),
-                          borderColor: const Color(0xFFFFEDD5),
+                          bgColor: AppColors.primary.withValues(alpha: 0.08),
+                          textColor: AppColors.primary,
+                          borderColor: AppColors.primary.withValues(alpha: 0.2),
                         ),
                       if (protein != null)
                         _TargetChip(
                           icon: Icons.fitness_center_rounded,
                           label: '${protein}g protein',
-                          bgColor: const Color(0xFFECFDF5),
-                          textColor: const Color(0xFF059669),
-                          borderColor: const Color(0xFFA7F3D0),
+                          bgColor: AppColors.primary.withValues(alpha: 0.08),
+                          textColor: AppColors.primary,
+                          borderColor: AppColors.primary.withValues(alpha: 0.2),
                         ),
                     ],
                   ),
@@ -308,7 +335,11 @@ class RouteApprovalCard extends StatelessWidget {
     );
   }
 
-  static String? _primaryActionLabel(String status, String direction) {
+  static String? _primaryActionLabel(
+    String status,
+    String direction, {
+    required bool isRouteApproval,
+  }) {
     final s = status.toLowerCase();
     if (direction == 'received') {
       // Coach -> Gymer (PersonalProgram)
@@ -316,14 +347,27 @@ class RouteApprovalCard extends StatelessWidget {
       return null;
     } else {
       // Gymer -> PT (WeeklyReport / RouteApproval)
-      if (s == 'reviewed') return 'Áp dụng gợi ý';
+      if (s == 'reviewed' && !isRouteApproval) return 'Áp dụng gợi ý';
       return null;
     }
   }
 
   static String _formatDate(String iso) {
     try {
-      final d = DateTime.parse(iso).toLocal();
+      final trimmed = iso.trim();
+      if (trimmed.isEmpty) return iso;
+
+      DateTime? d;
+      if (trimmed.endsWith('Z') ||
+          RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(trimmed)) {
+        d = DateTime.tryParse(trimmed)?.toLocal();
+      } else {
+        d = DateTime.tryParse('${trimmed}Z')?.toLocal();
+      }
+
+      d ??= DateTime.tryParse(trimmed)?.toLocal();
+      if (d == null) return iso;
+
       String pad(int n) => n.toString().padLeft(2, '0');
       return '${pad(d.day)}/${pad(d.month)}/${d.year} ${pad(d.hour)}:${pad(d.minute)}';
     } catch (_) {
@@ -344,31 +388,31 @@ class _StatusChip extends StatelessWidget {
       'pending' => (
         'Chờ phản hồi',
         const Color(0xFFFFFBEB),
-        const Color(0xFFB45309),
+        const Color(0xFFD97706),
         const Color(0xFFFDE68A),
       ),
       'reviewed' => (
-        'Đã duyệt',
+        direction == 'sent' ? 'Duyệt thành công' : 'Đã duyệt',
         const Color(0xFFECFDF5),
-        const Color(0xFF047857),
+        const Color(0xFF059669),
         const Color(0xFFA7F3D0),
       ),
       'accepted' => (
         'Đã chấp nhận',
         const Color(0xFFECFDF5),
-        const Color(0xFF047857),
+        const Color(0xFF059669),
         const Color(0xFFA7F3D0),
       ),
       'applied' => (
         'Đã áp dụng',
         const Color(0xFFECFDF5),
-        const Color(0xFF047857),
+        const Color(0xFF059669),
         const Color(0xFFA7F3D0),
       ),
       'rejected' => (
         'Đã từ chối',
         const Color(0xFFFEF2F2),
-        const Color(0xFFB91C1C),
+        const Color(0xFFDC2626),
         const Color(0xFFFECACA),
       ),
       _ => (
@@ -380,7 +424,7 @@ class _StatusChip extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
@@ -390,16 +434,16 @@ class _StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 5,
-            height: 5,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(shape: BoxShape.circle, color: textColor),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 4.5),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
               color: textColor,
             ),
           ),

@@ -38,7 +38,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice)
         {
-            var coaches = await _unitOfWork.CoachProfiles.FindAsync(c => c.IsActive);
+            var coaches = await _unitOfWork.CoachProfiles.FindAsync(c =>
+                c.IsActive
+                && c.User != null
+                && c.User.IsActive
+                && c.User.Role != null
+                && c.User.Role.Name == "Coach",
+                asNoTracking: true);
             var list = coaches.ToList();
 
             if (!string.IsNullOrWhiteSpace(specialty))
@@ -81,7 +87,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<CoachProfileResponse> GetCoachByIdAsync(Guid coachId)
         {
-            var item = await _unitOfWork.CoachProfiles.GetByIdAsync(coachId)
+            var item = (await _unitOfWork.CoachProfiles.FindAsync(c =>
+                    c.Id == coachId
+                    && c.IsActive
+                    && c.User != null
+                    && c.User.IsActive
+                    && c.User.Role != null
+                    && c.User.Role.Name == "Coach",
+                    asNoTracking: true))
+                .FirstOrDefault()
                 ?? throw new Exception("Coach profile not found.");
 
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == item.UserId)).FirstOrDefault();
@@ -179,8 +193,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<bool> ConnectCoachAsync(Guid clientId, Guid coachId)
         {
-            var coachProf = await _unitOfWork.CoachProfiles.GetByIdAsync(coachId);
-            var coachUserId = coachProf != null ? coachProf.UserId : coachId;
+            var coachProf = (await _unitOfWork.CoachProfiles.FindAsync(c =>
+                    (c.Id == coachId || c.UserId == coachId)
+                    && c.IsActive
+                    && c.User != null
+                    && c.User.IsActive
+                    && c.User.Role != null
+                    && c.User.Role.Name == "Coach"))
+                .FirstOrDefault()
+                ?? throw new Exception("Coach profile not found.");
+            var coachUserId = coachProf.UserId;
 
             var clientUser = await _unitOfWork.Users.GetByIdAsync(clientId);
             var coachUser = await _unitOfWork.Users.GetByIdAsync(coachUserId);
@@ -320,7 +342,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var results = new List<MyCoachResponse>();
             foreach (var connection in connections)
             {
-                var coachProfile = (await _unitOfWork.CoachProfiles.FindAsync(c => c.UserId == connection.CoachId)).FirstOrDefault();
+                var coachProfile = (await _unitOfWork.CoachProfiles.FindAsync(c =>
+                        c.UserId == connection.CoachId
+                        && c.IsActive
+                        && c.User != null
+                        && c.User.IsActive
+                        && c.User.Role != null
+                        && c.User.Role.Name == "Coach",
+                        asNoTracking: true))
+                    .FirstOrDefault();
                 if (coachProfile == null) continue;
                 var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == connection.CoachId)).FirstOrDefault();
                 results.Add(new MyCoachResponse
@@ -599,7 +629,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             plan.MinCalories = request.MinCalories;
             plan.MaxCalories = request.MaxCalories;
             plan.CoachNotes = request.CoachNotes?.Trim();
-            plan.GeneratedBy = "COACH";
             plan.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.MealPlanHeaders.Update(plan);
@@ -951,6 +980,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Meal plan not found.");
             }
 
+            // A Gymer -> PT route-approval request owns the approval flow.
+            // Editing that plan must not turn it into a Coach -> Gymer
+            // PersonalProgram that the Gymer has to accept again.
+            var pendingRouteRequests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                r.UserId == clientId
+                && r.Status == "Pending"
+                && r.CreatedByRole != "Coach"))
+                .Where(IsRouteApprovalRequest)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+            var matchedRequest = FindMatchingRouteApprovalRequest(
+                plan,
+                pendingRouteRequests
+            );
+
             if (
                 string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase)
                 && !IsApprovalOutdated(plan)
@@ -963,6 +1007,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     plan.Status,
                     "PendingAcceptance",
                     StringComparison.OrdinalIgnoreCase)
+                && matchedRequest == null
             )
             {
                 throw new Exception("Lộ trình đang chờ Gymer chấp nhận.");
@@ -971,7 +1016,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // A plan created by the PT must be accepted by the Gymer before it
             // becomes active. Keep the existing Gymer -> PT approval path below
             // for plans originally created by the student.
-            if (string.Equals(plan.GeneratedBy, "COACH", StringComparison.OrdinalIgnoreCase))
+            if (
+                matchedRequest == null
+                && string.Equals(
+                    plan.GeneratedBy,
+                    "COACH",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 var mappedPlan = await MapMealPlanAsync(plan);
                 var health = (await _unitOfWork.HealthProfiles.FindAsync(
@@ -1051,7 +1103,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var now = DateTime.UtcNow;
-            plan.GeneratedBy = "COACH";
+            if (matchedRequest != null)
+            {
+                plan.GeneratedBy = "PT_APPROVED";
+            }
             plan.Status = "Approved";
             plan.ApprovedAt = now;
             plan.UpdatedAt = now;
@@ -1060,25 +1115,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // The Gymer-facing "Tôi gửi PT" tab is backed by PtReviewRequest,
             // not MealPlanHeader. Mark the latest matching route request as
             // Reviewed so it no longer remains "Chờ phản hồi".
-            var pendingRequests = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
-                r.UserId == clientId
-                && r.Status == "Pending"
-                && r.CreatedByRole != "Coach"))
-                .Where(IsRouteApprovalRequest)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToList();
-
-            PtReviewRequest? matchedRequest = null;
-            if (plan.StartDate.HasValue || plan.EndDate.HasValue)
-            {
-                var planStart = plan.StartDate ?? plan.EndDate!.Value;
-                var planEnd = plan.EndDate ?? plan.StartDate!.Value;
-                matchedRequest = pendingRequests.FirstOrDefault(r =>
-                    planStart <= r.WeekStartDate.AddDays(6)
-                    && planEnd >= r.WeekStartDate);
-            }
-            matchedRequest ??= pendingRequests.FirstOrDefault();
-
             if (matchedRequest != null)
             {
                 matchedRequest.Status = "Reviewed";
@@ -1153,6 +1189,72 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
         }
 
+        private static PtReviewRequest? FindMatchingRouteApprovalRequest(
+            MealPlanHeader plan,
+            IReadOnlyCollection<PtReviewRequest> pendingRequests)
+        {
+            var exactMatch = pendingRequests.FirstOrDefault(request =>
+                GetRouteApprovalMealPlanId(request) == plan.Id
+            );
+            if (exactMatch != null)
+            {
+                return exactMatch;
+            }
+
+            // New requests carry MealPlanId and are matched exactly. This
+            // fallback supports requests created before MealPlanId was stored,
+            // but never claims a plan that was genuinely created by the PT.
+            if (string.Equals(
+                plan.GeneratedBy,
+                "COACH",
+                StringComparison.OrdinalIgnoreCase
+            ))
+            {
+                return null;
+            }
+
+            if (plan.StartDate.HasValue || plan.EndDate.HasValue)
+            {
+                var planStart = plan.StartDate ?? plan.EndDate!.Value;
+                var planEnd = plan.EndDate ?? plan.StartDate!.Value;
+                var dateMatch = pendingRequests.FirstOrDefault(request =>
+                    !GetRouteApprovalMealPlanId(request).HasValue
+                    && planStart <= request.WeekStartDate.AddDays(6)
+                    && planEnd >= request.WeekStartDate
+                );
+                if (dateMatch != null)
+                {
+                    return dateMatch;
+                }
+            }
+
+            return null;
+        }
+
+        private static Guid? GetRouteApprovalMealPlanId(PtReviewRequest request)
+        {
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(
+                    request.ReportDataJson
+                );
+                if (
+                    document.RootElement.TryGetProperty("mealPlanId", out var mealPlanId)
+                    && mealPlanId.ValueKind == System.Text.Json.JsonValueKind.String
+                    && Guid.TryParse(mealPlanId.GetString(), out var parsed)
+                )
+                {
+                    return parsed;
+                }
+            }
+            catch
+            {
+                // Legacy snapshots may be empty or malformed.
+            }
+
+            return null;
+        }
+
         public async Task DeleteClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
@@ -1182,6 +1284,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             int targetCalories = 0,
             int? minCalories = null,
             int? maxCalories = null,
+            decimal? minProteinG = null,
+            decimal? maxProteinG = null,
             int top = 10)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
@@ -1192,6 +1296,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             )
             {
                 throw new Exception("Calo tối thiểu không được lớn hơn calo tối đa.");
+            }
+            if (
+                minProteinG.HasValue
+                && maxProteinG.HasValue
+                && minProteinG.Value > maxProteinG.Value
+            )
+            {
+                throw new Exception("Protein tối thiểu không được lớn hơn protein tối đa.");
             }
 
             var planDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
@@ -1222,6 +1334,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetCalories = targetCalories > 0 ? targetCalories : null,
                 MinCalories = minCalories,
                 MaxCalories = maxCalories,
+                MinProteinG = minProteinG,
+                MaxProteinG = maxProteinG,
                 Date = planDate,
                 Top = top
             });

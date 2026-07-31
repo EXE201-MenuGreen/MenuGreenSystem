@@ -30,15 +30,43 @@ void main() {
       expect(provider.receivedTargetCalories, 1500);
       expect(provider.receivedMinCalories, 500);
       expect(provider.receivedMaxCalories, 1500);
+      expect(provider.receivedMinProteinG, 50);
+      expect(provider.receivedMaxProteinG, 100);
       expect(find.text('Bò xào giá đỗ'), findsOneWidget);
-      expect(find.text('Khởi tạo lộ trình từ gợi ý'), findsOneWidget);
+      expect(find.text('Danh sách món ăn gợi ý'), findsOneWidget);
+      expect(find.text('Khởi tạo lộ trình mới'), findsOneWidget);
+      expect(find.text('Trang 1/2'), findsOneWidget);
+      expect(find.text('Món phân trang 7'), findsNothing);
 
-      await tester.tap(find.text('Khởi tạo lộ trình từ gợi ý'));
+      await tester.ensureVisible(find.byTooltip('Trang sau'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Trang sau'));
+      await tester.pump();
+      expect(find.text('Trang 2/2'), findsOneWidget);
+      expect(find.text('Món phân trang 7'), findsOneWidget);
+
+      await tester.ensureVisible(find.byTooltip('Trang trước'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Trang trước'));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('Khởi tạo lộ trình mới'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Khởi tạo lộ trình mới'));
       await tester.pump();
 
       expect(find.textContaining('Bò xào giá đỗ'), findsAtLeastNWidgets(2));
       expect(find.byTooltip('Thay món'), findsWidgets);
+      expect(find.byTooltip('Chỉnh sửa món'), findsWidgets);
       expect(find.byTooltip('Xóa món'), findsWidgets);
+
+      await tester.tap(find.text('Tiếp tục'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tổng quan cấu hình'), findsOneWidget);
+      expect(find.text('Ngày khởi tạo'), findsOneWidget);
+      expect(find.text('Thực đơn xem lại'), findsOneWidget);
+      expect(find.textContaining('Bò xào giá đỗ'), findsWidgets);
     },
   );
 }
@@ -48,6 +76,8 @@ class _SuggestionCoachMealPlanProvider extends CoachMealPlanProvider {
   int? receivedTargetCalories;
   int? receivedMinCalories;
   int? receivedMaxCalories;
+  double? receivedMinProteinG;
+  double? receivedMaxProteinG;
 
   @override
   Future<Map<String, dynamic>?> loadClientGymConfig(DateTime date) async {
@@ -65,22 +95,36 @@ class _SuggestionCoachMealPlanProvider extends CoachMealPlanProvider {
     required int targetCalories,
     int? minCalories,
     int? maxCalories,
+    double? minProteinG,
+    double? maxProteinG,
     int top = 20,
   }) async {
     suggestionCalls++;
     receivedTargetCalories = targetCalories;
     receivedMinCalories = minCalories;
     receivedMaxCalories = maxCalories;
+    receivedMinProteinG = minProteinG;
+    receivedMaxProteinG = maxProteinG;
     return [
       {
         'id': 'recipe-1',
         'name': 'Bò xào giá đỗ',
         'type': 'Recipe',
         'caloriesKcal': 631,
-        'proteinG': 32,
+        'proteinG': 20,
         'carbsG': 45,
         'fatG': 18,
       },
+      for (var index = 2; index <= 7; index++)
+        {
+          'id': 'recipe-$index',
+          'name': 'Món phân trang $index',
+          'type': 'Recipe',
+          'caloriesKcal': 500 + index,
+          'proteinG': 20,
+          'carbsG': 40,
+          'fatG': 12,
+        },
     ];
   }
 }

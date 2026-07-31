@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/advanced/views/advanced_detail_screens.dart';
 import 'package:frontend/features/gymer/models/route_approval_detail.dart';
+import 'package:frontend/features/gymer/utils/route_approval_period.dart';
 
 void main() {
   test('parses PT note and planned meals from route report data', () {
@@ -15,6 +16,9 @@ void main() {
       'configuredCalorieTarget': 1500,
       'configuredMinCalories': 500,
       'configuredMaxCalories': 1500,
+      'configurationScope': 'day',
+      'configurationStartDate': '2026-07-30',
+      'configurationEndDate': '2026-07-30',
       'reportData': {
         'studentHealthProfile': {
           'targetProteinG': 122,
@@ -50,6 +54,9 @@ void main() {
     expect(detail.configuredCalorieTarget, 1500);
     expect(detail.configuredMinCalories, 500);
     expect(detail.configuredMaxCalories, 1500);
+    expect(detail.configurationScope, 'day');
+    expect(detail.configurationStartDate, DateTime(2026, 7, 30));
+    expect(detail.configurationEndDate, DateTime(2026, 7, 30));
     expect(detail.targetProteinG, 122);
     expect(detail.days, hasLength(1));
     expect(detail.days.single.meals, hasLength(2));
@@ -104,5 +111,35 @@ void main() {
     };
 
     expect(routeRequestMatchesDate(request, DateTime(2026, 7, 30)), isTrue);
+  });
+
+  test('configuration period labels follow day, week, and month scopes', () {
+    final date = DateTime(2026, 7, 31);
+
+    expect(
+      RouteApprovalPeriod.periodLabel(scope: 'day', start: date, end: date),
+      'Ngày 31/07/2026',
+    );
+    expect(RouteApprovalPeriod.durationLabel('day'), '1 ngày');
+
+    expect(
+      RouteApprovalPeriod.periodLabel(
+        scope: 'week',
+        start: DateTime(2026, 7, 27),
+        end: DateTime(2026, 8, 2),
+      ),
+      'Tuần 27/07/2026 - 02/08/2026',
+    );
+    expect(RouteApprovalPeriod.durationLabel('week'), '1 tuần');
+
+    expect(
+      RouteApprovalPeriod.periodLabel(
+        scope: 'month',
+        start: DateTime(2026, 7),
+        end: DateTime(2026, 7, 31),
+      ),
+      'Tháng 07/2026',
+    );
+    expect(RouteApprovalPeriod.durationLabel('month'), '1 tháng');
   });
 }

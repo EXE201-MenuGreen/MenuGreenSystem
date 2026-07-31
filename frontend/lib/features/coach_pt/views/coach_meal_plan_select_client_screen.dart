@@ -10,6 +10,12 @@ import 'coach_meal_plan_history_screen.dart';
 
 /// Entry screen for the Coach's "Lộ trình" tab. Lists all connected
 /// Gymers with search & pagination so the Coach can pick one to manage.
+class _ClientScreenData {
+  final List<Map<String, dynamic>> clients;
+  final Set<String> pendingClientIds;
+  _ClientScreenData({required this.clients, required this.pendingClientIds});
+}
+
 class CoachMealPlanSelectClientScreen extends StatefulWidget {
   const CoachMealPlanSelectClientScreen({super.key});
 
@@ -21,7 +27,8 @@ class CoachMealPlanSelectClientScreen extends StatefulWidget {
 class _CoachMealPlanSelectClientScreenState
     extends State<CoachMealPlanSelectClientScreen> {
   final AdvancedRepository _repo = AdvancedRepository();
-  late Future<List<Map<String, dynamic>>> _clientsFuture;
+  final CoachReportRepository _reportRepo = CoachReportRepository();
+  late Future<_ClientScreenData> _dataFuture;
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
@@ -31,7 +38,7 @@ class _CoachMealPlanSelectClientScreenState
   @override
   void initState() {
     super.initState();
-    _clientsFuture = _loadClients();
+    _dataFuture = _loadData();
   }
 
   @override
@@ -40,18 +47,30 @@ class _CoachMealPlanSelectClientScreenState
     super.dispose();
   }
 
-  Future<List<Map<String, dynamic>>> _loadClients() async {
+  Future<_ClientScreenData> _loadData() async {
     final raw = await _repo.clients();
-    return raw
+    final connected = raw
         .where((c) => (c['connectionStatus'] ?? c['ConnectionStatus']) == 'Connected')
         .toList();
+
+    final pendingIds = <String>{};
+    try {
+      final reports = await _reportRepo.listReports(status: CoachReportStatus.pending);
+      for (final r in reports) {
+        if (r.clientId != null && r.clientId!.isNotEmpty) {
+          pendingIds.add(r.clientId!);
+        }
+      }
+    } catch (_) {}
+
+    return _ClientScreenData(clients: connected, pendingClientIds: pendingIds);
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _clientsFuture = _loadClients();
+      _dataFuture = _loadData();
     });
-    await _clientsFuture;
+    await _dataFuture;
   }
 
   @override
@@ -75,8 +94,8 @@ class _CoachMealPlanSelectClientScreenState
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: _refresh,
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _clientsFuture,
+        child: FutureBuilder<_ClientScreenData>(
+          future: _dataFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
@@ -89,7 +108,10 @@ class _CoachMealPlanSelectClientScreenState
                 onRetry: _refresh,
               );
             }
-            final allClients = snapshot.data ?? const <Map<String, dynamic>>[];
+            final data = snapshot.data ?? _ClientScreenData(clients: [], pendingClientIds: {});
+            final allClients = data.clients;
+            final pendingIds = data.pendingClientIds;
+
             if (allClients.isEmpty) {
               return const _EmptyState(
                 icon: Icons.people_outline_rounded,
@@ -120,10 +142,98 @@ class _CoachMealPlanSelectClientScreenState
 
             return Column(
               children: [
+                // Header Banner Card
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF135A37), Color(0xFF1A7A4A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1A7A4A).withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.restaurant_menu_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Lộ trình học viên',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                if (pendingIds.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF7ED),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${pendingIds.length} chờ duyệt',
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFFEA580C),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'Chọn học viên để quản lý & duyệt lộ trình',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFD1FAE5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 // Search Bar
                 Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  color: Colors.transparent,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                   child: TextField(
                     controller: _searchController,
                     onChanged: (val) {
@@ -156,14 +266,18 @@ class _CoachMealPlanSelectClientScreenState
                             )
                           : null,
                       filled: true,
-                      fillColor: const Color(0xFFF3F4F6),
+                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 10,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -182,7 +296,7 @@ class _CoachMealPlanSelectClientScreenState
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           itemCount: pageClients.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {
@@ -199,19 +313,24 @@ class _CoachMealPlanSelectClientScreenState
                                 (c['avatarUrl'] ?? c['AvatarUrl'])?.toString();
                             final email =
                                 (c['email'] ?? c['Email'])?.toString() ?? '';
+                            final hasPending = pendingIds.contains(clientId);
 
                             return Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: Colors.grey.shade200,
-                                  width: 1,
+                                  color: hasPending
+                                      ? const Color(0xFFFDE68A)
+                                      : Colors.grey.shade200,
+                                  width: hasPending ? 1.5 : 1,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.03),
-                                    blurRadius: 8,
+                                    color: hasPending
+                                        ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                                        : Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: hasPending ? 10 : 8,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
@@ -237,26 +356,40 @@ class _CoachMealPlanSelectClientScreenState
                                     padding: const EdgeInsets.all(14),
                                     child: Row(
                                       children: [
-                                        CircleAvatar(
-                                          radius: 22,
-                                          backgroundColor: AppColors.primary
-                                              .withValues(alpha: 0.12),
-                                          backgroundImage: avatar != null &&
-                                                  avatar.isNotEmpty
-                                              ? NetworkImage(avatar)
-                                              : null,
-                                          child: avatar == null || avatar.isEmpty
-                                              ? Text(
-                                                  name.isNotEmpty
-                                                      ? name[0].toUpperCase()
-                                                      : '?',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    color: AppColors.primary,
-                                                    fontSize: 16,
-                                                  ),
-                                                )
-                                              : null,
+                                        Container(
+                                          padding: hasPending
+                                              ? const EdgeInsets.all(2)
+                                              : EdgeInsets.zero,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: hasPending
+                                                ? Border.all(
+                                                    color: const Color(0xFFEA580C),
+                                                    width: 2,
+                                                  )
+                                                : null,
+                                          ),
+                                          child: CircleAvatar(
+                                            radius: 22,
+                                            backgroundColor: AppColors.primary
+                                                .withValues(alpha: 0.12),
+                                            backgroundImage: avatar != null &&
+                                                    avatar.isNotEmpty
+                                                ? NetworkImage(avatar)
+                                                : null,
+                                            child: avatar == null || avatar.isEmpty
+                                                ? Text(
+                                                    name.isNotEmpty
+                                                        ? name[0].toUpperCase()
+                                                        : '?',
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w800,
+                                                      color: AppColors.primary,
+                                                      fontSize: 16,
+                                                    ),
+                                                  )
+                                                : null,
+                                          ),
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
@@ -264,13 +397,58 @@ class _CoachMealPlanSelectClientScreenState
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 15,
-                                                  color: Color(0xFF111827),
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      name,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w800,
+                                                        fontSize: 15,
+                                                        color: Color(0xFF111827),
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (hasPending) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFFFF7ED),
+                                                        borderRadius:
+                                                            BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: const Color(0xFFFFEDD5),
+                                                        ),
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.stars_rounded,
+                                                            size: 13,
+                                                            color: Color(0xFFEA580C),
+                                                          ),
+                                                          SizedBox(width: 3),
+                                                          Text(
+                                                            'Chờ duyệt',
+                                                            style: TextStyle(
+                                                              fontSize: 10.5,
+                                                              fontWeight:
+                                                                  FontWeight.w800,
+                                                              color: Color(0xFFEA580C),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
@@ -285,6 +463,7 @@ class _CoachMealPlanSelectClientScreenState
                                             ],
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
                                         Container(
                                           width: 32,
                                           height: 32,

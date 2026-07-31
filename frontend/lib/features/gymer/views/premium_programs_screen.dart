@@ -628,17 +628,19 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       length: 2,
       initialIndex: widget.initialTabIndex.clamp(0, 1).toInt(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF9FAFB),
+        backgroundColor: const Color(0xFFF4F7F5),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
           scrolledUnderElevation: 0.5,
+          centerTitle: false,
           title: const Text(
             'Lộ trình Gymer',
             style: TextStyle(
               color: Color(0xFF111827),
               fontWeight: FontWeight.w800,
-              fontSize: 18,
+              fontSize: 19,
+              letterSpacing: -0.3,
             ),
           ),
           actions: [
@@ -649,31 +651,45 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
             ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
+            preferredSize: const Size.fromHeight(56),
             child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEFEF),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-              ),
-              child: const TabBar(
-                labelColor: AppColors.primary,
-                unselectedLabelColor: Color(0xFF6B7280),
-                indicatorColor: AppColors.primary,
-                indicatorWeight: 3,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(11),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: const Color(0xFF6B7280),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Tôi gửi PT'),
+                    Tab(text: 'PT gửi tôi'),
+                  ],
                 ),
-                unselectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                tabs: [
-                  Tab(text: 'Tôi gửi PT'),
-                  Tab(text: 'PT gửi tôi'),
-                ],
               ),
             ),
           ),
@@ -704,6 +720,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildIntro() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -974,6 +991,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCustomApprovedRoute(Map<String, dynamic> route) {
     final weekStart = _value(route, 'weekStartDate');
     final comment = _value(route, 'ptComment');
@@ -2073,6 +2091,7 @@ class _ActiveMetric extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MessageCard extends StatelessWidget {
   const _MessageCard({required this.message});
   final String message;
@@ -2202,6 +2221,7 @@ class _SentRouteTab extends StatefulWidget {
 class _SentRouteTabState extends State<_SentRouteTab> {
   List<Map<String, dynamic>> _requests = const [];
   bool _loading = true;
+  // ignore: unused_field
   bool _actionLoading = false;
 
   @override

@@ -30,6 +30,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int? ConfiguredCalorieTarget { get; set; }
         public int? ConfiguredMinCalories { get; set; }
         public int? ConfiguredMaxCalories { get; set; }
+        public string? ConfigurationScope { get; set; }
+        public DateOnly? ConfigurationStartDate { get; set; }
+        public DateOnly? ConfigurationEndDate { get; set; }
         public List<PtSuggestedChangeDto> SuggestedChanges { get; set; } = new();
         public object? ReportData { get; set; } // Parsed from ReportDataJson
         public DateTime? ReviewedAt { get; set; }
