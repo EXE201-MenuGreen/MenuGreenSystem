@@ -23,6 +23,40 @@ String coachMealPlanStatusLabel(String status) {
   };
 }
 
+String coachMealPlanTypeLabel(String planType) {
+  return switch (planType.trim().toLowerCase()) {
+    'daily' || 'day' => 'Ngày:',
+    'weekly' || 'week' => 'Tuần:',
+    'monthly' || 'month' => 'Tháng:',
+    _ => '${planType.trim()}:',
+  };
+}
+
+String coachMealPlanDisplayTitle({
+  required String title,
+  required String planType,
+  DateTime? startDate,
+}) {
+  final trimmedTitle = title.trim();
+  final isDaily = {'daily', 'day'}.contains(planType.trim().toLowerCase());
+  final legacyDailyTitle = RegExp(
+    r'^Daily plan (\d{4}-\d{2}-\d{2})$',
+    caseSensitive: false,
+  ).firstMatch(trimmedTitle);
+
+  if (isDaily && (trimmedTitle.isEmpty || legacyDailyTitle != null)) {
+    final date =
+        startDate ?? DateTime.tryParse(legacyDailyTitle?.group(1) ?? '');
+    if (date != null) {
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      return 'Kế hoạch dinh dưỡng $day-$month-${date.year}';
+    }
+  }
+
+  return trimmedTitle.isEmpty ? 'Lộ trình ăn uống' : trimmedTitle;
+}
+
 class CoachMealPlanListItem {
   CoachMealPlanListItem({
     required this.id,

@@ -195,6 +195,8 @@ class CoachMealPlanProvider extends ChangeNotifier {
     required int targetCalories,
     int? minCalories,
     int? maxCalories,
+    double? minProteinG,
+    double? maxProteinG,
     int top = 20,
   }) async {
     final clientId = _clientId;
@@ -205,6 +207,8 @@ class CoachMealPlanProvider extends ChangeNotifier {
       targetCalories: targetCalories,
       minCalories: minCalories,
       maxCalories: maxCalories,
+      minProteinG: minProteinG,
+      maxProteinG: maxProteinG,
       top: top,
     );
   }

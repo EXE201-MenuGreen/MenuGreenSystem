@@ -499,6 +499,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var excludedFoodIds = new List<Guid>();
             var excludedRecipeIds = new List<Guid>();
+            var minProteinPerMeal = request.MinProteinG.HasValue
+                ? request.MinProteinG.Value / 4m
+                : (decimal?)null;
+            var maxProteinPerMeal = request.MaxProteinG.HasValue
+                ? request.MaxProteinG.Value / 4m
+                : (decimal?)null;
 
             if (previousPlanIds.Count > 0)
             {
@@ -523,7 +529,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var activeFoodIds = await _db
                 .Foods.AsNoTracking()
                 .Where(x =>
-                    x.IsActive == true && x.CaloriesKcal.HasValue && !excludedFoodIds.Contains(x.Id)
+                    x.IsActive == true
+                    && x.CaloriesKcal.HasValue
+                    && (!request.MinCalories.HasValue
+                        || x.CaloriesKcal.Value >= request.MinCalories.Value)
+                    && (!request.MaxCalories.HasValue
+                        || x.CaloriesKcal.Value <= request.MaxCalories.Value)
+                    && (!minProteinPerMeal.HasValue
+                        || (x.ProteinG ?? 0) >= minProteinPerMeal.Value)
+                    && (!maxProteinPerMeal.HasValue
+                        || (x.ProteinG ?? 0) <= maxProteinPerMeal.Value)
+                    && !excludedFoodIds.Contains(x.Id)
                 )
                 .Select(x => x.Id)
                 .ToListAsync();
@@ -538,7 +554,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 activeFoodIds = await _db
                     .Foods.AsNoTracking()
-                    .Where(x => x.IsActive == true && x.CaloriesKcal.HasValue)
+                    .Where(x =>
+                        x.IsActive == true
+                        && x.CaloriesKcal.HasValue
+                        && (!request.MinCalories.HasValue
+                            || x.CaloriesKcal.Value >= request.MinCalories.Value)
+                        && (!request.MaxCalories.HasValue
+                            || x.CaloriesKcal.Value <= request.MaxCalories.Value)
+                        && (!minProteinPerMeal.HasValue
+                            || (x.ProteinG ?? 0) >= minProteinPerMeal.Value)
+                        && (!maxProteinPerMeal.HasValue
+                            || (x.ProteinG ?? 0) <= maxProteinPerMeal.Value)
+                    )
                     .Select(x => x.Id)
                     .ToListAsync();
 
@@ -632,7 +659,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ? itemsList
                         .Where(x =>
                             x.CaloriesKcal >= minimumCalories
-                            && x.CaloriesKcal <= maximumCalories)
+                            && x.CaloriesKcal <= maximumCalories
+                            && (!minProteinPerMeal.HasValue
+                                || x.ProteinG >= minProteinPerMeal.Value)
+                            && (!maxProteinPerMeal.HasValue
+                                || x.ProteinG <= maxProteinPerMeal.Value))
                         .ToList()
                     : new List<RecommendationItemResponse>();
             }
@@ -641,7 +672,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var calorieMatchedItems = itemsList
                     .Where(x =>
                         x.CaloriesKcal > 0
-                        && x.CaloriesKcal <= maximumUsefulItemCalories)
+                        && x.CaloriesKcal <= maximumUsefulItemCalories
+                        && (!minProteinPerMeal.HasValue
+                            || x.ProteinG >= minProteinPerMeal.Value)
+                        && (!maxProteinPerMeal.HasValue
+                            || x.ProteinG <= maxProteinPerMeal.Value))
                     .ToList();
                 var fallbackMaximumCalories = Math.Max(800m, dailyTargetCalories);
                 candidates = calorieMatchedItems.Count > 0
@@ -649,18 +684,35 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     : itemsList
                         .Where(x =>
                             x.CaloriesKcal > 0
-                            && x.CaloriesKcal <= fallbackMaximumCalories)
+                            && x.CaloriesKcal <= fallbackMaximumCalories
+                            && (!minProteinPerMeal.HasValue
+                                || x.ProteinG >= minProteinPerMeal.Value)
+                            && (!maxProteinPerMeal.HasValue
+                                || x.ProteinG <= maxProteinPerMeal.Value))
                         .ToList();
             }
+
+            var typicalMealProtein = request.MinProteinG.HasValue
+                && request.MaxProteinG.HasValue
+                ? (request.MinProteinG.Value + request.MaxProteinG.Value) / 8m
+                : request.MinProteinG.HasValue
+                    ? request.MinProteinG.Value / 4m
+                    : request.MaxProteinG.HasValue
+                        ? request.MaxProteinG.Value / 4m
+                        : 0m;
 
             var shuffledItems = candidates
                 .Select(x => new
                 {
                     Item = x,
                     CalorieDistance = Math.Abs(x.CaloriesKcal - typicalMealCalories),
+                    ProteinDistance = typicalMealProtein > 0
+                        ? Math.Abs(x.ProteinG - typicalMealProtein)
+                        : 0,
                     TieBreaker = random.Next()
                 })
                 .OrderBy(x => x.CalorieDistance)
+                .ThenBy(x => x.ProteinDistance)
                 .ThenBy(x => x.TieBreaker)
                 .Select(x => x.Item)
                 .GroupBy(x => x.Id)

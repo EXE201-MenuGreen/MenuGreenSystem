@@ -81,5 +81,59 @@ void main() {
     expect(find.text('Tuần 30/07/2026'), findsNothing);
     expect(find.text('1500 kcal'), findsOneWidget);
     expect(find.text('2000 kcal'), findsNothing);
+    expect(find.text('Duyệt thành công'), findsOneWidget);
+    expect(find.text('Áp dụng gợi ý'), findsNothing);
+  });
+
+  testWidgets('Gymer route approval uses its weekly configuration period', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RouteApprovalCard(
+            direction: 'sent',
+            request: {
+              'reportId': 'request-3',
+              'requestType': 'RouteApproval',
+              'configurationScope': 'week',
+              'configurationStartDate': '2026-07-27',
+              'configurationEndDate': '2026-08-02',
+              'weekStartDate': '2026-07-31',
+              'status': 'Pending',
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Tuần 27/07/2026 - 02/08/2026'), findsOneWidget);
+    expect(find.text('Ngày 31/07/2026'), findsNothing);
+  });
+
+  testWidgets('Gymer route approval uses its monthly configuration period', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RouteApprovalCard(
+            direction: 'sent',
+            request: {
+              'reportId': 'request-4',
+              'requestType': 'RouteApproval',
+              'configurationScope': 'month',
+              'configurationStartDate': '2026-07-01',
+              'configurationEndDate': '2026-07-31',
+              'weekStartDate': '2026-07-31',
+              'status': 'Pending',
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Tháng 07/2026'), findsOneWidget);
+    expect(find.text('Ngày 31/07/2026'), findsNothing);
   });
 }

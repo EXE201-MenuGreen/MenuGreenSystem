@@ -211,6 +211,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var snapshot = new WeeklyReportSnapshot
             {
                 RequestType = requestType,
+                MealPlanId = configuredPlan?.Id,
                 WeekStartDate = weekStartDate,
                 TargetCaloriesDaily =
                     configuredTargets.TargetCalories
@@ -221,6 +222,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 MaxCalories =
                     configuredTargets.MaxCalories
                     ?? configuredPlan?.MaxCalories,
+                ConfigurationScope = configuredTargets.Scope,
+                ConfigurationStartDate = configuredTargets.StartDate,
+                ConfigurationEndDate = configuredTargets.EndDate,
                 StudentNote = request.StudentNote ?? string.Empty,
                 CheckInWeight = request.CheckInWeight,
                 CheckInBodyFat = request.CheckInBodyFat,
@@ -419,6 +423,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ConfiguredCalorieTarget = reportData?.TargetCaloriesDaily,
                 ConfiguredMinCalories = reportData?.MinCalories,
                 ConfiguredMaxCalories = reportData?.MaxCalories,
+                ConfigurationScope = reportData?.ConfigurationScope,
+                ConfigurationStartDate = reportData?.ConfigurationStartDate,
+                ConfigurationEndDate = reportData?.ConfigurationEndDate,
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = request.ReviewedAt,
@@ -513,19 +520,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ReportId = req.Id,
                     StudentName = studentName,
                     WeekStartDate = effectiveDate,
-                    ExpiresAt = req.ExpiresAt,
+                    ExpiresAt = DateTime.SpecifyKind(req.ExpiresAt, DateTimeKind.Utc),
                     Status = req.Status,
-                    CreatedAt = req.CreatedAt,
+                    CreatedAt = DateTime.SpecifyKind(req.CreatedAt, DateTimeKind.Utc),
                     PtComment = req.PtComment ?? string.Empty,
                     SuggestedCalorieTarget = req.SuggestedCalorieTarget,
                     SuggestedProteinTarget = req.SuggestedProteinTarget,
                     ConfiguredCalorieTarget = configuredTargets.TargetCalories,
                     ConfiguredMinCalories = configuredTargets.MinCalories,
                     ConfiguredMaxCalories = configuredTargets.MaxCalories,
+                    ConfigurationScope = configuredTargets.Scope,
+                    ConfigurationStartDate = configuredTargets.StartDate,
+                    ConfigurationEndDate = configuredTargets.EndDate,
                     SuggestedChanges = suggestedChanges,
                     ReportData = null, // Skip heavy report details in list view
-                    ReviewedAt = req.ReviewedAt,
-                    ActionedAt = req.ActionedAt,
+                    ReviewedAt = req.ReviewedAt.HasValue ? DateTime.SpecifyKind(req.ReviewedAt.Value, DateTimeKind.Utc) : null,
+                    ActionedAt = req.ActionedAt.HasValue ? DateTime.SpecifyKind(req.ActionedAt.Value, DateTimeKind.Utc) : null,
                     ReviewToken = req.ReviewToken,
                     RequestType = requestType,
                     CreatedByRole = req.CreatedByRole,
@@ -657,6 +667,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ConfiguredCalorieTarget = reportData?.TargetCaloriesDaily,
                 ConfiguredMinCalories = reportData?.MinCalories,
                 ConfiguredMaxCalories = reportData?.MaxCalories,
+                ConfigurationScope = reportData?.ConfigurationScope,
+                ConfigurationStartDate = reportData?.ConfigurationStartDate,
+                ConfigurationEndDate = reportData?.ConfigurationEndDate,
                 SuggestedChanges = suggestedChanges,
                 ReportData = reportData,
                 ReviewedAt = requestEntity.ReviewedAt,
@@ -666,6 +679,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TrainingDaysCount = reportData?.TrainingDaysCount,
                 BodyFeeling = reportData?.BodyFeeling,
                 StudentNote = reportData?.StudentNote,
+                RequestType = reportData?.RequestType ?? string.Empty,
                 CreatedByRole = requestEntity.CreatedByRole
             };
         }
@@ -955,15 +969,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Calo tối thiểu không được lớn hơn calo tối đa.");
             }
 
-            // 2. Check no pending program exists for this client (DB enforces via partial unique index too).
+            // 2. Keep at most one pending Coach -> Gymer program. When the PT
+            // sends a newer plan, replace the pending payload instead of
+            // blocking the submission. The database also enforces one pending
+            // Coach program per client.
             var existing = (await _unitOfWork.PtReviewRequests.FindAsync(r =>
                 r.UserId == request.ClientId
                 && r.CreatedByRole == "Coach"
                 && r.Status == "Pending")).FirstOrDefault();
-            if (existing != null)
-            {
-                throw new Exception("Client already has a pending personal program. Please wait for them to respond before sending a new one.");
-            }
 
             // 3. Validate client exists.
             var client = await _unitOfWork.Users.GetByIdAsync(request.ClientId)
@@ -1007,35 +1020,83 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Meals = request.Meals ?? new List<PersonalProgramMealDto>()
             };
 
-            // 5. Create PtReviewRequest row with CreatedByRole = "Coach".
-            var programId = Guid.NewGuid();
+            // 5. Create a new request, or update the existing pending request
+            // so the Gymer sees only the PT's latest program.
             var now = DateTime.UtcNow;
-            var programEntity = new PtReviewRequest
+            if (existing != null)
             {
-                Id = programId,
-                UserId = request.ClientId,
-                WeekStartDate = request.WeekStartDate,
-                ReviewToken = Guid.NewGuid().ToString("N"),
-                ExpiresAt = DateTime.UtcNow.AddDays(30),
-                Status = "Pending",
-                CreatedAt = now,
-                CreatedByRole = "Coach",
-                ReportDataJson = System.Text.Json.JsonSerializer.Serialize(snapshot, new System.Text.Json.JsonSerializerOptions
+                var previousSnapshot = TryParsePersonalProgramSnapshot(
+                    existing.ReportDataJson
+                );
+                if (
+                    previousSnapshot?.MealPlanId is Guid previousMealPlanId
+                    && previousMealPlanId != request.MealPlanId
+                )
                 {
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-                }),
-                PtComment = request.CoachComment,
-                SuggestedCalorieTarget = request.TargetCaloriesDaily,
-                SuggestedProteinTarget = request.TargetProteinG,
-                SuggestedCarbsTarget = request.TargetCarbsG,
-                SuggestedFatTarget = request.TargetFatG,
-                SuggestedChangesJson = System.Text.Json.JsonSerializer.Serialize(request.SuggestedChanges ?? new List<PtSuggestedChangeDto>(), new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-                })
-            };
+                    var previousMealPlan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(
+                        previousMealPlanId
+                    );
+                    if (
+                        previousMealPlan != null
+                        && previousMealPlan.UserId == request.ClientId
+                        && string.Equals(
+                            previousMealPlan.Status,
+                            "PendingAcceptance",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    )
+                    {
+                        previousMealPlan.Status = "Rejected";
+                        previousMealPlan.ApprovedAt = null;
+                        previousMealPlan.UpdatedAt = now;
+                        _unitOfWork.MealPlanHeaders.Update(previousMealPlan);
+                    }
+                }
+            }
 
-            await _unitOfWork.PtReviewRequests.AddAsync(programEntity);
+            var programEntity = existing ?? new PtReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                UserId = request.ClientId,
+                CreatedByRole = "Coach"
+            };
+            programEntity.WeekStartDate = request.WeekStartDate;
+            programEntity.ReviewToken = Guid.NewGuid().ToString("N");
+            programEntity.ExpiresAt = now.AddDays(30);
+            programEntity.Status = "Pending";
+            programEntity.CreatedAt = now;
+            programEntity.ReportDataJson = System.Text.Json.JsonSerializer.Serialize(
+                snapshot,
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                }
+            );
+            programEntity.PtComment = request.CoachComment;
+            programEntity.SuggestedCalorieTarget = request.TargetCaloriesDaily;
+            programEntity.SuggestedProteinTarget = request.TargetProteinG;
+            programEntity.SuggestedCarbsTarget = request.TargetCarbsG;
+            programEntity.SuggestedFatTarget = request.TargetFatG;
+            programEntity.SuggestedChangesJson = System.Text.Json.JsonSerializer.Serialize(
+                request.SuggestedChanges ?? new List<PtSuggestedChangeDto>(),
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                }
+            );
+            programEntity.ReviewedAt = null;
+            programEntity.ActionedAt = null;
+            programEntity.AcceptedAt = null;
+            programEntity.AcceptedByUserId = null;
+
+            if (existing == null)
+            {
+                await _unitOfWork.PtReviewRequests.AddAsync(programEntity);
+            }
+            else
+            {
+                _unitOfWork.PtReviewRequests.Update(programEntity);
+            }
             if (mealPlan != null)
             {
                 mealPlan.GeneratedBy = "COACH";
@@ -1055,7 +1116,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Type = "COACH_PERSONAL_PROGRAM",
                     Title = "PT đã gửi lộ trình cá nhân",
                     Body = $"PT vừa gửi lộ trình \"{request.Title}\" ({GetPersonalProgramDurationLabel(snapshot)}). Mở tab \"PT gửi tôi\" để xem chi tiết và chấp nhận.",
-                    ActionUrl = $"gymer_personal_program:{programId}"
+                    ActionUrl = $"gymer_personal_program:{programEntity.Id}"
                 });
             }
             catch
@@ -1065,7 +1126,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return new CreatePersonalProgramResponse
             {
-                ProgramId = programId,
+                ProgramId = programEntity.Id,
                 ClientId = request.ClientId,
                 CreatedAt = programEntity.CreatedAt
             };
@@ -1413,8 +1474,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 EndDate = snapshot?.EndDate ?? req.WeekStartDate,
                 Meals = snapshot?.Meals ?? new List<PersonalProgramMealDto>(),
                 Status = req.Status,
-                CreatedAt = req.CreatedAt,
-                AcceptedAt = req.AcceptedAt
+                CreatedAt = DateTime.SpecifyKind(req.CreatedAt, DateTimeKind.Utc),
+                AcceptedAt = req.AcceptedAt.HasValue ? DateTime.SpecifyKind(req.AcceptedAt.Value, DateTimeKind.Utc) : null
             };
         }
 
@@ -1620,6 +1681,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             reportData.MaxCalories =
                 configuredTargets.MaxCalories
                 ?? configuredPlan?.MaxCalories;
+            if (
+                string.IsNullOrWhiteSpace(reportData.ConfigurationScope)
+                && !string.IsNullOrWhiteSpace(configuredTargets.Scope)
+            )
+            {
+                reportData.ConfigurationScope = configuredTargets.Scope;
+                reportData.ConfigurationStartDate = configuredTargets.StartDate;
+                reportData.ConfigurationEndDate = configuredTargets.EndDate;
+            }
         }
 
         private async Task<ConfiguredGymTargets> ResolveGymTargetsAsync(
@@ -1667,6 +1737,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 "monthString",
                 monthString);
 
+            var scope = daily != null
+                ? "day"
+                : weekly != null
+                    ? "week"
+                    : monthly != null
+                        ? "month"
+                        : null;
+            DateOnly? scopeStart = scope switch
+            {
+                "day" => date,
+                "week" => monday,
+                "month" => new DateOnly(date.Year, date.Month, 1),
+                _ => null
+            };
+            DateOnly? scopeEnd = scope switch
+            {
+                "day" => date,
+                "week" => monday.AddDays(6),
+                "month" => new DateOnly(date.Year, date.Month, 1)
+                    .AddMonths(1)
+                    .AddDays(-1),
+                _ => null
+            };
+
             var target =
                 ReadInt(daily, "customCalories")
                 ?? ReadInt(weekly, "customCalories")
@@ -1696,7 +1790,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 TargetCalories = target,
                 MinCalories = min,
-                MaxCalories = max
+                MaxCalories = max,
+                Scope = scope,
+                StartDate = scopeStart,
+                EndDate = scopeEnd
             };
         }
 
@@ -1803,6 +1900,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             public int? TargetCalories { get; init; }
             public int? MinCalories { get; init; }
             public int? MaxCalories { get; init; }
+            public string? Scope { get; init; }
+            public DateOnly? StartDate { get; init; }
+            public DateOnly? EndDate { get; init; }
         }
     }
 
@@ -1830,10 +1930,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class WeeklyReportSnapshot
     {
         public string RequestType { get; set; } = "WeeklyReport";
+        public Guid? MealPlanId { get; set; }
         public DateOnly WeekStartDate { get; set; }
         public int? TargetCaloriesDaily { get; set; }
         public int? MinCalories { get; set; }
         public int? MaxCalories { get; set; }
+        public string? ConfigurationScope { get; set; }
+        public DateOnly? ConfigurationStartDate { get; set; }
+        public DateOnly? ConfigurationEndDate { get; set; }
         public string StudentNote { get; set; } = string.Empty;
         public decimal? CheckInWeight { get; set; }
         public decimal? CheckInBodyFat { get; set; }

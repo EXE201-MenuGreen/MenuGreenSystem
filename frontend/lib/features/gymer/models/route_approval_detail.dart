@@ -107,6 +107,9 @@ class RouteApprovalDetail {
     this.configuredCalorieTarget,
     this.configuredMinCalories,
     this.configuredMaxCalories,
+    this.configurationScope,
+    this.configurationStartDate,
+    this.configurationEndDate,
     this.targetProteinG,
     this.targetCarbsG,
     this.targetFatG,
@@ -124,6 +127,9 @@ class RouteApprovalDetail {
   final int? configuredCalorieTarget;
   final int? configuredMinCalories;
   final int? configuredMaxCalories;
+  final String? configurationScope;
+  final DateTime? configurationStartDate;
+  final DateTime? configurationEndDate;
   final int? targetProteinG;
   final int? targetCarbsG;
   final int? targetFatG;
@@ -143,6 +149,9 @@ class RouteApprovalDetail {
       configuredCalorieTarget: configuredCalorieTarget,
       configuredMinCalories: configuredMinCalories,
       configuredMaxCalories: configuredMaxCalories,
+      configurationScope: configurationScope,
+      configurationStartDate: configurationStartDate,
+      configurationEndDate: configurationEndDate,
       targetProteinG: targetProteinG,
       targetCarbsG: targetCarbsG,
       targetFatG: targetFatG,
@@ -193,6 +202,19 @@ class RouteApprovalDetail {
           _int(json, 'configuredMinCalories') ?? _int(report, 'minCalories'),
       configuredMaxCalories:
           _int(json, 'configuredMaxCalories') ?? _int(report, 'maxCalories'),
+      configurationScope:
+          _string(json, 'configurationScope') ??
+          _string(report, 'configurationScope'),
+      configurationStartDate: DateTime.tryParse(
+        _string(json, 'configurationStartDate') ??
+            _string(report, 'configurationStartDate') ??
+            '',
+      ),
+      configurationEndDate: DateTime.tryParse(
+        _string(json, 'configurationEndDate') ??
+            _string(report, 'configurationEndDate') ??
+            '',
+      ),
       targetProteinG:
           _int(health, 'targetProteinG') ??
           _int(json, 'suggestedProteinTarget'),

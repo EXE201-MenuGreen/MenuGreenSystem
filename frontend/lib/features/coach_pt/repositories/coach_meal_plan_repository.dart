@@ -88,6 +88,8 @@ class CoachMealPlanRepository {
     required int targetCalories,
     int? minCalories,
     int? maxCalories,
+    double? minProteinG,
+    double? maxProteinG,
     int top = 20,
   }) {
     return _advanced.clientSuggestions(
@@ -96,6 +98,8 @@ class CoachMealPlanRepository {
       targetCalories: targetCalories,
       minCalories: minCalories,
       maxCalories: maxCalories,
+      minProteinG: minProteinG,
+      maxProteinG: maxProteinG,
       top: top,
     );
   }
