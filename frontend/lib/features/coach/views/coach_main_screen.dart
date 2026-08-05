@@ -15,21 +15,25 @@ import '../../notifications/repositories/notification_repository.dart';
 import '../../notifications/models/notification_models.dart';
 import '../../../core/services/realtime_notification_service.dart';
 import '../../coach_pt/views/coach_meal_plan_select_client_screen.dart';
+import '../../coach_pt/views/coach_report_detail_screen.dart';
 import '../../coach_pt/views/coach_reports_tab_screen.dart';
+import '../../coach_pt/providers/coach_report_provider.dart';
 import '../providers/coach_badge_provider.dart';
 import 'coach_profile_edit_screen.dart';
 
 const Color _coachPrimary = Color(0xFF1a7a4a);
 
 class CoachMainScreen extends StatefulWidget {
-  const CoachMainScreen({super.key});
+  const CoachMainScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<CoachMainScreen> createState() => _CoachMainScreenState();
 }
 
 class _CoachMainScreenState extends State<CoachMainScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   late final List<Widget> _pages;
   final _profileRepo = ProfileRepository();
@@ -37,14 +41,20 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, 4).toInt();
     _pages = [
       const _CoachClientsTab(),
       const CoachMealPlanSelectClientScreen(),
       const CoachReportsTabScreen(),
-      const _CoachNotificationsTab(),
+      _CoachNotificationsTab(onOpenTab: _selectTab),
       const _CoachProfileTab(),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) => _enforceRoleGuard());
+  }
+
+  void _selectTab(int index) {
+    if (!mounted || index < 0 || index >= _pages.length) return;
+    setState(() => _currentIndex = index);
   }
 
   /// Guard: nếu user hiện tại không phải role `coach` thì đẩy về MainScreen.
@@ -75,11 +85,11 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F7F4),
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: Consumer<CoachBadgeProvider>(
-        builder: (context, badgeProvider, _) {
+      bottomNavigationBar: Consumer2<CoachBadgeProvider, CoachReportProvider>(
+        builder: (context, badgeProvider, reportProvider, _) {
           return BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
+            onTap: _selectTab,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
             elevation: 10,
@@ -118,12 +128,12 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
               BottomNavigationBarItem(
                 icon: _badgedIcon(
                   iconData: Icons.assessment_outlined,
-                  count: badgeProvider.pendingReportCount,
+                  count: reportProvider.pendingCount,
                   badgeColor: Colors.deepOrange,
                 ),
                 activeIcon: _badgedIcon(
                   iconData: Icons.assessment,
-                  count: badgeProvider.pendingReportCount,
+                  count: reportProvider.pendingCount,
                   badgeColor: Colors.deepOrange,
                 ),
                 label: 'Báo cáo',
@@ -175,10 +185,7 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
               right: -6,
               top: -2,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 1,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: badgeColor,
                   borderRadius: BorderRadius.circular(10),
@@ -619,7 +626,9 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
 
 // ─── Tab 2: Thông báo ─────────────────────────────────────────────────────────
 class _CoachNotificationsTab extends StatefulWidget {
-  const _CoachNotificationsTab();
+  const _CoachNotificationsTab({required this.onOpenTab});
+
+  final ValueChanged<int> onOpenTab;
 
   @override
   State<_CoachNotificationsTab> createState() => _CoachNotificationsTabState();
@@ -657,6 +666,9 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
     _realtimeNotifSub = _realtime.notifications.listen((notification) {
       if (!mounted) return;
       _onRealtimeNotification(notification);
+      if (notification.normalizedType == 'weekly_report_submitted') {
+        unawaited(context.read<CoachReportProvider>().refresh());
+      }
     });
     _realtimeCountSub = _realtime.unreadCounts.listen((count) {
       if (!mounted) return;
@@ -667,8 +679,10 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
   void _onRealtimeNotification(AppNotification notification) {
     // Dedupe theo id — tránh hiển thị trùng khi SignalR push lại hoặc khi
     // _load() silent cũng pick notification này sau đó.
-    final exists = _notis.any((n) =>
-        (n['notifId']?.toString() ?? n['id']?.toString()) == notification.id);
+    final exists = _notis.any(
+      (n) =>
+          (n['notifId']?.toString() ?? n['id']?.toString()) == notification.id,
+    );
     if (exists) return;
 
     setState(() {
@@ -676,6 +690,8 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
         'id': notification.id,
         'title': notification.title,
         'body': notification.body,
+        'type': notification.rawType,
+        'actionUrl': notification.actionUrl,
         'isRead': notification.isRead,
         'createdAt': notification.createdAt.toIso8601String(),
         'source': 'realtime',
@@ -686,10 +702,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
     });
     // Cập nhật badge ngay khi có notification mới qua SignalR — user mở app
     // không cần vào tab Thông báo mới biết có notif mới.
-    final unread = _notis
-        .where((n) => n['isRead'] != true && n['IsRead'] != true)
-        .length;
-    context.read<CoachBadgeProvider>().setUnreadNotifCount(unread);
+    _syncBadges();
   }
 
   @override
@@ -711,6 +724,21 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
   int get _unreadCount =>
       _notis.where((n) => n['isRead'] != true && n['IsRead'] != true).length;
 
+  int get _unreadRouteCount => _notis.where((n) {
+    final isUnread = n['isRead'] != true && n['IsRead'] != true;
+    return isUnread && _normalizeType(n['type']) == 'pt_review_request';
+  }).length;
+
+  String _normalizeType(dynamic value) =>
+      (value ?? '').toString().trim().toLowerCase().replaceAll('-', '_');
+
+  void _syncBadges() {
+    if (!mounted) return;
+    final badges = context.read<CoachBadgeProvider>();
+    badges.setUnreadNotifCount(_unreadCount);
+    badges.setPendingMealPlanCount(_unreadRouteCount);
+  }
+
   Future<void> _load({bool silent = false}) async {
     if (!mounted) return;
     if (!silent) setState(() => _loading = true);
@@ -725,6 +753,8 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
           'id': n.id,
           'title': n.title,
           'body': n.body,
+          'type': n.rawType,
+          'actionUrl': n.actionUrl,
           'isRead': n.isRead,
           'createdAt': n.createdAt.toIso8601String(),
           'source': 'notification',
@@ -750,7 +780,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
       });
       // Update badge count via Provider
       if (mounted) {
-        context.read<CoachBadgeProvider>().setUnreadNotifCount(_unreadCount);
+        _syncBadges();
       }
     } catch (e) {
       debugPrint('[Notifications] Load error: $e');
@@ -759,25 +789,45 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
   }
 
   Future<void> _markRead(String id) async {
+    final matchingIndexes = <int>[];
+    for (var i = 0; i < _notis.length; i++) {
+      final notifId =
+          _notis[i]['notifId']?.toString() ?? _notis[i]['id']?.toString();
+      if (notifId == id) matchingIndexes.add(i);
+    }
+    if (matchingIndexes.isEmpty) return;
+
+    setState(() {
+      for (final index in matchingIndexes) {
+        _notis[index]['isRead'] = true;
+        _notis[index]['IsRead'] = true;
+      }
+    });
+    _syncBadges();
+
     try {
-      await _repo.markAsRead(id);
-      setState(() {
-        // Update all matching notifications
-        for (var i = 0; i < _notis.length; i++) {
-          final notifId =
-              _notis[i]['notifId']?.toString() ?? _notis[i]['id']?.toString();
-          if (notifId == id) {
-            _notis[i]['isRead'] = true;
-            _notis[i]['IsRead'] = true;
+      final success = await _repo.markAsRead(id);
+      if (!success && mounted) {
+        setState(() {
+          for (final index in matchingIndexes) {
+            if (index >= _notis.length) continue;
+            _notis[index]['isRead'] = false;
+            _notis[index]['IsRead'] = false;
           }
-        }
-      });
-      // Update badge count via Provider
-      if (mounted) {
-        context.read<CoachBadgeProvider>().setUnreadNotifCount(_unreadCount);
+        });
+        _syncBadges();
       }
     } catch (e) {
       debugPrint('[Notifications] Mark read error: $e');
+      if (!mounted) return;
+      setState(() {
+        for (final index in matchingIndexes) {
+          if (index >= _notis.length) continue;
+          _notis[index]['isRead'] = false;
+          _notis[index]['IsRead'] = false;
+        }
+      });
+      _syncBadges();
     }
   }
 
@@ -849,7 +899,9 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                             ),
                           );
                         } catch (e) {
-                          debugPrint('[_CoachNotificationsTab] markAll error: $e');
+                          debugPrint(
+                            '[_CoachNotificationsTab] markAll error: $e',
+                          );
                           if (!mounted) return;
                           messenger.showSnackBar(
                             SnackBar(
@@ -916,6 +968,17 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                               n['body']?.toString() ??
                               '';
                           final createdAt = n['createdAt'] ?? n['CreatedAt'];
+                          final notificationType = _normalizeType(n['type']);
+                          final statusLabel = switch (notificationType) {
+                            'pt_review_request' => 'Chờ duyệt',
+                            'meal_plan_approved' => 'Đã duyệt',
+                            'pt_route_approval' => 'Đã duyệt',
+                            'coach_personal_program' => 'Lộ trình mới',
+                            'weekly_report_submitted' => 'Cần đánh giá',
+                            'weekly_report_pending' => 'Chờ PT đánh giá',
+                            'weekly_report_reviewed' => 'Đã đánh giá',
+                            _ => null,
+                          };
                           final timeStr = createdAt != null
                               ? _formatTime(
                                   DateTime.tryParse(createdAt.toString()) ??
@@ -929,9 +992,29 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                               onTap: () {
                                 final notifId = n['notifId']?.toString();
                                 if (notifId != null && !isRead) {
-                                  // Cả notification thường và realtime đều
-                                  // được tap-to-read (mark as read).
-                                  _markRead(notifId);
+                                  unawaited(_markRead(notifId));
+                                }
+                                if (notificationType == 'pt_review_request') {
+                                  widget.onOpenTab(1);
+                                } else if (notificationType ==
+                                    'weekly_report_submitted') {
+                                  final actionUrl =
+                                      n['actionUrl']?.toString() ?? '';
+                                  const prefix = 'coach_weekly_report:';
+                                  if (actionUrl.startsWith(prefix)) {
+                                    final reportId = actionUrl.substring(
+                                      prefix.length,
+                                    );
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => CoachReportDetailScreen(
+                                          reportId: reportId,
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    widget.onOpenTab(2);
+                                  }
                                 }
                               },
                               child: Container(
@@ -993,6 +1076,31 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                                             ),
                                           ],
                                           const SizedBox(height: 4),
+                                          if (statusLabel != null) ...[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                statusLabel,
+                                                style: const TextStyle(
+                                                  color: Colors.deepOrange,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                          ],
                                           Text(
                                             timeStr,
                                             style: const TextStyle(
@@ -1153,7 +1261,9 @@ class _CoachProfileTabState extends State<_CoachProfileTab> {
       backgroundColor: const Color(0xFFF0F7F4),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: _coachPrimary))
+            ? const Center(
+                child: CircularProgressIndicator(color: _coachPrimary),
+              )
             : RefreshIndicator(
                 onRefresh: _load,
                 color: _coachPrimary,

@@ -102,8 +102,8 @@ namespace MenuGreen.API.Controllers
         /// <summary>
         /// POST /api/PtReview/coach/reports/{reportId}/review
         /// Coach submits feedback + optional inline meal-plan adjustments.
-        /// On success the report moves to <c>Reviewed</c> and any inline
-        /// adjustments are pushed to the Gymer's actual meal plan immediately.
+        /// On success the report moves to <c>Reviewed</c>. Suggested targets
+        /// and meal adjustments wait for the Gymer to apply or reject.
         /// </summary>
         [HttpPost("reports/{reportId:guid}/review")]
         public async Task<IActionResult> SubmitReview(

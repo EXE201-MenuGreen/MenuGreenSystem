@@ -206,16 +206,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       OnboardingGate.markSessionComplete();
       if (!mounted) return;
-      _showMessage('Thiết lập hoàn tất!');
       routeChangeScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-          (route) => false,
-        );
-      });
+      ScaffoldMessenger.of(context).clearSnackBars();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+        (route) => false,
+      );
     } finally {
       if (mounted && !routeChangeScheduled) setState(() => _finishing = false);
     }
@@ -249,7 +246,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _ => 0,
     };
     _pageController.jumpToPage(page);
-    setState(() => _currentIndex = page);
   }
 
   @override

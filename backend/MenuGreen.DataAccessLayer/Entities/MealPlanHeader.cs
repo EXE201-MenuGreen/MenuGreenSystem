@@ -13,6 +13,8 @@ namespace MenuGreen.DataAccessLayer.Entities
         public DateOnly? EndDate { get; set; }
         public int? TargetCalories { get; set; }
         public string? GeneratedBy { get; set; } // AI / USER / SYSTEM
+        public string Status { get; set; } = "Active"; // Active / Draft / Approved
+        public DateTime? ApprovedAt { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
