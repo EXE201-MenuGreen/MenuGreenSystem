@@ -6,47 +6,81 @@ import 'package:frontend/features/coach_pt/views/coach_meal_plan_history_screen.
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets(
-    'submitting a plan tears down dialog and detail route before SnackBar',
-    (tester) async {
-      final provider = _FakeCoachMealPlanProvider();
+  test('an active Gymer plan is shown as not approved', () {
+    expect(coachMealPlanStatusLabel('Active'), 'Chưa duyệt');
+    expect(coachMealPlanStatusLabel('Approved'), 'Đã duyệt & gửi');
+    expect(
+      coachMealPlanStatusLabel('PendingAcceptance'),
+      'Chờ Gymer chấp nhận',
+    );
+  });
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<CoachMealPlanProvider>.value(
-            value: provider,
-            child: const CoachMealPlanHistoryScreen(
-              clientId: 'client-1',
-              clientName: 'Học viên',
-            ),
+  test('localizes automatic daily titles and plan type labels', () {
+    expect(
+      coachMealPlanDisplayTitle(
+        title: 'Daily plan 2026-07-31',
+        planType: 'DAILY',
+        startDate: DateTime(2026, 7, 31),
+      ),
+      'Kế hoạch dinh dưỡng 31-07-2026',
+    );
+    expect(coachMealPlanTypeLabel('DAILY'), 'Ngày:');
+    expect(coachMealPlanTypeLabel('WEEKLY'), 'Tuần:');
+    expect(coachMealPlanTypeLabel('MONTHLY'), 'Tháng:');
+  });
+
+  test('keeps a custom meal-plan title unchanged', () {
+    expect(
+      coachMealPlanDisplayTitle(
+        title: 'Kế hoạch dinh dưỡng tuần mới',
+        planType: 'WEEKLY',
+        startDate: DateTime(2026, 7, 31),
+      ),
+      'Kế hoạch dinh dưỡng tuần mới',
+    );
+  });
+
+  testWidgets('submitting a plan sends the form note without a second dialog', (
+    tester,
+  ) async {
+    final provider = _FakeCoachMealPlanProvider();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<CoachMealPlanProvider>.value(
+          value: provider,
+          child: const CoachMealPlanHistoryScreen(
+            clientId: 'client-1',
+            clientName: 'Học viên',
           ),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      await tester.tap(find.text('Lộ trình kiểm thử'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Duyệt & gửi'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Gửi'));
+    await tester.tap(find.text('Lộ trình kiểm thử'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duyệt & gửi'));
 
-      // Finish the dialog and detail-route reverse transitions. The success
-      // SnackBar is only inserted after both overlays have been removed.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump();
+    // Finish the detail-route reverse transition. Submission happens
+    // directly, without asking for the same note a second time.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(provider.submitCalls, 1);
-      expect(provider.refreshCalls, 1);
-      expect(
-        find.text('Đã duyệt và gửi lộ trình. Học viên sẽ nhận thông báo.'),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.text('Duyệt & gửi cho học viên'), findsNothing);
+    expect(provider.submitCalls, 1);
+    expect(provider.submittedNotes, 'Ghi chú trong form');
+    expect(provider.refreshCalls, 1);
+    expect(
+      find.text(
+        'Đã gửi lộ trình. Gymer sẽ nhận thông báo để xem và chấp nhận.',
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('approved plan cannot be submitted or edited again', (
     tester,
@@ -100,6 +134,7 @@ class _FakeCoachMealPlanProvider extends CoachMealPlanProvider {
           endDate: DateTime(2026, 7, 26),
           targetCalories: 2000,
           status: status,
+          coachNotes: 'Ghi chú trong form',
         ),
         itemsByMeal: const {
           'breakfast': [],
@@ -113,6 +148,7 @@ class _FakeCoachMealPlanProvider extends CoachMealPlanProvider {
   final CoachMealPlanDetail _detail;
   int submitCalls = 0;
   int refreshCalls = 0;
+  String? submittedNotes;
 
   @override
   List<CoachMealPlanListItem> get plans => _plans;
@@ -144,8 +180,14 @@ class _FakeCoachMealPlanProvider extends CoachMealPlanProvider {
   void setFilters({DateTime? from, DateTime? to, String? planType}) {}
 
   @override
-  Future<bool> submitPlan(String planId, {String? notes}) async {
+  Future<bool> submitPlan(
+    String planId, {
+    String? notes,
+    int? minCalories,
+    int? maxCalories,
+  }) async {
     submitCalls++;
+    submittedNotes = notes;
     return true;
   }
 }

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- MenuGreen Seed Data - Table: campaigns
--- Sequence Number: 35 (must run before 35_notifications.sql)
+-- Sequence Number: 35a (must run before 35b_notifications.sql for FK)
 -- =============================================================================
 BEGIN;
 

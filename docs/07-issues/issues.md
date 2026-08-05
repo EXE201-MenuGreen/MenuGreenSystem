@@ -2074,3 +2074,298 @@ WHERE n."UserId" = '77777777-7777-7777-7777-777777777777';
 - `ApiMessageTranslator.translateNotification()` nhận diện title tiếng Việt
   (`"Yêu cầu duyệt lộ trình từ học viên"`) qua `_looksVietnamese()` → giữ
   nguyên khi hiển thị cho user.
+
+---
+
+## [RESOLVED] API 403 — `grocery-list` & `budget-status` chặn Gymer
+
+**Date:** 2026-07-28
+**Status:** ✅ Resolved (Phương án A)
+**Severity:** Medium
+
+### Description
+
+Hai endpoint trả về HTTP 403 Forbidden khi user đăng nhập với role `Gymer`:
+
+- `GET http://10.0.2.2:5000/api/MealPlan/{id}/grocery-list`
+- `GET http://10.0.2.2:5000/api/MealPlan/{id}/budget-status`
+
+Với cùng `id = ee8bb747-45d4-41bf-a522-2384ef74e18c`, các endpoint khác của
+`MealPlanController` (GetById, GetAll, Dashboard, …) đều trả 200 OK cho tài
+khoản Gymer, nên vấn đề nằm ở policy authorization chứ không phải quyền sở hữu
+meal plan.
+
+### Root Cause
+
+Trong `backend/MenuGreen.API/Controllers/MealPlanController.cs`, hai endpoint
+này bị gắn thêm `[Authorize(Policy = "OfficeFeatures")]` ở cấp method (ngoài
+`[Authorize(Policy = "UserOnly")]` ở cấp controller):
+
+```csharp
+[HttpGet("{id:guid}/budget-status")]
+[Authorize(Policy = "OfficeFeatures")]   // ❌ chặn Gymer
+public async Task<IActionResult> GetBudgetStatus(Guid id) { ... }
+
+[HttpGet("{id:guid}/grocery-list")]
+[Authorize(Policy = "OfficeFeatures")]   // ❌ chặn Gymer
+public async Task<IActionResult> GetGroceryList(Guid id) { ... }
+```
+
+Policy `"OfficeFeatures"` được khai báo trong `Program.cs` yêu cầu
+entitlement `"office_features"`:
+
+```csharp
+options.AddPolicy(
+    "OfficeFeatures",
+    policy => policy.Requirements.Add(
+        new MenuGreen.API.Authorization.EntitlementRequirement("office_features")
+    )
+);
+```
+
+Và `FeatureAccessResolver` (`backend/MenuGreen.BusinessLogicLayer/Services/
+FeatureAccessResolver.cs`) chỉ cấp `OfficeFeatures` khi user có subscription
+thuộc `featureGroup == "office"` HOẶC plan name chứa chuỗi `"office"`:
+
+```csharp
+if (group == "office" || planName.Contains("office"))
+{
+    entitlements.Add(OfficeFeatures);
+    ...
+}
+```
+
+Gymer user có `featureGroup = "gym"` → entitlements chỉ gồm
+`GymFeatures / CoachAccess / AiFeatures / FreeFeatures`, **không có**
+`OfficeFeatures`. Khi `EntitlementHandler` kiểm tra
+`HasEntitlementAsync(userId, "office_features")` trả về false → policy fail →
+trả 403.
+
+### Environment
+
+- Backend: `backend/MenuGreen.API`
+- Endpoint: `GET /api/MealPlan/{id}/grocery-list`, `GET /api/MealPlan/{id}/budget-status`
+- Role test: `Gymer` (đăng nhập bằng tài khoản Gym/PT subscription)
+- Reproduction: gọi 2 endpoint trên với token của Gymer → 403 Forbidden
+
+### Logs
+
+```
+GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/grocery-list
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope"
+
+GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/budget-status
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope"
+```
+
+### Attempts
+
+- [x] Xác nhận các endpoint khác trong `MealPlanController` (GetById, GetAll,
+      Dashboard, Compare, Streaks, AdherenceScores, Alternatives) đều không
+      gắn `OfficeFeatures` → 200 OK cho Gymer. Đúng là do policy ở method.
+- [x] Đối chiếu policy `"OfficeFeatures"` với `FeatureAccessResolver` →
+      `office_features` chỉ cấp cho subscription nhóm `office`, Gymer nhóm
+      `gym` không có.
+
+### Fix Applied — Phương án A
+
+**Người dùng chọn Phương án A**: gỡ `[Authorize(Policy = "OfficeFeatures")]`
+ở 2 method `GetBudgetStatus` và `GetGroceryList`. Hai method thừa hưởng
+`[Authorize(Policy = "UserOnly")]` ở cấp controller (chấp nhận
+`Admin / User / Free / Casual / Gymer / Office / Coach`) → Gymer, Casual,
+Office, Free đều truy cập được. Logic vẫn dùng `userId` từ claim `NameIdentifier`
+trong `TryGetUserId()` → service `_service.GetBudgetStatusAsync(id, userId)`
+và `_service.GetGroceryListAsync(id, userId)` vẫn đảm bảo user chỉ truy
+xuất plan của mình.
+
+**Diff** (`backend/MenuGreen.API/Controllers/MealPlanController.cs`):
+
+```diff
+ [HttpGet("{id:guid}/budget-status")]
+-[Authorize(Policy = "OfficeFeatures")]
+ public async Task<IActionResult> GetBudgetStatus(Guid id)
+
+ [HttpGet("{id:guid}/grocery-list")]
+-[Authorize(Policy = "OfficeFeatures")]
+ public async Task<IActionResult> GetGroceryList(Guid id)
+```
+
+### Verification — Build
+
+Sau khi sửa, chạy build solution:
+
+```
+$ dotnet build MenuGreen.sln -nologo -clp:NoSummary
+  MenuGreen.DataAccessLayer -> ...\MenuGreen.DataAccessLayer.dll
+  MenuGreen.BusinessLogicLayer -> ...\MenuGreen.BusinessLogicLayer.dll
+  MenuGreen.API -> ...\MenuGreen.API.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.76
+```
+
+Build sạch — không phát sinh warning/error compile mới. Chỉ có các warning
+CS86xx cũ trong `MealPlanService.cs`, `AiAssistantService.cs`,
+`GymGoalsController.cs`, `Program.cs` không liên quan đến thay đổi này.
+
+### Verification — Runtime (TODO chưa làm)
+
+- [ ] Khởi động lại `MenuGreen.API` qua Visual Studio (PID 25620 đã được tắt
+      để build copy file).
+- [ ] Vẫy call lại 2 endpoint với token của Gymer:
+      `GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/grocery-list`
+      `GET /api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/budget-status`
+      → kỳ vọng `200 OK` + payload JSON thay vì 403.
+- [ ] Đồng thời verify user không phải chủ plan (Gymer khác) vẫn bị
+      `BadRequest`/`Unauthorized` do logic `_service` kiểm tra ownership,
+      để chắc chắn không vô tình mở quyền truy cập chéo.
+
+### Lessons Learned
+
+- Phân biệt rõ policy **role-based** (`UserOnly`, `GymerOnly`) và policy
+  **entitlement-based** (`OfficeFeatures`, `GymFeatures`). Method-level
+  attribute cộng dồn với controller-level attribute → phải đọc cả hai.
+- Khi thấy 403 ở một endpoint nhưng 200 ở endpoint khác cùng controller, tra
+  `[Authorize(...)]` attribute ngay tại method đó — phổ biến là copy/paste từ
+  Office-only endpoint sang nhưng quên gỡ policy.
+
+---
+
+## [PENDING] 404 `user-meal-plans/by-date-range` + 401 `/api/Food` trong màn hình thông báo Gymer
+
+**Date:** 2026-07-28
+**Status:** Pending — chờ xác nhận nguồn URL lỗi từ user
+**Severity:** Medium
+
+### Description
+
+User báo cáo trong app Flutter Gymer khi mở danh sách thông báo (Notification
+Inbox), network log hiển thị các request trả về lỗi:
+
+| URL | Status |
+|-----|--------|
+| `GET /api/notifications/user-roles` | không rõ |
+| `GET /api/MealPlan/ee8bb747-.../notifications` | không rõ |
+| `GET /api/Food?...` | **401** |
+| `GET /api/user-meal-plans/by-date-range?startDate=2026-07-23&endDate=2026-07-25` | **404** |
+| `GET /api/notifications/...` | không rõ |
+
+User lưu ý: các ngày 23-25/07 không có meal plan nào → 404 là đúng hành vi
+backend (trả `NotFound` khi `GetByDateAsync` không tìm thấy). Tuy nhiên cần
+xác nhận vì sao app lại gọi 2 endpoint trên từ màn hình thông báo.
+
+### Root Cause Investigation
+
+Sau khi tra cứu toàn bộ codebase (`backend/MenuGreen.API` + `frontend/lib`
++ `frontend-web/`):
+
+1. **`GET /api/Food`** — endpoint này tồn tại (`FoodController.Search`). Policy
+   `UserOnly` chấp nhận role `Gymer` (`Program.cs:102-104`) → không thể trả
+   401 do thiếu quyền. Nguyên nhân 401 nhiều khả năng là **JWT access token
+   hết hạn** (`exp - now <= 60s`) + **refresh token cũng đã hết hạn**
+   → `ApiClient._sendWithAuthRetry` (`frontend/lib/core/network/api_client.dart:174-212`)
+   retry một lần với `_refreshTokenOnce()`; nếu refresh fail thì
+   `_storage.clear()` và trả response gốc (status 401).
+
+2. **`GET /api/user-meal-plans/by-date-range`** — **endpoint này KHÔNG TỒN TẠI
+   trong codebase**. `UserMealPlanController`
+   (`backend/MenuGreen.API/Controllers/UserMealPlanController.cs`) chỉ có route
+   `GET ""` (`/api/user-meal-plans`) với query `?date=YYYY-MM-DD`. Không có
+   route nào dạng `by-date-range`, `range`, hay chấp nhận `startDate` + `endDate`.
+   Tra trong cả `frontend-web/` cũng không có code nào gọi endpoint này.
+
+3. **`GET /api/notifications/user-roles`** — cũng **không tồn tại**. Backend
+   `NotificationController` route là `api/[controller]` = `api/Notification`
+   (PascalCase), không có sub-route `user-roles`. Tra cả `frontend/` lẫn
+   `frontend-web/` cũng không có code nào gọi endpoint này.
+
+4. **`GET /api/MealPlan/{id}/notifications`** — `MealPlanController` không có
+   route này. Notification liên quan meal plan được backend gắn qua
+   `Notification` entity + SignalR push, không qua REST endpoint này.
+
+5. **Màn hình `notification_inbox_screen.dart` (`features/notifications/`)**
+   chỉ gọi `GET /api/Notification?page=&pageSize=` qua
+   `NotificationRepository.getNotifications()` (line 89-104). Không gọi
+   `/api/Food`, `/api/user-meal-plans/by-date-range`,
+   `/api/notifications/user-roles`, hay `/api/MealPlan/{id}/notifications`.
+
+6. **`notification_handler.dart`** parse deeplink từ FCM `RemoteMessage.data`
+   (line 54-205) — handler chỉ mở screen (`MealPlanDetailScreen`,
+   `PremiumProgramsScreen`, `AdvancedFeaturesScreen`, …) chứ không tự gọi
+   các URL trên.
+
+### Khả năng cao nhất
+
+URL trong network log thuộc về **một phiên debug cũ** hoặc **được gõ thủ công
+trên Postman/Charles proxy** trong quá trình user kiểm thử backend, không
+phải request thật do Flutter app gửi đi. App hiện tại không có code nào gọi
+các endpoint lạ này.
+
+Nếu user khẳng định đây là log app thật (đã chọn "inbox-auto" qua form hỏi),
+cần điều tra thêm các nguồn sau:
+
+- Build cache Flutter cũ (`.dart_tool/`, `build/`) — gỡ `flutter clean` rồi
+  build lại.
+- Một widget con nằm trong cây widget của notification inbox (preview, deep
+  link tile, rich preview) gọi ngầm API.
+- Một `dio`/`http` middleware đang tự log replay request debug cũ.
+
+### Environment
+
+- Frontend: `frontend/lib` (Flutter)
+- Backend: `backend/MenuGreen.API`
+- Endpoint 401: `GET /api/Food?...`
+- Endpoint 404: `GET /api/user-meal-plans/by-date-range?startDate=2026-07-23&endDate=2026-07-25`
+- Role: `Gymer`
+- Màn hình user thao tác: Notification Inbox
+
+### Logs
+
+```
+GET http://10.0.2.2:5000/api/notifications/user-roles
+GET http://10.0.2.2:5000/api/MealPlan/ee8bb747-45d4-41bf-a522-2384ef74e18c/notifications
+GET http://10.0.2.2:5000/api/Food?...                          -> 401
+GET http://10.0.2.2:5000/api/user-meal-plans/by-date-range
+  ?startDate=2026-07-23&endDate=2026-07-25                    -> 404
+GET http://10.0.2.2:5000/api/notifications/...
+```
+
+### Attempts
+
+- [x] Grep toàn bộ codebase (`backend/`, `frontend/`, `frontend-web/`) tìm
+      `by-date-range`, `user-roles`, `user-meal-plans/...` ngoài các route đã
+      đăng ký trong `UserMealPlanController`. Không có.
+- [x] Grep toàn bộ frontend tìm call site gọi `/api/Food` từ màn hình thông
+      báo. Chỉ thấy trong `create_meal_plan_screen.dart` (tạo meal plan, gọi
+      `FoodDiscoveryRepository.searchFoods()`) — không liên quan tới
+      notification inbox.
+- [x] Đối chiếu với `notification_handler.dart`: các action handler
+      (`meal_plan_approved`, `pt_route_approval`, `coach_personal_program`)
+      chỉ `Navigator.push` tới `PremiumProgramsScreen` /
+      `AdvancedFeaturesScreen`, không trigger HTTP call lạ.
+- [x] Đối chiếu `NotificationProvider.loadNotifications()` chỉ gọi
+      `GET /api/Notification?page=&pageSize=`.
+
+### Next Steps — Cần user xác nhận
+
+1. Mở Flutter app, mở DevTools → Network tab → mở notification inbox ngay
+   bây giờ → chụp log mới. Nếu log mới KHÔNG còn 5 URL trên → log cũ là từ
+   build cache cũ hoặc Postman. Trong trường hợp đó vấn đề đã được giải
+   quyết ngầm và chỉ cần `flutter clean && flutter run`.
+2. Nếu log mới vẫn xuất hiện 5 URL trên → xem stack trace của HTTP request:
+   trong DevTools, click vào request lỗi → tab "Initiator" hoặc "Stack" →
+   cho biết widget/code nào trigger.
+3. Sau khi biết call site thật, có thể đề xuất một trong các phương án:
+   - **Nếu** là do màn hình con của notification inbox load preview meal plan
+     ngày 23-25: handle null gracefully + hiển thị empty state thay vì throw
+     → bỏ qua lỗi 404 trong UI.
+   - **Nếu** là `/api/Food` 401: xử lý trong `ApiClient` để refresh token
+     retry robust hơn (hiện tại chỉ retry 1 lần), hoặc show login screen khi
+     cả refresh lẫn access đều fail.
+   - **Nếu** là do build cũ: chạy `flutter clean && flutter pub get &&
+     flutter run`.

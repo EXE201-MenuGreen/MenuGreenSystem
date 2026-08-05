@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -17,17 +18,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly INutritionTrackingService _nutritionTracking;
         private readonly IGroceryListBuilderService _groceryListBuilder;
         private readonly IShoppingTripBuilderService _shoppingTripBuilder;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan MealPlanTtl = TimeSpan.FromMinutes(5);
 
         public MealPlanService(
             IUnitOfWork unitOfWork,
             INutritionTrackingService nutritionTracking,
             IGroceryListBuilderService groceryListBuilder,
-            IShoppingTripBuilderService shoppingTripBuilder)
+            IShoppingTripBuilderService shoppingTripBuilder,
+            ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _nutritionTracking = nutritionTracking;
             _groceryListBuilder = groceryListBuilder;
             _shoppingTripBuilder = shoppingTripBuilder;
+            _cache = cache;
         }
 
         public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null)
@@ -94,6 +99,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
 
             await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
+            await InvalidateMealPlanCacheAsync(userId);
             return await GetByIdAsync(entity.Id, userId);
         }
 
@@ -116,6 +122,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.MealPlanHeaders.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
+            await InvalidateMealPlanCacheAsync(userId);
             return await GetByIdAsync(entity.Id, userId);
         }
 
@@ -145,6 +152,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await ReplaceItemsAsync(entity.Id, request.Items, entity.StartDate);
             }
 
+            await InvalidateMealPlanCacheAsync(userId);
             return await GetByIdAsync(entity.Id, userId);
         }
 
@@ -161,6 +169,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.IsActive = false;
             _unitOfWork.MealPlanHeaders.Update(entity);
             await _unitOfWork.CompleteAsync();
+
+            await InvalidateMealPlanCacheAsync(userId);
         }
 
         public async Task<MealPlanResponse> UpdateStatusAsync(Guid id, MealPlanStatusRequest request, Guid? userId = null)
@@ -1799,6 +1809,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date)
         {
+            var cacheKey = CacheKeys.MealPlanByDate(userId, date);
+            var cached = await _cache.GetAsync<MealPlanResponse>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var plan = await FindDailyPlanAsync(userId, date);
             if (plan == null) return null;
             var response = await MapAsync(plan);
@@ -1806,6 +1823,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 response.Items = response.Items.Where(x => x.PlannedDate == null || x.PlannedDate == date).ToList();
             }
+
+            await _cache.SetAsync(cacheKey, response, MealPlanTtl);
             return response;
         }
 
@@ -1857,7 +1876,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
         {
             ValidateItems(request.Items);
-            var plan = await FindDailyPlanAsync(userId, request.PlannedDate);
+            // Mutations must only reuse an exact DAILY plan. The read helper
+            // may fall back to a weekly/monthly plan covering the date; using
+            // that fallback here would convert an older approved range into a
+            // daily plan and incorrectly preserve its approval state.
+            var plan = await FindExactDailyPlanAsync(userId, request.PlannedDate);
             if (plan == null)
             {
                 plan = new MealPlanHeader
@@ -1870,6 +1893,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     EndDate = request.PlannedDate,
                     TargetCalories = request.TargetCalories,
                     GeneratedBy = "USER",
+                    Status = "Active",
+                    ApprovedAt = null,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -1884,6 +1909,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 plan.StartDate = request.PlannedDate;
                 plan.EndDate = request.PlannedDate;
                 plan.TargetCalories = request.TargetCalories ?? plan.TargetCalories;
+                // Any Gymer-side change creates a new revision that must be
+                // reviewed again. Do not keep the approval of an older version.
+                plan.GeneratedBy = "USER";
+                plan.Status = "Active";
+                plan.ApprovedAt = null;
                 plan.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.MealPlanHeaders.Update(plan);
                 await _unitOfWork.CompleteAsync();
@@ -2044,6 +2074,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 x.UserId == userId
                 && x.IsActive
                 && x.Status != "Draft"
+                && x.Status != "PendingAcceptance"
+                && x.Status != "Rejected"
                 && ((x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
                     ? x.StartDate == date
                     : (x.StartDate <= date && x.EndDate >= date)));
@@ -2051,6 +2083,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return plans.OrderByDescending(x => (x.PlanType == null || x.PlanType.ToUpper() == "DAILY") ? 1 : 0)
                         .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                         .FirstOrDefault();
+        }
+
+        private async Task<MealPlanHeader?> FindExactDailyPlanAsync(
+            Guid userId,
+            DateOnly date)
+        {
+            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x =>
+                x.UserId == userId
+                && x.IsActive
+                && x.Status != "Draft"
+                && (x.PlanType == null || x.PlanType.ToUpper() == "DAILY")
+                && x.StartDate == date);
+
+            return plans
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .FirstOrDefault();
         }
 
         private async Task<int> GetRecipeCaloriesAsync(Guid recipeId)
@@ -2423,6 +2471,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.MealPlanHeaders.AddAsync(plan);
             await _unitOfWork.CompleteAsync();
             return plan;
+        }
+
+        private async Task InvalidateMealPlanCacheAsync(Guid? userId)
+        {
+            if (!userId.HasValue || userId.Value == Guid.Empty) return;
+            // Invalidate today and next 7 days
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            for (int i = 0; i < 7; i++)
+            {
+                var date = today.AddDays(i);
+                await _cache.RemoveAsync(CacheKeys.MealPlanByDate(userId.Value, date));
+            }
         }
     }
 }

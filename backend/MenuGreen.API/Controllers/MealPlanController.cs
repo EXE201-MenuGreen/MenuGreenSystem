@@ -421,7 +421,6 @@ namespace MenuGreen.API.Controllers
         /// Get cost comparison of current meal plan against user budget.
         /// </summary>
         [HttpGet("{id:guid}/budget-status")]
-        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GetBudgetStatus(Guid id)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -437,7 +436,6 @@ namespace MenuGreen.API.Controllers
 
         /// <summary>Aggregate recipe ingredients into one shopping list for a lunchbox/weekly plan.</summary>
         [HttpGet("{id:guid}/grocery-list")]
-        [Authorize(Policy = "OfficeFeatures")]
         public async Task<IActionResult> GetGroceryList(Guid id)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();

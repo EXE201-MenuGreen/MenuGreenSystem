@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
@@ -5,14 +8,26 @@ class ApiEndpoints {
   /// Backend local mặc định cho Android Emulator.
   static const String localBaseUrl = 'http://10.0.2.2:5000/api';
 
-  /// Build-time override: --dart-define=API_BASE_URL=https://host/api
+  /// Priority: --dart-define > env file > production default.
   static String get baseUrl {
     const definedUrl = String.fromEnvironment('API_BASE_URL');
-    if (definedUrl.trim().isNotEmpty) {
-      return _normalizeBaseUrl(definedUrl);
+    final envUrl = dotenv.env['API_BASE_URL'];
+    final rawUrl = definedUrl.trim().isNotEmpty
+        ? definedUrl
+        : (envUrl != null && envUrl.trim().isNotEmpty)
+        ? envUrl
+        : productionBaseUrl;
+
+    final normalized = _normalizeBaseUrl(rawUrl);
+
+    // Auto-fix localhost cho Android Emulator
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        normalized.contains('localhost')) {
+      return normalized.replaceAll('localhost', '10.0.2.2');
     }
 
-    return productionBaseUrl;
+    return normalized;
   }
 
   static String _normalizeBaseUrl(String url) {
@@ -36,6 +51,12 @@ class ApiEndpoints {
   }
 
   static String get notificationHub => '$realtimeBaseUrl/notificationHub';
+  static String get coachChatPartners => '$baseUrl/coach-chat/partners';
+  static String coachChatMessages(String partnerId) =>
+      '$baseUrl/coach-chat/$partnerId/messages';
+  static String coachChatRead(String partnerId) =>
+      '$baseUrl/coach-chat/$partnerId/read';
+  static String get coachChatUnreadCount => '$baseUrl/coach-chat/unread-count';
 
   static String get health => '$baseUrl/Food';
   static String locationReverseGeocode(double latitude, double longitude) {
@@ -47,6 +68,7 @@ class ApiEndpoints {
     );
     return uri.toString();
   }
+
   static String get login => '$baseUrl/Auth/login';
   static String get googleLogin => '$baseUrl/Auth/google';
   static String get register => '$baseUrl/Auth/register';
@@ -79,6 +101,7 @@ class ApiEndpoints {
   static String recipeById(String id) => '$baseUrl/Recipe/$id';
   static String recipeIngredients(String id) =>
       '$baseUrl/Recipe/$id/ingredients';
+  static String recipeNutrition(String id) => '$baseUrl/Recipe/$id/nutrition';
   static String mealPlanScanMeals(String planId) =>
       '$baseUrl/MealPlan/$planId/scan-meals';
   static String mealPlanScanPlanItems(String planId) =>

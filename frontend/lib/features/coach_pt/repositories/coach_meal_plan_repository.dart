@@ -11,7 +11,7 @@ import '../models/coach_meal_plan_models.dart';
 /// * centralize JSON parsing here instead of in widgets.
 class CoachMealPlanRepository {
   CoachMealPlanRepository({AdvancedRepository? advanced})
-      : _advanced = advanced ?? AdvancedRepository();
+    : _advanced = advanced ?? AdvancedRepository();
 
   final AdvancedRepository _advanced;
 
@@ -69,13 +69,46 @@ class CoachMealPlanRepository {
     String clientId,
     String planId, {
     String? notes,
+    int? minCalories,
+    int? maxCalories,
   }) async {
     final raw = await _advanced.submitClientMealPlan(
       clientId,
       planId,
       notes: notes,
+      minCalories: minCalories,
+      maxCalories: maxCalories,
     );
     return CoachMealPlanDetail.fromJson(raw);
+  }
+
+  Future<List<Map<String, dynamic>>> getClientSuggestions(
+    String clientId, {
+    required DateTime date,
+    required int targetCalories,
+    int? minCalories,
+    int? maxCalories,
+    double? minProteinG,
+    double? maxProteinG,
+    int top = 20,
+  }) {
+    return _advanced.clientSuggestions(
+      clientId,
+      date: date,
+      targetCalories: targetCalories,
+      minCalories: minCalories,
+      maxCalories: maxCalories,
+      minProteinG: minProteinG,
+      maxProteinG: maxProteinG,
+      top: top,
+    );
+  }
+
+  Future<Map<String, dynamic>> getClientGymConfig(
+    String clientId,
+    DateTime date,
+  ) {
+    return _advanced.clientGymConfig(clientId, date);
   }
 
   /// Soft-delete (deactivate) a plan.
@@ -94,6 +127,9 @@ class ClientMealPlanPayload {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.isActive = true,
     this.items = const [],
   });
@@ -103,19 +139,25 @@ class ClientMealPlanPayload {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final bool isActive;
   final List<ClientMealPlanItemPayload> items;
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'planType': planType,
-        if (startDate != null) 'startDate': _date(startDate!),
-        if (endDate != null) 'endDate': _date(endDate!),
-        if (targetCalories != null) 'targetCalories': targetCalories,
-        'isActive': isActive,
-        if (items.isNotEmpty)
-          'items': items.map((i) => i.toJson()).toList(),
-      };
+    'title': title,
+    'planType': planType,
+    if (startDate != null) 'startDate': _date(startDate!),
+    if (endDate != null) 'endDate': _date(endDate!),
+    if (targetCalories != null) 'targetCalories': targetCalories,
+    if (minCalories != null) 'minCalories': minCalories,
+    if (maxCalories != null) 'maxCalories': maxCalories,
+    if (coachNotes != null && coachNotes!.trim().isNotEmpty)
+      'coachNotes': coachNotes!.trim(),
+    'isActive': isActive,
+    if (items.isNotEmpty) 'items': items.map((i) => i.toJson()).toList(),
+  };
 
   static String _date(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
@@ -144,16 +186,16 @@ class ClientMealPlanItemPayload {
   final int? targetCalories;
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'id': id,
-        'mealType': mealType.toLowerCase(),
-        if (foodId != null) 'foodId': foodId,
-        if (recipeId != null) 'recipeId': recipeId,
-        if (plannedDate != null)
-          'plannedDate':
-              '${plannedDate!.year.toString().padLeft(4, '0')}-'
-              '${plannedDate!.month.toString().padLeft(2, '0')}-'
-              '${plannedDate!.day.toString().padLeft(2, '0')}',
-        if (scheduledTime != null) 'scheduledTime': scheduledTime,
-        if (targetCalories != null) 'targetCalories': targetCalories,
-      };
+    if (id != null) 'id': id,
+    'mealType': mealType.toLowerCase(),
+    if (foodId != null) 'foodId': foodId,
+    if (recipeId != null) 'recipeId': recipeId,
+    if (plannedDate != null)
+      'plannedDate':
+          '${plannedDate!.year.toString().padLeft(4, '0')}-'
+          '${plannedDate!.month.toString().padLeft(2, '0')}-'
+          '${plannedDate!.day.toString().padLeft(2, '0')}',
+    if (scheduledTime != null) 'scheduledTime': scheduledTime,
+    if (targetCalories != null) 'targetCalories': targetCalories,
+  };
 }

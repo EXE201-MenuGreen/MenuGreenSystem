@@ -28,9 +28,23 @@ void main() {
     expect(find.text('TRẢ PHÍ'), findsOneWidget);
     expect(find.text('Bộ công cụ tập luyện đã kích hoạt'), findsOneWidget);
     expect(find.text('Mục tiêu'), findsOneWidget);
-    expect(find.text('PT Review'), findsOneWidget);
-    expect(find.text('Coach'), findsOneWidget);
+    expect(find.text('HLV & PT'), findsOneWidget);
     expect(find.text('Lộ trình'), findsOneWidget);
+    expect(find.text('Chat với PT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('unread chat badge belongs to the standalone chat action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: GymerPackageCard(chatBadgeCount: 4)),
+      ),
+    );
+
+    expect(find.text('Chat với PT'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

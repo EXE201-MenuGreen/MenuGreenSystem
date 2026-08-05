@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
 import '../../advanced/views/advanced_detail_screens.dart';
@@ -14,10 +13,12 @@ import '../../advanced/repositories/advanced_repository.dart';
 import '../../notifications/repositories/notification_repository.dart';
 import '../../notifications/models/notification_models.dart';
 import '../../../core/services/realtime_notification_service.dart';
+import '../../../core/services/notification_handler.dart';
 import '../../coach_pt/views/coach_meal_plan_select_client_screen.dart';
 import '../../coach_pt/views/coach_report_detail_screen.dart';
 import '../../coach_pt/views/coach_reports_tab_screen.dart';
 import '../../coach_pt/providers/coach_report_provider.dart';
+import '../../coach_chat/views/coach_chat_screen.dart';
 import '../providers/coach_badge_provider.dart';
 import 'coach_profile_edit_screen.dart';
 
@@ -83,126 +84,172 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7F4),
+      backgroundColor: const Color(0xFFF4F7F5),
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Consumer2<CoachBadgeProvider, CoachReportProvider>(
         builder: (context, badgeProvider, reportProvider, _) {
-          return BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: _selectTab,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 10,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textSecondary,
-            selectedFontSize: 10,
-            unselectedFontSize: 10,
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-            items: [
-              BottomNavigationBarItem(
-                icon: _badgedIcon(
-                  iconData: Icons.people_outline,
-                  count: badgeProvider.pendingCount,
-                  badgeColor: Colors.orange,
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
                 ),
-                activeIcon: _badgedIcon(
-                  iconData: Icons.people,
-                  count: badgeProvider.pendingCount,
-                  badgeColor: Colors.orange,
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      label: 'Học viên',
+                      iconData: Icons.groups_outlined,
+                      activeIconData: Icons.groups_rounded,
+                      badgeCount: badgeProvider.pendingCount,
+                      badgeColor: const Color(0xFFE65100),
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      label: 'Lộ trình',
+                      iconData: Icons.restaurant_menu_outlined,
+                      activeIconData: Icons.restaurant_menu_rounded,
+                      badgeCount: badgeProvider.pendingMealPlanCount,
+                      badgeColor: const Color(0xFFE65100),
+                    ),
+                    _buildNavItem(
+                      index: 2,
+                      label: 'Báo cáo',
+                      iconData: Icons.bar_chart_outlined,
+                      activeIconData: Icons.bar_chart_rounded,
+                      badgeCount: reportProvider.pendingCount,
+                      badgeColor: const Color(0xFFD97706),
+                    ),
+                    _buildNavItem(
+                      index: 3,
+                      label: 'Thông báo',
+                      iconData: Icons.notifications_none_rounded,
+                      activeIconData: Icons.notifications_rounded,
+                      badgeCount: badgeProvider.unreadNotifCount,
+                      badgeColor: const Color(0xFFEF4444),
+                    ),
+                    _buildNavItem(
+                      index: 4,
+                      label: 'Cá nhân',
+                      iconData: Icons.person_outline_rounded,
+                      activeIconData: Icons.person_rounded,
+                      badgeCount: 0,
+                      badgeColor: Colors.transparent,
+                    ),
+                  ],
                 ),
-                label: 'Học viên',
               ),
-              BottomNavigationBarItem(
-                icon: _badgedIcon(
-                  iconData: Icons.restaurant_menu_outlined,
-                  count: badgeProvider.pendingMealPlanCount,
-                  badgeColor: Colors.orange,
-                ),
-                activeIcon: _badgedIcon(
-                  iconData: Icons.restaurant_menu,
-                  count: badgeProvider.pendingMealPlanCount,
-                  badgeColor: Colors.orange,
-                ),
-                label: 'Lộ trình',
-              ),
-              BottomNavigationBarItem(
-                icon: _badgedIcon(
-                  iconData: Icons.assessment_outlined,
-                  count: reportProvider.pendingCount,
-                  badgeColor: Colors.deepOrange,
-                ),
-                activeIcon: _badgedIcon(
-                  iconData: Icons.assessment,
-                  count: reportProvider.pendingCount,
-                  badgeColor: Colors.deepOrange,
-                ),
-                label: 'Báo cáo',
-              ),
-              BottomNavigationBarItem(
-                icon: _badgedIcon(
-                  iconData: Icons.notifications_none_outlined,
-                  count: badgeProvider.unreadNotifCount,
-                  badgeColor: Colors.red,
-                ),
-                activeIcon: _badgedIcon(
-                  iconData: Icons.notifications,
-                  count: badgeProvider.unreadNotifCount,
-                  badgeColor: Colors.red,
-                ),
-                label: 'Thông báo',
-              ),
-              const BottomNavigationBarItem(
-                icon: SizedBox(
-                  height: 44,
-                  child: Icon(Icons.person_outline, size: 24),
-                ),
-                activeIcon: SizedBox(
-                  height: 44,
-                  child: Icon(Icons.person, size: 24),
-                ),
-                label: 'Cá nhân',
-              ),
-            ],
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _badgedIcon({
+  Widget _buildNavItem({
+    required int index,
+    required String label,
     required IconData iconData,
-    required int count,
+    required IconData activeIconData,
+    required int badgeCount,
     required Color badgeColor,
   }) {
-    return SizedBox(
-      height: 44,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Icon(iconData, size: 24),
-          if (count > 0)
-            Positioned(
-              right: -6,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    final isSelected = _currentIndex == index;
+    const activeColor = _coachPrimary;
+    final inactiveColor = Colors.grey.shade400;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => _selectTab(index),
+        splashColor: activeColor.withValues(alpha: 0.1),
+        highlightColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: badgeColor,
-                  borderRadius: BorderRadius.circular(10),
+                  color: isSelected
+                      ? activeColor.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                constraints: const BoxConstraints(minWidth: 18),
-                child: Text(
-                  count > 99 ? '99+' : count.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      isSelected ? activeIconData : iconData,
+                      size: 23,
+                      color: isSelected ? activeColor : inactiveColor,
+                    ),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: badgeColor.withValues(alpha: 0.4),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          child: Text(
+                            badgeCount > 99 ? '99+' : badgeCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-        ],
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  color: isSelected ? activeColor : Colors.grey.shade600,
+                  letterSpacing: -0.2,
+                ),
+                child: Text(label),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -218,14 +265,35 @@ class _CoachClientsTab extends StatefulWidget {
 
 class _CoachClientsTabState extends State<_CoachClientsTab> {
   final _repo = AdvancedRepository();
+  final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _clients = [];
   List<Map<String, dynamic>> _pending = [];
   bool _loading = true;
+  int _clientsPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      if (mounted) setState(() => _clientsPage = 0);
+    });
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filteredClients {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _clients;
+    return _clients.where((client) {
+      final name = (client['fullName']?.toString() ?? '').toLowerCase();
+      final email = (client['email']?.toString() ?? '').toLowerCase();
+      return name.contains(query) || email.contains(query);
+    }).toList();
   }
 
   Future<void> _load() async {
@@ -270,53 +338,124 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredClients;
+    const pageSize = 6;
+    final totalPages = (filtered.length / pageSize).ceil();
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7F4),
+      backgroundColor: const Color(0xFFF4F7F5),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _load,
           color: _coachPrimary,
           child: CustomScrollView(
             slivers: [
+              // Header section với gradient card & PT Status
               SliverToBoxAdapter(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: _coachPrimary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.sports,
-                          color: _coachPrimary,
-                          size: 26,
-                        ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF135A37), Color(0xFF1A7A4A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Không gian PT',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1a2e1f),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF1A7A4A).withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
                             ),
                           ),
-                          Text(
-                            'Quản lý học viên của bạn',
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                          child: const Icon(
+                            Icons.sports_gymnastics_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Không gian PT',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF4ADE80),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'Active',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Quản lý & đồng hành cùng học viên',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
+
               if (_loading)
                 const SliverFillRemaining(
                   child: Center(
@@ -324,6 +463,7 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                   ),
                 )
               else ...[
+                // Stat Summary Cards
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -332,26 +472,32 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                         _statCard(
                           'Học viên',
                           _clients.length.toString(),
-                          Icons.people,
+                          Icons.people_alt_rounded,
                           _coachPrimary,
+                          const Color(0xFFE8F5E9),
                         ),
                         const SizedBox(width: 12),
                         _statCard(
                           'Chờ duyệt',
                           _pending.length.toString(),
-                          Icons.pending_actions,
-                          Colors.orange,
+                          Icons.pending_actions_rounded,
+                          const Color(0xFFE65100),
+                          const Color(0xFFFFF3E0),
                         ),
                       ],
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                // Pending Requests Section
                 if (_pending.isNotEmpty) ...[
                   _sectionHeader(
                     'Yêu cầu chờ duyệt',
-                    Icons.pending_actions,
-                    Colors.orange,
+                    _pending.length,
+                    Icons.mark_email_unread_rounded,
+                    const Color(0xFFE65100),
                   ),
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -359,41 +505,214 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                       childCount: _pending.length,
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 ],
+
+                // Managed Trainees Section & Search Bar
                 _sectionHeader(
                   'Học viên đang quản lý',
-                  Icons.people,
+                  _clients.length,
+                  Icons.groups_rounded,
                   _coachPrimary,
                 ),
+
+                if (_clients.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: 'Tìm học viên theo tên, email...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 13,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              color: _coachPrimary,
+                              size: 20,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () => _searchController.clear(),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
                 if (_clients.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(32),
                       child: Column(
                         children: [
-                          Icon(
-                            Icons.person_search,
-                            size: 64,
-                            color: Colors.grey.shade300,
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: _coachPrimary.withValues(alpha: 0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.person_search_rounded,
+                              size: 48,
+                              color: _coachPrimary.withValues(alpha: 0.6),
+                            ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           const Text(
-                            'Chưa có học viên nào\nHọc viên sẽ hiện ở đây khi được liên kết.',
+                            'Chưa có học viên nào',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Danh sách học viên sẽ hiển thị tại đây khi các học viên gửi yêu cầu liên kết với bạn.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey, fontSize: 14),
+                            style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
                           ),
                         ],
                       ),
                     ),
                   )
-                else
+                else if (filtered.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 44,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Không tìm thấy học viên khớp với "${_searchController.text}"',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (_, i) => _clientCard(_clients[i]),
-                      childCount: _clients.length,
+                      (_, i) {
+                        final index = _clientsPage * pageSize + i;
+                        if (index >= filtered.length) return const SizedBox.shrink();
+                        return _clientCard(filtered[index]);
+                      },
+                      childCount: (filtered.length - _clientsPage * pageSize).clamp(0, pageSize),
                     ),
                   ),
+                  if (filtered.length > pageSize)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            InkWell(
+                              onTap: _clientsPage > 0
+                                  ? () => setState(() => _clientsPage--)
+                                  : null,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _clientsPage > 0
+                                      ? Colors.white
+                                      : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: _clientsPage > 0
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.05),
+                                            blurRadius: 4,
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_left_rounded,
+                                  size: 20,
+                                  color: _clientsPage > 0
+                                      ? _coachPrimary
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Trang ${_clientsPage + 1} / $totalPages',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            InkWell(
+                              onTap: (_clientsPage + 1) * pageSize < filtered.length
+                                  ? () => setState(() => _clientsPage++)
+                                  : null,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: (_clientsPage + 1) * pageSize < filtered.length
+                                      ? Colors.white
+                                      : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: (_clientsPage + 1) * pageSize < filtered.length
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.05),
+                                            blurRadius: 4,
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color: (_clientsPage + 1) * pageSize < filtered.length
+                                      ? _coachPrimary
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ],
@@ -403,17 +722,24 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
+  Widget _statCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    Color bgTint,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
-              blurRadius: 8,
+              color: color.withValues(alpha: 0.08),
+              blurRadius: 10,
               offset: const Offset(0, 3),
             ),
           ],
@@ -421,30 +747,40 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: bgTint,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 22),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                      height: 1.1,
+                    ),
                   ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -452,20 +788,42 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
     );
   }
 
-  SliverToBoxAdapter _sectionHeader(String title, IconData icon, Color color) {
+  SliverToBoxAdapter _sectionHeader(
+    String title,
+    int count,
+    IconData icon,
+    Color color,
+  ) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: Row(
           children: [
             Icon(icon, color: color, size: 18),
             const SizedBox(width: 8),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: color,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1F2937),
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
           ],
@@ -479,23 +837,42 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
         req['fullName']?.toString() ?? req['email']?.toString() ?? 'Học viên';
     final id = req['clientId']?.toString() ?? '';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.orange.shade100),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.amber.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: Colors.orange.shade100,
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade300, Colors.deepOrange.shade400],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'H',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
                 ),
               ),
             ),
@@ -506,38 +883,71 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF1F2937),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const Text(
-                    'Muốn liên kết với bạn',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.handshake_outlined,
+                        size: 13,
+                        color: Colors.orange.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Muốn liên kết với bạn',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            TextButton(
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
               onPressed: () => _respond(id, 'accept'),
-              style: TextButton.styleFrom(
+              icon: const Icon(Icons.check_rounded, size: 15),
+              label: const Text(
+                'Duyệt',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: _coachPrimary,
+                elevation: 0,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 6,
+                  vertical: 8,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Chấp nhận', style: TextStyle(fontSize: 12)),
             ),
             const SizedBox(width: 6),
-            TextButton(
+            OutlinedButton(
               onPressed: () => _respond(id, 'reject'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade600,
+                side: BorderSide(color: Colors.red.shade200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text('Từ chối', style: TextStyle(fontSize: 12)),
+              child: const Text(
+                'Từ chối',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
@@ -553,70 +963,129 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
     final email = client['email']?.toString() ?? '';
     final clientId = client['clientId']?.toString() ?? '';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CoachClientDetailScreen(
-              client: {
-                'clientId': clientId,
-                'clientName': name,
-                'email': email,
-              },
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CoachClientDetailScreen(
+                client: {
+                  'clientId': clientId,
+                  'clientName': name,
+                  'email': email,
+                },
+              ),
             ),
           ),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: _coachPrimary.withValues(alpha: 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: _coachPrimary.withValues(alpha: 0.12),
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                  style: const TextStyle(
-                    color: _coachPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade100),
+              boxShadow: [
+                BoxShadow(
+                  color: _coachPrimary.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF135A37), Color(0xFF1A7A4A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'H',
                       style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 17,
                       ),
                     ),
-                    if (email.isNotEmpty)
-                      Text(
-                        email,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF1F2937),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (email.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: clientId.isEmpty
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CoachChatScreen(
+                              partnerId: clientId,
+                              partnerName: name,
+                            ),
+                          ),
+                        ),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: _coachPrimary,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -989,12 +1458,22 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: GestureDetector(
-                              onTap: () {
+                              onTap: () async {
                                 final notifId = n['notifId']?.toString();
                                 if (notifId != null && !isRead) {
                                   unawaited(_markRead(notifId));
                                 }
-                                if (notificationType == 'pt_review_request') {
+                                if (notificationType == 'coach_chat_message') {
+                                  final notification = AppNotification.fromJson(
+                                    n,
+                                  );
+                                  await NotificationHandler()
+                                      .handleAppNotificationTap(
+                                        context,
+                                        notification,
+                                      );
+                                } else if (notificationType ==
+                                    'pt_review_request') {
                                   widget.onOpenTab(1);
                                 } else if (notificationType ==
                                     'weekly_report_submitted') {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/services/notification_handler.dart';
 import 'package:frontend/features/home/widgets/gymer_package_card.dart';
+import 'package:frontend/features/coach_chat/views/coach_chat_screen.dart';
 import 'package:frontend/features/notifications/models/notification_models.dart';
 import 'package:frontend/features/notifications/widgets/notification_tile.dart';
 
@@ -30,6 +31,7 @@ void main() {
     });
     expect(gymerAction.type, NotificationActionType.openGymerPrograms);
     expect(gymerAction.tabIndex, 0);
+    expect(gymerAction.id, isNull);
 
     final coachAction = handler.parseNotificationData({
       'custom_data': 'pt_review_request|notification-2',
@@ -47,6 +49,63 @@ void main() {
       NotificationActionType.openCoachWeeklyReport,
     );
     expect(weeklyReportAction.id, 'report-123');
+  });
+
+  test('route approval deep-link preserves the exact request id', () {
+    final action = NotificationHandler().parseNotificationData({
+      'type': 'meal_plan_approved',
+      'id': 'notification-5',
+      'deepLink': 'gymer_route_approval:route-request-123',
+    });
+
+    expect(action.type, NotificationActionType.openGymerPrograms);
+    expect(action.tabIndex, 0);
+    expect(action.id, 'route-request-123');
+  });
+
+  test('personal program deep-link opens PT sent tab with exact id', () {
+    final action = NotificationHandler().parseNotificationData({
+      'type': 'coach_personal_program',
+      'deepLink': 'gymer_personal_program:program-123',
+    });
+
+    expect(action.type, NotificationActionType.openGymerPrograms);
+    expect(action.tabIndex, 1);
+    expect(action.id, 'program-123');
+  });
+
+  test('chat notification opens the exact PT or Gymer conversation', () {
+    final handler = NotificationHandler();
+    final action = handler.parseNotificationData({
+      'type': 'coach_chat_message',
+      'deepLink': 'chat:partner-123',
+    });
+
+    expect(action.type, NotificationActionType.openCoachChat);
+    expect(action.id, 'partner-123');
+    final screen = handler.buildDestinationScreen(action);
+    expect(screen, isA<CoachChatScreen>());
+    expect((screen as CoachChatScreen).partnerId, 'partner-123');
+  });
+
+  test('chat actionUrl works for both PT and Gymer notification payloads', () {
+    final handler = NotificationHandler();
+
+    final ptAction = handler.parseNotificationData({
+      'type': 'coach_chat_message',
+      'actionUrl': 'chat:gymer-456',
+    });
+    final gymerAction = handler.parseNotificationData({
+      'Type': 'COACH_CHAT_MESSAGE',
+      'ActionUrl': 'chat:coach-789',
+    });
+    final fcmAction = handler.parseNotificationData({
+      'custom_data': 'coach_chat_message|notification-1|chat:sender-from-fcm',
+    });
+
+    expect(ptAction.id, 'gymer-456');
+    expect(gymerAction.id, 'coach-789');
+    expect(fcmAction.id, 'sender-from-fcm');
   });
 
   test('weekly report notification exposes its status and deep-link', () {

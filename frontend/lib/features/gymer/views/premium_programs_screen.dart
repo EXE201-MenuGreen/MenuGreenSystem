@@ -11,11 +11,17 @@ import '../../advanced/repositories/advanced_repository.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
 import '../widgets/route_approval_card.dart';
 import 'personal_program_detail_screen.dart';
+import 'route_approval_detail_screen.dart';
 
 class PremiumProgramsScreen extends StatefulWidget {
-  const PremiumProgramsScreen({super.key, this.initialTabIndex = 0});
+  const PremiumProgramsScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialRequestId,
+  });
 
   final int initialTabIndex;
+  final String? initialRequestId;
 
   @override
   State<PremiumProgramsScreen> createState() => _PremiumProgramsScreenState();
@@ -71,13 +77,32 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       if (!mounted) return;
 
       final reqs = results[2] as List<dynamic>;
-      // Find if there is an active/reviewed/applied RouteApproval request
-      final activeReq = reqs.firstWhere((r) {
-        final status = (r['status'] ?? '').toString().toLowerCase();
-        final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+      bool isApprovedRoute(dynamic request) {
+        final status = (request['status'] ?? '').toString().toLowerCase();
+        final reqType = (request['requestType'] ?? '').toString().toLowerCase();
         return (status == 'reviewed' || status == 'applied') &&
             (reqType.isEmpty || reqType == 'routeapproval');
-      }, orElse: () => <String, dynamic>{});
+      }
+
+      final requestedId = widget.initialRequestId;
+      final requestedRoute = requestedId == null || requestedId.isEmpty
+          ? <String, dynamic>{}
+          : reqs.firstWhere(
+              (request) =>
+                  isApprovedRoute(request) &&
+                  (request['reportId'] ?? '').toString() == requestedId,
+              orElse: () => <String, dynamic>{},
+            );
+
+      // Fallback for old notifications that do not contain a request deep-link.
+      final activeReq = requestedRoute.isNotEmpty
+          ? requestedRoute
+          : reqs.firstWhere((r) {
+              final status = (r['status'] ?? '').toString().toLowerCase();
+              final reqType = (r['requestType'] ?? '').toString().toLowerCase();
+              return (status == 'reviewed' || status == 'applied') &&
+                  (reqType.isEmpty || reqType == 'routeapproval');
+            }, orElse: () => <String, dynamic>{});
 
       Map<String, dynamic>? routeDetail;
       if (activeReq.isNotEmpty) {
@@ -322,7 +347,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
 
     bool submitted;
     try {
-      submitted = await showModalBottomSheet<bool>(
+      submitted =
+          await showModalBottomSheet<bool>(
             context: context,
             isScrollControlled: true,
             showDragHandle: true,
@@ -395,7 +421,8 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                 ],
               ),
             ),
-      ) ?? false;
+          ) ??
+          false;
     } finally {
       // Always dispose controllers to prevent memory leak
       weight.dispose();
@@ -601,36 +628,70 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
       length: 2,
       initialIndex: widget.initialTabIndex.clamp(0, 1).toInt(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAF9),
+        backgroundColor: const Color(0xFFF4F7F5),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
+          scrolledUnderElevation: 0.5,
+          centerTitle: false,
           title: const Text(
             'Lộ trình Gymer',
             style: TextStyle(
-              color: AppColors.textDark,
+              color: Color(0xFF111827),
               fontWeight: FontWeight.w800,
+              fontSize: 19,
+              letterSpacing: -0.3,
             ),
           ),
           actions: [
             IconButton(
               onPressed: _loading || _actionLoading ? null : _load,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF374151)),
+              tooltip: 'Làm mới',
             ),
           ],
-          bottom: const TabBar(
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primary,
-            indicatorWeight: 2.5,
-            labelStyle: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13.5,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEFEF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(11),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: const Color(0xFF6B7280),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Tôi gửi PT'),
+                    Tab(text: 'PT gửi tôi'),
+                  ],
+                ),
+              ),
             ),
-            tabs: [
-              Tab(text: 'Tôi gửi PT'),
-              Tab(text: 'PT gửi tôi'),
-            ],
           ),
         ),
         body: _loading
@@ -649,6 +710,9 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                     refresh: _load,
                     error: _error,
                     onAcceptSuccess: _load,
+                    initialRequestId: widget.initialTabIndex == 1
+                        ? widget.initialRequestId
+                        : null,
                   ),
                 ],
               ),
@@ -656,6 +720,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildIntro() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -926,6 +991,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCustomApprovedRoute(Map<String, dynamic> route) {
     final weekStart = _value(route, 'weekStartDate');
     final comment = _value(route, 'ptComment');
@@ -2025,6 +2091,7 @@ class _ActiveMetric extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MessageCard extends StatelessWidget {
   const _MessageCard({required this.message});
   final String message;
@@ -2154,6 +2221,7 @@ class _SentRouteTab extends StatefulWidget {
 class _SentRouteTabState extends State<_SentRouteTab> {
   List<Map<String, dynamic>> _requests = const [];
   bool _loading = true;
+  // ignore: unused_field
   bool _actionLoading = false;
 
   @override
@@ -2170,6 +2238,10 @@ class _SentRouteTabState extends State<_SentRouteTab> {
       // Tab 1 = Gymer -> PT (CreatedByRole = "Gymer", default; RouteApproval or WeeklyReport).
       final filtered = reqs.where((r) {
         final rt = (r['requestType'] ?? '').toString().toLowerCase();
+        final createdByRole = (r['createdByRole'] ?? '')
+            .toString()
+            .toLowerCase();
+        if (createdByRole == 'coach') return false;
         return rt.isEmpty || rt == 'weeklyreport' || rt == 'routeapproval';
       }).toList();
       setState(() {
@@ -2187,15 +2259,15 @@ class _SentRouteTabState extends State<_SentRouteTab> {
     try {
       await widget.advancedRepository.ptAction(id, 'apply');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')));
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_cleanError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_cleanError(error))));
     } finally {
       if (mounted) setState(() => _actionLoading = false);
     }
@@ -2214,26 +2286,41 @@ class _SentRouteTabState extends State<_SentRouteTab> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
           children: [
-            const SizedBox(height: 80),
-            Icon(
-              Icons.assignment_rounded,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'Bạn chưa gửi yêu cầu nào cho PT.\nHãy tạo báo cáo tuần để PT gợi ý điều chỉnh lộ trình dinh dưỡng.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.5,
-                    height: 1.5,
-                  ),
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.assignment_rounded,
+                  size: 36,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Chưa gửi yêu cầu lộ trình',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Hãy tạo báo cáo tuần để PT kiểm tra tiến độ và gợi ý điều chỉnh lộ trình dinh dưỡng phù hợp cho bạn.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
           ],
@@ -2247,7 +2334,7 @@ class _SentRouteTabState extends State<_SentRouteTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _requests.length + (widget.error != null ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (widget.error != null && index == _requests.length) {
             return Container(
@@ -2266,6 +2353,18 @@ class _SentRouteTabState extends State<_SentRouteTab> {
           return RouteApprovalCard(
             request: r,
             direction: 'sent',
+            onTap: () {
+              final requestId = (r['reportId'] ?? '').toString();
+              if (requestId.isEmpty) return;
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RouteApprovalDetailScreen(
+                    requestId: requestId,
+                    initialSummary: r,
+                  ),
+                ),
+              );
+            },
             onAction: () {
               final status = (r['status'] ?? '').toString().toLowerCase();
               if (status == 'reviewed') {
@@ -2284,10 +2383,12 @@ class _ReceivedPersonalTab extends StatefulWidget {
     required this.refresh,
     required this.error,
     required this.onAcceptSuccess,
+    this.initialRequestId,
   });
   final Future<void> Function() refresh;
   final String? error;
   final Future<void> Function() onAcceptSuccess;
+  final String? initialRequestId;
 
   @override
   State<_ReceivedPersonalTab> createState() => _ReceivedPersonalTabState();
@@ -2296,6 +2397,7 @@ class _ReceivedPersonalTab extends StatefulWidget {
 class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
   List<Map<String, dynamic>> _programs = const [];
   bool _loading = true;
+  bool _openedInitialRequest = false;
 
   @override
   void initState() {
@@ -2312,6 +2414,18 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         _programs = programs;
         _loading = false;
       });
+      final initialId = widget.initialRequestId;
+      if (!_openedInitialRequest && initialId != null && initialId.isNotEmpty) {
+        final match = programs.where(
+          (program) => (program['id'] ?? '').toString() == initialId,
+        );
+        if (match.isNotEmpty) {
+          _openedInitialRequest = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openDetail(match.first);
+          });
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -2343,26 +2457,41 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
           children: [
-            const SizedBox(height: 80),
-            Icon(
-              Icons.inbox_rounded,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'PT của bạn chưa gửi lộ trình cá nhân nào.\nKhi PT tạo lộ trình, nó sẽ xuất hiện ở đây để bạn xem và chấp nhận.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.5,
-                    height: 1.5,
-                  ),
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.inbox_rounded,
+                  size: 36,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Chưa có lộ trình từ PT',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Khi PT của bạn tạo lộ trình dinh dưỡng cá nhân, lộ trình sẽ xuất hiện tại đây để bạn xem và chấp nhận.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
           ],
@@ -2376,7 +2505,7 @@ class _ReceivedPersonalTabState extends State<_ReceivedPersonalTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _programs.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final p = _programs[index];
           return RouteApprovalCard(

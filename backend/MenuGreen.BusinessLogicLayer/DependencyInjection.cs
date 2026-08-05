@@ -9,6 +9,8 @@ namespace MenuGreen.BusinessLogicLayer
     {
         public static IServiceCollection AddBusinessLogicLayer(this IServiceCollection services)
         {
+            services.AddSingleton<ICacheService, RedisCacheService>();
+            services.AddSingleton<ICacheInvalidationService, CacheInvalidationService>();
             services.AddSingleton<ISepayPaymentStatusCache, SepayPaymentStatusCache>();
 
             services.AddScoped<IAuthService, AuthService>();
@@ -70,6 +72,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
             services.AddScoped<ICoachService, CoachService>();
             services.AddScoped<ICoachReviewService, CoachReviewService>();
+            services.AddScoped<ICoachChatService, CoachChatService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();
             services.AddHttpClient<IEmailService, EmailService>();

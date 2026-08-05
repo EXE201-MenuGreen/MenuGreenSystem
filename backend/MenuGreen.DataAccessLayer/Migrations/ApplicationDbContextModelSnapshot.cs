@@ -221,6 +221,38 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.ToTable("campaigns", (string)null);
                 });
 
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId", "ReadAt");
+
+                    b.HasIndex("SenderId", "ReceiverId", "SentAt");
+
+                    b.ToTable("coach_chat_messages", (string)null);
+                });
+
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -914,6 +946,13 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CoachNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -929,12 +968,25 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<int?>("MaxCalories")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinCalories")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PlanType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Active");
 
                     b.Property<int?>("TargetCalories")
                         .HasColumnType("integer");
@@ -954,6 +1006,8 @@ namespace MenuGreen.DataAccessLayer.Migrations
                     b.HasIndex("PlanType");
 
                     b.HasIndex("StartDate");
+
+                    b.HasIndex("Status");
 
                     b.HasIndex("UserId");
 
@@ -2434,6 +2488,25 @@ namespace MenuGreen.DataAccessLayer.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachChatMessage", b =>
+                {
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MenuGreen.DataAccessLayer.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("MenuGreen.DataAccessLayer.Entities.CoachConnection", b =>

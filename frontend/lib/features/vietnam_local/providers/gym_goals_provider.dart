@@ -16,6 +16,10 @@ class GymGoalsProvider extends ChangeNotifier {
 
   GymGoalProfile? _profile;
   List<LocalRecommendationItem> _planSuggestions = const [];
+  DateTime? _planDate;
+  int? _planTargetCalories;
+  bool _hasPlanConfiguration = false;
+  int _planLoadVersion = 0;
   GymRecalibrationResult? _lastRecalibration;
 
   bool get isLoading => _isLoading;
@@ -23,6 +27,9 @@ class GymGoalsProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   GymGoalProfile? get profile => _profile;
   List<LocalRecommendationItem> get planSuggestions => _planSuggestions;
+  DateTime? get planDate => _planDate;
+  int? get planTargetCalories => _planTargetCalories;
+  bool get hasPlanConfiguration => _hasPlanConfiguration;
   GymRecalibrationResult? get lastRecalibration => _lastRecalibration;
 
   Future<void> loadProfile() async {
@@ -57,15 +64,35 @@ class GymGoalsProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<void> loadPlan({int? targetCalories, int? top}) async {
-    final result = await _repo.getPlan(targetCalories: targetCalories, top: top);
+  Future<void> loadPlan({
+    required DateTime date,
+    int? targetCalories,
+    int? top,
+  }) async {
+    final loadVersion = ++_planLoadVersion;
+    _planDate = date;
+    _planTargetCalories = null;
+    _hasPlanConfiguration = false;
+    _planSuggestions = const [];
+    notifyListeners();
+
+    final result = await _repo.getPlan(
+      date: date,
+      targetCalories: targetCalories,
+      top: top,
+    );
+    if (loadVersion != _planLoadVersion) return;
     if (!result.success) {
       _errorMessage = result.translatedMessage;
       _planSuggestions = const [];
       notifyListeners();
       return;
     }
-    _planSuggestions = result.data ?? const [];
+    final plan = result.data;
+    _planDate = plan?.date ?? date;
+    _planTargetCalories = plan?.targetCalories;
+    _hasPlanConfiguration = plan?.hasConfiguration ?? false;
+    _planSuggestions = plan?.items ?? const [];
     _errorMessage = null;
     notifyListeners();
   }

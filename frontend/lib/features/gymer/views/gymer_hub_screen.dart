@@ -3,12 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../advanced/views/advanced_features_screen.dart';
+import '../../coach_chat/views/coach_chat_partners_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
 import '../../vietnam_local/views/gym_goals_screen.dart';
 import 'premium_programs_screen.dart';
 
-enum GymerFeature { goals, companion, programs }
+enum GymerFeature { goals, companion, programs, chat }
 
 class GymerHubScreen extends StatefulWidget {
   const GymerHubScreen({super.key, this.openFeature});
@@ -66,6 +67,7 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
         initialIndex: 0,
       ),
       GymerFeature.programs => const PremiumProgramsScreen(),
+      GymerFeature.chat => const CoachChatPartnersScreen(),
     };
 
     if (!mounted) return;
@@ -103,7 +105,7 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                   _buildHero(),
                   const SizedBox(height: 22),
                   Text(
-                    '3 công cụ dành cho Gymer',
+                    '4 công cụ dành cho Gymer',
                     style: GoogleFonts.beVietnamPro(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -145,6 +147,12 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                         title: 'Lộ trình',
                         subtitle: 'Theo dõi chương trình 8–12 tuần',
                         onTap: () => _openFeature(GymerFeature.programs),
+                      ),
+                      _GymerFeatureTile(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'Chat với PT',
+                        subtitle: 'Nhắn tin trực tiếp với PT của bạn',
+                        onTap: () => _openFeature(GymerFeature.chat),
                       ),
                     ],
                   ),

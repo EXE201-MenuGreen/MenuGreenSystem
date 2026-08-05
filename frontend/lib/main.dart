@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/navigation/app_navigator.dart';
 import 'core/widgets/connection_status_banner.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/network_status_provider.dart';
@@ -23,6 +25,7 @@ import 'features/vietnam_local/providers/planned_vs_actual_provider.dart';
 import 'features/vietnam_local/providers/food_capture_provider.dart';
 import 'features/vietnam_local/providers/ingredient_substitution_provider.dart';
 import 'features/discover/providers/favorite_food_provider.dart';
+import 'features/coach_chat/providers/coach_chat_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -34,6 +37,23 @@ RemoteMessage? _pendingInitialNotification;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Ưu tiên nạp .env.local nếu có để override môi trường dev cá nhân; nếu không có thì nạp .env
+    bool loadedLocal = false;
+    try {
+      await dotenv.load(fileName: '.env.local');
+      loadedLocal = true;
+    } catch (_) {
+      // .env.local không tồn tại hoặc lỗi
+    }
+
+    if (!loadedLocal) {
+      await dotenv.load(fileName: '.env', isOptional: true);
+    }
+  } catch (e) {
+    debugPrint('Cảnh báo: Không thể nạp tệp .env: $e');
+  }
 
   // Register background handler for FCM
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -74,8 +94,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FoodCaptureProvider()),
         ChangeNotifierProvider(create: (_) => IngredientSubstitutionProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteFoodProvider()),
+        ChangeNotifierProvider(create: (_) => CoachChatProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: AppNavigator.key,
         title: 'MenuGreen',
         debugShowCheckedModeBanner: false,
         locale: const Locale('vi', 'VN'),

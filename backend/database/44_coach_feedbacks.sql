@@ -24,7 +24,7 @@ CREATE TABLE coach_feedbacks (
 -- Seed Data for coach_feedbacks
 INSERT INTO coach_feedbacks ("Id", "ClientId", "CoachId", "FeedbackType", "TargetId", "MealType", "LogDate", "Content", "CreatedAt")
 VALUES
-('70000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'General', NULL, NULL, NULL, 'Bạn đang thực hiện rất tốt việc thâm hụt calo tuần này. Cố gắng duy trì lượng nước uống và tập luyện đều đặn nhé!', now() - interval '1 day')
+('70000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '77777777-7777-7777-7777-777777777777', 'General', NULL, NULL, NULL, 'Bạn đang thực hiện rất tốt việc thâm hụt calo tuần này. Cố gắng duy trì lượng nước uống và tập luyện đều đặn nhé!', now() - interval '1 day')
 ON CONFLICT DO NOTHING;
 
 COMMIT;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
@@ -13,13 +14,31 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class AllergenMatchingService : IAllergenMatchingService
     {
         private readonly ApplicationDbContext _db;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan UserAllergenTtl = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan FoodAllergenTtl = TimeSpan.FromMinutes(30);
 
-        public AllergenMatchingService(ApplicationDbContext db)
+        public AllergenMatchingService(ApplicationDbContext db, ICacheService cache)
         {
             _db = db;
+            _cache = cache;
         }
 
         public async Task<HashSet<string>> GetUserAllergenKeysAsync(Guid userId)
+        {
+            var cacheKey = CacheKeys.UserAllergenKeys(userId);
+            var cached = await _cache.GetAsync<UserAllergenCacheEntry>(cacheKey);
+            if (cached != null)
+            {
+                return cached.Keys;
+            }
+
+            var keys = await QueryUserAllergenKeysAsync(userId);
+            await _cache.SetAsync(cacheKey, new UserAllergenCacheEntry { Keys = keys }, UserAllergenTtl);
+            return keys;
+        }
+
+        private async Task<HashSet<string>> QueryUserAllergenKeysAsync(Guid userId)
         {
             var names = await _db.Allergies.AsNoTracking()
                 .Where(a => a.UserId == userId && a.IsActive)
@@ -42,26 +61,54 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var result = ids.ToDictionary(id => id, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             if (ids.Count == 0) return result;
 
-            var tags = await _db.FoodAllergenTags.AsNoTracking()
-                .Where(t => ids.Contains(t.FoodId))
-                .ToListAsync();
+            var cachedDict = new Dictionary<Guid, HashSet<string>>();
+            var uncachedIds = new List<Guid>();
 
-            foreach (var tag in tags)
+            foreach (var id in ids)
             {
-                if (result.TryGetValue(tag.FoodId, out var set))
-                    set.Add(tag.AllergenKey);
+                var cacheKey = CacheKeys.FoodAllergenKeys(id);
+                var cached = await _cache.GetAsync<FoodAllergenCacheEntry>(cacheKey);
+                if (cached != null)
+                {
+                    cachedDict[id] = cached.Keys;
+                }
+                else
+                {
+                    uncachedIds.Add(id);
+                }
             }
 
-            var legacy = await _db.FoodAllergies.AsNoTracking()
-                .Include(fa => fa.Allergy)
-                .Where(fa => ids.Contains(fa.FoodId))
-                .ToListAsync();
-
-            foreach (var row in legacy)
+            foreach (var kvp in cachedDict)
             {
-                var key = AllergenCatalog.NormalizeToKey(row.Allergy?.Name);
-                if (key != null && result.TryGetValue(row.FoodId, out var set))
-                    set.Add(key);
+                if (result.ContainsKey(kvp.Key))
+                    result[kvp.Key] = kvp.Value;
+            }
+
+            if (uncachedIds.Count > 0)
+            {
+                var dbTags = await _db.FoodAllergenTags.AsNoTracking()
+                    .Where(t => uncachedIds.Contains(t.FoodId))
+                    .ToListAsync();
+
+                var dbLegacy = await _db.FoodAllergies.AsNoTracking()
+                    .Include(fa => fa.Allergy)
+                    .Where(fa => uncachedIds.Contains(fa.FoodId))
+                    .ToListAsync();
+
+                foreach (var id in uncachedIds)
+                {
+                    var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var tagKeys = dbTags.Where(t => t.FoodId == id).Select(t => t.AllergenKey);
+                    foreach (var k in tagKeys) keys.Add(k);
+
+                    var legacyKeys = dbLegacy.Where(fa => fa.FoodId == id)
+                        .Select(fa => AllergenCatalog.NormalizeToKey(fa.Allergy?.Name))
+                        .Where(k => k != null);
+                    foreach (var k in legacyKeys) keys.Add(k!);
+
+                    result[id] = keys;
+                    await _cache.SetAsync(CacheKeys.FoodAllergenKeys(id), new FoodAllergenCacheEntry { Keys = keys }, FoodAllergenTtl);
+                }
             }
 
             return result;
@@ -100,6 +147,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _db.SaveChangesAsync();
+
+            await _cache.RemoveAsync(CacheKeys.FoodAllergenKeys(foodId));
+        }
+
+        public async Task InvalidateUserAllergenCacheAsync(Guid userId)
+        {
+            await _cache.RemoveAsync(CacheKeys.UserAllergenKeys(userId));
+        }
+
+        public async Task InvalidateFoodAllergenCacheAsync(Guid foodId)
+        {
+            await _cache.RemoveAsync(CacheKeys.FoodAllergenKeys(foodId));
+        }
+
+        private class UserAllergenCacheEntry
+        {
+            public HashSet<string> Keys { get; set; } = new();
+        }
+
+        private class FoodAllergenCacheEntry
+        {
+            public HashSet<string> Keys { get; set; } = new();
         }
 
         public async Task<AllergenRiskResult> EvaluateFoodRiskAsync(Guid foodId, Guid? userId)
