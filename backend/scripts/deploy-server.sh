@@ -368,11 +368,16 @@ rm -f /tmp/doppler_raw.env
 echo "=== .env file created ==="
 
 # Extract DB connection for backup
-DB_HOST=$(grep '^DB_HOST=' "$APP_DIR/.env" | cut -d= -f2-)
-DB_PORT=$(grep '^DB_PORT=' "$APP_DIR/.env" | cut -d= -f2-)
-DB_USER=$(grep '^DB_USER=' "$APP_DIR/.env" | cut -d= -f2-)
-DB_PASSWORD=$(grep '^DB_PASSWORD=' "$APP_DIR/.env" | cut -d= -f2-)
-DB_NAME=$(grep '^DB_NAME=' "$APP_DIR/.env" | cut -d= -f2-)
+# Prefer individual DB_* variables from Doppler (already exported)
+DB_HOST="${DB_HOST:-$(grep '^DB_HOST=' "$APP_DIR/.env" | cut -d= -f2-)}"
+DB_PORT="${DB_PORT:-$(grep '^DB_PORT=' "$APP_DIR/.env" | cut -d= -f2-)}"
+DB_USER="${DB_USER:-$(grep '^DB_USER=' "$APP_DIR/.env" | cut -d= -f2-)}"
+DB_PASSWORD="${DB_PASSWORD:-$(grep '^DB_PASSWORD=' "$APP_DIR/.env" | cut -d= -f2-)}"
+DB_NAME="${DB_NAME:-$(grep '^DB_NAME=' "$APP_DIR/.env" | cut -d= -f2-)}"
+
+# Set defaults if still empty
+DB_PORT="${DB_PORT:-5432}"
+DB_USER="${DB_USER:-postgres}"
 
 # FIX: Backup database before deployment - FAIL = STOP DEPLOY
 if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
@@ -509,61 +514,12 @@ sudo docker tag $IMAGE:main menugreen_api
 
 # =================================================================
 # MIGRATION GENERATION PHASE
-# In CI/CD-generated workflow, migrations are not in git.
-# We need to generate them on the server before deployment.
+# NOTE: dotnet-ef is NOT available on the server (no .NET SDK installed).
+# Migrations are handled by the application on startup (auto-migrate).
+# Raw SQL migrations are applied below via psql.
 # =================================================================
-echo "=== Generating EF Core Migrations ==="
-
-# Install dotnet-ef if not present
-if ! command -v dotnet-ef &> /dev/null && ! dotnet ef --version &> /dev/null; then
-  echo "Installing dotnet-ef tool..."
-  dotnet tool install --global dotnet-ef --version 9.0.0 || true
-  export PATH="$HOME/.dotnet/tools:$PATH"
-fi
-
-# Create migrations directory in app folder
-mkdir -p "$APP_DIR/MenuGreen.DataAccessLayer/Migrations"
-
-# Build DataAccessLayer to check for pending migrations
-cd /tmp
-if [ -d "MenuGreen.DataAccessLayer" ]; then
-  rm -rf MenuGreen.DataAccessLayer
-fi
-mkdir -p MenuGreen.DataAccessLayer
-
-# Copy source files for migration generation
-echo "Preparing source for migration generation..."
-cp -r backend/MenuGreen.DataAccessLayer/Context "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
-cp -r backend/MenuGreen.DataAccessLayer/Entities "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
-cp -r backend/MenuGreen.DataAccessLayer/Configurations "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
-cp -r backend/MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj "$APP_DIR/MenuGreen.DataAccessLayer/" 2>/dev/null || true
-cp -r backend/MenuGreen.API "$APP_DIR/" 2>/dev/null || true
-
-# Check if there are model changes that need migration
-cd "$APP_DIR"
-echo "Checking for pending migrations..."
-MIGRATION_OUTPUT=$(dotnet ef migrations list --project MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj 2>&1 || echo "Error checking migrations")
-
-if echo "$MIGRATION_OUTPUT" | grep -q "No migrations"; then
-  echo "No migrations needed - database schema is up to date"
-elif echo "$MIGRATION_OUTPUT" | grep -q "Error\|error"; then
-  echo "Warning: Could not check migrations: $MIGRATION_OUTPUT"
-  echo "Proceeding with deployment..."
-else
-  echo "Pending migrations found:"
-  echo "$MIGRATION_OUTPUT"
-  
-  # Generate migration with timestamp
-  TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-  echo "Generating migration: Auto_${TIMESTAMP}_SchemaUpdate"
-  
-  dotnet ef migrations add "Auto_${TIMESTAMP}_SchemaUpdate" \
-    --project MenuGreen.DataAccessLayer/MenuGreen.DataAccessLayer.csproj \
-    --startup-project MenuGreen.API \
-    --output-dir Migrations || {
-    echo "Migration generation skipped or failed (may already exist)"
-  }
-fi
+echo "=== Skipping dotnet-ef (not available on server) ==="
+echo "=== App will auto-apply EF migrations on startup ==="
 
 # =============================================================================
 # BƯỚC DB MIGRATION: Apply ALL database migrations
@@ -577,12 +533,25 @@ fi
 echo "=== [DB MIGRATION] Apply all database schema changes ==="
 
 # Helper function to parse connection string (supports URL and Key=Value format)
+# PREFER: Use individual DB_* variables when available (set by Doppler)
 parse_db_connection() {
   local conn="$1"
-  local format="$2" # "url" or "keyvalue"
   
+  # First check if we have individual variables (preferred - from Doppler)
+  local db_host="${DB_HOST:-}"
+  local db_port="${DB_PORT:-5432}"
+  local db_user="${DB_USER:-}"
+  local db_pass="${DB_PASSWORD:-}"
+  local db_name="${DB_NAME:-}"
+  
+  if [ -n "$db_host" ] && [ -n "$db_name" ]; then
+    echo "${db_user}|${db_pass}|${db_host}|${db_port}|${db_name}"
+    return
+  fi
+  
+  # Fallback: Parse from connection string
   if echo "$conn" | grep -q '://'; then
-    # URL format: postgres://user:pass@host:5432/dbname
+    # URL format: postgresql://user:pass@host:5432/dbname
     echo "$(echo "$conn" | sed -E 's|.*://([^:]+):([^@]+)@([^:]+):([0-9]+)/([^/?]+).*|\1|\2|\3|\4|\5|')"
   else
     # Key=Value format
@@ -595,8 +564,11 @@ parse_db_connection() {
   fi
 }
 
-# Parse once at the beginning
-DB_CONN_PRECHECK=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
+# Parse once at the beginning - use DB_* variables first, fallback to connection string
+DB_CONN_PRECHECK="${DB_HOST:-$(
+  # Fallback: try to get from .env if DB_HOST not in environment
+  grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" 2>/dev/null | cut -d= -f2-
+)}"
 
 if [ -z "$DB_CONN_PRECHECK" ]; then
   echo "  ! DB connection string not found in .env file"
@@ -605,15 +577,16 @@ if [ -z "$DB_CONN_PRECHECK" ]; then
 fi
 
 # Parse connection string
-IFS='|' read -r DB_USER_PRECHECK DB_PASS_PRECHECK DB_HOST_PRECHECK DB_PORT_PRECHECK DB_NAME_PRECHECK <<< "$(parse_db_connection "$DB_CONN_PRECHECK")"
-
-# Fallback for Key=Value format if URL parsing failed
-if [ -z "$DB_HOST_PRECHECK" ]; then
-  DB_PASS_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Password=\K[^;]+' || true)
-  DB_HOST_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Host=\K[^;]+' || true)
-  DB_USER_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP '(Username|User Id)=\K[^;]+' || echo "postgres")
-  DB_NAME_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Database=\K[^;]+' || true)
-  DB_PORT_PRECHECK=$(echo "$DB_CONN_PRECHECK" | grep -oP 'Port=\K[^;]+' || echo "5432")
+# Use individual DB_* variables if available (set from Doppler), otherwise parse
+if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
+  DB_USER_PRECHECK="${DB_USER:-postgres}"
+  DB_PASS_PRECHECK="${DB_PASSWORD:-}"
+  DB_HOST_PRECHECK="$DB_HOST"
+  DB_PORT_PRECHECK="${DB_PORT:-5432}"
+  DB_NAME_PRECHECK="$DB_NAME"
+else
+  # Fallback: parse from connection string
+  IFS='|' read -r DB_USER_PRECHECK DB_PASS_PRECHECK DB_HOST_PRECHECK DB_PORT_PRECHECK DB_NAME_PRECHECK <<< "$(parse_db_connection "$DB_CONN_PRECHECK")"
 fi
 
 # Validate parsed values
@@ -794,28 +767,23 @@ sleep 15
 echo "App should have auto-migrated on startup."
 
 # Verify tables exist
+# Use the already-parsed DB_* variables from earlier in the script
 echo "Checking database tables..."
-DB_CONN=$(grep '^ConnectionStrings__DefaultConnection=' "$APP_DIR/.env" | cut -d= -f2-)
-if [ -n "$DB_CONN" ]; then
-  PGPASSWORD=$(echo "$DB_CONN" | grep -oP 'Password=\K[^;]+' || true)
-  DB_HOST=$(echo "$DB_CONN" | grep -oP 'Host=\K[^;]+' || true)
-  DB_USER=$(echo "$DB_CONN" | grep -oP 'Username=\K[^;]+' || echo "$DB_CONN" | grep -oP 'User Id=\K[^;]+' || true)
-  DB_NAME=$(echo "$DB_CONN" | grep -oP 'Database=\K[^;]+' || true)
+if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
+  DB_USER_VERIFY="${DB_USER:-postgres}"
+  DB_PORT_VERIFY="${DB_PORT:-5432}"
+  TABLE_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT_VERIFY" -U "$DB_USER_VERIFY" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null || echo "0")
+  echo "Found $TABLE_COUNT tables in database '$DB_NAME'"
 
-  if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
-    TABLE_COUNT=$(PGPASSWORD="$PGPASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null || echo "0")
-    echo "Found $TABLE_COUNT tables in database '$DB_NAME'"
-
-    # NOTE: Previously this branch called `exit 1` on TABLE_COUNT=0, which
-    # bypassed the health-check loop and rollback path entirely. Now we
-    # just log the situation and let the health check be the gatekeeper:
-    # if migration truly failed, /health/ready will return non-2xx and the
-    # rollback (or fail-safe EXIT trap) will fire. If the DB just hasn't
-    # fully migrated yet but the app can still serve traffic, we let it
-    # run rather than tearing down a working service.
-    if [ "$TABLE_COUNT" -eq "0" ]; then
-      echo ">>> WARNING: No tables found yet. Will let health check decide."
-    fi
+  # NOTE: Previously this branch called `exit 1` on TABLE_COUNT=0, which
+  # bypassed the health-check loop and rollback path entirely. Now we
+  # just log the situation and let the health check be the gatekeeper:
+  # if migration truly failed, /health/ready will return non-2xx and the
+  # rollback (or fail-safe EXIT trap) will fire. If the DB just hasn't
+  # fully migrated yet but the app can still serve traffic, we let it
+  # run rather than tearing down a working service.
+  if [ "$TABLE_COUNT" -eq "0" ]; then
+    echo ">>> WARNING: No tables found yet. Will let health check decide."
   fi
 fi
 
