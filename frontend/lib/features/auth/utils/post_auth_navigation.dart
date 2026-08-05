@@ -15,14 +15,14 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
   final gate = OnboardingGate();
   bool complete = false;
   try {
-    complete = await gate.isOnboardingComplete().timeout(const Duration(seconds: 18));
+    complete = await gate.isOnboardingComplete().timeout(const Duration(seconds: 5));
   } catch (_) {
-    complete = false;
+    complete = true; // Fallback to main screen on slow network
   }
   if (!context.mounted) return;
 
-  // Register FCM token with backend after successful login
-  await _registerPushToken(context);
+  // Register FCM token asynchronously in background — DO NOT block login UI transition
+  unawaited(_registerPushToken(context));
 
   if (!context.mounted) return;
 
@@ -34,7 +34,7 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
     // Check role — Coach gets PT workspace
     try {
       final profile = await ProfileRepository().getMyProfile()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 4));
       final role = (profile?['role'] ?? '').toString().toLowerCase();
       destination = role == 'coach' ? const CoachMainScreen() : const MainScreen();
     } catch (_) {

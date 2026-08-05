@@ -68,7 +68,8 @@ class ApiErrorMiddleware {
         logger.logResponse(method, uri, response.statusCode, stopwatch.elapsed);
         return response;
       } on TimeoutException catch (error) {
-        if (attempt < maxRetries) {
+        // Do not retry repeatedly on timeout (max 1 retry) to prevent long UI hang
+        if (attempt < 2) {
           await Future.delayed(Duration(seconds: attempt));
           continue;
         }
@@ -80,7 +81,7 @@ class ApiErrorMiddleware {
           cause: error,
         );
       } on http.ClientException catch (error) {
-        if (attempt < maxRetries) {
+        if (attempt < 2) {
           await Future.delayed(Duration(seconds: attempt));
           continue;
         }
@@ -93,7 +94,7 @@ class ApiErrorMiddleware {
         );
       } catch (error) {
         final isSocket = error.runtimeType.toString().contains('SocketException');
-        if (attempt < maxRetries && isSocket) {
+        if (attempt < 2 && isSocket) {
           await Future.delayed(Duration(seconds: attempt));
           continue;
         }

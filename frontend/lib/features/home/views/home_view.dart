@@ -97,10 +97,12 @@ class HomeViewState extends State<HomeView> {
   }
 
   Future<void> refreshAll() async {
-    await refreshHeader();
-    await refreshSubscriptionAccess();
-    await _loadTodaySummary();
-    await _loadMealPlanAdherence();
+    await Future.wait([
+      refreshHeader(),
+      refreshSubscriptionAccess(),
+      _loadTodaySummary(),
+      _loadMealPlanAdherence(),
+    ]);
   }
 
   Future<void> refreshHeader() async {

@@ -179,8 +179,8 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     try {
       final result = await _budgetRepository.budget();
       if (mounted && result != null) setState(() => _budget = result);
-    } catch (error) {
-      _notice(error);
+    } catch (_) {
+      // Do not show error toast on silent initial load if budget is not set up
     } finally {
       if (mounted) setState(() => _loadingBudget = false);
     }
@@ -218,18 +218,25 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
       );
       if (detail == null) return;
 
-      final results = await Future.wait([
-        _mealPlanRepository.getGroceryList(detail.id),
-        _mealPlanRepository.getBudgetStatus(detail.id),
-      ]);
+      Map<String, dynamic>? grocery;
+      Map<String, dynamic>? status;
+      try {
+        final results = await Future.wait([
+          _mealPlanRepository.getGroceryList(detail.id),
+          _mealPlanRepository.getBudgetStatus(detail.id),
+        ]);
+        grocery = results[0];
+        status = results[1];
+      } catch (_) {}
+
       if (!mounted) return;
       setState(() {
         _plan = detail;
-        _groceryList = results[0];
-        _budgetStatus = results[1];
+        _groceryList = grocery;
+        _budgetStatus = status;
       });
-    } catch (error) {
-      _notice(error);
+    } catch (_) {
+      // Do not show error toast on silent initial load if plan does not exist
     } finally {
       if (mounted) setState(() => _loadingPlan = false);
     }
@@ -246,8 +253,8 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
           )
           .firstOrNull;
       if (mounted) setState(() => _priorityLunch = item);
-    } catch (error) {
-      _notice(error);
+    } catch (_) {
+      // Do not show error toast on silent initial load
     } finally {
       if (mounted) setState(() => _loadingPriorityLunch = false);
     }
