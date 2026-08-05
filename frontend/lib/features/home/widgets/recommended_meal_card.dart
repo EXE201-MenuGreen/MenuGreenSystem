@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 
 class RecommendedMealCard extends StatelessWidget {
   const RecommendedMealCard({
@@ -25,14 +26,65 @@ class RecommendedMealCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardWidth = context.valueForDevice(
+      phone: 170.0,
+      tablet: 200.0,
+      desktop: 220.0,
+    );
+    final imageHeight = context.valueForDevice(
+      phone: 90.0,
+      tablet: 100.0,
+      desktop: 110.0,
+    );
+    final borderRadius = context.valueForDevice(
+      phone: 18.0,
+      tablet: 20.0,
+      desktop: 22.0,
+    );
+    final padding = context.valueForDevice(
+      phone: 12.0,
+      tablet: 14.0,
+      desktop: 16.0,
+    );
+    final titleFontSize = context.valueForDevice(
+      phone: 14.0,
+      tablet: 15.0,
+      desktop: 16.0,
+    );
+    final iconSize = context.valueForDevice(
+      phone: 38.0,
+      tablet: 44.0,
+      desktop: 50.0,
+    );
+    final badgePaddingH = context.valueForDevice(
+      phone: 8.0,
+      tablet: 10.0,
+      desktop: 12.0,
+    );
+    final badgePaddingV = context.valueForDevice(
+      phone: 4.0,
+      tablet: 5.0,
+      desktop: 6.0,
+    );
+    final subtitlePaddingH = context.valueForDevice(
+      phone: 8.0,
+      tablet: 10.0,
+      desktop: 12.0,
+    );
+    final subtitlePaddingV = context.valueForDevice(
+      phone: 3.0,
+      tablet: 4.0,
+      desktop: 4.0,
+    );
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 170,
-        margin: const EdgeInsets.only(right: 14),
+        width: cardWidth,
+        margin: EdgeInsets.only(right: context.valueForDevice(phone: 14.0, tablet: 16.0, desktop: 18.0)),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
               color: color.withValues(alpha: 0.12),
@@ -46,7 +98,7 @@ class RecommendedMealCard extends StatelessWidget {
           children: [
             // Image/Icon area with gradient overlay
             Container(
-              height: 90,
+              height: imageHeight,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -56,14 +108,14 @@ class RecommendedMealCard extends StatelessWidget {
                     color.withValues(alpha: 0.3),
                   ],
                 ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(borderRadius)),
               ),
               child: Stack(
                 children: [
                   Center(
                     child: Icon(
                       Icons.restaurant,
-                      size: 38,
+                      size: iconSize,
                       color: color,
                     ),
                   ),
@@ -72,7 +124,7 @@ class RecommendedMealCard extends StatelessWidget {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: badgePaddingH, vertical: badgePaddingV),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -105,14 +157,14 @@ class RecommendedMealCard extends StatelessWidget {
             ),
             // Content
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(padding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 14,
+                    style: TextStyle(
+                      fontSize: titleFontSize,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
                     ),
@@ -123,7 +175,7 @@ class RecommendedMealCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: EdgeInsets.symmetric(horizontal: subtitlePaddingH, vertical: subtitlePaddingV),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -165,10 +217,31 @@ class RecommendedMealSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
 
+    final sectionPadding = context.valueForDevice(
+      phone: 14.0,
+      tablet: 16.0,
+      desktop: 18.0,
+    );
+    final headerPaddingH = context.valueForDevice(
+      phone: 16.0,
+      tablet: 18.0,
+      desktop: 20.0,
+    );
+    final headerPaddingV = context.valueForDevice(
+      phone: 14.0,
+      tablet: 16.0,
+      desktop: 18.0,
+    );
+    final borderRadius = context.valueForDevice(
+      phone: 20.0,
+      tablet: 22.0,
+      desktop: 24.0,
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -182,7 +255,7 @@ class RecommendedMealSection extends StatelessWidget {
         children: [
           // Section header with gradient
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: EdgeInsets.symmetric(horizontal: headerPaddingH, vertical: headerPaddingV),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -190,7 +263,7 @@ class RecommendedMealSection extends StatelessWidget {
                   AppColors.primary.withValues(alpha: 0.03),
                 ],
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(borderRadius)),
             ),
             child: Row(
               children: [
@@ -200,7 +273,7 @@ class RecommendedMealSection extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.restaurant_menu,
                     color: AppColors.primary,
                     size: 18,
@@ -226,7 +299,7 @@ class RecommendedMealSection extends StatelessWidget {
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
@@ -237,7 +310,7 @@ class RecommendedMealSection extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: 2),
+                          const SizedBox(width: 2),
                           Icon(
                             Icons.arrow_forward_ios,
                             size: 10,
@@ -252,9 +325,9 @@ class RecommendedMealSection extends StatelessWidget {
           ),
           // Horizontal scroll
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(sectionPadding),
             child: SizedBox(
-              height: 160,
+              height: 168.0,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: items.length,

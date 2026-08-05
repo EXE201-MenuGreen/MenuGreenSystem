@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 
 class HomeBannerCarousel extends StatefulWidget {
   const HomeBannerCarousel({super.key, this.onBannerTap});
@@ -70,17 +71,43 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    final bannerHeight = context.valueForDevice(
+      phone: 140.0,
+      tablet: 160.0,
+      desktop: 180.0,
+    );
+    final iconSize = context.valueForDevice(
+      phone: 30.0,
+      tablet: 36.0,
+      desktop: 42.0,
+    );
+    final titleFontSize = context.valueForDevice(
+      phone: 17.0,
+      tablet: 19.0,
+      desktop: 21.0,
+    );
+    final subtitleFontSize = context.valueForDevice(
+      phone: 12.0,
+      tablet: 14.0,
+      desktop: 15.0,
+    );
+    final padding = context.valueForDevice(
+      phone: 20.0,
+      tablet: 24.0,
+      desktop: 28.0,
+    );
+
     return Column(
       children: [
         SizedBox(
-          height: 140,
+          height: bannerHeight,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (page) => setState(() => _currentPage = page),
             itemCount: _banners.length,
             itemBuilder: (context, index) => GestureDetector(
               onTap: () => widget.onBannerTap?.call(index),
-              child: _buildBanner(_banners[index]),
+              child: _buildBanner(_banners[index], iconSize, titleFontSize, subtitleFontSize, padding),
             ),
           ),
         ),
@@ -107,7 +134,43 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     );
   }
 
-  Widget _buildBanner(_BannerData data) {
+  Widget _buildBanner(_BannerData data, double iconSize, double titleFontSize, double subtitleFontSize, double padding) {
+    final decorativeSize = context.valueForDevice(
+      phone: 100.0,
+      tablet: 120.0,
+      desktop: 140.0,
+    );
+    final decorativeSmallSize = context.valueForDevice(
+      phone: 80.0,
+      tablet: 100.0,
+      desktop: 120.0,
+    );
+    final iconPadding = context.valueForDevice(
+      phone: 14.0,
+      tablet: 16.0,
+      desktop: 18.0,
+    );
+    final borderRadius = context.valueForDevice(
+      phone: 16.0,
+      tablet: 18.0,
+      desktop: 20.0,
+    );
+    final arrowPadding = context.valueForDevice(
+      phone: 8.0,
+      tablet: 10.0,
+      desktop: 12.0,
+    );
+    final arrowSize = context.valueForDevice(
+      phone: 16.0,
+      tablet: 18.0,
+      desktop: 20.0,
+    );
+    final cardRadius = context.valueForDevice(
+      phone: 20.0,
+      tablet: 22.0,
+      desktop: 24.0,
+    );
+
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -127,7 +190,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(cardRadius),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -145,11 +208,11 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
           children: [
             // Decorative circles
             Positioned(
-              right: -20,
-              top: -20,
+              right: -(decorativeSize * 0.2),
+              top: -(decorativeSize * 0.2),
               child: Container(
-                width: 100,
-                height: 100,
+                width: decorativeSize,
+                height: decorativeSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.08),
@@ -157,11 +220,11 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
               ),
             ),
             Positioned(
-              left: -30,
-              bottom: -30,
+              left: -(decorativeSmallSize * 0.3),
+              bottom: -(decorativeSmallSize * 0.3),
               child: Container(
-                width: 80,
-                height: 80,
+                width: decorativeSmallSize,
+                height: decorativeSmallSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.06),
@@ -170,16 +233,16 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
             ),
             // Content
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(padding),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(iconPadding),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(borderRadius),
                     ),
-                    child: Icon(data.icon, color: Colors.white, size: 30),
+                    child: Icon(data.icon, color: Colors.white, size: iconSize),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -189,8 +252,8 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                       children: [
                         Text(
                           data.title,
-                          style: const TextStyle(
-                            fontSize: 17,
+                          style: TextStyle(
+                            fontSize: titleFontSize,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -199,7 +262,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                         Text(
                           data.subtitle,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: subtitleFontSize,
                             color: Colors.white.withValues(alpha: 0.85),
                           ),
                           maxLines: 2,
@@ -209,7 +272,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(arrowPadding),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
@@ -217,7 +280,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                     child: Icon(
                       Icons.arrow_forward_ios,
                       color: Colors.white,
-                      size: 16,
+                      size: arrowSize,
                     ),
                   ),
                 ],

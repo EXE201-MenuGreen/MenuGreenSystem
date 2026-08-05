@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../ai_assistant/providers/ai_assistant_provider.dart';
 import '../../ai_assistant/views/ai_conversation_list_screen.dart';
 import '../../discover/views/discover_view.dart';
@@ -146,10 +147,22 @@ class _MainScreenState extends State<MainScreen> {
           return Stack(
             children: [
               Positioned.fill(
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: _pages,
-                ),
+                child: context.isDesktop
+                    ? Row(
+                        children: [
+                          _buildNavigationRail(),
+                          Expanded(
+                            child: IndexedStack(
+                              index: _currentIndex,
+                              children: _pages,
+                            ),
+                          ),
+                        ],
+                      )
+                    : IndexedStack(
+                        index: _currentIndex,
+                        children: _pages,
+                      ),
               ),
               if (_currentIndex == _homeTab && _hasAiVipAccess)
                 Positioned(
@@ -188,125 +201,242 @@ class _MainScreenState extends State<MainScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _selectTab,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 10,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
-        selectedFontSize: 10,
-        unselectedFontSize: 10,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-        items: [
-          const BottomNavigationBarItem(
-            icon: SizedBox(
-              height: 44,
-              child: Icon(Icons.explore_outlined, size: 24),
-            ),
-            activeIcon: SizedBox(
-              height: 44,
-              child: Icon(Icons.explore, size: 24),
-            ),
-            label: 'Khám phá',
-          ),
-          const BottomNavigationBarItem(
-            icon: SizedBox(
-              height: 44,
-              child: Icon(Icons.restaurant_menu_outlined, size: 24),
-            ),
-            activeIcon: SizedBox(
-              height: 44,
-              child: Icon(Icons.restaurant_menu, size: 24),
-            ),
-            label: 'Kế hoạch',
-          ),
-          BottomNavigationBarItem(
-            icon: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.grey.shade100, Colors.grey.shade200],
-                  center: const Alignment(-0.3, -0.3),
-                  radius: 0.75,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+      bottomNavigationBar: context.isPhone ? _buildBottomNavBar() : null,
+      drawer: context.isTablet ? _buildNavigationDrawer(context) : null,
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: _selectTab,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      elevation: 10,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textSecondary,
+      selectedFontSize: 10,
+      unselectedFontSize: 10,
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+      items: _buildNavItems(),
+    );
+  }
+
+  Widget _buildNavigationDrawer(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryLight],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.eco, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'MenuGreen',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ],
               ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.home_outlined,
-                size: 26,
-                color: AppColors.textSecondary,
-              ),
             ),
-            activeIcon: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.95),
-                    AppColors.primary,
-                  ],
-                  center: const Alignment(-0.3, -0.3),
-                  radius: 0.75,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.home, size: 26, color: Colors.white),
-            ),
-            label: 'Trang chủ',
-          ),
-          const BottomNavigationBarItem(
-            icon: SizedBox(
-              height: 44,
-              child: Icon(Icons.history_outlined, size: 24),
-            ),
-            activeIcon: SizedBox(
-              height: 44,
-              child: Icon(Icons.history, size: 24),
-            ),
-            label: 'Lịch sử',
-          ),
-          const BottomNavigationBarItem(
-            icon: SizedBox(
-              height: 44,
-              child: Icon(Icons.person_outline, size: 24),
-            ),
-            activeIcon: SizedBox(
-              height: 44,
-              child: Icon(Icons.person, size: 24),
-            ),
-            label: 'Cá nhân',
-          ),
-        ],
+            const Divider(),
+            ..._buildNavDrawerItems(),
+          ],
+        ),
       ),
     );
   }
 
-  void _showAiMenu(BuildContext context) {
+  Widget _buildNavigationRail() {
+    return NavigationRail(
+      selectedIndex: _currentIndex,
+      onDestinationSelected: _selectTab,
+      backgroundColor: Colors.white,
+      elevation: 4,
+      indicatorColor: AppColors.primary.withValues(alpha: 0.15),
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryLight],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.eco, color: Colors.white, size: 26),
+        ),
+      ),
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.explore_outlined),
+          selectedIcon: Icon(Icons.explore),
+          label: Text('Khám phá'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.restaurant_menu_outlined),
+          selectedIcon: Icon(Icons.restaurant_menu),
+          label: Text('Kế hoạch'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: Text('Trang chủ'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.history_outlined),
+          selectedIcon: Icon(Icons.history),
+          label: Text('Lịch sử'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: Text('Cá nhân'),
+        ),
+      ],
+    );
+  }
+
+  List<BottomNavigationBarItem> _buildNavItems() {
+    return [
+      _buildNavItem(Icons.explore_outlined, Icons.explore, 'Khám phá', 0),
+      _buildNavItem(Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Kế hoạch', 1),
+      _buildNavHomeItem(),
+      _buildNavItem(Icons.history_outlined, Icons.history, 'Lịch sử', 3),
+      _buildNavItem(Icons.person_outline, Icons.person, 'Cá nhân', 4),
+    ];
+  }
+
+  BottomNavigationBarItem _buildNavItem(
+      IconData icon, IconData activeIcon, String label, int index) {
+    return BottomNavigationBarItem(
+      icon: SizedBox(
+        height: 44,
+        child: Icon(icon, size: 24),
+      ),
+      activeIcon: SizedBox(
+        height: 44,
+        child: Icon(activeIcon, size: 24),
+      ),
+      label: label,
+    );
+  }
+
+  BottomNavigationBarItem _buildNavHomeItem() {
+    return BottomNavigationBarItem(
+      icon: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [Colors.grey.shade100, Colors.grey.shade200],
+            center: const Alignment(-0.3, -0.3),
+            radius: 0.75,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.home_outlined,
+          size: 26,
+          color: AppColors.textSecondary,
+        ),
+      ),
+      activeIcon: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.95),
+              AppColors.primary,
+            ],
+            center: const Alignment(-0.3, -0.3),
+            radius: 0.75,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.45),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.home, size: 26, color: Colors.white),
+      ),
+      label: 'Trang chủ',
+    );
+  }
+
+  List<Widget> _buildNavDrawerItems() {
+    final items = [
+      const _NavDrawerItem(Icons.explore_outlined, Icons.explore, 'Khám phá', 0),
+      const _NavDrawerItem(Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Kế hoạch', 1),
+      const _NavDrawerItem(Icons.home_outlined, Icons.home, 'Trang chủ', 2),
+      const _NavDrawerItem(Icons.history_outlined, Icons.history, 'Lịch sử', 3),
+      const _NavDrawerItem(Icons.person_outline, Icons.person, 'Cá nhân', 4),
+    ];
+
+    return items.map((item) {
+      final isSelected = _currentIndex == item.index;
+      return ListTile(
+        leading: Icon(
+          isSelected ? item.activeIcon : item.icon,
+          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+        ),
+        title: Text(
+          item.label,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppColors.primary : AppColors.textDark,
+          ),
+        ),
+        selected: isSelected,
+        selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onTap: () {
+          Navigator.pop(context);
+          _selectTab(item.index);
+        },
+      );
+    }).toList();
+  }
+
+  void _showAiMenu(BuildContext ctx) {
     showModalBottomSheet(
-      context: context,
+      context: ctx,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (BuildContext context) {
+      builder: (BuildContext sheetContext) {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -324,7 +454,6 @@ class _MainScreenState extends State<MainScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Pull handle
               Container(
                 width: 40,
                 height: 4,
@@ -334,7 +463,6 @@ class _MainScreenState extends State<MainScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Header
               Text(
                 'MenuGreen AI',
                 style: TextStyle(
@@ -350,19 +478,16 @@ class _MainScreenState extends State<MainScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-
-              // 1. Quét nguyên liệu
               _buildAiMenuItem(
-                context: context,
+                context: sheetContext,
                 icon: Icons.qr_code_scanner_rounded,
                 title: 'Quét nguyên liệu',
-                subtitle:
-                    'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
+                subtitle: 'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
                 iconGradient: const [Color(0xFF2D5A45), Color(0xFF1B4332)],
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   Navigator.push(
-                    context,
+                    sheetContext,
                     MaterialPageRoute(
                       builder: (_) => const IngredientScanScreen(),
                     ),
@@ -370,18 +495,16 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-
-              // 2. Gợi ý cá nhân hóa
               _buildAiMenuItem(
-                context: context,
+                context: sheetContext,
                 icon: Icons.auto_awesome_rounded,
                 title: 'Gợi ý cá nhân hóa',
                 subtitle: 'Thực đơn thông minh phù hợp với thể trạng của bạn',
                 iconGradient: const [Color(0xFF40916C), Color(0xFF2D5A45)],
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   Navigator.push(
-                    context,
+                    sheetContext,
                     MaterialPageRoute(
                       builder: (_) => const RecommendationScreen(),
                     ),
@@ -389,22 +512,19 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const SizedBox(height: 12),
-
-              // 3. Trò chuyện AI
               _buildAiMenuItem(
-                context: context,
+                context: sheetContext,
                 icon: Icons.chat_bubble_rounded,
                 title: 'Trợ lý trò chuyện',
                 subtitle: 'Hỏi đáp dinh dưỡng & giải đáp thắc mắc sức khỏe',
                 iconGradient: const [Color(0xFF74C69D), Color(0xFF40916C)],
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   Navigator.push(
-                    context,
+                    sheetContext,
                     MaterialPageRoute(
                       builder: (_) => ChangeNotifierProvider(
-                        create: (_) =>
-                            AiAssistantProvider()..loadConversations(),
+                        create: (_) => AiAssistantProvider()..loadConversations(),
                         child: const AiConversationListScreen(),
                       ),
                     ),
@@ -500,4 +620,13 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+}
+
+class _NavDrawerItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int index;
+
+  const _NavDrawerItem(this.icon, this.activeIcon, this.label, this.index);
 }
