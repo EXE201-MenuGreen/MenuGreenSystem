@@ -64,6 +64,7 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<CoachProfile> CoachProfiles { get; set; }
         public DbSet<CoachConnection> CoachConnections { get; set; }
         public DbSet<CoachFeedback> CoachFeedbacks { get; set; }
+        public DbSet<CoachChatMessage> CoachChatMessages { get; set; }
         public DbSet<PtReviewRequest> PtReviewRequests { get; set; }
         public DbSet<DeviceToken> DeviceTokens { get; set; }
 
@@ -116,6 +117,9 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<DeviceToken>().HasQueryFilter(dt => dt.User == null || EF.Property<DateTime?>(dt.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachProfile>().HasQueryFilter(cp => cp.User == null || EF.Property<DateTime?>(cp.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachFeedback>().HasQueryFilter(cf => (cf.Client == null || EF.Property<DateTime?>(cf.Client, "DeletedAt") == null) && (cf.Coach == null || EF.Property<DateTime?>(cf.Coach, "DeletedAt") == null));
+            modelBuilder.Entity<CoachChatMessage>().HasQueryFilter(message =>
+                (message.Sender == null || EF.Property<DateTime?>(message.Sender, "DeletedAt") == null)
+                && (message.Receiver == null || EF.Property<DateTime?>(message.Receiver, "DeletedAt") == null));
             modelBuilder.Entity<MealPlanItem>().HasQueryFilter(mpi => mpi.MealPlanHeader == null || mpi.MealPlanHeader.User == null || EF.Property<DateTime?>(mpi.MealPlanHeader.User, "DeletedAt") == null);
             modelBuilder.Entity<MealTemplateItem>().HasQueryFilter(mti => mti.MealTemplate == null || mti.MealTemplate.User == null || EF.Property<DateTime?>(mti.MealTemplate.User, "DeletedAt") == null);
             // Food/Recipe dùng IsActive thay vì DeletedAt — query filter không tham chiếu cột không tồn tại.

@@ -167,6 +167,32 @@ class FoodDiscoveryRepository {
     }
   }
 
+  Future<Map<String, double>> getRecipeNutrition(String id) async {
+    try {
+      final response = await _api.get(ApiEndpoints.recipeNutrition(id));
+      if (response.statusCode != 200 || response.body.isEmpty) return const {};
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) return const {};
+      double number(String key) {
+        final pascal = '${key[0].toUpperCase()}${key.substring(1)}';
+        final value = decoded[key] ?? decoded[pascal];
+        return value is num
+            ? value.toDouble()
+            : double.tryParse(value?.toString() ?? '') ?? 0;
+      }
+
+      return {
+        'caloriesKcal': number('caloriesKcal'),
+        'proteinG': number('proteinG'),
+        'carbsG': number('carbsG'),
+        'fatG': number('fatG'),
+        'fiberG': number('fiberG'),
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<List<FavoriteFoodItem>> getFavorites() async {
     return (await fetchFavorites()).items;
   }

@@ -16,5 +16,7 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<Dictionary<Guid, AllergenRiskResult>> EvaluateFoodRiskBatchAsync(IEnumerable<Guid> foodIds, Guid? userId);
         Task<AllergenRiskResult> EvaluateRecipeRiskAsync(Guid? foodId, IEnumerable<string> ingredientNamesVi, Guid? userId);
         Task<AllergenRiskResult> EvaluateIngredientRiskAsync(string nameVi, string? nameEn, Guid? userId);
+        Task InvalidateUserAllergenCacheAsync(Guid userId);
+        Task InvalidateFoodAllergenCacheAsync(Guid foodId);
     }
 }

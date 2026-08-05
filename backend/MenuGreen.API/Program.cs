@@ -75,6 +75,10 @@ builder.Services.AddScoped<
     MenuGreen.BusinessLogicLayer.Interfaces.INotificationHubService,
     MenuGreen.API.Hubs.NotificationHubService
 >();
+builder.Services.AddScoped<
+    MenuGreen.BusinessLogicLayer.Interfaces.ICoachChatRealtimeService,
+    MenuGreen.API.Hubs.CoachChatRealtimeService
+>();
 
 builder
     .Services.AddControllers()

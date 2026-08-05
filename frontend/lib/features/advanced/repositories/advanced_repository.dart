@@ -249,6 +249,8 @@ class AdvancedRepository {
     int? targetCalories,
     int? minCalories,
     int? maxCalories,
+    double? minProteinG,
+    double? maxProteinG,
     int? top,
   }) async {
     final params = <String, String>{};
@@ -256,6 +258,8 @@ class AdvancedRepository {
     if (targetCalories != null) params['targetCalories'] = '$targetCalories';
     if (minCalories != null) params['minCalories'] = '$minCalories';
     if (maxCalories != null) params['maxCalories'] = '$maxCalories';
+    if (minProteinG != null) params['minProteinG'] = '$minProteinG';
+    if (maxProteinG != null) params['maxProteinG'] = '$maxProteinG';
     if (top != null) params['top'] = '$top';
     final uri = Uri.parse(
       '${ApiEndpoints.baseUrl}/Coaches/clients/$clientId/suggestions',

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import '../navigation/app_navigator.dart';
 import 'push_notification_service.dart';
 import 'notification_handler.dart';
 
 class PushNotificationProvider extends ChangeNotifier {
-  static final PushNotificationProvider _instance = PushNotificationProvider._internal();
+  static final PushNotificationProvider _instance =
+      PushNotificationProvider._internal();
   factory PushNotificationProvider() => _instance;
   PushNotificationProvider._internal();
 
@@ -25,11 +27,13 @@ class PushNotificationProvider extends ChangeNotifier {
   String? get error => _error;
 
   Future<void> initialize(BuildContext context) async {
-    if (_isInitialized) return;
-
+    // Initialize again to replace callbacks captured by a previous route
+    // (for example Login before navigating to the PT workspace).
     _isInitialized = await _service.initialize(
-      onForegroundMessage: (message) => _handleForegroundMessage(context, message),
-      onNotificationTap: (message, deepLink) => _handleNotificationTap(context, message),
+      onForegroundMessage: (message) =>
+          _handleForegroundMessage(context, message),
+      onNotificationTap: (message, deepLink) =>
+          _handleNotificationTap(context, message),
     );
 
     if (_isInitialized) {
@@ -46,16 +50,26 @@ class PushNotificationProvider extends ChangeNotifier {
   }
 
   void _handleForegroundMessage(BuildContext context, RemoteMessage message) {
-    debugPrint('[PushNotificationProvider] Foreground message: ${message.messageId}');
-    if (context.mounted) {
+    debugPrint(
+      '[PushNotificationProvider] Foreground message: ${message.messageId}',
+    );
+    final navigationContext = AppNavigator.context;
+    if (navigationContext != null) {
+      _handler.showInAppNotification(navigationContext, message);
+    } else if (context.mounted) {
       _handler.showInAppNotification(context, message);
     }
   }
 
   void _handleNotificationTap(BuildContext context, RemoteMessage message) {
-    debugPrint('[PushNotificationProvider] Notification tap: ${message.messageId}');
-    if (context.mounted) {
-      _handler.handleNotificationTap(context, message);
+    debugPrint(
+      '[PushNotificationProvider] Notification tap: ${message.messageId}',
+    );
+    final navigationContext = AppNavigator.context;
+    if (navigationContext != null) {
+      unawaited(_handler.handleNotificationTap(navigationContext, message));
+    } else if (context.mounted) {
+      unawaited(_handler.handleNotificationTap(context, message));
     }
   }
 

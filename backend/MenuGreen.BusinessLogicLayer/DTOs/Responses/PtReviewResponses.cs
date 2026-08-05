@@ -27,12 +27,19 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string PtComment { get; set; } = string.Empty;
         public int? SuggestedCalorieTarget { get; set; }
         public int? SuggestedProteinTarget { get; set; }
+        public int? ConfiguredCalorieTarget { get; set; }
+        public int? ConfiguredMinCalories { get; set; }
+        public int? ConfiguredMaxCalories { get; set; }
+        public string? ConfigurationScope { get; set; }
+        public DateOnly? ConfigurationStartDate { get; set; }
+        public DateOnly? ConfigurationEndDate { get; set; }
         public List<PtSuggestedChangeDto> SuggestedChanges { get; set; } = new();
         public object? ReportData { get; set; } // Parsed from ReportDataJson
         public DateTime? ReviewedAt { get; set; }
         public DateTime? ActionedAt { get; set; }
         public string ReviewToken { get; set; } = string.Empty;
         public string RequestType { get; set; } = "WeeklyReport";
+        public string CreatedByRole { get; set; } = "Gymer";
         public decimal? CheckInWeight { get; set; }
         public decimal? CheckInBodyFat { get; set; }
         public int? TrainingDaysCount { get; set; }

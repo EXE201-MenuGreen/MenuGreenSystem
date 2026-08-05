@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -13,21 +14,37 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class SubscriptionPlanService : ISubscriptionPlanService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan SubscriptionPlanTtl = TimeSpan.FromHours(24);
 
-        public SubscriptionPlanService(IUnitOfWork unitOfWork)
+        public SubscriptionPlanService(IUnitOfWork unitOfWork, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<IEnumerable<SubscriptionPlanResponse>> GetAllAsync(bool? isActive = null)
         {
+            var cacheKey = CacheKeys.SubscriptionPlans();
+            var cached = await _cache.GetAsync<List<SubscriptionPlanResponse>>(cacheKey);
+            if (cached != null)
+            {
+                if (isActive.HasValue)
+                {
+                    return cached.Where(x => x.IsActive == isActive.Value).ToList();
+                }
+                return cached;
+            }
+
             var plans = await _unitOfWork.SubscriptionPlans.GetAllAsync();
             if (isActive.HasValue)
             {
                 plans = plans.Where(x => x.IsActive == isActive.Value);
             }
 
-            return plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
+            var response = plans.Select(Map).OrderBy(x => x.PriceVnd).ToList();
+            await _cache.SetAsync(cacheKey, response, SubscriptionPlanTtl);
+            return response;
         }
 
         public async Task<SubscriptionPlanResponse> GetByIdAsync(Guid id)
@@ -82,6 +99,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.SubscriptionPlans.AddAsync(plan);
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.SubscriptionPlans());
             return Map(plan);
         }
 
@@ -103,6 +121,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _unitOfWork.SubscriptionPlans.Update(plan);
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.SubscriptionPlans());
             return Map(plan);
         }
 
@@ -112,6 +131,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             plan.IsActive = false;
             _unitOfWork.SubscriptionPlans.Update(plan);
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.SubscriptionPlans());
         }
 
         public async Task<SubscriptionPlanResponse> UpdateStatusAsync(Guid id, SubscriptionPlanStatusRequest request)
@@ -120,6 +140,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             plan.IsActive = request.IsActive;
             _unitOfWork.SubscriptionPlans.Update(plan);
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.SubscriptionPlans());
             return Map(plan);
         }
 

@@ -533,6 +533,8 @@ namespace MenuGreen.API.Controllers
             [FromQuery] int targetCalories = 0,
             [FromQuery] int? minCalories = null,
             [FromQuery] int? maxCalories = null,
+            [FromQuery] decimal? minProteinG = null,
+            [FromQuery] decimal? maxProteinG = null,
             [FromQuery] int top = 10)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -546,6 +548,8 @@ namespace MenuGreen.API.Controllers
                     targetCalories,
                     minCalories,
                     maxCalories,
+                    minProteinG,
+                    maxProteinG,
                     top
                 );
                 return Ok(result);

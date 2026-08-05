@@ -115,18 +115,16 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     if (!_hasProAccess) return;
     try {
       final today = DateTime.now();
-      final daysToMonday = today.weekday - 1;
-      final monday = today.subtract(Duration(days: daysToMonday));
-      final weekStartStr =
-          '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+      final requestDate =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
       final reqs = await AdvancedRepository().ptRequests();
-      // Find if there is an active RouteApproval request for the current week (pending or reviewed)
+      // A route approval represents the plan of one concrete day.
       final activeReq = reqs.firstWhere((r) {
-        final weekStart = (r['weekStartDate'] ?? '').toString();
+        final requestedDate = (r['weekStartDate'] ?? '').toString();
         final status = (r['status'] ?? '').toString().toLowerCase();
         final reqType = (r['requestType'] ?? '').toString().toLowerCase();
-        return weekStart.startsWith(weekStartStr) &&
+        return requestedDate.startsWith(requestDate) &&
             (status == 'pending' || status == 'reviewed') &&
             (reqType.isEmpty || reqType == 'routeapproval');
       }, orElse: () => <String, dynamic>{});
@@ -1699,13 +1697,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       }
 
       final today = DateTime.now();
-      final daysToMonday = today.weekday - 1;
-      final monday = today.subtract(Duration(days: daysToMonday));
-      final weekStartStr =
-          '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+      final requestDate =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
       await AdvancedRepository().createPtReport(
-        weekStartStr,
+        requestDate,
         7,
         requestType: 'RouteApproval',
       );

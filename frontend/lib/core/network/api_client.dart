@@ -21,7 +21,7 @@ class ApiClient {
     ApiLoggingMiddleware? logger,
   })  : _http = httpClient ?? http.Client(),
         _storage = tokenStorage ?? TokenStorage(),
-        _timeout = timeout ?? const Duration(seconds: 20),
+        _timeout = timeout ?? const Duration(seconds: 12),
         _logger = logger ?? const ApiLoggingMiddleware();
 
   final http.Client _http;

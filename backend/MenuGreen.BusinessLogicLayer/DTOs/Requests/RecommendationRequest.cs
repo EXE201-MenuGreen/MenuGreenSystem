@@ -19,6 +19,16 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [Range(0, int.MaxValue)]
         public int? MaxCalories { get; set; }
 
+        /// <summary>
+        /// Optional daily protein range. Recommendations convert this range
+        /// to a typical per-meal range (one quarter of the daily value).
+        /// </summary>
+        [Range(0, double.MaxValue)]
+        public decimal? MinProteinG { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal? MaxProteinG { get; set; }
+
         [Range(0, int.MaxValue)]
         public int? BudgetVnd { get; set; }
 

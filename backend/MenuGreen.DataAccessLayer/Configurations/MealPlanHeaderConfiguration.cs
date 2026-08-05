@@ -21,6 +21,9 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.GeneratedBy)
                 .HasMaxLength(50);
 
+            builder.Property(x => x.CoachNotes)
+                .HasMaxLength(2000);
+
             builder.Property(x => x.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");

@@ -18,15 +18,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _db;
         private readonly IAllergenMatchingService _allergenMatching;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan NutritionTtl = TimeSpan.FromMinutes(60);
 
         public RecipeService(
             IUnitOfWork unitOfWork,
             ApplicationDbContext db,
-            IAllergenMatchingService allergenMatching)
+            IAllergenMatchingService allergenMatching,
+            ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _db = db;
             _allergenMatching = allergenMatching;
+            _cache = cache;
         }
 
         public async Task<RecipeResponse> CreateAsync(RecipeUpsertRequest request)
@@ -44,10 +48,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.Recipes.Update(recipe); await _unitOfWork.CompleteAsync();
             var existing = await _unitOfWork.RecipeIngredients.FindAsync(x => x.RecipeId == id); _unitOfWork.RecipeIngredients.RemoveRange(existing); await _unitOfWork.CompleteAsync();
             await UpsertIngredients(id, request.Ingredients);
+            await _cache.RemoveAsync(CacheKeys.RecipeNutrition(id));
             return await GetByIdAsync(id);
         }
 
-        public async Task DeleteAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); recipe.IsActive = false; _unitOfWork.Recipes.Update(recipe); await _unitOfWork.CompleteAsync(); }
+        public async Task DeleteAsync(Guid id) { var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found."); recipe.IsActive = false; _unitOfWork.Recipes.Update(recipe); await _unitOfWork.CompleteAsync(); await _cache.RemoveAsync(CacheKeys.RecipeNutrition(id)); }
         public async Task<RecipeResponse> GetByIdAsync(Guid id, Guid? userId = null, string? allergyMode = null)
         {
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(id) ?? throw new Exception("Recipe not found.");
@@ -149,6 +154,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<RecipeNutritionResponse> GetNutritionAsync(Guid recipeId)
         {
+            var cacheKey = CacheKeys.RecipeNutrition(recipeId);
+            var cached = await _cache.GetAsync<RecipeNutritionResponse>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId) ?? throw new Exception("Recipe not found.");
 
             if (recipe.FoodId.HasValue)
@@ -156,7 +168,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var food = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
                 if (food != null)
                 {
-                    return new RecipeNutritionResponse
+                    var response = new RecipeNutritionResponse
                     {
                         CaloriesKcal = food.CaloriesKcal ?? 0,
                         ProteinG = food.ProteinG ?? 0,
@@ -164,6 +176,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         FatG = food.FatG ?? 0,
                         FiberG = food.FiberG ?? 0
                     };
+                    await _cache.SetAsync(cacheKey, response, NutritionTtl);
+                    return response;
                 }
             }
 
@@ -188,7 +202,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var servings = Math.Max(1, recipe.Servings ?? 1);
 
-            return new RecipeNutritionResponse
+            var result = new RecipeNutritionResponse
             {
                 CaloriesKcal = calories / servings,
                 ProteinG = protein / servings,
@@ -196,6 +210,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FatG = fat / servings,
                 FiberG = fiber
             };
+
+            await _cache.SetAsync(cacheKey, result, NutritionTtl);
+            return result;
         }
 
         public async Task<IReadOnlyList<RecipeResponse>> GetRelatedAsync(Guid recipeId)

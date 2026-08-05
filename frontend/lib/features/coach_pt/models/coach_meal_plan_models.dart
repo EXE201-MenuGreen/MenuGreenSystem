@@ -23,6 +23,40 @@ String coachMealPlanStatusLabel(String status) {
   };
 }
 
+String coachMealPlanTypeLabel(String planType) {
+  return switch (planType.trim().toLowerCase()) {
+    'daily' || 'day' => 'Ngày:',
+    'weekly' || 'week' => 'Tuần:',
+    'monthly' || 'month' => 'Tháng:',
+    _ => '${planType.trim()}:',
+  };
+}
+
+String coachMealPlanDisplayTitle({
+  required String title,
+  required String planType,
+  DateTime? startDate,
+}) {
+  final trimmedTitle = title.trim();
+  final isDaily = {'daily', 'day'}.contains(planType.trim().toLowerCase());
+  final legacyDailyTitle = RegExp(
+    r'^Daily plan (\d{4}-\d{2}-\d{2})$',
+    caseSensitive: false,
+  ).firstMatch(trimmedTitle);
+
+  if (isDaily && (trimmedTitle.isEmpty || legacyDailyTitle != null)) {
+    final date =
+        startDate ?? DateTime.tryParse(legacyDailyTitle?.group(1) ?? '');
+    if (date != null) {
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      return 'Kế hoạch dinh dưỡng $day-$month-${date.year}';
+    }
+  }
+
+  return trimmedTitle.isEmpty ? 'Lộ trình ăn uống' : trimmedTitle;
+}
+
 class CoachMealPlanListItem {
   CoachMealPlanListItem({
     required this.id,
@@ -31,6 +65,9 @@ class CoachMealPlanListItem {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.coachId,
     this.coachName,
     this.totalCalories,
@@ -47,6 +84,9 @@ class CoachMealPlanListItem {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final String? coachId;
   final String? coachName;
   final int? totalCalories;
@@ -72,6 +112,9 @@ class CoachMealPlanListItem {
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
       targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      minCalories: (j['minCalories'] ?? j['MinCalories']) as int?,
+      maxCalories: (j['maxCalories'] ?? j['MaxCalories']) as int?,
+      coachNotes: (j['coachNotes'] ?? j['CoachNotes'])?.toString(),
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
       totalCalories: (j['totalCalories'] ?? j['TotalCalories']) as int?,
@@ -138,6 +181,9 @@ class CoachMealPlanHeader {
     this.startDate,
     this.endDate,
     this.targetCalories,
+    this.minCalories,
+    this.maxCalories,
+    this.coachNotes,
     this.coachId,
     this.coachName,
     this.status = 'Active',
@@ -151,6 +197,9 @@ class CoachMealPlanHeader {
   final DateTime? startDate;
   final DateTime? endDate;
   final int? targetCalories;
+  final int? minCalories;
+  final int? maxCalories;
+  final String? coachNotes;
   final String? coachId;
   final String? coachName;
   final String status;
@@ -168,6 +217,9 @@ class CoachMealPlanHeader {
       startDate: _parseDate(j['startDate'] ?? j['StartDate']),
       endDate: _parseDate(j['endDate'] ?? j['EndDate']),
       targetCalories: (j['targetCalories'] ?? j['TargetCalories']) as int?,
+      minCalories: (j['minCalories'] ?? j['MinCalories']) as int?,
+      maxCalories: (j['maxCalories'] ?? j['MaxCalories']) as int?,
+      coachNotes: (j['coachNotes'] ?? j['CoachNotes'])?.toString(),
       coachId: (j['coachId'] ?? j['CoachId'])?.toString(),
       coachName: (j['coachName'] ?? j['CoachName']) as String?,
       status: (j['status'] ?? j['Status'] ?? 'Active').toString(),

@@ -113,8 +113,8 @@ class _PtTabState extends State<_PtTab> {
   Future<void> load() async {
     try {
       rows = await repo.ptRequests();
-    } catch (e) {
-      if (mounted) _notice(context, e);
+    } catch (_) {
+      rows = [];
     }
     if (!mounted) return;
     setState(() => loading = false);
@@ -1665,11 +1665,6 @@ class _CoachCard extends StatelessWidget {
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$experienceYears năm • ${priceVnd.isEmpty ? "Thỏa thuận" : "$priceVnd đ"}',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
                     ),
                   ],
                 ),

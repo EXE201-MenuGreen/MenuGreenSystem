@@ -56,6 +56,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.CoachProfile>? _coachProfiles;
         private IGenericRepository<Entities.CoachConnection>? _coachConnections;
         private IGenericRepository<Entities.CoachFeedback>? _coachFeedbacks;
+        private IGenericRepository<Entities.CoachChatMessage>? _coachChatMessages;
         private IGenericRepository<Entities.PtReviewRequest>? _ptReviewRequests;
         private IGenericRepository<Entities.DeviceToken>? _deviceTokens;
 
@@ -110,6 +111,7 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.CoachProfile> CoachProfiles => _coachProfiles ??= new GenericRepository<Entities.CoachProfile>(_context);
         public IGenericRepository<Entities.CoachConnection> CoachConnections => _coachConnections ??= new GenericRepository<Entities.CoachConnection>(_context);
         public IGenericRepository<Entities.CoachFeedback> CoachFeedbacks => _coachFeedbacks ??= new GenericRepository<Entities.CoachFeedback>(_context);
+        public IGenericRepository<Entities.CoachChatMessage> CoachChatMessages => _coachChatMessages ??= new GenericRepository<Entities.CoachChatMessage>(_context);
         public IGenericRepository<Entities.PtReviewRequest> PtReviewRequests => _ptReviewRequests ??= new GenericRepository<Entities.PtReviewRequest>(_context);
         public IGenericRepository<Entities.DeviceToken> DeviceTokens => _deviceTokens ??= new GenericRepository<Entities.DeviceToken>(_context);
 

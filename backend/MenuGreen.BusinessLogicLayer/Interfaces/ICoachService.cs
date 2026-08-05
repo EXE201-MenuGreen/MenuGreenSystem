@@ -41,6 +41,8 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
             int targetCalories = 0,
             int? minCalories = null,
             int? maxCalories = null,
+            decimal? minProteinG = null,
+            decimal? maxProteinG = null,
             int top = 10);
         Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId);
     }

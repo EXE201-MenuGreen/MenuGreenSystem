@@ -15,6 +15,12 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public DateOnly? StartDate { get; set; }
         public DateOnly? EndDate { get; set; }
         public int? TargetCalories { get; set; }
+        [Range(0, 10000)]
+        public int? MinCalories { get; set; }
+        [Range(0, 10000)]
+        public int? MaxCalories { get; set; }
+        [StringLength(2000)]
+        public string? CoachNotes { get; set; }
         public string? GeneratedBy { get; set; }
         public bool IsActive { get; set; } = true;
         public List<MealPlanItemUpsertRequest>? Items { get; set; }
