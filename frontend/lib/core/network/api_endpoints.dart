@@ -1,6 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class ApiEndpoints {
   /// Backend production (AWS Lightsail + Nginx).
   static const String productionBaseUrl = 'https://api.menugreen.food/api';
@@ -8,26 +5,14 @@ class ApiEndpoints {
   /// Backend local mặc định cho Android Emulator.
   static const String localBaseUrl = 'http://10.0.2.2:5000/api';
 
-  /// Priority: --dart-define > env file > production default.
+  /// Build-time override: --dart-define=API_BASE_URL=https://host/api
   static String get baseUrl {
     const definedUrl = String.fromEnvironment('API_BASE_URL');
-    final envUrl = dotenv.env['API_BASE_URL'];
-    final rawUrl = definedUrl.trim().isNotEmpty
-        ? definedUrl
-        : (envUrl != null && envUrl.trim().isNotEmpty)
-        ? envUrl
-        : productionBaseUrl;
-
-    final normalized = _normalizeBaseUrl(rawUrl);
-
-    // Auto-fix localhost cho Android Emulator
-    if (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        normalized.contains('localhost')) {
-      return normalized.replaceAll('localhost', '10.0.2.2');
+    if (definedUrl.trim().isNotEmpty) {
+      return _normalizeBaseUrl(definedUrl);
     }
 
-    return normalized;
+    return productionBaseUrl;
   }
 
   static String _normalizeBaseUrl(String url) {
