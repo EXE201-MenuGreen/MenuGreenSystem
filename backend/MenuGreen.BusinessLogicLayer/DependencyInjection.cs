@@ -9,6 +9,8 @@ namespace MenuGreen.BusinessLogicLayer
     {
         public static IServiceCollection AddBusinessLogicLayer(this IServiceCollection services)
         {
+            services.AddSingleton<ICacheService, RedisCacheService>();
+            services.AddSingleton<ICacheInvalidationService, CacheInvalidationService>();
             services.AddSingleton<ISepayPaymentStatusCache, SepayPaymentStatusCache>();
 
             services.AddScoped<IAuthService, AuthService>();

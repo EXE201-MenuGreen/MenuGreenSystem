@@ -7,6 +7,7 @@ using FirebaseAdmin.Messaging;
 using Google.Apis.Auth.OAuth2;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -19,12 +20,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<FcmService> _logger;
-        private bool _isFirebaseInitialized;
+        private readonly ICacheService _cache;
+        private readonly bool _isFirebaseInitialized;
+        private static readonly TimeSpan FcmTokenTtl = TimeSpan.FromMinutes(5);
 
-        public FcmService(IUnitOfWork unitOfWork, ILogger<FcmService> logger)
+        public FcmService(IUnitOfWork unitOfWork, ILogger<FcmService> logger, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _cache = cache;
             _isFirebaseInitialized = FirebaseApp.DefaultInstance != null;
         }
 
@@ -76,6 +80,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.CompleteAsync();
 
+            // Invalidate FCM token cache
+            await _cache.RemoveAsync(CacheKeys.UserFcmTokens(userId));
+
             return MapToResponse(existingToken);
         }
 
@@ -92,21 +99,33 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             _unitOfWork.DeviceTokens.Remove(tokenEntity);
             await _unitOfWork.CompleteAsync();
+
+            // Invalidate FCM token cache
+            await _cache.RemoveAsync(CacheKeys.UserFcmTokens(userId));
             return true;
         }
 
         public async Task<IEnumerable<DeviceTokenResponse>> GetUserTokensAsync(Guid userId)
         {
+            var cacheKey = CacheKeys.UserFcmTokens(userId);
+            var cached = await _cache.GetAsync<List<DeviceTokenResponse>>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var tokens = await _unitOfWork.DeviceTokens.FindAsync(
                 x => x.UserId == userId && x.IsActive);
 
-            return tokens.Select(MapToResponse).ToList();
+            var response = tokens.Select(MapToResponse).ToList();
+            await _cache.SetAsync(cacheKey, response, FcmTokenTtl);
+            return response;
         }
 
         public async Task<FcmSendResponse> SendToUserAsync(Guid userId, string title, string body, string? data = null)
         {
-            var tokens = await _unitOfWork.DeviceTokens.FindAsync(
-                x => x.UserId == userId && x.IsActive);
+            // Use cached tokens
+            var tokens = (await GetUserTokensAsync(userId)).ToList();
 
             // Dedupe và loại bỏ token quá cũ: nếu một user đăng nhập trên nhiều
             // thiết bị (hoặc token đã rotate mà token cũ chưa được deactivate),

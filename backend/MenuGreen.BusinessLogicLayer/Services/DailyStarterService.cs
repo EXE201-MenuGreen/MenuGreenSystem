@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
@@ -24,6 +25,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IRecommendationService _recommendationService;
         private readonly INutritionAssistantService _nutritionAssistantService;
         private readonly INutritionTrackingService _nutritionTrackingService;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan DailyStarterTtl = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan FeaturedMealsTtl = TimeSpan.FromMinutes(10);
 
         public DailyStarterService(
             IUnitOfWork unitOfWork,
@@ -35,7 +39,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IUserAiProfileService userAiProfileService,
             IRecommendationService recommendationService,
             INutritionAssistantService nutritionAssistantService,
-            INutritionTrackingService nutritionTrackingService
+            INutritionTrackingService nutritionTrackingService,
+            ICacheService cache
         )
         {
             _unitOfWork = unitOfWork;
@@ -48,9 +53,25 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _recommendationService = recommendationService;
             _nutritionAssistantService = nutritionAssistantService;
             _nutritionTrackingService = nutritionTrackingService;
+            _cache = cache;
         }
 
         public async Task<DailyStarterTodayResponse> GetTodayStarterAsync(Guid userId)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var cacheKey = CacheKeys.DailyStarterByDate(userId, today);
+            var cached = await _cache.GetAsync<DailyStarterTodayResponse>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            var response = await BuildTodayStarterResponseAsync(userId);
+            await _cache.SetAsync(cacheKey, response, DailyStarterTtl);
+            return response;
+        }
+
+        private async Task<DailyStarterTodayResponse> BuildTodayStarterResponseAsync(Guid userId)
         {
             var quotes = new[]
             {
@@ -113,6 +134,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<IEnumerable<FoodResponse>> GetFeaturedMealsAsync(Guid userId)
         {
+            var cacheKey = CacheKeys.FeaturedMeals(userId);
+            var cached = await _cache.GetAsync<List<FoodResponse>>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var foods = await _db
                 .Foods.AsNoTracking()
                 .Where(f => f.IsActive != false)
@@ -129,7 +157,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Math.Min(caloriesRemaining, caloriesRemaining * 0.35m)
             );
 
-            return foods
+            var result = foods
                 .Select(f =>
                 {
                     foodAllergenMap.TryGetValue(f.Id, out var keys);
@@ -145,8 +173,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         !f.EstimatedPriceVnd.HasValue || f.EstimatedPriceVnd.Value <= budget
                             ? 1
                             : 0;
-                    // Use a stable priority for "unknown price" so we never bubble
-                    // null-priced items above the cheapest known-priced ones.
                     var priceRank = f.EstimatedPriceVnd ?? int.MaxValue;
                     var calorieDistance = Math.Abs((f.CaloriesKcal ?? 0) - mealCalorieTarget);
                     return new
@@ -166,9 +192,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     StringComparer.OrdinalIgnoreCase
                 )
                 .Select(g => g.First())
-                // Deterministic ordering: within-budget items first (cheapest first),
-                // then out-of-budget items (still cheapest first), with calorie fit
-                // and name as final tie-breakers.
                 .OrderByDescending(x => x.WithinBudget)
                 .ThenBy(x => x.PriceRank)
                 .ThenBy(x => x.CalorieDistance)
@@ -176,6 +199,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Take(10)
                 .Select(x => MapFoodToResponse(x.Food, x.Keys, userKeys))
                 .ToList();
+
+            await _cache.SetAsync(cacheKey, result, FeaturedMealsTtl);
+            return result;
         }
 
         public async Task SelectMealPlanAsync(Guid userId, DailyStarterSelectMealRequest request)

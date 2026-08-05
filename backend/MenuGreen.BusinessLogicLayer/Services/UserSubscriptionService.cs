@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -18,11 +19,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan SubscriptionTtl = TimeSpan.FromMinutes(5);
 
-        public UserSubscriptionService(IUnitOfWork unitOfWork, INotificationService notificationService)
+        public UserSubscriptionService(IUnitOfWork unitOfWork, INotificationService notificationService, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
+            _cache = cache;
         }
 
         public async Task<UserSubscriptionResponse> SubscribeAsync(Guid userId, SubscribeRequest request)
@@ -97,6 +101,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 // Bỏ qua lỗi gửi thông báo để tránh ảnh hưởng đến luồng chính
             }
 
+            await _cache.RemoveAsync(CacheKeys.UserSubscription(userId));
             return await MapAsync(subscription);
         }
 
@@ -128,6 +133,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Renew", 0, request.Note ?? "Free plan renewal", now));
             await _unitOfWork.CompleteAsync();
+
+            await _cache.RemoveAsync(CacheKeys.UserSubscription(userId));
 
             try
             {
@@ -162,12 +169,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
 
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.UserSubscription(userId));
 
             return await MapAsync(subscription);
         }
 
         public async Task<UserSubscriptionResponse?> GetCurrentAsync(Guid userId)
         {
+            var cacheKey = CacheKeys.UserSubscription(userId);
+            var cached = await _cache.GetAsync<UserSubscriptionResponse>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var now = DateTime.UtcNow;
             var subscriptions = await _unitOfWork.UserSubscriptions.FindAsync(x => x.UserId == userId);
             var current = subscriptions
@@ -175,7 +190,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefault();
 
-            return current == null ? null : await MapAsync(current);
+            if (current == null) return null;
+
+            var response = await MapAsync(current);
+            await _cache.SetAsync(cacheKey, response, SubscriptionTtl);
+            return response;
         }
 
         public async Task<IEnumerable<UserSubscriptionResponse>> GetActiveAsync(Guid userId)
