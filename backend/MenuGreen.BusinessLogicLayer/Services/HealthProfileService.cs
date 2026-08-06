@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -12,16 +13,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class HealthProfileService : IHealthProfileService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cache;
+        private static readonly TimeSpan HealthTargetsTtl = TimeSpan.FromMinutes(15);
 
-        public HealthProfileService(IUnitOfWork unitOfWork)
+        public HealthProfileService(IUnitOfWork unitOfWork, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<HealthProfileResponse> GetAsync(Guid userId)
         {
+            var cacheKey = CacheKeys.UserHealthTargets(userId);
+            var cached = await _cache.GetAsync<HealthProfileResponse>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             var healthProfile = await EnsureHealthProfileAsync(userId);
-            return MapToResponse(healthProfile);
+            var response = MapToResponse(healthProfile);
+            await _cache.SetAsync(cacheKey, response, HealthTargetsTtl);
+            return response;
         }
 
         public async Task<HealthProfileResponse> UpdateAsync(Guid userId, UpdateHealthProfileRequest request)
@@ -54,6 +67,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.HealthProfiles.Update(healthProfile);
             await _unitOfWork.CompleteAsync();
 
+            await _cache.RemoveAsync(CacheKeys.UserHealthTargets(userId));
             return MapToResponse(healthProfile);
         }
 
@@ -78,6 +92,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.HealthProfiles.Update(healthProfile);
             await _unitOfWork.CompleteAsync();
 
+            await _cache.RemoveAsync(CacheKeys.UserHealthTargets(userId));
             return MapToResponse(healthProfile);
         }
 
@@ -98,6 +113,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.HealthProfiles.Update(healthProfile);
             await _unitOfWork.CompleteAsync();
 
+            await _cache.RemoveAsync(CacheKeys.UserHealthTargets(userId));
             return MapToResponse(healthProfile);
         }
 

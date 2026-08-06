@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiEndpoints {
@@ -11,12 +12,20 @@ class ApiEndpoints {
   static String get baseUrl {
     // 1. Check dotenv file first
     final envUrl = dotenv.env['API_BASE_URL'];
-    if (envUrl != null && envUrl.trim().isNotEmpty) {
-      return _normalizeBaseUrl(envUrl);
+    final rawUrl = (envUrl != null && envUrl.trim().isNotEmpty)
+        ? envUrl.trim()
+        : productionBaseUrl;
+
+    final normalized = _normalizeBaseUrl(rawUrl);
+
+    // Auto-fix localhost cho Android Emulator
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        normalized.contains('localhost')) {
+      return normalized.replaceAll('localhost', '10.0.2.2');
     }
 
-    // 2. Fallback to default production
-    return productionBaseUrl;
+    return normalized;
   }
 
   static String _normalizeBaseUrl(String url) {

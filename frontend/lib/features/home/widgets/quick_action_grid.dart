@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
@@ -211,6 +212,13 @@ class QuickActionGrid extends StatelessWidget {
   }
 
   void _showAllFeaturesSheet(BuildContext context) {
+    final crossAxisCount = context.responsiveQuickActionColumns;
+    final childAspectRatio = context.valueForDevice(
+      phone: 0.82,
+      tablet: 0.85,
+      desktop: 0.9,
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -250,11 +258,11 @@ class QuickActionGrid extends StatelessWidget {
                   Expanded(
                     child: GridView.builder(
                       controller: scrollController,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
-                        childAspectRatio: 0.82,
+                        childAspectRatio: childAspectRatio,
                       ),
                       itemCount: _actions.length,
                       itemBuilder: (gridContext, index) {
@@ -280,6 +288,23 @@ class QuickActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final crossAxisCount = context.responsiveQuickActionColumns;
+    final childAspectRatio = context.valueForDevice(
+      phone: 0.82,
+      tablet: 0.85,
+      desktop: 0.9,
+    );
+    final iconSize = context.valueForDevice(
+      phone: 32.0,
+      tablet: 36.0,
+      desktop: 40.0,
+    );
+    final fontSize = context.valueForDevice(
+      phone: 11.0,
+      tablet: 12.0,
+      desktop: 13.0,
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -301,11 +326,11 @@ class QuickActionGrid extends StatelessWidget {
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
                 mainAxisSpacing: 16,
                 crossAxisSpacing: 16,
-                childAspectRatio: 0.82,
+                childAspectRatio: childAspectRatio,
               ),
               itemCount: 8,
               itemBuilder: (context, index) {
@@ -319,6 +344,8 @@ class QuickActionGrid extends StatelessWidget {
                       bgColor: Colors.white,
                     ),
                     onTap: () => _showAllFeaturesSheet(context),
+                    iconSize: iconSize,
+                    fontSize: fontSize,
                   );
                 }
 
@@ -326,6 +353,8 @@ class QuickActionGrid extends StatelessWidget {
                 return _QuickActionItem(
                   action: action,
                   onTap: () => _navigateTo(context, action.type),
+                  iconSize: iconSize,
+                  fontSize: fontSize,
                 );
               },
             ),
@@ -339,8 +368,15 @@ class QuickActionGrid extends StatelessWidget {
 class _QuickActionItem extends StatelessWidget {
   final _ActionItem action;
   final VoidCallback onTap;
+  final double iconSize;
+  final double fontSize;
 
-  const _QuickActionItem({required this.action, required this.onTap});
+  const _QuickActionItem({
+    required this.action,
+    required this.onTap,
+    this.iconSize = 32.0,
+    this.fontSize = 11.0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -355,14 +391,14 @@ class _QuickActionItem extends StatelessWidget {
             Icon(
               action.icon,
               color: action.gradientColors.first,
-              size: 32,
+              size: iconSize,
             ),
             const SizedBox(height: 8),
             Text(
               action.label,
               textAlign: TextAlign.center,
               style: GoogleFonts.beVietnamPro(
-                fontSize: 11,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textDark,
                 height: 1.25,

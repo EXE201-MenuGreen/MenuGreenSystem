@@ -85,6 +85,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final provider = context.watch<AiAssistantProvider>();
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -159,56 +160,56 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildInput(AiAssistantProvider provider) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: bottomInset > 0 ? 8 : (MediaQuery.of(context).padding.bottom + 8),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                focusNode: _focusNode,
-                minLines: 1,
-                maxLines: 6,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: const InputDecoration(
-                  hintText: 'Nhập câu hỏi về dinh dưỡng...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              focusNode: _focusNode,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
+              decoration: const InputDecoration(
+                hintText: 'Nhập câu hỏi về dinh dưỡng...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
             ),
-            const SizedBox(width: 10),
-            if (provider.isSending)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else
-              IconButton(
-                onPressed: _sendMessage,
-                icon: const Icon(Icons.send_rounded),
-                color: AppColors.primary,
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                ),
+          ),
+          const SizedBox(width: 8),
+          if (provider.isSending)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-          ],
-        ),
+            )
+          else
+            IconButton(
+              onPressed: _sendMessage,
+              icon: const Icon(Icons.send_rounded),
+              color: AppColors.primary,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              ),
+            ),
+        ],
       ),
     );
   }

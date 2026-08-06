@@ -581,8 +581,8 @@ class _PtTabState extends State<_PtTab> {
   Future<void> load() async {
     try {
       rows = await repo.ptRequests();
-    } catch (e) {
-      if (mounted) _notice(context, e);
+    } catch (_) {
+      rows = [];
     }
     try {
       proposals = await repo.myMealPlanProposals();
