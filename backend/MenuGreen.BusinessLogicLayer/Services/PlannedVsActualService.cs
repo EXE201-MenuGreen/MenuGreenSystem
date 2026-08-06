@@ -12,6 +12,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class PlannedVsActualService : IPlannedVsActualService
     {
+        private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRecipeService _recipeService;
 
@@ -23,33 +24,47 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private async Task<List<MealPlanItem>> GetActivePlanItemsAsync(Guid userId, DateOnly from, DateOnly to)
         {
-            var activePlans = await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId && h.IsActive);
-            var planIds = activePlans.Select(h => h.Id).ToList();
-
-            if (!planIds.Any())
+            var activePlans = (await _unitOfWork.MealPlanHeaders.FindAsync(h => h.UserId == userId && h.IsActive)).ToList();
+            if (!activePlans.Any())
                 return new List<MealPlanItem>();
 
-            var rawItems = (await _unitOfWork.MealPlanItems.FindAsync(i =>
+            var planIds = activePlans.Select(h => h.Id).ToList();
+            var allItems = (await _unitOfWork.MealPlanItems.FindAsync(i =>
                 planIds.Contains(i.MealPlanId) &&
                 i.PlannedDate >= from &&
                 i.PlannedDate <= to
             )).ToList();
 
-            return rawItems
-                .GroupBy(i => new { i.PlannedDate, MealType = (i.MealType ?? "lunch").ToLower() })
-                .Select(g => g.OrderByDescending(i => i.CreatedAt).First())
-                .ToList();
+            var result = new List<MealPlanItem>();
+            for (var date = from; date <= to; date = date.AddDays(1))
+            {
+                var coveringPlans = activePlans
+                    .Where(h => h.StartDate <= date && (h.EndDate ?? h.StartDate) >= date)
+                    .OrderByDescending(h => h.CreatedAt)
+                    .ToList();
+                if (!coveringPlans.Any()) continue;
+
+                var effectivePlanId = coveringPlans.First().Id;
+                var itemsForDay = allItems
+                    .Where(i => i.MealPlanId == effectivePlanId && i.PlannedDate == date)
+                    .ToList();
+                result.AddRange(itemsForDay);
+            }
+
+            return result;
         }
 
         public async Task<PlannedVsActualSummaryResponse> GetSummaryAsync(Guid userId, DateOnly from, DateOnly to)
         {
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
+            var fromUtc = ToVietnamRangeStartUtc(from);
+            var toUtc = ToVietnamRangeEndUtc(to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) >= from &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) <= to)).ToList();
+                l.LoggedAt.Value >= fromUtc &&
+                l.LoggedAt.Value <= toUtc)).ToList();
 
             var foodIds = planItems.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value)
                 .Concat(logs.Where(l => l.FoodId.HasValue).Select(l => l.FoodId!.Value))
@@ -152,7 +167,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     dailyPlanned.CostVnd += cost;
                 }
 
-                var dailyLogs = logs.Where(l => DateOnly.FromDateTime(l.LoggedAt!.Value) == date).ToList();
+                var dailyLogs = logs.Where(l => DateOnly.FromDateTime(
+                    l.LoggedAt!.Value.AddHours(VietnamUtcOffsetHours)) == date).ToList();
                 foreach (var log in dailyLogs)
                 {
                     dailyActual.CaloriesKcal += log.CaloriesKcal ?? 0;
@@ -227,12 +243,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var summary = await GetSummaryAsync(userId, from, to);
 
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
+            var fromUtc = ToVietnamRangeStartUtc(from);
+            var toUtc = ToVietnamRangeEndUtc(to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) >= from &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) <= to)).ToList();
+                l.LoggedAt.Value >= fromUtc &&
+                l.LoggedAt.Value <= toUtc)).ToList();
 
             // 1. Meal Completion Rate (40%)
             double mealCompletionRate = 100;
@@ -320,6 +338,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 feedback = "You are significantly off track. Review the drift analysis to understand the causes and reset your habits.";
             }
 
+            var todayVietnam = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var completedMealsCount = planItems.Count(i => i.IsCompleted);
+            var plannedMealsCount = planItems.Count;
+            var skippedMealsCount = planItems.Count(i =>
+                !i.IsCompleted
+                && i.PlannedDate < todayVietnam
+                && i.PlannedDate <= to);
+            var unplannedMealsCount = logs.Count(l => !l.MealPlanItemId.HasValue);
+
             return new AdherenceScoreResponse
             {
                 From = from,
@@ -329,6 +357,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CalorieDeviationScore = Math.Round(calorieDeviationScore, 1),
                 MacroDeviationScore = Math.Round(macroDeviationScore, 1),
                 UnplannedPenaltyScore = Math.Round(unplannedPenaltyScore, 1),
+                CompletedMealsCount = completedMealsCount,
+                PlannedMealsCount = plannedMealsCount,
+                SkippedMealsCount = skippedMealsCount,
+                UnplannedMealsCount = unplannedMealsCount,
                 Rating = rating,
                 Feedback = feedback
             };
@@ -337,12 +369,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<DriftAnalysisResponse> GetDriftAnalysisAsync(Guid userId, DateOnly from, DateOnly to)
         {
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
+            var fromUtc = ToVietnamRangeStartUtc(from);
+            var toUtc = ToVietnamRangeEndUtc(to);
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) >= from &&
-                DateOnly.FromDateTime(l.LoggedAt.Value) <= to)).ToList();
+                l.LoggedAt.Value >= fromUtc &&
+                l.LoggedAt.Value <= toUtc)).ToList();
 
             var foodIds = planItems.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value)
                 .Concat(logs.Where(l => l.FoodId.HasValue).Select(l => l.FoodId!.Value))
@@ -478,7 +512,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<RecommendationResponse> GetRecommendationsAsync(Guid userId)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
             var from = today.AddDays(-7);
 
             var score = await GetAdherenceScoreAsync(userId, from, today);
@@ -698,9 +733,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var from = new DateOnly(year, month, 1);
             var to = from.AddMonths(1).AddDays(-1);
-            if (to > DateOnly.FromDateTime(DateTime.UtcNow))
+            var vietnamToday = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            if (to > vietnamToday)
             {
-                to = DateOnly.FromDateTime(DateTime.UtcNow);
+                to = vietnamToday;
             }
 
             var summary = await GetSummaryAsync(userId, from, to);
@@ -838,5 +875,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             return sb.ToString();
         }
+
+        private static DateTime ToVietnamRangeStartUtc(DateOnly date) =>
+            date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+
+        private static DateTime ToVietnamRangeEndUtc(DateOnly date) =>
+            date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
     }
 }

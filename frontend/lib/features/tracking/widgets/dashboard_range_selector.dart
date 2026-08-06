@@ -26,33 +26,46 @@ class DashboardRangeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: DashboardRange.values.map((range) {
-        final isSelected = range == selected;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: GestureDetector(
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: DashboardRange.values.map((range) {
+          final isSelected = range == selected;
+          return GestureDetector(
             onTap: () => onChanged(range),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.progressBackground.withValues(alpha: 0.6),
+                color: isSelected ? AppColors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(24),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
               ),
               child: Text(
                 range.label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textDark,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? Colors.white : AppColors.textSecondary,
                 ),
               ),
             ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 }

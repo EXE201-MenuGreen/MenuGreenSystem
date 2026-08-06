@@ -1966,7 +1966,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Meal plan item must have FoodId or RecipeId.");
             }
 
-            var quantity = request.QuantityG ?? 100m;
+            var quantity = request.QuantityG
+                ?? await ResolveCompletionQuantityAsync(item);
             var mealLogRequest = new MealLogUpsertRequest
             {
                 FoodId = item.FoodId,
@@ -2179,6 +2180,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .AddHours(-VietnamUtcOffsetHours);
         }
 
+        private async Task<decimal> ResolveCompletionQuantityAsync(
+            MealPlanItem item)
+        {
+            if (item.QuantityG.HasValue && item.QuantityG.Value > 0)
+            {
+                return item.QuantityG.Value;
+            }
+
+            if (item.FoodId.HasValue)
+            {
+                var food = await _unitOfWork.Foods.GetByIdAsync(
+                    item.FoodId.Value);
+                if (food?.DefaultServingG is > 0)
+                {
+                    return food.DefaultServingG.Value;
+                }
+            }
+
+            return 100m;
+        }
+
         public async Task<CompleteMealPlanItemResponse> ToggleItemAsync(Guid userId, Guid itemId, bool isCompleted)
         {
             var item = await _unitOfWork.MealPlanItems.GetByIdAsync(itemId)
@@ -2215,7 +2237,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         FoodId = item.FoodId,
                         RecipeId = item.RecipeId,
                         MealType = item.MealType ?? "snack",
-                        QuantityG = 100m,
+                        QuantityG = await ResolveCompletionQuantityAsync(item),
                         Notes = "Logged from meal plan.",
                         LoggedAt = ResolveMealLogUtc(item),
                         MealPlanItemId = item.Id

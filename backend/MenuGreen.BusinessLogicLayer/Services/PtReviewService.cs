@@ -8,6 +8,8 @@ using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace MenuGreen.BusinessLogicLayer.Services
@@ -20,11 +22,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IPlannedVsActualService _plannedVsActualService;
         private readonly NotiServiceWrapper _notificationService;
         private readonly ILogger<PtReviewService>? _logger;
+        private readonly bool _allowWeeklyReportAnyDay;
 
         public PtReviewService(
             IUnitOfWork unitOfWork,
             IPlannedVsActualService plannedVsActualService,
             INotificationService notificationService,
+            Microsoft.Extensions.Hosting.IHostEnvironment hostEnvironment,
+            Microsoft.Extensions.Configuration.IConfiguration? configuration = null,
             ILogger<PtReviewService>? logger = null)
         {
             _unitOfWork = unitOfWork;
@@ -32,6 +37,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Wrapped because INotificationService is injected and we can cast it
             _notificationService = new NotiServiceWrapper(notificationService);
             _logger = logger;
+            var configFlag = configuration?["PtReview:AllowWeeklyReportAnyDay"];
+            _allowWeeklyReportAnyDay = string.Equals(configFlag, "true", StringComparison.OrdinalIgnoreCase)
+                || hostEnvironment.IsDevelopment()
+                || hostEnvironment.IsEnvironment("Test")
+                || hostEnvironment.IsEnvironment("Testing");
         }
 
         public async Task<CreatePtReviewReportResponse> CreateReportAsync(Guid userId, CreatePtReviewReportRequest request)
@@ -42,11 +52,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var isWeeklyReport = requestType.Equals(
                 "WeeklyReport",
                 StringComparison.OrdinalIgnoreCase);
+            var isMidWeekCheckIn = requestType.Equals(
+                "MidWeekCheckIn",
+                StringComparison.OrdinalIgnoreCase);
             var isRouteApproval = requestType.Equals(
                 "RouteApproval",
                 StringComparison.OrdinalIgnoreCase);
 
-            if (!isWeeklyReport && !isRouteApproval)
+            if (!isWeeklyReport && !isMidWeekCheckIn && !isRouteApproval)
             {
                 throw new Exception("Loại yêu cầu không hợp lệ.");
             }
@@ -66,6 +79,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         "Bạn đã gửi báo cáo cho tuần này. Mỗi tuần chỉ được gửi một báo cáo.");
                 }
             }
+            else if (isMidWeekCheckIn)
+            {
+                ValidateMidWeekCheckInWindow(request);
+
+                var sameWeekRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == userId && r.WeekStartDate == request.WeekStartDate);
+                if (sameWeekRequests.Any(r =>
+                    GetRequestType(r).Equals(
+                        "MidWeekCheckIn",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new Exception(
+                        "Bạn đã gửi check-in giữa tuần này. Mỗi tuần chỉ được gửi một lần.");
+                }
+            }
 
             // 0. Check connection with PT
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
@@ -82,6 +110,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var weekEndDate = isRouteApproval
                 ? weekStartDate
                 : weekStartDate.AddDays(6);
+            var dataThroughDate = isWeeklyReport || isMidWeekCheckIn
+                ? ResolveWeeklyDataThroughDate(weekStartDate)
+                : weekEndDate;
 
             // 1. Load Health Profile
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
@@ -100,15 +131,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             // 2. Fetch planned vs actual summaries
-            var summary = await _plannedVsActualService.GetSummaryAsync(userId, weekStartDate, weekEndDate);
-            var score = await _plannedVsActualService.GetAdherenceScoreAsync(userId, weekStartDate, weekEndDate);
-            var drift = await _plannedVsActualService.GetDriftAnalysisAsync(userId, weekStartDate, weekEndDate);
+            var summary = await _plannedVsActualService.GetSummaryAsync(userId, weekStartDate, dataThroughDate);
+            var score = await _plannedVsActualService.GetAdherenceScoreAsync(userId, weekStartDate, dataThroughDate);
+            var drift = await _plannedVsActualService.GetDriftAnalysisAsync(userId, weekStartDate, dataThroughDate);
 
             // 3. Fetch weight logs
             var startDateTime = weekStartDate
                 .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
                 .AddHours(-VietnamUtcOffsetHours);
-            var endDateTime = weekEndDate
+            var endDateTime = dataThroughDate
                 .ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
                 .AddHours(-VietnamUtcOffsetHours);
             var weightLogs = await _unitOfWork.WeightLogs.FindAsync(w => w.UserId == userId && w.RecordedAt >= startDateTime && w.RecordedAt <= endDateTime);
@@ -124,95 +155,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 h.UserId == userId
                 && h.StartDate <= weekEndDate
                 && h.EndDate >= weekStartDate);
-            var planIds = plans.Select(p => p.Id).ToList();
             var configuredPlan = SelectPlanForDate(plans, weekStartDate);
             var configuredTargets = await ResolveGymTargetsAsync(
                 userId,
                 weekStartDate);
-            var planItems = planIds.Any()
-                ? (await _unitOfWork.MealPlanItems.FindAsync(i => planIds.Contains(i.MealPlanId))).ToList()
-                : new List<MealPlanItem>();
 
-            var mealLogs = (await _unitOfWork.MealLogs.FindAsync(l => l.UserId == userId && l.LoggedAt >= startDateTime && l.LoggedAt <= endDateTime)).ToList();
-
-            var foodIds = planItems.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value)
-                .Concat(mealLogs.Where(l => l.FoodId.HasValue).Select(l => l.FoodId!.Value))
-                .Distinct()
-                .ToList();
-            var recipeIds = planItems.Where(i => i.RecipeId.HasValue).Select(i => i.RecipeId!.Value)
-                .Concat(mealLogs.Where(l => l.RecipeId.HasValue).Select(l => l.RecipeId!.Value))
-                .Distinct()
-                .ToList();
-
-            var foods = foodIds.Any()
-                ? (await _unitOfWork.Foods.FindAsync(f => foodIds.Contains(f.Id))).ToDictionary(f => f.Id)
-                : new Dictionary<Guid, Food>();
-
-            var recipes = recipeIds.Any()
-                ? (await _unitOfWork.Recipes.FindAsync(r => recipeIds.Contains(r.Id))).ToDictionary(r => r.Id)
-                : new Dictionary<Guid, Recipe>();
-
-            var dailyMeals = new List<DailyMealsSnapshot>();
-            var snapshotDayCount = isRouteApproval ? 1 : 7;
-            for (int i = 0; i < snapshotDayCount; i++)
-            {
-                var currentDate = weekStartDate.AddDays(i);
-                var dayMeals = new DailyMealsSnapshot { Date = currentDate };
-
-                // Planned Items for this day
-                var itemsForDay = planItems.Where(item => item.PlannedDate == currentDate).ToList();
-                foreach (var item in itemsForDay)
-                {
-                    foods.TryGetValue(item.FoodId ?? Guid.Empty, out var food);
-                    recipes.TryGetValue(item.RecipeId ?? Guid.Empty, out var recipe);
-
-                    dayMeals.PlannedItems.Add(new MealPlanItemSnapshot
-                    {
-                        Id = item.Id,
-                        MealType = item.MealType ?? "snack",
-                        FoodId = item.FoodId,
-                        FoodName = food?.NameVi,
-                        RecipeId = item.RecipeId,
-                        RecipeName = recipe?.Title,
-                        TargetCalories = item.TargetCalories,
-                        IsCompleted = item.IsCompleted
-                    });
-                }
-
-                // Actual Logs for this day
-                var logsForDay = mealLogs.Where(log =>
-                    log.LoggedAt.HasValue
-                    && DateOnly.FromDateTime(
-                        log.LoggedAt.Value.AddHours(VietnamUtcOffsetHours)) == currentDate)
-                    .ToList();
-                foreach (var log in logsForDay)
-                {
-                    foods.TryGetValue(log.FoodId ?? Guid.Empty, out var food);
-                    recipes.TryGetValue(log.RecipeId ?? Guid.Empty, out var recipe);
-
-                    dayMeals.ActualLogs.Add(new MealLogSnapshot
-                    {
-                        Id = log.Id,
-                        MealType = log.MealType ?? "snack",
-                        FoodId = log.FoodId,
-                        FoodName = food?.NameVi,
-                        RecipeId = log.RecipeId,
-                        RecipeName = recipe?.Title,
-                        CaloriesKcal = log.CaloriesKcal,
-                        QuantityG = log.QuantityG,
-                        Notes = log.Notes,
-                        LoggedAt = log.LoggedAt
-                    });
-                }
-
-                dailyMeals.Add(dayMeals);
-            }
+            var dailyMeals = isRouteApproval
+                ? await LoadDailyMealsSnapshotAsync(userId, weekStartDate, weekStartDate, dataThroughDate)
+                : await LoadDailyMealsSnapshotAsync(userId, weekStartDate, weekEndDate, dataThroughDate);
 
             var snapshot = new WeeklyReportSnapshot
             {
                 RequestType = requestType,
                 MealPlanId = configuredPlan?.Id,
                 WeekStartDate = weekStartDate,
+                DataThroughDate = dataThroughDate,
+                IsPartial = (isWeeklyReport || isMidWeekCheckIn) && dataThroughDate < weekEndDate,
+                IsFrozen = false,
                 TargetCaloriesDaily =
                     configuredTargets.TargetCalories
                     ?? configuredPlan?.TargetCalories,
@@ -307,16 +266,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     await _notificationService.SendAsync(new NotificationSendRequest
                     {
                         UserId = coachId.Value,
-                        Type = isWeeklyReport
+                        Type = isMidWeekCheckIn
+                            ? "midweek_checkin_submitted"
+                            : isWeeklyReport
                             ? "weekly_report_submitted"
                             : "pt_review_request",
-                        Title = isWeeklyReport
+                        Title = isMidWeekCheckIn
+                            ? "Check-in giữa tuần mới từ học viên"
+                            : isWeeklyReport
                             ? "Báo cáo tuần mới từ học viên"
                             : "Yêu cầu duyệt lộ trình từ học viên",
-                        Body = isWeeklyReport
+                        Body = isMidWeekCheckIn
+                            ? $"Học viên {gymerName} vừa gửi check-in giữa tuần. Hãy góp ý cho Thứ Sáu–Chủ nhật."
+                            : isWeeklyReport
                             ? $"Học viên {gymerName} vừa gửi báo cáo tuần. Hãy xem các chỉ số và gửi đánh giá."
                             : $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
-                        ActionUrl = isWeeklyReport
+                        ActionUrl = isWeeklyReport || isMidWeekCheckIn
                             ? $"coach_weekly_report:{reportId}"
                             : null,
                         ScheduledAt = null
@@ -341,16 +306,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _notificationService.SendAsync(new NotificationSendRequest
                 {
                     UserId = userId,
-                    Type = isWeeklyReport
+                    Type = isMidWeekCheckIn
+                        ? "midweek_checkin_pending"
+                        : isWeeklyReport
                         ? "weekly_report_pending"
                         : "PT_REVIEW_SUBMITTED",
-                    Title = isWeeklyReport
+                    Title = isMidWeekCheckIn
+                        ? "Đã gửi check-in giữa tuần cho PT"
+                        : isWeeklyReport
                         ? "Đã gửi báo cáo tuần cho PT"
                         : "Đã gửi lộ trình cho PT",
-                    Body = isWeeklyReport
+                    Body = isMidWeekCheckIn
+                        ? "Check-in đã được gửi. PT chỉ có thể đề xuất điều chỉnh Thứ Sáu–Chủ nhật."
+                        : isWeeklyReport
                         ? "Báo cáo tuần đã được gửi thành công. Trạng thái hiện tại: Chờ PT đánh giá."
                         : "Lộ trình ăn uống của bạn đã được gửi thành công đến PT. Đang chờ phản hồi.",
-                    ActionUrl = isWeeklyReport
+                    ActionUrl = isWeeklyReport || isMidWeekCheckIn
                         ? $"gymer_weekly_report:{reportId}"
                         : null,
                     ScheduledAt = null
@@ -394,8 +365,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
-            await RefreshMealCompletionAsync(reportData);
-            await RefreshConfiguredTargetsAsync(request, reportData);
+            if (request.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                await RefreshReportDataAsync(request, reportData);
+                await RefreshConfiguredTargetsAsync(request, reportData);
+            }
+            else if (reportData != null)
+            {
+                reportData.IsFrozen = true;
+            }
             var effectiveDate = reportData == null
                 ? request.WeekStartDate
                 : ResolveReportDate(request, reportData);
@@ -565,6 +543,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("This review request has already been responded to or applied.");
             }
 
+            var reportData = System.Text.Json.JsonSerializer.Deserialize<WeeklyReportSnapshot>(requestEntity.ReportDataJson, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            });
+            if (reportData != null)
+            {
+                await RefreshReportDataAsync(requestEntity, reportData);
+                await RefreshConfiguredTargetsAsync(requestEntity, reportData);
+                reportData.IsFrozen = true;
+                reportData.IsPartial = reportData.DataThroughDate.HasValue
+                    && reportData.DataThroughDate.Value < requestEntity.WeekStartDate.AddDays(6);
+                requestEntity.ReportDataJson = System.Text.Json.JsonSerializer.Serialize(reportData, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                });
+            }
+
             requestEntity.PtComment = request.Comment;
             requestEntity.SuggestedCalorieTarget = request.SuggestedCalorieTarget;
             requestEntity.SuggestedProteinTarget = request.SuggestedProteinTarget;
@@ -638,8 +633,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
-            await RefreshMealCompletionAsync(reportData);
-            await RefreshConfiguredTargetsAsync(requestEntity, reportData);
+            if (requestEntity.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                await RefreshReportDataAsync(requestEntity, reportData);
+                await RefreshConfiguredTargetsAsync(requestEntity, reportData);
+            }
+            else if (reportData != null)
+            {
+                reportData.IsFrozen = true;
+            }
             var effectiveDate = reportData == null
                 ? requestEntity.WeekStartDate
                 : ResolveReportDate(requestEntity, reportData);
@@ -1532,23 +1534,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return null;
         }
 
-        private static void ValidateWeeklyReportWindow(
+        private void ValidateWeeklyReportWindow(
             CreatePtReviewReportRequest request)
         {
             // Vietnam does not observe daylight saving time, so UTC+7 is
             // deterministic on both Windows and Linux deployments.
-            var vietnamToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
-            if (vietnamToday.DayOfWeek != DayOfWeek.Sunday)
+            var vietnamToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            if (!_allowWeeklyReportAnyDay)
             {
-                throw new Exception(
-                    "Báo cáo tuần chỉ được tạo vào Chủ nhật sau khi tuần đã kết thúc.");
-            }
+                if (vietnamToday.DayOfWeek != DayOfWeek.Sunday)
+                {
+                    throw new Exception(
+                        "Báo cáo tuần chỉ được tạo vào Chủ nhật sau khi tuần đã kết thúc.");
+                }
 
-            var expectedWeekStart = vietnamToday.AddDays(-6);
-            if (request.WeekStartDate != expectedWeekStart)
+                var daysSinceMonday = ((int)vietnamToday.DayOfWeek + 6) % 7;
+                var expectedWeekStart = vietnamToday.AddDays(-daysSinceMonday);
+                if (request.WeekStartDate != expectedWeekStart)
+                {
+                    throw new Exception(
+                        $"Ngày bắt đầu tuần phải là Thứ hai {expectedWeekStart:dd/MM/yyyy}.");
+                }
+            }
+            else
             {
-                throw new Exception(
-                    $"Ngày bắt đầu tuần phải là Thứ hai {expectedWeekStart:dd/MM/yyyy}.");
+                if (request.WeekStartDate.DayOfWeek != DayOfWeek.Monday)
+                {
+                    throw new Exception("Ngày bắt đầu tuần phải là Thứ hai.");
+                }
             }
 
             if (!request.CheckInWeight.HasValue)
@@ -1561,6 +1574,45 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Vui lòng chọn số buổi đã tập trong tuần.");
             }
 
+            if (string.IsNullOrWhiteSpace(request.BodyFeeling))
+            {
+                throw new Exception("Vui lòng chọn cảm nhận thể trạng.");
+            }
+        }
+
+        private void ValidateMidWeekCheckInWindow(
+            CreatePtReviewReportRequest request)
+        {
+            var vietnamToday = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            if (!_allowWeeklyReportAnyDay && vietnamToday.DayOfWeek != DayOfWeek.Thursday)
+            {
+                throw new Exception("Check-in giữa tuần chỉ được tạo vào Thứ Năm.");
+            }
+
+            if (request.WeekStartDate.DayOfWeek != DayOfWeek.Monday)
+            {
+                throw new Exception("Ngày bắt đầu tuần phải là Thứ hai.");
+            }
+
+            if (!_allowWeeklyReportAnyDay)
+            {
+                var expectedWeekStart = vietnamToday.AddDays(-3);
+                if (request.WeekStartDate != expectedWeekStart)
+                {
+                    throw new Exception(
+                        $"Check-in phải thuộc tuần bắt đầu ngày {expectedWeekStart:dd/MM/yyyy}.");
+                }
+            }
+
+            if (!request.CheckInWeight.HasValue)
+            {
+                throw new Exception("Vui lòng nhập cân nặng hiện tại.");
+            }
+            if (!request.TrainingDaysCount.HasValue)
+            {
+                throw new Exception("Vui lòng chọn số buổi đã tập.");
+            }
             if (string.IsNullOrWhiteSpace(request.BodyFeeling))
             {
                 throw new Exception("Vui lòng chọn cảm nhận thể trạng.");
@@ -1625,6 +1677,238 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return $"{Math.Max(snapshot.DurationWeeks, 1)} tuần";
+        }
+
+        private async Task RefreshReportDataAsync(
+            PtReviewRequest request,
+            WeeklyReportSnapshot? reportData)
+        {
+            if (reportData == null) return;
+
+            var isWeeklyReport = reportData.RequestType.Equals(
+                "WeeklyReport",
+                StringComparison.OrdinalIgnoreCase) ||
+                reportData.RequestType.Equals(
+                    "MidWeekCheckIn",
+                    StringComparison.OrdinalIgnoreCase);
+            var isPending = request.Status.Equals(
+                "Pending",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!isWeeklyReport)
+            {
+                await RefreshMealCompletionAsync(reportData);
+                return;
+            }
+
+            // Reviewed/applied/rejected reports are audit snapshots and must
+            // remain unchanged even if the Gymer later edits meal logs.
+            if (!isPending)
+            {
+                reportData.IsFrozen = true;
+                return;
+            }
+
+            var weekStart = request.WeekStartDate;
+            var weekEnd = weekStart.AddDays(6);
+            var dataThroughDate = ResolveWeeklyDataThroughDate(weekStart);
+
+            reportData.WeekStartDate = weekStart;
+            reportData.DataThroughDate = dataThroughDate;
+            reportData.IsPartial = dataThroughDate < weekEnd;
+            reportData.IsFrozen = false;
+            reportData.NutritionSummary =
+                await _plannedVsActualService.GetSummaryAsync(
+                    request.UserId,
+                    weekStart,
+                    dataThroughDate);
+            reportData.AdherenceScore =
+                await _plannedVsActualService.GetAdherenceScoreAsync(
+                    request.UserId,
+                    weekStart,
+                    dataThroughDate);
+            reportData.DriftAnalysis =
+                await _plannedVsActualService.GetDriftAnalysisAsync(
+                    request.UserId,
+                    weekStart,
+                    dataThroughDate);
+            reportData.DailyMeals = await LoadDailyMealsSnapshotAsync(
+                request.UserId,
+                weekStart,
+                weekEnd,
+                dataThroughDate);
+
+            var startDateTime = ToVietnamRangeStartUtc(weekStart);
+            var endDateTime = ToVietnamRangeEndUtc(dataThroughDate);
+            var weightLogs = await _unitOfWork.WeightLogs.FindAsync(weight =>
+                weight.UserId == request.UserId
+                && weight.RecordedAt >= startDateTime
+                && weight.RecordedAt <= endDateTime);
+            reportData.WeightLogs = weightLogs
+                .OrderBy(weight => weight.RecordedAt)
+                .Select(weight => new WeightLogSnapshot
+                {
+                    WeightKg = weight.WeightKg,
+                    BodyFatPercent = weight.BodyFatPercent,
+                    RecordedAt = weight.RecordedAt
+                })
+                .ToList();
+        }
+
+        private async Task<List<DailyMealsSnapshot>> LoadDailyMealsSnapshotAsync(
+            Guid userId,
+            DateOnly weekStart,
+            DateOnly weekEnd,
+            DateOnly dataThroughDate)
+        {
+            var plans = (await _unitOfWork.MealPlanHeaders.FindAsync(plan =>
+                plan.UserId == userId
+                && plan.IsActive
+                && plan.StartDate <= weekEnd
+                && (plan.EndDate ?? plan.StartDate) >= weekStart)).ToList();
+            var planIds = plans.Select(plan => plan.Id).ToList();
+            var allPlanItems = planIds.Count == 0
+                ? new List<MealPlanItem>()
+                : (await _unitOfWork.MealPlanItems.FindAsync(item =>
+                    planIds.Contains(item.MealPlanId)
+                    && item.PlannedDate >= weekStart
+                    && item.PlannedDate <= weekEnd)).ToList();
+
+            var planItems = new List<MealPlanItem>();
+            for (var d = weekStart; d <= weekEnd; d = d.AddDays(1))
+            {
+                var covering = plans
+                    .Where(p => p.StartDate <= d && (p.EndDate ?? p.StartDate) >= d)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .ToList();
+                if (!covering.Any()) continue;
+
+                var effectiveId = covering.First().Id;
+                planItems.AddRange(allPlanItems.Where(i => i.MealPlanId == effectiveId && i.PlannedDate == d));
+            }
+
+            var startUtc = ToVietnamRangeStartUtc(weekStart);
+            var endUtc = ToVietnamRangeEndUtc(dataThroughDate);
+            var mealLogs = (await _unitOfWork.MealLogs.FindAsync(log =>
+                log.UserId == userId
+                && log.LoggedAt >= startUtc
+                && log.LoggedAt <= endUtc)).ToList();
+
+            var foodIds = planItems
+                .Where(item => item.FoodId.HasValue)
+                .Select(item => item.FoodId!.Value)
+                .Concat(mealLogs
+                    .Where(log => log.FoodId.HasValue)
+                    .Select(log => log.FoodId!.Value))
+                .Distinct()
+                .ToList();
+            var recipeIds = planItems
+                .Where(item => item.RecipeId.HasValue)
+                .Select(item => item.RecipeId!.Value)
+                .Concat(mealLogs
+                    .Where(log => log.RecipeId.HasValue)
+                    .Select(log => log.RecipeId!.Value))
+                .Distinct()
+                .ToList();
+
+            var foods = foodIds.Count == 0
+                ? new Dictionary<Guid, Food>()
+                : (await _unitOfWork.Foods.FindAsync(food =>
+                    foodIds.Contains(food.Id))).ToDictionary(food => food.Id);
+            var recipes = recipeIds.Count == 0
+                ? new Dictionary<Guid, Recipe>()
+                : (await _unitOfWork.Recipes.FindAsync(recipe =>
+                    recipeIds.Contains(recipe.Id))).ToDictionary(recipe => recipe.Id);
+
+            var result = new List<DailyMealsSnapshot>();
+            for (var offset = 0; offset < 7; offset++)
+            {
+                var date = weekStart.AddDays(offset);
+                var day = new DailyMealsSnapshot { Date = date };
+
+                foreach (var item in planItems.Where(item => item.PlannedDate == date))
+                {
+                    foods.TryGetValue(item.FoodId ?? Guid.Empty, out var food);
+                    recipes.TryGetValue(item.RecipeId ?? Guid.Empty, out var recipe);
+                    var quantity = item.QuantityG
+                        ?? food?.DefaultServingG
+                        ?? 100m;
+                    day.PlannedItems.Add(new MealPlanItemSnapshot
+                    {
+                        Id = item.Id,
+                        MealType = NormalizeMealType(item.MealType ?? "snack"),
+                        FoodId = item.FoodId,
+                        FoodName = food?.NameVi ?? item.CustomName,
+                        RecipeId = item.RecipeId,
+                        RecipeName = recipe?.Title ?? item.CustomName,
+                        TargetCalories = item.TargetCalories,
+                        QuantityG = quantity,
+                        ProteinG = item.ProteinG
+                            ?? ScaleNutrient(food?.ProteinG, quantity),
+                        CarbsG = item.CarbsG
+                            ?? ScaleNutrient(food?.CarbsG, quantity),
+                        FatG = item.FatG
+                            ?? ScaleNutrient(food?.FatG, quantity),
+                        IsCompleted = item.IsCompleted
+                    });
+                }
+
+                foreach (var log in mealLogs.Where(log =>
+                    log.LoggedAt.HasValue
+                    && DateOnly.FromDateTime(
+                        log.LoggedAt.Value.AddHours(VietnamUtcOffsetHours)) == date))
+                {
+                    foods.TryGetValue(log.FoodId ?? Guid.Empty, out var food);
+                    recipes.TryGetValue(log.RecipeId ?? Guid.Empty, out var recipe);
+                    day.ActualLogs.Add(new MealLogSnapshot
+                    {
+                        Id = log.Id,
+                        MealType = NormalizeMealType(log.MealType ?? "snack"),
+                        FoodId = log.FoodId,
+                        FoodName = food?.NameVi ?? log.CustomName,
+                        RecipeId = log.RecipeId,
+                        RecipeName = recipe?.Title ?? log.CustomName,
+                        CaloriesKcal = log.CaloriesKcal,
+                        ProteinG = log.ProteinG,
+                        CarbsG = log.CarbsG,
+                        FatG = log.FatG,
+                        QuantityG = log.QuantityG,
+                        MealPlanItemId = log.MealPlanItemId,
+                        Notes = log.Notes,
+                        LoggedAt = log.LoggedAt
+                    });
+                }
+
+                result.Add(day);
+            }
+
+            return result;
+        }
+
+        private static decimal? ScaleNutrient(
+            decimal? nutrientPer100G,
+            decimal quantityG)
+        {
+            return nutrientPer100G.HasValue
+                ? Math.Round(nutrientPer100G.Value * quantityG / 100m, 1)
+                : null;
+        }
+
+        private static DateTime ToVietnamRangeStartUtc(DateOnly date) =>
+            date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+
+        private static DateTime ToVietnamRangeEndUtc(DateOnly date) =>
+            date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+
+        private static DateOnly ResolveWeeklyDataThroughDate(DateOnly weekStart)
+        {
+            var vietnamToday = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var weekEnd = weekStart.AddDays(6);
+            if (vietnamToday < weekStart) return weekStart;
+            return vietnamToday > weekEnd ? weekEnd : vietnamToday;
         }
 
         private async Task RefreshMealCompletionAsync(
@@ -1932,6 +2216,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public string RequestType { get; set; } = "WeeklyReport";
         public Guid? MealPlanId { get; set; }
         public DateOnly WeekStartDate { get; set; }
+        public DateOnly? DataThroughDate { get; set; }
+        public bool IsPartial { get; set; }
+        public bool IsFrozen { get; set; }
         public int? TargetCaloriesDaily { get; set; }
         public int? MinCalories { get; set; }
         public int? MaxCalories { get; set; }
@@ -2010,6 +2297,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public Guid? RecipeId { get; set; }
         public string? RecipeName { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? QuantityG { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
         public bool IsCompleted { get; set; }
     }
 
@@ -2022,7 +2313,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public Guid? RecipeId { get; set; }
         public string? RecipeName { get; set; }
         public decimal? CaloriesKcal { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
         public decimal? QuantityG { get; set; }
+        public Guid? MealPlanItemId { get; set; }
         public string? Notes { get; set; }
         public DateTime? LoggedAt { get; set; }
     }

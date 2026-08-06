@@ -84,6 +84,39 @@ class AdvancedRepository {
       {},
     ),
   );
+
+  Future<List<Map<String, dynamic>>> myMealPlanProposals({
+    String? status,
+  }) async {
+    final uri = Uri.parse('${ApiEndpoints.baseUrl}/meal-plan-proposals/mine')
+        .replace(
+          queryParameters: status == null || status.isEmpty
+              ? null
+              : {'status': status},
+        );
+    return _list(_body(await _api.get(uri.toString())));
+  }
+
+  Future<Map<String, dynamic>> mealPlanProposal(String proposalId) async =>
+      _map(
+        _body(
+          await _api.get(
+            '${ApiEndpoints.baseUrl}/meal-plan-proposals/$proposalId',
+          ),
+        ),
+      );
+
+  Future<Map<String, dynamic>> actionMealPlanProposal(
+    String proposalId,
+    String action,
+  ) async => _map(
+    _body(
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/meal-plan-proposals/$proposalId/$action',
+        {},
+      ),
+    ),
+  );
   Future<Map<String, dynamic>> sharedPtReport(String token) async => _map(
     _body(
       await _api.get(

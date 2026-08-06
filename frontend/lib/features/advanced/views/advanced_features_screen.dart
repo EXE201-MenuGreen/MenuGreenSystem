@@ -3,7 +3,9 @@ import '../../../core/constants/app_colors.dart';
 import '../repositories/advanced_repository.dart';
 import '../utils/weekly_report_rules.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import 'advanced_detail_screens.dart';
+import 'weekly_report_preview_screen.dart';
 
 class AdvancedFeaturesScreen extends StatelessWidget {
   const AdvancedFeaturesScreen({
@@ -11,11 +13,15 @@ class AdvancedFeaturesScreen extends StatelessWidget {
     this.gymerOnly = false,
     this.initialIndex = 0,
     this.initialReportId,
+    this.repository,
+    this.reportAnalyticsRepository,
   });
 
   final bool gymerOnly;
   final int initialIndex;
   final String? initialReportId;
+  final AdvancedRepository? repository;
+  final PlannedVsActualRepository? reportAnalyticsRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -54,11 +60,19 @@ class AdvancedFeaturesScreen extends StatelessWidget {
         body: TabBarView(
           children: gymerOnly
               ? [
-                  _PtTab(initialReportId: initialReportId),
+                  _PtTab(
+                    initialReportId: initialReportId,
+                    repository: repository,
+                    reportAnalyticsRepository: reportAnalyticsRepository,
+                  ),
                   const _CoachTab(gymerMode: true),
                 ]
               : [
-                  _PtTab(initialReportId: initialReportId),
+                  _PtTab(
+                    initialReportId: initialReportId,
+                    repository: repository,
+                    reportAnalyticsRepository: reportAnalyticsRepository,
+                  ),
                   const _BudgetTab(),
                   const _CoachTab(),
                   const _IngredientTab(),
@@ -73,26 +87,462 @@ class AdvancedFeaturesScreen extends StatelessWidget {
 String _v(Map<String, dynamic> m, String key, [String fallback = '']) =>
     (m[key] ?? m[key[0].toUpperCase() + key.substring(1)] ?? fallback)
         .toString();
+
+String _weeklyDateRangeLabel(String rawWeekStart) {
+  final weekStart = DateTime.tryParse(rawWeekStart.trim());
+  if (weekStart == null) return rawWeekStart;
+
+  final weekEnd = weekStart.add(const Duration(days: 6));
+  String fullDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/'
+      '${date.year}';
+
+  return '${fullDate(weekStart)} - ${fullDate(weekEnd)}';
+}
+
 void _notice(BuildContext c, Object value) =>
     ScaffoldMessenger.of(c).showSnackBar(
       SnackBar(content: Text(value.toString().replaceFirst('Exception: ', ''))),
     );
 
+class _WeeklyCheckInData {
+  const _WeeklyCheckInData({
+    required this.weight,
+    required this.bodyFat,
+    required this.trainingDays,
+    required this.feeling,
+    required this.note,
+  });
+
+  final double weight;
+  final double? bodyFat;
+  final int trainingDays;
+  final String feeling;
+  final String note;
+}
+
+class _WeeklyCheckInDialog extends StatefulWidget {
+  const _WeeklyCheckInDialog();
+
+  @override
+  State<_WeeklyCheckInDialog> createState() => _WeeklyCheckInDialogState();
+}
+
+class _WeeklyCheckInDialogState extends State<_WeeklyCheckInDialog> {
+  final _noteController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _bodyFatController = TextEditingController();
+  int _selectedDays = 3;
+  String _selectedFeeling = 'Khỏe 😊';
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _weightController.dispose();
+    _bodyFatController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final weight = double.tryParse(_weightController.text.trim());
+    final bodyFatText = _bodyFatController.text.trim();
+    final bodyFat = bodyFatText.isEmpty ? null : double.tryParse(bodyFatText);
+    if (weight == null || weight < 20 || weight > 400) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cân nặng phải nằm trong khoảng 20–400 kg'),
+        ),
+      );
+      return;
+    }
+    if (bodyFatText.isNotEmpty &&
+        (bodyFat == null || bodyFat < 1 || bodyFat > 75)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tỷ lệ mỡ phải nằm trong khoảng 1–75%')),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _WeeklyCheckInData(
+        weight: weight,
+        bodyFat: bodyFat,
+        trainingDays: _selectedDays,
+        feeling: _selectedFeeling,
+        note: _noteController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 420),
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_turned_in_rounded,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Báo cáo & Check-in Tuần',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textDark,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Điền chỉ số thực tế tuần qua gửi PT',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const SizedBox(height: 16),
+              _buildFieldLabel('Cân nặng hiện tại (kg)', isRequired: true),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _weightController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+                decoration: _inputDecoration(
+                  hintText: 'Ví dụ: 68.5',
+                  prefixIcon: Icons.monitor_weight_outlined,
+                  suffixText: 'kg',
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildFieldLabel('Tỷ lệ mỡ (%)', isOptional: true),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _bodyFatController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+                decoration: _inputDecoration(
+                  hintText: 'Ví dụ: 15.2',
+                  prefixIcon: Icons.pie_chart_outline_rounded,
+                  suffixText: '%',
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildFieldLabel('Số buổi đã tập tuần này'),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<int>(
+                initialValue: _selectedDays,
+                items: List.generate(
+                  8,
+                  (i) => DropdownMenuItem(
+                    value: i,
+                    child: Text(
+                      '$i buổi',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedDays = value);
+                  }
+                },
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                decoration: _inputDecoration(
+                  hintText: '',
+                  prefixIcon: Icons.fitness_center_rounded,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildFieldLabel('Cảm nhận thể trạng'),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedFeeling,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Khỏe 😊',
+                    child: Text(
+                      'Khỏe 😊',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Bình thường 😐',
+                    child: Text(
+                      'Bình thường 😐',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Mệt mỏi 😴',
+                    child: Text(
+                      'Mệt mỏi 😴',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedFeeling = value);
+                  }
+                },
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                decoration: _inputDecoration(
+                  hintText: '',
+                  prefixIcon: Icons.emoji_emotions_outlined,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildFieldLabel('Lời nhắn / Ghi chú gửi PT', isOptional: true),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _noteController,
+                maxLines: 3,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.textDark,
+                ),
+                decoration: _inputDecoration(
+                  hintText:
+                      'Ví dụ: Tuần này em bận đi du lịch nên ăn uống hơi lệch target...',
+                  prefixIcon: Icons.chat_bubble_outline_rounded,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Hủy',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 2,
+                        shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                      ),
+                      icon: const Icon(Icons.send_rounded, size: 16),
+                      label: const Text(
+                        'Gửi báo cáo',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(
+    String label, {
+    bool isRequired = false,
+    bool isOptional = false,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: AppColors.textDark,
+            ),
+          ),
+        ),
+        if (isRequired)
+          const Text(
+            ' *',
+            style: TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        if (isOptional)
+          Flexible(
+            child: Text(
+              ' (không bắt buộc)',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+            ),
+          ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hintText,
+    IconData? prefixIcon,
+    String? suffixText,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: AppColors.textSecondary.withValues(alpha: 0.6),
+        fontSize: 13,
+      ),
+      prefixIcon: prefixIcon != null
+          ? Icon(prefixIcon, size: 18, color: AppColors.textSecondary)
+          : null,
+      suffixText: suffixText,
+      suffixStyle: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.primary,
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+}
+
 class _PtTab extends StatefulWidget {
-  const _PtTab({this.initialReportId});
+  const _PtTab({
+    this.initialReportId,
+    this.repository,
+    this.reportAnalyticsRepository,
+  });
 
   final String? initialReportId;
+  final AdvancedRepository? repository;
+  final PlannedVsActualRepository? reportAnalyticsRepository;
   @override
   State<_PtTab> createState() => _PtTabState();
 }
 
 class _PtTabState extends State<_PtTab> {
-  final repo = AdvancedRepository();
+  late final AdvancedRepository repo;
+  late final PlannedVsActualRepository reportAnalyticsRepository;
   List<Map<String, dynamic>> rows = [];
+  List<Map<String, dynamic>> proposals = [];
   bool loading = true;
   bool _openedInitialReport = false;
 
   bool get _isSunday => canCreateWeeklyReportOn(DateTime.now());
+  bool get _isThursday => canCreateMidWeekCheckInOn(DateTime.now());
 
   DateTime get _currentWeekMonday => weeklyReportWeekStart(DateTime.now());
 
@@ -104,9 +554,27 @@ class _PtTabState extends State<_PtTab> {
           _v(row, 'weekStartDate').startsWith(weekStart),
     );
   }
+
+  bool get _hasMidWeekCheckIn {
+    final weekStart = _currentWeekMonday.toIso8601String().substring(0, 10);
+    return rows.any(
+      (row) =>
+          _v(row, 'requestType').toLowerCase() == 'midweekcheckin' &&
+          _v(row, 'weekStartDate').startsWith(weekStart),
+    );
+  }
+
+  Iterable<Map<String, dynamic>> get _reviewRows => rows.where((row) {
+    final type = _v(row, 'requestType').toLowerCase();
+    return type == 'weeklyreport' || type == 'midweekcheckin';
+  });
+
   @override
   void initState() {
     super.initState();
+    repo = widget.repository ?? AdvancedRepository();
+    reportAnalyticsRepository =
+        widget.reportAnalyticsRepository ?? PlannedVsActualRepository();
     load();
   }
 
@@ -116,15 +584,18 @@ class _PtTabState extends State<_PtTab> {
     } catch (e) {
       if (mounted) _notice(context, e);
     }
+    try {
+      proposals = await repo.myMealPlanProposals();
+    } catch (_) {
+      proposals = [];
+    }
     if (!mounted) return;
     setState(() => loading = false);
 
     final reportId = widget.initialReportId;
     if (!_openedInitialReport && reportId != null && reportId.isNotEmpty) {
       _openedInitialReport = true;
-      final matching = rows.where(
-        (row) => _v(row, 'reportId') == reportId,
-      );
+      final matching = rows.where((row) => _v(row, 'reportId') == reportId);
       if (matching.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) showResult(matching.first);
@@ -133,22 +604,382 @@ class _PtTabState extends State<_PtTab> {
     }
   }
 
-  Future<void> create() async {
-    if (!_isSunday) {
+  Future<void> _actionProposal(
+    Map<String, dynamic> proposal,
+    String action,
+  ) async {
+    final id = _v(proposal, 'id');
+    if (id.isEmpty) return;
+    try {
+      await repo.actionMealPlanProposal(id, action);
+      if (!mounted) return;
       _notice(
         context,
-        'Báo cáo tuần chỉ mở vào Chủ nhật, sau khi tuần đã kết thúc.',
+        action == 'apply'
+            ? 'Đã áp dụng toàn bộ đề xuất lộ trình.'
+            : 'Đã từ chối đề xuất; lộ trình hiện tại được giữ nguyên.',
+      );
+      await load();
+    } catch (error) {
+      if (mounted) _notice(context, error);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _proposalForReport(String reportId) async {
+    final matching = proposals.where(
+      (proposal) => _v(proposal, 'reviewRequestId') == reportId,
+    );
+    if (matching.isEmpty) return null;
+
+    final cached = Map<String, dynamic>.from(matching.first);
+    final proposalId = _v(cached, 'id');
+    if (proposalId.isEmpty) return cached;
+
+    try {
+      return await repo.mealPlanProposal(proposalId);
+    } catch (_) {
+      // The list response already contains items. Keep the detail usable if a
+      // refresh request fails temporarily.
+      return cached;
+    }
+  }
+
+  Widget _buildReviewedMealChanges(
+    Map<String, dynamic> result,
+    Map<String, dynamic>? proposal,
+  ) {
+    final rawItems = proposal?['items'] ?? proposal?['Items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
+        : <Map<String, dynamic>>[];
+
+    if (items.isNotEmpty) {
+      items.sort((a, b) {
+        final dateCompare = _v(
+          a,
+          'plannedDate',
+        ).compareTo(_v(b, 'plannedDate'));
+        if (dateCompare != 0) return dateCompare;
+        return _mealOrder(
+          _v(a, 'mealType'),
+        ).compareTo(_mealOrder(_v(b, 'mealType')));
+      });
+
+      final rawSources = proposal?['sourceMeals'] ?? proposal?['SourceMeals'];
+      final sourceById = <String, Map<String, dynamic>>{};
+      if (rawSources is List) {
+        for (final raw in rawSources.whereType<Map>()) {
+          final source = Map<String, dynamic>.from(raw);
+          final id = _v(source, 'mealPlanItemId');
+          if (id.isNotEmpty) sourceById[id] = source;
+        }
+      }
+
+      final byDate = <String, List<Map<String, dynamic>>>{};
+      for (final item in items) {
+        final date = _v(item, 'plannedDate');
+        (byDate[date] ??= []).add(item);
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in byDate.entries)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _proposalDateLabel(entry.key),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  for (var index = 0; index < entry.value.length; index++) ...[
+                    _buildReviewedMealChange(entry.value[index], sourceById),
+                    if (index < entry.value.length - 1)
+                      const SizedBox(height: 8),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+
+    // Compatibility for reports reviewed before meal-plan proposals existed.
+    final rawLegacy = result['suggestedChanges'] ?? result['SuggestedChanges'];
+    final legacy = rawLegacy is List ? rawLegacy.whereType<Map>().toList() : [];
+    if (legacy.isNotEmpty) {
+      return Column(
+        children: [
+          for (final raw in legacy)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(
+                '${_actionLabel(_v(Map<String, dynamic>.from(raw), 'action'))} • '
+                '${_mealTypeLabel(_v(Map<String, dynamic>.from(raw), 'mealType'))}',
+              ),
+              subtitle: Text(
+                '${_v(Map<String, dynamic>.from(raw), 'dayOfWeek')}\n'
+                '${_v(Map<String, dynamic>.from(raw), 'notes')}',
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'PT không đề xuất thay đổi món ăn cho báo cáo này.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewedMealChange(
+    Map<String, dynamic> item,
+    Map<String, Map<String, dynamic>> sourceById,
+  ) {
+    final action = _v(item, 'action').toLowerCase();
+    final source = sourceById[_v(item, 'existingMealPlanItemId')];
+    final oldName = source == null ? '' : _v(source, 'displayName');
+    final newName = _v(item, 'displayName');
+    final mealLabel = _mealTypeLabel(_v(item, 'mealType'));
+    final calories = _v(item, 'targetCalories');
+    final quantity = _v(item, 'quantityG');
+
+    final String changeText;
+    final IconData icon;
+    final Color color;
+    final Color bgColor;
+    switch (action) {
+      case 'replace':
+        changeText =
+            '${oldName.isEmpty ? 'Món hiện tại' : oldName} → '
+            '${newName.isEmpty ? 'Món mới' : newName}';
+        icon = Icons.swap_horizontal_circle_outlined;
+        color = Colors.orange.shade800;
+        bgColor = const Color(0xFFFFFBEB);
+        break;
+      case 'remove':
+        changeText = oldName.isEmpty ? 'Món hiện tại' : oldName;
+        icon = Icons.remove_circle_outline_rounded;
+        color = Colors.red.shade700;
+        bgColor = const Color(0xFFFEF2F2);
+        break;
+      default:
+        changeText = newName.isEmpty ? 'Món mới' : newName;
+        icon = Icons.add_circle_outline_rounded;
+        color = Colors.green.shade700;
+        bgColor = const Color(0xFFF0FDF4);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$mealLabel • ${_actionLabel(action)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    if (calories.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: color.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '${_compactNumber(calories)} kcal',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  changeText,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                if (quantity.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Khối lượng: ${_compactNumber(quantity)} g',
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _mealOrder(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return 0;
+      case 'lunch':
+        return 1;
+      case 'dinner':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  String _mealTypeLabel(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return 'Bữa sáng';
+      case 'lunch':
+        return 'Bữa trưa';
+      case 'dinner':
+        return 'Bữa tối';
+      default:
+        return 'Bữa phụ';
+    }
+  }
+
+  String _actionLabel(String action) {
+    switch (action.toLowerCase()) {
+      case 'replace':
+        return 'Thay món';
+      case 'remove':
+        return 'Bỏ món';
+      default:
+        return 'Thêm món';
+    }
+  }
+
+  String _proposalDateLabel(String rawDate) {
+    final date = DateTime.tryParse(rawDate);
+    if (date == null) return rawDate;
+    const weekdays = [
+      'Thứ Hai',
+      'Thứ Ba',
+      'Thứ Tư',
+      'Thứ Năm',
+      'Thứ Sáu',
+      'Thứ Bảy',
+      'Chủ nhật',
+    ];
+    final formatted =
+        '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year}';
+    return '${weekdays[date.weekday - 1]}, $formatted';
+  }
+
+  String _compactNumber(String raw) {
+    final value = num.tryParse(raw);
+    if (value == null || value % 1 != 0) return raw;
+    return value.toInt().toString();
+  }
+
+  Future<void> create({required bool midWeek}) async {
+    final available = midWeek ? _isThursday : _isSunday;
+    final alreadyCreated = midWeek ? _hasMidWeekCheckIn : _hasCurrentWeekReport;
+    if (!available) {
+      _notice(
+        context,
+        midWeek
+            ? 'Báo cáo giữa tuần chỉ mở vào Thứ Năm.'
+            : 'Báo cáo cuối tuần chỉ mở vào Chủ nhật.',
       );
       return;
     }
-    if (_hasCurrentWeekReport) {
-      _notice(context, 'Bạn đã gửi báo cáo cho tuần này.');
+    if (alreadyCreated) {
+      _notice(
+        context,
+        midWeek
+            ? 'Bạn đã gửi báo cáo giữa tuần này.'
+            : 'Bạn đã gửi báo cáo cuối tuần này.',
+      );
       return;
     }
 
     try {
       final coaches = await repo.myCoaches();
-      final hasConnected = coaches.any((c) => _v(c, 'connectionStatus').toLowerCase() == 'connected');
+      final hasConnected = coaches.any(
+        (c) => _v(c, 'connectionStatus').toLowerCase() == 'connected',
+      );
       if (!hasConnected) {
         if (mounted) _notice(context, 'Bạn chưa Đăng ký kết nối với PT');
         return;
@@ -158,390 +989,1235 @@ class _PtTabState extends State<_PtTab> {
       return;
     }
 
+    if (!mounted) return;
     final monday = _currentWeekMonday;
-
-    final noteController = TextEditingController();
-    final weightController = TextEditingController();
-    final bodyFatController = TextEditingController();
-    int selectedDays = 3;
-    String selectedFeeling = 'Khỏe 😊';
-    String submittedNote = '';
-    double? submittedWeight;
-    double? submittedBodyFat;
-
-    if (!mounted) {
-      // Dispose controllers trước khi thoát để tránh leak khi widget
-      // đã bị unmount giữa lúc.
-      noteController.dispose();
-      weightController.dispose();
-      bodyFatController.dispose();
-      return;
-    }
-
-    final bool? shouldSubmit;
-    try {
-      shouldSubmit = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Báo cáo & Check-in Tuần'),
-        content: StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Vui lòng điền các chỉ số thực tế tuần qua:',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Weight Field
-                  const Text(
-                    'Cân nặng hiện tại (kg) *',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: weightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      hintText: 'Ví dụ: 68.5',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Body Fat Field
-                  const Text(
-                    'Tỷ lệ mỡ (%) (không bắt buộc)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: bodyFatController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      hintText: 'Ví dụ: 15.2',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Training Days Field
-                  const Text(
-                    'Số buổi đã tập tuần này',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedDays,
-                    items: List.generate(8, (i) => DropdownMenuItem(
-                      value: i,
-                      child: Text('$i buổi'),
-                    )),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedDays = val);
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Feeling Field
-                  const Text(
-                    'Cảm nhận thể trạng',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedFeeling,
-                    items: const [
-                      DropdownMenuItem(value: 'Khỏe 😊', child: Text('Khỏe 😊')),
-                      DropdownMenuItem(value: 'Bình thường 😐', child: Text('Bình thường 😐')),
-                      DropdownMenuItem(value: 'Mệt mỏi 😴', child: Text('Mệt mỏi 😴')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedFeeling = val);
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Note Field
-                  const Text(
-                    'Lời nhắn / Ghi chú gửi PT (không bắt buộc)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: noteController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: 'Ví dụ: Tuần này em bận đi du lịch nên ăn uống hơi lệch target...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(10),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+    final shouldContinue = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => WeeklyReportPreviewScreen(
+          weekStart: monday,
+          repository: reportAnalyticsRepository,
+          dataThrough: midWeek ? DateTime.now() : null,
+          midWeek: midWeek,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final weight = double.tryParse(weightController.text.trim());
-              final bodyFat = bodyFatController.text.trim().isEmpty
-                  ? null
-                  : double.tryParse(bodyFatController.text.trim());
-              if (weight == null || weight < 20 || weight > 400) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cân nặng phải nằm trong khoảng 20–400 kg'),
-                  ),
-                );
-                return;
-              }
-              if (bodyFatController.text.trim().isNotEmpty &&
-                  (bodyFat == null || bodyFat < 1 || bodyFat > 75)) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('Tỷ lệ mỡ phải nằm trong khoảng 1–75%'),
-                  ),
-                );
-                return;
-              }
-              submittedNote = noteController.text.trim();
-              submittedWeight = weight;
-              submittedBodyFat = bodyFat;
-              Navigator.pop(ctx, true);
-            },
-            child: const Text('Gửi báo cáo'),
-          ),
-        ],
       ),
     );
-    } finally {
-      // Luôn dispose controllers khi dialog đóng (thành công hoặc huỷ)
-      // để tránh leak và lỗi "dependents.isEmpty is not true" khi widget
-      // TextField bị dispose cùng widget cha nhưng controller chưa được
-      // remove khỏi dependents.
-      noteController.dispose();
-      weightController.dispose();
-      bodyFatController.dispose();
-    }
+    if (!mounted || shouldContinue != true) return;
 
-    if (shouldSubmit != true) return;
+    final submission = await showDialog<_WeeklyCheckInData>(
+      context: context,
+      builder: (_) => const _WeeklyCheckInDialog(),
+    );
+    if (!mounted || submission == null) return;
 
     try {
-      final r = await repo.createPtReport(
+      await repo.createPtReport(
         monday.toIso8601String().substring(0, 10),
         7,
-        studentNote: submittedNote.isEmpty ? null : submittedNote,
-        checkInWeight: submittedWeight,
-        checkInBodyFat: submittedBodyFat,
-        trainingDaysCount: selectedDays,
-        bodyFeeling: selectedFeeling,
+        studentNote: submission.note.isEmpty ? null : submission.note,
+        checkInWeight: submission.weight,
+        checkInBodyFat: submission.bodyFat,
+        trainingDaysCount: submission.trainingDays,
+        bodyFeeling: submission.feeling,
+        requestType: midWeek ? 'MidWeekCheckIn' : 'WeeklyReport',
       );
-      if (mounted) _notice(context, 'Đã tạo link: ${_v(r, 'shareLink')}');
+      if (mounted) {
+        _notice(
+          context,
+          midWeek
+              ? 'Đã gửi báo cáo giữa tuần cho PT.'
+              : 'Đã gửi báo cáo cuối tuần cho PT.',
+        );
+      }
       await load();
     } catch (e) {
       if (mounted) _notice(context, e);
     }
   }
 
+  Widget _buildMetricTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> showResult(Map<String, dynamic> row) async {
     try {
-      final result = await repo.ptResult(_v(row, 'reportId'));
+      final reportId = _v(row, 'reportId');
+      final result = await repo.ptResult(reportId);
+      final proposal = await _proposalForReport(reportId);
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          final studentNote = _v(result, 'studentNote');
-          final checkInWeight = _v(result, 'checkInWeight');
-          final checkInBodyFat = _v(result, 'checkInBodyFat');
-          final trainingDaysCount = _v(result, 'trainingDaysCount');
-          final bodyFeeling = _v(result, 'bodyFeeling');
+      final detailAction = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(
+          builder: (detailContext) {
+            final studentNote = _v(result, 'studentNote');
+            final checkInWeight = _v(result, 'checkInWeight');
+            final checkInBodyFat = _v(result, 'checkInBodyFat');
+            final trainingDaysCount = _v(result, 'trainingDaysCount');
+            final bodyFeeling = _v(result, 'bodyFeeling');
+            final isMidWeek =
+                _v(result, 'requestType').toLowerCase() == 'midweekcheckin';
+            final hasPendingProposal =
+                proposal != null &&
+                _v(proposal, 'status').toLowerCase() == 'pending';
+            final canUseLegacyAction =
+                !hasPendingProposal &&
+                _v(result, 'status').toLowerCase() == 'reviewed';
 
-          return AlertDialog(
-            title: Text('Kết quả tuần ${_v(result, 'weekStartDate')}'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Upper Part: Gymer check-in report
-                  const Text(
-                    'Báo cáo check-in từ Gymer:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+            final statusText = _v(result, 'status');
+
+            return Scaffold(
+              backgroundColor: const Color(0xFFF8FAF9),
+              appBar: AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                title: Text(
+                  isMidWeek
+                      ? 'Chi tiết đánh giá giữa tuần'
+                      : 'Chi tiết đánh giá cuối tuần',
+                  style: const TextStyle(
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green.shade100),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Cân nặng thực tế:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-                            Text(
-                              checkInWeight.isNotEmpty ? '$checkInWeight kg' : '-',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
+                  onPressed: () => Navigator.pop(detailContext),
+                ),
+              ),
+              body: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header Hero Card: Week Date Range + Status
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Tỷ lệ mỡ cơ thể:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-                            Text(
-                              checkInBodyFat.isNotEmpty ? '$checkInBodyFat %' : '-',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.calendar_month_rounded,
+                                    color: AppColors.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isMidWeek ? 'Báo cáo giữa tuần' : 'Báo cáo cuối tuần',
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _weeklyDateRangeLabel(_v(result, 'weekStartDate')),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            _buildStatusBadge(statusText),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Upper Section: Gymer Check-in Report Card
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFDCFCE7)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Số buổi đã tập:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-                            Text(
-                              trainingDaysCount.isNotEmpty ? '$trainingDaysCount buổi' : '-',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.assignment_turned_in_rounded,
+                                    color: Colors.green,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Báo cáo check-in của bạn',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            // Metrics 2x2 Grid Layout
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricTile(
+                                    icon: Icons.monitor_weight_outlined,
+                                    label: 'Cân nặng thực tế',
+                                    value: checkInWeight.isNotEmpty ? '$checkInWeight kg' : 'Chưa nhập',
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildMetricTile(
+                                    icon: Icons.pie_chart_outline_rounded,
+                                    label: 'Tỷ lệ mỡ cơ thể',
+                                    value: checkInBodyFat.isNotEmpty ? '$checkInBodyFat %' : 'Chưa nhập',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricTile(
+                                    icon: Icons.fitness_center_rounded,
+                                    label: 'Số buổi đã tập',
+                                    value: trainingDaysCount.isNotEmpty ? '$trainingDaysCount buổi' : 'Chưa nhập',
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildMetricTile(
+                                    icon: Icons.sentiment_satisfied_alt_rounded,
+                                    label: 'Cảm nhận thể trạng',
+                                    value: bodyFeeling.isNotEmpty ? bodyFeeling : 'Chưa nhập',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (studentNote.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      size: 16,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Ghi chú gửi PT:',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            studentNote,
+                                            style: const TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              fontSize: 12.5,
+                                              color: AppColors.textDark,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Lower Section: PT Evaluation & Target Recommendations
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFEF3C7)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Cảm nhận thể trạng:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-                            Text(
-                              bodyFeeling.isNotEmpty ? bodyFeeling : '-',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.sports_rounded,
+                                    color: Colors.amber.shade900,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Đánh giá & Nhận xét từ PT',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            // PT Comment Box
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.format_quote_rounded,
+                                    size: 20,
+                                    color: Colors.amber.shade700,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      _v(result, 'ptComment', 'Chưa có nhận xét chi tiết từ huấn luyện viên.'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        height: 1.4,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // Calo & Protein target badges
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Text('🔥', style: TextStyle(fontSize: 16)),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Calo đề xuất',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                            Text(
+                                              _v(result, 'suggestedCalorieTarget').isNotEmpty
+                                                  ? '${_v(result, 'suggestedCalorieTarget')} kcal'
+                                                  : '-',
+                                              style: const TextStyle(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.textDark,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Text('🥩', style: TextStyle(fontSize: 16)),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Protein đề xuất',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                            Text(
+                                              _v(result, 'suggestedProteinTarget').isNotEmpty
+                                                  ? '${_v(result, 'suggestedProteinTarget')} g'
+                                                  : '-',
+                                              style: const TextStyle(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.textDark,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        if (studentNote.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          const Text('Ghi chú của bạn:', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 4),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: Text(
-                              studentNote,
-                              style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Proposal Section
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.restaurant_menu_rounded,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isMidWeek
+                                ? 'Đề xuất điều chỉnh giữa tuần'
+                                : 'Lộ trình đề xuất cho tuần kế tiếp',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: AppColors.textDark,
                             ),
                           ),
                         ],
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildReviewedMealChanges(result, proposal),
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // Lower Part: PT Evaluation
-                  Text(
-                    'Đánh giá & Nhận xét từ PT:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade800),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.amber.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '• PT nhận xét: ${_v(result, 'ptComment', 'Chưa có nhận xét')}',
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Calo đề xuất: ${_v(result, 'suggestedCalorieTarget', '-')} kcal',
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Protein đề xuất: ${_v(result, 'suggestedProteinTarget', '-')} g',
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Trạng thái: ${_v(result, 'status')}',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  const Text(
-                    'Thay đổi thực đơn đề xuất:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  if ((result['suggestedChanges'] ?? result['SuggestedChanges']) is List)
-                    for (final raw in (result['suggestedChanges'] ?? result['SuggestedChanges']) as List)
-                      if (raw is Map)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            '${raw['action'] ?? raw['Action']} • ${raw['mealType'] ?? raw['MealType']}',
-                          ),
-                          subtitle: Text(
-                            '${raw['dayOfWeek'] ?? raw['DayOfWeek']}\n${raw['notes'] ?? raw['Notes'] ?? ''}',
-                          ),
-                        ),
-                ],
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Đóng'),
-              ),
-            ],
-          );
-        },
+              bottomNavigationBar: hasPendingProposal || canUseLegacyAction
+                  ? SafeArea(
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 14,
+                              offset: const Offset(0, -4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(detailContext, 'reject'),
+                                icon: const Icon(Icons.cancel_outlined, size: 18),
+                                label: Text(
+                                  hasPendingProposal ? 'Từ chối toàn bộ' : 'Từ chối',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red.shade700,
+                                  side: BorderSide(color: Colors.red.shade300),
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () => Navigator.pop(detailContext, 'apply'),
+                                icon: const Icon(Icons.check_circle_rounded, size: 18),
+                                label: Text(
+                                  hasPendingProposal ? 'Áp dụng toàn bộ' : 'Áp dụng mục tiêu',
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : null,
+            );
+          },
+        ),
       );
+
+      if (!mounted || detailAction == null) return;
+      if (proposal != null &&
+          _v(proposal, 'status').toLowerCase() == 'pending') {
+        await _actionProposal(proposal, detailAction);
+        return;
+      }
+
+      try {
+        await repo.ptAction(reportId, detailAction);
+        if (!mounted) return;
+        _notice(
+          context,
+          detailAction == 'apply'
+              ? 'Đã áp dụng mục tiêu PT đề xuất.'
+              : 'Đã từ chối mục tiêu PT đề xuất.',
+        );
+        await load();
+      } catch (error) {
+        if (mounted) _notice(context, error);
+      }
     } catch (e) {
       if (mounted) _notice(context, e);
     }
+  }
+
+
+  String _selectedStatusFilter = 'ALL';
+  String _selectedTypeFilter = 'ALL';
+  int _currentPage = 1;
+  static const int _pageSize = 5;
+
+  List<Map<String, dynamic>> get _filteredReviewRows {
+    return _reviewRows.where((row) {
+      final status = _v(row, 'status').toLowerCase();
+      final type = _v(row, 'requestType').toLowerCase();
+
+      bool matchStatus = true;
+      if (_selectedStatusFilter == 'PENDING') {
+        matchStatus = status == 'pending';
+      } else if (_selectedStatusFilter == 'REVIEWED') {
+        matchStatus = status == 'reviewed' || status == 'applied';
+      } else if (_selectedStatusFilter == 'REJECTED') {
+        matchStatus = status == 'rejected';
+      }
+
+      bool matchType = true;
+      if (_selectedTypeFilter == 'MIDWEEK') {
+        matchType = type == 'midweekcheckin';
+      } else if (_selectedTypeFilter == 'WEEKLY') {
+        matchType = type == 'weeklyreport';
+      }
+
+      return matchStatus && matchType;
+    }).toList();
+  }
+
+  int get _totalPages {
+    final count = _filteredReviewRows.length;
+    if (count == 0) return 1;
+    return (count / _pageSize).ceil();
+  }
+
+  List<Map<String, dynamic>> get _paginatedReviewRows {
+    final filtered = _filteredReviewRows;
+    final startIndex = (_currentPage - 1) * _pageSize;
+    if (startIndex >= filtered.length) return [];
+    final endIndex = (startIndex + _pageSize).clamp(0, filtered.length);
+    return filtered.sublist(startIndex, endIndex);
+  }
+
+  void _setStatusFilter(String status) {
+    if (_selectedStatusFilter != status) {
+      setState(() {
+        _selectedStatusFilter = status;
+        _currentPage = 1;
+      });
+    }
+  }
+
+  void _setTypeFilter(String type) {
+    if (_selectedTypeFilter != type) {
+      setState(() {
+        _selectedTypeFilter = type;
+        _currentPage = 1;
+      });
+    }
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedStatusFilter = 'ALL';
+      _selectedTypeFilter = 'ALL';
+      _currentPage = 1;
+    });
+  }
+
+  Widget _buildActionHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.send_and_archive_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tạo báo cáo check-in PT',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    Text(
+                      'Nhấn chọn để tạo báo cáo chỉ số thực tế gửi PT',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Material(
+                  color: _hasMidWeekCheckIn
+                      ? const Color(0xFFF1F5F9)
+                      : (_isThursday
+                          ? AppColors.primary.withValues(alpha: 0.08)
+                          : const Color(0xFFF8FAFC)),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => create(midWeek: true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _hasMidWeekCheckIn
+                              ? const Color(0xFFCBD5E1)
+                              : (_isThursday
+                                  ? AppColors.primary
+                                  : const Color(0xFFE2E8F0)),
+                          width: _isThursday && !_hasMidWeekCheckIn ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _hasMidWeekCheckIn
+                                    ? Icons.check_circle_rounded
+                                    : Icons.add_circle_outline_rounded,
+                                size: 16,
+                                color: _hasMidWeekCheckIn
+                                    ? Colors.green.shade700
+                                    : (_isThursday
+                                        ? AppColors.primary
+                                        : AppColors.textDark),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  _hasMidWeekCheckIn
+                                      ? 'Đã gửi giữa tuần'
+                                      : (_isThursday
+                                          ? 'Tạo báo cáo T5'
+                                          : 'Báo cáo giữa tuần'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _hasMidWeekCheckIn
+                                        ? Colors.green.shade800
+                                        : (_isThursday
+                                            ? AppColors.primary
+                                            : AppColors.textDark),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _hasMidWeekCheckIn
+                                ? 'Đã báo cáo (Nhấn xem)'
+                                : (_isThursday
+                                    ? 'Chạm để tạo báo cáo'
+                                    : 'Mở vào Thứ Năm'),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: _hasMidWeekCheckIn
+                                  ? Colors.green.shade700
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Material(
+                  color: _hasCurrentWeekReport
+                      ? const Color(0xFFF1F5F9)
+                      : (_isSunday
+                          ? const Color(0xFFEFF6FF)
+                          : const Color(0xFFF8FAFC)),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => create(midWeek: false),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _hasCurrentWeekReport
+                              ? const Color(0xFFCBD5E1)
+                              : (_isSunday
+                                  ? Colors.blue.shade600
+                                  : const Color(0xFFE2E8F0)),
+                          width: _isSunday && !_hasCurrentWeekReport ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _hasCurrentWeekReport
+                                    ? Icons.check_circle_rounded
+                                    : Icons.add_circle_outline_rounded,
+                                size: 16,
+                                color: _hasCurrentWeekReport
+                                    ? Colors.green.shade700
+                                    : (_isSunday
+                                        ? Colors.blue.shade700
+                                        : AppColors.textDark),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  _hasCurrentWeekReport
+                                      ? 'Đã gửi cuối tuần'
+                                      : (_isSunday
+                                          ? 'Tạo báo cáo CN'
+                                          : 'Báo cáo cuối tuần'),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _hasCurrentWeekReport
+                                        ? Colors.green.shade800
+                                        : (_isSunday
+                                            ? Colors.blue.shade800
+                                            : AppColors.textDark),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _hasCurrentWeekReport
+                                ? 'Đã báo cáo (Nhấn xem)'
+                                : (_isSunday
+                                    ? 'Chạm để tạo báo cáo'
+                                    : 'Mở vào Chủ nhật'),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: _hasCurrentWeekReport
+                                  ? Colors.green.shade700
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: AppColors.textSecondary.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Giữa tuần: PT điều chỉnh T6–CN. Cuối tuần: PT chuẩn bị lộ trình tuần tới.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    final isFiltered = _selectedStatusFilter != 'ALL' || _selectedTypeFilter != 'ALL';
+    final totalCount = _reviewRows.length;
+    final filteredCount = _filteredReviewRows.length;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14, bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Lịch sử đánh giá',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      isFiltered ? '$filteredCount/$totalCount' : '$totalCount',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isFiltered)
+                InkWell(
+                  onTap: _resetFilters,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.filter_alt_off_rounded, size: 14, color: AppColors.primary),
+                        SizedBox(width: 4),
+                        Text(
+                          'Xóa lọc',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Filter by Status chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip(
+                  label: 'Tất cả',
+                  isSelected: _selectedStatusFilter == 'ALL',
+                  onTap: () => _setStatusFilter('ALL'),
+                ),
+                const SizedBox(width: 6),
+                _buildFilterChip(
+                  label: 'Chờ duyệt ⏳',
+                  isSelected: _selectedStatusFilter == 'PENDING',
+                  onTap: () => _setStatusFilter('PENDING'),
+                ),
+                const SizedBox(width: 6),
+                _buildFilterChip(
+                  label: 'Đã nhận xét ✅',
+                  isSelected: _selectedStatusFilter == 'REVIEWED',
+                  onTap: () => _setStatusFilter('REVIEWED'),
+                ),
+                const SizedBox(width: 6),
+                _buildFilterChip(
+                  label: 'Từ chối ❌',
+                  isSelected: _selectedStatusFilter == 'REJECTED',
+                  onTap: () => _setStatusFilter('REJECTED'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Filter by Type chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildTypeChip(
+                  label: 'Tất cả loại',
+                  isSelected: _selectedTypeFilter == 'ALL',
+                  onTap: () => _setTypeFilter('ALL'),
+                ),
+                const SizedBox(width: 6),
+                _buildTypeChip(
+                  label: 'Giữa tuần ⏱️',
+                  isSelected: _selectedTypeFilter == 'MIDWEEK',
+                  onTap: () => _setTypeFilter('MIDWEEK'),
+                ),
+                const SizedBox(width: 6),
+                _buildTypeChip(
+                  label: 'Cuối tuần 📅',
+                  isSelected: _selectedTypeFilter == 'WEEKLY',
+                  onTap: () => _setTypeFilter('WEEKLY'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? Colors.white : AppColors.textDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3B82F6) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationFooter() {
+    final filtered = _filteredReviewRows;
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
+    final totalPages = _totalPages;
+    final totalItems = filtered.length;
+    final startItem = (_currentPage - 1) * _pageSize + 1;
+    final endItem = (_currentPage * _pageSize).clamp(1, totalItems);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Hiển thị $startItem–$endItem / $totalItems báo cáo',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: _currentPage > 1
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                color: AppColors.primary,
+                disabledColor: Colors.grey.shade300,
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Trang $_currentPage / $totalPages',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _currentPage < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                color: AppColors.primary,
+                disabledColor: Colors.grey.shade300,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStatusBadge(String status) {
@@ -550,8 +2226,8 @@ class _PtTabState extends State<_PtTab> {
     String label = status;
     switch (status.toLowerCase()) {
       case 'pending':
-        bg = Colors.orange.shade50;
-        fg = Colors.orange.shade800;
+        bg = Colors.amber.shade50;
+        fg = Colors.amber.shade900;
         label = 'Chờ duyệt';
         break;
       case 'reviewed':
@@ -574,229 +2250,344 @@ class _PtTabState extends State<_PtTab> {
         fg = Colors.grey.shade700;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: fg,
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
-        ),
+        style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 11),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) => loading
-      ? const Center(child: CircularProgressIndicator())
-      : RefreshIndicator(
-          onRefresh: load,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              FilledButton.icon(
-                onPressed: _isSunday && !_hasCurrentWeekReport
-                    ? create
-                    : null,
-                icon: Icon(
-                  _hasCurrentWeekReport
-                      ? Icons.check_circle_outline
-                      : Icons.calendar_today,
-                ),
-                label: Text(
-                  _hasCurrentWeekReport
-                      ? 'Đã gửi báo cáo tuần này'
-                      : _isSunday
-                      ? 'Tạo báo cáo tuần này'
-                      : 'Mở vào Chủ nhật',
-                ),
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final paginatedRows = _paginatedReviewRows;
+    final totalFiltered = _filteredReviewRows.length;
+
+    return RefreshIndicator(
+      onRefresh: load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        children: [
+          _buildActionHeader(),
+          _buildFilterSection(),
+
+          if (totalFiltered == 0)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              if (!_isSunday && !_hasCurrentWeekReport) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  'Bạn chỉ có thể tạo báo cáo vào Chủ nhật sau khi hoàn tất dữ liệu của cả tuần.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.assignment_outlined,
+                    size: 44,
+                    color: AppColors.textSecondary.withValues(alpha: 0.4),
                   ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (rows.where((r) => _v(r, 'requestType').toLowerCase() == 'weeklyreport').isEmpty)
-                const Center(child: Text('Chưa có yêu cầu review')),
-              for (final r in rows.where((r) => _v(r, 'requestType').toLowerCase() == 'weeklyreport'))
-                Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Tuần ${_v(r, 'weekStartDate')}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            _buildStatusBadge(_v(r, 'status')),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (_v(r, 'checkInWeight').isNotEmpty ||
-                            _v(r, 'trainingDaysCount').isNotEmpty ||
-                            _v(r, 'bodyFeeling').isNotEmpty ||
-                            _v(r, 'studentNote').isNotEmpty) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.shade100),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Chỉ số check-in của bạn:',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 12,
-                                  runSpacing: 4,
-                                  children: [
-                                    if (_v(r, 'checkInWeight').isNotEmpty)
-                                      Text('Cân nặng: ${_v(r, 'checkInWeight')} kg${_v(r, 'checkInBodyFat').isNotEmpty ? ' (Mỡ: ${_v(r, 'checkInBodyFat')}%)' : ''}', style: const TextStyle(fontSize: 12)),
-                                    if (_v(r, 'trainingDaysCount').isNotEmpty)
-                                      Text('Tập: ${_v(r, 'trainingDaysCount')} buổi', style: const TextStyle(fontSize: 12)),
-                                    if (_v(r, 'bodyFeeling').isNotEmpty)
-                                      Text('Thể trạng: ${_v(r, 'bodyFeeling')}', style: const TextStyle(fontSize: 12)),
-                                  ],
-                                ),
-                                if (_v(r, 'studentNote').isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Ghi chú: "${_v(r, 'studentNote')}"',
-                                    style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12, color: Colors.black54),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        if (_v(r, 'status').toLowerCase() == 'reviewed' || _v(r, 'status').toLowerCase() == 'applied') ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.amber.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Đánh giá & Mục tiêu từ PT:',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '• Nhận xét: ${_v(r, 'ptComment', 'Chưa có nhận xét')}',
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '• Calo đề xuất: ${_v(r, 'suggestedCalorieTarget', '-')} kcal',
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '• Protein đề xuất: ${_v(r, 'suggestedProteinTarget', '-')} g',
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ] else if (_v(r, 'status').toLowerCase() == 'pending') ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              'Đang chờ huấn luyện viên nhận xét và cập nhật mục tiêu mới...',
-                              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.black45, fontSize: 12),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (_v(r, 'status').toLowerCase() == 'reviewed')
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () async {
-                                  final localContext = context;
-                                  try {
-                                    await repo.ptAction(_v(r, 'reportId'), 'reject');
-                                    await load();
-                                  } catch (e) {
-                                    if (localContext.mounted) _notice(localContext, e);
-                                  }
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                child: const Text('Từ chối'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                onPressed: () async {
-                                  final localContext = context;
-                                  try {
-                                    await repo.ptAction(_v(r, 'reportId'), 'apply');
-                                    await load();
-                                  } catch (e) {
-                                    if (localContext.mounted) _notice(localContext, e);
-                                  }
-                                },
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                ),
-                                child: const Text('Áp dụng mục tiêu mới'),
-                              ),
-                            ],
-                          )
-                        else
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => showResult(r),
-                              child: const Text('Xem chi tiết thực đơn thay đổi'),
-                            ),
-                          ),
-                      ],
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Không tìm thấy báo cáo phù hợp',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Thử thay đổi bộ lọc trạng thái hoặc loại báo cáo',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _resetFilters,
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Đặt lại bộ lọc'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          for (final r in paginatedRows) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                          ? const Color(0xFFECFDF5)
+                                          : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                          ? 'Giữa tuần'
+                                          : 'Báo cáo tuần',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                            ? Colors.green.shade800
+                                            : Colors.blue.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _weeklyDateRangeLabel(_v(r, 'weekStartDate')),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.5,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildStatusBadge(_v(r, 'status')),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (_v(r, 'checkInWeight').isNotEmpty ||
+                        _v(r, 'trainingDaysCount').isNotEmpty ||
+                        _v(r, 'bodyFeeling').isNotEmpty ||
+                        _v(r, 'studentNote').isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFDCFCE7)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Chỉ số check-in của bạn:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              children: [
+                                if (_v(r, 'checkInWeight').isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.monitor_weight_outlined, size: 14, color: AppColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Cân nặng: ${_v(r, 'checkInWeight')} kg${_v(r, 'checkInBodyFat').isNotEmpty ? ' (${_v(r, 'checkInBodyFat')}%)' : ''}',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                if (_v(r, 'trainingDaysCount').isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.fitness_center_rounded, size: 14, color: AppColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Tập: ${_v(r, 'trainingDaysCount')} buổi',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                if (_v(r, 'bodyFeeling').isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.sentiment_satisfied_alt_rounded, size: 14, color: AppColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Thể trạng: ${_v(r, 'bodyFeeling')}',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                            if (_v(r, 'studentNote').isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Ghi chú: "${_v(r, 'studentNote')}"',
+                                style: const TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  fontSize: 11.5,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+
+                    if (_v(r, 'status').toLowerCase() == 'reviewed' ||
+                        _v(r, 'status').toLowerCase() == 'applied') ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFEF3C7)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Đánh giá & Mục tiêu từ PT:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                color: Colors.amber,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '• Nhận xét: ${_v(r, 'ptComment', 'Chưa có nhận xét')}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '• Calo: ${_v(r, 'suggestedCalorieTarget', '-')} kcal',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    '• Protein: ${_v(r, 'suggestedProteinTarget', '-')} g',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ] else if (_v(r, 'status').toLowerCase() == 'pending') ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: const [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Đang chờ HLV nhận xét và cập nhật mục tiêu mới...',
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => showResult(r),
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                        iconAlignment: IconAlignment.end,
+                        label: const Text('Xem chi tiết'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
-        );
+              ),
+            ),
+          ],
+
+          _buildPaginationFooter(),
+        ],
+      ),
+    );
+  }
 }
 
 class _BudgetTab extends StatefulWidget {
@@ -1020,7 +2811,8 @@ class _CoachTabState extends State<_CoachTab> {
                 // Handle bar
                 Center(
                   child: Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(2),
@@ -1032,16 +2824,24 @@ class _CoachTabState extends State<_CoachTab> {
                 Row(
                   children: [
                     Container(
-                      width: 64, height: 64,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.6)],
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withValues(alpha: 0.6),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Icon(Icons.sports_gymnastics_rounded, color: Colors.white, size: 32),
+                      child: const Icon(
+                        Icons.sports_gymnastics_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -1050,11 +2850,17 @@ class _CoachTabState extends State<_CoachTab> {
                         children: [
                           Text(
                             _v(detail, 'fullName'),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
@@ -1096,7 +2902,11 @@ class _CoachTabState extends State<_CoachTab> {
                   const SizedBox(height: 14),
                   Text(
                     _v(detail, 'bio'),
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.5),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      height: 1.5,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -1110,7 +2920,9 @@ class _CoachTabState extends State<_CoachTab> {
                           color: AppColors.primary,
                           onTap: () async {
                             await repo.access(_v(detail, 'id'), true);
-                            if (sheetContext.mounted) Navigator.pop(sheetContext);
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
                           },
                         ),
                       ),
@@ -1122,7 +2934,9 @@ class _CoachTabState extends State<_CoachTab> {
                           color: Colors.red.shade400,
                           onTap: () async {
                             await repo.access(_v(detail, 'id'), false);
-                            if (sheetContext.mounted) Navigator.pop(sheetContext);
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
                           },
                         ),
                       ),
@@ -1144,7 +2958,9 @@ class _CoachTabState extends State<_CoachTab> {
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),
@@ -1176,7 +2992,10 @@ class _CoachTabState extends State<_CoachTab> {
                         label: 'Đăng ký Coach',
                         icon: Icons.verified_user_outlined,
                         onTap: () => Navigator.push(
-                          c, MaterialPageRoute(builder: (_) => const CoachRegisterScreen()),
+                          c,
+                          MaterialPageRoute(
+                            builder: (_) => const CoachRegisterScreen(),
+                          ),
                         ),
                       ),
                     ),
@@ -1186,7 +3005,10 @@ class _CoachTabState extends State<_CoachTab> {
                         label: 'Học viên',
                         icon: Icons.group_outlined,
                         onTap: () => Navigator.push(
-                          c, MaterialPageRoute(builder: (_) => const CoachClientsScreen()),
+                          c,
+                          MaterialPageRoute(
+                            builder: (_) => const CoachClientsScreen(),
+                          ),
                         ),
                       ),
                     ),
@@ -1203,20 +3025,32 @@ class _CoachTabState extends State<_CoachTab> {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.sports_gymnastics_rounded, color: AppColors.primary, size: 22),
+                    child: const Icon(
+                      Icons.sports_gymnastics_rounded,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.gymerMode ? 'Huấn luyện viên phù hợp' : 'Danh bạ coach',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        widget.gymerMode
+                            ? 'Huấn luyện viên phù hợp'
+                            : 'Danh bạ coach',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       if (widget.gymerMode)
                         Text(
                           'Chủ động cấp hoặc thu hồi quyền xem dữ liệu',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
                         ),
                     ],
                   ),
@@ -1226,7 +3060,11 @@ class _CoachTabState extends State<_CoachTab> {
 
               // Connected section
               if (connectedCoaches.isNotEmpty) ...[
-                _SectionLabel(label: 'Đang kết nối', icon: Icons.link_rounded, color: AppColors.primary),
+                _SectionLabel(
+                  label: 'Đang kết nối',
+                  icon: Icons.link_rounded,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 10),
                 for (final r in connectedCoaches)
                   _CoachCard(
@@ -1238,21 +3076,33 @@ class _CoachTabState extends State<_CoachTab> {
                     isConnected: true,
                     onTap: () => showCoach(r),
                     onAction: () async {
-                      final isConn = _v(r, 'connectionStatus').toLowerCase() == 'connected';
+                      final isConn =
+                          _v(r, 'connectionStatus').toLowerCase() ==
+                          'connected';
                       final title = isConn ? 'Hủy kết nối' : 'Hủy yêu cầu';
                       final confirm = await showDialog<bool>(
                         context: c,
                         builder: (d) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           title: Text(title),
-                          content: Text(isConn
-                              ? 'Bạn có chắc muốn hủy kết nối với huấn luyện viên này?'
-                              : 'Bạn có chắc muốn rút lại yêu cầu?'),
+                          content: Text(
+                            isConn
+                                ? 'Bạn có chắc muốn hủy kết nối với huấn luyện viên này?'
+                                : 'Bạn có chắc muốn rút lại yêu cầu?',
+                          ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Bỏ qua')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(d, false),
+                              child: const Text('Bỏ qua'),
+                            ),
                             TextButton(
                               onPressed: () => Navigator.pop(d, true),
-                              child: Text(title, style: const TextStyle(color: Colors.red)),
+                              child: Text(
+                                title,
+                                style: const TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         ),
@@ -1260,15 +3110,30 @@ class _CoachTabState extends State<_CoachTab> {
                       if (confirm == true) {
                         try {
                           await repo.disconnect(_v(r, 'id'));
-                          if (c.mounted) { _notice(c, isConn ? 'Đã hủy kết nối' : 'Đã hủy yêu cầu'); load(); }
-                        } catch (e) { if (c.mounted) _notice(c, e); }
+                          if (c.mounted) {
+                            _notice(
+                              c,
+                              isConn ? 'Đã hủy kết nối' : 'Đã hủy yêu cầu',
+                            );
+                            load();
+                          }
+                        } catch (e) {
+                          if (c.mounted) _notice(c, e);
+                        }
                       }
                     },
-                    actionLabel: _v(r, 'connectionStatus').toLowerCase() == 'connected' ? 'Hủy kết nối' : 'Hủy yêu cầu',
+                    actionLabel:
+                        _v(r, 'connectionStatus').toLowerCase() == 'connected'
+                        ? 'Hủy kết nối'
+                        : 'Hủy yêu cầu',
                     actionColor: Colors.red,
                   ),
                 const SizedBox(height: 16),
-                _SectionLabel(label: 'Khám phá thêm', icon: Icons.explore_rounded, color: Colors.grey.shade600),
+                _SectionLabel(
+                  label: 'Khám phá thêm',
+                  icon: Icons.explore_rounded,
+                  color: Colors.grey.shade600,
+                ),
                 const SizedBox(height: 10),
               ],
 
@@ -1279,9 +3144,19 @@ class _CoachTabState extends State<_CoachTab> {
                     padding: const EdgeInsets.symmetric(vertical: 48),
                     child: Column(
                       children: [
-                        Icon(Icons.sports_gymnastics_rounded, size: 56, color: Colors.grey.shade300),
+                        Icon(
+                          Icons.sports_gymnastics_rounded,
+                          size: 56,
+                          color: Colors.grey.shade300,
+                        ),
                         const SizedBox(height: 12),
-                        Text('Chưa có huấn luyện viên', style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+                        Text(
+                          'Chưa có huấn luyện viên',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 15,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1299,8 +3174,13 @@ class _CoachTabState extends State<_CoachTab> {
                     onAction: () async {
                       try {
                         await repo.connect(_v(r, 'id'));
-                        if (c.mounted) { _notice(c, 'Đã gửi yêu cầu kết nối'); load(); }
-                      } catch (e) { if (c.mounted) _notice(c, e); }
+                        if (c.mounted) {
+                          _notice(c, 'Đã gửi yêu cầu kết nối');
+                          load();
+                        }
+                      } catch (e) {
+                        if (c.mounted) _notice(c, e);
+                      }
                     },
                     actionLabel: 'Kết nối',
                     actionColor: AppColors.primary,
@@ -1603,7 +3483,10 @@ class _CoachCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isConnected
-                        ? [AppColors.primary, AppColors.primary.withValues(alpha: 0.65)]
+                        ? [
+                            AppColors.primary,
+                            AppColors.primary.withValues(alpha: 0.65),
+                          ]
                         : [const Color(0xFF6EE7B7), const Color(0xFF34D399)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -1637,7 +3520,10 @@ class _CoachCard extends StatelessWidget {
                         ),
                         if (isConnected)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: isConn
                                   ? Colors.green.shade50
@@ -1674,11 +3560,16 @@ class _CoachCard extends StatelessWidget {
               GestureDetector(
                 onTap: onAction,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: actionColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: actionColor.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: actionColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Text(
                     actionLabel,
@@ -1756,8 +3647,17 @@ class _DetailStat extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                Text(sub, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                ),
               ],
             ),
           ],
@@ -1796,7 +3696,14 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),

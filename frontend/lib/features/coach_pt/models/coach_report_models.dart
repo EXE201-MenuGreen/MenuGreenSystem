@@ -63,9 +63,11 @@ class CoachWeeklyReport {
     this.suggestedProteinTarget,
     this.checkInWeight,
     this.trainingDaysCount,
+    this.requestType = 'WeeklyReport',
   });
 
   final String reportId;
+
   /// Backend does NOT include this in the list view, only in detail. Keep
   /// nullable so a list-mode result renders gracefully.
   final String? clientId;
@@ -80,6 +82,9 @@ class CoachWeeklyReport {
   final int? suggestedProteinTarget;
   final double? checkInWeight;
   final int? trainingDaysCount;
+  final String requestType;
+
+  bool get isMidWeekCheckIn => requestType.toLowerCase() == 'midweekcheckin';
 
   bool get isPending => status == CoachReportStatus.pending;
   bool get isReviewed => status == CoachReportStatus.reviewed;
@@ -91,11 +96,8 @@ class CoachWeeklyReport {
       studentName: (j['studentName'] ?? j['StudentName'] ?? '') as String,
       weekStartDate:
           _date(j['weekStartDate'] ?? j['WeekStartDate']) ?? DateTime.now(),
-      status: CoachReportStatus.parse(
-        (j['status'] ?? j['Status']) as String?,
-      ),
-      createdAt:
-          _dateTime(j['createdAt'] ?? j['CreatedAt']) ?? DateTime.now(),
+      status: CoachReportStatus.parse((j['status'] ?? j['Status']) as String?),
+      createdAt: _dateTime(j['createdAt'] ?? j['CreatedAt']) ?? DateTime.now(),
       expiresAt: _dateTime(j['expiresAt'] ?? j['ExpiresAt']),
       reviewedAt: _dateTime(j['reviewedAt'] ?? j['ReviewedAt']),
       actionedAt: _dateTime(j['actionedAt'] ?? j['ActionedAt']),
@@ -103,10 +105,11 @@ class CoachWeeklyReport {
           (j['suggestedCalorieTarget'] ?? j['SuggestedCalorieTarget']) as int?,
       suggestedProteinTarget:
           (j['suggestedProteinTarget'] ?? j['SuggestedProteinTarget']) as int?,
-      checkInWeight:
-          _num(j['checkInWeight'] ?? j['CheckInWeight'])?.toDouble(),
+      checkInWeight: _num(j['checkInWeight'] ?? j['CheckInWeight'])?.toDouble(),
       trainingDaysCount:
           (j['trainingDaysCount'] ?? j['TrainingDaysCount']) as int?,
+      requestType: (j['requestType'] ?? j['RequestType'] ?? 'WeeklyReport')
+          .toString(),
     );
   }
 }
@@ -117,6 +120,7 @@ class CoachWeeklyReportDetail {
     required this.ptComment,
     required this.suggestedChanges,
     required this.reportData,
+    this.mealPlanProposal,
   });
 
   final CoachWeeklyReport summary;
@@ -128,9 +132,12 @@ class CoachWeeklyReportDetail {
   /// Full report payload (nutrition summary, adherence, drift, weight logs,
   /// daily meals, etc.) — pass to a deep sub-screen as-is.
   final Map<String, dynamic>? reportData;
+  final Map<String, dynamic>? mealPlanProposal;
 
-  factory CoachWeeklyReportDetail.fromJson(CoachWeeklyReport summary,
-      Map<String, dynamic> j) {
+  factory CoachWeeklyReportDetail.fromJson(
+    CoachWeeklyReport summary,
+    Map<String, dynamic> j,
+  ) {
     final raw =
         (j['suggestedChanges'] ?? j['SuggestedChanges'] ?? const []) as List;
     return CoachWeeklyReportDetail(
@@ -141,6 +148,11 @@ class CoachWeeklyReportDetail {
           .toList(),
       reportData: j['reportData'] is Map
           ? Map<String, dynamic>.from(j['reportData'] as Map)
+          : null,
+      mealPlanProposal: (j['mealPlanProposal'] ?? j['MealPlanProposal']) is Map
+          ? Map<String, dynamic>.from(
+              (j['mealPlanProposal'] ?? j['MealPlanProposal']) as Map,
+            )
           : null,
     );
   }
@@ -169,18 +181,18 @@ class MealPlanAdjustment {
   final int? targetCalories;
 
   Map<String, dynamic> toJson() => {
-        'planId': planId,
-        'itemId': itemId,
-        'action': action.toLowerCase(),
-        'mealType': mealType.toLowerCase(),
-        'plannedDate':
-            '${plannedDate.year.toString().padLeft(4, '0')}-'
-            '${plannedDate.month.toString().padLeft(2, '0')}-'
-            '${plannedDate.day.toString().padLeft(2, '0')}',
-        if (foodId != null) 'foodId': foodId,
-        if (recipeId != null) 'recipeId': recipeId,
-        if (targetCalories != null) 'targetCalories': targetCalories,
-      };
+    'planId': planId,
+    'itemId': itemId,
+    'action': action.toLowerCase(),
+    'mealType': mealType.toLowerCase(),
+    'plannedDate':
+        '${plannedDate.year.toString().padLeft(4, '0')}-'
+        '${plannedDate.month.toString().padLeft(2, '0')}-'
+        '${plannedDate.day.toString().padLeft(2, '0')}',
+    if (foodId != null) 'foodId': foodId,
+    if (recipeId != null) 'recipeId': recipeId,
+    if (targetCalories != null) 'targetCalories': targetCalories,
+  };
 }
 
 /// Body posted to POST /api/PtReview/coach/reports/{reportId}/review.
@@ -198,14 +210,14 @@ class CoachReviewSubmission {
   final List<MealPlanAdjustment> adjustments;
 
   Map<String, dynamic> toJson() => {
-        'comment': comment,
-        if (suggestedCalorieTarget != null)
-          'suggestedCalorieTarget': suggestedCalorieTarget,
-        if (suggestedProteinTarget != null)
-          'suggestedProteinTarget': suggestedProteinTarget,
-        if (adjustments.isNotEmpty)
-          'adjustMealPlanItems': adjustments.map((a) => a.toJson()).toList(),
-      };
+    'comment': comment,
+    if (suggestedCalorieTarget != null)
+      'suggestedCalorieTarget': suggestedCalorieTarget,
+    if (suggestedProteinTarget != null)
+      'suggestedProteinTarget': suggestedProteinTarget,
+    if (adjustments.isNotEmpty)
+      'adjustMealPlanItems': adjustments.map((a) => a.toJson()).toList(),
+  };
 }
 
 DateTime? _date(dynamic raw) {

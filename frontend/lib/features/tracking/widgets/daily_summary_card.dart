@@ -40,41 +40,77 @@ class DailySummaryCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              if (goalPercent != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${goalPercent.toStringAsFixed(0)}% Mục tiêu',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+            ],
           ),
           if (warnings.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             ...warnings.map(
               (msg) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
-                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 14,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           msg,
-                          style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF92400E),
+                          ),
                         ),
                       ),
                     ],
@@ -83,64 +119,90 @@ class DailySummaryCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
                 s.totalCalories.toStringAsFixed(0),
                 style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textDark,
+                  letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(width: 4),
               Text(
                 isAverage
-                    ? ' / ${targetCalories.toStringAsFixed(0)} kcal/ngày'
-                    : ' / ${targetCalories.toStringAsFixed(0)} kcal',
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const Spacer(),
-              if (goalPercent != null)
-                Text(
-                  '${goalPercent.toStringAsFixed(0)}%',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
+                    ? '/ ${targetCalories.toStringAsFixed(0)} kcal/ngày'
+                    : '/ ${targetCalories.toStringAsFixed(0)} kcal',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary.withValues(alpha: 0.8),
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: AppColors.progressBackground,
+              backgroundColor: const Color(0xFFF1F5F9),
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              minHeight: 8,
+              minHeight: 10,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             isAverage
                 ? (remaining >= 0
-                    ? 'TB còn ${remaining.toStringAsFixed(0)} kcal/ngày'
-                    : 'TB vượt ${(-remaining).toStringAsFixed(0)} kcal/ngày')
+                    ? 'Còn lại trung bình ${remaining.toStringAsFixed(0)} kcal/ngày'
+                    : 'Đã vượt trung bình ${(-remaining).toStringAsFixed(0)} kcal/ngày')
                 : (remaining >= 0
-                    ? 'Còn ${remaining.toStringAsFixed(0)} kcal'
-                    : 'Vượt ${(-remaining).toStringAsFixed(0)} kcal'),
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ? 'Còn lại ${remaining.toStringAsFixed(0)} kcal'
+                    : 'Đã vượt ${(-remaining).toStringAsFixed(0)} kcal'),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _macroChip(isAverage ? 'TB Protein' : 'Protein', s.totalProteinG, s.targetProteinG),
-              _macroChip(isAverage ? 'TB Carbs' : 'Carbs', s.totalCarbsG, s.targetCarbsG),
-              _macroChip(isAverage ? 'TB Fat' : 'Fat', s.totalFatG, s.targetFatG),
+              Expanded(
+                child: _macroCard(
+                  label: isAverage ? 'TB Protein' : 'Protein',
+                  current: s.totalProteinG,
+                  target: s.targetProteinG,
+                  color: const Color(0xFF10B981),
+                  bgColor: const Color(0xFFECFDF5),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _macroCard(
+                  label: isAverage ? 'TB Carbs' : 'Carbs',
+                  current: s.totalCarbsG,
+                  target: s.targetCarbsG,
+                  color: const Color(0xFFF59E0B),
+                  bgColor: const Color(0xFFFFFBEB),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _macroCard(
+                  label: isAverage ? 'TB Fat' : 'Fat',
+                  current: s.totalFatG,
+                  target: s.targetFatG,
+                  color: const Color(0xFFF43F5E),
+                  bgColor: const Color(0xFFFFF1F2),
+                ),
+              ),
             ],
           ),
         ],
@@ -149,32 +211,82 @@ class DailySummaryCard extends StatelessWidget {
   }
 
   BoxDecoration get _cardDecoration => BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.progressBackground),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       );
 
-  Widget _macroChip(String label, double current, double target) {
-    return Column(
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
+  Widget _macroCard({
+    required String label,
+    required double current,
+    required double target,
+    required Color color,
+    required Color bgColor,
+  }) {
+    final macroProgress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: color.withValues(alpha: 0.9),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${current.toStringAsFixed(0)}/${target.toStringAsFixed(0)}g',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
+          const SizedBox(height: 6),
+          Text(
+            '${current.toStringAsFixed(0)}/${target.toStringAsFixed(0)}g',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: macroProgress,
+              backgroundColor: Colors.white,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -26,16 +26,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
         };
 
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IPtReviewService _ptReviewService;
         private readonly INotificationService _notificationService;
+        private readonly IMealPlanProposalService _proposalService;
         private readonly ILogger<CoachReviewService> _logger;
 
         public CoachReviewService(
             IUnitOfWork unitOfWork,
+            IPtReviewService ptReviewService,
             INotificationService notificationService,
+            IMealPlanProposalService proposalService,
             ILogger<CoachReviewService> logger)
         {
             _unitOfWork = unitOfWork;
+            _ptReviewService = ptReviewService;
             _notificationService = notificationService;
+            _proposalService = proposalService;
             _logger = logger;
         }
 
@@ -94,7 +100,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var req in filtered.OrderByDescending(r => r.CreatedAt))
             {
                 var data = TryParseReportData(req.ReportDataJson);
-                if (!IsWeeklyReport(req, data))
+                if (!IsReviewReport(req, data))
                 {
                     continue;
                 }
@@ -132,11 +138,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var studentName = await GetStudentNameAsync(req.UserId);
             var reportData = TryParseReportData(req.ReportDataJson);
-            if (!IsWeeklyReport(req, reportData))
+            if (req.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                var liveResult = await _ptReviewService.GetReviewResultAsync(
+                    req.UserId,
+                    req.Id);
+                reportData = liveResult.ReportData as WeeklyReportSnapshot
+                    ?? reportData;
+            }
+            else if (reportData != null)
+            {
+                reportData.IsFrozen = true;
+            }
+            if (!IsReviewReport(req, reportData))
             {
                 throw new Exception("Weekly report not found.");
             }
             var suggestedChanges = TryParseSuggestedChanges(req.SuggestedChangesJson);
+
+            var existingProposal = (await _unitOfWork.MealPlanProposals.FindAsync(x =>
+                    x.ReviewRequestId == req.Id))
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefault();
 
             return new CoachReportDetailResponse
             {
@@ -160,7 +183,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CheckInBodyFat = reportData?.CheckInBodyFat,
                 TrainingDaysCount = reportData?.TrainingDaysCount,
                 BodyFeeling = reportData?.BodyFeeling,
-                StudentNote = reportData?.StudentNote
+                StudentNote = reportData?.StudentNote,
+                MealPlanProposal = existingProposal == null
+                    ? null
+                    : await _proposalService.GetAsync(coachId, existingProposal.Id)
             };
         }
 
@@ -175,9 +201,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await EnsureConnectedAsync(coachId, req.UserId);
 
             var reportData = TryParseReportData(req.ReportDataJson);
-            if (!IsWeeklyReport(req, reportData))
+            if (!IsReviewReport(req, reportData))
             {
-                throw new Exception("This request is not a weekly report.");
+                throw new Exception("This request is not a mid-week or final weekly report.");
             }
 
             if (req.Status != "Pending")
@@ -185,28 +211,111 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("This report has already been reviewed or closed.");
             }
 
+            // Refresh one last time and persist that payload before changing
+            // status. Reviewed reports are immutable audit snapshots.
+            var liveResult = await _ptReviewService.GetReviewResultAsync(
+                req.UserId,
+                req.Id);
+            reportData = liveResult.ReportData as WeeklyReportSnapshot
+                ?? reportData;
+            if (reportData != null)
+            {
+                reportData.IsFrozen = true;
+                reportData.IsPartial = reportData.DataThroughDate.HasValue
+                    && reportData.DataThroughDate.Value
+                        < req.WeekStartDate.AddDays(6);
+                req.ReportDataJson = JsonSerializer.Serialize(reportData, JsonOpts);
+            }
+
             req.PtComment = request.Comment;
             req.SuggestedCalorieTarget = request.SuggestedCalorieTarget;
             req.SuggestedProteinTarget = request.SuggestedProteinTarget;
 
-            // Translate inline meal-plan adjustments into the standard
-            // PtSuggestedChangeDto shape so the existing Apply flow can pick
-            // them up later if the Gymer presses Apply, or they have already
-            // been pushed by ApplyInlineAdjustments below.
-            var changes = (request.AdjustMealPlanItems ?? new List<MealPlanAdjustmentItem>())
-                .Select(a => new PtSuggestedChangeDto
-                {
-                    DayOfWeek = a.PlannedDate.DayOfWeek.ToString(),
-                    MealType = a.MealType,
-                    Action = string.IsNullOrWhiteSpace(a.Action) ? "Replace" : a.Action,
-                    OldFoodId = null,
-                    NewFoodId = a.FoodId,
-                    NewRecipeId = a.RecipeId,
-                    Notes = null
-                })
-                .ToList();
+            var proposal = await _proposalService.CreateDraftAsync(coachId, req.Id);
+            var adjustments = request.AdjustMealPlanItems ?? new List<MealPlanAdjustmentItem>();
+            if (adjustments.Count > 0)
+            {
+                var proposalItems = proposal.ProposalType.Equals(
+                    MealPlanProposalService.NextWeekPlan,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? proposal.Items.Select((item, index) =>
+                        new MealPlanProposalItemRequest
+                        {
+                            Action = "Add",
+                            PlannedDate = item.PlannedDate,
+                            MealType = item.MealType,
+                            FoodId = item.FoodId,
+                            RecipeId = item.RecipeId,
+                            QuantityG = item.QuantityG,
+                            TargetCalories = item.TargetCalories,
+                            SortOrder = index
+                        }).ToList()
+                    : new List<MealPlanProposalItemRequest>();
 
-            req.SuggestedChangesJson = JsonSerializer.Serialize(changes, JsonOpts);
+                foreach (var adjustment in adjustments)
+                {
+                    if (proposal.ProposalType.Equals(
+                        MealPlanProposalService.NextWeekPlan,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        var matches = proposalItems.Where(item =>
+                            item.PlannedDate == adjustment.PlannedDate &&
+                            item.MealType.Equals(
+                                adjustment.MealType,
+                                StringComparison.OrdinalIgnoreCase)).ToList();
+                        if (adjustment.Action.Equals("remove", StringComparison.OrdinalIgnoreCase))
+                        {
+                            foreach (var match in matches) proposalItems.Remove(match);
+                            continue;
+                        }
+                        if (adjustment.Action.Equals("replace", StringComparison.OrdinalIgnoreCase)
+                            && matches.Count > 0)
+                        {
+                            proposalItems.Remove(matches[0]);
+                        }
+                    }
+
+                    proposalItems.Add(new MealPlanProposalItemRequest
+                    {
+                        Action = adjustment.Action,
+                        PlannedDate = adjustment.PlannedDate,
+                        MealType = adjustment.MealType,
+                        ExistingMealPlanItemId = adjustment.ItemId,
+                        FoodId = adjustment.FoodId,
+                        RecipeId = adjustment.RecipeId,
+                        TargetCalories = adjustment.TargetCalories,
+                        SortOrder = proposalItems.Count
+                    });
+                }
+
+                proposal = await _proposalService.UpdateDraftAsync(
+                    coachId,
+                    proposal.Id,
+                    new UpdateMealPlanProposalRequest
+                    {
+                        Items = proposalItems
+                    });
+            }
+
+            if (proposal.ProposalType.Equals(
+                    MealPlanProposalService.NextWeekPlan,
+                    StringComparison.OrdinalIgnoreCase) &&
+                proposal.Items.Count == 0)
+            {
+                throw new Exception(
+                    "Chưa có món để tạo lộ trình tuần kế tiếp. Hãy tạo lộ trình tuần mới trước khi gửi đánh giá.");
+            }
+
+            // Mid-week feedback may be submitted without menu changes. Final
+            // reports always carry the generated seven-day draft.
+            if (proposal.Items.Count > 0)
+            {
+                await _proposalService.SubmitAsync(coachId, proposal.Id);
+            }
+
+            // Legacy SuggestedChanges are deliberately left empty so the old
+            // ApplyReview path cannot apply the same changes a second time.
+            req.SuggestedChangesJson = "[]";
             req.Status = "Reviewed";
             req.ReviewedAt = DateTime.UtcNow;
 
@@ -282,7 +391,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
         }
 
-        private static bool IsWeeklyReport(
+        private static bool IsReviewReport(
             PtReviewRequest request,
             WeeklyReportSnapshot? snapshot)
         {
@@ -290,10 +399,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     request.CreatedByRole.Equals(
                         "Gymer",
                         StringComparison.OrdinalIgnoreCase)) &&
-                string.Equals(
+                (string.Equals(
                     snapshot?.RequestType,
                     "WeeklyReport",
-                    StringComparison.OrdinalIgnoreCase);
+                    StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(
+                    snapshot?.RequestType,
+                    "MidWeekCheckIn",
+                    StringComparison.OrdinalIgnoreCase));
         }
 
         private static List<PtSuggestedChangeDto> TryParseSuggestedChanges(string? json)

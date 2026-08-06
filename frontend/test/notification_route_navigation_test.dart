@@ -124,6 +124,15 @@ void main() {
     expect(notification.actionUrl, 'gymer_weekly_report:report-456');
   });
 
+  test('meal-plan proposal notification opens the Gymer report area', () {
+    final action = NotificationHandler().parseNotificationData({
+      'type': 'meal_plan_proposal_deadline',
+      'actionUrl': 'meal_plan_proposal:proposal-123',
+    });
+
+    expect(action.type, NotificationActionType.openGymerWeeklyReport);
+  });
+
   testWidgets('route status and numeric badge are visible', (tester) async {
     final notification = AppNotification.fromJson({
       'id': 'notification-1',
