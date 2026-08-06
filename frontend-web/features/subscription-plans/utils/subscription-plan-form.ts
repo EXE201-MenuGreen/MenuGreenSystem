@@ -12,6 +12,17 @@ export type SubscriptionPlanFormState = {
   isActive: boolean;
 };
 
+export const subscriptionFeatureGroupOptions = [
+  { value: "basic", label: "Cơ bản / Free (basic)" },
+  { value: "casual", label: "Casual (casual)" },
+  { value: "office", label: "Office (office)" },
+  { value: "gym", label: "Gym/PT (gym)" },
+] as const;
+
+export function isSupportedSubscriptionFeatureGroup(value: string): boolean {
+  return subscriptionFeatureGroupOptions.some((option) => option.value === value);
+}
+
 export const emptySubscriptionPlanForm = (): SubscriptionPlanFormState => ({
   name: "",
   description: "",
@@ -49,6 +60,9 @@ export function validateSubscriptionPlanForm(
   form: SubscriptionPlanFormState,
 ): string | null {
   if (!form.name.trim()) return "Tên gói là bắt buộc.";
+  if (!isSupportedSubscriptionFeatureGroup(form.featureGroup)) {
+    return "Hãy chọn nhóm tính năng mới: basic, casual, office hoặc gym.";
+  }
   if (Number.isNaN(Number(form.durationDays)) || Number(form.durationDays) < 0) {
     return "Số ngày phải là số không âm.";
   }

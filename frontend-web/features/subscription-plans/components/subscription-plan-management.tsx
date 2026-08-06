@@ -61,7 +61,7 @@ export function SubscriptionPlanManagement() {
     <div>
       <PageHeader
         title="Quản lý gói thành viên"
-        description="CRUD gói subscription — Free, Pro, Premium"
+        description="CRUD gói subscription — Cơ bản, Casual, Gym/PT, Office"
         action={
           <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
             Thêm gói
