@@ -8,7 +8,9 @@ import type { SubscriptionPlan } from "@/features/subscription-plans/types";
 import {
   emptySubscriptionPlanForm,
   formStateToPayload,
+  isSupportedSubscriptionFeatureGroup,
   planToFormState,
+  subscriptionFeatureGroupOptions,
   validateSubscriptionPlanForm,
   type SubscriptionPlanFormState,
 } from "@/features/subscription-plans/utils/subscription-plan-form";
@@ -111,10 +113,19 @@ export function SubscriptionPlanFormDialog({
             label="Nhóm tính năng"
             value={form.featureGroup}
             onChange={(e) => updateField("featureGroup", e.target.value)}
+            required
           >
-            <option value="basic">basic</option>
-            <option value="pro">pro</option>
-            <option value="premium">premium</option>
+            {form.featureGroup &&
+            !isSupportedSubscriptionFeatureGroup(form.featureGroup) ? (
+              <option value={form.featureGroup} disabled>
+                {form.featureGroup} (nhóm cũ — hãy chuyển đổi)
+              </option>
+            ) : null}
+            {subscriptionFeatureGroupOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
           <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
             <input

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../meal_plan/widgets/calorie_progress_ring.dart';
 
 class HomeCalorieSection extends StatelessWidget {
@@ -30,10 +31,71 @@ class HomeCalorieSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ringSize = context.valueForDevice(
+      phone: 120.0,
+      tablet: 140.0,
+      desktop: 160.0,
+    );
+    final strokeWidth = context.valueForDevice(
+      phone: 12.0,
+      tablet: 14.0,
+      desktop: 16.0,
+    );
+    final contentPaddingH = context.valueForDevice(
+      phone: 20.0,
+      tablet: 24.0,
+      desktop: 28.0,
+    );
+    final contentPaddingV = context.valueForDevice(
+      phone: 16.0,
+      tablet: 20.0,
+      desktop: 24.0,
+    );
+    final borderRadius = context.valueForDevice(
+      phone: 24.0,
+      tablet: 28.0,
+      desktop: 32.0,
+    );
+    final headerPaddingH = context.valueForDevice(
+      phone: 20.0,
+      tablet: 24.0,
+      desktop: 28.0,
+    );
+    final headerPaddingV = context.valueForDevice(
+      phone: 16.0,
+      tablet: 18.0,
+      desktop: 20.0,
+    );
+    final iconSize = context.valueForDevice(
+      phone: 20.0,
+      tablet: 22.0,
+      desktop: 24.0,
+    );
+    final sectionTitleFontSize = context.valueForDevice(
+      phone: 16.0,
+      tablet: 18.0,
+      desktop: 20.0,
+    );
+    final macroRowSpacing = context.valueForDevice(
+      phone: 14.0,
+      tablet: 16.0,
+      desktop: 18.0,
+    );
+    final betweenRingAndMacro = context.valueForDevice(
+      phone: 24.0,
+      tablet: 28.0,
+      desktop: 32.0,
+    );
+    final bottomSpacing = context.valueForDevice(
+      phone: 20.0,
+      tablet: 24.0,
+      desktop: 28.0,
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -47,7 +109,7 @@ class HomeCalorieSection extends StatelessWidget {
         children: [
           // Section header with soft gradient
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: EdgeInsets.symmetric(horizontal: headerPaddingH, vertical: headerPaddingV),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -57,7 +119,7 @@ class HomeCalorieSection extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(borderRadius)),
             ),
             child: Row(
               children: [
@@ -67,10 +129,10 @@ class HomeCalorieSection extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.local_fire_department_rounded,
                     color: AppColors.primary,
-                    size: 20,
+                    size: iconSize,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -78,7 +140,7 @@ class HomeCalorieSection extends StatelessWidget {
                   child: Text(
                     'Tiến độ dinh dưỡng',
                     style: GoogleFonts.beVietnamPro(
-                      fontSize: 16,
+                      fontSize: sectionTitleFontSize,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
                       letterSpacing: -0.2,
@@ -105,7 +167,7 @@ class HomeCalorieSection extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 10,
                           color: AppColors.primary,
@@ -119,7 +181,7 @@ class HomeCalorieSection extends StatelessWidget {
           ),
           // Content
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            padding: EdgeInsets.fromLTRB(contentPaddingH, contentPaddingV, contentPaddingH, contentPaddingV),
             child: Column(
               children: [
                 Row(
@@ -128,10 +190,10 @@ class HomeCalorieSection extends StatelessWidget {
                     CalorieProgressRing(
                       current: totalCalories,
                       target: targetCalories,
-                      size: 120,
-                      strokeWidth: 12,
+                      size: ringSize,
+                      strokeWidth: strokeWidth,
                     ),
-                    const SizedBox(width: 24),
+                    SizedBox(width: betweenRingAndMacro),
                     // Macros
                     Expanded(
                       child: Column(
@@ -143,7 +205,7 @@ class HomeCalorieSection extends StatelessWidget {
                             color: const Color(0xFF2563EB), // Modern Royal Blue
                             unit: 'g',
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: macroRowSpacing),
                           _MacroRow(
                             label: 'Carbs',
                             current: carbs,
@@ -151,7 +213,7 @@ class HomeCalorieSection extends StatelessWidget {
                             color: const Color(0xFFF59E0B), // Warm Amber
                             unit: 'g',
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: macroRowSpacing),
                           _MacroRow(
                             label: 'Chất béo',
                             current: fat,
@@ -164,7 +226,7 @@ class HomeCalorieSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: bottomSpacing),
                 // Remaining calories bar
                 _RemainingCaloriesBar(
                   current: totalCalories,
@@ -197,6 +259,26 @@ class _MacroRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final labelFontSize = context.valueForDevice(
+      phone: 12.0,
+      tablet: 13.0,
+      desktop: 14.0,
+    );
+    final valueFontSize = context.valueForDevice(
+      phone: 12.0,
+      tablet: 13.0,
+      desktop: 14.0,
+    );
+    final indicatorSize = context.valueForDevice(
+      phone: 8.0,
+      tablet: 9.0,
+      desktop: 10.0,
+    );
+    final progressHeight = context.valueForDevice(
+      phone: 8.0,
+      tablet: 9.0,
+      desktop: 10.0,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,18 +289,18 @@ class _MacroRow extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 8,
-                  height: 8,
+                  width: indicatorSize,
+                  height: indicatorSize,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: context.valueForDevice(phone: 8.0, tablet: 10.0, desktop: 10.0)),
                 Text(
                   label,
                   style: GoogleFonts.beVietnamPro(
-                    fontSize: 12,
+                    fontSize: labelFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
                   ),
@@ -228,21 +310,21 @@ class _MacroRow extends StatelessWidget {
             Text(
               '${current}g / ${target}g',
               style: GoogleFonts.beVietnamPro(
-                fontSize: 12,
+                fontSize: valueFontSize,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: context.valueForDevice(phone: 6.0, tablet: 8.0, desktop: 8.0)),
         ClipRRect(
           borderRadius: BorderRadius.circular(10), // Pill Shape
           child: LinearProgressIndicator(
             value: progress,
             backgroundColor: AppColors.progressBackground.withValues(alpha: 0.6),
             valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 8,
+            minHeight: progressHeight,
           ),
         ),
       ],
