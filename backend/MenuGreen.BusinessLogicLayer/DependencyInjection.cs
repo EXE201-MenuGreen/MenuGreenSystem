@@ -53,6 +53,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddHostedService<GoalDriftDetectionBackgroundService>();
             services.AddHostedService<SepayReconciliationBackgroundService>();
             services.AddHostedService<DailyStarterBackgroundService>();
+            services.AddHostedService<MealPlanProposalDeadlineBackgroundService>();
             services.AddScoped<IReminderService, ReminderService>();
             services.AddScoped<IGoalDriftService, GoalDriftService>();
             services.AddScoped<IDailyStarterService, DailyStarterService>();
@@ -72,6 +73,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<IPremiumProgramService, PremiumProgramService>();
             services.AddScoped<ICoachService, CoachService>();
             services.AddScoped<ICoachReviewService, CoachReviewService>();
+            services.AddScoped<IMealPlanProposalService, MealPlanProposalService>();
             services.AddScoped<ICoachChatService, CoachChatService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();

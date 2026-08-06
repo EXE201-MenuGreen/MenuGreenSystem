@@ -54,6 +54,7 @@ class NotificationHandler {
   static const String _prefixGymerWeeklyReport = 'gymer_weekly_report:';
   static const String _prefixGymerRouteApproval = 'gymer_route_approval:';
   static const String _prefixGymerPersonalProgram = 'gymer_personal_program:';
+  static const String _prefixMealPlanProposal = 'meal_plan_proposal:';
   static const String _prefixCoachChat = 'chat:';
 
   NotificationAction parseNotificationData(Map<String, dynamic> data) {
@@ -95,6 +96,12 @@ class NotificationHandler {
         return NotificationAction(
           type: NotificationActionType.openGymerWeeklyReport,
           id: data['reportId']?.toString(),
+        );
+      case 'midweek_plan_proposal':
+      case 'next_week_plan_proposal':
+      case 'meal_plan_proposal_deadline':
+        return NotificationAction(
+          type: NotificationActionType.openGymerWeeklyReport,
         );
       case 'meal_plan_approved':
       case 'pt_route_approval':
@@ -189,6 +196,11 @@ class NotificationHandler {
         type: NotificationActionType.openGymerPrograms,
         id: id,
         tabIndex: 1,
+      );
+    }
+    if (deepLink.startsWith(_prefixMealPlanProposal)) {
+      return NotificationAction(
+        type: NotificationActionType.openGymerWeeklyReport,
       );
     }
     if (deepLink.startsWith(_prefixMealPlan)) {

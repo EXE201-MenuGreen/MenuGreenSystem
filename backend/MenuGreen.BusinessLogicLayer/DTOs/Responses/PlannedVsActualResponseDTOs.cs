@@ -46,6 +46,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public double CalorieDeviationScore { get; set; } // Scale 0-100
         public double MacroDeviationScore { get; set; } // Scale 0-100
         public double UnplannedPenaltyScore { get; set; } // Scale 0-100
+        public int CompletedMealsCount { get; set; }
+        public int PlannedMealsCount { get; set; }
+        public int SkippedMealsCount { get; set; }
+        public int UnplannedMealsCount { get; set; }
         public string Rating { get; set; } = string.Empty; // EXCELLENT, GOOD, FAIR, POOR
         public string Feedback { get; set; } = string.Empty;
     }

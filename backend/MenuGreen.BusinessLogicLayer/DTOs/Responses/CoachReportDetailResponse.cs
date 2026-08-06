@@ -33,5 +33,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int? TrainingDaysCount { get; set; }
         public string? BodyFeeling { get; set; }
         public string? StudentNote { get; set; }
+        public MealPlanProposalResponse? MealPlanProposal { get; set; }
     }
 }
