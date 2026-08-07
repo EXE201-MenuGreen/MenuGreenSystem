@@ -1,5 +1,14 @@
-bool canCreateWeeklyReportOn(DateTime localDateTime) =>
-    localDateTime.weekday == DateTime.sunday;
+import 'package:flutter/foundation.dart';
+
+bool canCreateWeeklyReportOn(DateTime localDateTime, {bool? allowAnyDay}) {
+  final override = allowAnyDay ?? kDebugMode;
+  return override || localDateTime.weekday == DateTime.sunday;
+}
+
+bool canCreateMidWeekCheckInOn(DateTime localDateTime, {bool? allowAnyDay}) {
+  final override = allowAnyDay ?? kDebugMode;
+  return override || localDateTime.weekday == DateTime.thursday;
+}
 
 DateTime weeklyReportWeekStart(DateTime localDateTime) {
   final localDate = DateTime(

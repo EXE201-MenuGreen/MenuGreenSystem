@@ -67,6 +67,8 @@ namespace MenuGreen.DataAccessLayer.Context
         public DbSet<CoachChatMessage> CoachChatMessages { get; set; }
         public DbSet<PtReviewRequest> PtReviewRequests { get; set; }
         public DbSet<DeviceToken> DeviceTokens { get; set; }
+        public DbSet<MealPlanProposal> MealPlanProposals { get; set; }
+        public DbSet<MealPlanProposalItem> MealPlanProposalItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -115,6 +117,8 @@ namespace MenuGreen.DataAccessLayer.Context
             modelBuilder.Entity<GoalDriftAlert>().HasQueryFilter(gda => gda.User == null || EF.Property<DateTime?>(gda.User, "DeletedAt") == null);
             modelBuilder.Entity<CustomUserPortion>().HasQueryFilter(cup => cup.User == null || EF.Property<DateTime?>(cup.User, "DeletedAt") == null);
             modelBuilder.Entity<DeviceToken>().HasQueryFilter(dt => dt.User == null || EF.Property<DateTime?>(dt.User, "DeletedAt") == null);
+            modelBuilder.Entity<MealPlanProposal>().HasQueryFilter(p => p.User == null || EF.Property<DateTime?>(p.User, "DeletedAt") == null);
+            modelBuilder.Entity<MealPlanProposalItem>().HasQueryFilter(i => i.Proposal == null || i.Proposal.User == null || EF.Property<DateTime?>(i.Proposal.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachProfile>().HasQueryFilter(cp => cp.User == null || EF.Property<DateTime?>(cp.User, "DeletedAt") == null);
             modelBuilder.Entity<CoachFeedback>().HasQueryFilter(cf => (cf.Client == null || EF.Property<DateTime?>(cf.Client, "DeletedAt") == null) && (cf.Coach == null || EF.Property<DateTime?>(cf.Coach, "DeletedAt") == null));
             modelBuilder.Entity<CoachChatMessage>().HasQueryFilter(message =>

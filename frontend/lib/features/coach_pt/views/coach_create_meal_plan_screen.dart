@@ -13,10 +13,16 @@ class CoachCreateMealPlanScreen extends StatefulWidget {
     super.key,
     required this.clientId,
     required this.clientName,
+    this.initialPlanType,
+    this.initialTargetCalories,
+    this.initialTargetProtein,
   });
 
   final String clientId;
   final String clientName;
+  final String? initialPlanType;
+  final int? initialTargetCalories;
+  final int? initialTargetProtein;
 
   @override
   State<CoachCreateMealPlanScreen> createState() =>
@@ -52,9 +58,28 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
   };
   bool _submitting = false;
 
+  bool _userChangedDateOrType = false;
+
   @override
   void initState() {
     super.initState();
+    final rawPlanType = widget.initialPlanType?.trim().toLowerCase();
+    if (rawPlanType != null &&
+        const ['daily', 'weekly', 'monthly'].contains(rawPlanType)) {
+      _planType = rawPlanType;
+    }
+    if (widget.initialTargetCalories != null) {
+      _targetCalories = widget.initialTargetCalories;
+      _targetCaloriesController.text = widget.initialTargetCalories.toString();
+    }
+    if (widget.initialTargetProtein != null && widget.initialTargetProtein! > 0) {
+      final targetP = widget.initialTargetProtein!;
+      _minProteinController.text = targetP.toString();
+      final currentMax = int.tryParse(_maxProteinController.text.trim()) ?? 100;
+      if (currentMax < targetP) {
+        _maxProteinController.text = targetP.toString();
+      }
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadClientConfig());
   }
 
@@ -117,6 +142,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       initialDate: initial,
     );
     if (picked != null) {
+      _userChangedDateOrType = true;
       setState(() => _singleDate = picked);
       await _loadClientConfig();
     }
@@ -133,9 +159,14 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       final target = _mapInt(config, 'targetCalories');
       final min = _mapInt(config, 'minCalories');
       final max = _mapInt(config, 'maxCalories');
-      final resolvedTarget = target ?? 1500;
-      final resolvedMin = min ?? 500;
+
+      final hasInitialTarget = widget.initialTargetCalories != null && !_userChangedDateOrType;
+      final resolvedTarget = hasInitialTarget
+          ? widget.initialTargetCalories!
+          : (target ?? 1500);
+      final resolvedMin = min ?? (hasInitialTarget ? (resolvedTarget * 0.8).round() : 500);
       final resolvedMax = max ?? resolvedTarget;
+
       setState(() {
         _targetCalories = resolvedTarget;
         _minCalories = resolvedMin;
@@ -144,6 +175,14 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
         _targetCaloriesController.text = resolvedTarget.toString();
         _minCaloriesController.text = resolvedMin.toString();
         _maxCaloriesController.text = resolvedMax.toString();
+        if (widget.initialTargetProtein != null && widget.initialTargetProtein! > 0 && !_userChangedDateOrType) {
+          final targetP = widget.initialTargetProtein!;
+          _minProteinController.text = targetP.toString();
+          final currentMax = int.tryParse(_maxProteinController.text.trim()) ?? 100;
+          if (currentMax < targetP) {
+            _maxProteinController.text = targetP.toString();
+          }
+        }
       });
     } catch (_) {}
   }
@@ -154,10 +193,14 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
           _minCalories == null ||
           _maxCalories == null ||
           _minCalories! <= _maxCalories!;
+      final minP = int.tryParse(_minProteinController.text.trim()) ?? 0;
+      final maxP = int.tryParse(_maxProteinController.text.trim()) ?? 0;
+      final validProteinBounds = minP <= maxP;
       return _singleDate != null &&
           _targetCalories != null &&
           _targetCalories! > 0 &&
-          validBounds;
+          validBounds &&
+          validProteinBounds;
     }
     if (_step == 1) {
       return _itemsByMeal.values.any((items) => items.isNotEmpty);

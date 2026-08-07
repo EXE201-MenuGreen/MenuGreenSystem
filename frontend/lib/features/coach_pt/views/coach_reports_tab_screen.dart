@@ -20,8 +20,7 @@ class CoachReportsTabScreen extends StatefulWidget {
   final String? clientName;
 
   @override
-  State<CoachReportsTabScreen> createState() =>
-      _CoachReportsTabScreenState();
+  State<CoachReportsTabScreen> createState() => _CoachReportsTabScreenState();
 }
 
 class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
@@ -53,11 +52,11 @@ class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
     if (picked != null && mounted) {
       final monday = picked.subtract(Duration(days: picked.weekday - 1));
       await context.read<CoachReportProvider>().loadReports(
-            weekStart: monday,
-            status: _status,
-            clientId: widget.clientId,
-            resetFilters: false,
-          );
+        weekStart: monday,
+        status: _status,
+        clientId: widget.clientId,
+        resetFilters: false,
+      );
     }
   }
 
@@ -71,14 +70,13 @@ class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
       helpText: 'Chọn một ngày trong tháng',
     );
     if (picked != null && mounted) {
-      final m =
-          '${picked.year}-${picked.month.toString().padLeft(2, '0')}';
+      final m = '${picked.year}-${picked.month.toString().padLeft(2, '0')}';
       await context.read<CoachReportProvider>().loadReports(
-            month: m,
-            status: _status,
-            clientId: widget.clientId,
-            resetFilters: false,
-          );
+        month: m,
+        status: _status,
+        clientId: widget.clientId,
+        resetFilters: false,
+      );
     }
   }
 
@@ -122,7 +120,9 @@ class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
             ...CoachReportStatus.values.map(
               (s) => ListTile(
                 leading: Icon(
-                  _status == s ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  _status == s
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
                 ),
                 title: Text(_statusLabel(s)),
                 onTap: () {
@@ -145,8 +145,8 @@ class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
   @override
   Widget build(BuildContext context) {
     final title = _isClientScoped && (widget.clientName ?? '').isNotEmpty
-        ? 'Báo cáo tuần • ${widget.clientName}'
-        : 'Báo cáo tuần';
+        ? 'Báo cáo PT • ${widget.clientName}'
+        : 'Báo cáo PT';
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -164,11 +164,11 @@ class _CoachReportsTabScreenState extends State<CoachReportsTabScreen> {
 }
 
 String _statusLabel(CoachReportStatus s) => switch (s) {
-      CoachReportStatus.pending => 'Chờ duyệt',
-      CoachReportStatus.reviewed => 'Đã review',
-      CoachReportStatus.applied => 'Đã áp dụng',
-      CoachReportStatus.rejected => 'Bị từ chối',
-    };
+  CoachReportStatus.pending => 'Chờ duyệt',
+  CoachReportStatus.reviewed => 'Đã review',
+  CoachReportStatus.applied => 'Đã áp dụng',
+  CoachReportStatus.rejected => 'Bị từ chối',
+};
 
 class _ReportsList extends StatelessWidget {
   const _ReportsList();
@@ -180,10 +180,7 @@ class _ReportsList extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.error != null && provider.reports.isEmpty) {
-      return _ErrorState(
-        message: provider.error!,
-        onRetry: provider.refresh,
-      );
+      return _ErrorState(message: provider.error!, onRetry: provider.refresh);
     }
     if (provider.reports.isEmpty) {
       return RefreshIndicator(
@@ -192,8 +189,11 @@ class _ReportsList extends StatelessWidget {
           padding: const EdgeInsets.only(top: 120),
           children: const [
             Center(
-              child: Icon(Icons.assignment_outlined,
-                  size: 64, color: Colors.grey),
+              child: Icon(
+                Icons.assignment_outlined,
+                size: 64,
+                color: Colors.grey,
+              ),
             ),
             SizedBox(height: 16),
             Text(
@@ -231,29 +231,35 @@ class _ReportCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor:
-              Theme.of(context).colorScheme.primaryContainer,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
           child: const Icon(Icons.assignment, color: Colors.white),
         ),
         title: Text(report.studentName),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tuần: ${_fmt(report.weekStartDate)}'),
+            Text(
+              '${report.isMidWeekCheckIn ? 'Giữa tuần' : 'Cuối tuần'}: '
+              '${_fmt(report.weekStartDate)} - '
+              '${_fmt(report.weekStartDate.add(const Duration(days: 6)))}',
+            ),
             if (report.checkInWeight != null)
-              Text('Cân nặng: ${report.checkInWeight!.toStringAsFixed(1)} kg',
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                'Cân nặng: ${report.checkInWeight!.toStringAsFixed(1)} kg',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
         trailing: _StatusChip(status: report.status),
         onTap: () async {
-          await context
-              .read<CoachReportProvider>()
-              .loadReportDetail(report.reportId);
+          await context.read<CoachReportProvider>().loadReportDetail(
+            report.reportId,
+          );
           if (!context.mounted) return;
           await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => CoachReportDetailScreen(reportId: report.reportId),
+              builder: (_) =>
+                  CoachReportDetailScreen(reportId: report.reportId),
             ),
           );
         },

@@ -59,6 +59,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         private IGenericRepository<Entities.CoachChatMessage>? _coachChatMessages;
         private IGenericRepository<Entities.PtReviewRequest>? _ptReviewRequests;
         private IGenericRepository<Entities.DeviceToken>? _deviceTokens;
+        private IGenericRepository<Entities.MealPlanProposal>? _mealPlanProposals;
+        private IGenericRepository<Entities.MealPlanProposalItem>? _mealPlanProposalItems;
 
         public UnitOfWork(ApplicationDbContext context) { _context = context; }
 
@@ -114,6 +116,8 @@ namespace MenuGreen.DataAccessLayer.Repositories
         public IGenericRepository<Entities.CoachChatMessage> CoachChatMessages => _coachChatMessages ??= new GenericRepository<Entities.CoachChatMessage>(_context);
         public IGenericRepository<Entities.PtReviewRequest> PtReviewRequests => _ptReviewRequests ??= new GenericRepository<Entities.PtReviewRequest>(_context);
         public IGenericRepository<Entities.DeviceToken> DeviceTokens => _deviceTokens ??= new GenericRepository<Entities.DeviceToken>(_context);
+        public IGenericRepository<Entities.MealPlanProposal> MealPlanProposals => _mealPlanProposals ??= new GenericRepository<Entities.MealPlanProposal>(_context);
+        public IGenericRepository<Entities.MealPlanProposalItem> MealPlanProposalItems => _mealPlanProposalItems ??= new GenericRepository<Entities.MealPlanProposalItem>(_context);
 
         public async Task<int> CompleteAsync() => await _context.SaveChangesAsync();
         public void Dispose() { _context.Dispose(); GC.SuppressFinalize(this); }
