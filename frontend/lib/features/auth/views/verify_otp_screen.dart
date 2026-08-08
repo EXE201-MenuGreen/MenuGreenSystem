@@ -12,10 +12,12 @@ class VerifyOtpScreen extends StatefulWidget {
     super.key,
     required this.email,
     this.password,
+    this.fullName,
   });
 
   final String email;
   final String? password;
+  final String? fullName;
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -47,7 +49,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       if (password.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Xác thực thành công. Vui lòng đăng nhập để tiếp tục.'),
+            content: Text(
+              'Xác thực thành công. Vui lòng đăng nhập để tiếp tục.',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -64,7 +68,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       if (loginResult['success'] != true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(loginResult['message'] ?? 'Đăng nhập thất bại sau khi xác thực OTP'),
+            content: Text(
+              loginResult['message'] ??
+                  'Đăng nhập thất bại sau khi xác thực OTP',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -73,7 +80,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Xác thực OTP thành công!', style: TextStyle(color: Colors.white)),
+          content: Text(
+            'Xác thực OTP thành công!',
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -81,13 +91,18 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+          MaterialPageRoute(
+            builder: (_) => OnboardingScreen(initialFullName: widget.fullName),
+          ),
           (route) => false,
         );
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? 'OTP không hợp lệ'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(result['message'] ?? 'OTP không hợp lệ'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -117,10 +132,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              const Text(
-                'Xác thực OTP',
-                style: AppTextStyles.heading1,
-              ),
+              const Text('Xác thực OTP', style: AppTextStyles.heading1),
               const SizedBox(height: 12),
               Text(
                 'Nhập mã OTP đã được gửi về email:\n${widget.email}',
@@ -136,11 +148,12 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               ),
               const SizedBox(height: 40),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                  : PrimaryButton(
-                      text: 'Xác thực',
-                      onPressed: _handleVerify,
-                    ),
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : PrimaryButton(text: 'Xác thực', onPressed: _handleVerify),
             ],
           ),
         ),
@@ -148,4 +161,3 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     );
   }
 }
-

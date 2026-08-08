@@ -94,6 +94,16 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   }
 
   @override
+  void didUpdateWidget(covariant BasicInfoStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final initialFullName = widget.initialFullName?.trim() ?? '';
+    if (initialFullName.isNotEmpty &&
+        initialFullName != oldWidget.initialFullName?.trim()) {
+      _fullNameController.text = initialFullName;
+    }
+  }
+
+  @override
   void dispose() {
     _fullNameController.dispose();
     _heightController.dispose();
@@ -225,6 +235,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             controller: _fullNameController,
             label: 'Họ và tên',
             hintText: 'Nhập họ tên',
+            readOnly: widget.initialFullName?.trim().isNotEmpty == true,
           ),
           const SizedBox(height: 20),
           _buildGenderDropdown(),
