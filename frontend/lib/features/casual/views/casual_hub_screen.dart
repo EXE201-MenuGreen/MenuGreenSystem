@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../micro_learning/views/micro_learning_screen.dart';
+import '../../subscription/models/subscription_models.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/utils/subscription_access.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
@@ -12,32 +13,54 @@ import '../../vietnam_local/views/lucky_wheel_screen.dart';
 enum CasualFeature { luckyWheel, dailyStarter, microLearning }
 
 class CasualHubScreen extends StatefulWidget {
-  const CasualHubScreen({super.key, this.openFeature});
+  const CasualHubScreen({
+    super.key,
+    this.openFeature,
+    this.subscriptionRepository,
+  });
 
   final CasualFeature? openFeature;
+  final UserSubscriptionRepository? subscriptionRepository;
 
   @override
   State<CasualHubScreen> createState() => _CasualHubScreenState();
 }
 
 class _CasualHubScreenState extends State<CasualHubScreen> {
-  final _subscriptionRepository = UserSubscriptionRepository();
+  late final UserSubscriptionRepository _subscriptionRepository;
 
   bool _loading = true;
   bool _hasAccess = false;
   bool _openedInitialFeature = false;
+  SubscriptionPlan? _casualPlan;
 
   @override
   void initState() {
     super.initState();
+    _subscriptionRepository =
+        widget.subscriptionRepository ?? UserSubscriptionRepository();
     _loadAccess();
   }
 
   Future<void> _loadAccess() async {
     final subscriptions = await _subscriptionRepository.getActive();
+    List<SubscriptionPlan> plans = const [];
+    try {
+      plans = await _subscriptionRepository.getAvailablePlans();
+    } catch (_) {}
+
+    SubscriptionPlan? casualPlan;
+    for (final plan in plans) {
+      if (plan.belongsToFeatureGroup('casual')) {
+        casualPlan = plan;
+        break;
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _hasAccess = hasCasualSubscriptionAccess(subscriptions);
+      _casualPlan = casualPlan;
       _loading = false;
     });
 
@@ -152,7 +175,13 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                         await _loadAccess();
                       },
                       icon: const Icon(Icons.lock_open_rounded, size: 19),
-                      label: const Text('Kích hoạt gói Casual 0đ'),
+                      label: Text(
+                        _casualPlan == null
+                            ? 'Xem gói Casual'
+                            : _casualPlan!.isFree
+                            ? 'Kích hoạt gói Casual 0đ'
+                            : 'Đăng ký gói Casual • ${formatVnd(_casualPlan!.priceVnd)}',
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -211,6 +240,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 9,
@@ -221,7 +251,11 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        _hasAccess ? 'ĐÃ MỞ' : '0Đ',
+                        _hasAccess
+                            ? 'ĐÃ MỞ'
+                            : _casualPlan == null
+                            ? 'ĐANG TẢI'
+                            : formatVnd(_casualPlan!.priceVnd),
                         style: GoogleFonts.beVietnamPro(
                           color: Colors.white,
                           fontSize: 10,

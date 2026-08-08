@@ -18,14 +18,6 @@ val hasReleaseSigningConfig =
     listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
         .all { !keystoreProperties.getProperty(it).isNullOrBlank() }
 
-// Load environment variables from .env file securely
-val envProperties = Properties()
-val envFile = rootProject.file("../.env")
-if (envFile.exists()) {
-    envFile.inputStream().use { envProperties.load(it) }
-}
-val mapApiKey = envProperties.getProperty("GOONG_API_KEY") ?: envProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
-
 android {
     namespace = "com.menugreen.food"
     compileSdk = flutter.compileSdkVersion
@@ -59,7 +51,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapApiKey
         // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
         ndk {
             // no abiFilters override here - let --target-platform drive it
