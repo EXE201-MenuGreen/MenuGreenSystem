@@ -535,6 +535,9 @@ frontend/ios/Flutter/GeneratedPluginRegistrant.m
 frontend/ios/Flutter/GeneratedPluginRegistrant.h
 frontend/android/app/GeneratedPluginRegistrant.java
 
+# ─── EF Core Migrations (dùng raw SQL thay thế) ───────────────────────
+backend/MenuGreen.DataAccessLayer/Migrations/
+
 # Local helper scripts (keystore generators, screenshot tools, etc.)
 # Keep code in scripts/ and ci/ directories; ignore ad-hoc assets/
 /assets/
