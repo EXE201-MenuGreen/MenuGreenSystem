@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/utils/keyboard_aware_snackbar.dart';
 import '../repositories/auth_repository.dart';
 import 'verify_otp_screen.dart';
 
@@ -53,16 +54,12 @@ class _RegisterScreenState extends State<RegisterScreen>
     final confirmPassword = _confirmPasswordController.text;
 
     if (fullName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin')),
-      );
+      context.showWarningSnackBar('Vui lòng nhập đầy đủ thông tin');
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mật khẩu không khớp')),
-      );
+      context.showWarningSnackBar('Mật khẩu không khớp');
       return;
     }
 
@@ -74,9 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đăng ký thành công!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-      );
+      context.showSuccessSnackBar('Đăng ký thành công!');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -87,9 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
-      );
+      context.showErrorSnackBar(result['message'] ?? 'Đăng ký thất bại');
     }
   }
 
