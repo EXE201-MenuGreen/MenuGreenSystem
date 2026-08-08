@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/casual/views/casual_hub_screen.dart';
 import 'package:frontend/features/subscription/models/subscription_models.dart';
 import 'package:frontend/features/subscription/repositories/user_subscription_repository.dart';
 import 'package:frontend/features/subscription/views/upgrade_plan_screen.dart';
@@ -14,6 +15,31 @@ void main() {
     featureGroup: 'basic',
     isActive: true,
     tierLabel: 'Free',
+  );
+  const casualPlan = SubscriptionPlan(
+    id: 'casual-plan',
+    name: 'Gói Casual',
+    durationDays: 30,
+    priceVnd: 99000,
+    isActive: true,
+    tierLabel: 'Custom',
+  );
+  const gymPlan = SubscriptionPlan(
+    id: 'gym-plan',
+    name: 'Gói Gym/PT',
+    durationDays: 30,
+    priceVnd: 790000,
+    featureGroup: 'gym',
+    isActive: true,
+    tierLabel: 'Custom',
+  );
+  const officePlan = SubscriptionPlan(
+    id: 'office-plan',
+    name: 'Gói Office',
+    durationDays: 30,
+    priceVnd: 99000,
+    isActive: true,
+    tierLabel: 'Custom',
   );
 
   test(
@@ -90,6 +116,45 @@ void main() {
     expect(find.textContaining('2126'), findsNothing);
     expect(find.text('Đăng ký miễn phí'), findsNothing);
   });
+
+  testWidgets('package cards render prices returned by the API', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: UpgradePlanScreen(
+          repository: _FakeSubscriptionRepository(
+            plans: const [basicPlan, casualPlan, gymPlan, officePlan],
+            current: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('99.000đ'), findsNWidgets(2));
+    expect(find.text('790.000đ'), findsOneWidget);
+    expect(find.text('0đ'), findsNothing);
+    expect(find.text('Đang tải giá...'), findsNothing);
+  });
+
+  testWidgets('Casual hub renders its configured API price', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CasualHubScreen(
+          subscriptionRepository: _FakeSubscriptionRepository(
+            plans: const [casualPlan],
+            current: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('99.000đ'), findsOneWidget);
+    expect(find.textContaining('Đăng ký gói Casual • 99.000đ'), findsOneWidget);
+    expect(find.text('0Đ'), findsNothing);
+  });
 }
 
 class _FakeSubscriptionRepository extends UserSubscriptionRepository {
@@ -103,6 +168,9 @@ class _FakeSubscriptionRepository extends UserSubscriptionRepository {
 
   @override
   Future<UserSubscription?> getCurrent() async => current;
+
+  @override
+  Future<List<UserSubscription>> getActive() async => const [];
 
   @override
   Future<List<SubscriptionTransaction>> getHistory() async => const [];

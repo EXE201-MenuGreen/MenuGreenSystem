@@ -138,62 +138,24 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     return null;
   }
 
-  SubscriptionPlan? get _gymPlan {
+  SubscriptionPlan? _planForFeatureGroup(String featureGroup) {
     for (final plan in _plans) {
-      if (plan.featureGroup?.trim().toLowerCase() == 'gym') return plan;
+      if (plan.belongsToFeatureGroup(featureGroup)) return plan;
     }
-    return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000005',
-      name: 'Gói Gym/PT',
-      description:
-          'Mục tiêu calo, protein và lịch tập\nPT Review qua liên kết bảo mật\nKết nối huấn luyện viên và quản lý quyền truy cập\nLộ trình thể hình 8–12 tuần',
-      durationDays: 36500, // 100 years
-      priceVnd: 0,
-      featureGroup: 'gym',
-      isActive: true,
-      tierLabel: 'Custom',
-    );
+    return null;
   }
 
-  SubscriptionPlan? get _casualPlan {
-    for (final plan in _plans) {
-      if (plan.featureGroup?.trim().toLowerCase() == 'casual') return plan;
-    }
-    return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000006',
-      name: 'Gói Casual',
-      description:
-          'Vòng quay 10 món ăn cá nhân hóa và an toàn\nKhởi động thực đơn, ghi nhật ký nhanh trong một chạm\nThẻ kiến thức dinh dưỡng theo lịch sử ăn uống',
-      durationDays: 36500,
-      priceVnd: 0,
-      featureGroup: 'casual',
-      isActive: true,
-      tierLabel: 'Custom',
-    );
-  }
+  SubscriptionPlan? get _gymPlan => _planForFeatureGroup('gym');
 
-  SubscriptionPlan? get _officePlan {
-    for (final plan in _plans) {
-      if (plan.featureGroup?.trim().toLowerCase() == 'office') return plan;
-    }
-    return const SubscriptionPlan(
-      id: '10000000-0000-0000-0000-000000000004',
-      name: 'Gói Office',
-      description:
-          'Nhắc uống nước và vận động định kỳ\nKế hoạch cơm hộp theo calo và ngân sách\nDanh sách đi chợ cho cả tuần',
-      durationDays: 36500,
-      priceVnd: 0,
-      featureGroup: 'office',
-      isActive: true,
-      tierLabel: 'Custom',
-    );
-  }
+  SubscriptionPlan? get _casualPlan => _planForFeatureGroup('casual');
+
+  SubscriptionPlan? get _officePlan => _planForFeatureGroup('office');
 
   List<SubscriptionPlan> get _regularPlans => _plans.where((plan) {
     final group = plan.featureGroup?.trim().toLowerCase();
-    return group != 'gym' &&
-        group != 'casual' &&
-        group != 'office' &&
+    return !plan.belongsToFeatureGroup('gym') &&
+        !plan.belongsToFeatureGroup('casual') &&
+        !plan.belongsToFeatureGroup('office') &&
         group != 'pro' &&
         !plan.isBaselineFree;
   }).toList();
@@ -424,6 +386,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                     ),
                     const SizedBox(height: 12),
                     _OfficePackageCard(
+                      plan: _officePlan,
                       onOpen: _actionLoading ? null : _activateOfficeMode,
                       loading: _actionLoading,
                     ),
@@ -644,7 +607,7 @@ class _CasualPackageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = plan?.priceVnd ?? 0;
+    final price = plan?.priceVnd;
     const features = <({IconData icon, String label})>[
       (icon: Icons.casino_rounded, label: 'Vòng quay'),
       (icon: Icons.bolt_rounded, label: '1 chạm'),
@@ -701,7 +664,13 @@ class _CasualPackageCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _PlanTag(label: hasAccess ? 'ĐÃ MỞ' : 'GÓI RIÊNG'),
+              _PlanTag(
+                label: hasAccess
+                    ? 'ĐÃ MỞ'
+                    : plan == null
+                    ? 'ĐANG TẢI'
+                    : 'GÓI RIÊNG',
+              ),
             ],
           ),
           const SizedBox(height: 13),
@@ -709,7 +678,7 @@ class _CasualPackageCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formatVnd(price),
+                price == null ? 'Đang tải giá...' : formatVnd(price),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
@@ -800,7 +769,7 @@ class _GymerPackageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = plan?.priceVnd ?? 0;
+    final price = plan?.priceVnd;
     const features = <({IconData icon, String label})>[
       (icon: Icons.track_changes_rounded, label: 'Mục tiêu'),
       (icon: Icons.rate_review_outlined, label: 'PT Review'),
@@ -863,7 +832,13 @@ class _GymerPackageCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _PlanTag(label: hasAccess ? 'ĐÃ MỞ' : 'GÓI RIÊNG'),
+              _PlanTag(
+                label: hasAccess
+                    ? 'ĐÃ MỞ'
+                    : plan == null
+                    ? 'ĐANG TẢI'
+                    : 'GÓI RIÊNG',
+              ),
             ],
           ),
           const SizedBox(height: 13),
@@ -871,7 +846,7 @@ class _GymerPackageCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formatVnd(price),
+                price == null ? 'Đang tải giá...' : formatVnd(price),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
@@ -984,8 +959,13 @@ class _GymerPackageFeature extends StatelessWidget {
 }
 
 class _OfficePackageCard extends StatelessWidget {
-  const _OfficePackageCard({required this.onOpen, required this.loading});
+  const _OfficePackageCard({
+    required this.plan,
+    required this.onOpen,
+    required this.loading,
+  });
 
+  final SubscriptionPlan? plan;
   final Future<void> Function()? onOpen;
   final bool loading;
 
@@ -1039,13 +1019,19 @@ class _OfficePackageCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const _PlanTag(label: 'MIỄN PHÍ'),
+              _PlanTag(
+                label: plan == null
+                    ? 'ĐANG TẢI'
+                    : plan!.isFree
+                    ? 'MIỄN PHÍ'
+                    : 'GÓI RIÊNG',
+              ),
             ],
           ),
           const SizedBox(height: 14),
-          const Text(
-            '0đ',
-            style: TextStyle(
+          Text(
+            plan == null ? 'Đang tải giá...' : formatVnd(plan!.priceVnd),
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppColors.textDark,
@@ -1059,7 +1045,9 @@ class _OfficePackageCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onOpen == null ? null : () => onOpen!(),
+              onPressed: onOpen == null || plan == null
+                  ? null
+                  : () => onOpen!(),
               icon: loading
                   ? const SizedBox(
                       width: 18,
@@ -1071,7 +1059,13 @@ class _OfficePackageCard extends StatelessWidget {
                     )
                   : const Icon(Icons.arrow_forward_rounded, size: 18),
               label: Text(
-                loading ? 'Đang mở Office...' : 'Mở tính năng Office',
+                loading
+                    ? 'Đang xử lý gói Office...'
+                    : plan == null
+                    ? 'Đang đồng bộ gói Office'
+                    : plan!.isFree
+                    ? 'Mở tính năng Office'
+                    : 'Đăng ký gói Office',
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,

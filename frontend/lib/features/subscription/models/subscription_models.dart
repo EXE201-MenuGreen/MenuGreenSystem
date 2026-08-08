@@ -80,6 +80,20 @@ class SubscriptionPlan {
 
   bool get isFree => priceVnd <= 0;
 
+  bool belongsToFeatureGroup(String expectedGroup) {
+    final expected = expectedGroup.trim().toLowerCase();
+    final group = featureGroup?.trim().toLowerCase() ?? '';
+    if (group == expected) return true;
+
+    final normalizedName = name.trim().toLowerCase();
+    return switch (expected) {
+      'casual' => normalizedName.contains('casual'),
+      'office' => normalizedName.contains('office'),
+      'gym' => normalizedName.contains('gym'),
+      _ => false,
+    };
+  }
+
   bool get isBaselineFree {
     final group = featureGroup?.trim().toLowerCase() ?? '';
     final normalizedName = name.trim().toLowerCase();
