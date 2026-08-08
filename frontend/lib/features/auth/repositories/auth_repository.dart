@@ -12,9 +12,9 @@ class AuthRepository {
     ApiClient? apiClient,
     TokenStorage? tokenStorage,
     FirebaseGoogleAuthService? googleAuthService,
-  })  : _api = apiClient ?? ApiClient(tokenStorage: tokenStorage),
-        _storage = tokenStorage ?? TokenStorage(),
-        _googleAuth = googleAuthService ?? FirebaseGoogleAuthService();
+  }) : _api = apiClient ?? ApiClient(tokenStorage: tokenStorage),
+       _storage = tokenStorage ?? TokenStorage(),
+       _googleAuth = googleAuthService ?? FirebaseGoogleAuthService();
 
   final ApiClient _api;
   final TokenStorage _storage;
@@ -22,11 +22,9 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
-      final response = await _api.postJson(
-        ApiEndpoints.forgotPassword,
-        {'email': email},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.forgotPassword, {
+        'email': email,
+      }, authenticated: false);
 
       final decoded = response.body.isNotEmpty
           ? jsonDecode(response.body)
@@ -43,10 +41,7 @@ class AuthRepository {
         ),
       };
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -56,15 +51,11 @@ class AuthRepository {
     required String newPassword,
   }) async {
     try {
-      final response = await _api.postJson(
-        ApiEndpoints.resetPassword,
-        {
-          'email': email,
-          'otpCode': otpCode,
-          'newPassword': newPassword,
-        },
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.resetPassword, {
+        'email': email,
+        'otpCode': otpCode,
+        'newPassword': newPassword,
+      }, authenticated: false);
 
       final decoded = response.body.isNotEmpty
           ? jsonDecode(response.body)
@@ -81,10 +72,7 @@ class AuthRepository {
         ),
       };
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -92,11 +80,9 @@ class AuthRepository {
     try {
       final idToken = await _googleAuth.signInAndGetIdToken();
 
-      final response = await _api.postJson(
-        ApiEndpoints.googleLogin,
-        {'idToken': idToken},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.googleLogin, {
+        'idToken': idToken,
+      }, authenticated: false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -125,11 +111,10 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      final response = await _api.postJson(
-        ApiEndpoints.login,
-        {'email': email, 'password': password},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.login, {
+        'email': email,
+        'password': password,
+      }, authenticated: false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -146,10 +131,7 @@ class AuthRepository {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -157,17 +139,15 @@ class AuthRepository {
     String fullName,
     String email,
     String password,
+    String accountType,
   ) async {
     try {
-      final response = await _api.postJson(
-        ApiEndpoints.register,
-        {
-          'fullName': fullName,
-          'email': email,
-          'password': password,
-        },
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.register, {
+        'fullName': fullName,
+        'email': email,
+        'password': password,
+        'accountType': accountType,
+      }, authenticated: false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -184,20 +164,16 @@ class AuthRepository {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
   Future<Map<String, dynamic>> verifyOtp(String email, String otpCode) async {
     try {
-      final response = await _api.postJson(
-        ApiEndpoints.verifyOtp,
-        {'email': email, 'otpCode': otpCode},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.verifyOtp, {
+        'email': email,
+        'otpCode': otpCode,
+      }, authenticated: false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -213,10 +189,7 @@ class AuthRepository {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -230,11 +203,9 @@ class AuthRepository {
         };
       }
 
-      final response = await _api.postJson(
-        ApiEndpoints.refreshToken,
-        {'refreshToken': refresh},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.refreshToken, {
+        'refreshToken': refresh,
+      }, authenticated: false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -251,10 +222,7 @@ class AuthRepository {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -267,11 +235,9 @@ class AuthRepository {
         return {'success': true, 'message': 'Logged out'};
       }
 
-      final response = await _api.postJson(
-        ApiEndpoints.logout,
-        {'refreshToken': refresh},
-        authenticated: false,
-      );
+      final response = await _api.postJson(ApiEndpoints.logout, {
+        'refreshToken': refresh,
+      }, authenticated: false);
 
       await _storage.clear();
 
@@ -287,10 +253,7 @@ class AuthRepository {
       }
     } catch (e) {
       await _storage.clear();
-      return {
-        'success': false,
-        'message': _errorMessage(e),
-      };
+      return {'success': false, 'message': _errorMessage(e)};
     }
   }
 
@@ -312,7 +275,10 @@ class AuthRepository {
       userId = access != null ? JwtUtils.tryGetUserId(access) : null;
     }
 
-    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) {
+    if (access == null ||
+        access.isEmpty ||
+        refresh == null ||
+        refresh.isEmpty) {
       return;
     }
     await _storage.saveTokens(

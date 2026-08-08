@@ -9,8 +9,16 @@ void main() {
         'Không tìm thấy công thức.',
       );
       expect(
-        ApiMessageTranslator.translate('Calorie intake deviates more than 10% from daily target.'),
+        ApiMessageTranslator.translate(
+          'Calorie intake deviates more than 10% from daily target.',
+        ),
         'Calo lệch hơn 10% so với mục tiêu ngày.',
+      );
+      expect(
+        ApiMessageTranslator.translate(
+          'Current weight is confirmed, but there are not enough consistent weight logs to adjust calories safely. Keeping the current target.',
+        ),
+        'Đã xác nhận cân nặng hiện tại nhưng chưa đủ dữ liệu nhất quán để điều chỉnh calo an toàn. Hệ thống giữ nguyên mục tiêu hiện tại.',
       );
     });
 

@@ -13,6 +13,7 @@ import '../../../core/utils/safe_date_picker.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../repositories/profile_repository.dart';
+import '../widgets/health_metrics_card.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -31,6 +32,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   bool _isAvatarSaving = false;
   bool _profileChanged = false;
   String? _avatarUrl;
+  Map<String, dynamic>? _profileData;
 
   final _fullNameController = TextEditingController();
   final _heightController = TextEditingController();
@@ -53,14 +55,19 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     final data = await _profileRepo.getMyProfile();
     if (data != null && mounted) {
       setState(() {
+        _profileData = data;
         _fullNameController.text = data['fullName']?.toString() ?? '';
         _heightController.text = _formatNum(data['heightCm']);
         _weightController.text = _formatNum(data['weightKg']);
         _bodyFatController.text = _formatNum(data['bodyFatPercent']);
         final url = data['avatarUrl']?.toString();
         _avatarUrl = (url != null && url.isNotEmpty) ? url : null;
-        _gender = HealthProfileValues.normalizeGender(data['gender']?.toString());
-        _activityLevel = HealthProfileValues.normalizeActivity(data['activityLevel']?.toString());
+        _gender = HealthProfileValues.normalizeGender(
+          data['gender']?.toString(),
+        );
+        _activityLevel = HealthProfileValues.normalizeActivity(
+          data['activityLevel']?.toString(),
+        );
         _goal = HealthProfileValues.normalizeGoal(data['goal']?.toString());
         _dateOfBirth = _parseDate(data['dateOfBirth']);
         _isLoading = false;
@@ -72,7 +79,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   String _formatNum(dynamic value) {
     if (value == null) return '';
-    final n = value is num ? value.toDouble() : double.tryParse(value.toString());
+    final n = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString());
     if (n == null) return '';
     return n == n.roundToDouble() ? n.toInt().toString() : n.toString();
   }
@@ -103,7 +112,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       final now = DateTime.now();
       final picked = await showSafeDatePicker(
         context: context,
-        initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+        initialDate:
+            _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
         firstDate: DateTime(1920),
         lastDate: now,
         helpText: 'Chọn ngày sinh',
@@ -130,7 +140,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   Future<void> _handlePickAndUploadAvatar() async {
     await FirebaseBootstrap.initialize();
-    if (!FirebaseBootstrap.isInitialized || !FirebaseStorageService.isSupported) {
+    if (!FirebaseBootstrap.isInitialized ||
+        !FirebaseStorageService.isSupported) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -148,7 +159,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Không xác định được tài khoản. Vui lòng đăng nhập lại.'),
+          content: Text(
+            'Không xác định được tài khoản. Vui lòng đăng nhập lại.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -213,11 +226,17 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         _profileChanged = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã xoá avatar!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Đã xoá avatar!'),
+          backgroundColor: Colors.green,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xoá avatar thất bại!'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Xoá avatar thất bại!'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -236,7 +255,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       _showError('Cân nặng không hợp lệ (20–500 kg)');
       return;
     }
-    if (bodyFatText.isNotEmpty && (bodyFat == null || bodyFat < 0 || bodyFat > 100)) {
+    if (bodyFatText.isNotEmpty &&
+        (bodyFat == null || bodyFat < 0 || bodyFat > 100)) {
       _showError('Tỷ lệ mỡ không hợp lệ (0–100%)');
       return;
     }
@@ -250,7 +270,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       'heightCm': ?height,
       'weightKg': ?weight,
       'bodyFatPercent': ?bodyFat,
-      'activityLevel': _activityLevel ?? HealthProfileValues.normalizeActivity(null),
+      'activityLevel':
+          _activityLevel ?? HealthProfileValues.normalizeActivity(null),
       'goal': _goal ?? HealthProfileValues.normalizeGoal(null),
     };
 
@@ -261,12 +282,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cập nhật thông tin cá nhân thành công!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Cập nhật thông tin cá nhân thành công!'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể cập nhật thông tin cá nhân. Vui lòng thử lại sau!'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text(
+            'Không thể cập nhật thông tin cá nhân. Vui lòng thử lại sau!',
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -311,91 +340,105 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           centerTitle: true,
           title: const Text(
             'Thông tin cá nhân',
-            style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: AppColors.textDark,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
             : MediaQuery.removeViewInsets(
                 context: context,
                 removeBottom: true,
                 child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAvatarSection(),
-                    const SizedBox(height: 24),
-                    CustomTextField(
-                      controller: _fullNameController,
-                      label: 'Họ và tên',
-                      hintText: 'Nhập họ tên',
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDropdown(
-                      label: 'Giới tính',
-                      value: _gender,
-                      items: HealthProfileValues.genderLabels,
-                      onChanged: (val) => setState(() => _gender = val),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDateOfBirthField(),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomTextField(
-                            controller: _heightController,
-                            label: 'Chiều cao (cm)',
-                            hintText: 'VD: 170',
-                            keyboardType: TextInputType.number,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAvatarSection(),
+                      const SizedBox(height: 24),
+                      CustomTextField(
+                        controller: _fullNameController,
+                        label: 'Họ và tên',
+                        hintText: 'Nhập họ tên',
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDropdown(
+                        label: 'Giới tính',
+                        value: _gender,
+                        items: HealthProfileValues.genderLabels,
+                        onChanged: (val) => setState(() => _gender = val),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDateOfBirthField(),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomTextField(
+                              controller: _heightController,
+                              label: 'Chiều cao (cm)',
+                              hintText: 'VD: 170',
+                              keyboardType: TextInputType.number,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: CustomTextField(
-                            controller: _weightController,
-                            label: 'Cân nặng (kg)',
-                            hintText: 'VD: 65',
-                            keyboardType: TextInputType.number,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: CustomTextField(
+                              controller: _weightController,
+                              label: 'Cân nặng (kg)',
+                              hintText: 'VD: 65',
+                              keyboardType: TextInputType.number,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    CustomTextField(
-                      controller: _bodyFatController,
-                      label: 'Tỷ lệ mỡ cơ thể (%)',
-                      hintText: 'Tùy chọn, VD: 20',
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDropdown(
-                      label: 'Mức độ hoạt động',
-                      value: _activityLevel,
-                      items: HealthProfileValues.activityLabels,
-                      onChanged: (val) => setState(() => _activityLevel = val),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDropdown(
-                      label: 'Mục tiêu cá nhân',
-                      value: _goal,
-                      items: HealthProfileValues.goalLabels,
-                      onChanged: (val) => setState(() => _goal = val),
-                    ),
-                    const SizedBox(height: 40),
-                    _isSaving
-                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                        : PrimaryButton(
-                            text: 'Lưu thay đổi',
-                            onPressed: _handleSave,
-                          ),
-                    const SizedBox(height: 280),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextField(
+                        controller: _bodyFatController,
+                        label: 'Tỷ lệ mỡ cơ thể (%)',
+                        hintText: 'Tùy chọn, VD: 20',
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDropdown(
+                        label: 'Mức độ hoạt động',
+                        value: _activityLevel,
+                        items: HealthProfileValues.activityLabels,
+                        onChanged: (val) =>
+                            setState(() => _activityLevel = val),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDropdown(
+                        label: 'Mục tiêu cá nhân',
+                        value: _goal,
+                        items: HealthProfileValues.goalLabels,
+                        onChanged: (val) => setState(() => _goal = val),
+                      ),
+                      const SizedBox(height: 24),
+                      HealthMetricsCard(data: _profileData, compact: true),
+                      const SizedBox(height: 40),
+                      _isSaving
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : PrimaryButton(
+                              text: 'Lưu thay đổi',
+                              onPressed: _handleSave,
+                            ),
+                      const SizedBox(height: 280),
+                    ],
+                  ),
                 ),
               ),
-            ),
       ),
     );
   }
@@ -406,7 +449,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       children: [
         const Text(
           'Ngày sinh',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -417,7 +464,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: AppColors.progressBackground, width: 1.5),
+              border: Border.all(
+                color: AppColors.progressBackground,
+                width: 1.5,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -426,11 +476,17 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                 Text(
                   _dateOfBirthLabel(),
                   style: TextStyle(
-                    color: _dateOfBirth == null ? AppColors.textSecondary : AppColors.textDark,
+                    color: _dateOfBirth == null
+                        ? AppColors.textSecondary
+                        : AppColors.textDark,
                     fontSize: 14,
                   ),
                 ),
-                const Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 20),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -452,7 +508,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                 backgroundColor: AppColors.progressBackground,
                 backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
                 child: !hasAvatar
-                    ? const Icon(Icons.person, size: 48, color: AppColors.textSecondary)
+                    ? const Icon(
+                        Icons.person,
+                        size: 48,
+                        color: AppColors.textSecondary,
+                      )
                     : null,
               ),
               if (_isAvatarSaving)
@@ -463,7 +523,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -482,7 +545,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_isAvatarSaving || !FirebaseStorageService.isSupported)
+              onPressed:
+                  (_isAvatarSaving || !FirebaseStorageService.isSupported)
                   ? null
                   : _handlePickAndUploadAvatar,
               icon: const Icon(Icons.photo_library_outlined, size: 20),
@@ -501,7 +565,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               onPressed: _isAvatarSaving ? null : _handleRemoveAvatar,
               child: const Text(
                 'Xóa avatar',
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -526,7 +593,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -540,12 +611,24 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: selected,
-              hint: const Text('Chưa chọn', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+              hint: const Text(
+                'Chưa chọn',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down,
+                color: AppColors.textSecondary,
+              ),
               items: items.entries.map((e) {
                 return DropdownMenuItem<String>(
                   value: e.key,
-                  child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                  child: Text(
+                    e.value,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 14,
+                    ),
+                  ),
                 );
               }).toList(),
               onChanged: onChanged,

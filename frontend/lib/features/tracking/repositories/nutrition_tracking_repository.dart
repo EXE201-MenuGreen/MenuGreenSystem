@@ -7,6 +7,7 @@ import '../../../core/middleware/error_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/nutrition_models.dart';
+import '../models/latest_weight_log.dart';
 
 export '../models/nutrition_models.dart';
 
@@ -144,6 +145,60 @@ class NutritionTrackingRepository {
       ApiEndpoints.nutritionWeightLogById(weightLogId),
     );
     return response.statusCode == 200;
+  }
+
+  /// Fetch the user's most-recent weight log. Used to pre-fill the
+  /// weight log sheet so the user doesn't have to re-type a value they
+  /// already entered. Returns null when the API call fails or the user
+  /// has no logs yet.
+  Future<LatestWeightLog?> getLatestWeightLog() async {
+    try {
+      final response = await _api.get(
+        '${ApiEndpoints.nutritionWeightLogs}?page=1&pageSize=1',
+      );
+      if (response.statusCode != 200) return _getHealthProfileWeight();
+      final body = response.body;
+      if (body.isEmpty) return _getHealthProfileWeight();
+      final decoded = jsonDecode(body);
+      Map<String, dynamic>? first;
+      if (decoded is Map) {
+        final rawLogs =
+            decoded['weightLogs'] ??
+            decoded['WeightLogs'] ??
+            decoded['items'] ??
+            decoded['Items'] ??
+            decoded['data'] ??
+            decoded['Data'];
+        if (rawLogs is List && rawLogs.isNotEmpty && rawLogs.first is Map) {
+          first = Map<String, dynamic>.from(rawLogs.first as Map);
+        }
+      } else if (decoded is List && decoded.isNotEmpty) {
+        first = Map<String, dynamic>.from(decoded.first as Map);
+      }
+      if (first == null) return _getHealthProfileWeight();
+      return LatestWeightLog.fromJson(first);
+    } catch (_) {
+      return _getHealthProfileWeight();
+    }
+  }
+
+  Future<LatestWeightLog?> _getHealthProfileWeight() async {
+    try {
+      final response = await _api.get(ApiEndpoints.healthProfileMe);
+      if (response.statusCode != 200 || response.body.isEmpty) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) return null;
+      final data = Map<String, dynamic>.from(decoded);
+      final weight = data['weightKg'] ?? data['WeightKg'];
+      if (weight == null) return null;
+      return LatestWeightLog.fromJson({
+        'id': '',
+        'weightKg': weight,
+        'bodyFatPercent': data['bodyFatPercent'] ?? data['BodyFatPercent'],
+      });
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<CatalogItem>> getFoods({String? keyword}) async {

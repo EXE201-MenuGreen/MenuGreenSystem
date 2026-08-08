@@ -21,6 +21,7 @@ class GymGoalsProvider extends ChangeNotifier {
   bool _hasPlanConfiguration = false;
   int _planLoadVersion = 0;
   GymRecalibrationResult? _lastRecalibration;
+  RecalibrateOutcome? _lastRecalibrateOutcome;
 
   bool get isLoading => _isLoading;
   bool get isRecalibrating => _isRecalibrating;
@@ -31,6 +32,7 @@ class GymGoalsProvider extends ChangeNotifier {
   int? get planTargetCalories => _planTargetCalories;
   bool get hasPlanConfiguration => _hasPlanConfiguration;
   GymRecalibrationResult? get lastRecalibration => _lastRecalibration;
+  RecalibrateOutcome? get lastRecalibrateOutcome => _lastRecalibrateOutcome;
 
   Future<void> loadProfile() async {
     _isLoading = true;
@@ -97,20 +99,41 @@ class GymGoalsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> recalibrate() async {
+  Future<RecalibrateOutcome> recalibrate() async {
     _isRecalibrating = true;
+    _lastRecalibrateOutcome = null;
     _errorMessage = null;
     notifyListeners();
     final result = await _repo.recalibrate();
     _isRecalibrating = false;
     if (!result.success) {
-      _errorMessage = result.translatedMessage;
+      // Backend returned a structured error code. Branch on it so the UI
+      // can react specifically (e.g. open the weight log sheet instead of
+      // just showing a generic error).
+      switch (result.errorCode) {
+        case 'RECALIBRATE_NO_WEIGHT_DATA':
+          _lastRecalibrateOutcome = RecalibrateOutcome.requiresWeightLog;
+        case 'RECALIBRATE_ANOMALY_WEIGHT_CHANGE':
+          _lastRecalibrateOutcome = RecalibrateOutcome.requiresWeightLogReview;
+        default:
+          _errorMessage = result.translatedMessage;
+          _lastRecalibrateOutcome = RecalibrateOutcome.failed;
+      }
       notifyListeners();
-      return false;
+      return _lastRecalibrateOutcome!;
     }
     _lastRecalibration = result.data;
+    _lastRecalibrateOutcome = RecalibrateOutcome.success;
     notifyListeners();
-    return true;
+    return _lastRecalibrateOutcome!;
+  }
+
+  /// Clear the last recalibration outcome (e.g. after the user closes the
+  /// weight log sheet so the card returns to its neutral state).
+  void clearRecalibrateOutcome() {
+    if (_lastRecalibrateOutcome == null) return;
+    _lastRecalibrateOutcome = null;
+    notifyListeners();
   }
 
   void clearError() {

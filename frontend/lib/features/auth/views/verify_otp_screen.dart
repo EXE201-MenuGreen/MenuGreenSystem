@@ -4,8 +4,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
-import '../../onboarding/views/onboarding_screen.dart';
 import '../repositories/auth_repository.dart';
+import '../utils/post_auth_navigation.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   const VerifyOtpScreen({
@@ -89,13 +89,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OnboardingScreen(initialFullName: widget.fullName),
-          ),
-          (route) => false,
-        );
+        navigateAfterAuthenticated(context);
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
