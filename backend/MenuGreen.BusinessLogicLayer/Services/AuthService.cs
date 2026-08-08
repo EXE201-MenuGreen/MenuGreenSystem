@@ -63,7 +63,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IsActive = false
             };
 
-            var profile = new Profile { UserId = user.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+            var profile = new Profile
+            {
+                UserId = user.Id,
+                FullName = request.FullName.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
             var health = new HealthProfile { UserId = user.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
             var otp = GenerateOtp();
             var verification = new EmailVerification

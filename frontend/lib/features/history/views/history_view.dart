@@ -18,9 +18,10 @@ import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_templates/repositories/meal_template_repository.dart';
 
 class HistoryView extends StatefulWidget {
-  const HistoryView({super.key, this.onTrackingUpdated});
+  const HistoryView({super.key, this.onTrackingUpdated, this.initialDate});
 
   final VoidCallback? onTrackingUpdated;
+  final DateTime? initialDate;
 
   @override
   State<HistoryView> createState() => HistoryViewState();
@@ -145,7 +146,7 @@ class HistoryViewState extends State<HistoryView> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = widget.initialDate ?? DateTime.now();
     _focusedMonth = DateTime(now.year, now.month, 1);
     _selectedDate = DateTime(now.year, now.month, now.day);
     _loadData();
@@ -675,13 +676,17 @@ class HistoryViewState extends State<HistoryView> {
     final isStandalone = ModalRoute.of(context)?.canPop ?? false;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: isStandalone
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: const Color(0xFFF8FAFC),
               foregroundColor: AppColors.textDark,
               elevation: 0,
-              title: const Text('Lịch sử hoạt động'),
+              centerTitle: true,
+              title: const Text(
+                'Lịch sử hoạt động',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
             )
           : null,
       body: SafeArea(
@@ -691,15 +696,17 @@ class HistoryViewState extends State<HistoryView> {
             _buildHeader(isStandalone),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildCalendar(),
                     const SizedBox(height: 16),
-                    DashboardRangeSelector(
-                      selected: _dashboardRange,
-                      onChanged: _onDashboardRangeChanged,
+                    Center(
+                      child: DashboardRangeSelector(
+                        selected: _dashboardRange,
+                        onChanged: _onDashboardRangeChanged,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     DailySummaryCard(
@@ -721,20 +728,50 @@ class HistoryViewState extends State<HistoryView> {
                       onEdit: _editWeightLog,
                       onDelete: _deleteWeightLog,
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Nhật ký bữa ăn',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildSearchBar(),
-                    const SizedBox(height: 16),
-                    _buildFilterChips(),
                     const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Nhật ký bữa ăn',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textDark,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _addMealLog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.add, size: 16, color: AppColors.primary),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Thêm món',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _buildSearchBar(),
+                    const SizedBox(height: 14),
+                    _buildFilterChips(),
+                    const SizedBox(height: 20),
                     if (_loading)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 48),
@@ -773,7 +810,7 @@ class HistoryViewState extends State<HistoryView> {
         ? _dashboard!.weightLogs.last.weightKg
         : null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
       child: Row(
         children: [
           Expanded(
@@ -784,39 +821,90 @@ class HistoryViewState extends State<HistoryView> {
                   const Text(
                     'Lịch sử hoạt động',
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textDark,
+                      letterSpacing: -0.4,
                     ),
                   ),
-                if (latestWeight != null)
-                  Text(
-                    'Cân nặng gần nhất: ${latestWeight.toStringAsFixed(1)} kg',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                if (latestWeight != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.monitor_weight_outlined,
+                          size: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cân nặng: ${latestWeight.toStringAsFixed(1)} kg',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ],
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined, color: AppColors.textDark),
-            onPressed: () {
+          _headerIconButton(
+            icon: Icons.today_rounded,
+            tooltip: 'Hôm nay',
+            onTap: () {
               setState(() {
                 _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
               });
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.textDark),
-            onPressed: _addMealLog,
+          const SizedBox(width: 6),
+          _headerIconButton(
+            icon: Icons.add_rounded,
+            tooltip: 'Thêm nhật ký',
+            onTap: _addMealLog,
           ),
-          IconButton(
-            icon: const Icon(Icons.monitor_weight_outlined, color: AppColors.textDark),
-            onPressed: _addWeightLog,
+          const SizedBox(width: 6),
+          _headerIconButton(
+            icon: Icons.scale_rounded,
+            tooltip: 'Ghi cân nặng',
+            onTap: _addWeightLog,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _headerIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Icon(icon, color: AppColors.textDark, size: 20),
+        ),
       ),
     );
   }
@@ -828,104 +916,148 @@ class HistoryViewState extends State<HistoryView> {
     final prevMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
     final daysInPrevMonth = DateUtils.getDaysInMonth(prevMonth.year, prevMonth.month);
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left, color: AppColors.textDark),
-              onPressed: () => _changeMonth(-1),
-            ),
-            Text(
-              '${_monthNames[_focusedMonth.month - 1]} ${_focusedMonth.year}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  minimumSize: const Size(36, 36),
+                ),
+                icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textDark, size: 22),
+                onPressed: () => _changeMonth(-1),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right, color: AppColors.textDark),
-              onPressed: () => _changeMonth(1),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-              .map(
-                (d) => SizedBox(
-                  width: 36,
-                  child: Text(
-                    d,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${_monthNames[_focusedMonth.month - 1]} ${_focusedMonth.year}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
                   ),
                 ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
+              ),
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  minimumSize: const Size(36, 36),
+                ),
+                icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textDark, size: 22),
+                onPressed: () => _changeMonth(1),
+              ),
+            ],
           ),
-          itemCount: leadingEmpty + daysInMonth,
-          itemBuilder: (context, index) {
-            if (index < leadingEmpty) {
-              final day = daysInPrevMonth - leadingEmpty + index + 1;
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: const ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+                .map(
+                  (d) => SizedBox(
+                    width: 36,
+                    child: Text(
+                      d,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+            ),
+            itemCount: leadingEmpty + daysInMonth,
+            itemBuilder: (context, index) {
+              if (index < leadingEmpty) {
+                final day = daysInPrevMonth - leadingEmpty + index + 1;
+                return _CalendarDayCell(
+                  day: day,
+                  isOutsideMonth: true,
+                  isSelected: false,
+                  onTap: () {},
+                );
+              }
+
+              final day = index - leadingEmpty + 1;
+              final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+              final isSelected = DateUtils.isSameDay(date, _selectedDate);
+              final goalPercent = _monthGoalByDate[_dateKey(date)];
+              final heatmapLevel = NutritionHeatmapColors.levelForPercent(goalPercent);
+
               return _CalendarDayCell(
                 day: day,
-                isOutsideMonth: true,
-                isSelected: false,
-                onTap: () {},
+                isOutsideMonth: false,
+                isSelected: isSelected,
+                heatmapLevel: heatmapLevel,
+                onTap: () => _selectDate(date),
               );
-            }
-
-            final day = index - leadingEmpty + 1;
-            final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
-            final isSelected = DateUtils.isSameDay(date, _selectedDate);
-            final goalPercent = _monthGoalByDate[_dateKey(date)];
-            final heatmapLevel = NutritionHeatmapColors.levelForPercent(goalPercent);
-
-            return _CalendarDayCell(
-              day: day,
-              isOutsideMonth: false,
-              isSelected: isSelected,
-              heatmapLevel: heatmapLevel,
-              onTap: () => _selectDate(date),
-            );
-          },
-        ),
-        const CalendarHeatmapLegend(),
-      ],
+            },
+          ),
+          const CalendarHeatmapLegend(),
+        ],
+      ),
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.progressBackground.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         onChanged: (value) => setState(() => _searchQuery = value),
-        decoration: const InputDecoration(
-          hintText: 'Tìm kiếm món ăn...',
-          hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          prefixIcon: Icon(Icons.search, color: AppColors.textSecondary, size: 22),
+        decoration: InputDecoration(
+          hintText: 'Tìm kiếm món ăn trong nhật ký...',
+          hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 13.5),
+          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 18),
+                  onPressed: () => setState(() => _searchQuery = ''),
+                )
+              : null,
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
         ),
       ),
     );
@@ -938,29 +1070,36 @@ class HistoryViewState extends State<HistoryView> {
         children: [
           _FilterChip(
             label: 'Tất cả',
+            icon: Icons.restaurant_menu_rounded,
             isSelected: _mealFilter == null,
-            showDropdown: false,
             onTap: () => setState(() => _mealFilter = null),
           ),
           const SizedBox(width: 8),
           _FilterChip(
             label: MealCategory.breakfast.filterLabel,
+            icon: Icons.wb_twilight_rounded,
             isSelected: _mealFilter == MealCategory.breakfast,
-            showDropdown: true,
             onTap: () => setState(() => _mealFilter = MealCategory.breakfast),
           ),
           const SizedBox(width: 8),
           _FilterChip(
             label: MealCategory.lunch.filterLabel,
+            icon: Icons.wb_sunny_rounded,
             isSelected: _mealFilter == MealCategory.lunch,
-            showDropdown: true,
             onTap: () => setState(() => _mealFilter = MealCategory.lunch),
           ),
           const SizedBox(width: 8),
           _FilterChip(
+            label: MealCategory.dinner.filterLabel,
+            icon: Icons.nights_stay_rounded,
+            isSelected: _mealFilter == MealCategory.dinner,
+            onTap: () => setState(() => _mealFilter = MealCategory.dinner),
+          ),
+          const SizedBox(width: 8),
+          _FilterChip(
             label: MealCategory.snack.filterLabel,
+            icon: Icons.local_cafe_rounded,
             isSelected: _mealFilter == MealCategory.snack,
-            showDropdown: true,
             onTap: () => setState(() => _mealFilter = MealCategory.snack),
           ),
         ],
@@ -969,16 +1108,41 @@ class HistoryViewState extends State<HistoryView> {
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.restaurant_menu, size: 48, color: AppColors.textLight.withValues(alpha: 0.8)),
-            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.restaurant_rounded, size: 36, color: AppColors.primary),
+            ),
+            const SizedBox(height: 14),
             Text(
-              _searchQuery.isNotEmpty ? 'Không tìm thấy món ăn' : 'Chưa có hoạt động trong ngày này',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              _searchQuery.isNotEmpty ? 'Không tìm thấy món ăn phù hợp' : 'Chưa ghi nhận bữa ăn nào',
+              style: const TextStyle(
+                color: AppColors.textDark,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Thử gõ tên từ khóa khác xem sao.'
+                  : 'Bấm "+ Thêm món" ở trên để ghi chép lại bữa ăn nhé.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
             ),
           ],
         ),
@@ -1010,21 +1174,31 @@ class _CalendarDayCell extends StatelessWidget {
 
     return GestureDetector(
       onTap: isOutsideMonth ? null : onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : heatmapColor,
           shape: BoxShape.circle,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           '$day',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            fontSize: 13.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
             color: isSelected
                 ? Colors.white
                 : isOutsideMonth
-                    ? AppColors.textLight
+                    ? AppColors.textLight.withValues(alpha: 0.5)
                     : AppColors.textDark,
           ),
         ),
@@ -1036,45 +1210,56 @@ class _CalendarDayCell extends StatelessWidget {
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
+    required this.icon,
     required this.isSelected,
-    required this.showDropdown,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool isSelected;
-  final bool showDropdown;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.progressBackground.withValues(alpha: 0.6),
+          color: isSelected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                 color: isSelected ? Colors.white : AppColors.textDark,
               ),
             ),
-            if (showDropdown) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: 18,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-            ],
           ],
         ),
       ),
@@ -1082,7 +1267,7 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-class _TimelineSectionWidget extends StatelessWidget {
+class _TimelineSectionWidget extends StatefulWidget {
   const _TimelineSectionWidget({
     required this.section,
     required this.showLineBelow,
@@ -1099,43 +1284,65 @@ class _TimelineSectionWidget extends StatelessWidget {
   final Future<void> Function(HistoryMealEntry meal) onOpenDetail;
   final Future<void> Function(HistoryMealEntry meal) onCreateTemplate;
 
+  @override
+  State<_TimelineSectionWidget> createState() => _TimelineSectionWidgetState();
+}
+
+class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
+  bool _isExpanded = true;
+
   String _formatTime(TimeOfDay time) {
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 
+  Color _categoryColor(MealCategory cat) {
+    return switch (cat) {
+      MealCategory.breakfast => const Color(0xFFD97706),
+      MealCategory.lunch => AppColors.primary,
+      MealCategory.dinner => const Color(0xFF4F46E5),
+      MealCategory.snack => const Color(0xFF8B5CF6),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    final highlighted = section.isHighlighted;
+    final catColor = _categoryColor(widget.section.category);
+    final totalCount = widget.section.meals.length;
+    final totalCalories = widget.section.meals.fold<int>(0, (sum, m) => sum + m.calories);
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 40,
+            width: 36,
             child: Column(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: highlighted ? AppColors.primary : AppColors.progressBackground,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    section.category.icon,
-                    size: 20,
-                    color: highlighted ? Colors.white : AppColors.textSecondary,
+                GestureDetector(
+                  onTap: () => setState(() => _isExpanded = !_isExpanded),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: catColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: catColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Icon(
+                      widget.section.category.icon,
+                      size: 18,
+                      color: catColor,
+                    ),
                   ),
                 ),
-                if (showLineBelow)
+                if (widget.showLineBelow)
                   Expanded(
                     child: Container(
                       width: 2,
                       margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: AppColors.progressBackground,
+                      color: const Color(0xFFE2E8F0),
                     ),
                   ),
               ],
@@ -1144,42 +1351,94 @@ class _TimelineSectionWidget extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(bottom: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        section.category.label,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+                  GestureDetector(
+                    onTap: () => setState(() => _isExpanded = !_isExpanded),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                widget.section.category.label,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textDark,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: catColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$totalCount món • $totalCalories kcal',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: catColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Text(
-                        _formatTime(section.time),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                _formatTime(widget.section.time),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            AnimatedRotation(
+                              turns: _isExpanded ? 0 : -0.25,
+                              duration: const Duration(milliseconds: 200),
+                              child: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: AppColors.textSecondary,
+                                size: 22,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ...section.meals.map((meal) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _MealCard(
-                          meal: meal,
-                          onOpenDetail: meal.canOpenDetail ? () => onOpenDetail(meal) : null,
-                          onEdit: () => onEditMeal(meal.id),
-                          onDelete: () => onDeleteMeal(meal.id),
-                          onCreateTemplate: () => onCreateTemplate(meal),
-                        ),
-                      )),
+                  if (_isExpanded) ...[
+                    const SizedBox(height: 10),
+                    ...widget.section.meals.map((meal) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _MealCard(
+                            meal: meal,
+                            onOpenDetail: meal.canOpenDetail ? () => widget.onOpenDetail(meal) : null,
+                            onEdit: () => widget.onEditMeal(meal.id),
+                            onDelete: () => widget.onDeleteMeal(meal.id),
+                            onCreateTemplate: () => widget.onCreateTemplate(meal),
+                          ),
+                        )),
+                  ],
                 ],
               ),
             ),
@@ -1209,19 +1468,19 @@ class _MealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onOpenDetail,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.progressBackground),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -1229,19 +1488,19 @@ class _MealCard extends StatelessWidget {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 child: meal.imageUrl != null
                     ? CachedNetworkImage(
                         imageUrl: meal.imageUrl!,
-                        width: 56,
-                        height: 56,
-                        memCacheWidth: 56,
-                        memCacheHeight: 56,
+                        width: 54,
+                        height: 54,
+                        memCacheWidth: 54,
+                        memCacheHeight: 54,
                         fit: BoxFit.cover,
                         placeholder: (_, _) => Container(
-                          width: 56,
-                          height: 56,
-                          color: Colors.grey[200],
+                          width: 54,
+                          height: 54,
+                          color: const Color(0xFFF1F5F9),
                         ),
                         errorWidget: (_, _, _) => _imagePlaceholder(),
                       )
@@ -1255,32 +1514,46 @@ class _MealCard extends StatelessWidget {
                     Text(
                       meal.title,
                       style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.textDark,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${meal.calories} kcal • ${meal.portion}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    if (onOpenDetail != null)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2),
-                        child: Text(
-                          'Chạm để xem chi tiết',
-                          style: TextStyle(fontSize: 11, color: AppColors.primary),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${meal.calories} kcal',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Text(
+                          meal.portion,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+                icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onSelected: (value) {
                   if (value == 'detail') onOpenDetail?.call();
                   if (value == 'edit') onEdit();
@@ -1290,25 +1563,49 @@ class _MealCard extends StatelessWidget {
                 itemBuilder: (context) => [
                   const PopupMenuItem<String>(
                     value: 'template',
-                    child: Text('Lưu thành thực đơn'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bookmark_add_outlined, size: 18, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Lưu thành thực đơn'),
+                      ],
+                    ),
                   ),
                   if (onOpenDetail != null)
                     const PopupMenuItem<String>(
                       value: 'detail',
-                      child: Text('Xem chi tiết'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.visibility_outlined, size: 18, color: AppColors.textDark),
+                          SizedBox(width: 8),
+                          Text('Xem chi tiết'),
+                        ],
+                      ),
                     ),
                   const PopupMenuItem<String>(
                     value: 'edit',
-                    child: Text('Sửa nhật ký'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18, color: AppColors.textDark),
+                        SizedBox(width: 8),
+                        Text('Sửa nhật ký'),
+                      ],
+                    ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'delete',
-                    child: Text('Xóa nhật ký'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Xóa nhật ký', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
                 ],
               ),
               if (onOpenDetail != null)
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 20),
             ],
           ),
         ),
@@ -1318,12 +1615,20 @@ class _MealCard extends StatelessWidget {
 
   Widget _imagePlaceholder([bool isRecipe = false]) {
     return Container(
-      width: 56,
-      height: 56,
-      color: AppColors.progressBackground,
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isRecipe
+              ? [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)]
+              : [const Color(0xFFECFDF5), const Color(0xFFD1FAE5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Icon(
-        isRecipe ? Icons.menu_book_outlined : Icons.restaurant,
-        color: AppColors.textLight,
+        isRecipe ? Icons.menu_book_rounded : Icons.restaurant_rounded,
+        color: isRecipe ? const Color(0xFF4F46E5) : AppColors.primary,
         size: 24,
       ),
     );

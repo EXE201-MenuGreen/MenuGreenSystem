@@ -5,6 +5,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/services/firebase_bootstrap.dart';
 import '../../../core/services/firebase_google_auth_service.dart';
+import '../../../core/utils/keyboard_aware_snackbar.dart';
 import '../repositories/auth_repository.dart';
 import '../utils/auth_error_messages.dart';
 import 'register_screen.dart';
@@ -56,8 +57,9 @@ class _LoginScreenState extends State<LoginScreen>
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đầy đủ email và mật khẩu')),
+      context.showKeyboardAwareSnackBar(
+        'Vui lòng nhập đầy đủ email và mật khẩu',
+        backgroundColor: Colors.orange,
       );
       return;
     }
@@ -70,16 +72,12 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đăng nhập thành công!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-      );
+      context.showSuccessSnackBar('Đăng nhập thành công!');
       await navigateAfterAuthenticated(context);
     } else {
       final msg = (result['message'] ?? 'Đăng nhập thất bại.').toString();
       if (isOtpVerificationRequiredMessage(msg)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.orange),
-        );
+        context.showWarningSnackBar(msg);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           Navigator.push(
@@ -89,9 +87,7 @@ class _LoginScreenState extends State<LoginScreen>
         });
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
+      context.showErrorSnackBar(msg);
     }
   }
 
@@ -101,13 +97,8 @@ class _LoginScreenState extends State<LoginScreen>
     await FirebaseBootstrap.initialize();
     if (!mounted) return;
     if (!FirebaseGoogleAuthService.isSupported) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Đăng nhập Google chỉ hỗ trợ trên Android/iOS. Hãy chạy app trên emulator hoặc thiết bị.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
+      context.showWarningSnackBar(
+        'Đăng nhập Google chỉ hỗ trợ trên Android/iOS. Hãy chạy app trên emulator hoặc thiết bị.',
       );
       return;
     }
@@ -118,22 +109,11 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Đăng nhập Google thành công!',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
+      context.showSuccessSnackBar('Đăng nhập Google thành công!');
       await navigateAfterAuthenticated(context);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text((result['message'] ?? 'Đăng nhập Google thất bại.').toString()),
-          backgroundColor: Colors.red,
-        ),
+      context.showErrorSnackBar(
+        (result['message'] ?? 'Đăng nhập Google thất bại.').toString(),
       );
     }
   }

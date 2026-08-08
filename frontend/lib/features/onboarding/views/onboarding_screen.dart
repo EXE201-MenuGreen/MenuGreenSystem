@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/token_storage.dart';
 import '../../main/views/main_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../utils/onboarding_gate.dart';
@@ -13,7 +14,9 @@ import 'steps/allergies_step.dart';
 import 'steps/calorie_goal_step.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.initialFullName});
+
+  final String? initialFullName;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -25,6 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _healthProfileRepository = HealthProfileRepository();
   final _userAiProfileRepository = UserAiProfileRepository();
   final _onboardingRepository = OnboardingRepository();
+  final _tokenStorage = TokenStorage();
 
   int _currentIndex = 0;
   bool _finishing = false;
@@ -49,6 +53,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Dị ứng thực phẩm',
     'Mục tiêu Calo',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initialFullName = widget.initialFullName?.trim() ?? '';
+    _fullName = initialFullName.isEmpty ? null : initialFullName;
+    if (_fullName == null) _loadSavedFullName();
+  }
+
+  Future<void> _loadSavedFullName() async {
+    final savedFullName = (await _tokenStorage.getFullName())?.trim() ?? '';
+    if (!mounted || savedFullName.isEmpty || _fullName != null) return;
+    setState(() => _fullName = savedFullName);
+  }
 
   void _nextPage() {
     if (_currentIndex < _stepCount - 1) {
@@ -100,8 +118,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _showMessage(healthResult.message, isError: true);
       return;
     }
-
-
 
     final target =
         healthResult.data?['targetCalories'] ??
@@ -286,31 +302,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   horizontal: 24.0,
                   vertical: 8.0,
                 ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'BƯỚC ${_currentIndex + 1}/$_stepCount',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'BƯỚC ${_currentIndex + 1}/$_stepCount',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: (_currentIndex + 1) / _stepCount,
-                        backgroundColor: AppColors.progressBackground,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                        minHeight: 4,
-                        borderRadius: BorderRadius.circular(2),
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: (_currentIndex + 1) / _stepCount,
+                      backgroundColor: AppColors.progressBackground,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
                       ),
-                    ],
-                  ),
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ],
                 ),
+              ),
               Expanded(
                 child: PageView(
                   controller: _pageController,
