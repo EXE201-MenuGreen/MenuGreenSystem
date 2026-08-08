@@ -416,139 +416,139 @@ var app = builder.Build();
 // Global exception handler - must be first in pipeline
 app.UseMiddleware<MenuGreen.API.Middleware.GlobalExceptionHandler>();
 
-// Auto-apply EF Core migrations on startup (only in non-Development environments)
-if (!app.Environment.IsDevelopment())
-{
-    using var scope = app.Services.CreateScope();
-    var db =
-        scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-    // -------------------------------------------------------------------------
-    // Diagnostics: identify the running image so production issues can be
-    // correlated with the exact commit / DLL build that produced them.
-    // -------------------------------------------------------------------------
-    var gitSha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "<unknown>";
-    var dllVersion =
-        typeof(MenuGreen.DataAccessLayer.Context.ApplicationDbContext)
-            .Assembly.GetCustomAttributes(
-                typeof(System.Reflection.AssemblyFileVersionAttribute),
-                false
-            )
-            .OfType<System.Reflection.AssemblyFileVersionAttribute>()
-            .FirstOrDefault()
-            ?.Version
-        ?? "<unknown>";
-    logger.LogInformation(
-        "[MIGRATION] GitSHA={GitSha} DataAccessLayerDllFileVersion={DllVersion}",
-        gitSha,
-        dllVersion
-    );
-
-    // -------------------------------------------------------------------------
-    // List pending/applied migrations BEFORE applying (for diagnostics).
-    // -------------------------------------------------------------------------
-    List<string> applied = new();
-    List<string> pending = new();
-    try
-    {
-        applied = db.Database.GetAppliedMigrations().ToList();
-        pending = db.Database.GetPendingMigrations().ToList();
-        logger.LogInformation(
-            "[MIGRATION] Applied ({Count}): [{List}]",
-            applied.Count,
-            string.Join(", ", applied)
-        );
-        logger.LogInformation(
-            "[MIGRATION] Pending ({Count}): [{List}]",
-            pending.Count,
-            string.Join(", ", pending)
-        );
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(
-            ex,
-            "[MIGRATION] Could not enumerate migration status (DB may be unreachable). Will attempt Migrate() anyway."
-        );
-    }
-
-    // -------------------------------------------------------------------------
-    // Drift detection: if history contains a row that the running DLL does NOT
-    // know about (e.g. previous image was rolled back), warn loudly. This is a
-    // symptom of Use case B (history drift) and means auto-apply will throw.
-    // -------------------------------------------------------------------------
-    try
-    {
-        var known = db.Database.GetMigrations().ToHashSet();
-        var unknownInHistory = applied.Where(id => !known.Contains(id)).ToList();
-        if (unknownInHistory.Count > 0)
-        {
-            logger.LogWarning(
-                "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. "
-                    + "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
-                unknownInHistory.Count,
-                string.Join(", ", unknownInHistory)
-            );
-
-            // AUTO-FIX: Remove unknown migrations from history since they don't exist in this DLL
-            logger.LogInformation(
-                "[MIGRATION] Auto-removing {Count} unknown migration(s) from __EFMigrationsHistory.",
-                unknownInHistory.Count
-            );
-            foreach (var unknownId in unknownInHistory)
-            {
-                db.Database.ExecuteSqlRaw(
-                    "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
-                    unknownId);
-                logger.LogInformation("[MIGRATION] Removed: {MigrationId}", unknownId);
-            }
-
-            // Refresh applied/pending lists
-            applied = db.Database.GetAppliedMigrations().ToList();
-            pending = db.Database.GetPendingMigrations().ToList();
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "[MIGRATION] Could not run drift check.");
-    }
-
-    if (pending.Count > 0)
-    {
-        logger.LogInformation(
-            "[MIGRATION] Will apply {Count} pending migration(s) now.",
-            pending.Count
-        );
-    }
-
-    // -------------------------------------------------------------------------
-    // Apply migrations. If DB already has tables but empty __EFMigrationsHistory,
-    // the deploy script seeds it with the baseline migration name, so EF skips
-    // table creation and only applies any real delta migrations.
-    // -------------------------------------------------------------------------
-    try
-    {
-        logger.LogInformation("[MIGRATION] Applying database migrations...");
-        db.Database.Migrate();
-        logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
-
-        var appliedAfter = db.Database.GetAppliedMigrations().ToList();
-        logger.LogInformation(
-            "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
-            appliedAfter.Count,
-            string.Join(", ", appliedAfter)
-        );
-    }
-    catch (Exception ex)
-    {
-        logger.LogCritical(
-            ex,
-            "FATAL: Failed to apply database migrations. Application will NOT start."
-        );
-        throw;
-    }
-}
+// Auto-apply EF Core migrations on startup (DISABLED - using raw SQL migrations instead)
+// if (!app.Environment.IsDevelopment())
+// {
+//     using var scope = app.Services.CreateScope();
+//     var db =
+//         scope.ServiceProvider.GetRequiredService<MenuGreen.DataAccessLayer.Context.ApplicationDbContext>();
+//     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+//
+//     // -------------------------------------------------------------------------
+//     // Diagnostics: identify the running image so production issues can be
+//     // correlated with the exact commit / DLL build that produced them.
+//     // -------------------------------------------------------------------------
+//     var gitSha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "<unknown>";
+//     var dllVersion =
+//         typeof(MenuGreen.DataAccessLayer.Context.ApplicationDbContext)
+//             .Assembly.GetCustomAttributes(
+//                 typeof(System.Reflection.AssemblyFileVersionAttribute),
+//                 false
+//             )
+//             .OfType<System.Reflection.AssemblyFileVersionAttribute>()
+//             .FirstOrDefault()
+//             ?.Version
+//         ?? "<unknown>";
+//     logger.LogInformation(
+//         "[MIGRATION] GitSHA={GitSha} DataAccessLayerDllFileVersion={DllVersion}",
+//         gitSha,
+//         dllVersion
+//     );
+//
+//     // -------------------------------------------------------------------------
+//     // List pending/applied migrations BEFORE applying (for diagnostics).
+//     // -------------------------------------------------------------------------
+//     List<string> applied = new();
+//     List<string> pending = new();
+//     try
+//     {
+//         applied = db.Database.GetAppliedMigrations().ToList();
+//         pending = db.Database.GetPendingMigrations().ToList();
+//         logger.LogInformation(
+//             "[MIGRATION] Applied ({Count}): [{List}]",
+//             applied.Count,
+//             string.Join(", ", applied)
+//         );
+//         logger.LogInformation(
+//             "[MIGRATION] Pending ({Count}): [{List}]",
+//             pending.Count,
+//             string.Join(", ", pending)
+//         );
+//     }
+//     catch (Exception ex)
+//     {
+//         logger.LogWarning(
+//             ex,
+//             "[MIGRATION] Could not enumerate migration status (DB may be unreachable). Will attempt Migrate() anyway."
+//         );
+//     }
+//
+//     // -------------------------------------------------------------------------
+//     // Drift detection: if history contains a row that the running DLL does NOT
+//     // know about (e.g. previous image was rolled back), warn loudly. This is a
+//     // symptom of Use case B (history drift) and means auto-apply will throw.
+//     // -------------------------------------------------------------------------
+//     try
+//     {
+//         var known = db.Database.GetMigrations().ToHashSet();
+//         var unknownInHistory = applied.Where(id => !known.Contains(id)).ToList();
+//         if (unknownInHistory.Count > 0)
+//         {
+//             logger.LogWarning(
+//                 "[MIGRATION] DRIFT DETECTED: {Count} migration(s) are recorded in __EFMigrationsHistory but are NOT present in the running DLL: [{List}]. "
+//                     + "Auto-apply will refuse to start. Rollback the image or remove the stale rows manually.",
+//                 unknownInHistory.Count,
+//                 string.Join(", ", unknownInHistory)
+//             );
+//
+//             // AUTO-FIX: Remove unknown migrations from history since they don't exist in this DLL
+//             logger.LogInformation(
+//                 "[MIGRATION] Auto-removing {Count} unknown migration(s) from __EFMigrationsHistory.",
+//                 unknownInHistory.Count
+//             );
+//             foreach (var unknownId in unknownInHistory)
+//             {
+//                 db.Database.ExecuteSqlRaw(
+//                     "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+//                     unknownId);
+//                 logger.LogInformation("[MIGRATION] Removed: {MigrationId}", unknownId);
+//             }
+//
+//             // Refresh applied/pending lists
+//             applied = db.Database.GetAppliedMigrations().ToList();
+//             pending = db.Database.GetPendingMigrations().ToList();
+//         }
+//     }
+//     catch (Exception ex)
+//     {
+//         logger.LogWarning(ex, "[MIGRATION] Could not run drift check.");
+//     }
+//
+//     if (pending.Count > 0)
+//     {
+//         logger.LogInformation(
+//             "[MIGRATION] Will apply {Count} pending migration(s) now.",
+//             pending.Count
+//         );
+//     }
+//
+//     // -------------------------------------------------------------------------
+//     // Apply migrations. If DB already has tables but empty __EFMigrationsHistory,
+//     // the deploy script seeds it with the baseline migration name, so EF skips
+//     // table creation and only applies any real delta migrations.
+//     // -------------------------------------------------------------------------
+//     try
+//     {
+//         logger.LogInformation("[MIGRATION] Applying database migrations...");
+//         db.Database.Migrate();
+//         logger.LogInformation("[MIGRATION] Database migrations applied successfully.");
+//
+//         var appliedAfter = db.Database.GetAppliedMigrations().ToList();
+//         logger.LogInformation(
+//             "[MIGRATION] Post-apply Applied ({Count}): [{List}]",
+//             appliedAfter.Count,
+//             string.Join(", ", appliedAfter)
+//         );
+//     }
+//     catch (Exception ex)
+//     {
+//         logger.LogCritical(
+//             ex,
+//             "FATAL: Failed to apply database migrations. Application will NOT start."
+//         );
+//         throw;
+//     }
+// }
 
 // Seed data: run backend/run_seed_data.ps1 after migrations.
 
