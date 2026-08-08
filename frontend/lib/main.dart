@@ -8,7 +8,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/navigation/app_navigator.dart';
-import 'core/widgets/connection_status_banner.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/network_status_provider.dart';
 import 'core/services/push_notification_provider.dart';
@@ -112,9 +111,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         builder: (context, child) {
-          return ConnectionStatusBanner(
-            child: child ?? const SizedBox.shrink(),
-          );
+          return child ?? const SizedBox.shrink();
         },
         home: const SplashScreen(),
       ),
