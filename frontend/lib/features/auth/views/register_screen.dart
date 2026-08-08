@@ -38,9 +38,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeIn));
 
     _animController.forward();
   }
@@ -53,7 +54,10 @@ class _RegisterScreenState extends State<RegisterScreen>
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (fullName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (fullName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       context.showWarningSnackBar('Vui lòng nhập đầy đủ thông tin');
       return;
     }
@@ -77,7 +81,11 @@ class _RegisterScreenState extends State<RegisterScreen>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => VerifyOtpScreen(email: email, password: password),
+            builder: (context) => VerifyOtpScreen(
+              email: email,
+              password: password,
+              fullName: fullName,
+            ),
           ),
         );
       });
@@ -258,11 +266,12 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               const SizedBox(height: 40),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                  : PrimaryButton(
-                      text: 'Đăng ký',
-                      onPressed: _handleRegister,
-                    ),
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : PrimaryButton(text: 'Đăng ký', onPressed: _handleRegister),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
