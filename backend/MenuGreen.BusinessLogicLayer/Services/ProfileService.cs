@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using BCrypt.Net;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
@@ -14,10 +15,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class ProfileService : IProfileService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cache;
 
-        public ProfileService(IUnitOfWork unitOfWork)
+        public ProfileService(IUnitOfWork unitOfWork, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<ProfileResponse> GetProfileAsync(Guid userId)
@@ -52,12 +55,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             HealthProfileMetricsCalculator.Apply(healthProfile, profile.Gender, profile.DateOfBirth);
 
+            if (request.WeightKg.HasValue)
+            {
+                await UpsertTodayWeightLogAsync(
+                    userId,
+                    request.WeightKg.Value,
+                    request.BodyFatPercent ?? healthProfile.BodyFatPercent);
+            }
+
             profile.UpdatedAt = DateTime.UtcNow;
             healthProfile.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Profiles.Update(profile);
             _unitOfWork.HealthProfiles.Update(healthProfile);
             await _unitOfWork.CompleteAsync();
+            await _cache.RemoveAsync(CacheKeys.UserHealthTargets(userId));
 
             var roleName = await GetRoleNameAsync(userId);
             return MapToResponse(profile, healthProfile, roleName);
@@ -325,6 +337,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 BodyFatPercent = hp.BodyFatPercent,
                 ActivityLevel = hp.ActivityLevel ?? "Sedentary",
                 Goal = hp.Goal,
+                Bmi = hp.Bmi,
                 TdeeKcal = hp.TdeeKcal,
                 BmrKcal = hp.BmrKcal,
                 TargetCalories = hp.TargetCalories,
@@ -333,6 +346,48 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TargetFatG = hp.TargetFatG,
                 PreferredCuisine = p.PreferredCuisine
             };
+        }
+
+        private async Task UpsertTodayWeightLogAsync(
+            Guid userId,
+            decimal weightKg,
+            decimal? bodyFatPercent)
+        {
+            var now = DateTime.UtcNow;
+            var startOfDay = now.Date;
+            var endOfDay = startOfDay.AddDays(1);
+            var todayLogs = await _unitOfWork.WeightLogs.FindAsync(
+                x => x.UserId == userId &&
+                     x.RecordedAt.HasValue &&
+                     x.RecordedAt.Value >= startOfDay &&
+                     x.RecordedAt.Value < endOfDay);
+            var todayLog = todayLogs
+                .OrderByDescending(x => x.RecordedAt)
+                .FirstOrDefault();
+
+            if (todayLog == null)
+            {
+                await _unitOfWork.WeightLogs.AddAsync(new WeightLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    WeightKg = weightKg,
+                    BodyFatPercent = bodyFatPercent,
+                    RecordedAt = now
+                });
+                return;
+            }
+
+            if (todayLog.WeightKg == weightKg &&
+                todayLog.BodyFatPercent == bodyFatPercent)
+            {
+                return;
+            }
+
+            todayLog.WeightKg = weightKg;
+            todayLog.BodyFatPercent = bodyFatPercent;
+            todayLog.RecordedAt = now;
+            _unitOfWork.WeightLogs.Update(todayLog);
         }
     }
 }

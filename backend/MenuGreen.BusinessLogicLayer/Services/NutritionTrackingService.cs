@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
@@ -17,17 +18,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly INutritionSnapshotService _nutritionSnapshotService;
         private readonly IRecipeService _recipeService;
         private readonly IPortionConverterService _portionConverterService;
+        private readonly ICacheService _cache;
 
         public NutritionTrackingService(
             IUnitOfWork unitOfWork,
             INutritionSnapshotService nutritionSnapshotService,
             IRecipeService recipeService,
-            IPortionConverterService portionConverterService)
+            IPortionConverterService portionConverterService,
+            ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _nutritionSnapshotService = nutritionSnapshotService;
             _recipeService = recipeService;
             _portionConverterService = portionConverterService;
+            _cache = cache;
         }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
@@ -138,6 +142,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.WeightLogs.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
+
+            // Keep HealthProfile.WeightKg + BodyFatPercent in sync with the
+            // latest log so any view that reads HealthProfile (Home,
+            // GymGoals, recalibration, daily targets) sees the user's
+            // current weight without requiring a second manual update.
+            await SyncHealthProfileFromLatestWeightAsync(userId);
+
             return Map(entity);
         }
 
@@ -149,7 +160,68 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.RecordedAt = EnsureUtc(request.RecordedAt ?? entity.RecordedAt);
             _unitOfWork.WeightLogs.Update(entity);
             await _unitOfWork.CompleteAsync();
+
+            // After editing a historical log the "latest" weight log may
+            // have changed. Refresh HealthProfile so the UI reflects the
+            // truly most-recent value, not the one we just wrote.
+            await SyncHealthProfileFromLatestWeightAsync(userId);
             return Map(entity);
+        }
+
+        /// <summary>
+        /// Mirror the user's most-recent <see cref="WeightLog"/> values into
+        /// their <see cref="HealthProfile"/> and recalculate BMI, BMR, TDEE
+        /// and macro targets. The existing calorie target is preserved so a
+        /// measurement update cannot silently perform goal recalibration.
+        /// </summary>
+        private async Task SyncHealthProfileFromLatestWeightAsync(Guid userId)
+        {
+            var latest = (await _unitOfWork.WeightLogs.FindAsync(
+                x => x.UserId == userId && x.WeightKg.HasValue))
+                .OrderByDescending(x => x.RecordedAt)
+                .FirstOrDefault();
+
+            if (latest == null || !latest.WeightKg.HasValue) return;
+
+            var healthProfile = (await _unitOfWork.HealthProfiles.FindAsync(
+                x => x.UserId == userId))
+                .FirstOrDefault();
+
+            if (healthProfile == null)
+            {
+                // No profile yet — nothing to sync against. The profile
+                // will be created the next time the user updates it.
+                return;
+            }
+
+            // Only overwrite when the stored value differs to avoid
+            // churn in UpdatedAt and to prevent stomping a value the
+            // user entered elsewhere that is intentionally different.
+            if (healthProfile.WeightKg != latest.WeightKg)
+            {
+                healthProfile.WeightKg = latest.WeightKg;
+            }
+            if (latest.BodyFatPercent.HasValue &&
+                healthProfile.BodyFatPercent != latest.BodyFatPercent)
+            {
+                healthProfile.BodyFatPercent = latest.BodyFatPercent;
+            }
+
+            var userProfile = await _unitOfWork.Profiles.GetByIdAsync(userId);
+            var currentTargetCalories = healthProfile.TargetCalories;
+            HealthProfileMetricsCalculator.Apply(
+                healthProfile,
+                userProfile?.Gender,
+                userProfile?.DateOfBirth,
+                currentTargetCalories);
+
+            healthProfile.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.HealthProfiles.Update(healthProfile);
+            await _unitOfWork.CompleteAsync();
+
+            // HealthProfile responses are cached behind
+            // UserHealthTargets. Invalidate so the next read recomputes.
+            await _cache.RemoveAsync(CacheKeys.UserHealthTargets(userId));
         }
 
         public async Task DeleteWeightLogAsync(Guid userId, Guid weightLogId)
@@ -157,6 +229,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var entity = await GetOwnedWeightLogAsync(userId, weightLogId);
             _unitOfWork.WeightLogs.Remove(entity);
             await _unitOfWork.CompleteAsync();
+            await SyncHealthProfileFromLatestWeightAsync(userId);
         }
 
         public async Task<MealLogListResponse> GetMealLogsAsync(Guid userId, int page = 1, int pageSize = 20)
@@ -473,11 +546,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private async Task<MealDaySummaryResponse> BuildDailySummaryAsync(Guid userId, DateOnly date, List<MealLog> logs)
         {
-            var health = (await _unitOfWork.HealthProfiles.FindAsync(x => x.UserId == userId)).FirstOrDefault();
-            var targetCalories = health?.TargetCalories ?? 0;
-            var targetProtein = health?.TargetProteinG ?? 0;
-            var targetCarbs = health?.TargetCarbsG ?? 0;
-            var targetFat = health?.TargetFatG ?? 0;
+            var targetContext = await BuildNutritionTargetContextAsync(userId, date, date);
+            return await BuildDailySummaryAsync(userId, date, logs, targetContext);
+        }
+
+        private async Task<MealDaySummaryResponse> BuildDailySummaryAsync(
+            Guid userId,
+            DateOnly date,
+            List<MealLog> logs,
+            NutritionTargetContext targetContext)
+        {
+            var targets = ResolveNutritionTargets(targetContext, date);
+            var targetCalories = targets.Calories;
+            var targetProtein = targets.ProteinG;
+            var targetCarbs = targets.CarbsG;
+            var targetFat = targets.FatG;
 
             var totalCalories = logs.Sum(x => x.CaloriesKcal ?? 0);
             var totalProtein = logs.Sum(x => x.ProteinG ?? 0);
@@ -489,14 +572,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var snapshots = await _unitOfWork.NutritionSnapshots.FindAsync(
                 x => x.UserId == userId && x.SnapshotDate == date);
             var snapshot = snapshots.FirstOrDefault();
-            if (snapshot != null)
+            if (snapshot != null && !targets.UsesGymConfiguration)
             {
                 hasSnapshot = true;
                 goalCompletionPercent = snapshot.GoalCompletionPercent;
             }
-            else if (targetCalories > 0)
+            else
             {
-                goalCompletionPercent = Math.Round(totalCalories / targetCalories * 100m, 2);
+                hasSnapshot = snapshot != null;
+                if (targetCalories > 0)
+                {
+                    goalCompletionPercent = Math.Round(totalCalories / targetCalories * 100m, 2);
+                }
             }
 
             var warningMessages = NutritionWarningsBuilder.Build(
@@ -539,12 +626,199 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private async Task<List<MealDaySummaryResponse>> BuildRangeSummariesAsync(Guid userId, DateOnly from, DateOnly to, List<MealLog> logs)
         {
             var result = new List<MealDaySummaryResponse>();
+            var targetContext = await BuildNutritionTargetContextAsync(userId, from, to);
             for (var day = from; day <= to; day = day.AddDays(1))
             {
                 var dayLogs = logs.Where(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == day).ToList();
-                result.Add(await BuildDailySummaryAsync(userId, day, dayLogs));
+                result.Add(await BuildDailySummaryAsync(userId, day, dayLogs, targetContext));
             }
             return result;
+        }
+
+        private async Task<NutritionTargetContext> BuildNutritionTargetContextAsync(
+            Guid userId,
+            DateOnly from,
+            DateOnly to)
+        {
+            var health = (await _unitOfWork.HealthProfiles.FindAsync(
+                item => item.UserId == userId)).FirstOrDefault();
+            var context = new NutritionTargetContext
+            {
+                BaseCalories = health?.TargetCalories ?? 0,
+                BaseProteinG = health?.TargetProteinG ?? 0,
+                BaseCarbsG = health?.TargetCarbsG ?? 0,
+                BaseFatG = health?.TargetFatG ?? 0
+            };
+
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return context;
+            }
+
+            var role = (await _unitOfWork.Roles.FindAsync(
+                item => item.Id == user.RoleId)).FirstOrDefault();
+            if (!string.Equals(role?.Name, "Gymer", StringComparison.OrdinalIgnoreCase))
+            {
+                return context;
+            }
+
+            context.IsGymer = true;
+            var approvedPlans = await _unitOfWork.MealPlanHeaders.FindAsync(item =>
+                item.UserId == userId
+                && item.IsActive
+                && item.Status == "Approved"
+                && item.ApprovedAt.HasValue
+                && item.StartDate.HasValue
+                && item.EndDate.HasValue
+                && item.StartDate.Value <= to
+                && item.EndDate.Value >= from);
+            context.ApprovedPlanRanges = approvedPlans
+                .Select(item => new ApprovedPlanRange(
+                    item.StartDate!.Value,
+                    item.EndDate!.Value))
+                .ToList();
+
+            var aiProfile = (await _unitOfWork.UserAiProfiles.FindAsync(
+                item => item.UserId == userId)).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(aiProfile?.Preferences))
+            {
+                return context;
+            }
+
+            try
+            {
+                context.GymConfiguration = JsonSerializer.Deserialize<GymNutritionConfiguration>(
+                    aiProfile.Preferences,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                // Legacy/non-JSON preferences must not break nutrition tracking.
+            }
+
+            return context;
+        }
+
+        private static ResolvedNutritionTargets ResolveNutritionTargets(
+            NutritionTargetContext context,
+            DateOnly date)
+        {
+            if (context.IsGymer && !context.HasApprovedPlanForDate(date))
+            {
+                return ResolvedNutritionTargets.Empty;
+            }
+
+            var configuration = context.GymConfiguration;
+            if (configuration == null)
+            {
+                return context.BaseTargets();
+            }
+
+            var dateKey = date.ToString("yyyy-MM-dd");
+            var weekStart = date.AddDays(-WeekdayOffsetFromMonday(date.DayOfWeek));
+            var weekKey = weekStart.ToString("yyyy-MM-dd");
+            var monthKey = date.ToString("yyyy-MM");
+
+            var day = configuration.DailyDetails.FirstOrDefault(
+                item => string.Equals(item.DateString, dateKey, StringComparison.Ordinal));
+            var week = configuration.WeeklyDetails.FirstOrDefault(
+                item => string.Equals(item.WeekStartDateString, weekKey, StringComparison.Ordinal));
+            var month = configuration.MonthlyDetails.FirstOrDefault(
+                item => string.Equals(item.MonthString, monthKey, StringComparison.Ordinal));
+
+            var isTrainingDay = day?.IsTraining
+                ?? configuration.WeeklyTrainingSchedule
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Any(item => string.Equals(
+                        item,
+                        date.DayOfWeek.ToString(),
+                        StringComparison.OrdinalIgnoreCase));
+
+            var configuredCalories = FirstValue(
+                day?.CustomCalories,
+                week?.CustomCalories,
+                month?.CustomCalories,
+                isTrainingDay
+                    ? configuration.TrainingDayTargetCalories
+                    : configuration.RestDayTargetCalories);
+            var minCalories = FirstValue(
+                day?.MinCalories,
+                week?.MinCalories,
+                month?.MinCalories,
+                configuredCalories.HasValue ? null : configuration.MinCalories);
+            var maxCalories = FirstValue(
+                day?.MaxCalories,
+                week?.MaxCalories,
+                month?.MaxCalories,
+                configuredCalories.HasValue ? null : configuration.MaxCalories);
+            var minProtein = FirstValue(
+                day?.MinProteinG,
+                week?.MinProteinG,
+                month?.MinProteinG,
+                configuration.MinProteinG);
+            var maxProtein = FirstValue(
+                day?.MaxProteinG,
+                week?.MaxProteinG,
+                month?.MaxProteinG,
+                configuration.MaxProteinG);
+
+            // "Calo mục tiêu" is an explicit target. When it is configured for
+            // the selected day/week/month (or for training/rest days), return it
+            // exactly as saved. Min/max calories are only a fallback guard when
+            // no explicit target exists.
+            var targetCalories = configuredCalories
+                ?? ClampToConfiguredRange(context.BaseCalories, minCalories, maxCalories);
+
+            var scale = context.BaseCalories > 0 && targetCalories > 0
+                ? targetCalories / context.BaseCalories
+                : 1m;
+            var targetProtein = Math.Round(context.BaseProteinG * scale, 2);
+            var targetCarbs = Math.Round(context.BaseCarbsG * scale, 2);
+            var targetFat = Math.Round(context.BaseFatG * scale, 2);
+            targetProtein = ClampToConfiguredRange(targetProtein, minProtein, maxProtein);
+
+            var usesGymConfiguration = day != null
+                || week != null
+                || month != null
+                || configuredCalories.HasValue
+                || minCalories.HasValue
+                || maxCalories.HasValue
+                || minProtein.HasValue
+                || maxProtein.HasValue;
+
+            return new ResolvedNutritionTargets(
+                targetCalories,
+                targetProtein,
+                targetCarbs,
+                targetFat,
+                usesGymConfiguration);
+        }
+
+        private static int WeekdayOffsetFromMonday(DayOfWeek dayOfWeek)
+        {
+            return ((int)dayOfWeek + 6) % 7;
+        }
+
+        private static decimal? FirstValue(params decimal?[] values)
+        {
+            return values.FirstOrDefault(value => value.HasValue);
+        }
+
+        private static decimal ClampToConfiguredRange(
+            decimal value,
+            decimal? minimum,
+            decimal? maximum)
+        {
+            if (minimum.HasValue && value < minimum.Value)
+            {
+                value = minimum.Value;
+            }
+            if (maximum.HasValue && value > maximum.Value)
+            {
+                value = maximum.Value;
+            }
+            return value;
         }
 
         private static (DateOnly from, DateOnly to) ResolveRange(string range, DateOnly? startDate, DateOnly? endDate)
@@ -680,6 +954,79 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 response.DisplayPortion = $"{request.Quantity.Value:0.##} {request.Unit.Trim()}";
             }
         }
+
+        private sealed class NutritionTargetContext
+        {
+            public decimal BaseCalories { get; init; }
+            public decimal BaseProteinG { get; init; }
+            public decimal BaseCarbsG { get; init; }
+            public decimal BaseFatG { get; init; }
+            public bool IsGymer { get; set; }
+            public List<ApprovedPlanRange> ApprovedPlanRanges { get; set; } = new();
+            public GymNutritionConfiguration? GymConfiguration { get; set; }
+
+            public bool HasApprovedPlanForDate(DateOnly date)
+            {
+                return ApprovedPlanRanges.Any(item =>
+                    item.StartDate <= date && item.EndDate >= date);
+            }
+
+            public ResolvedNutritionTargets BaseTargets()
+            {
+                return new ResolvedNutritionTargets(
+                    BaseCalories,
+                    BaseProteinG,
+                    BaseCarbsG,
+                    BaseFatG,
+                    UsesGymConfiguration: false);
+            }
+        }
+
+        private sealed class GymNutritionConfiguration
+        {
+            public string WeeklyTrainingSchedule { get; set; } = string.Empty;
+            public decimal? TrainingDayTargetCalories { get; set; }
+            public decimal? RestDayTargetCalories { get; set; }
+            public decimal? MinCalories { get; set; }
+            public decimal? MaxCalories { get; set; }
+            public decimal? MinProteinG { get; set; }
+            public decimal? MaxProteinG { get; set; }
+            public List<GymNutritionDetail> DailyDetails { get; set; } = new();
+            public List<GymNutritionDetail> WeeklyDetails { get; set; } = new();
+            public List<GymNutritionDetail> MonthlyDetails { get; set; } = new();
+        }
+
+        private sealed class GymNutritionDetail
+        {
+            public string? DateString { get; set; }
+            public string? WeekStartDateString { get; set; }
+            public string? MonthString { get; set; }
+            public bool? IsTraining { get; set; }
+            public decimal? CustomCalories { get; set; }
+            public decimal? MinCalories { get; set; }
+            public decimal? MaxCalories { get; set; }
+            public decimal? MinProteinG { get; set; }
+            public decimal? MaxProteinG { get; set; }
+        }
+
+        private readonly record struct ResolvedNutritionTargets(
+            decimal Calories,
+            decimal ProteinG,
+            decimal CarbsG,
+            decimal FatG,
+            bool UsesGymConfiguration)
+        {
+            public static ResolvedNutritionTargets Empty => new(
+                0,
+                0,
+                0,
+                0,
+                UsesGymConfiguration: true);
+        }
+
+        private readonly record struct ApprovedPlanRange(
+            DateOnly StartDate,
+            DateOnly EndDate);
 
         private static DateTime EnsureUtc(DateTime dt)
         {

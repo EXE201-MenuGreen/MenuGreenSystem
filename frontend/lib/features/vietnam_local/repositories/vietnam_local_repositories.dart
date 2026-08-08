@@ -14,13 +14,24 @@ import '../models/vietnam_local_models.dart';
 /// Result wrapper used to surface translated backend messages with decoded
 /// payloads. Fields that fail to decode gracefully yield `success = false`.
 class ApiResult<T> {
-  const ApiResult({required this.success, this.data, this.message});
+  const ApiResult({
+    required this.success,
+    this.data,
+    this.message,
+    this.errorCode,
+  });
 
   final bool success;
   final T? data;
   final String? message;
 
-  String get translatedMessage => ApiMessageTranslator.translate(message);
+  /// Stable error code returned by the backend (e.g.
+  /// `RECALIBRATE_NO_WEIGHT_DATA`). When set, callers can branch on it
+  /// without depending on the (translatable) message string.
+  final String? errorCode;
+
+  String get translatedMessage =>
+      ApiMessageTranslator.translate(message, errorCode: errorCode);
 }
 
 /// Lightweight execution helper that converts non-2xx responses into
@@ -42,8 +53,19 @@ class _VietnamLocalApi {
         final decoded = jsonDecode(response.body!);
         return ApiResult<dynamic>(success: true, data: decoded);
       }
-      final msg = _extractMessage(response.body) ?? 'Máy chủ phản hồi lỗi.';
-      return ApiResult<dynamic>(success: false, message: msg);
+      final msg = _extractField(response.body, const [
+        'message',
+        'Message',
+        'error',
+        'Error',
+        'title',
+      ]);
+      final code = _extractField(response.body, const ['code', 'Code']);
+      return ApiResult<dynamic>(
+        success: false,
+        message: msg ?? 'Máy chủ phản hồi lỗi.',
+        errorCode: code,
+      );
     } catch (e) {
       return ApiResult<dynamic>(
         success: false,
@@ -52,18 +74,12 @@ class _VietnamLocalApi {
     }
   }
 
-  String? _extractMessage(String? body) {
+  String? _extractField(String? body, List<String> keys) {
     if (body == null || body.isEmpty) return null;
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, dynamic>) {
-        for (final key in const [
-          'message',
-          'Message',
-          'error',
-          'Error',
-          'title',
-        ]) {
+        for (final key in keys) {
           final v = decoded[key];
           if (v is String && v.isNotEmpty) return v;
         }
@@ -269,7 +285,21 @@ class GymGoalsRepository {
     try {
       final raw = (result.data as Map).cast<String, dynamic>();
       final profile = LocalPreferencesProfile.fromJson(raw);
-      final prefs = _decodePreferences(profile.preferences);
+      final prefs = Map<String, dynamic>.from(
+        _decodePreferences(profile.preferences),
+      );
+
+      // Current measurements are shown next to the explicit body goals.
+      // They are deliberately kept separate so logging a measurement can
+      // never silently become a new goal.
+      final healthProfile = await _fetchHealthProfileAsync();
+      if (healthProfile?.weightKg != null) {
+        prefs['currentWeightKg'] = healthProfile!.weightKg;
+      }
+      if (healthProfile?.bodyFatPercent != null) {
+        prefs['currentBodyFatPercent'] = healthProfile!.bodyFatPercent;
+      }
+
       return ApiResult<GymGoalProfile>(
         success: true,
         data: GymGoalProfile.fromJson(prefs),
@@ -279,6 +309,21 @@ class GymGoalsRepository {
         success: false,
         message: 'Không đọc được cấu hình gym.',
       );
+    }
+  }
+
+  /// Best-effort fetch of the user's [HealthProfile] summary so the
+  /// caller can mirror the latest weight into UI suggestions.
+  /// Returns null on any failure.
+  Future<_HealthProfileLite?> _fetchHealthProfileAsync() async {
+    try {
+      final response = await _api.get(ApiEndpoints.healthProfileMe);
+      if (response.statusCode != 200 || response.body.isEmpty) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) return null;
+      return _HealthProfileLite.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return null;
     }
   }
 
@@ -362,6 +407,7 @@ class GymGoalsRepository {
       return ApiResult<GymRecalibrationResult>(
         success: false,
         message: result.message,
+        errorCode: result.errorCode,
       );
     }
     try {
@@ -1124,4 +1170,30 @@ Map<String, dynamic> _decodePreferences(String? raw) {
     if (decoded is Map<String, dynamic>) return decoded;
   } catch (_) {}
   return <String, dynamic>{};
+}
+
+/// Minimal subset of the HealthProfile payload needed by
+/// [GymGoalsRepository.getMe]. Kept private + tiny so we don't have to
+/// import the full HealthProfile response model just to read the current
+/// body measurements.
+class _HealthProfileLite {
+  const _HealthProfileLite({this.weightKg, this.bodyFatPercent});
+
+  final double? weightKg;
+  final double? bodyFatPercent;
+
+  factory _HealthProfileLite.fromJson(Map<String, dynamic> json) {
+    double? asDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v);
+      return null;
+    }
+
+    return _HealthProfileLite(
+      weightKg: asDouble(json['weightKg']) ?? asDouble(json['WeightKg']),
+      bodyFatPercent:
+          asDouble(json['bodyFatPercent']) ?? asDouble(json['BodyFatPercent']),
+    );
+  }
 }

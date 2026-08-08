@@ -93,12 +93,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _refreshHomeIfStale() {
+    // Nutrition targets can change immediately when a PT approves a route or
+    // the Gymer accepts a coach program, so always reload the daily summary
+    // when Home is selected. Keep the heavier header refresh throttled.
+    _homeKey.currentState?.reloadSummary();
     final last = _lastHomeRefreshAt;
     final now = DateTime.now();
     if (last == null || now.difference(last) > const Duration(seconds: 30)) {
       _lastHomeRefreshAt = now;
       _homeKey.currentState?.refreshHeader();
-      _homeKey.currentState?.reloadSummary();
     }
   }
 

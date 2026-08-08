@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -350,9 +351,46 @@ namespace MenuGreen.API.Controllers
             var summary = await _nutritionTrackingService.GetNutritionSummaryAsync(userId, request.Period ?? "week", request.Date);
             var dashboard = await _nutritionTrackingService.GetDashboardAsync(userId, request.Range ?? "week", request.StartDate, request.EndDate);
             var weightTrend = await _nutritionTrackingService.GetWeightTrendAsync(userId, request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-7)), request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow));
+            var health = await _healthProfileService.GetAsync(userId);
 
             // RECALIBRATION CALCULATION:
             // Suggest new TargetCalories based on AI Profile GoalMode
+            // Guard: recalibration requires at least one weight log in the
+            // requested range so the trend comparison is meaningful. Without
+            // data we would silently keep calories unchanged and claim the
+            // target is "optimal", which is a false positive.
+            if (weightTrend == null || weightTrend.WeightData.Count == 0)
+            {
+                return BadRequest(new
+                {
+                    Message = "No weight data in the last 7 days. Please log your weight before recalibrating.",
+                    Code = "RECALIBRATE_NO_WEIGHT_DATA",
+                });
+            }
+
+            // Anomaly guard: weekly weight change larger than 5 kg is almost
+            // never physiological. Treat it as a data-quality problem
+            // (typo, missed log, stale seed data) and refuse to silently
+            // adjust calories — doing so could push the user into a
+            // harmful diet.
+            const decimal WeeklyAnomalyKg = 5m;
+            var hasReliableWeightTrend = NormalizeWeightTrend(
+                weightTrend,
+                health?.WeightKg,
+                WeeklyAnomalyKg,
+                out var weightChange);
+            if (Math.Abs(weightChange) > WeeklyAnomalyKg)
+            {
+                int currentForAnomaly = health?.TargetCalories ?? 2000;
+                return BadRequest(new
+                {
+                    Message = $"Weight change is unusually large this week ({weightChange:0.0} kg). Please verify your recent weight logs before recalibrating.",
+                    Code = "RECALIBRATE_ANOMALY_WEIGHT_CHANGE",
+                    CurrentTargetCalories = currentForAnomaly,
+                    SuggestedTargetCalories = currentForAnomaly,
+                    WeightChangeKg = weightChange,
+                });
+            }
             var profile = await _userAiProfileService.GetAsync(userId);
             var goalMode = profile?.EatingPattern ?? "maintain";
             decimal? targetWeightKg = null;
@@ -378,15 +416,14 @@ namespace MenuGreen.API.Controllers
                 // Keep recalibration available for legacy/non-JSON preference values.
             }
 
-            var health = await _healthProfileService.GetAsync(userId);
             int currentTargetCalories = health?.TargetCalories ?? 2000;
             int suggestedCalories = currentTargetCalories;
-            string reason = "Your target calorie intake is at an optimal level.";
+            string reason = hasReliableWeightTrend
+                ? "Your target calorie intake is at an optimal level."
+                : "Current weight is confirmed, but there are not enough consistent weight logs to adjust calories safely. Keeping the current target.";
 
-            if (weightTrend != null && weightTrend.WeightChangeKg.HasValue)
+            if (hasReliableWeightTrend)
             {
-                decimal weightChange = weightTrend.WeightChangeKg.Value;
-                
                 if (goalMode.Equals("cut", StringComparison.OrdinalIgnoreCase))
                 {
                     if (weightChange >= 0)
@@ -510,6 +547,54 @@ namespace MenuGreen.API.Controllers
             userId = Guid.Empty;
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Guid.TryParse(userIdString, out userId);
+        }
+
+        private static bool NormalizeWeightTrend(
+            WeightTrendResponse trend,
+            decimal? currentWeightKg,
+            decimal anomalyThresholdKg,
+            out decimal weightChangeKg)
+        {
+            var points = trend.WeightData
+                .GroupBy(x => x.Date)
+                .Select(group => group.Last())
+                .OrderBy(x => x.Date)
+                .ToList();
+
+            var rawChange = points.Count >= 2
+                ? points[^1].WeightKg - points[0].WeightKg
+                : 0m;
+
+            // When the first/last delta is implausible, anchor the trend to
+            // the weight the user explicitly confirmed in HealthProfile.
+            // Old seed data or a mistyped historical log is excluded from
+            // this recalibration response, but is not deleted silently.
+            if (Math.Abs(rawChange) > anomalyThresholdKg && currentWeightKg.HasValue)
+            {
+                var anchoredPoints = points
+                    .Where(x => Math.Abs(x.WeightKg - currentWeightKg.Value) <= anomalyThresholdKg)
+                    .ToList();
+                if (anchoredPoints.Count > 0)
+                {
+                    points = anchoredPoints;
+                }
+            }
+
+            trend.WeightData = points;
+            trend.InitialWeightKg = points.FirstOrDefault()?.WeightKg;
+            trend.LatestWeightKg = points.LastOrDefault()?.WeightKg;
+            trend.AverageWeightKg = points.Count == 0
+                ? null
+                : Math.Round(points.Average(x => x.WeightKg), 2);
+            weightChangeKg = points.Count >= 2
+                ? Math.Round(points[^1].WeightKg - points[0].WeightKg, 2)
+                : 0m;
+            trend.WeightChangeKg = weightChangeKg;
+
+            // Two measurements on different dates are the minimum needed to
+            // infer a direction. A single confirmed value is valid data, but
+            // must not trigger an automatic 5-10% calorie adjustment.
+            return points.Count >= 2;
         }
 
         private static bool TryReadInt32(

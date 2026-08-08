@@ -354,7 +354,7 @@ class NotificationHandler {
           return CoachChatScreen(partnerId: action.id!);
         }
         return const _DefaultDestinationScreen(
-          title: 'Tin nhắn PT – Gymer',
+          title: 'Tin nhắn với PT',
           message: 'Không tìm thấy cuộc trò chuyện.',
         );
 

@@ -1958,13 +1958,327 @@ class _PtTabState extends State<_PtTab> {
     );
   }
 
+  String _getFilterLabelSummary() {
+    if (_selectedStatusFilter == 'ALL' && _selectedTypeFilter == 'ALL') {
+      return 'Tất cả';
+    }
+    if (_selectedStatusFilter != 'ALL' && _selectedTypeFilter == 'ALL') {
+      switch (_selectedStatusFilter) {
+        case 'PENDING':
+          return 'Chờ duyệt';
+        case 'REVIEWED':
+          return 'Đã nhận xét';
+        case 'REJECTED':
+          return 'Từ chối';
+      }
+    }
+    if (_selectedStatusFilter == 'ALL' && _selectedTypeFilter != 'ALL') {
+      switch (_selectedTypeFilter) {
+        case 'MIDWEEK':
+          return 'Giữa tuần';
+        case 'WEEKLY':
+          return 'Cuối tuần';
+      }
+    }
+    return 'Đã lọc (2)';
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'PENDING':
+        return 'Chờ duyệt ⏳';
+      case 'REVIEWED':
+        return 'Đã nhận xét ✅';
+      case 'REJECTED':
+        return 'Từ chối ❌';
+      default:
+        return 'Tất cả';
+    }
+  }
+
+  String _getTypeLabel(String type) {
+    switch (type) {
+      case 'MIDWEEK':
+        return 'Giữa tuần ⏱️';
+      case 'WEEKLY':
+        return 'Cuối tuần 📅';
+      default:
+        return 'Tất cả loại';
+    }
+  }
+
+  void _showFilterBottomSheet() {
+    String tempStatus = _selectedStatusFilter;
+    String tempType = _selectedTypeFilter;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isTempFiltered = tempStatus != 'ALL' || tempType != 'ALL';
+
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 12,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).padding.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Bộ lọc báo cáo',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (isTempFiltered)
+                        TextButton.icon(
+                          onPressed: () {
+                            setModalState(() {
+                              tempStatus = 'ALL';
+                              tempType = 'ALL';
+                            });
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.primary),
+                          label: const Text(
+                            'Mặc định (Tất cả)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Color(0xFFF1F5F9)),
+
+                  const Text(
+                    'Trạng thái đánh giá',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildBottomSheetChip(
+                        label: 'Tất cả',
+                        isSelected: tempStatus == 'ALL',
+                        onTap: () => setModalState(() => tempStatus = 'ALL'),
+                      ),
+                      _buildBottomSheetChip(
+                        label: 'Chờ duyệt ⏳',
+                        isSelected: tempStatus == 'PENDING',
+                        onTap: () => setModalState(() => tempStatus = 'PENDING'),
+                      ),
+                      _buildBottomSheetChip(
+                        label: 'Đã nhận xét ✅',
+                        isSelected: tempStatus == 'REVIEWED',
+                        onTap: () => setModalState(() => tempStatus = 'REVIEWED'),
+                      ),
+                      _buildBottomSheetChip(
+                        label: 'Từ chối ❌',
+                        isSelected: tempStatus == 'REJECTED',
+                        onTap: () => setModalState(() => tempStatus = 'REJECTED'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Text(
+                    'Loại báo cáo',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildBottomSheetChip(
+                        label: 'Tất cả loại',
+                        isSelected: tempType == 'ALL',
+                        onTap: () => setModalState(() => tempType = 'ALL'),
+                      ),
+                      _buildBottomSheetChip(
+                        label: 'Giữa tuần ⏱️',
+                        isSelected: tempType == 'MIDWEEK',
+                        onTap: () => setModalState(() => tempType = 'MIDWEEK'),
+                      ),
+                      _buildBottomSheetChip(
+                        label: 'Cuối tuần 📅',
+                        isSelected: tempType == 'WEEKLY',
+                        onTap: () => setModalState(() => tempType = 'WEEKLY'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedStatusFilter = tempStatus;
+                          _selectedTypeFilter = tempType;
+                          _currentPage = 1;
+                        });
+                        Navigator.pop(context);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Áp dụng bộ lọc',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheetChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTag(String label, {required VoidCallback onRemove}) {
+    return Container(
+      padding: const EdgeInsets.only(left: 8, right: 4, top: 3, bottom: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 3),
+          InkWell(
+            onTap: onRemove,
+            borderRadius: BorderRadius.circular(10),
+            child: const Padding(
+              padding: EdgeInsets.all(1.0),
+              child: Icon(
+                Icons.close_rounded,
+                size: 13,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterSection() {
     final isFiltered = _selectedStatusFilter != 'ALL' || _selectedTypeFilter != 'ALL';
     final totalCount = _reviewRows.length;
     final filteredCount = _filteredReviewRows.length;
 
     return Container(
-      margin: const EdgeInsets.only(top: 14, bottom: 10),
+      margin: const EdgeInsets.only(top: 14, bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1999,149 +2313,101 @@ class _PtTabState extends State<_PtTab> {
                   ),
                 ],
               ),
-              if (isFiltered)
-                InkWell(
-                  onTap: _resetFilters,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              Material(
+                color: isFiltered ? AppColors.primary.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  onTap: _showFilterBottomSheet,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isFiltered ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                        width: isFiltered ? 1.5 : 1,
+                      ),
+                    ),
                     child: Row(
-                      children: const [
-                        Icon(Icons.filter_alt_off_rounded, size: 14, color: AppColors.primary),
-                        SizedBox(width: 4),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 15,
+                          color: isFiltered ? AppColors.primary : AppColors.textDark,
+                        ),
+                        const SizedBox(width: 5),
                         Text(
-                          'Xóa lọc',
+                          _getFilterLabelSummary(),
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                            fontWeight: isFiltered ? FontWeight.w800 : FontWeight.w600,
+                            color: isFiltered ? AppColors.primary : AppColors.textDark,
                           ),
+                        ),
+                        const SizedBox(width: 3),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: isFiltered ? AppColors.primary : AppColors.textSecondary,
                         ),
                       ],
                     ),
                   ),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Filter by Status chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  label: 'Tất cả',
-                  isSelected: _selectedStatusFilter == 'ALL',
-                  onTap: () => _setStatusFilter('ALL'),
-                ),
-                const SizedBox(width: 6),
-                _buildFilterChip(
-                  label: 'Chờ duyệt ⏳',
-                  isSelected: _selectedStatusFilter == 'PENDING',
-                  onTap: () => _setStatusFilter('PENDING'),
-                ),
-                const SizedBox(width: 6),
-                _buildFilterChip(
-                  label: 'Đã nhận xét ✅',
-                  isSelected: _selectedStatusFilter == 'REVIEWED',
-                  onTap: () => _setStatusFilter('REVIEWED'),
-                ),
-                const SizedBox(width: 6),
-                _buildFilterChip(
-                  label: 'Từ chối ❌',
-                  isSelected: _selectedStatusFilter == 'REJECTED',
-                  onTap: () => _setStatusFilter('REJECTED'),
-                ),
-              ],
+          if (isFiltered) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Text(
+                    'Đang lọc: ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  if (_selectedStatusFilter != 'ALL') ...[
+                    _buildActiveTag(
+                      _getStatusLabel(_selectedStatusFilter),
+                      onRemove: () => _setStatusFilter('ALL'),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (_selectedTypeFilter != 'ALL') ...[
+                    _buildActiveTag(
+                      _getTypeLabel(_selectedTypeFilter),
+                      onRemove: () => _setTypeFilter('ALL'),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  InkWell(
+                    onTap: _resetFilters,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Text(
+                        'Xóa lọc',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          // Filter by Type chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildTypeChip(
-                  label: 'Tất cả loại',
-                  isSelected: _selectedTypeFilter == 'ALL',
-                  onTap: () => _setTypeFilter('ALL'),
-                ),
-                const SizedBox(width: 6),
-                _buildTypeChip(
-                  label: 'Giữa tuần ⏱️',
-                  isSelected: _selectedTypeFilter == 'MIDWEEK',
-                  onTap: () => _setTypeFilter('MIDWEEK'),
-                ),
-                const SizedBox(width: 6),
-                _buildTypeChip(
-                  label: 'Cuối tuần 📅',
-                  isSelected: _selectedTypeFilter == 'WEEKLY',
-                  onTap: () => _setTypeFilter('WEEKLY'),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.textDark,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3B82F6) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFCBD5E1),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-          ),
-        ),
       ),
     );
   }

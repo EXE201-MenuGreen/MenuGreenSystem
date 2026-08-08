@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { UserAdmin } from "@/features/users/types";
 
-const ROLE_OPTIONS = ["Free", "Pro", "User", "Admin"];
+const ROLE_OPTIONS = ["Free", "Pro", "User", "Coach", "Admin"];
 
 interface AssignRoleDialogProps {
   user: UserAdmin | null;

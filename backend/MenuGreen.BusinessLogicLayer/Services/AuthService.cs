@@ -36,14 +36,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existingUsers = await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail);
             if (existingUsers.Any()) throw new Exception("Email is already registered.");
 
-            var userRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "User")).FirstOrDefault();
+            var isPtAccount = string.Equals(request.AccountType.Trim(), "PT", StringComparison.OrdinalIgnoreCase);
+            var roleName = isPtAccount ? "Coach" : "User";
+            var userRole = (await _unitOfWork.Roles.FindAsync(
+                r => r.Name.ToLower() == roleName.ToLower())).FirstOrDefault();
             if (userRole == null)
             {
                 userRole = new Role
                 {
                     Id = Guid.NewGuid(),
-                    Name = "User",
-                    Description = "User Role",
+                    Name = roleName,
+                    Description = isPtAccount
+                        ? "Personal trainer / Nutrition coach"
+                        : "User Role",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -84,6 +89,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.Profiles.AddAsync(profile);
             await _unitOfWork.HealthProfiles.AddAsync(health);
+            if (isPtAccount)
+            {
+                await _unitOfWork.CoachProfiles.AddAsync(new CoachProfile
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Specialty = "Huấn luyện viên cá nhân",
+                    Bio = string.Empty,
+                    ExperienceYears = 0,
+                    PriceVnd = 0,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
             await _unitOfWork.EmailVerifications.AddAsync(verification);
             await _unitOfWork.CompleteAsync();
 
@@ -93,6 +113,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 UserId = user.Id,
                 Email = user.Email,
+                Role = roleName,
                 Message = "Registration successful. Please check your email for the verification OTP.",
                 RequiresOtpVerification = true
             };

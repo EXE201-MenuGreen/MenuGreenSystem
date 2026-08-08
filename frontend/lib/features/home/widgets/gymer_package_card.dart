@@ -39,7 +39,7 @@ class GymerPackageCard extends StatelessWidget {
           ),
           (
             icon: Icons.people_alt_outlined,
-            label: 'HLV & PT',
+            label: 'Báo cáo PT',
             color: _reviewColor,
             feature: GymerFeature.companion,
           ),

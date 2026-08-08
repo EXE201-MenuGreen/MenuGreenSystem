@@ -470,6 +470,8 @@ class GymGoalProfile {
     this.maxCalories,
     this.minProteinG,
     this.maxProteinG,
+    this.currentWeightKg,
+    this.currentBodyFatPercent,
     this.targetWeightKg,
     this.targetBodyFatPercent,
     this.notes,
@@ -488,6 +490,11 @@ class GymGoalProfile {
   final int? maxCalories;
   final int? minProteinG;
   final int? maxProteinG;
+
+  /// Current measurements reported by HealthProfile. These values are
+  /// display-only baselines and must never be persisted as goal values.
+  final double? currentWeightKg;
+  final double? currentBodyFatPercent;
   final double? targetWeightKg;
   final double? targetBodyFatPercent;
   final String? notes;
@@ -506,6 +513,8 @@ class GymGoalProfile {
     int? maxCalories,
     int? minProteinG,
     int? maxProteinG,
+    double? currentWeightKg,
+    double? currentBodyFatPercent,
     double? targetWeightKg,
     double? targetBodyFatPercent,
     String? notes,
@@ -527,6 +536,9 @@ class GymGoalProfile {
       maxCalories: maxCalories ?? this.maxCalories,
       minProteinG: minProteinG ?? this.minProteinG,
       maxProteinG: maxProteinG ?? this.maxProteinG,
+      currentWeightKg: currentWeightKg ?? this.currentWeightKg,
+      currentBodyFatPercent:
+          currentBodyFatPercent ?? this.currentBodyFatPercent,
       targetWeightKg: targetWeightKg ?? this.targetWeightKg,
       targetBodyFatPercent: targetBodyFatPercent ?? this.targetBodyFatPercent,
       notes: notes ?? this.notes,
@@ -574,6 +586,16 @@ class GymGoalProfile {
       maxCalories: _int(json, 'maxCalories'),
       minProteinG: _int(json, 'minProteinG'),
       maxProteinG: _int(json, 'maxProteinG'),
+      currentWeightKg:
+          _double(json, 'currentWeightKg') ??
+          _double(json, 'CurrentWeightKg') ??
+          _double(json, 'weightKg') ??
+          _double(json, 'WeightKg'),
+      currentBodyFatPercent:
+          _double(json, 'currentBodyFatPercent') ??
+          _double(json, 'CurrentBodyFatPercent') ??
+          _double(json, 'bodyFatPercent') ??
+          _double(json, 'BodyFatPercent'),
       targetWeightKg: _double(json, 'targetWeightKg'),
       targetBodyFatPercent: _double(json, 'targetBodyFatPercent'),
       notes: _string(json, 'notes'),
@@ -792,19 +814,252 @@ class GymRecalibrationResult {
     required this.currentTargetCalories,
     required this.suggestedTargetCalories,
     required this.reason,
+    this.summary,
+    this.dashboard,
+    this.weightTrend,
   });
 
   final int currentTargetCalories;
   final int suggestedTargetCalories;
   final String reason;
 
+  /// Optional aggregated nutrition summary (avg protein/carbs/fat, total
+  /// meals, etc.) for the requested period. Surfaced in the detail
+  /// screen so the user can see why a target was chosen.
+  final RecalibrationSummary? summary;
+
+  /// Optional 7-day per-day breakdown (planned vs actual). Surfaced in
+  /// the detail screen as a table.
+  final RecalibrationDashboard? dashboard;
+
+  /// Optional weight trend data. Surfaced in the detail screen to
+  /// explain the weight change reasoning.
+  final RecalibrationWeightTrend? weightTrend;
+
+  /// True when the result actually changed `HealthProfile.TargetCalories`
+  /// (i.e. `suggestedTargetCalories != currentTargetCalories`).
+  bool get wasApplied => suggestedTargetCalories != currentTargetCalories;
+
   factory GymRecalibrationResult.fromJson(Map<String, dynamic> json) {
     return GymRecalibrationResult(
       currentTargetCalories: _int(json, 'currentTargetCalories') ?? 0,
       suggestedTargetCalories: _int(json, 'suggestedTargetCalories') ?? 0,
       reason: _string(json, 'reason') ?? '',
+      summary: _map(json, 'summary') == null
+          ? null
+          : RecalibrationSummary.fromJson(
+              _map(json, 'summary')!.cast<String, dynamic>(),
+            ),
+      dashboard: _map(json, 'dashboard') == null
+          ? null
+          : RecalibrationDashboard.fromJson(
+              _map(json, 'dashboard')!.cast<String, dynamic>(),
+            ),
+      weightTrend: _map(json, 'weightTrend') == null
+          ? null
+          : RecalibrationWeightTrend.fromJson(
+              _map(json, 'weightTrend')!.cast<String, dynamic>(),
+            ),
     );
   }
+}
+
+@immutable
+class RecalibrationSummary {
+  const RecalibrationSummary({
+    required this.avgCaloriesPerDay,
+    required this.avgProteinG,
+    required this.avgCarbsG,
+    required this.avgFatG,
+    required this.totalMeals,
+    required this.daysWithLog,
+  });
+
+  final double avgCaloriesPerDay;
+  final double avgProteinG;
+  final double avgCarbsG;
+  final double avgFatG;
+  final int totalMeals;
+  final int daysWithLog;
+
+  factory RecalibrationSummary.fromJson(Map<String, dynamic> json) {
+    return RecalibrationSummary(
+      avgCaloriesPerDay:
+          _double(json, 'avgCaloriesPerDay') ??
+          _double(json, 'AvgCaloriesPerDay') ??
+          0,
+      avgProteinG:
+          _double(json, 'avgProteinPerDay') ??
+          _double(json, 'AvgProteinPerDay') ??
+          0,
+      avgCarbsG:
+          _double(json, 'avgCarbsPerDay') ??
+          _double(json, 'AvgCarbsPerDay') ??
+          0,
+      avgFatG:
+          _double(json, 'avgFatPerDay') ?? _double(json, 'AvgFatPerDay') ?? 0,
+      totalMeals:
+          _int(json, 'totalMealLogs') ?? _int(json, 'TotalMealLogs') ?? 0,
+      daysWithLog: _int(json, 'daysWithLog') ?? 0,
+    );
+  }
+}
+
+@immutable
+class RecalibrationDashboard {
+  const RecalibrationDashboard({
+    required this.range,
+    required this.days,
+    this.from,
+    this.to,
+  });
+
+  /// Range string from backend (e.g. "week", "month").
+  final String range;
+  final List<RecalibrationDay> days;
+
+  /// Date range convenience (derived from weightTrend when available).
+  final DateTime? from;
+  final DateTime? to;
+
+  factory RecalibrationDashboard.fromJson(Map<String, dynamic> json) {
+    return RecalibrationDashboard(
+      range: _string(json, 'range') ?? _string(json, 'Range') ?? 'week',
+      days: _listFromJson<RecalibrationDay>(
+        json,
+        'days',
+        (e) => RecalibrationDay.fromJson(e.cast<String, dynamic>()),
+      ),
+    );
+  }
+}
+
+@immutable
+class RecalibrationDay {
+  const RecalibrationDay({
+    required this.date,
+    required this.actualCalories,
+    required this.targetCalories,
+  });
+
+  final DateTime date;
+  final double actualCalories;
+  final double targetCalories;
+
+  /// Deviation from target in kcal. Positive = over target, negative = under.
+  double get deviation => actualCalories - targetCalories;
+
+  /// Human-readable status label.
+  String get statusLabel {
+    final dev = deviation;
+    if (dev.abs() <= 50) return 'Đúng target';
+    if (dev > 0) return 'Vượt ${dev.toStringAsFixed(0)} kcal';
+    return 'Thiếu ${dev.abs().toStringAsFixed(0)} kcal';
+  }
+
+  factory RecalibrationDay.fromJson(Map<String, dynamic> json) {
+    final dateStr = _string(json, 'date') ?? _string(json, 'Date') ?? '';
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(dateStr);
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+    return RecalibrationDay(
+      date: parsedDate,
+      actualCalories:
+          _double(json, 'totalCalories') ?? _double(json, 'TotalCalories') ?? 0,
+      targetCalories:
+          _double(json, 'targetCalories') ??
+          _double(json, 'TargetCalories') ??
+          0,
+    );
+  }
+}
+
+@immutable
+class RecalibrationWeightTrend {
+  const RecalibrationWeightTrend({
+    this.startDate,
+    this.endDate,
+    this.initialWeightKg,
+    this.latestWeightKg,
+    this.weightChangeKg,
+    this.averageWeightKg,
+    this.weightData = const [],
+  });
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final double? initialWeightKg;
+  final double? latestWeightKg;
+  final double? weightChangeKg;
+  final double? averageWeightKg;
+  final List<RecalibrationWeightPoint> weightData;
+
+  factory RecalibrationWeightTrend.fromJson(Map<String, dynamic> json) {
+    final logs = _listFromJson<RecalibrationWeightPoint>(
+      json,
+      'weightLogs',
+      (e) => RecalibrationWeightPoint.fromJson(e.cast<String, dynamic>()),
+    );
+    return RecalibrationWeightTrend(
+      startDate: _parseDate(json['startDate'] ?? json['StartDate']),
+      endDate: _parseDate(json['endDate'] ?? json['EndDate']),
+      initialWeightKg:
+          _double(json, 'initialWeightKg') ?? _double(json, 'InitialWeightKg'),
+      latestWeightKg:
+          _double(json, 'latestWeightKg') ?? _double(json, 'LatestWeightKg'),
+      weightChangeKg:
+          _double(json, 'weightChangeKg') ?? _double(json, 'WeightChangeKg'),
+      averageWeightKg:
+          _double(json, 'averageWeightKg') ?? _double(json, 'AverageWeightKg'),
+      weightData: logs,
+    );
+  }
+}
+
+@immutable
+class RecalibrationWeightPoint {
+  const RecalibrationWeightPoint({
+    required this.date,
+    required this.weightKg,
+    this.bodyFatPercent,
+  });
+
+  final DateTime date;
+  final double weightKg;
+  final double? bodyFatPercent;
+
+  factory RecalibrationWeightPoint.fromJson(Map<String, dynamic> json) {
+    final recordedAt = _parseDate(json['recordedAt'] ?? json['RecordedAt']);
+    return RecalibrationWeightPoint(
+      date: recordedAt ?? DateTime.now(),
+      weightKg: _double(json, 'weightKg') ?? _double(json, 'WeightKg') ?? 0,
+      bodyFatPercent:
+          _double(json, 'bodyFatPercent') ?? _double(json, 'BodyFatPercent'),
+    );
+  }
+}
+
+/// Outcome of [GymGoalsProvider.recalibrate]. Lets the UI branch on the
+/// specific failure reason returned by the backend without parsing the
+/// translated message string.
+enum RecalibrateOutcome {
+  success,
+
+  /// Backend returned `RECALIBRATE_NO_WEIGHT_DATA`. The user must log
+  /// weight before recalibration can run.
+  requiresWeightLog,
+
+  /// Backend returned `RECALIBRATE_ANOMALY_WEIGHT_CHANGE`. The weekly
+  /// weight change is suspiciously large — likely bad data, a typo or
+  /// stale seed data. Recalibration is paused until the user reviews
+  /// their weight logs.
+  requiresWeightLogReview,
+
+  /// Any other failure (network, server, validation...).
+  failed,
 }
 
 /// Safety disclaimer response.

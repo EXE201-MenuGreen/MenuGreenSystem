@@ -42,6 +42,8 @@ export function roleBadgeVariant(role: string): BadgeVariant {
       return "danger";
     case "Pro":
       return "info";
+    case "Coach":
+      return "warning";
     case "Free":
       return "success";
     default:

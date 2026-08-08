@@ -11,7 +11,6 @@ import '../../subscription/widgets/premium_paywall_widget.dart';
 import '../../home/widgets/weight_log_sheet.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/gym_goals_provider.dart';
-import '../widgets/info_card.dart';
 import '../widgets/section_header.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/views/notification_inbox_screen.dart';
@@ -140,6 +139,16 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     }
   }
 
+  bool get _hasTodayGymItems {
+    if (_todayPlan == null) return false;
+    return _todayPlan!.items.any(
+      (x) =>
+          x.origin == null ||
+          x.origin!.isEmpty ||
+          x.origin?.toLowerCase() == 'gym',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,42 +239,25 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(20),
                       children: [
-                        InfoCard(
-                          icon: Icons.fitness_center,
-                          title: _goalLabel(
-                            provider.profile?.goalMode ?? 'maintain',
-                          ),
-                          subtitle: _scheduleSummary(provider.profile),
-                          value: _calorieSummary(provider),
-                          footnote:
-                              'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
-                          trailing: TextButton(
-                            onPressed: () =>
-                                _openEditor(context, provider.profile),
-                            child: const Text('Cấu hình'),
-                          ),
-                        ),
+                        _buildHeroGoalCard(provider),
                         const SizedBox(height: 16),
                         _buildBodyTargetsCard(provider),
-                        const SizedBox(height: 16),
-                        _buildRecalibrateCard(provider),
                         const SizedBox(height: 24),
                         Row(
                           children: [
                             const Expanded(
                               child: SectionHeader(
                                 title: 'Lộ trình ăn uống hôm nay',
-                                icon: Icons.restaurant_menu,
+                                icon: Icons.restaurant_menu_rounded,
                                 subtitle:
                                     'Phân loại chi tiết và đồng bộ nhật ký PT',
                               ),
                             ),
-                            if (_todayPlan != null &&
-                                _todayPlan!.items.isNotEmpty)
+                            if (_hasTodayGymItems)
                               TextButton.icon(
                                 onPressed: _clearTodayPlan,
                                 icon: const Icon(
-                                  Icons.delete_sweep,
+                                  Icons.delete_sweep_rounded,
                                   color: Colors.red,
                                   size: 18,
                                 ),
@@ -274,6 +266,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                   style: TextStyle(
                                     color: Colors.red,
                                     fontSize: 13,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -323,7 +316,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     if (p == null) return 'Đang tải cấu hình...';
     final resolved = p.resolveForDate(DateTime.now());
     if (resolved.scope == GymConfigurationScope.day) {
-      return resolved.isTraining ? 'Hôm nay: Tập luyện' : 'Hôm nay: Nghỉ ngơi';
+      return resolved.isTraining
+          ? 'Hôm nay: Tập luyện 🏋️'
+          : 'Hôm nay: Nghỉ ngơi 😴';
     }
     final schedule = p.weeklyTrainingSchedule.trim();
     if (schedule.isEmpty && resolved.hasScopedConfiguration) {
@@ -361,82 +356,513 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     return 'Tập: ${train ?? '—'} kcal • Nghỉ: ${rest ?? '—'} kcal';
   }
 
-  Widget _buildRecalibrateCard(GymGoalsProvider provider) {
-    final last = provider.lastRecalibration;
-    return InfoCard(
-      icon: Icons.tune,
-      title: 'Hiệu chỉnh mục tiêu',
-      subtitle: last == null
-          ? 'Đánh giá cân nặng tuần qua và điều chỉnh calo tự động.'
-          : 'Gợi ý hiện tại: ${last.suggestedTargetCalories} kcal',
-      footnote: last == null
-          ? null
-          : ApiMessageTranslator.translate(last.reason),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: provider.isRecalibrating ? null : provider.recalibrate,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+  Widget _buildHeroGoalCard(GymGoalsProvider provider) {
+    final profile = provider.profile;
+    final modeLabel = _goalLabel(profile?.goalMode ?? 'maintain');
+    final schedule = _scheduleSummary(profile);
+    final calorieText = _calorieSummary(provider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.fitness_center_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        modeLabel,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textDark,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        schedule,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton(
+                  onPressed: () => _openEditor(context, profile),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cấu hình',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          icon: provider.isRecalibrating
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.local_fire_department_rounded,
+                    color: AppColors.primary,
+                    size: 24,
                   ),
-                )
-              : const Icon(Icons.refresh, size: 18),
-          label: const Text(
-            'Hiệu chỉnh ngay',
-            style: TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      calorieText,
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: AppColors.textSecondary.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Ngưỡng an toàn: tối thiểu 1200 kcal/ngày (theo NHS).',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
+  /// Refresh current measurements after a weight log is saved. Explicit
+  /// body goals remain unchanged because they live in the gym configuration.
+  Future<void> _refreshAfterWeightChange(GymGoalsProvider provider) async {
+    await provider.loadProfile();
+  }
+
   Widget _buildBodyTargetsCard(GymGoalsProvider provider) {
     final profile = provider.profile;
-    final weight = profile?.targetWeightKg;
-    final bodyFat = profile?.targetBodyFatPercent;
-    final targetText = [
-      if (weight != null) '${weight.toStringAsFixed(1)} kg',
-      if (bodyFat != null) '${bodyFat.toStringAsFixed(1)}% mỡ',
-    ].join(' • ');
+    final currentWeight = profile?.currentWeightKg;
+    final currentBodyFat = profile?.currentBodyFatPercent;
+    final targetWeight = profile?.targetWeightKg;
+    final targetBodyFat = profile?.targetBodyFatPercent;
 
-    return InfoCard(
-      icon: Icons.monitor_weight_outlined,
-      title: 'Chỉ số cơ thể mục tiêu',
-      subtitle: targetText.isEmpty
-          ? 'Thiết lập cân nặng và tỷ lệ mỡ mục tiêu trong cấu hình gym.'
-          : targetText,
-      footnote:
-          'Ghi chỉ số định kỳ để hệ thống so sánh xu hướng và hiệu chỉnh mục tiêu.',
-      child: SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: () async {
-            final saved = await showModalBottomSheet<bool>(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const WeightLogSheet(),
-            );
-            if (saved == true && mounted) {
-              await provider.recalibrate();
-            }
-          },
-          icon: const Icon(Icons.add_chart_outlined, size: 18),
-          label: const Text('Cập nhật cân nặng / % mỡ'),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.monitor_weight_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Cơ thể hiện tại và mục tiêu',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Số đo hiện tại',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.scale_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Cân nặng',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            currentWeight != null
+                                ? '${currentWeight.toStringAsFixed(1)} kg'
+                                : 'Chưa cập nhật',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.pie_chart_outline_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tỷ lệ mỡ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            currentBodyFat != null
+                                ? '${currentBodyFat.toStringAsFixed(1)}%'
+                                : 'Chưa cập nhật',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 12),
+          const Text(
+            'Mục tiêu muốn đạt',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.flag_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Cân nặng mục tiêu',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              targetWeight != null
+                                  ? '${targetWeight.toStringAsFixed(1)} kg'
+                                  : 'Chưa đặt',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.track_changes_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '% mỡ mục tiêu',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              targetBodyFat != null
+                                  ? '${targetBodyFat.toStringAsFixed(1)}%'
+                                  : 'Chưa đặt',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Số đo hiện tại được cập nhật từ nhật ký. Mục tiêu chỉ thay đổi khi bạn chỉnh cấu hình.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.textSecondary.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final saved = await showModalBottomSheet<bool>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const WeightLogSheet(),
+                    );
+                    if (saved == true && mounted) {
+                      await _refreshAfterWeightChange(provider);
+                    }
+                  },
+                  icon: const Icon(Icons.add_chart_rounded, size: 18),
+                  label: const Text('Cập nhật số đo'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      _openEditor(context, profile, focusBodyTargets: true),
+                  icon: const Icon(Icons.flag_rounded, size: 18),
+                  label: Text(
+                    targetWeight == null && targetBodyFat == null
+                        ? 'Đặt mục tiêu'
+                        : 'Chỉnh mục tiêu',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -466,65 +892,85 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2),
-              ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.soup_kitchen_rounded,
+                    size: 26,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 const Text(
                   'Chưa có lộ trình ăn uống hôm nay.',
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.textDark,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   provider.hasPlanConfiguration
                       ? 'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.'
                       : 'Hãy cấu hình Ngày, Tuần hoặc Tháng áp dụng cho hôm nay trước.',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
                     color: AppColors.textSecondary,
+                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
+                const SizedBox(height: 16),
+                FilledButton.icon(
                   onPressed: provider.hasPlanConfiguration
                       ? () => _initializePlanFromSuggestions(provider)
                       : () => _openEditor(context, provider.profile),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                      horizontal: 20,
+                      vertical: 12,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   icon: Icon(
                     provider.hasPlanConfiguration
-                        ? Icons.flash_on
+                        ? Icons.bolt_rounded
                         : Icons.settings_outlined,
-                    size: 14,
+                    size: 18,
                   ),
                   label: Text(
                     provider.hasPlanConfiguration
                         ? 'Khởi tạo lộ trình'
                         : 'Cấu hình hôm nay',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
@@ -1730,11 +2176,17 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   Future<void> _openEditor(
     BuildContext context,
-    GymGoalProfile? profile,
-  ) async {
+    GymGoalProfile? profile, {
+    bool focusBodyTargets = false,
+  }) async {
     final updated = await Navigator.push<GymGoalProfile?>(
       context,
-      MaterialPageRoute(builder: (_) => GymGoalsEditorScreen(initial: profile)),
+      MaterialPageRoute(
+        builder: (_) => GymGoalsEditorScreen(
+          initial: profile,
+          focusBodyTargets: focusBodyTargets,
+        ),
+      ),
     );
     if (updated != null && context.mounted) {
       final provider = context.read<GymGoalsProvider>();
@@ -1746,15 +2198,21 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 }
 
 class GymGoalsEditorScreen extends StatefulWidget {
-  const GymGoalsEditorScreen({super.key, this.initial});
+  const GymGoalsEditorScreen({
+    super.key,
+    this.initial,
+    this.focusBodyTargets = false,
+  });
 
   final GymGoalProfile? initial;
+  final bool focusBodyTargets;
 
   @override
   State<GymGoalsEditorScreen> createState() => _GymGoalsEditorScreenState();
 }
 
 class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
+  final ScrollController _scrollController = ScrollController();
   late final Set<String> _selectedDays;
   late final List<GymDayDetail> _dailyDetails;
   late final List<GymWeeklyDetail> _weeklyDetails;
@@ -1763,7 +2221,6 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
 
   late final TextEditingController _targetWeight;
   late final TextEditingController _targetBodyFat;
-  late final TextEditingController _generalNotes;
 
   late final TextEditingController _calController;
   late final TextEditingController _minCalController;
@@ -1797,7 +2254,6 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     _targetBodyFat = TextEditingController(
       text: init?.targetBodyFatPercent?.toString() ?? '',
     );
-    _generalNotes = TextEditingController(text: init?.notes ?? '');
 
     _calController = TextEditingController();
     _minCalController = TextEditingController();
@@ -1809,15 +2265,25 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     _loadSelectedConfig();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _initializing = false);
+      if (!mounted) return;
+      setState(() => _initializing = false);
+      if (widget.focusBodyTargets) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _scrollController.hasClients) {
+            _scrollController.jumpTo(
+              _scrollController.position.maxScrollExtent,
+            );
+          }
+        });
+      }
     });
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _targetWeight.dispose();
     _targetBodyFat.dispose();
-    _generalNotes.dispose();
     _calController.dispose();
     _minCalController.dispose();
     _maxCalController.dispose();
@@ -2168,18 +2634,209 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     return GymGoalProfile(
       goalMode: _goalMode,
       weeklyTrainingSchedule: _selectedDays.join(','),
+      currentWeightKg: widget.initial?.currentWeightKg,
+      currentBodyFatPercent: widget.initial?.currentBodyFatPercent,
       targetWeightKg: double.tryParse(
         _targetWeight.text.trim().replaceAll(',', '.'),
       ),
       targetBodyFatPercent: double.tryParse(
         _targetBodyFat.text.trim().replaceAll(',', '.'),
       ),
-      notes: _generalNotes.text.trim().isEmpty
-          ? null
-          : _generalNotes.text.trim(),
+      notes: null,
       dailyDetails: _dailyDetails,
       weeklyDetails: _weeklyDetails,
       monthlyDetails: _monthlyDetails,
+    );
+  }
+
+  void _showGoalModeBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final modes = [
+          (
+            key: 'cut',
+            label: 'Siết cơ',
+            subtitle: 'Giảm mỡ, duy trì cơ bắp & thâm hụt calo',
+            icon: Icons.content_cut_rounded,
+          ),
+          (
+            key: 'maintain',
+            label: 'Giữ cân',
+            subtitle: 'Duy trì vóc dáng & cân bằng năng lượng',
+            icon: Icons.balance_rounded,
+          ),
+          (
+            key: 'bulk',
+            label: 'Xả cơ',
+            subtitle: 'Tăng khối lượng cơ bắp & sức mạnh',
+            icon: Icons.fitness_center_rounded,
+          ),
+          (
+            key: 'recomp',
+            label: 'Giảm mỡ tăng cơ',
+            subtitle: 'Tái cấu trúc cơ thể đồng thời',
+            icon: Icons.local_fire_department_rounded,
+          ),
+        ];
+
+        return Padding(
+          padding: EdgeInsets.only(
+            top: 12,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: const [
+                  Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Chọn chế độ mục tiêu',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              ...modes.map((m) {
+                final isSelected = _goalMode.toLowerCase() == m.key;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _goalMode = m.key);
+                      Navigator.pop(ctx);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : const Color(0xFFE2E8F0),
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              m.icon,
+                              size: 18,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.label,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  m.subtitle,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActivityChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textDark,
+          ),
+        ),
+      ),
     );
   }
 
@@ -2194,30 +2851,48 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAF9),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.white,
+        scrolledUnderElevation: 1,
         title: const Text(
           'Cấu hình gym',
           style: TextStyle(
             color: AppColors.textDark,
-            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
         ),
         iconTheme: const IconThemeData(color: AppColors.textDark),
         actions: [
-          TextButton(
-            onPressed: () {
-              _saveSelectedConfig();
-              Navigator.pop<GymGoalProfile?>(context, _build());
-            },
-            child: const Text(
-              'Lưu',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: FilledButton(
+              onPressed: () {
+                _saveSelectedConfig();
+                Navigator.pop<GymGoalProfile?>(context, _build());
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Lưu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                ),
               ),
             ),
           ),
@@ -2225,240 +2900,389 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Chế độ',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: ['cut', 'maintain', 'bulk', 'recomp']
-                    .map(
-                      (e) => ChoiceChip(
-                        label: Text(_label(e)),
-                        selected: _goalMode.toLowerCase() == e,
-                        onSelected: (_) => setState(() => _goalMode = e),
-                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 20),
+              // Goal Mode Filter Card
               Container(
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildTabButton(0, 'Ngày'),
-                    _buildTabButton(1, 'Tuần'),
-                    _buildTabButton(2, 'Tháng'),
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.flag_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Chế độ mục tiêu',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Material(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        onTap: _showGoalModeBottomSheet,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _label(_goalMode),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              if (_activeTab == 0)
-                _buildSelectorTile(
-                  label: 'Chọn ngày cấu hình',
-                  value: _formatDisplayDateFull(_selectedDate),
-                  onTap: () => _selectDate(context),
-                )
-              else if (_activeTab == 1)
-                _buildSelectorTile(
-                  label: 'Chọn tuần cấu hình',
-                  value: _formatDisplayWeek(_selectedDate),
-                  onTap: () => _selectWeek(context),
-                )
-              else
-                _buildSelectorTile(
-                  label: 'Chọn tháng cấu hình',
-                  value: _formatDisplayMonthFull(_selectedDate),
-                  onTap: () => _selectMonth(context),
+              const SizedBox(height: 14),
+
+              // Time Level Selector Tabs (Ngày / Tuần / Tháng) & Selector Tile
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 20),
-              Text(
-                _activeTab == 0
-                    ? 'Cấu hình chi tiết ngày ${_formatDisplayDateFull(_selectedDate)}'
-                    : _activeTab == 1
-                    ? 'Cấu hình chi tiết tuần'
-                    : 'Cấu hình chi tiết tháng',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppColors.textDark,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildTabButton(0, 'Ngày'),
+                          _buildTabButton(1, 'Tuần'),
+                          _buildTabButton(2, 'Tháng'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_activeTab == 0)
+                      _buildSelectorTile(
+                        label: 'Chọn ngày cấu hình',
+                        value: _formatDisplayDateFull(_selectedDate),
+                        onTap: () => _selectDate(context),
+                      )
+                    else if (_activeTab == 1)
+                      _buildSelectorTile(
+                        label: 'Chọn tuần cấu hình',
+                        value: _formatDisplayWeek(_selectedDate),
+                        onTap: () => _selectWeek(context),
+                      )
+                    else
+                      _buildSelectorTile(
+                        label: 'Chọn tháng cấu hình',
+                        value: _formatDisplayMonthFull(_selectedDate),
+                        onTap: () => _selectMonth(context),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              if (_activeTab == 0) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Chế độ hoạt động:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+              const SizedBox(height: 14),
+
+              // Detailed Parameters Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _activeTab == 0
+                          ? 'Cấu hình chi tiết ngày ${_formatDisplayDateFull(_selectedDate)}'
+                          : _activeTab == 1
+                          ? 'Cấu hình chi tiết tuần'
+                          : 'Cấu hình chi tiết tháng',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    if (_activeTab == 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Chế độ hoạt động:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              _buildActivityChip(
+                                label: 'Nghỉ ngơi 😴',
+                                isSelected: !_isDayTraining,
+                                onTap: () =>
+                                    setState(() => _isDayTraining = false),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildActivityChip(
+                                label: 'Tập luyện 🏋️',
+                                isSelected: _isDayTraining,
+                                onTap: () =>
+                                    setState(() => _isDayTraining = true),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    _buildStepperField(
+                      label: 'Calo mục tiêu (kcal)',
+                      controller: _calController,
+                      step: 50,
+                      minValue: 0,
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                        ChoiceChip(
-                          label: const Text('Nghỉ ngơi'),
-                          selected: !_isDayTraining,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _isDayTraining = false);
-                            }
-                          },
-                          selectedColor: Colors.grey.shade300,
+                        Expanded(
+                          child: _buildStepperField(
+                            label: 'Calo tối thiểu',
+                            controller: _minCalController,
+                            step: 50,
+                            minValue: 0,
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('Tập luyện'),
-                          selected: _isDayTraining,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _isDayTraining = true);
-                            }
-                          },
-                          selectedColor: AppColors.primary.withValues(
-                            alpha: 0.2,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStepperField(
+                            label: 'Calo tối đa',
+                            controller: _maxCalController,
+                            step: 50,
+                            minValue: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStepperField(
+                            label: 'Protein tối thiểu (g)',
+                            controller: _minProteinController,
+                            step: 5,
+                            minValue: 0,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStepperField(
+                            label: 'Protein tối đa (g)',
+                            controller: _maxProteinController,
+                            step: 5,
+                            minValue: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _notesController,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: AppColors.textDark,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Ghi chú cho cấp độ này',
+                        labelStyle: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    if (_hasCurrentOverride()) ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _clearSelectedConfig,
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          label: const Text('Xóa cấu hình đặc biệt này'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: BorderSide(color: Colors.red.shade200),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // General Goals Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Mục tiêu chung',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDoubleStepperField(
+                            label: 'Cân nặng mục tiêu (kg)',
+                            controller: _targetWeight,
+                            step: 0.5,
+                            minValue: 0.0,
+                            hintText: widget.initial?.currentWeightKg != null
+                                ? 'Gợi ý: ${widget.initial!.currentWeightKg!.toStringAsFixed(1)} kg (cân nặng hiện tại)'
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDoubleStepperField(
+                            label: '% mỡ mục tiêu',
+                            controller: _targetBodyFat,
+                            step: 0.5,
+                            minValue: 0.0,
                           ),
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-              ],
-              _buildStepperField(
-                label: 'Calo mục tiêu (kcal)',
-                controller: _calController,
-                step: 50,
-                minValue: 0,
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStepperField(
-                      label: 'Calo tối thiểu',
-                      controller: _minCalController,
-                      step: 50,
-                      minValue: 0,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStepperField(
-                      label: 'Calo tối đa',
-                      controller: _maxCalController,
-                      step: 50,
-                      minValue: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStepperField(
-                      label: 'Protein tối thiểu (g)',
-                      controller: _minProteinController,
-                      step: 5,
-                      minValue: 0,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStepperField(
-                      label: 'Protein tối đa (g)',
-                      controller: _maxProteinController,
-                      step: 5,
-                      minValue: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú cho cấp độ này',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                  ),
-                ),
-              ),
-              if (_hasCurrentOverride()) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: _clearSelectedConfig,
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    label: const Text(
-                      'Xóa cấu hình ngày/tuần/tháng này',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 12),
-              const Text(
-                'Mục tiêu chung',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDoubleStepperField(
-                      label: 'Cân nặng mục tiêu (kg)',
-                      controller: _targetWeight,
-                      step: 0.5,
-                      minValue: 0.0,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDoubleStepperField(
-                      label: '% mỡ mục tiêu',
-                      controller: _targetBodyFat,
-                      step: 0.5,
-                      minValue: 0.0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _generalNotes,
-                minLines: 2,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú chung',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -2480,17 +3304,27 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
           }
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: active ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: TextStyle(
               color: active ? Colors.white : AppColors.textDark,
-              fontWeight: FontWeight.bold,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 13,
             ),
           ),
         ),
@@ -2507,14 +3341,26 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: AppColors.progressBackground.withValues(alpha: 0.3),
+          color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: AppColors.primary),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.calendar_today_rounded,
+                color: AppColors.primary,
+                size: 18,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2522,21 +3368,28 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     value,
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textDark,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_drop_down, color: AppColors.textDark),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.textDark,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -2556,22 +3409,23 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
           label,
           style: const TextStyle(
             fontSize: 12,
-            color: Colors.grey,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 6),
         Container(
-          height: 48,
+          height: 46,
           decoration: BoxDecoration(
-            color: AppColors.progressBackground.withValues(alpha: 0.3),
+            color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Row(
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.remove,
+                  Icons.remove_rounded,
                   size: 18,
                   color: AppColors.primary,
                 ),
@@ -2594,13 +3448,18 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                icon: const Icon(
+                  Icons.add_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
                 onPressed: () {
                   final val = int.tryParse(controller.text.trim()) ?? 0;
                   final newVal = val + step;
@@ -2619,6 +3478,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     required TextEditingController controller,
     required double step,
     double? minValue,
+    String? hintText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2627,22 +3487,34 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
           label,
           style: const TextStyle(
             fontSize: 12,
-            color: Colors.grey,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),
+        if (hintText != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            hintText,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.textLight,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
         const SizedBox(height: 6),
         Container(
-          height: 48,
+          height: 46,
           decoration: BoxDecoration(
-            color: AppColors.progressBackground.withValues(alpha: 0.3),
+            color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Row(
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.remove,
+                  Icons.remove_rounded,
                   size: 18,
                   color: AppColors.primary,
                 ),
@@ -2671,13 +3543,18 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: AppColors.textDark,
                   ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                icon: const Icon(
+                  Icons.add_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
                 onPressed: () {
                   final val =
                       double.tryParse(

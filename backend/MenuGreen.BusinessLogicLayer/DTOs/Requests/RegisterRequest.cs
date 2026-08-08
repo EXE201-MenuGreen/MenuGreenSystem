@@ -15,5 +15,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [Required(ErrorMessage = "Password is required.")]
         [MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
         public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Account type is required.")]
+        [RegularExpression("(?i)^(User|PT)$", ErrorMessage = "Account type must be User or PT.")]
+        public string AccountType { get; set; } = "User";
     }
 }
