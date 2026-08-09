@@ -16,6 +16,8 @@ import {
   getRevenueTimeSeries,
   getRevenueByPlan,
   type NutritionDashboardData,
+  type RevenueTimeSeriesResponse,
+  type RevenueByPlanResponse,
 } from "../api/analytics-api";
 import type {
   AnalyticsDashboard,
@@ -28,8 +30,6 @@ import type {
   ActivityLogEntry,
   DatePreset,
   DateRange,
-  RevenueTimeSeriesPoint,
-  RevenueByPlan,
 } from "../types/analytics-types";
 
 const DEFAULT_PRESET: DatePreset = "30days";
@@ -372,7 +372,7 @@ export function useActivityLog(params?: {
 // ============================================
 
 export function useRevenueTimeSeries(datePreset: DatePreset = "30days") {
-  const [data, setData] = useState<RevenueTimeSeriesPoint[]>([]);
+  const [data, setData] = useState<RevenueTimeSeriesResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -401,7 +401,7 @@ export function useRevenueTimeSeries(datePreset: DatePreset = "30days") {
 }
 
 export function useRevenueByPlan(datePreset: DatePreset = "30days") {
-  const [data, setData] = useState<RevenueByPlan[]>([]);
+  const [data, setData] = useState<RevenueByPlanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

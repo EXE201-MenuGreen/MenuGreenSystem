@@ -266,18 +266,31 @@ export async function fetchAllNutritionAnalytics(
 // REVENUE ANALYTICS
 // ============================================
 
+export interface RevenueTimeSeriesResponse {
+  points: RevenueTimeSeriesPoint[];
+  totalRevenue: number;
+  transactionCount: number;
+  changeVsPrevious: number;
+}
+
+export interface RevenueByPlanResponse {
+  plans: RevenueByPlan[];
+  totalRevenue: number;
+  totalSubscribers: number;
+}
+
 export async function getRevenueTimeSeries(
   from: string,
   to: string
-): Promise<RevenueTimeSeriesPoint[]> {
+): Promise<RevenueTimeSeriesResponse> {
   const url = withQuery(apiEndpoints.dashboard.revenueTimeSeries, { from, to });
-  return apiClient.get<RevenueTimeSeriesPoint[]>(url);
+  return apiClient.get<RevenueTimeSeriesResponse>(url);
 }
 
 export async function getRevenueByPlan(
   from: string,
   to: string
-): Promise<RevenueByPlan[]> {
+): Promise<RevenueByPlanResponse> {
   const url = withQuery(apiEndpoints.dashboard.revenueByPlan, { from, to });
-  return apiClient.get<RevenueByPlan[]>(url);
+  return apiClient.get<RevenueByPlanResponse>(url);
 }

@@ -168,17 +168,18 @@ export function RevenueStatisticsDashboard() {
   const error = timeSeriesError || byPlanError;
 
   // Calculate stats from time series
-  const stats = timeSeriesData?.length
+  const timeSeriesPoints = timeSeriesData?.points;
+  const stats = timeSeriesPoints?.length
     ? {
-        totalRevenue: timeSeriesData.reduce((sum, d) => sum + d.totalRevenue, 0),
-        subscribeRevenue: timeSeriesData.reduce((sum, d) => sum + d.subscribeRevenue, 0),
-        renewRevenue: timeSeriesData.reduce((sum, d) => sum + d.renewRevenue, 0),
-        transactionCount: timeSeriesData.reduce((sum, d) => sum + d.transactionCount, 0),
+        totalRevenue: timeSeriesPoints.reduce((sum, d) => sum + d.totalRevenue, 0),
+        subscribeRevenue: timeSeriesPoints.reduce((sum, d) => sum + d.subscribeRevenue, 0),
+        renewRevenue: timeSeriesPoints.reduce((sum, d) => sum + d.renewRevenue, 0),
+        transactionCount: timeSeriesPoints.reduce((sum, d) => sum + d.transactionCount, 0),
       }
     : null;
 
   // Prepare chart data
-  const chartData = timeSeriesData?.map((d) => ({
+  const chartData = timeSeriesPoints?.map((d) => ({
     date: d.date,
     value: d.totalRevenue,
   })) ?? [];
@@ -191,7 +192,7 @@ export function RevenueStatisticsDashboard() {
     gym: "#8b5cf6",
   };
 
-  const planSegments = byPlanData?.map((p) => ({
+  const planSegments = byPlanData?.plans?.map((p) => ({
     name: p.planName,
     value: p.revenue,
     color: PLAN_COLORS[p.planKey] ?? "#6b7280",
@@ -328,7 +329,7 @@ export function RevenueStatisticsDashboard() {
       </div>
 
       {/* Revenue Table */}
-      {byPlanData && byPlanData.length > 0 && (
+      {byPlanData && byPlanData.plans && byPlanData.plans.length > 0 && (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Chi tiết theo gói
@@ -356,7 +357,7 @@ export function RevenueStatisticsDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {byPlanData.map((plan) => (
+                {byPlanData.plans.map((plan) => (
                   <tr key={plan.planKey} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
