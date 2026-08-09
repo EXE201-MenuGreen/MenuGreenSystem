@@ -79,13 +79,21 @@ async function sendRequest<T>(
   }
 
   if (!response.ok) {
+    // Extract Retry-After header for rate limit errors
+    const retryAfterSeconds = response.status === 429
+      ? parseInt(response.headers.get("Retry-After") ?? "", 10) || undefined
+      : undefined;
+
     throw new ApiError(
       getErrorMessageFromBody(
         parsedBody,
-        `Request failed with status ${response.status}`,
+        response.status === 429
+          ? "Quá nhiều yêu cầu. Vui lòng thử lại sau."
+          : `Request failed with status ${response.status}`,
       ),
       response.status,
       parsedBody,
+      retryAfterSeconds,
     );
   }
 

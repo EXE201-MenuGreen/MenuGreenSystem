@@ -67,6 +67,14 @@ class ApiMessageTranslator {
     'Cannot update a completed meal plan.':
         'Không thể chỉnh sửa kế hoạch đã hoàn thành.',
 
+    // Rate Limiting (429 Too Many Requests)
+    'Too Many Requests': 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
+    'Rate limit exceeded': 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.',
+    'Rate limit exceeded. Please try again later.':
+        'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.',
+    'AI service is rate-limited. Please try again in a few minutes.':
+        'Dịch vụ AI đang bận. Vui lòng thử lại sau vài phút.',
+
     // Nutrition warnings (English from API)
     'Calorie intake deviates more than 10% from daily target.':
         'Calo lệch hơn 10% so với mục tiêu ngày.',
