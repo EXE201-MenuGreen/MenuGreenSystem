@@ -18,6 +18,9 @@ import type {
   CalorieDistributionResponse,
   MealTypeBreakdownResponse,
   UserInsightsResponse,
+  RevenueTimeSeriesPoint,
+  RevenueByPlan,
+  RevenueStats,
 } from "../types/analytics-types";
 
 // ============================================
@@ -257,4 +260,24 @@ export async function fetchAllNutritionAnalytics(
     isLoading: false,
     error: errors || null,
   };
+}
+
+// ============================================
+// REVENUE ANALYTICS
+// ============================================
+
+export async function getRevenueTimeSeries(
+  from: string,
+  to: string
+): Promise<RevenueTimeSeriesPoint[]> {
+  const url = withQuery(apiEndpoints.dashboard.revenueTimeSeries, { from, to });
+  return apiClient.get<RevenueTimeSeriesPoint[]>(url);
+}
+
+export async function getRevenueByPlan(
+  from: string,
+  to: string
+): Promise<RevenueByPlan[]> {
+  const url = withQuery(apiEndpoints.dashboard.revenueByPlan, { from, to });
+  return apiClient.get<RevenueByPlan[]>(url);
 }

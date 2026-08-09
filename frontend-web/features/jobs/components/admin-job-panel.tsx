@@ -8,11 +8,11 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { formatDateTime } from "@/lib/utils/format";
 
 const AVAILABLE_JOBS = [
-  { name: "SubscriptionExpiration", description: "Kiem tra va xu ly cac goi subscription het han" },
-  { name: "StreakReset", description: "Reset streak cho nhung nguoi dung khong con active" },
-  { name: "GoalDrift", description: "Phat hien va thong bao khi nguoi dung cham dut muc tieu" },
-  { name: "SepayReconciliation", description: "Dong bo trang thai thanh toan SePay" },
-  { name: "DailyStarter", description: "Tao daily starter cho tat ca nguoi dung" },
+  { name: "SubscriptionExpiration", description: "Kiểm tra và xử lý các gói subscription hết hạn" },
+  { name: "StreakReset", description: "Reset streak cho những người dùng không còn hoạt động" },
+  { name: "GoalDrift", description: "Phát hiện và thông báo khi người dùng chấm dứt mục tiêu" },
+  { name: "SepayReconciliation", description: "Đồng bộ trạng thái thanh toán SePay" },
+  { name: "DailyStarter", description: "Tạo daily starter cho tất cả người dùng" },
 ];
 
 interface JobLog {
@@ -42,7 +42,7 @@ export function AdminJobPanel() {
         ...prev,
       ]);
     } catch (err) {
-      const msg = getErrorMessage(err, "Trigger job that bai");
+      const msg = getErrorMessage(err, "Kích hoạt công việc thất bại");
       setError(msg);
       setLogs((prev) => [
         {
@@ -88,7 +88,7 @@ export function AdminJobPanel() {
               onClick={() => handleTrigger(job.name)}
               loading={triggering === job.name}
             >
-              Trigger
+              Kích hoạt
             </Button>
           </div>
         ))}

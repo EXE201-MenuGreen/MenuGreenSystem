@@ -274,6 +274,36 @@ export interface NutrientAdequacy {
 }
 
 // ============================================
+// REVENUE ANALYTICS TYPES
+// ============================================
+
+export interface RevenueTimeSeriesPoint {
+  date: string;
+  totalRevenue: number;
+  subscribeRevenue: number;
+  renewRevenue: number;
+  transactionCount: number;
+}
+
+export interface RevenueByPlan {
+  planName: string;
+  planKey: string;
+  revenue: number;
+  subscribers: number;
+  percent: number;
+  color: string;
+}
+
+export interface RevenueStats {
+  totalRevenue: number;
+  subscribeRevenue: number;
+  renewRevenue: number;
+  transactionCount: number;
+  avgRevenuePerTransaction: number;
+  changeVsPrevious: number;
+}
+
+// ============================================
 // CHART DATA TYPES
 // ============================================
 
