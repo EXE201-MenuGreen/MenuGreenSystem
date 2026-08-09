@@ -140,13 +140,13 @@ export function MealPlanFormDialog({
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </Select>
-                  <Select label="Food" value={row.foodId} onChange={(e) => updateItemRow(index, { foodId: e.target.value, ...(e.target.value ? { recipeId: "" } : {}) })}>
+                  <Select label="Món ăn" value={row.foodId} onChange={(e) => updateItemRow(index, { foodId: e.target.value, ...(e.target.value ? { recipeId: "" } : {}) })}>
                     <option value="">—</option>
                     {foods.map((f) => (
                       <option key={f.id} value={f.id}>{f.nameVi}</option>
                     ))}
                   </Select>
-                  <Select label="Recipe" value={row.recipeId} onChange={(e) => updateItemRow(index, { recipeId: e.target.value, ...(e.target.value ? { foodId: "" } : {}) })}>
+                  <Select label="Công thức" value={row.recipeId} onChange={(e) => updateItemRow(index, { recipeId: e.target.value, ...(e.target.value ? { foodId: "" } : {}) })}>
                     <option value="">—</option>
                     {recipes.map((r) => (
                       <option key={r.id} value={r.id}>{r.title}</option>

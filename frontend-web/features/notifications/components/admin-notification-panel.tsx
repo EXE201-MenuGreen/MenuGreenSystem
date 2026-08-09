@@ -53,15 +53,15 @@ export function AdminNotificationPanel() {
   return (
     <div>
       <PageHeader
-        title="Notification Dispatch"
-        description="Quan ly viec gui notification den nguoi dung"
+        title="Gửi thông báo"
+        description="Quản lý việc gửi notification đến người dùng"
         action={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={fetchStats} loading={loading}>
-              Lam moi
+              Làm mới
             </Button>
             <Button onClick={handleDispatch} loading={dispatching}>
-              Dispatch Now
+              Gửi ngay
             </Button>
           </div>
         }

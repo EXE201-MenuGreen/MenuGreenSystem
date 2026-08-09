@@ -37,15 +37,15 @@ export function AiAdminManagement() {
   return (
     <div>
       <PageHeader
-        title="AI Assistant"
-        description="Theo doi cau noi giua backend MenuGreenSystem va runtime RAG_AI_MenuGreen."
+        title="Trợ lý AI"
+        description="Theo dõi kết nối giữa backend MenuGreenSystem và runtime RAG_AI_MenuGreen."
         action={
           <div className="flex gap-2">
             <Link href="/ai-coach">
-              <Button variant="secondary">Mo giao dien user</Button>
+              <Button variant="secondary">Mở giao diện người dùng</Button>
             </Link>
             <Button variant="secondary" onClick={() => reload()} loading={loading}>
-              Lam moi
+              Làm mới
             </Button>
           </div>
         }
@@ -77,9 +77,9 @@ export function AiAdminManagement() {
           loading={loading}
         />
         <StatCard
-          label="Messages 7 ngay"
+          label="Tin nhắn 7 ngày"
           value={formatNumber(overview?.messagesLast7Days)}
-          helper="Dung de nhin tan suat su dung AI gan day."
+          helper="Dùng để nhìn tần suất sử dụng AI gần đây."
           loading={loading}
         />
       </div>
@@ -89,47 +89,47 @@ export function AiAdminManagement() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                Bridge Health
+                Tình trạng kết nối
               </h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Kiem tra runtime AI co reachable tu backend .NET hay khong.
+                Kiểm tra runtime AI có reachable từ backend .NET hay không.
               </p>
             </div>
             <Badge variant={workerHealthy ? "success" : "warning"}>
-              {workerHealthy ? "Healthy" : "Needs attention"}
+              {workerHealthy ? "Hoạt động" : "Cần chú ý"}
             </Badge>
           </div>
 
           <dl className="mt-6 space-y-4 text-sm">
             <div>
-              <dt className="text-zinc-500 dark:text-zinc-400">Worker URL</dt>
+              <dt className="text-zinc-500 dark:text-zinc-400">URL Worker</dt>
               <dd className="mt-1 break-all font-medium text-zinc-900 dark:text-zinc-50">
                 {bridgeHealth?.workerUrl || "Chua cau hinh"}
               </dd>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Configured</dt>
-                <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
-                  {bridgeHealth?.workerConfigured ? "Yes" : "Fallback/default"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Status code</dt>
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">Đã cấu hình</dt>
+              <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
+                {bridgeHealth?.workerConfigured ? "Có" : "Fallback/mặc định"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">Mã trạng thái</dt>
                 <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
                   {bridgeHealth?.statusCode ?? "—"}
                 </dd>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Service</dt>
-                <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
-                  {bridgeHealth?.workerService || "Unknown"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Checked at</dt>
+                <div>
+                  <dt className="text-zinc-500 dark:text-zinc-400">Dịch vụ</dt>
+                  <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
+                    {bridgeHealth?.workerService || "Không xác định"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-500 dark:text-zinc-400">Kiểm tra lúc</dt>
                 <dd className="mt-1 text-zinc-900 dark:text-zinc-50">
                   {formatDateTime(bridgeHealth?.checkedAt)}
                 </dd>
@@ -147,10 +147,10 @@ export function AiAdminManagement() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                Integration Notes
+                Ghi chú tích hợp
               </h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Tom tat cach MenuGreenSystem dang dung AI runtime.
+                Tóm tắt cách MenuGreenSystem đang dùng AI runtime.
               </p>
             </div>
           </div>
@@ -189,13 +189,13 @@ export function AiAdminManagement() {
         </section>
       </div>
 
-      <section className="overflow-hidden rounded-[28px] border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="overflow-hidden rounded-[28px] border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="border-b border-zinc-200 px-6 py-5 dark:border-zinc-800">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Recent Conversations
+            Các cuộc trò chuyện gần đây
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Kiem tra nhanh noi dung, tan suat va do dai hoi thoai AI.
+            Kiểm tra nhanh nội dung, tần suất và độ dài cuộc trò chuyện AI.
           </p>
         </div>
 
@@ -204,16 +204,16 @@ export function AiAdminManagement() {
             <thead className="bg-zinc-50 dark:bg-zinc-900/50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Conversation
+                  Cuộc trò chuyện
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Preview
+                  Xem trước
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Messages
+                  Tin nhắn
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Last activity
+                  Hoạt động cuối
                 </th>
               </tr>
             </thead>
