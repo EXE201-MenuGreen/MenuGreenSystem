@@ -306,6 +306,13 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
 
+    // Add Retry-After header when rate limit is exceeded
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers["Retry-After"] = "120";
+        await Task.CompletedTask;
+    };
+
     // 1. Global Limiter: 100 requests per 1 minute per IP
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
@@ -344,7 +351,7 @@ builder.Services.AddRateLimiter(options =>
         }
     );
 
-    // 3. AuthPolicy: 5 requests per 2 minutes per IP
+    // 3. AuthPolicy: 15 requests per 2 minutes per IP (increased from 5 for better UX)
     options.AddPolicy(
         "AuthPolicy",
         httpContext =>
@@ -355,7 +362,7 @@ builder.Services.AddRateLimiter(options =>
                 _ => new FixedWindowRateLimiterOptions
                 {
                     AutoReplenishment = true,
-                    PermitLimit = 5,
+                    PermitLimit = 15,
                     Window = TimeSpan.FromMinutes(2),
                     QueueLimit = 0,
                 }

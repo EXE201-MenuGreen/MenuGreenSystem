@@ -306,4 +306,30 @@ class NutritionTrackingRepository {
     }
     return CvInferenceResponse.fromJson(decoded);
   }
+
+  Future<Map<String, dynamic>> analyzePreparedMealImage(
+    List<int> fileBytes,
+    String filename, {
+    required String mimeType,
+  }) async {
+    final response = await _api.postMultipart(
+      ApiEndpoints.cvAnalyzePreparedMeal,
+      fileBytes,
+      'image',
+      filename,
+      fileContentType: MediaType.parse(mimeType),
+      timeout: const Duration(seconds: 115),
+    );
+    if (response.statusCode != 200) {
+      throw StateError(ApiErrorMiddleware.messageForResponse(response));
+    }
+    if (response.body.isEmpty) {
+      throw const FormatException('Không nhận được kết quả phân tích món ăn.');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Kết quả phân tích món ăn không đúng định dạng.');
+    }
+    return decoded;
+  }
 }

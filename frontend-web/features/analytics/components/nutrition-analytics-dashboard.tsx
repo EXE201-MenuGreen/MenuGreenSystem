@@ -25,6 +25,7 @@ export function NutritionAnalyticsDashboard() {
     topFoods,
     calorieDistribution,
     mealTypeBreakdown,
+    userInsights,
     isLoading,
     error,
     datePreset,
@@ -40,7 +41,7 @@ export function NutritionAnalyticsDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            Nutrition Analytics
+            Phân tích dinh dưỡng
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
             Theo dõi dinh dưỡng và hành vi ăn uống của người dùng
@@ -59,7 +60,7 @@ export function NutritionAnalyticsDashboard() {
       {/* KPI Cards Row 1 */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Tổng Meal Logs"
+          label="Tổng bản ghi bữa ăn"
           value={loading ? "—" : (dashboard?.summary.totalMealLogs ?? 0).toLocaleString()}
           change={dashboard?.comparisons.mealLogsChange}
           changeLabel="so với kỳ trước"
@@ -83,7 +84,7 @@ export function NutritionAnalyticsDashboard() {
           loading={loading}
         />
         <KpiCard
-          label="Active Users"
+          label="Người dùng hoạt động"
           value={loading ? "—" : (dashboard?.summary.activeUsersCount ?? 0).toLocaleString()}
           icon={<Users className="h-5 w-5" />}
           loading={loading}
@@ -107,7 +108,7 @@ export function NutritionAnalyticsDashboard() {
           loading={loading}
         />
         <KpiCard
-          label="Calorie Target"
+          label="Mục tiêu calories"
           value={loading ? "—" : `${(dashboard?.targets.avgCalorieTarget ?? 0).toLocaleString()} kcal`}
           icon={<Target className="h-5 w-5" />}
           loading={loading}
@@ -160,7 +161,7 @@ export function NutritionAnalyticsDashboard() {
             Phân bổ Calorie
           </h3>
           <p className="mt-1 text-sm text-zinc-500">
-            Below / On / Above target
+            Dưới / Đúng / Vượt mục tiêu
           </p>
 
           <div className="mt-6 space-y-4">
@@ -168,7 +169,7 @@ export function NutritionAnalyticsDashboard() {
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-blue-500" />
-                  Below Target
+                  Dưới mục tiêu
                 </span>
                 <span className="font-medium">{calorieDistribution?.dailyDistribution.belowTarget.percent.toFixed(1) ?? 0}%</span>
               </div>
@@ -184,7 +185,7 @@ export function NutritionAnalyticsDashboard() {
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-emerald-500" />
-                  On Target
+                  Đúng mục tiêu
                 </span>
                 <span className="font-medium">{calorieDistribution?.dailyDistribution.onTarget.percent.toFixed(1) ?? 0}%</span>
               </div>
@@ -200,7 +201,7 @@ export function NutritionAnalyticsDashboard() {
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-red-500" />
-                  Above Target
+                  Vượt mục tiêu
                 </span>
                 <span className="font-medium">{calorieDistribution?.dailyDistribution.aboveTarget.percent.toFixed(1) ?? 0}%</span>
               </div>
@@ -327,7 +328,7 @@ export function NutritionAnalyticsDashboard() {
         {/* Top Foods */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Top Foods
+            Món ăn phổ biến
           </h3>
           <p className="mt-1 text-sm text-zinc-500">
             {topFoods?.totalUniqueFoodsLogged ?? 0} món ăn duy nhất được log
@@ -383,7 +384,7 @@ export function NutritionAnalyticsDashboard() {
           <div className="mt-6 space-y-4">
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">Breakfast</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Bữa sáng</span>
                 <span className="font-medium">{mealTypeBreakdown?.averageDistribution.breakfast.toFixed(1) ?? 0}%</span>
               </div>
               <div className="h-4 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -396,7 +397,7 @@ export function NutritionAnalyticsDashboard() {
 
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">Lunch</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Bữa trưa</span>
                 <span className="font-medium">{mealTypeBreakdown?.averageDistribution.lunch.toFixed(1) ?? 0}%</span>
               </div>
               <div className="h-4 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -409,7 +410,7 @@ export function NutritionAnalyticsDashboard() {
 
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">Dinner</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Bữa tối</span>
                 <span className="font-medium">{mealTypeBreakdown?.averageDistribution.dinner.toFixed(1) ?? 0}%</span>
               </div>
               <div className="h-4 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -422,7 +423,7 @@ export function NutritionAnalyticsDashboard() {
 
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">Snack</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Bữa phụ</span>
                 <span className="font-medium">{mealTypeBreakdown?.averageDistribution.snack.toFixed(1) ?? 0}%</span>
               </div>
               <div className="h-4 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -447,30 +448,30 @@ export function NutritionAnalyticsDashboard() {
       {/* User Insights */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          User Insights
+          Phân tích người dùng
         </h3>
         <p className="mt-1 text-sm text-zinc-500">
-          Engagement và chất lượng chế độ ăn
+          Mức độ tương tác và chất lượng chế độ ăn
         </p>
 
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* Engagement */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-              Engagement
+              Tương tác
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Logs/user/tuần</span>
-                <span className="font-medium">{(dashboard?.summary.totalMealLogs ?? 0) > 0 ? "14.5" : "0"}</span>
+                <span className="font-medium">{loading ? "—" : (userInsights?.engagementMetrics.avgMealLogsPerUserPerWeek ?? 0).toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Logs/user/ngày</span>
-                <span className="font-medium">{(dashboard?.summary.totalMealLogs ?? 0) > 0 ? "2.8" : "0"}</span>
+                <span className="font-medium">{loading ? "—" : (userInsights?.engagementMetrics.avgMealsLoggedPerDay ?? 0).toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">User streak &gt;7 days</span>
-                <span className="font-medium">{dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.3) : 0}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">User có streak &gt; 7 ngày</span>
+                <span className="font-medium">{loading ? "—" : userInsights?.engagementMetrics.streakStats.usersWithStreakOver7Days ?? 0}</span>
               </div>
             </div>
           </div>
@@ -478,20 +479,20 @@ export function NutritionAnalyticsDashboard() {
           {/* Diet Quality */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-              Diet Quality
+              Chất lượng chế độ ăn
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Avg Diet Score</span>
-                <Badge variant="success">68.5</Badge>
+                <span className="text-zinc-600 dark:text-zinc-400">Điểm chế độ ăn TB</span>
+                <Badge variant="success">{loading ? "—" : (userInsights?.dietQuality.avgDietScore ?? 0).toFixed(1)}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Good Diet Users</span>
-                <span className="font-medium">{dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.45) : 0}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">User có chế độ ăn tốt</span>
+                <span className="font-medium">{loading ? "—" : userInsights?.dietQuality.usersWithGoodDiet ?? 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Improving</span>
-                <span className="font-medium text-green-600">↑ {dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.35) : 0}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">Đang cải thiện</span>
+                <span className="font-medium text-green-600">↑ {loading ? "—" : userInsights?.dietQuality.improvingUsers ?? 0}</span>
               </div>
             </div>
           </div>
@@ -499,20 +500,20 @@ export function NutritionAnalyticsDashboard() {
           {/* Nutrient Adequacy */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-              Nutrient Adequacy
+              Đủ chất
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Adequate Protein</span>
-                <Badge variant="success">72.5%</Badge>
+                <span className="text-zinc-600 dark:text-zinc-400">Đủ protein</span>
+                <Badge variant="success">{loading ? "—" : `${(userInsights?.nutrientAdequacy.adequateProtein ?? 0).toFixed(1)}%`}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Adequate Fiber</span>
-                <Badge variant="warning">45.2%</Badge>
+                <span className="text-zinc-600 dark:text-zinc-400">Đủ chất xơ</span>
+                <Badge variant="warning">{loading ? "—" : `${(userInsights?.nutrientAdequacy.adequateFiber ?? 0).toFixed(1)}%`}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">High Sodium</span>
-                <Badge variant="danger">23.4%</Badge>
+                <span className="text-zinc-600 dark:text-zinc-400">Nhiều natri</span>
+                <Badge variant="danger">{loading ? "—" : `${(userInsights?.nutrientAdequacy.highSodium ?? 0).toFixed(1)}%`}</Badge>
               </div>
             </div>
           </div>

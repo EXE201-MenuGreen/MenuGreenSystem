@@ -14,8 +14,8 @@ export type SubscriptionPlanFormState = {
 
 export const subscriptionFeatureGroupOptions = [
   { value: "basic", label: "Cơ bản / Free (basic)" },
-  { value: "casual", label: "Casual (casual)" },
-  { value: "office", label: "Office (office)" },
+  { value: "casual", label: "Phổ thông (casual)" },
+  { value: "office", label: "Văn phòng (office)" },
   { value: "gym", label: "Gym/PT (gym)" },
 ] as const;
 

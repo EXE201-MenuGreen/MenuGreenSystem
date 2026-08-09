@@ -46,5 +46,29 @@ namespace MenuGreen.API.Controllers
             var result = await _cvService.AnalyzeImageAsync(userId, stream, image.FileName, image.ContentType);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Analyzes a prepared meal image and returns inferred ingredients with
+        /// estimated calories and macros.
+        /// </summary>
+        [HttpPost("analyze-prepared-meal")]
+        public async Task<IActionResult> AnalyzePreparedMeal(IFormFile image)
+        {
+            if (image == null || image.Length == 0)
+            {
+                return BadRequest(new { Message = "Image file is required." });
+            }
+
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdString, out var userId))
+            {
+                return Unauthorized(new { Message = "Invalid or missing user identity in token." });
+            }
+
+            using var stream = image.OpenReadStream();
+            var result = await _cvService.AnalyzePreparedMealAsync(
+                userId, stream, image.FileName, image.ContentType);
+            return Ok(result);
+        }
     }
 }

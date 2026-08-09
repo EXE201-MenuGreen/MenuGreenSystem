@@ -19,7 +19,20 @@ import {
 import { recipeApi } from "@/features/recipes/api/recipe-api";
 import type { Recipe } from "@/features/recipes/types";
 
-const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
+const MEAL_TYPES_LABEL: Record<string, string> = {
+  Breakfast: "Bữa sáng",
+  Lunch: "Bữa trưa",
+  Dinner: "Bữa tối",
+  Snack: "Bữa phụ",
+};
+
+const MEAL_TYPES_VALUE = ["Breakfast", "Lunch", "Dinner", "Snack"];
+
+const PLAN_TYPE_LABELS: Record<string, string> = {
+  weekly: "Hàng tuần",
+  daily: "Hàng ngày",
+  custom: "Tuỳ chỉnh",
+};
 
 interface MealPlanFormDialogProps {
   plan: MealPlan | null;
@@ -115,9 +128,9 @@ export function MealPlanFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Tiêu đề *" value={form.title} onChange={(e) => updateField("title", e.target.value)} required />
             <Select label="Loại plan *" value={form.planType} onChange={(e) => updateField("planType", e.target.value)}>
-              <option value="weekly">weekly</option>
-              <option value="daily">daily</option>
-              <option value="custom">custom</option>
+              <option value="weekly">{PLAN_TYPE_LABELS.weekly}</option>
+              <option value="daily">{PLAN_TYPE_LABELS.daily}</option>
+              <option value="custom">{PLAN_TYPE_LABELS.custom}</option>
             </Select>
             <Input label="Ngày bắt đầu" type="date" value={form.startDate} onChange={(e) => updateField("startDate", e.target.value)} />
             <Input label="Ngày kết thúc" type="date" value={form.endDate} onChange={(e) => updateField("endDate", e.target.value)} />
@@ -136,17 +149,17 @@ export function MealPlanFormDialog({
               {form.items.map((row, index) => (
                 <div key={index} className="grid gap-2 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 sm:grid-cols-6">
                   <Select label="Bữa" value={row.mealType} onChange={(e) => updateItemRow(index, { mealType: e.target.value })}>
-                    {MEAL_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                    {MEAL_TYPES_VALUE.map((t) => (
+                      <option key={t} value={t}>{MEAL_TYPES_LABEL[t]}</option>
                     ))}
                   </Select>
-                  <Select label="Food" value={row.foodId} onChange={(e) => updateItemRow(index, { foodId: e.target.value, ...(e.target.value ? { recipeId: "" } : {}) })}>
+                  <Select label="Món ăn" value={row.foodId} onChange={(e) => updateItemRow(index, { foodId: e.target.value, ...(e.target.value ? { recipeId: "" } : {}) })}>
                     <option value="">—</option>
                     {foods.map((f) => (
                       <option key={f.id} value={f.id}>{f.nameVi}</option>
                     ))}
                   </Select>
-                  <Select label="Recipe" value={row.recipeId} onChange={(e) => updateItemRow(index, { recipeId: e.target.value, ...(e.target.value ? { foodId: "" } : {}) })}>
+                  <Select label="Công thức" value={row.recipeId} onChange={(e) => updateItemRow(index, { recipeId: e.target.value, ...(e.target.value ? { foodId: "" } : {}) })}>
                     <option value="">—</option>
                     {recipes.map((r) => (
                       <option key={r.id} value={r.id}>{r.title}</option>

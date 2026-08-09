@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { authApi } from "@/features/auth/api/auth-api";
 import type { AuthResponse, LoginRequest } from "@/features/auth/types";
-import { ApiError, getErrorMessage } from "@/lib/api/errors";
+import { ApiError, getErrorMessage, isRateLimitError, getRateLimitMessage } from "@/lib/api/errors";
 import { isAdminToken, tryGetRoleFromToken } from "@/lib/auth/jwt-utils";
 import { tokenStorage } from "@/lib/auth/token-storage";
 
@@ -117,6 +117,13 @@ export function useAuthActions() {
       try {
         return { success: true as const, data: await login(payload) };
       } catch (error) {
+        // Handle rate limit (429) with Retry-After info
+        if (isRateLimitError(error)) {
+          return {
+            success: false as const,
+            message: getRateLimitMessage(error, "Quá nhiều yêu cầu. Vui lòng thử lại sau."),
+          };
+        }
         return {
           success: false as const,
           message: getErrorMessage(error, "Đăng nhập thất bại"),

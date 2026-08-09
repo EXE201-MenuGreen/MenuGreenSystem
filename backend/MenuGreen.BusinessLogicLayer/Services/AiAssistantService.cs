@@ -591,7 +591,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (messages.Count == 0)
                 {
                     var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/suggestions?user_id={userId}";
-                    var response = await client.GetAsync(url);
+                    using var request = CreateWorkerRequest(HttpMethod.Get, url);
+                    using var response = await client.SendAsync(request);
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -615,7 +616,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     };
 
                     var url = $"{BuildWorkerRootUrl().TrimEnd('/')}/api/ai/conversation/suggestions";
-                    var response = await client.PostAsJsonAsync(url, requestBody);
+                    using var request = CreateWorkerRequest(HttpMethod.Post, url, requestBody);
+                    using var response = await client.SendAsync(request);
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -980,7 +982,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     skip_save = true
                 };
 
-                using var response = await client.PostAsJsonAsync(BuildWorkerChatUrl(), payload, JsonOptions);
+                using var request = CreateWorkerRequest(HttpMethod.Post, BuildWorkerChatUrl(), payload);
+                using var response = await client.SendAsync(request);
                 if (!response.IsSuccessStatusCode)
                 {
                     return GetMockResponse(message);
@@ -1051,10 +1054,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
             client.Timeout = TimeSpan.FromSeconds(15);
 
-            using var response = await client.PostAsJsonAsync(
+            using var workerRequest = CreateWorkerRequest(
+                HttpMethod.Post,
                 BuildWorkerRootUrl().TrimEnd('/') + "/api/ai/feedback",
-                payload,
-                JsonOptions);
+                payload);
+            using var response = await client.SendAsync(workerRequest);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1067,6 +1071,25 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private string BuildWorkerChatUrl()
         {
             return BuildWorkerChatUrl(_configuration["NutritionAssistant:WorkerUrl"]);
+        }
+
+        private HttpRequestMessage CreateWorkerRequest(HttpMethod method, string url, object? payload = null)
+        {
+            var request = new HttpRequestMessage(method, url);
+            var internalKey = _configuration["NutritionAssistant:WorkerInternalKey"]
+                ?? _configuration["AI_RUNTIME_INTERNAL_KEY"];
+
+            if (!string.IsNullOrWhiteSpace(internalKey))
+            {
+                request.Headers.TryAddWithoutValidation("X-AI-Runtime-Key", internalKey.Trim());
+            }
+
+            if (payload != null)
+            {
+                request.Content = JsonContent.Create(payload, options: JsonOptions);
+            }
+
+            return request;
         }
 
         private string BuildWorkerRootUrl()

@@ -1,13 +1,26 @@
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
+  readonly retryAfterSeconds?: number;
 
-  constructor(message: string, status: number, body?: unknown) {
+  constructor(message: string, status: number, body?: unknown, retryAfterSeconds?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.body = body;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+export function isRateLimitError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 429;
+}
+
+export function getRateLimitMessage(error: ApiError, fallback: string): string {
+  if (error.retryAfterSeconds) {
+    return `Quá nhiều yêu cầu. Vui lòng thử lại sau ${error.retryAfterSeconds} giây.`;
+  }
+  return fallback;
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {

@@ -223,6 +223,18 @@ class ApiClient {
         logger: _logger,
         request: request,
       );
+
+      // Throw ApiException for rate limit (429) with Retry-After info
+      if (response.statusCode == 429) {
+        final retryAfter = ApiErrorMiddleware.retryAfterFromResponse(response);
+        throw ApiException(
+          type: ApiErrorType.rateLimited,
+          message: ErrorTranslator.fromStatusCode(429),
+          statusCode: 429,
+          retryAfterSeconds: retryAfter,
+        );
+      }
+
       if (response.statusCode >= 200 && response.statusCode < 500) {
         NetworkConnectivityService.instance.reportConnectionSuccess();
       } else if (response.statusCode >= 500) {

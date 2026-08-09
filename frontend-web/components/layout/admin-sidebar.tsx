@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   { href: "/dashboard", label: "Tổng quan", exact: true },
-  { href: "/dashboard/analytics", label: "Analytics" },
+  { href: "/dashboard/analytics", label: "Phân tích" },
+  { href: "/dashboard/revenue", label: "Doanh thu" },
   { href: "/dashboard/users", label: "Người dùng" },
   { href: "/dashboard/pt-applications", label: "Duyệt hồ sơ PT" },
   { href: "/dashboard/foods", label: "Món ăn" },
@@ -15,7 +16,15 @@ const navItems = [
   { href: "/dashboard/recipes", label: "Công thức" },
   { href: "/dashboard/subscription-plans", label: "Gói thành viên" },
   { href: "/dashboard/meal-plans", label: "Thực đơn mẫu" },
-  { href: "/dashboard/ai-assistant", label: "AI Assistant" },
+  { href: "/dashboard/ai-assistant", label: "Trợ lý AI" },
+  { href: "/dashboard/notifications", label: "Thông báo" },
+  { href: "/dashboard/jobs", label: "Công việc" },
+  { href: "/dashboard/migrations", label: "Di chuyển CSDL" },
+];
+
+const bottomItems = [
+  { href: "/dashboard/profile", label: "Hồ sơ" },
+  { href: "/dashboard/settings", label: "Cài đặt" },
 ];
 
 export function AdminSidebar() {
@@ -30,7 +39,7 @@ export function AdminSidebar() {
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               MenuGreen
             </p>
-            <p className="text-xs text-zinc-500">Admin Panel</p>
+            <p className="text-xs text-zinc-500">Bảng quản trị</p>
           </div>
         </Link>
       </div>
@@ -40,6 +49,27 @@ export function AdminSidebar() {
           const isActive = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900",
+              )}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <nav className="flex flex-col gap-1 border-t border-zinc-200 p-3 dark:border-zinc-800">
+        {bottomItems.map((item) => {
+          const isActive = pathname === item.href;
 
           return (
             <Link

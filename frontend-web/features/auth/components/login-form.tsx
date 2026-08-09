@@ -18,8 +18,8 @@ export function LoginForm() {
   const { isAuthenticated, isAdmin, isReady } = useAuth();
   const { login } = useAuthActions();
 
-  const [email, setEmail] = useState("admin@menugreen.app");
-  const [password, setPassword] = useState("Demo@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -92,7 +92,7 @@ export function LoginForm() {
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/30">
             <div className="flex items-start gap-2">
-              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800 dark:text-red-200">
                   Đăng nhập thất bại
