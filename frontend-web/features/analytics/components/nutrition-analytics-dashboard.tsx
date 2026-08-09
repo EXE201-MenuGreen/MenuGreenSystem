@@ -25,6 +25,7 @@ export function NutritionAnalyticsDashboard() {
     topFoods,
     calorieDistribution,
     mealTypeBreakdown,
+    userInsights,
     isLoading,
     error,
     datePreset,
@@ -450,7 +451,7 @@ export function NutritionAnalyticsDashboard() {
           User Insights
         </h3>
         <p className="mt-1 text-sm text-zinc-500">
-          Engagement và chất lượng chế độ ăn
+          Engagement va chat luong che do an
         </p>
 
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -461,16 +462,16 @@ export function NutritionAnalyticsDashboard() {
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Logs/user/tuần</span>
-                <span className="font-medium">{(dashboard?.summary.totalMealLogs ?? 0) > 0 ? "14.5" : "0"}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">Logs/user/tuan</span>
+                <span className="font-medium">{loading ? "—" : (userInsights?.engagementMetrics.avgMealLogsPerUserPerWeek ?? 0).toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">Logs/user/ngày</span>
-                <span className="font-medium">{(dashboard?.summary.totalMealLogs ?? 0) > 0 ? "2.8" : "0"}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">Logs/user/ngay</span>
+                <span className="font-medium">{loading ? "—" : (userInsights?.engagementMetrics.avgMealsLoggedPerDay ?? 0).toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">User streak &gt;7 days</span>
-                <span className="font-medium">{dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.3) : 0}</span>
+                <span className="font-medium">{loading ? "—" : userInsights?.engagementMetrics.streakStats.usersWithStreakOver7Days ?? 0}</span>
               </div>
             </div>
           </div>
@@ -483,15 +484,15 @@ export function NutritionAnalyticsDashboard() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Avg Diet Score</span>
-                <Badge variant="success">68.5</Badge>
+                <Badge variant="success">{loading ? "—" : (userInsights?.dietQuality.avgDietScore ?? 0).toFixed(1)}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Good Diet Users</span>
-                <span className="font-medium">{dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.45) : 0}</span>
+                <span className="font-medium">{loading ? "—" : userInsights?.dietQuality.usersWithGoodDiet ?? 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Improving</span>
-                <span className="font-medium text-green-600">↑ {dashboard?.summary.activeUsersCount ? Math.floor(dashboard.summary.activeUsersCount * 0.35) : 0}</span>
+                <span className="font-medium text-green-600">↑ {loading ? "—" : userInsights?.dietQuality.improvingUsers ?? 0}</span>
               </div>
             </div>
           </div>
@@ -504,15 +505,15 @@ export function NutritionAnalyticsDashboard() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Adequate Protein</span>
-                <Badge variant="success">72.5%</Badge>
+                <Badge variant="success">{loading ? "—" : `${(userInsights?.nutrientAdequacy.adequateProtein ?? 0).toFixed(1)}%`}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">Adequate Fiber</span>
-                <Badge variant="warning">45.2%</Badge>
+                <Badge variant="warning">{loading ? "—" : `${(userInsights?.nutrientAdequacy.adequateFiber ?? 0).toFixed(1)}%`}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-600 dark:text-zinc-400">High Sodium</span>
-                <Badge variant="danger">23.4%</Badge>
+                <Badge variant="danger">{loading ? "—" : `${(userInsights?.nutrientAdequacy.highSodium ?? 0).toFixed(1)}%`}</Badge>
               </div>
             </div>
           </div>

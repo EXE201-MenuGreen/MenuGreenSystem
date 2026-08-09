@@ -20,6 +20,7 @@ export const apiEndpoints = {
   dashboard: {
     metrics: `${API_BASE_URL}/Dashboard/metrics`,
     revenue: `${API_BASE_URL}/Dashboard/revenue`,
+    users: `${API_BASE_URL}/Dashboard/users`,
   },
   food: {
     base: `${API_BASE_URL}/Food`,
@@ -81,6 +82,18 @@ export const apiEndpoints = {
     nutritionCalorieDistribution: `${API_BASE_URL}/Analytics/nutrition/calorie-distribution`,
     nutritionMealTypeBreakdown: `${API_BASE_URL}/Analytics/nutrition/meal-type-breakdown`,
     nutritionUserInsights: `${API_BASE_URL}/Analytics/nutrition/user-insights`,
+  },
+  notificationAdmin: {
+    dispatch: `${API_BASE_URL}/admin/notifications/dispatch`,
+    pending: `${API_BASE_URL}/admin/notifications/pending`,
+  },
+  jobs: {
+    trigger: (jobName: string) => `${API_BASE_URL}/admin/jobs/trigger/${jobName}`,
+  },
+  migrations: {
+    status: `${API_BASE_URL}/admin/migrations/status`,
+    history: `${API_BASE_URL}/admin/migrations/history`,
+    apply: `${API_BASE_URL}/admin/migrations/apply`,
   },
 } as const;
 

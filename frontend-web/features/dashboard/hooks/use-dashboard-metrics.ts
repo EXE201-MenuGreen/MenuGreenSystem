@@ -5,12 +5,14 @@ import { dashboardApi } from "@/features/dashboard/api/dashboard-api";
 import type {
   DashboardMetrics,
   RevenueDashboardMetrics,
+  DashboardUserMetrics,
 } from "@/features/dashboard/types";
 import { getErrorMessage } from "@/lib/api/errors";
 
 export function useDashboardMetrics(topCount = 10) {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [revenue, setRevenue] = useState<RevenueDashboardMetrics | null>(null);
+  const [userMetrics, setUserMetrics] = useState<DashboardUserMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,12 +21,14 @@ export function useDashboardMetrics(topCount = 10) {
     setError(null);
 
     try {
-      const [metricsData, revenueData] = await Promise.all([
+      const [metricsData, revenueData, userData] = await Promise.all([
         dashboardApi.getMetrics(topCount),
         dashboardApi.getRevenueMetrics(),
+        dashboardApi.getUserMetrics(),
       ]);
       setMetrics(metricsData);
       setRevenue(revenueData);
+      setUserMetrics(userData);
     } catch (err) {
       setError(getErrorMessage(err, "Không thể tải chỉ số tổng quan"));
     } finally {
@@ -36,5 +40,5 @@ export function useDashboardMetrics(topCount = 10) {
     reload();
   }, [reload]);
 
-  return { metrics, revenue, loading, error, reload };
+  return { metrics, revenue, userMetrics, loading, error, reload };
 }

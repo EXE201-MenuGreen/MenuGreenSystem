@@ -3,6 +3,7 @@ import { apiEndpoints, withQuery } from "@/lib/api/endpoints";
 import type {
   DashboardMetrics,
   RevenueDashboardMetrics,
+  DashboardUserMetrics,
 } from "@/features/dashboard/types";
 
 export const dashboardApi = {
@@ -15,6 +16,12 @@ export const dashboardApi = {
   getRevenueMetrics(): Promise<RevenueDashboardMetrics> {
     return apiClient.get<RevenueDashboardMetrics>(
       apiEndpoints.dashboard.revenue,
+    );
+  },
+
+  getUserMetrics(): Promise<DashboardUserMetrics> {
+    return apiClient.get<DashboardUserMetrics>(
+      apiEndpoints.dashboard.users,
     );
   },
 };

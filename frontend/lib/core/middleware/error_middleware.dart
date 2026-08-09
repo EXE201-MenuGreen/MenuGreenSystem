@@ -25,12 +25,16 @@ class ApiException implements Exception {
     required this.message,
     this.statusCode,
     this.cause,
+    this.retryAfterSeconds,
   });
 
   final ApiErrorType type;
   final String message;
   final int? statusCode;
   final Object? cause;
+
+  /// Seconds to wait before retrying (from Retry-After header).
+  final int? retryAfterSeconds;
 
   @override
   String toString() => message;
@@ -114,6 +118,14 @@ class ApiErrorMiddleware {
         );
       }
     }
+  }
+
+  /// Extract Retry-After value (in seconds) from response headers.
+  static int? retryAfterFromResponse(http.Response response) {
+    if (response.statusCode != 429) return null;
+    final retryAfter = response.headers['retry-after'];
+    if (retryAfter == null) return null;
+    return int.tryParse(retryAfter);
   }
 
   static String messageForResponse(http.Response response) {
