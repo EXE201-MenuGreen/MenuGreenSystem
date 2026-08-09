@@ -48,6 +48,24 @@ namespace MenuGreen.API.Controllers
             return Ok(await _revenueMetricsService.GetSummaryAsync());
         }
 
+        // Get revenue time series data for charts.
+        [HttpGet("revenue/timeseries")]
+        public async Task<IActionResult> GetRevenueTimeSeries(
+            [FromQuery] DateTimeOffset from,
+            [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _revenueMetricsService.GetTimeSeriesAsync(from, to));
+        }
+
+        // Get revenue breakdown by subscription plan.
+        [HttpGet("revenue/by-plan")]
+        public async Task<IActionResult> GetRevenueByPlan(
+            [FromQuery] DateTimeOffset from,
+            [FromQuery] DateTimeOffset to)
+        {
+            return Ok(await _revenueMetricsService.GetByPlanAsync(from, to));
+        }
+
         // Get ranking of most commonly used foods.
         [HttpGet("foods/top")]
         public async Task<IActionResult> GetTopFoods([FromQuery] int topCount = 10)

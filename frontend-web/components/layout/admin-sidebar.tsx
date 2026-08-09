@@ -6,23 +6,24 @@ import { MenuGreenLogo } from "@/components/brand/menu-green-logo";
 import { cn } from "@/lib/utils/cn";
 
 const navItems = [
-  { href: "/dashboard", label: "Tong quan", exact: true },
-  { href: "/dashboard/analytics", label: "Analytics" },
-  { href: "/dashboard/users", label: "Nguoi dung" },
-  { href: "/dashboard/foods", label: "Mon an" },
-  { href: "/dashboard/ingredients", label: "Nguyen lieu" },
-  { href: "/dashboard/recipes", label: "Cong thuc" },
-  { href: "/dashboard/subscription-plans", label: "Goi thanh vien" },
-  { href: "/dashboard/meal-plans", label: "Thuc don mau" },
-  { href: "/dashboard/ai-assistant", label: "AI Assistant" },
-  { href: "/dashboard/notifications", label: "Notifications" },
-  { href: "/dashboard/jobs", label: "Jobs" },
-  { href: "/dashboard/migrations", label: "Migrations" },
+  { href: "/dashboard", label: "Tổng quan", exact: true },
+  { href: "/dashboard/analytics", label: "Phân tích" },
+  { href: "/dashboard/revenue", label: "Doanh thu" },
+  { href: "/dashboard/users", label: "Người dùng" },
+  { href: "/dashboard/foods", label: "Món ăn" },
+  { href: "/dashboard/ingredients", label: "Nguyên liệu" },
+  { href: "/dashboard/recipes", label: "Công thức" },
+  { href: "/dashboard/subscription-plans", label: "Gói thành viên" },
+  { href: "/dashboard/meal-plans", label: "Thực đơn mẫu" },
+  { href: "/dashboard/ai-assistant", label: "Trợ lý AI" },
+  { href: "/dashboard/notifications", label: "Thông báo" },
+  { href: "/dashboard/jobs", label: "Công việc" },
+  { href: "/dashboard/migrations", label: "Di chuyển CSDL" },
 ];
 
 const bottomItems = [
-  { href: "/dashboard/profile", label: "Ho so" },
-  { href: "/dashboard/settings", label: "Cai dat" },
+  { href: "/dashboard/profile", label: "Hồ sơ" },
+  { href: "/dashboard/settings", label: "Cài đặt" },
 ];
 
 export function AdminSidebar() {
@@ -37,7 +38,7 @@ export function AdminSidebar() {
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               MenuGreen
             </p>
-            <p className="text-xs text-zinc-500">Admin Panel</p>
+            <p className="text-xs text-zinc-500">Bảng quản trị</p>
           </div>
         </Link>
       </div>

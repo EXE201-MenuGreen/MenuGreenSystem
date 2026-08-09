@@ -97,7 +97,7 @@ export function AiCoachWorkspace() {
           setSelectedConversationId(null);
         }
       } catch (err) {
-        setError(getErrorMessage(err, "Khong the tai du lieu AI Coach."));
+        setError(getErrorMessage(err, "Không thể tải dữ liệu AI Coach."));
       } finally {
         setLoadingConversations(false);
       }
@@ -126,7 +126,7 @@ export function AiCoachWorkspace() {
       setPassword("");
       await loadConversations();
     } catch (err) {
-      setError(getErrorMessage(err, "Dang nhap AI Coach that bai."));
+      setError(getErrorMessage(err, "Đăng nhập AI Coach thất bại."));
     } finally {
       setAuthLoading(false);
     }
@@ -150,7 +150,7 @@ export function AiCoachWorkspace() {
       const detail = await aiCoachApi.getConversation(conversationId);
       setActiveConversation(detail);
     } catch (err) {
-      setError(getErrorMessage(err, "Khong the mo conversation."));
+      setError(getErrorMessage(err, "Không thể mở cuộc trò chuyện."));
     }
   }
 
@@ -179,7 +179,7 @@ export function AiCoachWorkspace() {
       setDraft("");
       await loadConversations(response.conversationId);
     } catch (err) {
-      setError(getErrorMessage(err, "Khong the gui tin nhan."));
+      setError(getErrorMessage(err, "Không thể gửi tin nhắn."));
     } finally {
       setSending(false);
     }
@@ -197,7 +197,7 @@ export function AiCoachWorkspace() {
               User AI Coach Workspace
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              Web demo ket noi backend MenuGreenSystem voi runtime RAG.
+              Web demo kết nối backend MenuGreenSystem với runtime RAG.
             </p>
           </div>
 
@@ -205,8 +205,8 @@ export function AiCoachWorkspace() {
             <div className="flex h-10 rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
               <button
                 type="button"
-                title="Giao dien sang"
-                aria-label="Giao dien sang"
+                title="Giao diện sáng"
+                aria-label="Giao diện sáng"
                 onClick={() => setTheme("light")}
                 className="theme-toggle-button theme-toggle-light"
               >
@@ -214,8 +214,8 @@ export function AiCoachWorkspace() {
               </button>
               <button
                 type="button"
-                title="Giao dien toi"
-                aria-label="Giao dien toi"
+                title="Giao diện tối"
+                aria-label="Giao diện tối"
                 onClick={() => setTheme("dark")}
                 className="theme-toggle-button theme-toggle-dark"
               >
@@ -224,11 +224,11 @@ export function AiCoachWorkspace() {
             </div>
 
             <Link href="/dashboard/ai-assistant">
-              <Button variant="secondary">Ve Admin AI</Button>
+              <Button variant="secondary">Về Admin AI</Button>
             </Link>
             {session ? (
               <Button variant="ghost" onClick={handleLogout}>
-                Dang xuat
+                Đăng xuất
               </Button>
             ) : null}
           </div>
@@ -265,7 +265,7 @@ export function AiCoachWorkspace() {
                     required
                   />
                   <Input
-                    label="Password"
+                    label="Mật khẩu"
                     type="password"
                     autoComplete="current-password"
                     value={password}
@@ -273,7 +273,7 @@ export function AiCoachWorkspace() {
                     required
                   />
                   <Button className="w-full" loading={authLoading} type="submit">
-                    Dang nhap AI Coach
+                    Đăng nhập AI Coach
                   </Button>
                 </form>
               </div>
@@ -281,7 +281,7 @@ export function AiCoachWorkspace() {
               <div className="flex h-full flex-col">
                 <div className="rounded-lg bg-emerald-600 px-4 py-4 text-white shadow-sm dark:bg-emerald-500 dark:text-zinc-950">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 dark:text-emerald-950">
-                    Active session
+                    Phiên đang hoạt động
                   </p>
                   <p className="mt-2 text-lg font-semibold">
                     {session.fullName || session.email}
@@ -295,10 +295,10 @@ export function AiCoachWorkspace() {
                 <div className="mt-5 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                      Conversations
+                      Cuộc trò chuyện
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Lich su chat da luu trong DB
+                      Lịch sử chat đã lưu trong DB
                     </p>
                   </div>
                   <Button
@@ -306,18 +306,18 @@ export function AiCoachWorkspace() {
                     className="h-9 px-3 text-xs"
                     onClick={handleNewConversation}
                   >
-                    Moi
+                    Mới
                   </Button>
                 </div>
 
                 <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
                   {loadingConversations ? (
                     <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                      Dang tai hoi thoai...
+                      Đang tải hội thoại...
                     </div>
                   ) : conversations.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                      Chua co conversation nao.
+                      Chưa có cuộc trò chuyện nào.
                     </div>
                   ) : (
                     conversations.map((conversation) => {
@@ -347,7 +347,7 @@ export function AiCoachWorkspace() {
                             </Badge>
                           </div>
                           <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                            {conversation.lastMessagePreview || "Khong co preview"}
+                            {conversation.lastMessagePreview || "Không có preview"}
                           </p>
                           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
                             {formatDateTime(conversation.lastMessageAt)}
@@ -369,11 +369,11 @@ export function AiCoachWorkspace() {
                     Conversation
                   </p>
                   <h2 className="mt-1 text-xl font-semibold text-zinc-950 dark:text-white">
-                    {activeConversation?.title || "Bat dau hoi dap moi"}
+                    {activeConversation?.title || "Bắt đầu hỏi đáp mới"}
                   </h2>
                 </div>
                 <Badge variant={session ? "success" : "info"}>
-                  {session ? "Authorized user" : "Login required"}
+                  {session ? "User đã xác thực" : "Cần đăng nhập"}
                 </Badge>
               </div>
             </div>
@@ -382,11 +382,10 @@ export function AiCoachWorkspace() {
               {!activeConversation?.messages.length ? (
                 <div className="mx-auto max-w-2xl rounded-lg border border-dashed border-zinc-300 bg-white/85 px-6 py-10 text-center dark:border-zinc-700 dark:bg-zinc-900/70">
                   <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                    AI Coach san sang
+                    AI Coach sẵn sàng
                   </p>
                   <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                    Ban co the hoi ve mon an, bua trong ngay, goi y meal plan,
-                    macro, calorie, budget, allergy, muc tieu tang giam can.
+                    Bạn có thể hỏi về món ăn, bữa trong ngày, gợi ý meal plan, macro, calorie, budget, allergy, mục tiêu tăng giảm cân.
                   </p>
                 </div>
               ) : (
@@ -434,22 +433,22 @@ export function AiCoachWorkspace() {
               onSubmit={handleSendMessage}
             >
               <Textarea
-                label="Tin nhan"
-                placeholder="Vi du: Hom nay toi con bao nhieu kcal va nen an gi de giam can duoi 60k?"
+                label="Tin nhắn"
+                placeholder="Ví dụ: Hôm nay tôi còn bao nhiêu kcal và nên ăn gì để giảm cân dưới 60k?"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={!session || sending}
               />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Web demo dang di qua backend chinh truoc khi den runtime AI.
+                  Web demo đang đi qua backend chính trước khi đến runtime AI.
                 </p>
                 <Button
                   type="submit"
                   loading={sending}
                   disabled={!session || !draft.trim()}
                 >
-                  Gui cho AI Coach
+                  Gửi cho AI Coach
                 </Button>
               </div>
             </form>

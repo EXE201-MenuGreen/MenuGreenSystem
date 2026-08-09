@@ -59,21 +59,21 @@ export function AiAdminManagement() {
 
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="AI profiles"
+          label="Hồ sơ AI"
           value={formatNumber(overview?.totalAiProfiles)}
-          helper="User co ho so AI rieng trong DB."
+          helper="User có hồ sơ AI riêng trong DB."
           loading={loading}
         />
         <StatCard
-          label="Conversations"
+          label="Cuộc trò chuyện"
           value={formatNumber(overview?.totalConversations)}
-          helper="Tong so hoi thoai da luu."
+          helper="Tổng số hội thoại đã lưu."
           loading={loading}
         />
         <StatCard
-          label="Messages"
+          label="Tin nhắn"
           value={formatNumber(overview?.totalMessages)}
-          helper="Tong so tin nhan user va assistant."
+          helper="Tổng số tin nhắn user và assistant."
           loading={loading}
         />
         <StatCard
@@ -104,7 +104,7 @@ export function AiAdminManagement() {
             <div>
               <dt className="text-zinc-500 dark:text-zinc-400">URL Worker</dt>
               <dd className="mt-1 break-all font-medium text-zinc-900 dark:text-zinc-50">
-                {bridgeHealth?.workerUrl || "Chua cau hinh"}
+                {bridgeHealth?.workerUrl || "Chưa cấu hình"}
               </dd>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -158,31 +158,31 @@ export function AiAdminManagement() {
           <div className="mt-6 grid gap-4">
             <div className="rounded-2xl bg-emerald-50 p-4 dark:bg-emerald-950/30">
               <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                Business state o backend chinh
+                Business state ở backend chính
               </p>
               <p className="mt-2 text-sm leading-6 text-emerald-900/90 dark:text-emerald-100/90">
-                Meal log, meal plan, profile, allergy va lich su AI van nam o
-                MenuGreenSystem. Runtime AI chi dong vai tro xu ly hoi dap va
-                recommendation logic nang.
+                Meal log, meal plan, profile, allergy và lịch sử AI vẫn nằm ở
+                MenuGreenSystem. Runtime AI chỉ đóng vai trò xử lý hỏi đáp và
+                recommendation logic nặng.
               </p>
             </div>
             <div className="rounded-2xl bg-sky-50 p-4 dark:bg-sky-950/30">
               <p className="text-sm font-medium text-sky-800 dark:text-sky-300">
-                Contract da duoc can chinh
+                Contract đã được căn chỉnh
               </p>
               <p className="mt-2 text-sm leading-6 text-sky-900/90 dark:text-sky-100/90">
-                Backend hien gui dung payload ma runtime can: message, user_id,
-                thread_id, request_id va conversation_history.
+                Backend hiện gửi đúng payload mà runtime cần: message, user_id,
+                thread_id, request_id và conversation_history.
               </p>
             </div>
             <div className="rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
               <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                Muc tieu tiep theo
+                Mục tiêu tiếp theo
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
-                Khi mobile backend can dung AI, no nen goi MenuGreenSystem API
-                thay vi goi truc tiep runtime, de giu duoc auth, meal state va
-                audit log o mot noi.
+                Khi mobile backend cần dùng AI, nó nên gọi MenuGreenSystem API
+                thay vì gọi trực tiếp runtime, để giữ được auth, meal state và
+                audit log ở một nơi.
               </p>
             </div>
           </div>
@@ -221,13 +221,13 @@ export function AiAdminManagement() {
               {loading ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-sm text-zinc-500">
-                    Dang tai du lieu AI...
+                    Đang tải dữ liệu AI...
                   </td>
                 </tr>
               ) : !overview?.recentConversations.length ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-sm text-zinc-500">
-                    Chua co conversation nao.
+                    Chưa có cuộc trò chuyện nào.
                   </td>
                 </tr>
               ) : (
@@ -242,7 +242,7 @@ export function AiAdminManagement() {
                       </div>
                     </td>
                     <td className="max-w-xl px-4 py-4 text-sm text-zinc-600 dark:text-zinc-300">
-                      {conversation.lastMessagePreview || "Khong co preview"}
+                      {conversation.lastMessagePreview || "Không có preview"}
                     </td>
                     <td className="px-4 py-4 text-sm text-zinc-600 dark:text-zinc-300">
                       {formatNumber(conversation.messageCount)}

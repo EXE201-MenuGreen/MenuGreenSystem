@@ -20,6 +20,8 @@ export const apiEndpoints = {
   dashboard: {
     metrics: `${API_BASE_URL}/Dashboard/metrics`,
     revenue: `${API_BASE_URL}/Dashboard/revenue`,
+    revenueTimeSeries: `${API_BASE_URL}/Dashboard/revenue/timeseries`,
+    revenueByPlan: `${API_BASE_URL}/Dashboard/revenue/by-plan`,
     users: `${API_BASE_URL}/Dashboard/users`,
   },
   food: {
@@ -74,6 +76,9 @@ export const apiEndpoints = {
     inactiveUsers: `${API_BASE_URL}/Analytics/inactive-users`,
     reactivationOpportunities: `${API_BASE_URL}/Analytics/reactivation-opportunities`,
     activityLog: `${API_BASE_URL}/Analytics/activity-log`,
+    // Revenue Analytics
+    revenueTimeSeries: `${API_BASE_URL}/Analytics/revenue/timeseries`,
+    revenueByPlan: `${API_BASE_URL}/Analytics/revenue/by-plan`,
     // Nutrition Analytics
     nutritionDashboard: `${API_BASE_URL}/Analytics/nutrition/dashboard`,
     nutritionMacroDistribution: `${API_BASE_URL}/Analytics/nutrition/macro-distribution`,

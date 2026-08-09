@@ -14,6 +14,12 @@ import {
 import type { Recipe } from "@/features/recipes/types";
 import { formatNumber, formatVnd } from "@/lib/utils/format";
 
+const DIFFICULTY_LABELS: Record<string, string> = {
+  Easy: "Dễ",
+  Medium: "Trung bình",
+  Hard: "Khó",
+};
+
 export function RecipeManagement() {
   const {
     filters,
@@ -84,9 +90,9 @@ export function RecipeManagement() {
         <Input label="Loại bữa ăn" value={filters.mealType ?? ""} onChange={(e) => setFilters((c) => ({ ...c, mealType: e.target.value }))} />
         <Select label="Độ khó" value={filters.difficulty ?? ""} onChange={(e) => setFilters((c) => ({ ...c, difficulty: e.target.value }))}>
           <option value="">Tất cả</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
+          <option value="Easy">Dễ</option>
+          <option value="Medium">Trung bình</option>
+          <option value="Hard">Khó</option>
         </Select>
         <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
           <Button type="submit" loading={loading}>Tìm kiếm</Button>
@@ -123,7 +129,7 @@ export function RecipeManagement() {
                     <tr key={recipe.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
                       <td className="px-4 py-4">
                         <div className="font-medium text-zinc-900 dark:text-zinc-50">{recipe.title}</div>
-                        {recipe.difficulty ? <div className="text-sm text-zinc-500">{recipe.difficulty}</div> : null}
+                        {recipe.difficulty ? <div className="text-sm text-zinc-500">{DIFFICULTY_LABELS[recipe.difficulty] ?? recipe.difficulty}</div> : null}
                       </td>
                       <td className="px-4 py-4 text-sm">{recipe.mealType || "—"}</td>
                       <td className="px-4 py-4 text-sm">{totalTime ? `${totalTime} phút` : "—"}</td>

@@ -30,7 +30,7 @@ export function AdminMigrationPanel() {
       const data = await migrationApi.getStatus();
       setStatus(data);
     } catch (err) {
-      setError(getErrorMessage(err, "Khong the tai trang thai migration"));
+      setError(getErrorMessage(err, "Không thể tải trạng thái migration"));
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ export function AdminMigrationPanel() {
       setApplyMessage(result.message);
       await fetchStatus();
     } catch (err) {
-      setError(getErrorMessage(err, "Apply migration that bai"));
+      setError(getErrorMessage(err, "Áp dụng migration thất bại"));
     } finally {
       setApplying(false);
     }
@@ -110,7 +110,7 @@ export function AdminMigrationPanel() {
               </div>
             ))}
             {!status?.applied.length && (
-              <p className="text-sm text-zinc-500">Chua co migration nao duoc apply.</p>
+              <p className="text-sm text-zinc-500">Chưa có migration nào được áp dụng.</p>
             )}
           </div>
         </div>
@@ -129,7 +129,7 @@ export function AdminMigrationPanel() {
               </div>
             ))}
             {!status?.pending.length && (
-              <p className="text-sm text-zinc-500">Khong co migration cho.</p>
+              <p className="text-sm text-zinc-500">Không có migration chờ.</p>
             )}
           </div>
         </div>
