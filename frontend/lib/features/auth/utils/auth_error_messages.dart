@@ -44,7 +44,7 @@ String localizeAuthMessage(
     'No refresh token': 'Không tìm thấy phiên đăng nhập.',
     'Logout request failed': 'Đăng xuất thất bại.',
     'Connection error. Is backend running?':
-        'Lỗi kết nối. Bạn đã bật backend chưa?',
+        'Bạn vui lòng chờ để ghi nhận kết nối thông tin.',
     'Invalid Google sign-in token.': 'Token đăng nhập Google không hợp lệ.',
     'Invalid or expired Google sign-in token.':
         'Token đăng nhập Google hết hạn hoặc không hợp lệ.',
@@ -70,7 +70,7 @@ String localizeAuthMessage(
     return 'Tài khoản của bạn đã bị khóa.';
   }
   if (lower.contains('connection error')) {
-    return 'Lỗi kết nối. Bạn đã bật backend chưa?';
+    return 'Bạn vui lòng chờ để ghi nhận kết nối thông tin.';
   }
   if (lower.contains('google sign-in') || lower.contains('google account')) {
     return normalized;
