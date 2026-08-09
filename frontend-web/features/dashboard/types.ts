@@ -22,3 +22,10 @@ export interface RevenueDashboardMetrics {
   renewRevenueVnd: number;
   transactionCount: number;
 }
+
+export interface DashboardUserMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  premiumUsers: number;
+  proUsers: number;
+}
