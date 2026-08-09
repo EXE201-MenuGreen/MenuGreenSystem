@@ -109,7 +109,26 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
 
       _startLoadingSteps();
 
-      final result = await _repository.analyzeFoodImage(
+      if (widget.officeMode) {
+        final result = await _repository.analyzeFoodImage(
+          bytes,
+          image.name,
+          mimeType: _imageMimeType(image),
+        );
+
+        if (!mounted) return;
+        _stopLoading();
+
+        if (result == null) {
+          _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
+          return;
+        }
+
+        _showResultBottomSheet(result);
+        return;
+      }
+
+      final result = await _repository.analyzePreparedMealImage(
         bytes,
         image.name,
         mimeType: _imageMimeType(image),
@@ -118,25 +137,18 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       if (!mounted) return;
       _stopLoading();
 
-      if (result == null) {
-        _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
+      if (result['status'] != 'done' || result['result'] is! Map) {
+        _showErrorSnackBar('Chưa thể hoàn tất phân tích món ăn. Vui lòng thử lại.');
         return;
       }
 
-      _showResultBottomSheet(result);
+      _showPreparedMealBottomSheet(
+        Map<String, dynamic>.from(result['result'] as Map),
+      );
     } catch (e) {
       if (mounted) {
         _stopLoading();
-        final message = e
-            .toString()
-            .replaceFirst('Bad state: ', '')
-            .replaceFirst('FormatException: ', '')
-            .replaceFirst('Exception: ', '');
-        _showErrorSnackBar(
-          message.isEmpty
-              ? 'Không thể hoàn tất phân tích. Vui lòng thử lại.'
-              : message,
-        );
+        _showErrorSnackBar('Không thể hoàn tất phân tích món ăn. Vui lòng thử lại.');
       }
     }
   }
@@ -166,6 +178,113 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       ),
     );
   }
+
+  void _showPreparedMealBottomSheet(Map<String, dynamic> result) {
+    final macros = result['total_macros'] is Map
+        ? Map<String, dynamic>.from(result['total_macros'] as Map)
+        : <String, dynamic>{};
+    final ingredients = result['ingredients'] is List
+        ? (result['ingredients'] as List).whereType<Map>().toList()
+        : const <Map>[];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                result['dish_name']?.toString() ?? 'Món ăn đã quét',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Độ tin cậy ${(100 * _number(result['dish_confidence'])).toStringAsFixed(0)}%',
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              _buildPreparedMealMacros(macros),
+              const SizedBox(height: 20),
+              const Text(
+                'Thành phần suy luận',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...ingredients.map((raw) {
+                final ingredient = Map<String, dynamic>.from(raw);
+                final grams = _number(ingredient['estimated_grams']);
+                return Card(
+                  child: ListTile(
+                    title: Text(ingredient['name']?.toString() ?? 'Thành phần'),
+                    subtitle: Text('${grams.toStringAsFixed(0)} g'),
+                  ),
+                );
+              }),
+              if (result['estimation_note']?.toString().isNotEmpty ?? false) ...[
+                const SizedBox(height: 12),
+                Text(
+                  result['estimation_note'].toString(),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreparedMealMacros(Map<String, dynamic> macros) {
+    final calories = _number(macros['calories_kcal']);
+    final protein = _number(macros['protein_g']);
+    final carbs = _number(macros['carbs_g']);
+    final fat = _number(macros['fat_g']);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${calories.toStringAsFixed(0)} kcal',
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.primary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Protein ${protein.toStringAsFixed(1)} g • Carb ${carbs.toStringAsFixed(1)} g • Chất béo ${fat.toStringAsFixed(1)} g',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _number(dynamic value) => value is num ? value.toDouble() : 0;
 
   // --- Handlers for Logging ---
 

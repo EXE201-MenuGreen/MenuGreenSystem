@@ -13,5 +13,11 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         /// and returning the result.
         /// </summary>
         Task<CvInferenceResponse> AnalyzeImageAsync(Guid userId, Stream imageStream, string fileName, string contentType);
+
+        /// <summary>
+        /// Analyzes an already-prepared meal and returns its inferred ingredients
+        /// with estimated nutrition.
+        /// </summary>
+        Task<PreparedMealScanResponse> AnalyzePreparedMealAsync(Guid userId, Stream imageStream, string fileName, string contentType);
     }
 }
