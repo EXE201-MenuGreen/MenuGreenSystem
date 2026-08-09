@@ -72,7 +72,7 @@ export function formStateToPayload(form: FoodFormState): FoodUpsertRequest {
     fatG: parseOptionalNumber(form.fatG),
     fiberG: parseOptionalNumber(form.fiberG),
     estimatedPriceVnd: parseOptionalNumber(form.estimatedPriceVnd),
-    defaultServingG: parseOptionalNumber(form.defaultServingG),
+    defaultServingG: Number(form.defaultServingG),
     imageUrl: form.imageUrl.trim() || null,
     isActive: form.isActive,
     allergenKeys: form.allergenKeys,
@@ -81,5 +81,9 @@ export function formStateToPayload(form: FoodFormState): FoodUpsertRequest {
 
 export function validateFoodForm(form: FoodFormState): string | null {
   if (!form.nameVi.trim()) return "Tên tiếng Việt là bắt buộc.";
+  const servingG = Number(form.defaultServingG);
+  if (!form.defaultServingG.trim() || !Number.isFinite(servingG) || servingG <= 0) {
+    return "Khẩu phần mặc định phải lớn hơn 0 gram.";
+  }
   return null;
 }

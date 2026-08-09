@@ -11,12 +11,45 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string FullName { get; set; } = string.Empty;
         public string AvatarUrl { get; set; } = string.Empty;
         public string Specialty { get; set; } = string.Empty;
+        public string Headline { get; set; } = string.Empty;
         public string Bio { get; set; } = string.Empty;
         public int ExperienceYears { get; set; }
         public string? CertificateUrl { get; set; }
+        public string City { get; set; } = string.Empty;
+        public IReadOnlyList<string> Languages { get; set; } = Array.Empty<string>();
+        public IReadOnlyList<string> CoachingStyles { get; set; } = Array.Empty<string>();
+        public IReadOnlyList<string> ClientLevels { get; set; } = Array.Empty<string>();
+        public IReadOnlyList<CoachCertificateResponse> Certificates { get; set; } = Array.Empty<CoachCertificateResponse>();
+        public IReadOnlyList<string> GalleryUrls { get; set; } = Array.Empty<string>();
+        public string Achievements { get; set; } = string.Empty;
+        public string ApplicationStatus { get; set; } = string.Empty;
         public int PriceVnd { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class CoachCertificateResponse
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Issuer { get; set; } = string.Empty;
+        public string CredentialNumber { get; set; } = string.Empty;
+        public DateOnly? IssuedDate { get; set; }
+        public DateOnly? ExpiryDate { get; set; }
+        public string ImageUrl { get; set; } = string.Empty;
+    }
+
+    public class CoachApplicationResponse : CoachProfileResponse
+    {
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public DateOnly? DateOfBirth { get; set; }
+        public string Gender { get; set; } = string.Empty;
+        public string? IdentityDocumentUrl { get; set; }
+        public string? ReviewNote { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+        public Guid? ReviewedByUserId { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 
     public class CoachClientSummaryResponse
@@ -80,6 +113,74 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
+    public class CoachCertificateRequest
+    {
+        [StringLength(160)]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(160)]
+        public string Issuer { get; set; } = string.Empty;
+
+        [StringLength(120)]
+        public string CredentialNumber { get; set; } = string.Empty;
+
+        public DateOnly? IssuedDate { get; set; }
+        public DateOnly? ExpiryDate { get; set; }
+
+        [StringLength(1000)]
+        public string ImageUrl { get; set; } = string.Empty;
+    }
+
+    public class CoachApplicationUpsertRequest
+    {
+        [StringLength(160)]
+        public string FullName { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string AvatarUrl { get; set; } = string.Empty;
+
+        public DateOnly? DateOfBirth { get; set; }
+
+        [StringLength(30)]
+        public string Gender { get; set; } = string.Empty;
+
+        [StringLength(30)]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [StringLength(120)]
+        public string City { get; set; } = string.Empty;
+
+        public List<string> Languages { get; set; } = new();
+
+        [StringLength(120)]
+        public string Headline { get; set; } = string.Empty;
+
+        public string Bio { get; set; } = string.Empty;
+
+        [Range(0, 100)]
+        public int ExperienceYears { get; set; }
+
+        public List<string> Specialties { get; set; } = new();
+        public List<string> CoachingStyles { get; set; } = new();
+        public List<string> ClientLevels { get; set; } = new();
+        public List<CoachCertificateRequest> Certificates { get; set; } = new();
+        public List<string> GalleryUrls { get; set; } = new();
+        public string Achievements { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string? IdentityDocumentUrl { get; set; }
+    }
+
+    public class CoachApplicationReviewRequest
+    {
+        [Required]
+        [RegularExpression("^(Approve|NeedsRevision|Reject|Suspend)$")]
+        public string Decision { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string? Reason { get; set; }
+    }
+
     public class CoachRegisterRequest
     {
         [Required(ErrorMessage = "Specialty field is required.")]

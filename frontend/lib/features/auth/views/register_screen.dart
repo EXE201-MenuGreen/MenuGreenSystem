@@ -283,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        'Tài khoản PT sẽ vào thẳng không gian quản lý sau khi xác thực OTP, không cần làm khảo sát.',
+                        'Sau khi xác thực OTP, bạn sẽ hoàn thiện hồ sơ PT và gửi Admin xét duyệt trước khi nhận học viên.',
                         style: TextStyle(
                           fontSize: 12.5,
                           height: 1.35,

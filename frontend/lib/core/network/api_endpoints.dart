@@ -55,6 +55,9 @@ class ApiEndpoints {
   static String coachChatRead(String partnerId) =>
       '$baseUrl/coach-chat/$partnerId/read';
   static String get coachChatUnreadCount => '$baseUrl/coach-chat/unread-count';
+  static String get coachApplication => '$baseUrl/Coaches/application/me';
+  static String get coachApplicationSubmit =>
+      '$baseUrl/Coaches/application/me/submit';
 
   static String get health => '$baseUrl/Food';
   static String get login => '$baseUrl/Auth/login';

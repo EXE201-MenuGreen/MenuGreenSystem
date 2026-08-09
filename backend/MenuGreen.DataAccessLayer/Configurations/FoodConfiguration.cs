@@ -8,12 +8,15 @@ namespace MenuGreen.DataAccessLayer.Configurations
     {
         public void Configure(EntityTypeBuilder<Food> builder)
         {
-            builder.ToTable("foods");
+            builder.ToTable("foods", table => table.HasCheckConstraint(
+                "CK_foods_DefaultServingG_Positive",
+                "\"DefaultServingG\" > 0"));
             builder.HasKey(x => x.Id);
             builder.Property(x => x.NameVi).IsRequired().HasColumnType("text");
             builder.Property(x => x.NameEn).HasColumnType("text");
             builder.Property(x => x.Category).HasColumnType("text");
             builder.Property(x => x.Description).HasColumnType("text");
+            builder.Property(x => x.DefaultServingG).IsRequired();
             builder.Property(x => x.ImageUrl).HasColumnType("text");
             builder.Property(x => x.Region).HasColumnType("text");
 

@@ -16,6 +16,9 @@ namespace MenuGreen.DataAccessLayer.Entities
         public decimal? FatG { get; set; }
         public decimal? FiberG { get; set; }
         public int? EstimatedPriceVnd { get; set; }
+        /// <summary>
+        /// Gram weight represented by CaloriesKcal and the macro fields.
+        /// </summary>
         public int? DefaultServingG { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }

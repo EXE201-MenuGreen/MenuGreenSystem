@@ -4,9 +4,18 @@ import '../../../core/constants/app_colors.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
+import '../../meal_plan/models/meal_plan_models.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/route_approval_detail.dart';
 import '../utils/route_approval_period.dart';
+
+@visibleForTesting
+bool isRouteMealCompleted(
+  MealPlanItemModel item,
+  Iterable<MealLogItem> actualMeals,
+) =>
+    item.isCompleted || actualMeals.any((log) => log.mealPlanItemId == item.id);
 
 String _configurationScope(RouteApprovalDetail detail) =>
     RouteApprovalPeriod.normalizeScope(
@@ -104,7 +113,12 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
     final dates = _datesToDisplay(detail);
     if (dates.isEmpty) return detail;
 
-    final plans = await Future.wait(dates.map(MealPlanRepository().getByDate));
+    final plansFuture = Future.wait(dates.map(MealPlanRepository().getByDate));
+    final actualMealsFuture = Future.wait(
+      dates.map(NutritionTrackingRepository().getDailySummary),
+    );
+    final plans = await plansFuture;
+    final actualMealsByDay = await actualMealsFuture;
     final snapshotDays = {
       for (final day in detail.days) _dateKey(day.date): day,
     };
@@ -113,6 +127,7 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
     for (var index = 0; index < plans.length; index++) {
       final date = dates[index];
       final plan = plans[index];
+      final actualMeals = actualMealsByDay[index]?.mealLogs ?? const [];
       if (plan != null && plan.items.isNotEmpty) {
         resolvedDays.add(
           RouteApprovalDay(
@@ -124,7 +139,7 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
                     mealType: item.mealType,
                     name: item.displayName,
                     calories: item.targetCalories,
-                    isCompleted: item.isCompleted,
+                    isCompleted: isRouteMealCompleted(item, actualMeals),
                     foodId: item.foodId,
                     recipeId: item.recipeId,
                     proteinG: item.proteinG,
@@ -436,7 +451,8 @@ class _SummaryCard extends StatelessWidget {
         : detail.studentNote.trim();
 
     final hasCalories = detail.configuredCalorieTarget != null;
-    final hasMacros = detail.targetProteinG != null ||
+    final hasMacros =
+        detail.targetProteinG != null ||
         detail.targetCarbsG != null ||
         detail.targetFatG != null;
 
@@ -464,7 +480,10 @@ class _SummaryCard extends StatelessWidget {
           child: (!hasCalories && !hasMacros)
               ? const Text(
                   'Chưa có mục tiêu dinh dưỡng cho lộ trình này.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,7 +515,9 @@ class _SummaryCard extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -535,7 +556,8 @@ class _SummaryCard extends StatelessWidget {
                                       child: _CalorieLimitBadge(
                                         icon: Icons.arrow_downward_rounded,
                                         label: 'Món tối thiểu',
-                                        value: '${detail.configuredMinCalories} kcal',
+                                        value:
+                                            '${detail.configuredMinCalories} kcal',
                                         color: AppColors.primary,
                                       ),
                                     ),
@@ -547,7 +569,8 @@ class _SummaryCard extends StatelessWidget {
                                       child: _CalorieLimitBadge(
                                         icon: Icons.arrow_upward_rounded,
                                         label: 'Món tối đa',
-                                        value: '${detail.configuredMaxCalories} kcal',
+                                        value:
+                                            '${detail.configuredMaxCalories} kcal',
                                         color: AppColors.primary,
                                       ),
                                     ),
@@ -578,32 +601,46 @@ class _SummaryCard extends StatelessWidget {
                                 icon: Icons.fitness_center_rounded,
                                 label: 'Protein',
                                 value: '${detail.targetProteinG} g',
-                                bgColor: AppColors.primary.withValues(alpha: 0.08),
-                                borderColor: AppColors.primary.withValues(alpha: 0.2),
+                                bgColor: AppColors.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                borderColor: AppColors.primary.withValues(
+                                  alpha: 0.2,
+                                ),
                                 color: AppColors.primary,
                               ),
                             ),
-                          if (detail.targetProteinG != null) const SizedBox(width: 8),
+                          if (detail.targetProteinG != null)
+                            const SizedBox(width: 8),
                           if (detail.targetCarbsG != null)
                             Expanded(
                               child: _MacroCard(
                                 icon: Icons.bakery_dining_rounded,
                                 label: 'Carbs',
                                 value: '${detail.targetCarbsG} g',
-                                bgColor: AppColors.primary.withValues(alpha: 0.05),
-                                borderColor: AppColors.primary.withValues(alpha: 0.18),
+                                bgColor: AppColors.primary.withValues(
+                                  alpha: 0.05,
+                                ),
+                                borderColor: AppColors.primary.withValues(
+                                  alpha: 0.18,
+                                ),
                                 color: AppColors.primary,
                               ),
                             ),
-                          if (detail.targetCarbsG != null) const SizedBox(width: 8),
+                          if (detail.targetCarbsG != null)
+                            const SizedBox(width: 8),
                           if (detail.targetFatG != null)
                             Expanded(
                               child: _MacroCard(
                                 icon: Icons.water_drop_outlined,
                                 label: 'Fat',
                                 value: '${detail.targetFatG} g',
-                                bgColor: AppColors.primary.withValues(alpha: 0.08),
-                                borderColor: AppColors.primary.withValues(alpha: 0.2),
+                                bgColor: AppColors.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                borderColor: AppColors.primary.withValues(
+                                  alpha: 0.2,
+                                ),
                                 color: AppColors.primary,
                               ),
                             ),
@@ -778,10 +815,7 @@ class _StatusInfoRow extends StatelessWidget {
             width: 110,
             child: Text(
               'Trạng thái',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
             ),
           ),
           Container(

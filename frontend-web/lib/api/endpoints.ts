@@ -17,6 +17,12 @@ export const apiEndpoints = {
     lock: (id: string) => `${API_BASE_URL}/User/${id}/lock`,
     unlock: (id: string) => `${API_BASE_URL}/User/${id}/unlock`,
   },
+  coachApplication: {
+    list: `${API_BASE_URL}/Coaches/admin/applications`,
+    byId: (id: string) => `${API_BASE_URL}/Coaches/admin/applications/${id}`,
+    review: (id: string) =>
+      `${API_BASE_URL}/Coaches/admin/applications/${id}/review`,
+  },
   dashboard: {
     metrics: `${API_BASE_URL}/Dashboard/metrics`,
     revenue: `${API_BASE_URL}/Dashboard/revenue`,

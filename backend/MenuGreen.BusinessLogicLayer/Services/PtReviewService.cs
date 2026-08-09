@@ -94,6 +94,28 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         "Bạn đã gửi check-in giữa tuần này. Mỗi tuần chỉ được gửi một lần.");
                 }
             }
+            else if (isRouteApproval)
+            {
+                var sameDayRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == userId && r.WeekStartDate == request.WeekStartDate);
+                var alreadySubmitted = sameDayRequests.Any(r =>
+                {
+                    var existingType = GetRequestType(r);
+                    var isExistingRoute = string.IsNullOrWhiteSpace(existingType)
+                        || existingType.Equals(
+                            "RouteApproval",
+                            StringComparison.OrdinalIgnoreCase);
+                    return isExistingRoute
+                        && (r.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+                            || r.Status.Equals("Reviewed", StringComparison.OrdinalIgnoreCase)
+                            || r.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase));
+                });
+                if (alreadySubmitted)
+                {
+                    throw new Exception(
+                        "Lộ trình ngày này đã được gửi cho PT và không thể gửi lại.");
+                }
+            }
 
             // 0. Check connection with PT
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>

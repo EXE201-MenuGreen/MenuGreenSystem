@@ -9,6 +9,7 @@ const navItems = [
   { href: "/dashboard", label: "Tổng quan", exact: true },
   { href: "/dashboard/analytics", label: "Analytics" },
   { href: "/dashboard/users", label: "Người dùng" },
+  { href: "/dashboard/pt-applications", label: "Duyệt hồ sơ PT" },
   { href: "/dashboard/foods", label: "Món ăn" },
   { href: "/dashboard/ingredients", label: "Nguyên liệu" },
   { href: "/dashboard/recipes", label: "Công thức" },

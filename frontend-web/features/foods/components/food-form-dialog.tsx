@@ -130,16 +130,26 @@ export function FoodFormDialog({
             />
           </div>
 
+          <div>
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+              Dinh dưỡng theo khẩu phần
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Calories và macro bên dưới phải tương ứng với đúng trọng lượng
+              của một khẩu phần mặc định.
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Input
-              label="Calories (kcal)"
+              label="Calories / khẩu phần (kcal)"
               type="number"
               min="0"
               value={form.caloriesKcal}
               onChange={(e) => updateField("caloriesKcal", e.target.value)}
             />
             <Input
-              label="Protein (g)"
+              label="Protein / khẩu phần (g)"
               type="number"
               min="0"
               step="0.1"
@@ -147,7 +157,7 @@ export function FoodFormDialog({
               onChange={(e) => updateField("proteinG", e.target.value)}
             />
             <Input
-              label="Carbs (g)"
+              label="Carbs / khẩu phần (g)"
               type="number"
               min="0"
               step="0.1"
@@ -155,7 +165,7 @@ export function FoodFormDialog({
               onChange={(e) => updateField("carbsG", e.target.value)}
             />
             <Input
-              label="Fat (g)"
+              label="Fat / khẩu phần (g)"
               type="number"
               min="0"
               step="0.1"
@@ -163,7 +173,7 @@ export function FoodFormDialog({
               onChange={(e) => updateField("fatG", e.target.value)}
             />
             <Input
-              label="Fiber (g)"
+              label="Fiber / khẩu phần (g)"
               type="number"
               min="0"
               step="0.1"
@@ -178,9 +188,9 @@ export function FoodFormDialog({
               onChange={(e) => updateField("estimatedPriceVnd", e.target.value)}
             />
             <Input
-              label="Khẩu phần mặc định (g)"
+              label="Khẩu phần mặc định (g) *"
               type="number"
-              min="0"
+              min="1"
               value={form.defaultServingG}
               onChange={(e) => updateField("defaultServingG", e.target.value)}
             />

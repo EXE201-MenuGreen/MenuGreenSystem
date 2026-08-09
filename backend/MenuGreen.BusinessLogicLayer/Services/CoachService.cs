@@ -40,6 +40,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var coaches = await _unitOfWork.CoachProfiles.FindAsync(c =>
                 c.IsActive
+                && c.ApplicationStatus == "Approved"
                 && c.User != null
                 && c.User.IsActive
                 && c.User.Role != null
@@ -73,9 +74,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     FullName = profile?.FullName ?? "MenuGreen Expert",
                     AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                     Specialty = item.Specialty,
+                    Headline = item.Headline,
                     Bio = item.Bio,
                     ExperienceYears = item.ExperienceYears,
                     CertificateUrl = item.CertificateUrl,
+                    City = item.City,
+                    Languages = ParseStringList(item.LanguagesJson),
+                    CoachingStyles = ParseStringList(item.CoachingStylesJson),
+                    ClientLevels = ParseStringList(item.ClientLevelsJson),
+                    Certificates = ParseCertificates(item.CertificatesJson),
+                    GalleryUrls = ParseStringList(item.GalleryUrlsJson),
+                    Achievements = item.Achievements,
+                    ApplicationStatus = item.ApplicationStatus,
                     PriceVnd = item.PriceVnd,
                     IsActive = item.IsActive,
                     CreatedAt = item.CreatedAt
@@ -90,6 +100,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var item = (await _unitOfWork.CoachProfiles.FindAsync(c =>
                     c.Id == coachId
                     && c.IsActive
+                    && c.ApplicationStatus == "Approved"
                     && c.User != null
                     && c.User.IsActive
                     && c.User.Role != null
@@ -106,9 +117,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FullName = profile?.FullName ?? "MenuGreen Expert",
                 AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                 Specialty = item.Specialty,
+                Headline = item.Headline,
                 Bio = item.Bio,
                 ExperienceYears = item.ExperienceYears,
                 CertificateUrl = item.CertificateUrl,
+                City = item.City,
+                Languages = ParseStringList(item.LanguagesJson),
+                CoachingStyles = ParseStringList(item.CoachingStylesJson),
+                ClientLevels = ParseStringList(item.ClientLevelsJson),
+                Certificates = ParseCertificates(item.CertificatesJson),
+                GalleryUrls = ParseStringList(item.GalleryUrlsJson),
+                Achievements = item.Achievements,
+                ApplicationStatus = item.ApplicationStatus,
                 PriceVnd = item.PriceVnd,
                 IsActive = item.IsActive,
                 CreatedAt = item.CreatedAt
@@ -150,7 +170,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 existingProfile.ExperienceYears = request.ExperienceYears;
                 existingProfile.CertificateUrl = request.CertificateUrl;
                 existingProfile.PriceVnd = request.PriceVnd;
-                existingProfile.IsActive = true;
+                existingProfile.ApplicationStatus = "PendingReview";
+                existingProfile.ReviewNote = null;
+                existingProfile.SubmittedAt = DateTime.UtcNow;
+                existingProfile.IsActive = false;
                 existingProfile.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.CoachProfiles.Update(existingProfile);
             }
@@ -165,7 +188,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ExperienceYears = request.ExperienceYears,
                     CertificateUrl = request.CertificateUrl,
                     PriceVnd = request.PriceVnd,
-                    IsActive = true,
+                    ApplicationStatus = "PendingReview",
+                    SubmittedAt = DateTime.UtcNow,
+                    IsActive = false,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -182,9 +207,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FullName = userProfile?.FullName ?? "Chuyên gia MenuGreen",
                 AvatarUrl = userProfile?.AvatarUrl ?? string.Empty,
                 Specialty = existingProfile.Specialty,
+                Headline = existingProfile.Headline,
                 Bio = existingProfile.Bio,
                 ExperienceYears = existingProfile.ExperienceYears,
                 CertificateUrl = existingProfile.CertificateUrl,
+                City = existingProfile.City,
+                Languages = ParseStringList(existingProfile.LanguagesJson),
+                CoachingStyles = ParseStringList(existingProfile.CoachingStylesJson),
+                ClientLevels = ParseStringList(existingProfile.ClientLevelsJson),
+                Certificates = ParseCertificates(existingProfile.CertificatesJson),
+                GalleryUrls = ParseStringList(existingProfile.GalleryUrlsJson),
+                Achievements = existingProfile.Achievements,
+                ApplicationStatus = existingProfile.ApplicationStatus,
                 PriceVnd = existingProfile.PriceVnd,
                 IsActive = existingProfile.IsActive,
                 CreatedAt = existingProfile.CreatedAt
@@ -196,6 +230,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var coachProf = (await _unitOfWork.CoachProfiles.FindAsync(c =>
                     (c.Id == coachId || c.UserId == coachId)
                     && c.IsActive
+                    && c.ApplicationStatus == "Approved"
                     && c.User != null
                     && c.User.IsActive
                     && c.User.Role != null
@@ -345,6 +380,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var coachProfile = (await _unitOfWork.CoachProfiles.FindAsync(c =>
                         c.UserId == connection.CoachId
                         && c.IsActive
+                        && c.ApplicationStatus == "Approved"
                         && c.User != null
                         && c.User.IsActive
                         && c.User.Role != null
@@ -360,9 +396,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     FullName = profile?.FullName ?? "MenuGreen Expert",
                     AvatarUrl = profile?.AvatarUrl ?? string.Empty,
                     Specialty = coachProfile.Specialty,
+                    Headline = coachProfile.Headline,
                     Bio = coachProfile.Bio,
                     ExperienceYears = coachProfile.ExperienceYears,
                     CertificateUrl = coachProfile.CertificateUrl,
+                    City = coachProfile.City,
+                    Languages = ParseStringList(coachProfile.LanguagesJson),
+                    CoachingStyles = ParseStringList(coachProfile.CoachingStylesJson),
+                    ClientLevels = ParseStringList(coachProfile.ClientLevelsJson),
+                    Certificates = ParseCertificates(coachProfile.CertificatesJson),
+                    GalleryUrls = ParseStringList(coachProfile.GalleryUrlsJson),
+                    Achievements = coachProfile.Achievements,
+                    ApplicationStatus = coachProfile.ApplicationStatus,
                     PriceVnd = coachProfile.PriceVnd,
                     IsActive = coachProfile.IsActive,
                     CreatedAt = coachProfile.CreatedAt,
@@ -1372,6 +1417,157 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
+        public async Task<CoachApplicationResponse> GetMyApplicationAsync(Guid userId)
+        {
+            var application = (await _unitOfWork.CoachProfiles.FindAsync(x => x.UserId == userId))
+                .FirstOrDefault() ?? throw new Exception("Coach application not found.");
+            return await MapApplicationAsync(application);
+        }
+
+        public async Task<CoachApplicationResponse> SaveApplicationDraftAsync(
+            Guid userId,
+            CoachApplicationUpsertRequest request)
+        {
+            var application = await GetApplicationEntityByUserIdAsync(userId);
+            if (application.ApplicationStatus == "PendingReview")
+            {
+                throw new Exception("The application is being reviewed and cannot be edited.");
+            }
+            if (application.ApplicationStatus == "Suspended")
+            {
+                throw new Exception("The coach account is suspended.");
+            }
+
+            await ApplyApplicationChangesAsync(application, request);
+            if (application.ApplicationStatus != "Approved")
+            {
+                application.ApplicationStatus = "Draft";
+                application.IsActive = false;
+            }
+            application.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.CoachProfiles.Update(application);
+            await _unitOfWork.CompleteAsync();
+            return await MapApplicationAsync(application);
+        }
+
+        public async Task<CoachApplicationResponse> SubmitApplicationAsync(
+            Guid userId,
+            CoachApplicationUpsertRequest request)
+        {
+            var application = await GetApplicationEntityByUserIdAsync(userId);
+            if (application.ApplicationStatus == "PendingReview")
+            {
+                throw new Exception("The application is already being reviewed.");
+            }
+            if (application.ApplicationStatus == "Suspended")
+            {
+                throw new Exception("The coach account is suspended.");
+            }
+
+            ValidateApplicationForSubmit(request);
+            await ApplyApplicationChangesAsync(application, request);
+            application.ApplicationStatus = "PendingReview";
+            application.IsActive = false;
+            application.ReviewNote = null;
+            application.SubmittedAt = DateTime.UtcNow;
+            application.ReviewedAt = null;
+            application.ReviewedByUserId = null;
+            application.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.CoachProfiles.Update(application);
+            await _unitOfWork.CompleteAsync();
+            return await MapApplicationAsync(application);
+        }
+
+        public async Task<IEnumerable<CoachApplicationResponse>> GetApplicationsForAdminAsync(string? status)
+        {
+            var applications = await _unitOfWork.CoachProfiles.GetAllAsync();
+            var filtered = string.IsNullOrWhiteSpace(status)
+                ? applications
+                : applications.Where(x => string.Equals(
+                    x.ApplicationStatus,
+                    status.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+
+            var result = new List<CoachApplicationResponse>();
+            foreach (var application in filtered
+                .OrderByDescending(x => x.SubmittedAt ?? x.UpdatedAt))
+            {
+                result.Add(await MapApplicationAsync(application));
+            }
+            return result;
+        }
+
+        public async Task<CoachApplicationResponse> GetApplicationForAdminAsync(Guid applicationId)
+        {
+            var application = await _unitOfWork.CoachProfiles.GetByIdAsync(applicationId)
+                ?? throw new Exception("Coach application not found.");
+            return await MapApplicationAsync(application);
+        }
+
+        public async Task<CoachApplicationResponse> ReviewApplicationAsync(
+            Guid adminUserId,
+            Guid applicationId,
+            CoachApplicationReviewRequest request)
+        {
+            var application = await _unitOfWork.CoachProfiles.GetByIdAsync(applicationId)
+                ?? throw new Exception("Coach application not found.");
+            var decision = request.Decision.Trim();
+            if (!string.Equals(decision, "Approve", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(request.Reason))
+            {
+                throw new Exception("A reason is required for this decision.");
+            }
+
+            if (string.Equals(decision, "Approve", StringComparison.OrdinalIgnoreCase))
+            {
+                application.ApplicationStatus = "Approved";
+                application.IsActive = true;
+                application.ReviewNote = null;
+            }
+            else if (string.Equals(decision, "NeedsRevision", StringComparison.OrdinalIgnoreCase))
+            {
+                application.ApplicationStatus = "NeedsRevision";
+                application.IsActive = false;
+                application.ReviewNote = request.Reason?.Trim();
+            }
+            else if (string.Equals(decision, "Reject", StringComparison.OrdinalIgnoreCase))
+            {
+                application.ApplicationStatus = "Rejected";
+                application.IsActive = false;
+                application.ReviewNote = request.Reason?.Trim();
+            }
+            else if (string.Equals(decision, "Suspend", StringComparison.OrdinalIgnoreCase))
+            {
+                application.ApplicationStatus = "Suspended";
+                application.IsActive = false;
+                application.ReviewNote = request.Reason?.Trim();
+            }
+            else
+            {
+                throw new Exception("Unsupported review decision.");
+            }
+
+            application.ReviewedAt = DateTime.UtcNow;
+            application.ReviewedByUserId = adminUserId;
+            application.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.CoachProfiles.Update(application);
+            await _unitOfWork.CompleteAsync();
+
+            var approved = application.ApplicationStatus == "Approved";
+            await _notificationService.SendAsync(new NotificationSendRequest
+            {
+                UserId = application.UserId,
+                Type = "coach_application_review",
+                Title = approved ? "Hồ sơ PT đã được duyệt" : "Hồ sơ PT cần cập nhật",
+                Body = approved
+                    ? "Hồ sơ của bạn đã được xác minh. Bạn có thể bắt đầu nhận học viên."
+                    : application.ReviewNote ?? "Vui lòng kiểm tra lại hồ sơ PT của bạn.",
+                ScheduledAt = null
+            });
+
+            return await MapApplicationAsync(application);
+        }
+
         private async Task<ClientGymConfiguration> ResolveClientGymConfigurationAsync(
             Guid clientId,
             DateOnly date)
@@ -1578,6 +1774,175 @@ namespace MenuGreen.BusinessLogicLayer.Services
             public int? MaxCalories { get; init; }
             public bool HasConfiguration { get; init; }
             public string Scope { get; init; } = "profile";
+        }
+
+        private async Task<CoachProfile> GetApplicationEntityByUserIdAsync(Guid userId)
+        {
+            return (await _unitOfWork.CoachProfiles.FindAsync(x => x.UserId == userId))
+                .FirstOrDefault() ?? throw new Exception("Coach application not found.");
+        }
+
+        private async Task ApplyApplicationChangesAsync(
+            CoachProfile application,
+            CoachApplicationUpsertRequest request)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(application.UserId)
+                ?? throw new Exception("User does not exist.");
+            var profile = (await _unitOfWork.Profiles.FindAsync(x => x.UserId == application.UserId))
+                .FirstOrDefault();
+            if (profile == null)
+            {
+                profile = new Profile
+                {
+                    UserId = application.UserId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.Profiles.AddAsync(profile);
+            }
+            else
+            {
+                _unitOfWork.Profiles.Update(profile);
+            }
+
+            profile.FullName = request.FullName.Trim();
+            profile.AvatarUrl = request.AvatarUrl.Trim();
+            profile.DateOfBirth = request.DateOfBirth;
+            profile.Gender = request.Gender.Trim();
+            profile.UpdatedAt = DateTime.UtcNow;
+
+            var specialties = NormalizeList(request.Specialties, 5);
+            application.Specialty = string.Join(", ", specialties);
+            application.Headline = request.Headline.Trim();
+            application.Bio = request.Bio.Trim();
+            application.ExperienceYears = request.ExperienceYears;
+            application.PhoneNumber = request.PhoneNumber.Trim();
+            application.City = request.City.Trim();
+            application.LanguagesJson = JsonSerializer.Serialize(NormalizeList(request.Languages, 8));
+            application.CoachingStylesJson = JsonSerializer.Serialize(NormalizeList(request.CoachingStyles, 6));
+            application.ClientLevelsJson = JsonSerializer.Serialize(NormalizeList(request.ClientLevels, 5));
+            application.CertificatesJson = JsonSerializer.Serialize(request.Certificates.Take(10));
+            application.CertificateUrl = request.Certificates
+                .Select(x => x.ImageUrl?.Trim())
+                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            application.GalleryUrlsJson = JsonSerializer.Serialize(
+                NormalizeList(request.GalleryUrls, 8));
+            application.Achievements = request.Achievements.Trim();
+            application.IdentityDocumentUrl = request.IdentityDocumentUrl?.Trim();
+            application.UpdatedAt = DateTime.UtcNow;
+
+            user.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Users.Update(user);
+        }
+
+        private static void ValidateApplicationForSubmit(CoachApplicationUpsertRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.FullName))
+                throw new Exception("Full name is required.");
+            if (string.IsNullOrWhiteSpace(request.AvatarUrl))
+                throw new Exception("A profile photo is required.");
+            if (!request.DateOfBirth.HasValue)
+                throw new Exception("Date of birth is required.");
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                throw new Exception("Phone number is required.");
+            if (string.IsNullOrWhiteSpace(request.City))
+                throw new Exception("City is required.");
+            if (request.Languages.Count == 0)
+                throw new Exception("At least one language is required.");
+            if (string.IsNullOrWhiteSpace(request.Headline))
+                throw new Exception("Professional headline is required.");
+            if (request.Bio.Trim().Length < 80)
+                throw new Exception("Biography must contain at least 80 characters.");
+            if (request.Specialties.Count == 0)
+                throw new Exception("At least one specialty is required.");
+            if (request.Certificates.Count == 0)
+                throw new Exception("At least one professional certificate is required.");
+            if (request.Certificates.Any(x =>
+                string.IsNullOrWhiteSpace(x.Name)
+                || string.IsNullOrWhiteSpace(x.Issuer)
+                || string.IsNullOrWhiteSpace(x.ImageUrl)))
+                throw new Exception("Certificate name, issuer and image are required.");
+            if (string.IsNullOrWhiteSpace(request.IdentityDocumentUrl))
+                throw new Exception("An identity verification image is required.");
+            if (request.GalleryUrls.Count == 0)
+                throw new Exception("At least one portfolio image is required.");
+        }
+
+        private async Task<CoachApplicationResponse> MapApplicationAsync(CoachProfile application)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(application.UserId);
+            var profile = (await _unitOfWork.Profiles.FindAsync(x => x.UserId == application.UserId))
+                .FirstOrDefault();
+            return new CoachApplicationResponse
+            {
+                Id = application.Id,
+                UserId = application.UserId,
+                FullName = profile?.FullName ?? string.Empty,
+                AvatarUrl = profile?.AvatarUrl ?? string.Empty,
+                Email = user?.Email ?? string.Empty,
+                DateOfBirth = profile?.DateOfBirth,
+                Gender = profile?.Gender ?? string.Empty,
+                PhoneNumber = application.PhoneNumber,
+                Specialty = application.Specialty,
+                Headline = application.Headline,
+                Bio = application.Bio,
+                ExperienceYears = application.ExperienceYears,
+                CertificateUrl = application.CertificateUrl,
+                City = application.City,
+                Languages = ParseStringList(application.LanguagesJson),
+                CoachingStyles = ParseStringList(application.CoachingStylesJson),
+                ClientLevels = ParseStringList(application.ClientLevelsJson),
+                Certificates = ParseCertificates(application.CertificatesJson),
+                GalleryUrls = ParseStringList(application.GalleryUrlsJson),
+                Achievements = application.Achievements,
+                IdentityDocumentUrl = application.IdentityDocumentUrl,
+                ApplicationStatus = application.ApplicationStatus,
+                ReviewNote = application.ReviewNote,
+                SubmittedAt = application.SubmittedAt,
+                ReviewedAt = application.ReviewedAt,
+                ReviewedByUserId = application.ReviewedByUserId,
+                PriceVnd = application.PriceVnd,
+                IsActive = application.IsActive,
+                CreatedAt = application.CreatedAt,
+                UpdatedAt = application.UpdatedAt
+            };
+        }
+
+        private static IReadOnlyList<string> NormalizeList(IEnumerable<string>? values, int max)
+        {
+            return (values ?? Array.Empty<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(max)
+                .ToArray();
+        }
+
+        private static IReadOnlyList<string> ParseStringList(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return Array.Empty<string>();
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<string>();
+            }
+        }
+
+        private static IReadOnlyList<CoachCertificateResponse> ParseCertificates(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return Array.Empty<CoachCertificateResponse>();
+            try
+            {
+                return JsonSerializer.Deserialize<List<CoachCertificateResponse>>(json)
+                    ?? new List<CoachCertificateResponse>();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<CoachCertificateResponse>();
+            }
         }
 
         public async Task<IEnumerable<object>> GetClientReviewRequestsAsync(Guid coachId, Guid clientId)

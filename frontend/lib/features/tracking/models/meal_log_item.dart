@@ -11,6 +11,7 @@ class MealLogItem {
     this.notes,
     this.sourceType,
     this.customName,
+    this.mealPlanItemId,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class MealLogItem {
   final String? notes;
   final String? sourceType;
   final String? customName;
+  final String? mealPlanItemId;
 
   bool get isRecipe =>
       (recipeId != null && recipeId!.isNotEmpty) ||
@@ -52,7 +54,8 @@ class MealLogItem {
         .trim();
     final notes = (json['notes'] ?? json['Notes'])?.toString().trim();
 
-    final isValidDisplayName = displayName != null &&
+    final isValidDisplayName =
+        displayName != null &&
         displayName.isNotEmpty &&
         displayName.toLowerCase() != 'logged item';
 
@@ -82,6 +85,9 @@ class MealLogItem {
       notes: json['notes']?.toString(),
       sourceType: json['sourceType']?.toString(),
       customName: customName,
+      mealPlanItemId: _parseOptionalId(
+        json['mealPlanItemId'] ?? json['MealPlanItemId'],
+      ),
     );
   }
 }

@@ -18,12 +18,13 @@ CREATE TABLE foods (
     "FatG" numeric NULL,
     "FiberG" numeric NULL,
     "EstimatedPriceVnd" integer NULL,
-    "DefaultServingG" integer NULL,
+    "DefaultServingG" integer NOT NULL,
     "ImageUrl" text NULL,
     "IsActive" boolean NULL,
     "CreatedAt" timestamp with time zone NULL,
     "Region" text NULL,
-    CONSTRAINT "PK_foods" PRIMARY KEY ("Id")
+    CONSTRAINT "PK_foods" PRIMARY KEY ("Id"),
+    CONSTRAINT "CK_foods_DefaultServingG_Positive" CHECK ("DefaultServingG" > 0)
 );
 
 INSERT INTO foods ("Id", "NameVi", "NameEn", "Category", "Description", "CaloriesKcal", "ProteinG", "CarbsG", "FatG", "FiberG", "EstimatedPriceVnd", "DefaultServingG", "ImageUrl", "IsActive", "CreatedAt", "Region")
