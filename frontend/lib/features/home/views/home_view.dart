@@ -556,16 +556,16 @@ class HomeViewState extends State<HomeView> {
     final summary = _todaySummary;
     final totalCalories = (summary?.totalCalories ?? 0).toInt();
     final targetCalories = (summary?.targetCalories ?? 1850)
-        .clamp(1, 10000)
+        .clamp(0, 10000)
         .toInt();
     final totalProtein = (summary?.totalProteinG ?? 0).toInt();
     final totalCarbs = (summary?.totalCarbsG ?? 0).toInt();
     final totalFat = (summary?.totalFatG ?? 0).toInt();
     final targetProtein = (summary?.targetProteinG ?? 120)
-        .clamp(1, 10000)
+        .clamp(0, 10000)
         .toInt();
-    final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(1, 10000).toInt();
-    final targetFat = (summary?.targetFatG ?? 60).clamp(1, 10000).toInt();
+    final targetCarbs = (summary?.targetCarbsG ?? 220).clamp(0, 10000).toInt();
+    final targetFat = (summary?.targetFatG ?? 60).clamp(0, 10000).toInt();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

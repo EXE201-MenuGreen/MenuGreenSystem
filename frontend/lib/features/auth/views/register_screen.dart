@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _confirmPasswordController = TextEditingController();
   final _authRepo = AuthRepository();
   bool _isLoading = false;
+  String _accountType = 'User';
 
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
@@ -69,7 +70,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     setState(() => _isLoading = true);
 
-    final result = await _authRepo.register(fullName, email, password);
+    final result = await _authRepo.register(
+      fullName,
+      email,
+      password,
+      _accountType,
+    );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -234,6 +240,61 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
               ),
               const SizedBox(height: 36),
+              const Text(
+                'Bạn muốn đăng ký với vai trò nào?',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAccountTypeOption(
+                      value: 'User',
+                      icon: Icons.person_outline_rounded,
+                      title: 'Người dùng',
+                      subtitle: 'Theo dõi dinh dưỡng',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAccountTypeOption(
+                      value: 'PT',
+                      icon: Icons.fitness_center_rounded,
+                      title: 'PT',
+                      subtitle: 'Quản lý học viên',
+                    ),
+                  ),
+                ],
+              ),
+              if (_accountType == 'PT') ...[
+                const SizedBox(height: 10),
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                    SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        'Tài khoản PT sẽ vào thẳng không gian quản lý sau khi xác thực OTP, không cần làm khảo sát.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 24),
               CustomTextField(
                 controller: _fullNameController,
                 label: 'Họ và tên',
@@ -295,6 +356,65 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ],
               ),
               const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountTypeOption({
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final selected = _accountType == value;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$title, $subtitle',
+      child: InkWell(
+        onTap: _isLoading ? null : () => setState(() => _accountType = value),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.primary : const Color(0xFFE0E0E0),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: selected ? AppColors.primary : AppColors.textSecondary,
+              ),
+              const SizedBox(height: 7),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? AppColors.primary : AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),

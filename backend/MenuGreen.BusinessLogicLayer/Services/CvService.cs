@@ -50,6 +50,60 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return await AnalyzeImageWithPollingAsync(userId, imageStream, fileName, contentType);
         }
 
+        public async Task<PreparedMealScanResponse> AnalyzePreparedMealAsync(
+            Guid userId, Stream imageStream, string fileName, string contentType)
+        {
+            ValidateImage(imageStream, contentType);
+
+            var baseUrl = _configuration["CvService:BaseUrl"] ?? "https://vision.menugreen.food";
+            var apiKey = _configuration["CvService:ApiSecretKey"] ?? string.Empty;
+            var client = _httpClientFactory.CreateClient(nameof(CvService));
+            client.Timeout = TimeSpan.FromSeconds(110);
+
+            try
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    $"{baseUrl.TrimEnd('/')}/api/v1/cv/analyze-meal-sync");
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                }
+
+                if (imageStream.CanSeek) imageStream.Position = 0;
+                using var content = new MultipartFormDataContent();
+                using var imageContent = new StreamContent(imageStream);
+                imageContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+                content.Add(imageContent, "image", fileName ?? "meal.jpg");
+                content.Add(new StringContent("90"), "timeout_seconds");
+                request.Content = content;
+
+                using var response = await client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Prepared meal scan failed with status {Status}", response.StatusCode);
+                    throw new InvalidOperationException("Không thể phân tích món ăn lúc này. Vui lòng thử lại sau.");
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<PreparedMealScanResponse>(JsonOptions);
+                if (result == null)
+                {
+                    throw new InvalidOperationException("Không thể phân tích món ăn lúc này. Vui lòng thử lại sau.");
+                }
+                return result;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Failed to reach CV service for prepared meal scan");
+                throw new InvalidOperationException("Không thể phân tích món ăn lúc này. Vui lòng thử lại sau.", ex);
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogWarning(ex, "Prepared meal scan timed out");
+                throw new TimeoutException("Phân tích món ăn mất nhiều thời gian. Vui lòng thử lại sau.", ex);
+            }
+        }
+
         private async Task<CvInferenceResponse> AnalyzeImageWithPollingAsync(
             Guid userId, Stream imageStream, string fileName, string contentType)
         {
@@ -140,6 +194,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await TrySaveActivityLogAsync(result, userId);
 
             return result;
+        }
+
+        private static void ValidateImage(Stream imageStream, string contentType)
+        {
+            if (imageStream == null || imageStream.Length == 0)
+            {
+                throw new ArgumentException("Image stream is missing or empty.");
+            }
+            if (imageStream.Length > MaxImageBytes)
+            {
+                throw new ArgumentException($"Image exceeds maximum size of {MaxImageBytes / 1024 / 1024}MB.");
+            }
+            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" };
+            var mtype = string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType.ToLowerInvariant();
+            if (!allowedTypes.Contains(mtype))
+            {
+                throw new ArgumentException($"Unsupported image type: {contentType}. Allowed: jpeg, png, webp.");
+            }
         }
 
         private async Task<string> SubmitImageAsync(

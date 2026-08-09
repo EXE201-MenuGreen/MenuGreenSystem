@@ -2369,3 +2369,153 @@ GET http://10.0.2.2:5000/api/notifications/...
      cả refresh lẫn access đều fail.
    - **Nếu** là do build cũ: chạy `flutter clean && flutter pub get &&
      flutter run`.
+
+---
+
+## [PENDING] Recalibrate mục tiêu gym trả "optimal" khi user chưa log cân nặng
+
+**Date:** 2026-08-08
+**Status:** Pending
+**Severity:** Medium
+
+### Description
+
+Card **"Hiệu chỉnh mục tiêu"** trong `gym_goals_screen.dart` (hàm
+`_buildRecalibrateCard`) cho phép user bấm **"Hiệu chỉnh ngay"** để AI tự
+động chỉnh calo mục tiêu dựa trên xu hướng cân nặng tuần qua. Tuy nhiên:
+
+- Backend `GymGoalsController.Recalibrate` (`backend/.../GymGoalsController.cs`,
+  dòng ~352) gọi `_nutritionTrackingService.GetWeightTrendAsync(...)` lấy
+  weight logs trong 7 ngày qua.
+- Logic điều kiện recalibration (`if (weightTrend != null &&
+  weightTrend.WeightChangeKg.HasValue)`) bị **bỏ qua hoàn toàn** khi
+  user chưa log cân nặng (`WeightChangeKg == null`).
+- Hậu quả: `suggestedCalories` giữ nguyên `currentTargetCalories`, `reason =
+  "Your target calorie intake is at an optimal level."` — tức là **app nói
+  "đã ở mức tối ưu" trong khi thực tế app không biết gì cả**.
+- UI hiện tại **không cảnh báo** user cần log cân nặng trước khi bấm
+  "Hiệu chỉnh ngay". Subtitle chỉ chung chung "Đánh giá cân nặng tuần qua
+  và điều chỉnh calo tự động."
+
+### Root Cause
+
+Thiếu validation input ở backend: không kiểm tra `weightTrend.WeightChangeKg`
+trước khi thực hiện recalibration. Thiếu UI cue ở frontend để nhắc user
+log cân nặng.
+
+### Environment
+
+- Backend: `backend/MenuGreen.API/Controllers/GymGoalsController.cs`
+- Service: `backend/MenuGreen.BusinessLogicLayer/Services/NutritionTrackingService.cs`
+  (hàm `GetWeightTrendAsync`, dòng 317)
+- Frontend: `frontend/lib/features/vietnam_local/views/gym_goals_screen.dart`
+  (`_buildRecalibrateCard`, dòng 364)
+- Frontend provider: `frontend/lib/features/vietnam_local/providers/gym_goals_provider.dart`
+  (`recalibrate()`, dòng 100)
+- Frontend repository: `frontend/lib/features/vietnam_local/repositories/vietnam_local_repositories.dart`
+  (`recalibrate`, dòng 345)
+- Translator: `frontend/lib/core/i18n/api_message_translator.dart`
+
+### Logs
+
+```
+// Response khi user chưa log cân nặng 7 ngày qua:
+{
+  "message": "Recalibration data collected and target calories updated successfully.",
+  "currentTargetCalories": 2000,
+  "suggestedTargetCalories": 2000,   // <- không đổi
+  "reason": "Your target calorie intake is at an optimal level.",  // <- false positive
+  ...
+}
+```
+
+### Proposed Solution (đã chọn Phương án A: Block + nhắc)
+
+1. **Backend**: Khi `weightTrend == null || !weightTrend.WeightChangeKg.HasValue`,
+   trả `400 BadRequest` với payload:
+   ```json
+   {
+     "Message": "No weight data in the last 7 days. Please log your weight before recalibrating.",
+     "Code": "RECALIBRATE_NO_WEIGHT_DATA"
+   }
+   ```
+2. **`ApiResult`**: thêm optional `errorCode` field.
+3. **`ApiMessageTranslator`**: map `RECALIBRATE_NO_WEIGHT_DATA` →
+   `"Vui lòng cập nhật cân nặng ít nhất 1 lần trong 7 ngày qua trước khi
+   hiệu chỉnh mục tiêu."`
+4. **`GymGoalsProvider.recalibrate()`**: trả về kết quả phân biệt
+   `requiresWeightLog = true` khi gặp code `RECALIBRATE_NO_WEIGHT_DATA`.
+5. **`_buildRecalibrateCard`**: khi bấm "Hiệu chỉnh ngay":
+   - Nếu response có `requiresWeightLog` → mở `WeightLogSheet` thay vì
+     hiển thị error.
+   - Sau khi user log xong → gọi lại `recalibrate()`.
+6. (Optional UX) Thêm banner nhắc nhở nhỏ ngay trên card khi `lastLog ==
+   null || lastLog.recordedAt < now - 7 days`.
+
+### Attempts
+
+- [x] Đọc backend controller để xác nhận logic điều kiện.
+- [x] Đọc service `GetWeightTrendAsync` xác nhận trả về null khi không có log.
+- [x] Đọc frontend provider/repository xác nhận không handle case này.
+- [x] Đề xuất 3 phương án (block / warn / fallback) → user chọn Phương án A.
+
+### Discovery: Reason tiếng Anh hiển thị ra UI + safeguard delta bất thường
+
+**Date:** 2026-08-08
+**Status:** Pending
+**Severity:** High
+
+#### Description
+
+Sau khi áp code mới và test trên máy, response thực tế trả về vẫn là HTTP 200
+và `reason` tiếng Anh dài như sau:
+
+```
+"Weight increased (18.5 kg) versus maintain goal. Suggesting 5%
+calorie reduction. Current weight is 75.0 kg, 0.0 kg at the target.
+Body fat is 20.0%, 0.0 percentage points at the target."
+```
+
+Frontend hiển thị "Thao tác chưa hoàn thành. Vui lòng thử lại sau." — fallback
+chung khi `ApiMessageTranslator.translate()` không match. Đồng thời, delta
+cân nặng 18.5 kg/tuần là dấu hiệu seed/test data, không phải cân nặng thật
+của người dùng — nếu auto giảm calo theo delta này sẽ gây hại.
+
+#### Root Cause
+
+1. `ApiMessageTranslator._exact` chỉ có một số message cố định, không có
+   pattern cho các `reason` chứa số interpolated.
+2. Backend không có safeguard chống data anomaly (delta > 5 kg/tuần).
+
+#### Fix
+
+- **Backend**: Thêm anomaly guard `Math.Abs(weightChange) > 5kg` → trả 400
+  với code `RECALIBRATE_ANOMALY_WEIGHT_CHANGE`, không tự ý đổi calo.
+- **Frontend**: Thêm `_translateRecalibrationReason(text)` helper, regex
+  match cho 7 `reason` patterns + 2 suffix (`Current weight`, `Body fat`).
+- **Provider/UI**: Phân biệt `requiresWeightLog` vs `requiresWeightLogReview`
+  để banner hiển thị message phù hợp.
+
+#### Logs
+
+```json
+{
+  "message": "Recalibration data collected and target calories updated successfully.",
+  "currentTargetCalories": 1747,
+  "suggestedTargetCalories": 1659,
+  "reason": "Weight increased (18.5 kg) versus maintain goal. Suggesting 5% calorie reduction. Current weight is 75.0 kg, 0.0 kg at the target. Body fat is 20.0%, 0.0 percentage points at the target.",
+  "weightTrend": {
+    "initialWeightKg": 56.47,
+    "latestWeightKg": 75.0,
+    "weightChangeKg": 18.53,
+    ...
+  }
+}
+```
+
+#### Attempts
+
+- [x] Phát hiện qua response thật user share, thấy `weightChangeKg = 18.53`.
+- [x] Backend build succeeded sau khi thêm anomaly guard.
+- [x] Flutter analyze: No issues found.
+

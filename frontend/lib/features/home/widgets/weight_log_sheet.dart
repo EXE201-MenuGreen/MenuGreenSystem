@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
+import '../../tracking/models/latest_weight_log.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 
 class WeightLogSheet extends StatefulWidget {
-  const WeightLogSheet({super.key});
+  const WeightLogSheet({super.key, this.initialWeightLog});
+
+  /// Optional pre-fetched latest weight log. When supplied the sheet
+  /// skips the network fetch on open and uses these values as the
+  /// starting form state. The parent usually passes `null` and lets the
+  /// sheet fetch on its own; pre-fetching is useful for callers that
+  /// already have the data and want a fully synchronous open.
+  final LatestWeightLog? initialWeightLog;
 
   @override
   State<WeightLogSheet> createState() => _WeightLogSheetState();
@@ -15,6 +24,54 @@ class _WeightLogSheetState extends State<WeightLogSheet> {
   final _fatController = TextEditingController();
   final _repo = NutritionTrackingRepository();
   bool _loading = false;
+  bool _prefilled = false;
+  LatestWeightLog? _latestLog;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialWeightLog;
+    if (initial != null) {
+      _prefill(initial);
+    } else {
+      _fetchLatestInBackground();
+    }
+  }
+
+  /// Apply [log] values to the controllers. Called once when the
+  /// latest log is known so the user never sees a blank form when they
+  /// already have a recent weight entry.
+  void _prefill(LatestWeightLog log) {
+    if (_prefilled) return;
+    _prefilled = true;
+    _latestLog = log;
+    final formattedWeight = _formatForInput(log.weightKg);
+    if (formattedWeight != null) {
+      _weightController.text = formattedWeight;
+    }
+    if (log.bodyFatPercent != null) {
+      final formattedFat = _formatForInput(log.bodyFatPercent!);
+      if (formattedFat != null) {
+        _fatController.text = formattedFat;
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Strip trailing ".0" so the input looks like "75" instead of "75.0"
+  /// while still accepting decimal input.
+  String? _formatForInput(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toString();
+  }
+
+  Future<void> _fetchLatestInBackground() async {
+    final latest = await _repo.getLatestWeightLog();
+    if (latest == null || !mounted) return;
+    _prefill(latest);
+  }
 
   @override
   void dispose() {
@@ -33,20 +90,43 @@ class _WeightLogSheetState extends State<WeightLogSheet> {
     }
     setState(() => _loading = true);
     try {
-      await _repo.createWeightLog(
-        weightKg: weight,
-        bodyFatPercent: double.tryParse(_fatController.text.trim()),
-      );
+      final bodyFat = double.tryParse(_fatController.text.trim());
+      final latest = _latestLog;
+      final latestDate = latest?.recordedAt?.toLocal();
+      final isLatestFromToday =
+          latest != null &&
+          latest.id.isNotEmpty &&
+          latestDate != null &&
+          DateUtils.isSameDay(latestDate, DateTime.now());
+      final saved = isLatestFromToday
+          ? await _repo.updateWeightLog(
+              latest.id,
+              weightKg: weight,
+              bodyFatPercent: bodyFat,
+              recordedAt: DateTime.now(),
+            )
+          : await _repo.createWeightLog(
+              weightKg: weight,
+              bodyFatPercent: bodyFat,
+            );
+      if (!saved) throw StateError('Weight log request failed');
       if (!mounted) return;
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã lưu cân nặng.')),
+        SnackBar(
+          content: Text(
+            ApiMessageTranslator.translate(
+              'Weight log saved successfully.',
+              errorCode: 'WEIGHT_LOG_SAVED',
+            ),
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không lưu được. Thử lại.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Không lưu được. Thử lại.')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,12 +160,23 @@ class _WeightLogSheetState extends State<WeightLogSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Ghi cân nặng',
-            style: TextStyle(
+          Text(
+            _prefilled ? 'Cập nhật cân nặng' : 'Ghi cân nặng',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _prefilled
+                ? 'Đã điền số đo gần nhất. Chỉ lưu khi bạn có số đo mới.'
+                : 'Ghi số đo hiện tại để theo dõi thay đổi theo thời gian. Tỷ lệ mỡ là tùy chọn.',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 16),
@@ -94,6 +185,7 @@ class _WeightLogSheetState extends State<WeightLogSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: 'Cân nặng (kg)',
+              hintText: _prefilled ? 'Đã điền sẵn từ lần log gần nhất' : null,
               filled: true,
               fillColor: AppColors.progressBackground.withValues(alpha: 0.3),
               border: OutlineInputBorder(

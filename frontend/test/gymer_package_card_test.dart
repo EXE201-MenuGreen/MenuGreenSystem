@@ -28,7 +28,7 @@ void main() {
     expect(find.text('TRẢ PHÍ'), findsOneWidget);
     expect(find.text('Bộ công cụ tập luyện đã kích hoạt'), findsOneWidget);
     expect(find.text('Mục tiêu'), findsOneWidget);
-    expect(find.text('HLV & PT'), findsOneWidget);
+    expect(find.text('Báo cáo PT'), findsOneWidget);
     expect(find.text('Lộ trình'), findsOneWidget);
     expect(find.text('Chat với PT'), findsOneWidget);
     expect(tester.takeException(), isNull);

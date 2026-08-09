@@ -138,8 +138,8 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                       ),
                       _GymerFeatureTile(
                         icon: Icons.people_alt_outlined,
-                        title: 'HLV & PT Review',
-                        subtitle: 'Kết nối HLV và gửi báo cáo cho PT',
+                        title: 'Báo cáo & Kết nối PT',
+                        subtitle: 'Gửi chỉ số thực tế & nhận đánh giá từ PT',
                         onTap: () => _openFeature(GymerFeature.companion),
                       ),
                       _GymerFeatureTile(
