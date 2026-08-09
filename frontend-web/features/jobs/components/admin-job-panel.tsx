@@ -61,8 +61,8 @@ export function AdminJobPanel() {
   return (
     <div>
       <PageHeader
-        title="Job Trigger"
-        description="Kich hoat thu cong cac background job de kiem tra hoac xu ly ngay"
+        title="Kích hoạt công việc"
+        description="Kích hoạt thủ công các background job để kiểm tra hoặc xử lý ngay"
       />
 
       {error && (
@@ -96,7 +96,7 @@ export function AdminJobPanel() {
 
       {logs.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold">Job Logs</h2>
+          <h2 className="mb-4 text-lg font-semibold">Nhật ký công việc</h2>
           <div className="space-y-2">
             {logs.map((log, i) => (
               <div
@@ -119,7 +119,7 @@ export function AdminJobPanel() {
                       : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}
                 >
-                  {log.success ? "Success" : "Failed"}
+                  {log.success ? "Thành công" : "Thất bại"}
                 </span>
               </div>
             ))}

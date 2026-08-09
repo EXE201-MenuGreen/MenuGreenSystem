@@ -58,15 +58,15 @@ export function AdminMigrationPanel() {
   return (
     <div>
       <PageHeader
-        title="Database Migrations"
-        description="Quan ly EF Core migrations va trang thai database"
+        title="Di chuyển cơ sở dữ liệu"
+        description="Quản lý EF Core migrations và trạng thái database"
         action={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={fetchStatus} loading={loading}>
-              Lam moi
+              Làm mới
             </Button>
             <Button onClick={handleApply} loading={applying} variant="danger">
-              Apply Pending
+              Áp dụng
             </Button>
           </div>
         }
@@ -98,7 +98,7 @@ export function AdminMigrationPanel() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Applied Migrations ({status?.applied.length ?? 0})
+            Đã áp dụng ({status?.applied.length ?? 0})
           </h2>
           <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
             {status?.applied.map((m) => (
@@ -117,7 +117,7 @@ export function AdminMigrationPanel() {
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Pending Migrations ({status?.pending.length ?? 0})
+            Đang chờ áp dụng ({status?.pending.length ?? 0})
           </h2>
           <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
             {status?.pending.map((m) => (
