@@ -6,12 +6,15 @@ import '../../../../core/network/api_endpoints.dart';
 import '../models/ai_assistant_models.dart';
 
 class AiAssistantRepository {
-  AiAssistantRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  AiAssistantRepository({ApiClient? apiClient})
+    : _api = apiClient ?? ApiClient();
 
   final ApiClient _api;
 
   Future<List<AiConversation>> getConversations() async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/conversations');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
@@ -26,7 +29,10 @@ class AiAssistantRepository {
     if (firstMessage != null && firstMessage.isNotEmpty) {
       body['firstMessage'] = firstMessage;
     }
-    final response = await _api.postJson('${ApiEndpoints.baseUrl}/AiAssistant/conversations', body);
+    final response = await _api.postJson(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations',
+      body,
+    );
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(_messageFromResponse(response));
     }
@@ -38,7 +44,9 @@ class AiAssistantRepository {
   }
 
   Future<AiConversation> getConversationById(String conversationId) async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) {
       throw Exception(_messageFromResponse(response));
     }
@@ -50,7 +58,9 @@ class AiAssistantRepository {
   }
 
   Future<void> deleteConversation(String conversationId) async {
-    final response = await _api.delete('${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId');
+    final response = await _api.delete(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId',
+    );
     if (response.statusCode != 200) {
       throw Exception(_messageFromResponse(response));
     }
@@ -76,7 +86,9 @@ class AiAssistantRepository {
   }
 
   Future<List<AiMessage>> getMessages(String conversationId) async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId/messages');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId/messages',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
@@ -99,6 +111,10 @@ class AiAssistantRepository {
     final response = await _api.postJson(
       '${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId/messages',
       body,
+      // The server waits up to 15 seconds for ONNX/worker fallback.  Keep the
+      // mobile timeout higher so it receives that response instead of treating
+      // a still-running request as failed.
+      timeout: const Duration(seconds: 22),
     );
     if (response.statusCode != 200) {
       throw Exception(_messageFromResponse(response));
@@ -148,7 +164,9 @@ class AiAssistantRepository {
   }
 
   Future<AiAssistantContext> getContext() async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/context');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/context',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) {
       return const AiAssistantContext();
     }
@@ -158,7 +176,9 @@ class AiAssistantRepository {
   }
 
   Future<AiAssistantProfile> getProfile() async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/profile');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/profile',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) {
       return const AiAssistantProfile();
     }
@@ -175,7 +195,10 @@ class AiAssistantRepository {
       if (profile.dislikedFoods != null) 'dislikedFoods': profile.dislikedFoods,
       if (profile.eatingPattern != null) 'eatingPattern': profile.eatingPattern,
     };
-    final response = await _api.putJson('${ApiEndpoints.baseUrl}/AiAssistant/profile', body);
+    final response = await _api.putJson(
+      '${ApiEndpoints.baseUrl}/AiAssistant/profile',
+      body,
+    );
     if (response.statusCode != 200 || response.body.isEmpty) {
       return profile;
     }
@@ -185,7 +208,9 @@ class AiAssistantRepository {
   }
 
   Future<List<SuggestionItem>> getSuggestions() async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/suggestions');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/suggestions',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) return [];
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
@@ -196,7 +221,9 @@ class AiAssistantRepository {
   }
 
   Future<String> summarizeConversation(String conversationId) async {
-    final response = await _api.get('${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId/summary');
+    final response = await _api.get(
+      '${ApiEndpoints.baseUrl}/AiAssistant/conversations/$conversationId/summary',
+    );
     if (response.statusCode != 200 || response.body.isEmpty) {
       return '';
     }
