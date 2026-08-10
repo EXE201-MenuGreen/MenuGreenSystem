@@ -174,6 +174,7 @@ class ClientMealPlanItemPayload {
     this.plannedDate,
     this.scheduledTime,
     this.targetCalories,
+    this.quantityG,
   });
 
   /// Null when adding a new item; required when updating an existing one.
@@ -184,6 +185,7 @@ class ClientMealPlanItemPayload {
   final DateTime? plannedDate;
   final String? scheduledTime; // "HH:mm"
   final int? targetCalories;
+  final double? quantityG;
 
   Map<String, dynamic> toJson() => {
     if (id != null) 'id': id,
@@ -197,5 +199,6 @@ class ClientMealPlanItemPayload {
           '${plannedDate!.day.toString().padLeft(2, '0')}',
     if (scheduledTime != null) 'scheduledTime': scheduledTime,
     if (targetCalories != null) 'targetCalories': targetCalories,
+    if (quantityG != null) 'quantityG': quantityG,
   };
 }

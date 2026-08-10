@@ -9,7 +9,7 @@ export interface FoodUpsertRequest {
   fatG?: number | null;
   fiberG?: number | null;
   estimatedPriceVnd?: number | null;
-  defaultServingG?: number | null;
+  defaultServingG: number;
   imageUrl?: string | null;
   isActive?: boolean | null;
   /** Chỉ dùng phía client khi lưu — API Food upsert không nhận field này. */

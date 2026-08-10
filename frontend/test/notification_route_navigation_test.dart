@@ -63,6 +63,29 @@ void main() {
     expect(action.id, 'route-request-123');
   });
 
+  test('coach route notification opens the exact Gymer meal plan', () {
+    final action = NotificationHandler().parseNotificationData({
+      'type': 'pt_review_request',
+      'deepLink': 'coach_route_approval:gymer-123:plan-456',
+    });
+
+    expect(action.type, NotificationActionType.openCoachMealPlan);
+    expect(action.clientId, 'gymer-123');
+    expect(action.id, 'plan-456');
+  });
+
+  test('coach route payload fields work without a deep-link', () {
+    final action = NotificationHandler().parseNotificationData({
+      'type': 'pt_review_request',
+      'clientId': 'gymer-789',
+      'mealPlanId': 'plan-999',
+    });
+
+    expect(action.type, NotificationActionType.openCoachMealPlan);
+    expect(action.clientId, 'gymer-789');
+    expect(action.id, 'plan-999');
+  });
+
   test('personal program deep-link opens PT sent tab with exact id', () {
     final action = NotificationHandler().parseNotificationData({
       'type': 'coach_personal_program',

@@ -10,6 +10,7 @@ class RouteApprovalMeal {
     required this.isCompleted,
     this.foodId,
     this.recipeId,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -22,6 +23,7 @@ class RouteApprovalMeal {
   final bool isCompleted;
   final String? foodId;
   final String? recipeId;
+  final double? quantityG;
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
@@ -35,6 +37,7 @@ class RouteApprovalMeal {
       isCompleted: isCompleted ?? this.isCompleted,
       foodId: foodId,
       recipeId: recipeId,
+      quantityG: quantityG,
       proteinG: proteinG,
       carbsG: carbsG,
       fatG: fatG,
@@ -56,6 +59,7 @@ class RouteApprovalMeal {
       isCompleted: _bool(json, 'isCompleted'),
       foodId: _string(json, 'foodId'),
       recipeId: _string(json, 'recipeId'),
+      quantityG: _double(json, 'quantityG'),
       proteinG: _int(json, 'proteinG'),
       carbsG: _int(json, 'carbsG'),
       fatG: _int(json, 'fatG'),
@@ -241,6 +245,12 @@ int? _int(Map<String, dynamic> json, String key) {
   if (value is int) return value;
   if (value is num) return value.round();
   return int.tryParse(value?.toString() ?? '');
+}
+
+double? _double(Map<String, dynamic> json, String key) {
+  final value = _value(json, key);
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '');
 }
 
 bool _bool(Map<String, dynamic> json, String key) {

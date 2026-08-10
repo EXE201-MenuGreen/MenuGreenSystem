@@ -41,6 +41,15 @@ class FirebaseStorageService {
     );
   }
 
+  Future<XFile?> pickCoachApplicationImage({bool square = false}) {
+    return _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: square ? 1200 : 1800,
+      maxHeight: square ? 1200 : 1800,
+      imageQuality: 85,
+    );
+  }
+
   Future<String> uploadAvatar({
     required String userId,
 
@@ -92,5 +101,42 @@ class FirebaseStorageService {
     } on FirebaseException {
       rethrow;
     }
+  }
+
+  Future<String> uploadCoachApplicationImage({
+    required String userId,
+    required String category,
+    required File imageFile,
+  }) async {
+    if (!isSupported) {
+      throw UnsupportedError('Upload ảnh chỉ hỗ trợ trên Android/iOS.');
+    }
+
+    await FirebaseBootstrap.initialize();
+    if (!FirebaseBootstrap.isInitialized) {
+      throw StateError('Firebase chưa khởi tạo. Vui lòng thử lại.');
+    }
+    if (!await imageFile.exists()) {
+      throw StateError('Không đọc được ảnh đã chọn.');
+    }
+
+    final safeUserId = userId.trim();
+    final safeCategory = category.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    if (safeUserId.isEmpty || safeCategory.isEmpty) {
+      throw ArgumentError('Thông tin tải ảnh không hợp lệ.');
+    }
+
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final ref = _storageClient.ref().child(
+      'coach-applications/$safeUserId/$safeCategory/$timestamp.jpg',
+    );
+    final snapshot = await ref.putFile(
+      imageFile,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    if (snapshot.state != TaskState.success) {
+      throw StateError('Tải ảnh chưa hoàn tất.');
+    }
+    return snapshot.ref.getDownloadURL();
   }
 }

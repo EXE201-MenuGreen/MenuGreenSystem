@@ -5,17 +5,44 @@ import 'package:provider/provider.dart';
 
 import '../../main/views/main_screen.dart';
 import '../../coach/views/coach_main_screen.dart';
+import '../../coach/views/coach_application_screen.dart';
+import '../../coach/views/coach_application_status_screen.dart';
+import '../../coach/repositories/coach_application_repository.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../onboarding/views/onboarding_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../../core/services/push_notification_provider.dart';
+
+Future<Widget> resolveCoachDestination({
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  try {
+    final application = await CoachApplicationRepository().getMine().timeout(
+      timeout,
+    );
+    final status = (application['applicationStatus'] ?? 'Draft')
+        .toString()
+        .toLowerCase();
+    if (status == 'approved') {
+      return const CoachMainScreen();
+    }
+    if (status == 'draft') {
+      return CoachApplicationScreen(initialData: application);
+    }
+    return CoachApplicationStatusScreen(initialData: application);
+  } catch (_) {
+    return const CoachApplicationScreen();
+  }
+}
 
 /// After login / Google sign-in / app resume with token: go to onboarding or home.
 Future<void> navigateAfterAuthenticated(BuildContext context) async {
   final gate = OnboardingGate();
   bool complete = false;
   try {
-    complete = await gate.isOnboardingComplete().timeout(const Duration(seconds: 5));
+    complete = await gate.isOnboardingComplete().timeout(
+      const Duration(seconds: 5),
+    );
   } catch (_) {
     complete = true; // Fallback to main screen on slow network
   }
@@ -33,10 +60,15 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
   } else {
     // Check role — Coach gets PT workspace
     try {
-      final profile = await ProfileRepository().getMyProfile()
-          .timeout(const Duration(seconds: 4));
+      final profile = await ProfileRepository().getMyProfile().timeout(
+        const Duration(seconds: 4),
+      );
       final role = (profile?['role'] ?? '').toString().toLowerCase();
-      destination = role == 'coach' ? const CoachMainScreen() : const MainScreen();
+      if (role == 'coach') {
+        destination = await resolveCoachDestination();
+      } else {
+        destination = const MainScreen();
+      }
     } catch (_) {
       destination = const MainScreen();
     }

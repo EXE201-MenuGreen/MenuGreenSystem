@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../../discover/models/food_models.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
@@ -119,9 +120,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const IngredientScanScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const IngredientScanScreen()),
           );
         },
       ),
@@ -130,14 +129,18 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
         description: 'Đánh giá mức độ bám sát dinh dưỡng',
         icon: Icons.insights_rounded,
         color: const Color(0xFF7C3AED),
-        keywords: ['ke hoach', 'thuc te', 'adherence', 'adherence score', 'diem'],
+        keywords: [
+          'ke hoach',
+          'thuc te',
+          'adherence',
+          'adherence score',
+          'diem',
+        ],
         onTap: () {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const PlannedVsActualScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const PlannedVsActualScreen()),
           );
         },
       ),
@@ -183,9 +186,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const FoodCaptureScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const FoodCaptureScreen()),
           );
         },
       ),
@@ -199,9 +200,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const GymerHubScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const GymerHubScreen()),
           );
         },
       ),
@@ -215,9 +214,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const OfficeWorkspaceScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const OfficeWorkspaceScreen()),
           );
         },
       ),
@@ -249,9 +246,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const LocalPreferencesScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const LocalPreferencesScreen()),
           );
         },
       ),
@@ -265,9 +260,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const FavoritesScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const FavoritesScreen()),
           );
         },
       ),
@@ -281,9 +274,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const MealTemplatesScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const MealTemplatesScreen()),
           );
         },
       ),
@@ -297,9 +288,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const SafetyHubScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const SafetyHubScreen()),
           );
         },
       ),
@@ -313,9 +302,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const UpgradePlanScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const UpgradePlanScreen()),
           );
         },
       ),
@@ -433,7 +420,8 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                       color: AppColors.textDark,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Tìm chức năng (Cân nặng, Calo...) hoặc món ăn...',
+                      hintText:
+                          'Tìm chức năng (Cân nặng, Calo...) hoặc món ăn...',
                       hintStyle: GoogleFonts.beVietnamPro(
                         fontSize: 13.5,
                         color: Colors.grey.shade500,
@@ -522,9 +510,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 24),
                           child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
                           ),
                         )
                       else if (_foodResults.isEmpty)
@@ -652,7 +638,10 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           ),
         ),
         subtitle: Text(
-          '${food.caloriesKcal?.toInt() ?? 0} kcal • ${food.category ?? 'Món ăn'}',
+          '${food.category ?? 'Món ăn'}\n'
+          '${formatNutritionFacts(quantityG: food.defaultServingG, caloriesKcal: food.caloriesKcal, proteinG: food.proteinG, carbsG: food.carbsG, fatG: food.fatG)}',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.beVietnamPro(
             fontSize: 12,
             color: AppColors.textSecondary,

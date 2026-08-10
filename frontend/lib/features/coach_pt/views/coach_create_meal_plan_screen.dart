@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -72,7 +73,8 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       _targetCalories = widget.initialTargetCalories;
       _targetCaloriesController.text = widget.initialTargetCalories.toString();
     }
-    if (widget.initialTargetProtein != null && widget.initialTargetProtein! > 0) {
+    if (widget.initialTargetProtein != null &&
+        widget.initialTargetProtein! > 0) {
       final targetP = widget.initialTargetProtein!;
       _minProteinController.text = targetP.toString();
       final currentMax = int.tryParse(_maxProteinController.text.trim()) ?? 100;
@@ -160,11 +162,13 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       final min = _mapInt(config, 'minCalories');
       final max = _mapInt(config, 'maxCalories');
 
-      final hasInitialTarget = widget.initialTargetCalories != null && !_userChangedDateOrType;
+      final hasInitialTarget =
+          widget.initialTargetCalories != null && !_userChangedDateOrType;
       final resolvedTarget = hasInitialTarget
           ? widget.initialTargetCalories!
           : (target ?? 1500);
-      final resolvedMin = min ?? (hasInitialTarget ? (resolvedTarget * 0.8).round() : 500);
+      final resolvedMin =
+          min ?? (hasInitialTarget ? (resolvedTarget * 0.8).round() : 500);
       final resolvedMax = max ?? resolvedTarget;
 
       setState(() {
@@ -175,10 +179,13 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
         _targetCaloriesController.text = resolvedTarget.toString();
         _minCaloriesController.text = resolvedMin.toString();
         _maxCaloriesController.text = resolvedMax.toString();
-        if (widget.initialTargetProtein != null && widget.initialTargetProtein! > 0 && !_userChangedDateOrType) {
+        if (widget.initialTargetProtein != null &&
+            widget.initialTargetProtein! > 0 &&
+            !_userChangedDateOrType) {
           final targetP = widget.initialTargetProtein!;
           _minProteinController.text = targetP.toString();
-          final currentMax = int.tryParse(_maxProteinController.text.trim()) ?? 100;
+          final currentMax =
+              int.tryParse(_maxProteinController.text.trim()) ?? 100;
           if (currentMax < targetP) {
             _maxProteinController.text = targetP.toString();
           }
@@ -220,6 +227,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
             plannedDate: d.plannedDate,
             scheduledTime: d.scheduledTime,
             targetCalories: d.targetCalories,
+            quantityG: d.quantityG,
           ),
         )
         .toList();
@@ -1457,6 +1465,10 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       plannedDate: plannedDate,
       scheduledTime: _mealDefaultTime(mealType),
       targetCalories: _mapInt(suggestion, 'caloriesKcal'),
+      quantityG:
+          _mapDouble(suggestion, 'quantityG') ??
+          _mapDouble(suggestion, 'defaultServingG') ??
+          100,
       proteinG: _mapDouble(suggestion, 'proteinG'),
       carbsG: _mapDouble(suggestion, 'carbsG'),
       fatG: _mapDouble(suggestion, 'fatG'),
@@ -1482,6 +1494,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
         plannedDate: plannedDate,
         scheduledTime: replacing?.scheduledTime ?? _mealDefaultTime(mealType),
         targetCalories: pick.calories,
+        quantityG: pick.quantityG ?? replacing?.quantityG ?? 100,
         proteinG: pick.proteinG,
         carbsG: pick.carbsG,
         fatG: pick.fatG,
@@ -1609,6 +1622,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                   plannedDate: selectedDate,
                   scheduledTime: timeController.text.trim(),
                   targetCalories: int.tryParse(caloriesController.text.trim()),
+                  quantityG: item.quantityG,
                   proteinG: double.tryParse(proteinController.text.trim()),
                   carbsG: double.tryParse(carbsController.text.trim()),
                   fatG: double.tryParse(fatController.text.trim()),
@@ -1974,10 +1988,30 @@ class _SuggestionPreviewState extends State<_SuggestionPreview> {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text(
-                  '${value(visibleSuggestions[index], 'caloriesKcal')} kcal'
-                  ' · P ${value(visibleSuggestions[index], 'proteinG')}g'
-                  ' · C ${value(visibleSuggestions[index], 'carbsG')}g'
-                  ' · F ${value(visibleSuggestions[index], 'fatG')}g',
+                  formatNutritionFacts(
+                    quantityG:
+                        double.tryParse(
+                          value(visibleSuggestions[index], 'quantityG'),
+                        ) ??
+                        double.tryParse(
+                          value(visibleSuggestions[index], 'defaultServingG'),
+                        ) ??
+                        100,
+                    caloriesKcal: double.tryParse(
+                      value(visibleSuggestions[index], 'caloriesKcal'),
+                    ),
+                    proteinG: double.tryParse(
+                      value(visibleSuggestions[index], 'proteinG'),
+                    ),
+                    carbsG: double.tryParse(
+                      value(visibleSuggestions[index], 'carbsG'),
+                    ),
+                    fatG: double.tryParse(
+                      value(visibleSuggestions[index], 'fatG'),
+                    ),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => widget.onView(visibleSuggestions[index]),
@@ -2082,11 +2116,16 @@ class _ReviewMealItem extends StatelessWidget {
                     if (dateLabel.isNotEmpty) dateLabel,
                     if ((item.scheduledTime ?? '').isNotEmpty)
                       item.scheduledTime!,
-                    '${item.targetCalories ?? 0} kcal',
-                    'P ${(item.proteinG ?? 0).round()}g',
-                    'C ${(item.carbsG ?? 0).round()}g',
-                    'F ${(item.fatG ?? 0).round()}g',
-                  ].join(' · '),
+                    formatNutritionFacts(
+                      quantityG: item.quantityG,
+                      caloriesKcal: item.targetCalories,
+                      proteinG: item.proteinG,
+                      carbsG: item.carbsG,
+                      fatG: item.fatG,
+                    ),
+                  ].join('\n'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                 ),
               ],
@@ -2228,11 +2267,10 @@ class _MealPickerRow extends StatelessWidget {
                       subtitle: Text(
                         '${items[i].plannedDate == null ? '' : '${items[i].plannedDate!.day.toString().padLeft(2, '0')}/${items[i].plannedDate!.month.toString().padLeft(2, '0')}/${items[i].plannedDate!.year} · '}'
                         '${items[i].scheduledTime ?? ''}'
-                        '${items[i].scheduledTime == null ? '' : ' · '}'
-                        '${items[i].targetCalories ?? 0} kcal'
-                        '${items[i].proteinG != null ? ' · P ${items[i].proteinG!.round()}g' : ''}'
-                        '${items[i].carbsG != null ? ' · C ${items[i].carbsG!.round()}g' : ''}'
-                        '${items[i].fatG != null ? ' · F ${items[i].fatG!.round()}g' : ''}',
+                        '${items[i].scheduledTime == null ? '' : '\n'}'
+                        '${formatNutritionFacts(quantityG: items[i].quantityG, caloriesKcal: items[i].targetCalories, proteinG: items[i].proteinG, carbsG: items[i].carbsG, fatG: items[i].fatG)}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -2287,6 +2325,7 @@ class _DraftItemDraft {
     this.plannedDate,
     this.scheduledTime,
     this.targetCalories,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -2299,6 +2338,7 @@ class _DraftItemDraft {
   final DateTime? plannedDate;
   final String? scheduledTime;
   final int? targetCalories;
+  final double? quantityG;
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
@@ -2310,6 +2350,7 @@ class _PickResult {
     required this.name,
     required this.kind,
     this.calories,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -2318,6 +2359,7 @@ class _PickResult {
   final String name;
   final _IngredientKind kind;
   final int? calories;
+  final double? quantityG;
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
@@ -2362,6 +2404,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'proteinG': item.proteinG,
             'carbsG': item.carbsG,
             'fatG': item.fatG,
+            'quantityG': item.defaultServingG,
           },
         ),
         ...(results[1] as List).map(
@@ -2371,6 +2414,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'type': 'recipe',
             'category': 'Công thức',
             'caloriesKcal': item.totalCalories,
+            'quantityG': 100,
           },
         ),
       ].take(20).toList();
@@ -2443,8 +2487,10 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                       return ListTile(
                         title: Text(name),
                         subtitle: Text(
-                          '${(it['category'] ?? it['Category'] ?? '').toString()}'
-                          '${calories == null ? '' : ' · $calories kcal'}',
+                          '${(it['category'] ?? it['Category'] ?? '').toString()}\n'
+                          '${formatNutritionFacts(quantityG: _mapNullableDouble(it['quantityG'] ?? it['QuantityG']), caloriesKcal: calories, proteinG: _mapNullableDouble(it['proteinG']), carbsG: _mapNullableDouble(it['carbsG']), fatG: _mapNullableDouble(it['fatG']))}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         onTap: () => Navigator.pop(
                           context,
@@ -2453,6 +2499,9 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                             name: name,
                             kind: kind,
                             calories: calories,
+                            quantityG: _mapNullableDouble(
+                              it['quantityG'] ?? it['QuantityG'],
+                            ),
                             proteinG: _mapNullableDouble(it['proteinG']),
                             carbsG: _mapNullableDouble(it['carbsG']),
                             fatG: _mapNullableDouble(it['fatG']),

@@ -12,8 +12,8 @@ import 'coach_meal_plan_history_screen.dart';
 /// Gymers with search & pagination so the Coach can pick one to manage.
 class _ClientScreenData {
   final List<Map<String, dynamic>> clients;
-  final Set<String> pendingClientIds;
-  _ClientScreenData({required this.clients, required this.pendingClientIds});
+  final Map<String, int> pendingRouteCounts;
+  _ClientScreenData({required this.clients, required this.pendingRouteCounts});
 }
 
 class CoachMealPlanSelectClientScreen extends StatefulWidget {
@@ -27,7 +27,6 @@ class CoachMealPlanSelectClientScreen extends StatefulWidget {
 class _CoachMealPlanSelectClientScreenState
     extends State<CoachMealPlanSelectClientScreen> {
   final AdvancedRepository _repo = AdvancedRepository();
-  final CoachReportRepository _reportRepo = CoachReportRepository();
   late Future<_ClientScreenData> _dataFuture;
   final TextEditingController _searchController = TextEditingController();
 
@@ -50,20 +49,35 @@ class _CoachMealPlanSelectClientScreenState
   Future<_ClientScreenData> _loadData() async {
     final raw = await _repo.clients();
     final connected = raw
-        .where((c) => (c['connectionStatus'] ?? c['ConnectionStatus']) == 'Connected')
+        .where(
+          (c) =>
+              (c['connectionStatus'] ?? c['ConnectionStatus']) == 'Connected',
+        )
         .toList();
 
-    final pendingIds = <String>{};
-    try {
-      final reports = await _reportRepo.listReports(status: CoachReportStatus.pending);
-      for (final r in reports) {
-        if (r.clientId != null && r.clientId!.isNotEmpty) {
-          pendingIds.add(r.clientId!);
-        }
+    final pendingCounts = <String, int>{};
+    for (final client in connected) {
+      final clientId = (client['clientId'] ?? client['ClientId'])?.toString();
+      final rawCount =
+          client['pendingRouteApprovalCount'] ??
+          client['PendingRouteApprovalCount'];
+      final count = rawCount is num
+          ? rawCount.toInt()
+          : int.tryParse(rawCount?.toString() ?? '') ?? 0;
+      if (clientId != null && clientId.isNotEmpty && count > 0) {
+        pendingCounts[clientId] = count;
       }
-    } catch (_) {}
+    }
+    connected.sort((a, b) {
+      final aId = (a['clientId'] ?? a['ClientId'])?.toString() ?? '';
+      final bId = (b['clientId'] ?? b['ClientId'])?.toString() ?? '';
+      return (pendingCounts[bId] ?? 0).compareTo(pendingCounts[aId] ?? 0);
+    });
 
-    return _ClientScreenData(clients: connected, pendingClientIds: pendingIds);
+    return _ClientScreenData(
+      clients: connected,
+      pendingRouteCounts: pendingCounts,
+    );
   }
 
   Future<void> _refresh() async {
@@ -108,9 +122,12 @@ class _CoachMealPlanSelectClientScreenState
                 onRetry: _refresh,
               );
             }
-            final data = snapshot.data ?? _ClientScreenData(clients: [], pendingClientIds: {});
+            final data =
+                snapshot.data ??
+                _ClientScreenData(clients: [], pendingRouteCounts: {});
             final allClients = data.clients;
-            final pendingIds = data.pendingClientIds;
+            final pendingCounts = data.pendingRouteCounts;
+            final pendingIds = pendingCounts.keys.toSet();
 
             if (allClients.isEmpty) {
               return const _EmptyState(
@@ -121,13 +138,14 @@ class _CoachMealPlanSelectClientScreenState
 
             // Filter search query
             final filteredClients = allClients.where((c) {
-              final name = (c['fullName'] ??
-                      c['FullName'] ??
-                      c['email'] ??
-                      c['Email'] ??
-                      '')
-                  .toString()
-                  .toLowerCase();
+              final name =
+                  (c['fullName'] ??
+                          c['FullName'] ??
+                          c['email'] ??
+                          c['Email'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
               return name.contains(_searchQuery.toLowerCase());
             }).toList();
 
@@ -298,19 +316,21 @@ class _CoachMealPlanSelectClientScreenState
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           itemCount: pageClients.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final c = pageClients[index];
-                            final name = (c['fullName'] ??
-                                    c['FullName'] ??
-                                    c['email'] ??
-                                    c['Email'] ??
-                                    'Học viên')
+                            final name =
+                                (c['fullName'] ??
+                                        c['FullName'] ??
+                                        c['email'] ??
+                                        c['Email'] ??
+                                        'Học viên')
+                                    .toString();
+                            final clientId = (c['clientId'] ?? c['ClientId'])
                                 .toString();
-                            final clientId =
-                                (c['clientId'] ?? c['ClientId']).toString();
-                            final avatar =
-                                (c['avatarUrl'] ?? c['AvatarUrl'])?.toString();
+                            final avatar = (c['avatarUrl'] ?? c['AvatarUrl'])
+                                ?.toString();
                             final email =
                                 (c['email'] ?? c['Email'])?.toString() ?? '';
                             final hasPending = pendingIds.contains(clientId);
@@ -328,7 +348,9 @@ class _CoachMealPlanSelectClientScreenState
                                 boxShadow: [
                                   BoxShadow(
                                     color: hasPending
-                                        ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                                        ? const Color(
+                                            0xFFF59E0B,
+                                          ).withValues(alpha: 0.12)
                                         : Colors.black.withValues(alpha: 0.03),
                                     blurRadius: hasPending ? 10 : 8,
                                     offset: const Offset(0, 2),
@@ -343,8 +365,9 @@ class _CoachMealPlanSelectClientScreenState
                                   onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => ChangeNotifierProvider(
-                                        create: (_) => CoachMealPlanProvider()
-                                          ..loadPlansForClient(clientId),
+                                        create: (_) =>
+                                            CoachMealPlanProvider()
+                                              ..loadPlansForClient(clientId),
                                         child: CoachMealPlanHistoryScreen(
                                           clientId: clientId,
                                           clientName: name,
@@ -364,7 +387,9 @@ class _CoachMealPlanSelectClientScreenState
                                             shape: BoxShape.circle,
                                             border: hasPending
                                                 ? Border.all(
-                                                    color: const Color(0xFFEA580C),
+                                                    color: const Color(
+                                                      0xFFEA580C,
+                                                    ),
                                                     width: 2,
                                                   )
                                                 : null,
@@ -373,17 +398,20 @@ class _CoachMealPlanSelectClientScreenState
                                             radius: 22,
                                             backgroundColor: AppColors.primary
                                                 .withValues(alpha: 0.12),
-                                            backgroundImage: avatar != null &&
+                                            backgroundImage:
+                                                avatar != null &&
                                                     avatar.isNotEmpty
                                                 ? NetworkImage(avatar)
                                                 : null,
-                                            child: avatar == null || avatar.isEmpty
+                                            child:
+                                                avatar == null || avatar.isEmpty
                                                 ? Text(
                                                     name.isNotEmpty
                                                         ? name[0].toUpperCase()
                                                         : '?',
                                                     style: const TextStyle(
-                                                      fontWeight: FontWeight.w800,
+                                                      fontWeight:
+                                                          FontWeight.w800,
                                                       color: AppColors.primary,
                                                       fontSize: 16,
                                                     ),
@@ -403,45 +431,62 @@ class _CoachMealPlanSelectClientScreenState
                                                     child: Text(
                                                       name,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         fontSize: 15,
-                                                        color: Color(0xFF111827),
+                                                        color: Color(
+                                                          0xFF111827,
+                                                        ),
                                                       ),
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   if (hasPending) ...[
                                                     const SizedBox(width: 6),
                                                     Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                        horizontal: 7,
-                                                        vertical: 2,
-                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 7,
+                                                            vertical: 2,
+                                                          ),
                                                       decoration: BoxDecoration(
-                                                        color: const Color(0xFFFFF7ED),
+                                                        color: const Color(
+                                                          0xFFFFF7ED,
+                                                        ),
                                                         borderRadius:
-                                                            BorderRadius.circular(12),
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
                                                         border: Border.all(
-                                                          color: const Color(0xFFFFEDD5),
+                                                          color: const Color(
+                                                            0xFFFFEDD5,
+                                                          ),
                                                         ),
                                                       ),
                                                       child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
                                                         children: [
                                                           Icon(
                                                             Icons.stars_rounded,
                                                             size: 13,
-                                                            color: Color(0xFFEA580C),
+                                                            color: Color(
+                                                              0xFFEA580C,
+                                                            ),
                                                           ),
                                                           SizedBox(width: 3),
                                                           Text(
-                                                            'Chờ duyệt',
+                                                            'Mới gửi',
                                                             style: TextStyle(
                                                               fontSize: 10.5,
                                                               fontWeight:
-                                                                  FontWeight.w800,
-                                                              color: Color(0xFFEA580C),
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color: Color(
+                                                                0xFFEA580C,
+                                                              ),
                                                             ),
                                                           ),
                                                         ],
@@ -468,8 +513,9 @@ class _CoachMealPlanSelectClientScreenState
                                           width: 32,
                                           height: 32,
                                           decoration: BoxDecoration(
-                                            color: AppColors.primary
-                                                .withValues(alpha: 0.08),
+                                            color: AppColors.primary.withValues(
+                                              alpha: 0.08,
+                                            ),
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Icon(
@@ -489,7 +535,7 @@ class _CoachMealPlanSelectClientScreenState
                 ),
 
                 // Pagination Controls
-                if (totalPages > 1)
+                if (filteredClients.isNotEmpty)
                   Container(
                     color: Colors.white,
                     padding: const EdgeInsets.symmetric(
@@ -500,14 +546,18 @@ class _CoachMealPlanSelectClientScreenState
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_rounded,
+                            size: 16,
+                          ),
                           onPressed: safePage > 0
                               ? () => setState(() => _currentPage--)
                               : null,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Trang ${safePage + 1} / $totalPages',
+                          'Trang ${safePage + 1} / $totalPages'
+                          ' • ${filteredClients.length} học viên',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -516,7 +566,10 @@ class _CoachMealPlanSelectClientScreenState
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                          icon: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 16,
+                          ),
                           onPressed: safePage < totalPages - 1
                               ? () => setState(() => _currentPage++)
                               : null,
@@ -592,7 +645,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: Colors.redAccent,
+            ),
             const SizedBox(height: 16),
             Text(
               message,

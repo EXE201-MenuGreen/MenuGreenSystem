@@ -4,6 +4,19 @@ namespace MenuGreen.BusinessLogicLayer.Helpers
 {
     public static class NutritionMath
     {
+        /// <summary>
+        /// Returns the multiplier for nutrition values stored for one default
+        /// food serving. Legacy rows without a serving weight are treated as
+        /// a 100g basis, matching the historical behavior.
+        /// </summary>
+        public static decimal ServingNutritionRatio(
+            decimal quantityG,
+            int? defaultServingG)
+        {
+            var basisG = defaultServingG is > 0 ? defaultServingG.Value : 100;
+            return quantityG / basisG;
+        }
+
         public static decimal IngredientNutritionRatio(decimal quantity, string? unit)
         {
             var normalized = (unit ?? string.Empty).Trim().ToLowerInvariant();

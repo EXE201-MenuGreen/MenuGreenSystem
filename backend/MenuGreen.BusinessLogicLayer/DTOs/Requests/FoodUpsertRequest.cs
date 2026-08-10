@@ -17,6 +17,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public decimal? FatG { get; set; }
         public decimal? FiberG { get; set; }
         public int? EstimatedPriceVnd { get; set; }
+        [Required(ErrorMessage = "Default serving weight is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Default serving weight must be greater than 0 grams.")]
         public int? DefaultServingG { get; set; }
         public string? ImageUrl { get; set; }
         public bool? IsActive { get; set; }
