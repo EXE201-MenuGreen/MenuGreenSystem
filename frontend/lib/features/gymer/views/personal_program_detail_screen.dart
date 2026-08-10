@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -602,8 +603,7 @@ class _PersonalMealTile extends StatelessWidget {
     final isCompletedInMap =
         meal['isCompleted'] == true ||
         _value(meal, 'isCompleted').toLowerCase() == 'true';
-    final isCompleted =
-        completedMealKeys.contains(mealKey) || isCompletedInMap;
+    final isCompleted = completedMealKeys.contains(mealKey) || isCompletedInMap;
     final isUpdating = updatingMealIds.contains(mealId);
 
     final mealType = _value(meal, 'mealType');
@@ -623,9 +623,7 @@ class _PersonalMealTile extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: isCompleted
-                ? Colors.grey.shade500
-                : const Color(0xFF111827),
+            color: isCompleted ? Colors.grey.shade500 : const Color(0xFF111827),
             decoration: isCompleted
                 ? TextDecoration.lineThrough
                 : TextDecoration.none,
@@ -661,11 +659,10 @@ class _PersonalMealTile extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${_nutrition(meal)} · Chạm để xem công thức',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: Colors.grey.shade600,
-                ),
+                '${_nutrition(meal)}\nChạm để xem công thức',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -734,20 +731,17 @@ class _PersonalMealTile extends StatelessWidget {
   }
 
   static String _nutrition(Map<String, dynamic> meal) {
-    final values = <String>[
-      '${_value(meal, 'targetCalories').isEmpty ? 0 : _value(meal, 'targetCalories')} kcal',
-      if (_value(meal, 'proteinG').isNotEmpty)
-        'P ${_number(_value(meal, 'proteinG'))}g',
-      if (_value(meal, 'carbsG').isNotEmpty)
-        'C ${_number(_value(meal, 'carbsG'))}g',
-      if (_value(meal, 'fatG').isNotEmpty)
-        'F ${_number(_value(meal, 'fatG'))}g',
-    ];
-    return values.join(' · ');
+    return formatNutritionFacts(
+      quantityG: _nullableNumber(_value(meal, 'quantityG')),
+      caloriesKcal: _nullableNumber(_value(meal, 'targetCalories')),
+      proteinG: _nullableNumber(_value(meal, 'proteinG')),
+      carbsG: _nullableNumber(_value(meal, 'carbsG')),
+      fatG: _nullableNumber(_value(meal, 'fatG')),
+    );
   }
 
-  static String _number(String value) =>
-      (double.tryParse(value) ?? 0).round().toString();
+  static double? _nullableNumber(String value) =>
+      value.isEmpty ? null : double.tryParse(value);
 
   static (Color, Color, Color) _mealTypeColors(String type) {
     return switch (type.trim().toLowerCase()) {
@@ -809,11 +803,7 @@ class _PersonalMealTile extends StatelessWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.child,
-    this.icon,
-  });
+  const _Section({required this.title, required this.child, this.icon});
   final String title;
   final Widget child;
   final IconData? icon;
@@ -846,11 +836,7 @@ class _Section extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
+                  child: Icon(icon, size: 16, color: AppColors.primary),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -888,10 +874,7 @@ class _Row extends StatelessWidget {
             width: 110,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
             ),
           ),
           Expanded(
@@ -933,10 +916,7 @@ class _TargetRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ),
           Text(

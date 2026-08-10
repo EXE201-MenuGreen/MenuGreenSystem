@@ -12,6 +12,9 @@ class MealLogItem {
     this.sourceType,
     this.customName,
     this.mealPlanItemId,
+    this.proteinG = 0,
+    this.carbsG = 0,
+    this.fatG = 0,
   });
 
   final String id;
@@ -26,6 +29,9 @@ class MealLogItem {
   final String? sourceType;
   final String? customName;
   final String? mealPlanItemId;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
 
   bool get isRecipe =>
       (recipeId != null && recipeId!.isNotEmpty) ||
@@ -45,10 +51,14 @@ class MealLogItem {
   }
 
   factory MealLogItem.fromJson(Map<String, dynamic> json) {
-    final loggedAtRaw = json['loggedAt']?.toString();
-    final foodName = json['foodName']?.toString().trim();
-    final recipeTitle = json['recipeTitle']?.toString().trim();
-    final displayName = json['displayName']?.toString().trim();
+    final loggedAtRaw = (json['loggedAt'] ?? json['LoggedAt'])?.toString();
+    final foodName = (json['foodName'] ?? json['FoodName'])?.toString().trim();
+    final recipeTitle = (json['recipeTitle'] ?? json['RecipeTitle'])
+        ?.toString()
+        .trim();
+    final displayName = (json['displayName'] ?? json['DisplayName'])
+        ?.toString()
+        .trim();
     final customName = (json['customName'] ?? json['CustomName'])
         ?.toString()
         .trim();
@@ -72,10 +82,10 @@ class MealLogItem {
         : 'Món đã ghi';
 
     return MealLogItem(
-      id: (json['id'] ?? '').toString(),
-      mealType: (json['mealType'] ?? 'snack').toString(),
-      quantityG: _asDouble(json['quantityG']),
-      caloriesKcal: _asDouble(json['caloriesKcal']),
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      mealType: (json['mealType'] ?? json['MealType'] ?? 'snack').toString(),
+      quantityG: _asDouble(json['quantityG'] ?? json['QuantityG']),
+      caloriesKcal: _asDouble(json['caloriesKcal'] ?? json['CaloriesKcal']),
       loggedAt: loggedAtRaw == null
           ? null
           : DateTime.tryParse(loggedAtRaw)?.toLocal(),
@@ -88,6 +98,9 @@ class MealLogItem {
       mealPlanItemId: _parseOptionalId(
         json['mealPlanItemId'] ?? json['MealPlanItemId'],
       ),
+      proteinG: _asDouble(json['proteinG'] ?? json['ProteinG']),
+      carbsG: _asDouble(json['carbsG'] ?? json['CarbsG']),
+      fatG: _asDouble(json['fatG'] ?? json['FatG']),
     );
   }
 }

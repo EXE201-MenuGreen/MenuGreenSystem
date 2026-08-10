@@ -995,7 +995,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = displayCalories > 0 ? displayCalories : null,
-                QuantityG = x.QuantityG,
+                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
                 ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
                 CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
                 FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
@@ -1141,6 +1141,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = cal > 0 ? cal : null,
+                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
                 IsCompleted = x.IsCompleted,
                 CustomName = x.CustomName,
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName,
@@ -1572,6 +1573,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     .Take(5);
                 foreach (var r in alternativeRecipes)
                 {
+                    var nutrition = await GetItemMacrosAsync(new MealPlanItem
+                    {
+                        RecipeId = r.Id
+                    });
                     result.Add(new MealPlanItemResponse
                     {
                         Id = Guid.Empty,
@@ -1581,6 +1586,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         RecipeName = r.Title,
                         SourceEntityType = "Recipe",
                         TargetCalories = currentCal,
+                        QuantityG = currentItem.QuantityG ?? 100m,
+                        ProteinG = nutrition.protein,
+                        CarbsG = nutrition.carbs,
+                        FatG = nutrition.fat,
                         EstimatedPriceVnd = RecipeServingPrice(r),
                         Status = "alternative"
                     });
@@ -1609,6 +1618,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         FoodName = f.NameVi,
                         SourceEntityType = "Food",
                         TargetCalories = currentCal,
+                        QuantityG = f.DefaultServingG ?? 100,
+                        ProteinG = f.ProteinG,
+                        CarbsG = f.CarbsG,
+                        FatG = f.FatG,
                         EstimatedPriceVnd = f.EstimatedPriceVnd,
                         Status = "alternative"
                     });
@@ -1951,6 +1964,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = request.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = x.TargetCalories,
+                QuantityG = x.QuantityG,
                 IsCompleted = false,
                 Origin = x.Origin
             }).ToList();
@@ -2354,6 +2368,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
                 TargetCalories = item.TargetCalories ?? (int)Math.Round(macros.calories),
+                QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,

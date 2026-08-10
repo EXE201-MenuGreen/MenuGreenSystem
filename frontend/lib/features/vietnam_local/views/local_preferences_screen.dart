@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../models/vietnam_local_models.dart';
 import '../providers/local_preferences_provider.dart';
@@ -56,7 +57,8 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
       final sub = await UserSubscriptionRepository().getCurrent();
       if (sub != null && sub.isActive && sub.daysRemaining >= 0) {
         final planName = sub.subscriptionPlanName.toLowerCase();
-        final hasPro = !planName.contains('free') && !planName.contains('cơ bản');
+        final hasPro =
+            !planName.contains('free') && !planName.contains('cơ bản');
         if (mounted) {
           setState(() {
             _isPro = hasPro;
@@ -147,7 +149,10 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
       _showRecList(
         title: 'Gợi ý theo ngân sách',
         items: provider.budgetAware
-            .map((e) => '${e.name} • ${e.caloriesKcal.toStringAsFixed(0)} kcal')
+            .map(
+              (e) =>
+                  '${e.name}\n${formatNutritionFacts(quantityG: e.quantityG, caloriesKcal: e.caloriesKcal, proteinG: e.proteinG, carbsG: e.carbsG, fatG: e.fatG)}',
+            )
             .toList(),
       );
     }
@@ -166,7 +171,10 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
       _showRecList(
         title: 'Món dễ ăn VN',
         items: provider.localFriendly
-            .map((e) => '${e.name} • ${e.caloriesKcal.toStringAsFixed(0)} kcal')
+            .map(
+              (e) =>
+                  '${e.name}\n${formatNutritionFacts(quantityG: e.quantityG, caloriesKcal: e.caloriesKcal, proteinG: e.proteinG, carbsG: e.carbsG, fatG: e.fatG)}',
+            )
             .toList(),
       );
     }
@@ -292,14 +300,17 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                           selected: _eatingPattern == e,
                           onSelected: (_) {
                             if (_isPro) {
-                              final planLower = _subscriptionPlanName.toLowerCase();
+                              final planLower = _subscriptionPlanName
+                                  .toLowerCase();
                               final isGymPlan = planLower.contains('gym');
                               final isOfficePlan = planLower.contains('office');
 
                               if (isGymPlan && e != 'gym') {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Gói Gym/PT hiện tại của bạn chỉ áp dụng cho chế độ Gym / PT.'),
+                                    content: Text(
+                                      'Gói Gym/PT hiện tại của bạn chỉ áp dụng cho chế độ Gym / PT.',
+                                    ),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -308,7 +319,9 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                               if (isOfficePlan && e != 'office') {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Gói cước của bạn chỉ áp dụng cho chế độ Văn phòng.'),
+                                    content: Text(
+                                      'Gói cước của bạn chỉ áp dụng cho chế độ Văn phòng.',
+                                    ),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -445,7 +458,7 @@ class _LocalPreferencesScreenState extends State<LocalPreferencesScreen> {
                             (e) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Text(
-                                '• ${e.name} • ${e.caloriesKcal.toStringAsFixed(0)} kcal',
+                                '• ${e.name}\n  ${formatNutritionFacts(quantityG: e.quantityG, caloriesKcal: e.caloriesKcal, proteinG: e.proteinG, carbsG: e.carbsG, fatG: e.fatG)}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondary,

@@ -352,6 +352,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     a => a.UserId == conn.ClientId && a.IsAcknowledged == false && a.IsDismissed == false);
                 var hasAlert = activeAlerts.Any();
 
+                var pendingRouteRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == conn.ClientId
+                    && r.Status == "Pending"
+                    && r.CreatedByRole != "Coach");
+                var pendingRouteApprovalCount = pendingRouteRequests.Count(request =>
+                    IsRouteApprovalRequest(request)
+                    && IsRouteApprovalAssignedToCoach(request, coachId));
+
                 results.Add(new CoachClientSummaryResponse
                 {
                     ClientId = conn.ClientId,
@@ -363,6 +371,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     CurrentStreak = streak,
                     HasCalorieDriftAlert = hasAlert,
                     ActiveProgramTitle = activeProgramTitle,
+                    PendingRouteApprovalCount = pendingRouteApprovalCount,
                     ConnectedAt = conn.UpdatedAt
                 });
             }
@@ -652,6 +661,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> AdjustClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId, MealPlanUpsertRequest request)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
+            await EnsureRoutePlanAssignedToCoachAsync(coachId, clientId, planId);
 
             var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId)
                 ?? throw new Exception("Meal plan not found.");
@@ -691,6 +701,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         Id = Guid.NewGuid(), MealPlanId = plan.Id, MealType = item.MealType,
                         FoodId = item.FoodId, RecipeId = item.RecipeId, PlannedDate = item.PlannedDate,
                         ScheduledTime = item.ScheduledTime, TargetCalories = item.TargetCalories,
+                        QuantityG = (decimal?)item.QuantityG,
                         IsCompleted = item.IsCompleted, CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -801,6 +812,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PlannedDate = item.PlannedDate,
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = calories,
+                    QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
                     ProteinG = protein,
                     CarbsG = carbs,
                     FatG = fat,
@@ -896,6 +908,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(x => x.UserId == clientId && x.IsActive);
             var query = plans.AsEnumerable();
+            var routeAssignments = await GetRoutePlanAssignmentsAsync(clientId);
+            query = query.Where(plan =>
+                !routeAssignments.TryGetValue(plan.Id, out var assignedCoachId)
+                || assignedCoachId == coachId);
 
             if (from.HasValue && to.HasValue)
             {
@@ -951,6 +967,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> GetClientMealPlanDetailAsync(Guid coachId, Guid clientId, Guid planId)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
+            await EnsureRoutePlanAssignedToCoachAsync(coachId, clientId, planId);
 
             var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
             if (plan == null || plan.UserId != clientId)
@@ -1000,6 +1017,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         PlannedDate = item.PlannedDate ?? plan.StartDate,
                         ScheduledTime = item.ScheduledTime,
                         TargetCalories = item.TargetCalories,
+                        QuantityG = (decimal?)item.QuantityG,
                         IsCompleted = false,
                         Origin = "coach",
                         CreatedAt = DateTime.UtcNow
@@ -1018,6 +1036,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             CoachSubmitMealPlanRequest? request)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
+            await EnsureRoutePlanAssignedToCoachAsync(coachId, clientId, planId);
 
             var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
             if (plan == null || plan.UserId != clientId)
@@ -1136,6 +1155,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                                 RecipeId = item.RecipeId,
                                 RecipeName = item.RecipeName,
                                 TargetCalories = item.TargetCalories,
+                                QuantityG = item.QuantityG,
                                 ProteinG = item.ProteinG,
                                 CarbsG = item.CarbsG,
                                 FatG = item.FatG
@@ -1300,9 +1320,82 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return null;
         }
 
+        private static bool IsRouteApprovalAssignedToCoach(
+            PtReviewRequest request,
+            Guid coachId)
+        {
+            var assignedCoachId = GetRouteApprovalAssignedCoachId(request);
+            return !assignedCoachId.HasValue || assignedCoachId.Value == coachId;
+        }
+
+        private static Guid? GetRouteApprovalAssignedCoachId(
+            PtReviewRequest request)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(request.ReportDataJson);
+                if (
+                    document.RootElement.TryGetProperty(
+                        "assignedCoachId",
+                        out var assignedCoachId)
+                    && assignedCoachId.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(assignedCoachId.GetString(), out var parsed)
+                )
+                {
+                    return parsed;
+                }
+            }
+            catch
+            {
+                // Legacy snapshots are scoped by the active connection.
+            }
+
+            return null;
+        }
+
+        private async Task<Dictionary<Guid, Guid>> GetRoutePlanAssignmentsAsync(
+            Guid clientId)
+        {
+            var requests = (await _unitOfWork.PtReviewRequests.FindAsync(request =>
+                    request.UserId == clientId
+                    && request.CreatedByRole != "Coach"))
+                .Where(IsRouteApprovalRequest)
+                .OrderBy(request => request.CreatedAt);
+
+            var assignments = new Dictionary<Guid, Guid>();
+            foreach (var request in requests)
+            {
+                var planId = GetRouteApprovalMealPlanId(request);
+                var assignedCoachId = GetRouteApprovalAssignedCoachId(request);
+                if (planId.HasValue && assignedCoachId.HasValue)
+                {
+                    assignments[planId.Value] = assignedCoachId.Value;
+                }
+            }
+
+            return assignments;
+        }
+
+        private async Task EnsureRoutePlanAssignedToCoachAsync(
+            Guid coachId,
+            Guid clientId,
+            Guid planId)
+        {
+            var assignments = await GetRoutePlanAssignmentsAsync(clientId);
+            if (
+                assignments.TryGetValue(planId, out var assignedCoachId)
+                && assignedCoachId != coachId
+            )
+            {
+                throw new UnauthorizedAccessException(
+                    "This meal plan was sent to another coach.");
+            }
+        }
+
         public async Task DeleteClientMealPlanAsync(Guid coachId, Guid clientId, Guid planId)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
+            await EnsureRoutePlanAssignedToCoachAsync(coachId, clientId, planId);
 
             var plan = await _unitOfWork.MealPlanHeaders.GetByIdAsync(planId);
             if (plan == null || plan.UserId != clientId)

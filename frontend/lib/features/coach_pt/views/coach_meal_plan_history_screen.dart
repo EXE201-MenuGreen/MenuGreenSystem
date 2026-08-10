@@ -365,6 +365,12 @@ class _PlanList extends StatelessWidget {
         .skip(safePage * itemsPerPage)
         .take(itemsPerPage)
         .toList();
+    final pageButtonCount = totalPages > 5 ? 5 : totalPages;
+    var firstVisiblePage = safePage - 2;
+    if (firstVisiblePage < 0) firstVisiblePage = 0;
+    if (firstVisiblePage + pageButtonCount > totalPages) {
+      firstVisiblePage = totalPages - pageButtonCount;
+    }
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -695,95 +701,95 @@ class _PlanList extends StatelessWidget {
             ),
           ),
 
-          // Pagination Bar (rendered if totalPages > 1)
-          if (totalPages > 1)
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-              color: Colors.transparent,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Prev Page
-                  IconButton(
-                    onPressed: safePage > 0
-                        ? () => onPageChanged(safePage - 1)
-                        : null,
-                    icon: const Icon(Icons.chevron_left_rounded, size: 22),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                      disabledBackgroundColor: Colors.grey.shade100,
-                      disabledForegroundColor: Colors.grey.shade400,
-                      side: BorderSide(
-                        color: safePage > 0
-                            ? AppColors.primary.withValues(alpha: 0.3)
-                            : Colors.grey.shade300,
-                      ),
+          // Pagination Bar
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+            color: Colors.transparent,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Prev Page
+                IconButton(
+                  onPressed: safePage > 0
+                      ? () => onPageChanged(safePage - 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_left_rounded, size: 22),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    disabledBackgroundColor: Colors.grey.shade100,
+                    disabledForegroundColor: Colors.grey.shade400,
+                    side: BorderSide(
+                      color: safePage > 0
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : Colors.grey.shade300,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                ),
+                const SizedBox(width: 10),
 
-                  // Page Numbers
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(totalPages, (i) {
-                      final isCurrent = i == safePage;
-                      return GestureDetector(
-                        onTap: () => onPageChanged(i),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: isCurrent ? 30 : 26,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: isCurrent ? AppColors.primary : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isCurrent
-                                  ? AppColors.primary
-                                  : Colors.grey.shade300,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${i + 1}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isCurrent
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: isCurrent
-                                  ? Colors.white
-                                  : Colors.grey.shade700,
-                            ),
+                // Page Numbers
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(pageButtonCount, (i) {
+                    final pageIndex = firstVisiblePage + i;
+                    final isCurrent = pageIndex == safePage;
+                    return GestureDetector(
+                      onTap: () => onPageChanged(pageIndex),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: isCurrent ? 30 : 26,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isCurrent ? AppColors.primary : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isCurrent
+                                ? AppColors.primary
+                                : Colors.grey.shade300,
                           ),
                         ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(width: 10),
-                  // Next Page
-                  IconButton(
-                    onPressed: safePage < totalPages - 1
-                        ? () => onPageChanged(safePage + 1)
-                        : null,
-                    icon: const Icon(Icons.chevron_right_rounded, size: 22),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                      disabledBackgroundColor: Colors.grey.shade100,
-                      disabledForegroundColor: Colors.grey.shade400,
-                      side: BorderSide(
-                        color: safePage < totalPages - 1
-                            ? AppColors.primary.withValues(alpha: 0.3)
-                            : Colors.grey.shade300,
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${pageIndex + 1}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isCurrent
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isCurrent
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                        ),
                       ),
+                    );
+                  }),
+                ),
+
+                const SizedBox(width: 10),
+                // Next Page
+                IconButton(
+                  onPressed: safePage < totalPages - 1
+                      ? () => onPageChanged(safePage + 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    disabledBackgroundColor: Colors.grey.shade100,
+                    disabledForegroundColor: Colors.grey.shade400,
+                    side: BorderSide(
+                      color: safePage < totalPages - 1
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : Colors.grey.shade300,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

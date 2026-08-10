@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
@@ -74,6 +75,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Map<String, dynamic>? _activeRouteReq;
   int _suggestionPage = 0;
   int _activeSuggestionPage = 0;
+  final Map<String, bool> _mealSlotExpanded = {};
 
   @override
   void initState() {
@@ -1147,9 +1149,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                      'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                      'Điểm ${item.score.toStringAsFixed(1)}',
+                                      '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,
@@ -1527,9 +1529,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                              'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                              'Điểm ${item.score.toStringAsFixed(1)}',
+                                              '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 color: AppColors.textSecondary,
@@ -1653,6 +1655,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
             .toList() ??
         [];
     final color = _mealSlotColor(mealType);
+    final hasMultipleItems = items.length > 1;
+    final isExpanded = _mealSlotExpanded[mealType] ?? (!hasMultipleItems);
 
     return Container(
       decoration: BoxDecoration(
@@ -1671,133 +1675,196 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header slot
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(_mealSlotIcon(mealType), color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  _mealSlotTitle(mealType),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: color,
-                  ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: hasMultipleItems
+                  ? () {
+                      setState(() {
+                        _mealSlotExpanded[mealType] = !isExpanded;
+                      });
+                    }
+                  : null,
+              borderRadius: isExpanded
+                  ? const BorderRadius.vertical(top: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                const Spacer(),
-                if (items.isNotEmpty)
-                  Text(
-                    '${items.fold<int>(0, (sum, item) => sum + item.targetCalories)} kcal',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.05),
+                  borderRadius: isExpanded
+                      ? const BorderRadius.vertical(top: Radius.circular(16))
+                      : BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Icon(_mealSlotIcon(mealType), color: color, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      _mealSlotTitle(mealType),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: color,
+                      ),
                     ),
-                  ),
-              ],
+                    if (hasMultipleItems) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${items.length} món',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (items.isNotEmpty)
+                      Text(
+                        '${items.fold<int>(0, (sum, item) => sum + item.targetCalories)} kcal',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    if (hasMultipleItems) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: color,
+                        size: 22,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-          // Items list
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Text(
-                'Chưa có món ăn nào.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-              ),
-            )
-          else
-            Column(
-              children: [
-                for (final item in items)
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey.shade100),
-                      ),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      leading: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      title: Text(
-                        item.displayName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${item.targetCalories} kcal',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      onTap: () {
-                        if (item.isFood && item.foodId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  FoodDetailScreen(foodId: item.foodId!),
-                            ),
-                          );
-                        } else if (item.recipeId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  RecipeDetailScreen(recipeId: item.recipeId!),
-                            ),
-                          );
-                        }
-                      },
-                      trailing: _isSentToPt || !_hasAcceptedPtConnection
-                          ? null
-                          : IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Colors.red.shade400,
-                                size: 20,
-                              ),
-                              onPressed: () => _deletePlanItem(item),
-                            ),
-                    ),
-                  ),
-              ],
-            ),
-          // Add button
-          if (!_isSentToPt && _hasAcceptedPtConnection)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: TextButton.icon(
-                onPressed: () => _showAddSuggestionSheet(mealType),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 36),
+          // Items list & add button
+          if (isExpanded) ...[
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
                 ),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm món từ gợi ý'),
+                child: Text(
+                  'Chưa có món ăn nào.',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (final item in items)
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100),
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        leading: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        title: Text(
+                          item.displayName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        subtitle: Text(
+                          formatNutritionFacts(
+                            quantityG: item.quantityG,
+                            caloriesKcal: item.targetCalories,
+                            proteinG: item.proteinG,
+                            carbsG: item.carbsG,
+                            fatG: item.fatG,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        onTap: () {
+                          if (item.isFood && item.foodId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    FoodDetailScreen(foodId: item.foodId!),
+                              ),
+                            );
+                          } else if (item.recipeId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RecipeDetailScreen(
+                                  recipeId: item.recipeId!,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        trailing: _isSentToPt || !_hasAcceptedPtConnection
+                            ? null
+                            : IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                                onPressed: () => _deletePlanItem(item),
+                              ),
+                      ),
+                    ),
+                ],
               ),
-            ),
+            // Add button
+            if (!_isSentToPt && _hasAcceptedPtConnection)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: TextButton.icon(
+                  onPressed: () => _showAddSuggestionSheet(mealType),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Thêm món từ gợi ý'),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -2062,6 +2129,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               'targetCalories': item.caloriesKcal.round() > 0
                   ? item.caloriesKcal.round()
                   : 400,
+              'quantityG': item.quantityG,
               'origin': 'gym',
             },
           ],
@@ -2091,6 +2159,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       foodId: item.type.toLowerCase().contains('recipe') ? null : item.id,
       recipeId: item.type.toLowerCase().contains('recipe') ? item.id : null,
       targetCalories: item.caloriesKcal.round(),
+      quantityG: item.quantityG,
+      proteinG: item.proteinG.round(),
+      carbsG: item.carbsG.round(),
+      fatG: item.fatG.round(),
       isCompleted: false,
       foodName: item.type.toLowerCase().contains('recipe') ? null : item.name,
       recipeName: item.type.toLowerCase().contains('recipe') ? item.name : null,
@@ -2100,6 +2172,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     // Optimistically add item to UI immediately
     setState(() {
       _todayPlan!.items.add(tempItem);
+      _mealSlotExpanded[mealType] = true;
     });
 
     try {
@@ -2114,6 +2187,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ? item.id.toString()
               : null,
           targetCalories: item.caloriesKcal.round(),
+          quantityG: item.quantityG,
           origin: 'gym', // Tạo bởi AI Gym Goals
         ),
       );
@@ -2185,7 +2259,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                               ),
                               title: Text(item.name),
                               subtitle: Text(
-                                '${item.caloriesKcal.round()} kcal • P ${item.proteinG.round()}g',
+                                formatNutritionFacts(
+                                  quantityG: item.quantityG,
+                                  caloriesKcal: item.caloriesKcal,
+                                  proteinG: item.proteinG,
+                                  carbsG: item.carbsG,
+                                  fatG: item.fatG,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               trailing: IconButton(
                                 icon: const Icon(

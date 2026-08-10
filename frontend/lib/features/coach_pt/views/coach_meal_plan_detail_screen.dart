@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -464,6 +465,7 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen> {
                 : null,
             displayName: result.pick.name,
             targetCalories: result.pick.calories,
+            quantityG: result.pick.quantityG ?? 100,
             proteinG: result.pick.proteinG,
             carbsG: result.pick.carbsG,
             fatG: result.pick.fatG,
@@ -1312,10 +1314,7 @@ class _DraftItemTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 3),
           child: Text(
-            '${item.targetCalories ?? 0} kcal'
-            '${item.proteinG == null ? '' : ' · P ${item.proteinG!.round()}g'}'
-            '${item.carbsG == null ? '' : ' · C ${item.carbsG!.round()}g'}'
-            '${item.fatG == null ? '' : ' · F ${item.fatG!.round()}g'}'
+            '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.targetCalories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}'
             '\nChạm để xem chi tiết và công thức',
             style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
           ),
@@ -1359,6 +1358,7 @@ class _DraftItem {
     this.plannedDate,
     this.scheduledTime,
     this.targetCalories,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -1373,6 +1373,7 @@ class _DraftItem {
     plannedDate: it.plannedDate,
     scheduledTime: it.scheduledTime,
     targetCalories: it.targetCalories,
+    quantityG: it.quantityG,
     proteinG: it.proteinG,
     carbsG: it.carbsG,
     fatG: it.fatG,
@@ -1386,6 +1387,7 @@ class _DraftItem {
   DateTime? plannedDate;
   String? scheduledTime;
   int? targetCalories;
+  double? quantityG;
   double? proteinG;
   double? carbsG;
   double? fatG;
@@ -1398,6 +1400,7 @@ class _DraftItem {
     plannedDate: plannedDate,
     scheduledTime: scheduledTime,
     targetCalories: targetCalories,
+    quantityG: quantityG,
   );
 }
 
@@ -1407,6 +1410,7 @@ class _IngredientPick {
     required this.name,
     required this.kind,
     this.calories,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -1415,6 +1419,7 @@ class _IngredientPick {
   final String name;
   final _IngredientKind kind;
   final int? calories;
+  final double? quantityG;
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
@@ -1468,6 +1473,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'proteinG': item.proteinG,
             'carbsG': item.carbsG,
             'fatG': item.fatG,
+            'quantityG': item.defaultServingG,
           },
         ),
         ...(results[1] as List).map(
@@ -1477,6 +1483,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'type': 'recipe',
             'category': 'Công thức',
             'caloriesKcal': item.totalCalories,
+            'quantityG': 100,
           },
         ),
       ].take(20).toList();
@@ -1546,8 +1553,10 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                       return ListTile(
                         title: Text(name),
                         subtitle: Text(
-                          '${(it['category'] ?? it['Category'] ?? '').toString()}'
-                          '${calories == null ? '' : ' · $calories kcal'}',
+                          '${(it['category'] ?? it['Category'] ?? '').toString()}\n'
+                          '${formatNutritionFacts(quantityG: _double(it['quantityG']), caloriesKcal: calories, proteinG: _double(it['proteinG']), carbsG: _double(it['carbsG']), fatG: _double(it['fatG']))}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         onTap: () => Navigator.pop(
                           context,
@@ -1556,6 +1565,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                             name: name,
                             kind: kind,
                             calories: calories,
+                            quantityG: _double(it['quantityG']),
                             proteinG: _double(it['proteinG']),
                             carbsG: _double(it['carbsG']),
                             fatG: _double(it['fatG']),

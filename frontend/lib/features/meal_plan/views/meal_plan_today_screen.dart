@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../discover/views/safe_recommendations_screen.dart';
@@ -9,10 +10,7 @@ import '../models/meal_plan_models.dart';
 import '../repositories/meal_plan_repository.dart';
 
 class MealPlanTodayScreen extends StatefulWidget {
-  const MealPlanTodayScreen({
-    super.key,
-    this.onMealLogged,
-  });
+  const MealPlanTodayScreen({super.key, this.onMealLogged});
 
   final VoidCallback? onMealLogged;
 
@@ -70,7 +68,9 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      final msg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Không ghi nhận được.';
+      final msg = e is Exception
+          ? e.toString().replaceFirst('Exception: ', '')
+          : 'Không ghi nhận được.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ApiMessageTranslator.translate(msg))),
       );
@@ -90,12 +90,16 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
     if (item.isFood && item.foodId != null) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: item.foodId!)),
+        MaterialPageRoute(
+          builder: (_) => FoodDetailScreen(foodId: item.foodId!),
+        ),
       );
     } else if (item.recipeId != null) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!)),
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+        ),
       );
     }
   }
@@ -106,16 +110,19 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
       appBar: AppBar(
         title: const Text('Kế hoạch hôm nay'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _load),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loading ? null : _load,
+          ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, textAlign: TextAlign.center))
-              : _plan == null || _plan!.items.isEmpty
-                  ? _buildEmpty()
-                  : _buildContent(),
+          ? Center(child: Text(_error!, textAlign: TextAlign.center))
+          : _plan == null || _plan!.items.isEmpty
+          ? _buildEmpty()
+          : _buildContent(),
     );
   }
 
@@ -125,7 +132,11 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textSecondary),
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 64,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 16),
           const Text(
             'Chưa có kế hoạch cho hôm nay.',
@@ -164,7 +175,10 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Tuân thủ kế hoạch', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Tuân thủ kế hoạch',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       '${adherence.completedCount}/${adherence.totalCount} bữa · '
@@ -173,7 +187,10 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
                     if (adherence.deviationPercent != null)
                       Text(
                         'Lệch ${adherence.deviationPercent!.toStringAsFixed(0)}% so với kế hoạch',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                   ],
                 ),
@@ -230,7 +247,15 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '~${item.targetCalories} kcal',
+                      formatNutritionFacts(
+                        quantityG: item.quantityG,
+                        caloriesKcal: item.targetCalories,
+                        proteinG: item.proteinG,
+                        carbsG: item.carbsG,
+                        fatG: item.fatG,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -242,8 +267,10 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
               const SizedBox(width: 12),
               if (item.isCompleted)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -275,8 +302,10 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
@@ -295,10 +324,7 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
                       : const Icon(Icons.check_rounded, size: 16),
                   label: const Text(
                     'Đã ăn',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
             ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -142,6 +143,7 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
                     isCompleted: isRouteMealCompleted(item, actualMeals),
                     foodId: item.foodId,
                     recipeId: item.recipeId,
+                    quantityG: item.quantityG,
                     proteinG: item.proteinG,
                     carbsG: item.carbsG,
                     fatG: item.fatG,
@@ -1152,12 +1154,13 @@ class _MealTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bgColor, textColor, borderColor) = _mealTypeColors(meal.mealType);
-    final nutrition = <String>[
-      '${meal.calories} kcal',
-      if (meal.proteinG != null) 'P ${meal.proteinG}g',
-      if (meal.carbsG != null) 'C ${meal.carbsG}g',
-      if (meal.fatG != null) 'F ${meal.fatG}g',
-    ].join(' · ');
+    final nutrition = formatNutritionFacts(
+      quantityG: meal.quantityG,
+      caloriesKcal: meal.calories,
+      proteinG: meal.proteinG,
+      carbsG: meal.carbsG,
+      fatG: meal.fatG,
+    );
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -1203,8 +1206,8 @@ class _MealTile extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              '$nutrition · Chạm để xem chi tiết',
-              maxLines: 2,
+              '$nutrition\nChạm để xem chi tiết',
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,

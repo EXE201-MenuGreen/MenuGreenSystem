@@ -63,6 +63,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public int CurrentStreak { get; set; }
         public bool HasCalorieDriftAlert { get; set; }
         public string ActiveProgramTitle { get; set; } = string.Empty;
+        public int PendingRouteApprovalCount { get; set; }
         public DateTime ConnectedAt { get; set; }
     }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/models/meal_plan_models.dart';
@@ -919,15 +920,6 @@ class _PlannedMealTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${item.targetCalories} kcal',
-                        style: const TextStyle(
-                          color: AppColors.textDark,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
@@ -941,7 +933,13 @@ class _PlannedMealTile extends StatelessWidget {
                         color: _mealTypeColor(item.mealType),
                       ),
                       Text(
-                        'P ${item.proteinG ?? 0} · C ${item.carbsG ?? 0} · F ${item.fatG ?? 0}g',
+                        formatNutritionFacts(
+                          quantityG: item.quantityG,
+                          caloriesKcal: item.targetCalories,
+                          proteinG: item.proteinG,
+                          carbsG: item.carbsG,
+                          fatG: item.fatG,
+                        ),
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 10.5,
@@ -1002,15 +1000,6 @@ class _ActualMealTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${item.caloriesKcal.round()} kcal',
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
@@ -1023,7 +1012,13 @@ class _ActualMealTile extends StatelessWidget {
                         color: _mealTypeColor(item.mealType),
                       ),
                       Text(
-                        '${item.quantityG.round()}g',
+                        formatNutritionFacts(
+                          quantityG: item.quantityG,
+                          caloriesKcal: item.caloriesKcal,
+                          proteinG: item.proteinG,
+                          carbsG: item.carbsG,
+                          fatG: item.fatG,
+                        ),
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 10.5,

@@ -51,6 +51,12 @@ class _RecommendationJson {
     return double.tryParse(raw?.toString() ?? '') ?? fallback;
   }
 
+  static double? nullableNumber(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw.toString());
+  }
+
   static int integer(dynamic raw, {int fallback = 0}) {
     if (raw is num) return raw.round();
     return int.tryParse(raw?.toString() ?? '') ?? fallback;
@@ -697,6 +703,7 @@ class DailyMenuPlanItem {
     this.recipeId,
     required this.sourceEntityType,
     required this.targetCalories,
+    this.quantityG,
     this.recommendation,
   });
 
@@ -707,6 +714,7 @@ class DailyMenuPlanItem {
   final String? recipeId;
   final String sourceEntityType;
   final int targetCalories;
+  final double? quantityG;
   final RecommendationItem? recommendation;
 
   bool get isFood =>
@@ -784,6 +792,16 @@ class DailyMenuPlanItem {
             ]),
           ) ??
           recommendation.caloriesKcal.round(),
+      quantityG: _RecommendationJson.nullableNumber(
+        _RecommendationJson.value(json, const [
+          'quantity_g',
+          'quantityG',
+          'QuantityG',
+          'default_serving_g',
+          'defaultServingG',
+          'DefaultServingG',
+        ]),
+      ),
       recommendation: recommendation.name.isEmpty ? null : recommendation,
     );
   }

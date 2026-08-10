@@ -111,6 +111,7 @@ class DailyStarterFood {
     this.proteinG = 0,
     this.carbsG = 0,
     this.fatG = 0,
+    this.defaultServingG,
     this.imageUrl,
     this.description,
   });
@@ -121,6 +122,7 @@ class DailyStarterFood {
   final double proteinG;
   final double carbsG;
   final double fatG;
+  final int? defaultServingG;
   final String? imageUrl;
   final String? description;
 
@@ -148,6 +150,8 @@ class DailyStarterFood {
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
+      defaultServingG:
+          _int(json, 'defaultServingG') ?? _int(json, 'DefaultServingG'),
       imageUrl: _string(json, 'imageUrl') ?? _string(json, 'ImageUrl'),
       description: _string(json, 'description') ?? _string(json, 'Description'),
     );
@@ -1199,6 +1203,7 @@ class LocalRecommendationItem {
     this.proteinG = 0,
     this.carbsG = 0,
     this.fatG = 0,
+    this.quantityG = 100,
     this.estimatedPriceVnd = 0,
     this.cookingTimeMin = 0,
     this.score = 0,
@@ -1212,6 +1217,7 @@ class LocalRecommendationItem {
   final double proteinG;
   final double carbsG;
   final double fatG;
+  final double quantityG;
   final int estimatedPriceVnd;
   final int cookingTimeMin;
   final double score;
@@ -1227,6 +1233,12 @@ class LocalRecommendationItem {
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
+      quantityG:
+          _double(json, 'quantityG') ??
+          _double(json, 'QuantityG') ??
+          _double(json, 'defaultServingG') ??
+          _double(json, 'DefaultServingG') ??
+          100,
       estimatedPriceVnd:
           _int(json, 'estimatedPriceVnd') ??
           _int(json, 'EstimatedPriceVnd') ??
@@ -1669,6 +1681,7 @@ class LuckyWheelFood {
     this.proteinG = 0,
     this.carbsG = 0,
     this.fatG = 0,
+    this.quantityG = 100,
     this.imageUrl,
     this.description,
     this.estimatedPriceVnd,
@@ -1680,6 +1693,7 @@ class LuckyWheelFood {
   final double proteinG;
   final double carbsG;
   final double fatG;
+  final double quantityG;
   final String? imageUrl;
   final String? description;
   final int? estimatedPriceVnd;
@@ -1708,6 +1722,12 @@ class LuckyWheelFood {
       proteinG: _double(json, 'proteinG') ?? _double(json, 'ProteinG') ?? 0,
       carbsG: _double(json, 'carbsG') ?? _double(json, 'CarbsG') ?? 0,
       fatG: _double(json, 'fatG') ?? _double(json, 'FatG') ?? 0,
+      quantityG:
+          _double(json, 'quantityG') ??
+          _double(json, 'QuantityG') ??
+          _double(json, 'defaultServingG') ??
+          _double(json, 'DefaultServingG') ??
+          100,
       imageUrl: _string(json, 'imageUrl') ?? _string(json, 'ImageUrl'),
       description: _string(json, 'description') ?? _string(json, 'Description'),
       estimatedPriceVnd:
