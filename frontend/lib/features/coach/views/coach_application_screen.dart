@@ -63,6 +63,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _uploadingKey;
+  String _applicationStatus = 'Draft';
   String _gender = '';
   DateTime? _dateOfBirth;
   String _avatarUrl = '';
@@ -93,6 +94,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
   }
 
   void _applyData(Map<String, dynamic> data) {
+    _applicationStatus = (data['applicationStatus'] ?? 'Draft').toString();
     _fullName.text = (data['fullName'] ?? '').toString();
     _phone.text = (data['phoneNumber'] ?? '').toString();
     _city.text = (data['city'] ?? '').toString();
@@ -258,9 +260,13 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     final error = _submissionError();
     if (error != null) {
-      _showMessage(error);
+      if (_step != error.step) {
+        setState(() => _step = error.step);
+      }
+      _showMessage(error.message);
       return;
     }
     setState(() => _saving = true);
@@ -281,20 +287,34 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     }
   }
 
-  String? _submissionError() {
-    if (_fullName.text.trim().isEmpty || _avatarUrl.isEmpty) {
-      return 'Vui lòng nhập họ tên và tải ảnh đại diện.';
+  ({int step, String message})? _submissionError() {
+    if (_fullName.text.trim().isEmpty) {
+      return (step: 0, message: 'Vui lòng nhập họ và tên.');
     }
-    if (_dateOfBirth == null ||
-        _phone.text.trim().isEmpty ||
-        _city.text.trim().isEmpty) {
-      return 'Vui lòng hoàn thành ngày sinh, số điện thoại và khu vực.';
+    if (_avatarUrl.trim().isEmpty) {
+      return (step: 0, message: 'Vui lòng tải ảnh đại diện ở bước Cá nhân.');
     }
-    if (_languages.isEmpty) return 'Vui lòng chọn ít nhất một ngôn ngữ.';
-    if (_headline.text.trim().isEmpty || _bio.text.trim().length < 80) {
-      return 'Tiêu đề nghề nghiệp là bắt buộc và phần giới thiệu cần ít nhất 80 ký tự.';
+    if (_dateOfBirth == null) {
+      return (step: 0, message: 'Vui lòng chọn ngày sinh.');
     }
-    if (_specialties.isEmpty) return 'Vui lòng chọn ít nhất một chuyên môn.';
+    if (_phone.text.trim().isEmpty) {
+      return (step: 0, message: 'Vui lòng nhập số điện thoại.');
+    }
+    if (_city.text.trim().isEmpty) {
+      return (step: 0, message: 'Vui lòng nhập tỉnh/thành phố.');
+    }
+    if (_languages.isEmpty) {
+      return (step: 0, message: 'Vui lòng chọn ít nhất một ngôn ngữ.');
+    }
+    if (_headline.text.trim().isEmpty) {
+      return (step: 1, message: 'Vui lòng nhập tiêu đề nghề nghiệp.');
+    }
+    if (_bio.text.trim().length < 80) {
+      return (step: 1, message: 'Phần giới thiệu cần có ít nhất 80 ký tự.');
+    }
+    if (_specialties.isEmpty) {
+      return (step: 1, message: 'Vui lòng chọn ít nhất một chuyên môn.');
+    }
     if (_certificates.isEmpty ||
         _certificates.any(
           (item) =>
@@ -302,16 +322,25 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
               item.issuer.trim().isEmpty ||
               item.imageUrl.isEmpty,
         )) {
-      return 'Mỗi chứng chỉ cần có tên, đơn vị cấp và ảnh minh chứng.';
+      return (
+        step: 2,
+        message: 'Mỗi chứng chỉ cần có tên, đơn vị cấp và ảnh minh chứng.',
+      );
     }
-    if (_identityDocumentUrl.isEmpty) {
-      return 'Vui lòng tải ảnh giấy tờ xác minh.';
+    if (_identityDocumentUrl.trim().isEmpty) {
+      return (step: 2, message: 'Vui lòng tải ảnh giấy tờ xác minh.');
     }
     if (_galleryUrls.isEmpty) {
-      return 'Vui lòng thêm ít nhất một ảnh hoạt động nghề nghiệp.';
+      return (
+        step: 2,
+        message: 'Vui lòng thêm ít nhất một ảnh hoạt động nghề nghiệp.',
+      );
     }
     if (!_mediaConsent) {
-      return 'Bạn cần xác nhận quyền sử dụng các hình ảnh đã tải.';
+      return (
+        step: 2,
+        message: 'Bạn cần xác nhận quyền sử dụng các hình ảnh đã tải.',
+      );
     }
     return null;
   }
@@ -319,11 +348,19 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
   void _next() {
     if (_step < 2) {
       setState(() => _step++);
-    } else if (widget.editMode) {
+    } else if (widget.editMode && _isApprovedApplication) {
       _saveProfileChanges();
     } else {
       _submit();
     }
+  }
+
+  bool get _isApprovedApplication =>
+      _applicationStatus.trim().toLowerCase() == 'approved';
+
+  bool get _isResubmission {
+    final status = _applicationStatus.trim().toLowerCase();
+    return status == 'needsrevision' || status == 'rejected';
   }
 
   void _showMessage(String message) {
@@ -369,10 +406,12 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           TextButton(
             onPressed: _saving
                 ? null
-                : widget.editMode
+                : widget.editMode && _isApprovedApplication
                 ? _saveProfileChanges
                 : _saveDraft,
-            child: Text(widget.editMode ? 'Lưu' : 'Lưu nháp'),
+            child: Text(
+              widget.editMode && _isApprovedApplication ? 'Lưu' : 'Lưu nháp',
+            ),
           ),
         ],
       ),
@@ -945,20 +984,27 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           Row(
             children: [
               Expanded(
-                child: _draftField(
-                  'Ngày cấp',
-                  item.issuedDate,
-                  (value) => item.issuedDate = value,
-                  hint: 'YYYY-MM-DD',
+                child: _certificateDateField(
+                  label: 'Ngày cấp',
+                  value: item.issuedDate,
+                  firstDate: DateTime(1970),
+                  lastDate: DateTime.now(),
+                  helpText: 'Chọn ngày cấp',
+                  onChanged: (date) =>
+                      setState(() => item.issuedDate = _apiDate(date)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _draftField(
-                  'Hết hạn',
-                  item.expiryDate,
-                  (value) => item.expiryDate = value,
-                  hint: 'YYYY-MM-DD',
+                child: _certificateDateField(
+                  label: 'Hết hạn',
+                  value: item.expiryDate,
+                  firstDate:
+                      _parseStoredDate(item.issuedDate) ?? DateTime(2000),
+                  lastDate: DateTime(2100, 12, 31),
+                  helpText: 'Chọn ngày hết hạn',
+                  onChanged: (date) =>
+                      setState(() => item.expiryDate = _apiDate(date)),
                 ),
               ),
             ],
@@ -990,6 +1036,51 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
       onChanged: onChanged,
       decoration: _inputDecoration(label).copyWith(hintText: hint),
     );
+  }
+
+  Widget _certificateDateField({
+    required String label,
+    required String value,
+    required DateTime firstDate,
+    required DateTime lastDate,
+    required ValueChanged<DateTime> onChanged,
+    String? helpText,
+  }) {
+    final parsed = _parseStoredDate(value);
+    final display = parsed == null
+        ? 'Chọn ngày'
+        : '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+    return InkWell(
+      onTap: () async {
+        final picked = await showSafeDatePicker(
+          context: context,
+          initialDate: parsed ?? firstDate,
+          firstDate: firstDate,
+          lastDate: lastDate,
+          helpText: helpText,
+        );
+        if (picked != null) {
+          onChanged(picked);
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: _inputDecoration(label),
+        child: Text(
+          display,
+          style: TextStyle(
+            color: parsed == null
+                ? AppColors.textSecondary
+                : AppColors.textDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  DateTime? _parseStoredDate(String value) {
+    if (value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   Widget _imageUploadCard({
@@ -1146,8 +1237,10 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
                       )
                     : Text(
                         _step == 2
-                            ? widget.editMode
+                            ? widget.editMode && _isApprovedApplication
                                   ? 'Lưu thay đổi'
+                                  : _isResubmission
+                                  ? 'Gửi lại hồ sơ xét duyệt'
                                   : 'Gửi hồ sơ xét duyệt'
                             : 'Tiếp tục',
                       ),

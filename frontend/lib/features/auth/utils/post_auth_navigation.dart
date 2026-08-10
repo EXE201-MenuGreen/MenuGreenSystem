@@ -13,6 +13,28 @@ import '../../onboarding/views/onboarding_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../../core/services/push_notification_provider.dart';
 
+Future<Widget> resolveCoachDestination({
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  try {
+    final application = await CoachApplicationRepository().getMine().timeout(
+      timeout,
+    );
+    final status = (application['applicationStatus'] ?? 'Draft')
+        .toString()
+        .toLowerCase();
+    if (status == 'approved') {
+      return const CoachMainScreen();
+    }
+    if (status == 'draft') {
+      return CoachApplicationScreen(initialData: application);
+    }
+    return CoachApplicationStatusScreen(initialData: application);
+  } catch (_) {
+    return const CoachApplicationScreen();
+  }
+}
+
 /// After login / Google sign-in / app resume with token: go to onboarding or home.
 Future<void> navigateAfterAuthenticated(BuildContext context) async {
   final gate = OnboardingGate();
@@ -43,25 +65,7 @@ Future<void> navigateAfterAuthenticated(BuildContext context) async {
       );
       final role = (profile?['role'] ?? '').toString().toLowerCase();
       if (role == 'coach') {
-        try {
-          final application = await CoachApplicationRepository()
-              .getMine()
-              .timeout(const Duration(seconds: 5));
-          final status = (application['applicationStatus'] ?? 'Draft')
-              .toString()
-              .toLowerCase();
-          if (status == 'approved') {
-            destination = const CoachMainScreen();
-          } else if (status == 'draft') {
-            destination = CoachApplicationScreen(initialData: application);
-          } else {
-            destination = CoachApplicationStatusScreen(
-              initialData: application,
-            );
-          }
-        } catch (_) {
-          destination = const CoachApplicationScreen();
-        }
+        destination = await resolveCoachDestination();
       } else {
         destination = const MainScreen();
       }

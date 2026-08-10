@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../middleware/error_middleware.dart';
+import '../middleware/error_translator.dart';
 import '../middleware/logging_middleware.dart';
 import 'api_endpoints.dart';
 import 'jwt_utils.dart';
