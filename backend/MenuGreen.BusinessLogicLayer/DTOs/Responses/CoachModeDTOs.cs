@@ -87,6 +87,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal TargetCarbs { get; set; }
         public decimal ActualFat { get; set; }
         public decimal TargetFat { get; set; }
+        public List<MealLogResponse> Logs { get; set; } = new();
     }
 
     public class ClientWeightTrendResponse

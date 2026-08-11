@@ -547,11 +547,22 @@ class _ComparisonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planned = analytics?.totalPlanned;
-    final plannedKcal = (planned?.caloriesKcal ?? 0) > 0
-        ? planned!.caloriesKcal
-        : (plan?.items.fold<int>(0, (sum, item) => sum + item.targetCalories) ??
-                  0)
-              .toDouble();
+    final summaryCalorieTarget = dailySummary?.targetCalories ?? 0;
+    final planCalorieTarget = plan?.targetCalories ?? 0;
+    final plannedKcal = summaryCalorieTarget > 0
+        ? summaryCalorieTarget
+        : planCalorieTarget > 0
+        ? planCalorieTarget.toDouble()
+        : planned?.caloriesKcal ?? 0;
+    final plannedProtein = (dailySummary?.targetProteinG ?? 0) > 0
+        ? dailySummary!.targetProteinG
+        : planned?.proteinG ?? 0;
+    final plannedCarbs = (dailySummary?.targetCarbsG ?? 0) > 0
+        ? dailySummary!.targetCarbsG
+        : planned?.carbsG ?? 0;
+    final plannedFat = (dailySummary?.targetFatG ?? 0) > 0
+        ? dailySummary!.targetFatG
+        : planned?.fatG ?? 0;
     final actualKcal =
         dailySummary?.totalCalories ?? analytics?.totalActual.caloriesKcal ?? 0;
     final difference = actualKcal - plannedKcal;
@@ -581,9 +592,9 @@ class _ComparisonCard extends StatelessWidget {
                   label: 'Kế hoạch',
                   icon: Icons.event_note_rounded,
                   calories: plannedKcal,
-                  protein: planned?.proteinG ?? 0,
-                  carbs: planned?.carbsG ?? 0,
-                  fat: planned?.fatG ?? 0,
+                  protein: plannedProtein,
+                  carbs: plannedCarbs,
+                  fat: plannedFat,
                   color: AppColors.primary,
                 ),
               ),

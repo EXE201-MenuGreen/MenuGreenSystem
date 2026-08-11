@@ -217,10 +217,18 @@ class AdvancedRepository {
       await _api.get('${ApiEndpoints.baseUrl}/Coaches/clients/$id/profile'),
     ),
   );
-  Future<List<Map<String, dynamic>>> clientNutrition(String id) async => _list(
+  Future<List<Map<String, dynamic>>> clientNutrition(
+    String id, {
+    int days = 7,
+    DateTime? from,
+    DateTime? to,
+  }) async => _list(
     _body(
       await _api.get(
-        '${ApiEndpoints.baseUrl}/Coaches/clients/$id/nutrition-summary?days=7',
+        '${ApiEndpoints.baseUrl}/Coaches/clients/$id/nutrition-summary'
+        '?days=$days'
+        '${from == null ? '' : '&from=${_dateOnly(from)}'}'
+        '${to == null ? '' : '&to=${_dateOnly(to)}'}',
       ),
     ),
   );
