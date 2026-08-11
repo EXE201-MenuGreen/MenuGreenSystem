@@ -5,7 +5,7 @@ import '../repositories/ai_assistant_repository.dart';
 
 class AiAssistantProvider extends ChangeNotifier {
   AiAssistantProvider({AiAssistantRepository? repository})
-      : _repository = repository ?? AiAssistantRepository();
+    : _repository = repository ?? AiAssistantRepository();
 
   final AiAssistantRepository _repository;
 
@@ -77,13 +77,14 @@ class AiAssistantProvider extends ChangeNotifier {
     }
   }
 
-  Future<AiMessage?> sendMessage(
-    String conversationId,
-    String message,
-  ) async {
+  Future<AiMessage?> sendMessage(String conversationId, String message) async {
+    // Both the keyboard submit action and the send button can fire almost at
+    // the same time. Only allow one in-flight send for this provider.
+    if (_isSending) return null;
+
     _isSending = true;
     _error = null;
-    
+
     // Add user's message locally first to make UI responsive
     final userMessage = AiMessage(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}',
@@ -94,14 +95,18 @@ class AiAssistantProvider extends ChangeNotifier {
     );
     _messages = [..._messages, userMessage];
     notifyListeners();
-    
+
     try {
       final aiMessage = await _repository.sendMessage(conversationId, message);
-      // Replace the local messages list with updated AI response appended
+      // The API persists the user message, while the local copy keeps the UI
+      // responsive until the assistant response arrives.
       _messages = [..._messages, aiMessage];
       _error = null;
       return aiMessage;
     } catch (e) {
+      // Do not leave an unsaved optimistic message in memory. Otherwise a
+      // manual retry can visually look like (or become) a duplicate message.
+      _messages = _messages.where((item) => item.id != userMessage.id).toList();
       _error = e.toString();
       return null;
     } finally {
@@ -117,7 +122,10 @@ class AiAssistantProvider extends ChangeNotifier {
     _isLoadingMessages = true;
     notifyListeners();
     try {
-      final updated = await _repository.regenerateMessage(conversationId, messageId);
+      final updated = await _repository.regenerateMessage(
+        conversationId,
+        messageId,
+      );
       _messages = _messages
           .map((m) => m.id == updated.id ? updated : m)
           .toList(growable: false);
@@ -143,7 +151,11 @@ class AiAssistantProvider extends ChangeNotifier {
         comment: comment,
       );
       _messages = _messages
-          .map((m) => m.id == messageId ? m : m.copyWith(feedback: isPositive ? 'positive' : 'negative'))
+          .map(
+            (m) => m.id == messageId
+                ? m
+                : m.copyWith(feedback: isPositive ? 'positive' : 'negative'),
+          )
           .toList(growable: false);
       notifyListeners();
     } catch (e) {
@@ -190,8 +202,11 @@ class AiAssistantProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _repository.deleteConversation(conversationId);
-      _conversations = _conversations.where((c) => c.id != conversationId).toList();
-      if (_messages.isNotEmpty && _messages.first.conversationId == conversationId) {
+      _conversations = _conversations
+          .where((c) => c.id != conversationId)
+          .toList();
+      if (_messages.isNotEmpty &&
+          _messages.first.conversationId == conversationId) {
         _messages = [];
       }
     } catch (e) {

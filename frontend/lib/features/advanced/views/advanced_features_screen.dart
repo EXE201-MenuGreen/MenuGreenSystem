@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../profile/repositories/profile_repository.dart';
 import '../repositories/advanced_repository.dart';
 import '../utils/weekly_report_rules.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
@@ -25,68 +26,99 @@ class AdvancedFeaturesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabCount = gymerOnly ? 2 : 5;
-    final safeInitialIndex = initialIndex.clamp(0, tabCount - 1);
-    return DefaultTabController(
-      length: tabCount,
-      initialIndex: safeInitialIndex,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAF9),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          title: Text(
-            gymerOnly ? 'Đồng hành Gym / PT' : 'Dịch vụ & quản lý',
-            style: const TextStyle(
-              color: AppColors.textDark,
-              fontWeight: FontWeight.w800,
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: gymerOnly ? Future.value(null) : ProfileRepository().getMyProfile(),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final role = (profile?['role'] ?? profile?['Role'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        final isAdmin = role == 'admin';
+        final tabs = gymerOnly
+            ? const [Tab(text: 'PT Review'), Tab(text: 'Huấn luyện viên')]
+            : <Tab>[
+                const Tab(text: 'PT Review'),
+                const Tab(text: 'Ngân sách'),
+                const Tab(text: 'Coach'),
+                const Tab(text: 'Nguyên liệu'),
+                if (isAdmin) const Tab(text: 'Người dùng'),
+              ];
+        final tabCount = tabs.length;
+        final safeInitialIndex = initialIndex.clamp(0, tabCount - 1);
+        return DefaultTabController(
+          length: tabCount,
+          initialIndex: safeInitialIndex,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAF9),
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(
+                gymerOnly ? 'Đồng hành Gym / PT' : 'Dịch vụ & quản lý',
+                style: const TextStyle(
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              bottom: TabBar(
+                isScrollable: true,
+                labelColor: AppColors.primary,
+                indicatorColor: AppColors.primary,
+                tabs: tabs,
+              ),
+            ),
+            body: TabBarView(
+              children: gymerOnly
+                  ? [
+                      _PtTab(
+                        initialReportId: initialReportId,
+                        repository: repository,
+                        reportAnalyticsRepository:
+                            reportAnalyticsRepository,
+                      ),
+                      const _CoachTab(gymerMode: true),
+                    ]
+                  : [
+                      _PtTab(
+                        initialReportId: initialReportId,
+                        repository: repository,
+                        reportAnalyticsRepository:
+                            reportAnalyticsRepository,
+                      ),
+                      const _BudgetTab(),
+                      const _CoachTab(),
+                      const _IngredientTab(),
+                      if (isAdmin) const _UserTab(),
+                    ],
             ),
           ),
-          bottom: TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            indicatorColor: AppColors.primary,
-            tabs: gymerOnly
-                ? const [Tab(text: 'PT Review'), Tab(text: 'Huấn luyện viên')]
-                : const [
-                    Tab(text: 'PT Review'),
-                    Tab(text: 'Ngân sách'),
-                    Tab(text: 'Coach'),
-                    Tab(text: 'Nguyên liệu'),
-                    Tab(text: 'Người dùng'),
-                  ],
-          ),
-        ),
-        body: TabBarView(
-          children: gymerOnly
-              ? [
-                  _PtTab(
-                    initialReportId: initialReportId,
-                    repository: repository,
-                    reportAnalyticsRepository: reportAnalyticsRepository,
-                  ),
-                  const _CoachTab(gymerMode: true),
-                ]
-              : [
-                  _PtTab(
-                    initialReportId: initialReportId,
-                    repository: repository,
-                    reportAnalyticsRepository: reportAnalyticsRepository,
-                  ),
-                  const _BudgetTab(),
-                  const _CoachTab(),
-                  const _IngredientTab(),
-                  const _UserTab(),
-                ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 String _v(Map<String, dynamic> m, String key, [String fallback = '']) =>
-    (m[key] ?? m[key[0].toUpperCase() + key.substring(1)] ?? fallback)
-        .toString();
+    _readValue(m, key, fallback).toString();
+
+dynamic _readValue(Map<String, dynamic> m, String key, [dynamic fallback]) {
+  final variants = <String>[
+    key,
+    key[0].toUpperCase() + key.substring(1),
+    key.replaceAllMapped(
+      RegExp(r'([A-Z])'),
+      (match) => '_${match.group(1)!.toLowerCase()}',
+    ),
+    key.toLowerCase(),
+  ];
+  for (final candidate in variants) {
+    if (m.containsKey(candidate) && m[candidate] != null) {
+      return m[candidate];
+    }
+  }
+  return fallback;
+}
 
 String _weeklyDateRangeLabel(String rawWeekStart) {
   final weekStart = DateTime.tryParse(rawWeekStart.trim());
@@ -3636,7 +3668,7 @@ class _UserTabState extends State<_UserTab> {
       rows = await repo.users();
       error = null;
     } catch (e) {
-      error = 'Chỉ tài khoản Admin được truy cập.';
+      error = null;
     }
     if (mounted) setState(() => loading = false);
   }
@@ -3644,8 +3676,6 @@ class _UserTabState extends State<_UserTab> {
   @override
   Widget build(BuildContext c) => loading
       ? const Center(child: CircularProgressIndicator())
-      : error != null
-      ? Center(child: Text(error!))
       : RefreshIndicator(
           onRefresh: load,
           child: ListView(

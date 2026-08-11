@@ -31,7 +31,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
     // Load messages in a post-frame callback to avoid triggering synchronous builds during layout phase
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<AiAssistantProvider>().loadMessages(widget.conversation.id);
+        context.read<AiAssistantProvider>().loadMessages(
+          widget.conversation.id,
+        );
         _loadAvailableFoods();
         _scrollToBottom();
       }
@@ -58,13 +60,20 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    final provider = context.read<AiAssistantProvider>();
+    if (provider.isSending) return;
+
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     _messageController.clear();
-    await context.read<AiAssistantProvider>().sendMessage(
-          widget.conversation.id,
-          text,
-        );
+    final response = await provider.sendMessage(widget.conversation.id, text);
+    if (response == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể gửi câu hỏi. Vui lòng thử lại.'),
+        ),
+      );
+    }
     if (mounted) _scrollToBottom();
   }
 
@@ -104,9 +113,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       ),
       body: Column(
         children: [
-          Expanded(
-            child: _buildMessageList(provider),
-          ),
+          Expanded(child: _buildMessageList(provider)),
           _buildInput(provider),
         ],
       ),
@@ -115,7 +122,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Widget _buildMessageList(AiAssistantProvider provider) {
     // Filter messages for current conversation to avoid brief flash of old messages
-    final currentMessages = provider.messages.where((m) => m.conversationId == widget.conversation.id).toList();
+    final currentMessages = provider.messages
+        .where((m) => m.conversationId == widget.conversation.id)
+        .toList();
 
     if (provider.isLoadingMessages && currentMessages.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -161,13 +170,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Widget _buildInput(AiAssistantProvider provider) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return Container(
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
         top: 8,
-        bottom: bottomInset > 0 ? 8 : (MediaQuery.of(context).padding.bottom + 8),
+        bottom: bottomInset > 0
+            ? 8
+            : (MediaQuery.of(context).padding.bottom + 8),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -186,7 +197,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
               decoration: const InputDecoration(
                 hintText: 'Nhập câu hỏi về dinh dưỡng...',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
@@ -282,11 +296,23 @@ class _MessageBubble extends StatelessWidget {
                 runSpacing: 4,
                 children: matchedFoods.map((food) {
                   return ActionChip(
-                    avatar: const Icon(Icons.add, size: 14, color: Colors.white),
+                    avatar: const Icon(
+                      Icons.add,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                     backgroundColor: AppColors.primary,
-                    labelStyle: const TextStyle(color: Colors.white, fontSize: 11),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                    label: Text('${food.nameVi} (${food.caloriesKcal?.round() ?? 0} kcal)'),
+                    labelStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 0,
+                    ),
+                    label: Text(
+                      '${food.nameVi} (${food.caloriesKcal?.round() ?? 0} kcal)',
+                    ),
                     onPressed: () => _showAddMealPlanDialog(context, food),
                   );
                 }).toList(),
@@ -297,7 +323,8 @@ class _MessageBubble extends StatelessWidget {
               time,
               style: TextStyle(
                 fontSize: 11,
-                color: (isUser ? Colors.white : Colors.grey.shade600).withValues(alpha: 0.8),
+                color: (isUser ? Colors.white : Colors.grey.shade600)
+                    .withValues(alpha: 0.8),
               ),
             ),
             if (!isUser) _buildAssistantActions(context),
@@ -322,29 +349,64 @@ class _MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Thêm "${food.nameVi}" vào bữa ăn nào?',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const Divider(),
               ListTile(
-                leading: Text(MealType.breakfast.emoji, style: const TextStyle(fontSize: 20)),
+                leading: Text(
+                  MealType.breakfast.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
                 title: Text(MealType.breakfast.labelVi),
-                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.breakfast.value),
+                onTap: () => _addFoodToMealPlan(
+                  context,
+                  sheetContext,
+                  food,
+                  MealType.breakfast.value,
+                ),
               ),
               ListTile(
-                leading: Text(MealType.lunch.emoji, style: const TextStyle(fontSize: 20)),
+                leading: Text(
+                  MealType.lunch.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
                 title: Text(MealType.lunch.labelVi),
-                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.lunch.value),
+                onTap: () => _addFoodToMealPlan(
+                  context,
+                  sheetContext,
+                  food,
+                  MealType.lunch.value,
+                ),
               ),
               ListTile(
-                leading: Text(MealType.dinner.emoji, style: const TextStyle(fontSize: 20)),
+                leading: Text(
+                  MealType.dinner.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
                 title: Text(MealType.dinner.labelVi),
-                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.dinner.value),
+                onTap: () => _addFoodToMealPlan(
+                  context,
+                  sheetContext,
+                  food,
+                  MealType.dinner.value,
+                ),
               ),
               ListTile(
-                leading: Text(MealType.snack.emoji, style: const TextStyle(fontSize: 20)),
+                leading: Text(
+                  MealType.snack.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
                 title: Text(MealType.snack.labelVi),
-                onTap: () => _addFoodToMealPlan(context, sheetContext, food, MealType.snack.value),
+                onTap: () => _addFoodToMealPlan(
+                  context,
+                  sheetContext,
+                  food,
+                  MealType.snack.value,
+                ),
               ),
             ],
           ),
@@ -360,7 +422,7 @@ class _MessageBubble extends StatelessWidget {
     String mealType,
   ) async {
     Navigator.pop(sheetContext); // Close bottom sheet
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Đang thêm ${food.nameVi} vào thực đơn...')),
     );
@@ -373,9 +435,11 @@ class _MessageBubble extends StatelessWidget {
         recipeId: null,
         targetCalories: food.caloriesKcal?.round() ?? 0,
       );
-      
-      final result = await mealPlanProvider.addRecommendationToTodayPlan(request);
-      
+
+      final result = await mealPlanProvider.addRecommendationToTodayPlan(
+        request,
+      );
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         if (result != null) {

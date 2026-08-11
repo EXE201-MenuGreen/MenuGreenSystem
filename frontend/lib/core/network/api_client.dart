@@ -20,10 +20,10 @@ class ApiClient {
     TokenStorage? tokenStorage,
     Duration? timeout,
     ApiLoggingMiddleware? logger,
-  })  : _http = httpClient ?? http.Client(),
-        _storage = tokenStorage ?? TokenStorage(),
-        _timeout = timeout ?? const Duration(seconds: 12),
-        _logger = logger ?? const ApiLoggingMiddleware();
+  }) : _http = httpClient ?? http.Client(),
+       _storage = tokenStorage ?? TokenStorage(),
+       _timeout = timeout ?? const Duration(seconds: 12),
+       _logger = logger ?? const ApiLoggingMiddleware();
 
   final http.Client _http;
   final TokenStorage _storage;
@@ -127,15 +127,17 @@ class ApiClient {
     String url,
     Map<String, dynamic> body, {
     bool authenticated = true,
+    Duration? timeout,
   }) {
     final uri = Uri.parse(url);
+    final requestTimeout = timeout ?? _timeout;
     return _sendWithAuthRetry(
       method: 'POST',
       uri: uri,
       authenticated: authenticated,
       send: (headers) => _http
           .post(uri, headers: headers, body: jsonEncode(body))
-          .timeout(_timeout),
+          .timeout(requestTimeout),
     );
   }
 
@@ -161,10 +163,10 @@ class ApiClient {
         request.files.add(
           http.MultipartFile.fromBytes(
             fieldName,
-          fileBytes,
-          filename: filename,
-          contentType: fileContentType,
-        ),
+            fileBytes,
+            filename: filename,
+            contentType: fileContentType,
+          ),
         );
         final streamedResponse = await request.send().timeout(requestTimeout);
         return http.Response.fromStream(streamedResponse);
@@ -185,10 +187,16 @@ class ApiClient {
       authenticated: authenticated,
       jsonContentType: jsonContentType,
     );
+    // A network timeout means that a mutating request may already have
+    // reached the server. Retrying POST/PATCH/PUT here can therefore create
+    // duplicate records (for example duplicate chat messages).
+    final retryOnTransportFailure =
+        method == 'GET' || method == 'HEAD' || method == 'OPTIONS';
     final response = await _guardedRequest(
       method: method,
       uri: uri,
       request: () => send(headers),
+      retryOnTransportFailure: retryOnTransportFailure,
     );
 
     if (!authenticated || response.statusCode != 401) return response;
@@ -207,6 +215,7 @@ class ApiClient {
       method: method,
       uri: uri,
       request: () => send(retryHeaders),
+      retryOnTransportFailure: retryOnTransportFailure,
     );
     if (retryResponse.statusCode == 401) await _storage.clear();
     return retryResponse;
@@ -216,6 +225,7 @@ class ApiClient {
     required String method,
     required Uri uri,
     required Future<http.Response> Function() request,
+    required bool retryOnTransportFailure,
   }) async {
     try {
       final response = await ApiErrorMiddleware.guard(
@@ -223,6 +233,7 @@ class ApiClient {
         uri: uri,
         logger: _logger,
         request: request,
+        maxRetries: retryOnTransportFailure ? 3 : 1,
       );
 
       // Throw ApiException for rate limit (429) with Retry-After info
@@ -285,7 +296,8 @@ class ApiClient {
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final access = (data['accessToken'] ?? data['AccessToken'])?.toString();
-      final refresh = (data['refreshToken'] ?? data['RefreshToken'])?.toString();
+      final refresh = (data['refreshToken'] ?? data['RefreshToken'])
+          ?.toString();
       final fullName = (data['fullName'] ?? data['FullName'])?.toString();
 
       if (access == null ||
