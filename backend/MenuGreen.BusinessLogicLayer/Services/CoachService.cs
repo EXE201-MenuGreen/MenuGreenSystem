@@ -13,6 +13,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class CoachService : ICoachService
     {
+        private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
         private readonly IMealPlanService _mealPlanService;
@@ -528,14 +529,61 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        public async Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(Guid coachId, Guid clientId, int days)
+        public async Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(
+            Guid coachId,
+            Guid clientId,
+            int days,
+            DateOnly? from = null,
+            DateOnly? to = null)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
 
-            var cutoff = DateTime.UtcNow.Date.AddDays(-days);
-            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == clientId && x.LoggedAt >= cutoff);
+            var today = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var safeDays = Math.Clamp(days, 1, 366);
+            var rangeFrom = from ?? today.AddDays(-(safeDays - 1));
+            var rangeTo = to ?? today;
+            if (rangeFrom > rangeTo)
+            {
+                throw new ArgumentException("The start date must be before or equal to the end date.");
+            }
+
+            var startUtc = rangeFrom
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var endUtcExclusive = rangeTo
+                .AddDays(1)
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var logs = (await _unitOfWork.MealLogs.FindAsync(x =>
+                    x.UserId == clientId &&
+                    x.LoggedAt.HasValue &&
+                    x.LoggedAt.Value >= startUtc &&
+                    x.LoggedAt.Value < endUtcExclusive))
+                .ToList();
             var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault();
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == clientId)).FirstOrDefault();
+
+            var foodIds = logs
+                .Where(x => x.FoodId.HasValue)
+                .Select(x => x.FoodId!.Value)
+                .Distinct()
+                .ToList();
+            var recipeIds = logs
+                .Where(x => x.RecipeId.HasValue)
+                .Select(x => x.RecipeId!.Value)
+                .Distinct()
+                .ToList();
+            var foods = foodIds.Count == 0
+                ? new Dictionary<Guid, Food>()
+                : (await _unitOfWork.Foods.FindAsync(x => foodIds.Contains(x.Id)))
+                    .GroupBy(x => x.Id)
+                    .ToDictionary(x => x.Key, x => x.First());
+            var recipes = recipeIds.Count == 0
+                ? new Dictionary<Guid, Recipe>()
+                : (await _unitOfWork.Recipes.FindAsync(x => recipeIds.Contains(x.Id)))
+                    .GroupBy(x => x.Id)
+                    .ToDictionary(x => x.Key, x => x.First());
 
             var targetCalories = health?.TargetCalories ?? 2000;
             var targetProtein = health?.TargetProteinG ?? 150;
@@ -544,7 +592,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var grouped = logs
                 .Where(x => x.LoggedAt.HasValue)
-                .GroupBy(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .GroupBy(x => DateOnly.FromDateTime(
+                    x.LoggedAt!.Value.AddHours(VietnamUtcOffsetHours)))
                 .Select(g => new ClientNutritionSummaryResponse
                 {
                     ClientId = clientId,
@@ -557,7 +606,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ActualCarbs = g.Sum(x => x.CarbsG ?? 0),
                     TargetCarbs = targetCarbs,
                     ActualFat = g.Sum(x => x.FatG ?? 0),
-                    TargetFat = targetFat
+                    TargetFat = targetFat,
+                    Logs = g
+                        .OrderBy(x => x.LoggedAt)
+                        .Select(x =>
+                        {
+                            var foodName = x.FoodId.HasValue && foods.TryGetValue(x.FoodId.Value, out var food)
+                                ? food.NameVi
+                                : null;
+                            var recipeTitle = x.RecipeId.HasValue && recipes.TryGetValue(x.RecipeId.Value, out var recipe)
+                                ? recipe.Title
+                                : null;
+                            return new MealLogResponse
+                            {
+                                Id = x.Id,
+                                UserId = x.UserId,
+                                FoodId = x.FoodId,
+                                RecipeId = x.RecipeId,
+                                MealType = x.MealType,
+                                QuantityG = x.QuantityG,
+                                CaloriesKcal = x.CaloriesKcal,
+                                ProteinG = x.ProteinG,
+                                CarbsG = x.CarbsG,
+                                FatG = x.FatG,
+                                SourceType = x.SourceType,
+                                CustomName = x.CustomName,
+                                Notes = x.Notes,
+                                LoggedAt = x.LoggedAt,
+                                MealPlanItemId = x.MealPlanItemId,
+                                IsFromMealPlan = x.IsFromMealPlan,
+                                FoodName = foodName,
+                                RecipeTitle = recipeTitle,
+                                DisplayName = x.CustomName ?? foodName ?? recipeTitle ?? "Món ăn"
+                            };
+                        })
+                        .ToList()
                 })
                 .OrderByDescending(x => x.Date)
                 .ToList();

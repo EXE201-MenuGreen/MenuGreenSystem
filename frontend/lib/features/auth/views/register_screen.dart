@@ -7,7 +7,9 @@ import '../repositories/auth_repository.dart';
 import 'verify_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.authRepository});
+
+  final AuthRepository? authRepository;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -15,13 +17,16 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _confirmPasswordFieldKey = GlobalKey<FormFieldState<String>>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _authRepo = AuthRepository();
+  late final AuthRepository _authRepo;
   bool _isLoading = false;
   String _accountType = 'User';
+  String? _emailApiError;
 
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
@@ -30,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   @override
   void initState() {
     super.initState();
+    _authRepo = widget.authRepository ?? AuthRepository();
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -53,29 +59,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
 
-    if (fullName.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty) {
-      context.showWarningSnackBar('Vui lòng nhập đầy đủ thông tin');
-      return;
-    }
-
-    // Email format validation
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    if (!emailRegex.hasMatch(email)) {
-      context.showWarningSnackBar('Email không hợp lệ. Vui lòng nhập đúng định dạng email.');
-      return;
-    }
-
-    if (password != confirmPassword) {
-      context.showWarningSnackBar('Mật khẩu không khớp');
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isLoading = true);
 
@@ -105,8 +90,46 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
       });
     } else {
-      context.showErrorSnackBar(result['message'] ?? 'Đăng ký thất bại');
+      final message = result['message']?.toString() ?? 'Đăng ký thất bại';
+      if (message.toLowerCase().contains('email') &&
+          message.toLowerCase().contains('đăng ký')) {
+        setState(() => _emailApiError = message);
+        _formKey.currentState?.validate();
+      } else {
+        context.showErrorSnackBar(message);
+      }
     }
+  }
+
+  String? _validateFullName(String? value) {
+    final fullName = value?.trim() ?? '';
+    if (fullName.isEmpty) return 'Vui lòng nhập họ và tên.';
+    if (fullName.length > 255) return 'Họ và tên không được quá 255 ký tự.';
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Vui lòng nhập email.';
+    final isValid = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
+    if (!isValid) return 'Email không đúng định dạng.';
+    return _emailApiError;
+  }
+
+  String? _validatePassword(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) return 'Vui lòng nhập mật khẩu.';
+    if (password.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự.';
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    final confirmPassword = value ?? '';
+    if (confirmPassword.isEmpty) return 'Vui lòng nhập lại mật khẩu.';
+    if (confirmPassword != _passwordController.text) {
+      return 'Mật khẩu xác nhận không khớp.';
+    }
+    return null;
   }
 
   @override
@@ -134,238 +157,267 @@ class _RegisterScreenState extends State<RegisterScreen>
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              // MenuGreen Header & Single-line Title
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1B4332), Color(0xFF2D5A45)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.25),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                // MenuGreen Header & Single-line Title
+                ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1B4332), Color(0xFF2D5A45)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.25,
+                                ),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          color: Colors.white,
-                          size: 28,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.eco_rounded,
+                                      size: 13,
+                                      color: AppColors.primary,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'MENUGREEN',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Tạo tài khoản mới',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textDark,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Subtitle with bold MenuGreen highlight
+                const Text.rich(
+                  TextSpan(
+                    text: 'Bắt đầu xây dựng thói quen dinh dưỡng cùng ',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                      height: 1.4,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'MenuGreen',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      TextSpan(text: '.'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 36),
+                const Text(
+                  'Bạn muốn đăng ký với vai trò nào?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAccountTypeOption(
+                        value: 'User',
+                        icon: Icons.person_outline_rounded,
+                        title: 'Người dùng',
+                        subtitle: 'Theo dõi dinh dưỡng',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAccountTypeOption(
+                        value: 'PT',
+                        icon: Icons.fitness_center_rounded,
+                        title: 'PT',
+                        subtitle: 'Quản lý học viên',
+                      ),
+                    ),
+                  ],
+                ),
+                if (_accountType == 'PT') ...[
+                  const SizedBox(height: 10),
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 17,
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: 7),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.eco_rounded,
-                                    size: 13,
-                                    color: AppColors.primary,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'MENUGREEN',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Tạo tài khoản mới',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'Sau khi xác thực OTP, bạn sẽ hoàn thiện hồ sơ PT và gửi Admin xét duyệt trước khi nhận học viên.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.35,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Subtitle with bold MenuGreen highlight
-              const Text.rich(
-                TextSpan(
-                  text: 'Bắt đầu xây dựng thói quen dinh dưỡng cùng ',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                    height: 1.4,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'MenuGreen',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    TextSpan(text: '.'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 36),
-              const Text(
-                'Bạn muốn đăng ký với vai trò nào?',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildAccountTypeOption(
-                      value: 'User',
-                      icon: Icons.person_outline_rounded,
-                      title: 'Người dùng',
-                      subtitle: 'Theo dõi dinh dưỡng',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildAccountTypeOption(
-                      value: 'PT',
-                      icon: Icons.fitness_center_rounded,
-                      title: 'PT',
-                      subtitle: 'Quản lý học viên',
-                    ),
-                  ),
                 ],
-              ),
-              if (_accountType == 'PT') ...[
-                const SizedBox(height: 10),
-                const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 24),
+                CustomTextField(
+                  controller: _fullNameController,
+                  label: 'Họ và tên',
+                  hintText: 'Nhập họ và tên',
+                  prefixIcon: Icons.person_outline,
+                  validator: _validateFullName,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 24),
+                CustomTextField(
+                  controller: _emailController,
+                  label: 'Email',
+                  hintText: 'Nhập email của bạn',
+                  keyboardType: TextInputType.emailAddress,
+                  prefixIcon: Icons.email_outlined,
+                  validator: _validateEmail,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_emailApiError != null) {
+                      setState(() => _emailApiError = null);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+                CustomTextField(
+                  controller: _passwordController,
+                  label: 'Mật khẩu',
+                  hintText: 'Tạo mật khẩu',
+                  isPassword: true,
+                  prefixIcon: Icons.lock_outline,
+                  validator: _validatePassword,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_confirmPasswordController.text.isNotEmpty) {
+                      _confirmPasswordFieldKey.currentState?.validate();
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+                CustomTextField(
+                  controller: _confirmPasswordController,
+                  label: 'Xác nhận mật khẩu',
+                  hintText: 'Nhập lại mật khẩu',
+                  isPassword: true,
+                  prefixIcon: Icons.lock_outline,
+                  validator: _validateConfirmPassword,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  formFieldKey: _confirmPasswordFieldKey,
+                ),
+                const SizedBox(height: 40),
+                _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : PrimaryButton(
+                        text: 'Đăng ký',
+                        onPressed: _handleRegister,
+                      ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      size: 17,
-                      color: AppColors.primary,
+                    const Text(
+                      'Đã có tài khoản? ',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
-                    SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        'Sau khi xác thực OTP, bạn sẽ hoàn thiện hồ sơ PT và gửi Admin xét duyệt trước khi nhận học viên.',
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        'Đăng nhập',
                         style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.35,
-                          color: AppColors.textSecondary,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _fullNameController,
-                label: 'Họ và tên',
-                hintText: 'Nhập họ và tên',
-                prefixIcon: Icons.person_outline,
-              ),
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _emailController,
-                label: 'Email',
-                hintText: 'Nhập email của bạn',
-                keyboardType: TextInputType.emailAddress,
-                prefixIcon: Icons.email_outlined,
-              ),
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _passwordController,
-                label: 'Mật khẩu',
-                hintText: 'Tạo mật khẩu',
-                isPassword: true,
-                prefixIcon: Icons.lock_outline,
-              ),
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _confirmPasswordController,
-                label: 'Xác nhận mật khẩu',
-                hintText: 'Nhập lại mật khẩu',
-                isPassword: true,
-                prefixIcon: Icons.lock_outline,
-              ),
-              const SizedBox(height: 40),
-              _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : PrimaryButton(text: 'Đăng ký', onPressed: _handleRegister),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Đã có tài khoản? ',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Đăng nhập',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),

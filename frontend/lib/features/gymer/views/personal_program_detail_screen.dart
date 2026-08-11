@@ -7,12 +7,36 @@ import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../utils/personal_program_period.dart';
+
+@visibleForTesting
+bool isPersonalProgramMealDateReached(String rawDate, {DateTime? now}) {
+  final plannedDate = DateTime.tryParse(rawDate.trim());
+  if (plannedDate == null) return false;
+
+  final current = (now ?? DateTime.now()).toLocal();
+  final today = DateTime(current.year, current.month, current.day);
+  final plannedDay = DateTime(
+    plannedDate.year,
+    plannedDate.month,
+    plannedDate.day,
+  );
+  return !plannedDay.isAfter(today);
+}
 
 /// Detail screen for a PersonalProgram sent by coach ("PT gửi tôi").
 class PersonalProgramDetailScreen extends StatefulWidget {
-  const PersonalProgramDetailScreen({super.key, required this.program});
+  const PersonalProgramDetailScreen({
+    super.key,
+    required this.program,
+    this.mealPlanRepository,
+    this.nutritionTrackingRepository,
+  });
+
   final Map<String, dynamic> program;
+  final MealPlanRepository? mealPlanRepository;
+  final NutritionTrackingRepository? nutritionTrackingRepository;
 
   @override
   State<PersonalProgramDetailScreen> createState() =>
@@ -23,8 +47,77 @@ class _PersonalProgramDetailScreenState
     extends State<PersonalProgramDetailScreen> {
   bool _accepting = false;
   bool _rejecting = false;
-  final Set<String> _completedMealKeys = <String>{};
+  final Map<String, bool> _mealCompletionOverrides = <String, bool>{};
   final Set<String> _updatingMealIds = <String>{};
+  late final MealPlanRepository _mealPlanRepository;
+  late final NutritionTrackingRepository _nutritionTrackingRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _mealPlanRepository = widget.mealPlanRepository ?? MealPlanRepository();
+    _nutritionTrackingRepository =
+        widget.nutritionTrackingRepository ?? NutritionTrackingRepository();
+    _syncMealLogCompletionState();
+  }
+
+  bool get _isAccepted =>
+      _value(widget.program, 'status').trim().toLowerCase() == 'accepted';
+
+  Future<void> _syncMealLogCompletionState() async {
+    if (!_isAccepted) return;
+
+    final rawMeals =
+        (widget.program['meals'] ?? widget.program['Meals']) as List?;
+    if (rawMeals == null || rawMeals.isEmpty) return;
+
+    final mealIdsByDate = <String, Set<String>>{};
+    for (final rawMeal in rawMeals.whereType<Map>()) {
+      final meal = Map<String, dynamic>.from(rawMeal);
+      final mealId = _value(meal, 'id').isNotEmpty
+          ? _value(meal, 'id')
+          : _value(meal, 'mealId');
+      final rawDate = _value(meal, 'plannedDate');
+      if (mealId.isEmpty || !isPersonalProgramMealDateReached(rawDate)) {
+        continue;
+      }
+      mealIdsByDate.putIfAbsent(rawDate, () => <String>{}).add(mealId);
+    }
+    if (mealIdsByDate.isEmpty) return;
+
+    final candidateIds = mealIdsByDate.values.expand((ids) => ids).toSet();
+    setState(() => _updatingMealIds.addAll(candidateIds));
+
+    final resolved = <String, bool>{};
+    await Future.wait(
+      mealIdsByDate.entries.map((entry) async {
+        final date = DateTime.tryParse(entry.key);
+        if (date == null) return;
+        try {
+          final summary = await _nutritionTrackingRepository.getDailySummary(
+            date,
+          );
+          final loggedItemIds =
+              summary?.mealLogs
+                  .map((log) => log.mealPlanItemId)
+                  .whereType<String>()
+                  .toSet() ??
+              <String>{};
+          for (final mealId in entry.value) {
+            resolved[mealId] = loggedItemIds.contains(mealId);
+          }
+        } catch (_) {
+          // Keep the snapshot state when daily meal logs cannot be refreshed.
+        }
+      }),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _mealCompletionOverrides.addAll(resolved);
+      _updatingMealIds.removeAll(candidateIds);
+    });
+  }
 
   Future<void> _accept() async {
     setState(() => _accepting = true);
@@ -65,24 +158,23 @@ class _PersonalProgramDetailScreenState
   }
 
   Future<void> _toggleMeal(String mealKey, String mealId, bool value) async {
-    setState(() {
-      if (value) {
-        _completedMealKeys.add(mealKey);
-      } else {
-        _completedMealKeys.remove(mealKey);
-      }
-    });
+    if (mealId.isEmpty || _updatingMealIds.contains(mealId)) return;
 
-    if (mealId.isNotEmpty) {
-      setState(() => _updatingMealIds.add(mealId));
-      try {
-        await MealPlanRepository().toggleItem(mealId, value);
-      } catch (_) {
-        // Fallback for offline or local preview
-      } finally {
-        if (mounted) {
-          setState(() => _updatingMealIds.remove(mealId));
-        }
+    setState(() => _updatingMealIds.add(mealId));
+    try {
+      await _mealPlanRepository.toggleItem(mealId, value);
+      if (!mounted) return;
+      setState(() => _mealCompletionOverrides[mealKey] = value);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ApiMessageTranslator.translate(error.toString())),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMealIds.remove(mealId));
       }
     }
   }
@@ -243,8 +335,9 @@ class _PersonalProgramDetailScreenState
               title: 'Bữa ăn và món ăn trong lộ trình',
               child: _MealsByDate(
                 meals: meals,
-                completedMealKeys: _completedMealKeys,
+                completionOverrides: _mealCompletionOverrides,
                 updatingMealIds: _updatingMealIds,
+                allowToggle: _isAccepted,
                 onToggleMeal: _toggleMeal,
               ),
             ),
@@ -367,14 +460,16 @@ class _PersonalProgramDetailScreenState
 class _MealsByDate extends StatelessWidget {
   const _MealsByDate({
     required this.meals,
-    required this.completedMealKeys,
+    required this.completionOverrides,
     required this.updatingMealIds,
+    required this.allowToggle,
     required this.onToggleMeal,
   });
 
   final List<Map<String, dynamic>> meals;
-  final Set<String> completedMealKeys;
+  final Map<String, bool> completionOverrides;
   final Set<String> updatingMealIds;
+  final bool allowToggle;
   final Function(String mealKey, String mealId, bool value) onToggleMeal;
 
   @override
@@ -511,8 +606,9 @@ class _MealsByDate extends StatelessWidget {
                           meal: dayMeals[idx],
                           mealIndex: idx,
                           rawDate: rawDate,
-                          completedMealKeys: completedMealKeys,
+                          completionOverrides: completionOverrides,
                           updatingMealIds: updatingMealIds,
+                          allowToggle: allowToggle,
                           onToggleMeal: onToggleMeal,
                         ),
                         if (idx < dayMeals.length - 1)
@@ -578,16 +674,18 @@ class _PersonalMealTile extends StatelessWidget {
     required this.meal,
     required this.mealIndex,
     required this.rawDate,
-    required this.completedMealKeys,
+    required this.completionOverrides,
     required this.updatingMealIds,
+    required this.allowToggle,
     required this.onToggleMeal,
   });
 
   final Map<String, dynamic> meal;
   final int mealIndex;
   final String rawDate;
-  final Set<String> completedMealKeys;
+  final Map<String, bool> completionOverrides;
   final Set<String> updatingMealIds;
+  final bool allowToggle;
   final Function(String mealKey, String mealId, bool value) onToggleMeal;
 
   @override
@@ -603,8 +701,14 @@ class _PersonalMealTile extends StatelessWidget {
     final isCompletedInMap =
         meal['isCompleted'] == true ||
         _value(meal, 'isCompleted').toLowerCase() == 'true';
-    final isCompleted = completedMealKeys.contains(mealKey) || isCompletedInMap;
+    final isCompleted = completionOverrides[mealKey] ?? isCompletedInMap;
     final isUpdating = updatingMealIds.contains(mealId);
+    final hasReachedPlannedDate = isPersonalProgramMealDateReached(rawDate);
+    final canToggle =
+        allowToggle &&
+        mealId.isNotEmpty &&
+        hasReachedPlannedDate &&
+        !isUpdating;
 
     final mealType = _value(meal, 'mealType');
     final (bgColor, textColor, borderColor) = _mealTypeColors(mealType);
@@ -703,14 +807,22 @@ class _PersonalMealTile extends StatelessWidget {
               )
             else
               Tooltip(
-                message: isCompleted ? 'Đã ăn' : 'Đánh dấu đã ăn',
+                message: !allowToggle
+                    ? 'Chấp nhận lộ trình trước khi ghi nhận món ăn'
+                    : mealId.isEmpty
+                    ? 'Món ăn chưa có dữ liệu để ghi nhận'
+                    : !hasReachedPlannedDate
+                    ? 'Không thể đánh dấu món ăn trong tương lai'
+                    : (isCompleted ? 'Đã ăn' : 'Đánh dấu đã ăn'),
                 child: Checkbox(
                   value: isCompleted,
-                  onChanged: (val) {
-                    if (val != null) {
-                      onToggleMeal(mealKey, mealId, val);
-                    }
-                  },
+                  onChanged: !canToggle
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            onToggleMeal(mealKey, mealId, val);
+                          }
+                        },
                   activeColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
