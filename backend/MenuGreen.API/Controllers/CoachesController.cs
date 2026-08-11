@@ -73,6 +73,71 @@ namespace MenuGreen.API.Controllers
             }
         }
 
+        /// <summary>Get the signed-in PT application, including draft and review status.</summary>
+        [HttpGet("application/me")]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> GetMyApplication()
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _coachService.GetMyApplicationAsync(userId)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        /// <summary>Save an incomplete PT application without submitting it.</summary>
+        [HttpPut("application/me")]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> SaveMyApplicationDraft(
+            [FromBody] CoachApplicationUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _coachService.SaveApplicationDraftAsync(userId, request)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        /// <summary>Submit or resubmit a completed PT application for Admin review.</summary>
+        [HttpPost("application/me/submit")]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> SubmitMyApplication(
+            [FromBody] CoachApplicationUpsertRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try { return Ok(await _coachService.SubmitApplicationAsync(userId, request)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        /// <summary>Admin lists PT applications, optionally filtered by status.</summary>
+        [HttpGet("admin/applications")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> GetApplicationsForAdmin([FromQuery] string? status)
+        {
+            try { return Ok(await _coachService.GetApplicationsForAdminAsync(status)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
+        /// <summary>Admin views all private verification details of one PT application.</summary>
+        [HttpGet("admin/applications/{id:guid}")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> GetApplicationForAdmin(Guid id)
+        {
+            try { return Ok(await _coachService.GetApplicationForAdminAsync(id)); }
+            catch (Exception ex) { return NotFound(new { Message = ex.Message }); }
+        }
+
+        /// <summary>Admin approves, requests revision, rejects or suspends a PT application.</summary>
+        [HttpPost("admin/applications/{id:guid}/review")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> ReviewApplication(
+            Guid id,
+            [FromBody] CoachApplicationReviewRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var adminUserId)) return Unauthorized();
+            try { return Ok(await _coachService.ReviewApplicationAsync(adminUserId, id, request)); }
+            catch (Exception ex) { return BadRequest(new { Message = ex.Message }); }
+        }
+
         /// <summary>Student sends request to connect with a Coach.</summary>
         [HttpPost("connect/{coachId:guid}")]
         [Authorize]

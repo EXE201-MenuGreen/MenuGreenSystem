@@ -311,6 +311,27 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Khẩu phần:',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                Text(
+                                  '${food.quantityG.toStringAsFixed(food.quantityG == food.quantityG.roundToDouble() ? 0 : 1)} g',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
                             const Divider(color: Colors.white12, height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,

@@ -23,6 +23,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
         public int? TargetCalories { get; set; }
+        public double? QuantityG { get; set; }
         public TimeOnly? ScheduledTime { get; set; }
 
         /// <summary>

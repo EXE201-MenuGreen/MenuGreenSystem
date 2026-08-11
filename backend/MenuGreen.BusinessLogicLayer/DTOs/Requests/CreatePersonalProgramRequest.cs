@@ -80,6 +80,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? RecipeId { get; set; }
         public string? RecipeName { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? QuantityG { get; set; }
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }

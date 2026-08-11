@@ -100,6 +100,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var req in filtered.OrderByDescending(r => r.CreatedAt))
             {
                 var data = TryParseReportData(req.ReportDataJson);
+                if (!IsAssignedToCoach(data, coachId))
+                {
+                    continue;
+                }
                 if (!IsReviewReport(req, data))
                 {
                     continue;
@@ -138,6 +142,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var studentName = await GetStudentNameAsync(req.UserId);
             var reportData = TryParseReportData(req.ReportDataJson);
+            EnsureAssignedToCoach(reportData, coachId);
             if (req.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
             {
                 var liveResult = await _ptReviewService.GetReviewResultAsync(
@@ -201,6 +206,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await EnsureConnectedAsync(coachId, req.UserId);
 
             var reportData = TryParseReportData(req.ReportDataJson);
+            EnsureAssignedToCoach(reportData, coachId);
             if (!IsReviewReport(req, reportData))
             {
                 throw new Exception("This request is not a mid-week or final weekly report.");
@@ -388,6 +394,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
             catch
             {
                 return null;
+            }
+        }
+
+        private static bool IsAssignedToCoach(
+            WeeklyReportSnapshot? snapshot,
+            Guid coachId)
+        {
+            // Legacy snapshots did not store the target PT. Their existing
+            // connection check remains the compatibility fallback.
+            return snapshot?.AssignedCoachId is not Guid assignedCoachId
+                || assignedCoachId == coachId;
+        }
+
+        private static void EnsureAssignedToCoach(
+            WeeklyReportSnapshot? snapshot,
+            Guid coachId)
+        {
+            if (!IsAssignedToCoach(snapshot, coachId))
+            {
+                throw new UnauthorizedAccessException(
+                    "This report was sent to another coach.");
             }
         }
 

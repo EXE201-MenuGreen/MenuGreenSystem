@@ -99,7 +99,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Bio = string.Empty,
                     ExperienceYears = 0,
                     PriceVnd = 0,
-                    IsActive = true,
+                    ApplicationStatus = "Draft",
+                    IsActive = false,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });

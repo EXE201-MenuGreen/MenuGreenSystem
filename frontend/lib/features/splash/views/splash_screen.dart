@@ -8,8 +8,8 @@ import '../../../core/network/token_storage.dart';
 import '../../../core/services/notification_handler.dart';
 import '../../../main.dart';
 import '../../auth/views/welcome_screen.dart';
+import '../../auth/utils/post_auth_navigation.dart';
 import '../../main/views/main_screen.dart';
-import '../../coach/views/coach_main_screen.dart';
 import '../../onboarding/utils/onboarding_gate.dart';
 import '../../onboarding/views/onboarding_screen.dart';
 import '../../profile/repositories/profile_repository.dart';
@@ -21,7 +21,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _navigated = false;
@@ -37,9 +38,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 1200),
     );
 
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _controller.forward();
 
@@ -55,9 +57,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _readTokenEarly() async {
     try {
-      _token = await TokenStorage()
-          .getAccessToken()
-          .timeout(const Duration(seconds: 3));
+      _token = await TokenStorage().getAccessToken().timeout(
+        const Duration(seconds: 3),
+      );
     } catch (e) {
       debugPrint('Splash token preload: $e');
     }
@@ -69,9 +71,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (_token == null) {
       try {
-        _token = await TokenStorage()
-            .getAccessToken()
-            .timeout(const Duration(seconds: 2));
+        _token = await TokenStorage().getAccessToken().timeout(
+          const Duration(seconds: 2),
+        );
       } catch (e) {
         debugPrint('Splash token read: $e');
       }
@@ -82,9 +84,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     var hasValidSession = _token != null && _token!.isNotEmpty;
     if (hasValidSession) {
       try {
-        hasValidSession = await ApiClient()
-            .ensureValidSession()
-            .timeout(const Duration(seconds: 8));
+        hasValidSession = await ApiClient().ensureValidSession().timeout(
+          const Duration(seconds: 8),
+        );
       } catch (error) {
         debugPrint('[Splash] Session validation failed: $error');
         hasValidSession = false;
@@ -99,10 +101,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         if (complete) {
           // Check role — Coach gets PT workspace
           try {
-            final profile = await ProfileRepository().getMyProfile()
-                .timeout(const Duration(seconds: 8));
+            final profile = await ProfileRepository().getMyProfile().timeout(
+              const Duration(seconds: 8),
+            );
             final role = (profile?['role'] ?? '').toString().toLowerCase();
-            destination = role == 'coach' ? const CoachMainScreen() : const MainScreen();
+            destination = role == 'coach'
+                ? await resolveCoachDestination(
+                    timeout: const Duration(seconds: 8),
+                  )
+                : const MainScreen();
           } catch (_) {
             destination = const MainScreen();
           }
@@ -121,7 +128,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (pendingNotification != null && hasValidSession) {
       final handler = NotificationHandler();
       final action = handler.parseNotificationData(pendingNotification.data);
-      final notificationDestination = handler.buildDestinationScreen(action, pendingNotification);
+      final notificationDestination = handler.buildDestinationScreen(
+        action,
+        pendingNotification,
+      );
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => notificationDestination),
@@ -183,10 +193,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'MenuGreen',
-                  style: AppTextStyles.heading1,
-                ),
+                const Text('MenuGreen', style: AppTextStyles.heading1),
                 const SizedBox(height: 8),
                 const Text(
                   'Trợ lý dinh dưỡng thông\nminh',
@@ -211,8 +218,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Đang khởi tạo...', style: AppTextStyles.body),
-                            Text('$percentage%', style: AppTextStyles.progressText),
+                            const Text(
+                              'Đang khởi tạo...',
+                              style: AppTextStyles.body,
+                            ),
+                            Text(
+                              '$percentage%',
+                              style: AppTextStyles.progressText,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),

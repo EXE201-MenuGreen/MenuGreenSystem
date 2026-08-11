@@ -37,8 +37,10 @@ void main() {
       'caloriesKcal': 300,
       'foodName': 'Phở bò',
       'displayName': 'Phở bò đặc biệt',
+      'mealPlanItemId': 'plan-item-1',
     });
 
     expect(item.displayName, 'Phở bò đặc biệt');
+    expect(item.mealPlanItemId, 'plan-item-1');
   });
 }

@@ -326,24 +326,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 item.IsCompleted = true;
                 _unitOfWork.MealPlanItems.Update(item);
                 await _unitOfWork.CompleteAsync();
-                return await _nutritionTracking.GetMealLogAsync(ownerId, existingLog.Id);
+                var correctedRequest = await BuildCompletionMealLogRequestAsync(
+                    item,
+                    existingLog.QuantityG,
+                    existingLog.Notes,
+                    existingLog.LoggedAt);
+                return await _nutritionTracking.UpdateMealLogAsync(
+                    ownerId,
+                    existingLog.Id,
+                    correctedRequest);
             }
 
-            var mealLogRequest = new MealLogUpsertRequest
-            {
-                FoodId = item.FoodId,
-                RecipeId = item.RecipeId,
-                MealType = item.MealType ?? "snack",
-                QuantityG = item.QuantityG ?? 100,
-                CaloriesKcal = item.TargetCalories,
-                ProteinG = item.ProteinG,
-                CarbsG = item.CarbsG,
-                FatG = item.FatG,
-                CustomName = item.CustomName,
-                Notes = request.Notes ?? "Logged from meal plan.",
-                LoggedAt = request.LoggedAt ?? ResolveMealLogUtc(item),
-                MealPlanItemId = item.Id
-            };
+            var mealLogRequest = await BuildCompletionMealLogRequestAsync(
+                item,
+                item.QuantityG ?? 100,
+                request.Notes,
+                request.LoggedAt);
 
             var mealLog = await _nutritionTracking.CreateMealLogAsync(ownerId, mealLogRequest);
             item.IsCompleted = true;
@@ -997,7 +995,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = displayCalories > 0 ? displayCalories : null,
-                QuantityG = x.QuantityG,
+                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
                 ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
                 CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
                 FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
@@ -1143,6 +1141,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = cal > 0 ? cal : null,
+                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
                 IsCompleted = x.IsCompleted,
                 CustomName = x.CustomName,
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName,
@@ -1574,6 +1573,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     .Take(5);
                 foreach (var r in alternativeRecipes)
                 {
+                    var nutrition = await GetItemMacrosAsync(new MealPlanItem
+                    {
+                        RecipeId = r.Id
+                    });
                     result.Add(new MealPlanItemResponse
                     {
                         Id = Guid.Empty,
@@ -1583,6 +1586,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         RecipeName = r.Title,
                         SourceEntityType = "Recipe",
                         TargetCalories = currentCal,
+                        QuantityG = currentItem.QuantityG ?? 100m,
+                        ProteinG = nutrition.protein,
+                        CarbsG = nutrition.carbs,
+                        FatG = nutrition.fat,
                         EstimatedPriceVnd = RecipeServingPrice(r),
                         Status = "alternative"
                     });
@@ -1611,6 +1618,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         FoodName = f.NameVi,
                         SourceEntityType = "Food",
                         TargetCalories = currentCal,
+                        QuantityG = f.DefaultServingG ?? 100,
+                        ProteinG = f.ProteinG,
+                        CarbsG = f.CarbsG,
+                        FatG = f.FatG,
                         EstimatedPriceVnd = f.EstimatedPriceVnd,
                         Status = "alternative"
                     });
@@ -1876,6 +1887,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
         {
             ValidateItems(request.Items);
+            var createsGymRoute = request.Items.Any(item =>
+                string.Equals(item.Origin, "gym", StringComparison.OrdinalIgnoreCase));
+            if (createsGymRoute)
+            {
+                var acceptedConnections = await _unitOfWork.CoachConnections.FindAsync(
+                    connection => connection.ClientId == userId
+                        && (connection.Status == "Connected"
+                            || connection.Status == "Approved"));
+                if (!acceptedConnections.Any())
+                {
+                    throw new InvalidOperationException(
+                        "Bạn cần kết nối với PT và được PT chấp nhận trước khi khởi tạo lộ trình.");
+                }
+            }
+
             // Mutations must only reuse an exact DAILY plan. The read helper
             // may fall back to a weekly/monthly plan covering the date; using
             // that fallback here would convert an older approved range into a
@@ -1924,6 +1950,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await AddDailyItemsAsync(plan.Id, request.PlannedDate, request.Items);
+            await InvalidateMealPlanDateCacheAsync(userId, request.PlannedDate);
             return (await GetByDateAsync(userId, request.PlannedDate))!;
         }
 
@@ -1937,6 +1964,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = request.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = x.TargetCalories,
+                QuantityG = x.QuantityG,
                 IsCompleted = false,
                 Origin = x.Origin
             }).ToList();
@@ -1973,10 +2001,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 item.IsCompleted = true;
                 _unitOfWork.MealPlanItems.Update(item);
                 await _unitOfWork.CompleteAsync();
+                await InvalidateMealPlanDateCacheAsync(
+                    userId,
+                    item.PlannedDate,
+                    plan);
+                var correctedRequest = await BuildCompletionMealLogRequestAsync(
+                    item,
+                    existingLog.QuantityG,
+                    existingLog.Notes,
+                    existingLog.LoggedAt);
                 return new CompleteMealPlanItemResponse
                 {
                     Item = await MapItemAsync(item, existingLog.Id),
-                    MealLog = await _nutritionTracking.GetMealLogAsync(userId, existingLog.Id)
+                    MealLog = await _nutritionTracking.UpdateMealLogAsync(
+                        userId,
+                        existingLog.Id,
+                        correctedRequest)
                 };
             }
 
@@ -1987,21 +2027,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var quantity = request.QuantityG
                 ?? await ResolveCompletionQuantityAsync(item);
-            var mealLogRequest = new MealLogUpsertRequest
-            {
-                FoodId = item.FoodId,
-                RecipeId = item.RecipeId,
-                MealType = item.MealType ?? "snack",
-                QuantityG = quantity,
-                Notes = "Logged from meal plan.",
-                LoggedAt = ResolveMealLogUtc(item),
-                MealPlanItemId = item.Id
-            };
+            var mealLogRequest = await BuildCompletionMealLogRequestAsync(
+                item,
+                quantity);
 
             var mealLog = await _nutritionTracking.CreateMealLogAsync(userId, mealLogRequest);
             item.IsCompleted = true;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
+            await InvalidateMealPlanDateCacheAsync(
+                userId,
+                item.PlannedDate,
+                plan);
 
             return new CompleteMealPlanItemResponse
             {
@@ -2251,26 +2288,31 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         throw new Exception("Meal plan item must have FoodId or RecipeId.");
                     }
 
-                    var mealLogRequest = new MealLogUpsertRequest
-                    {
-                        FoodId = item.FoodId,
-                        RecipeId = item.RecipeId,
-                        MealType = item.MealType ?? "snack",
-                        QuantityG = await ResolveCompletionQuantityAsync(item),
-                        Notes = "Logged from meal plan.",
-                        LoggedAt = ResolveMealLogUtc(item),
-                        MealPlanItemId = item.Id
-                    };
+                    var mealLogRequest = await BuildCompletionMealLogRequestAsync(
+                        item,
+                        await ResolveCompletionQuantityAsync(item));
                     mealLogRes = await _nutritionTracking.CreateMealLogAsync(userId, mealLogRequest);
                     mealLogId = mealLogRes.Id;
                 }
                 else
                 {
                     mealLogId = existingLog.Id;
-                    mealLogRes = await _nutritionTracking.GetMealLogAsync(userId, existingLog.Id);
+                    var correctedRequest = await BuildCompletionMealLogRequestAsync(
+                        item,
+                        existingLog.QuantityG,
+                        existingLog.Notes,
+                        existingLog.LoggedAt);
+                    mealLogRes = await _nutritionTracking.UpdateMealLogAsync(
+                        userId,
+                        existingLog.Id,
+                        correctedRequest);
                 }
 
                 await _unitOfWork.CompleteAsync();
+                await InvalidateMealPlanDateCacheAsync(
+                    userId,
+                    item.PlannedDate,
+                    plan);
                 return new CompleteMealPlanItemResponse
                 {
                     Item = await MapItemAsync(item, mealLogId),
@@ -2288,6 +2330,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
 
                 await _unitOfWork.CompleteAsync();
+                await InvalidateMealPlanDateCacheAsync(
+                    userId,
+                    item.PlannedDate,
+                    plan);
                 return new CompleteMealPlanItemResponse
                 {
                     Item = await MapItemAsync(item, null),
@@ -2322,6 +2368,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
                 TargetCalories = item.TargetCalories ?? (int)Math.Round(macros.calories),
+                QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,
@@ -2333,6 +2380,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 CarbsG = (int)Math.Round(macros.carbs),
                 FatG = (int)Math.Round(macros.fat),
                 Origin = item.Origin
+            };
+        }
+
+        private async Task<MealLogUpsertRequest> BuildCompletionMealLogRequestAsync(
+            MealPlanItem item,
+            decimal? quantityG,
+            string? notes = null,
+            DateTime? loggedAt = null)
+        {
+            var macros = await GetItemMacrosAsync(item);
+            return new MealLogUpsertRequest
+            {
+                FoodId = item.FoodId,
+                RecipeId = item.RecipeId,
+                MealType = item.MealType ?? "snack",
+                QuantityG = quantityG ?? await ResolveCompletionQuantityAsync(item),
+                CaloriesKcal = item.TargetCalories ?? macros.calories,
+                ProteinG = item.ProteinG ?? macros.protein,
+                CarbsG = item.CarbsG ?? macros.carbs,
+                FatG = item.FatG ?? macros.fat,
+                CustomName = item.CustomName,
+                Notes = notes ?? "Logged from meal plan.",
+                LoggedAt = loggedAt ?? ResolveMealLogUtc(item),
+                MealPlanItemId = item.Id
             };
         }
 
@@ -2466,6 +2537,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
             await _unitOfWork.CompleteAsync();
+            await InvalidateMealPlanDateCacheAsync(userId, today);
         }
 
         private async Task<MealPlanHeader> GetOrCreateTodayDailyPlanAsync(Guid userId)
@@ -2504,6 +2576,43 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var date = today.AddDays(i);
                 await _cache.RemoveAsync(CacheKeys.MealPlanByDate(userId.Value, date));
+            }
+        }
+
+        private async Task InvalidateMealPlanDateCacheAsync(
+            Guid userId,
+            DateOnly? plannedDate,
+            MealPlanHeader? plan = null)
+        {
+            if (plannedDate.HasValue)
+            {
+                await _cache.RemoveAsync(
+                    CacheKeys.MealPlanByDate(userId, plannedDate.Value));
+                return;
+            }
+
+            // Legacy/PT-created items can have no PlannedDate. GetByDateAsync
+            // still includes those items for every day covered by the plan,
+            // so invalidating nothing leaves an old IsCompleted value in
+            // Redis and makes the checkbox appear to reset after reopening.
+            if (plan?.StartDate is not DateOnly startDate)
+            {
+                return;
+            }
+
+            var endDate = plan.EndDate is { } candidate && candidate >= startDate
+                ? candidate
+                : startDate;
+
+            // A plan is at most a bounded user-facing period. Keep a safety
+            // limit so malformed historical data cannot cause an unbounded
+            // cache invalidation loop.
+            var lastDate = endDate <= startDate.AddDays(366)
+                ? endDate
+                : startDate.AddDays(366);
+            for (var date = startDate; date <= lastDate; date = date.AddDays(1))
+            {
+                await _cache.RemoveAsync(CacheKeys.MealPlanByDate(userId, date));
             }
         }
     }

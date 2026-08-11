@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../meal_plan/models/meal_plan_responses.dart';
@@ -190,25 +191,22 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
     try {
       final plans = await _mealPlanRepository.getPlans(isActive: true);
       final officePlans =
-          plans
-              .where((plan) {
-                final title = plan.title.toLowerCase();
-                final type = (plan.planType ?? '').toLowerCase();
-                return title.contains('cơm hộp') ||
-                    title.contains('office') ||
-                    title.contains('lunchbox') ||
-                    type.contains('office') ||
-                    type.contains('lunchbox') ||
-                    type.contains('budget');
-              })
-              .toList()
-            ..sort((a, b) {
-              final aDate = a.startDate ?? DateTime(1970);
-              final bDate = b.startDate ?? DateTime(1970);
-              final cmp = bDate.compareTo(aDate);
-              if (cmp != 0) return cmp;
-              return b.id.compareTo(a.id);
-            });
+          plans.where((plan) {
+            final title = plan.title.toLowerCase();
+            final type = (plan.planType ?? '').toLowerCase();
+            return title.contains('cơm hộp') ||
+                title.contains('office') ||
+                title.contains('lunchbox') ||
+                type.contains('office') ||
+                type.contains('lunchbox') ||
+                type.contains('budget');
+          }).toList()..sort((a, b) {
+            final aDate = a.startDate ?? DateTime(1970);
+            final bDate = b.startDate ?? DateTime(1970);
+            final cmp = bDate.compareTo(aDate);
+            if (cmp != 0) return cmp;
+            return b.id.compareTo(a.id);
+          });
 
       final targetList = officePlans.isNotEmpty ? officePlans : plans;
       if (targetList.isEmpty) return;
@@ -471,8 +469,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
                             children: [
                               TextSpan(
                                 text:
-                                    '${alternative.targetCalories ?? 0} kcal · '
-                                    '${_currency(alternative.estimatedPriceVnd)}',
+                                    '${formatNutritionFacts(quantityG: alternative.quantityG, caloriesKcal: alternative.targetCalories, proteinG: alternative.proteinG, carbsG: alternative.carbsG, fatG: alternative.fatG)}\n${_currency(alternative.estimatedPriceVnd)}',
                               ),
                               if (isOverBudget)
                                 TextSpan(

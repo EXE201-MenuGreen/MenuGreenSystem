@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
@@ -85,7 +86,8 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                   const SizedBox(height: 8),
                   if (provider.randomHighlight != null)
                     _buildHighlightCard(provider),
-                  if (provider.randomHighlight != null) const SizedBox(height: 12),
+                  if (provider.randomHighlight != null)
+                    const SizedBox(height: 12),
                   _buildFeaturedList(provider),
                   const SizedBox(height: 24),
                   const SectionHeader(
@@ -128,13 +130,18 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
           ? welcome
           : 'MenuGreen chào bạn!',
       subtitle: today == null
-          ? (loading ? 'Đang tải thông tin hôm nay...' : 'Hôm nay ăn gì? chọn nhanh cho bạn.')
+          ? (loading
+                ? 'Đang tải thông tin hôm nay...'
+                : 'Hôm nay ăn gì? chọn nhanh cho bạn.')
           : 'Mục tiêu hôm nay: ${today.caloriesTarget.toStringAsFixed(0)} kcal'
-              '${today.hasLoggedToday ? ' • Đã ghi nhật ký' : ' • Chưa ghi nhật ký'}',
+                '${today.hasLoggedToday ? ' • Đã ghi nhật ký' : ' • Chưa ghi nhật ký'}',
       trailing: today?.quote.trim().isNotEmpty == true
           ? Tooltip(
               message: today!.quote,
-              child: const Icon(Icons.lightbulb_outline, color: AppColors.primary),
+              child: const Icon(
+                Icons.lightbulb_outline,
+                color: AppColors.primary,
+              ),
             )
           : null,
       child: today?.quote.trim().isNotEmpty == true
@@ -171,11 +178,12 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
               ? () async {
                   final picked = await provider.pickRandomHighlight();
                   if (picked == null && mounted) {
-                    final msg = provider.randomErrorMessage ??
+                    final msg =
+                        provider.randomErrorMessage ??
                         'Không thể gợi ý lúc này.';
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(msg)),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(msg)));
                   }
                 }
               : null,
@@ -262,10 +270,15 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${food.caloriesKcal.toStringAsFixed(0)} kcal'
-                        ' • P ${food.proteinG.toStringAsFixed(0)}g'
-                        ' • C ${food.carbsG.toStringAsFixed(0)}g'
-                        ' • F ${food.fatG.toStringAsFixed(0)}g',
+                        formatNutritionFacts(
+                          quantityG: food.defaultServingG,
+                          caloriesKcal: food.caloriesKcal,
+                          proteinG: food.proteinG,
+                          carbsG: food.carbsG,
+                          fatG: food.fatG,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -292,7 +305,9 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
     if (provider.isLoading && provider.featured.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
     if (provider.featured.isEmpty) {
@@ -334,7 +349,10 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                           color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.restaurant, color: AppColors.primary),
+                        child: const Icon(
+                          Icons.restaurant,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -353,10 +371,15 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${food.caloriesKcal.toStringAsFixed(0)} kcal'
-                              ' • P ${food.proteinG.toStringAsFixed(0)}g'
-                              ' • C ${food.carbsG.toStringAsFixed(0)}g'
-                              ' • F ${food.fatG.toStringAsFixed(0)}g',
+                              formatNutritionFacts(
+                                quantityG: food.defaultServingG,
+                                caloriesKcal: food.caloriesKcal,
+                                proteinG: food.proteinG,
+                                carbsG: food.carbsG,
+                                fatG: food.fatG,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -413,9 +436,7 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const MealPlanScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const MealPlanScreen()),
                   );
                 },
               ),
@@ -506,10 +527,7 @@ class _SelfServiceCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),

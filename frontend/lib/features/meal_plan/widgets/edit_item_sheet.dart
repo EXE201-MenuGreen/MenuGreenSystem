@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../providers/meal_plan_provider.dart';
@@ -161,7 +162,10 @@ class _EditItemSheetState extends State<EditItemSheet> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -261,14 +265,21 @@ class _EditItemSheetState extends State<EditItemSheet> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (widget.item.proteinG != null)
-                              Text(
-                                'P: ${widget.item.proteinG}g  •  C: ${widget.item.carbsG}g  •  F: ${widget.item.fatG}g',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
+                            Text(
+                              formatNutritionFacts(
+                                quantityG: widget.item.quantityG,
+                                caloriesKcal: widget.item.targetCalories,
+                                proteinG: widget.item.proteinG,
+                                carbsG: widget.item.carbsG,
+                                fatG: widget.item.fatG,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),

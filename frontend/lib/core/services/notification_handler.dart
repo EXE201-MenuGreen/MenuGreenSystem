@@ -1,10 +1,13 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../features/notifications/views/notification_inbox_screen.dart';
 import '../../features/meal_plan/views/meal_plan_detail_screen.dart';
 import '../../features/profile/views/profile_view.dart';
 import '../../features/coach/views/coach_main_screen.dart';
 import '../../features/coach_pt/views/coach_report_detail_screen.dart';
+import '../../features/coach_pt/providers/coach_meal_plan_provider.dart';
+import '../../features/coach_pt/views/coach_meal_plan_detail_screen.dart';
 import '../../features/advanced/views/advanced_features_screen.dart';
 import '../../features/gymer/views/premium_programs_screen.dart';
 import '../../features/coach_chat/views/coach_chat_screen.dart';
@@ -20,6 +23,7 @@ enum NotificationActionType {
   openSubscription,
   openGymerPrograms,
   openCoachWorkspace,
+  openCoachMealPlan,
   openCoachWeeklyReport,
   openGymerWeeklyReport,
   openCoachChat,
@@ -31,12 +35,14 @@ class NotificationAction {
   final String? id;
   final String? deepLink;
   final int? tabIndex;
+  final String? clientId;
 
   NotificationAction({
     required this.type,
     this.id,
     this.deepLink,
     this.tabIndex,
+    this.clientId,
   });
 }
 
@@ -51,6 +57,7 @@ class NotificationHandler {
   static const String _prefixSubscription = 'subscription:';
   static const String _prefixProfile = 'profile:';
   static const String _prefixCoachWeeklyReport = 'coach_weekly_report:';
+  static const String _prefixCoachRouteApproval = 'coach_route_approval:';
   static const String _prefixGymerWeeklyReport = 'gymer_weekly_report:';
   static const String _prefixGymerRouteApproval = 'gymer_route_approval:';
   static const String _prefixGymerPersonalProgram = 'gymer_personal_program:';
@@ -117,6 +124,23 @@ class NotificationHandler {
           tabIndex: 1,
         );
       case 'pt_review_request':
+        final clientId =
+            data['clientId']?.toString() ?? data['ClientId']?.toString();
+        final planId =
+            data['planId']?.toString() ??
+            data['PlanId']?.toString() ??
+            data['mealPlanId']?.toString() ??
+            data['MealPlanId']?.toString();
+        if (clientId != null &&
+            clientId.isNotEmpty &&
+            planId != null &&
+            planId.isNotEmpty) {
+          return NotificationAction(
+            type: NotificationActionType.openCoachMealPlan,
+            clientId: clientId,
+            id: planId,
+          );
+        }
         return NotificationAction(
           type: NotificationActionType.openCoachWorkspace,
           id: notificationId?.toString(),
@@ -161,6 +185,17 @@ class NotificationHandler {
   }
 
   NotificationAction _parseDeepLink(String deepLink) {
+    if (deepLink.startsWith(_prefixCoachRouteApproval)) {
+      final payload = deepLink.substring(_prefixCoachRouteApproval.length);
+      final parts = payload.split(':');
+      if (parts.length == 2 && parts.every((part) => part.isNotEmpty)) {
+        return NotificationAction(
+          type: NotificationActionType.openCoachMealPlan,
+          clientId: parts[0],
+          id: parts[1],
+        );
+      }
+    }
     if (deepLink.startsWith(_prefixCoachWeeklyReport)) {
       final id = deepLink.substring(_prefixCoachWeeklyReport.length);
       return NotificationAction(
@@ -335,6 +370,19 @@ class NotificationHandler {
 
       case NotificationActionType.openCoachWorkspace:
         return CoachMainScreen(initialIndex: action.tabIndex ?? 1);
+
+      case NotificationActionType.openCoachMealPlan:
+        if (action.clientId != null &&
+            action.clientId!.isNotEmpty &&
+            action.id != null &&
+            action.id!.isNotEmpty) {
+          return ChangeNotifierProvider(
+            create: (_) =>
+                CoachMealPlanProvider()..loadPlansForClient(action.clientId!),
+            child: CoachMealPlanDetailScreen(planId: action.id!),
+          );
+        }
+        return const CoachMainScreen(initialIndex: 1);
 
       case NotificationActionType.openCoachWeeklyReport:
         if (action.id != null && action.id!.isNotEmpty) {

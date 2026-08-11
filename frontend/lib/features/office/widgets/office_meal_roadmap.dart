@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../meal_plan/models/meal_plan_responses.dart';
 
 part 'office_roadmap_day.dart';
@@ -128,7 +129,8 @@ class _OfficeMealRoadmap extends StatelessWidget {
                   day: days[index],
                   index: index,
                   top: index * _dayExtent,
-                  nodeLeft: width * _nodePositions[index % _nodePositions.length] -
+                  nodeLeft:
+                      width * _nodePositions[index % _nodePositions.length] -
                       (_nodeSize / 2),
                   nodeSize: _nodeSize,
                   onReplaceMeal: onReplaceMeal,
@@ -188,5 +190,3 @@ class _RoadmapPathPainter extends CustomPainter {
         oldDelegate.dayExtent != dayExtent;
   }
 }
-
-

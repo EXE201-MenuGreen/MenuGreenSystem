@@ -6,11 +6,11 @@ String localizeFirebaseStorageError(Object error) {
       case 'object-not-found':
         return 'Không tìm thấy file trên Firebase Storage. '
             'Hãy vào Firebase Console → Storage → Get started, '
-            'bật Storage và cấu hình Rules cho phép ghi thư mục avatars/.';
+            'bật Storage và kiểm tra cấu hình Rules.';
       case 'unauthorized':
       case 'permission-denied':
         return 'Không có quyền upload. Kiểm tra Firebase Storage Rules '
-            '(cho phép write vào avatars/{userId}/).';
+            'cho đúng thư mục đang tải ảnh lên.';
       case 'unauthenticated':
         return 'Chưa xác thực Firebase. Với demo, dùng Rules cho phép write tạm thời.';
       case 'canceled':

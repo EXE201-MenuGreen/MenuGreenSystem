@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/nutrition_format.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../models/food_models.dart';
 
 class WeeklyPlanDayCard extends StatelessWidget {
-  const WeeklyPlanDayCard({
-    super.key,
-    required this.day,
-    this.onMealTap,
-  });
+  const WeeklyPlanDayCard({super.key, required this.day, this.onMealTap});
 
   final WeeklyPlanDay day;
   final void Function(DailyMenuPlanItem)? onMealTap;
@@ -29,10 +27,7 @@ class WeeklyPlanDayCard extends StatelessWidget {
           children: [
             _buildHeader(),
             const SizedBox(height: 12),
-            if (day.meals.isEmpty)
-              _buildEmptyState()
-            else
-              _buildMealsList(),
+            if (day.meals.isEmpty) _buildEmptyState() else _buildMealsList(),
           ],
         ),
       ),
@@ -74,10 +69,7 @@ class WeeklyPlanDayCard extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '${day.date.day}/${day.date.month}',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
         ),
         const Spacer(),
         Container(
@@ -112,10 +104,7 @@ class WeeklyPlanDayCard extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             'Chưa có kế hoạch bữa ăn',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
           ),
         ],
       ),
@@ -157,10 +146,7 @@ class WeeklyPlanDayCard extends StatelessWidget {
               const Spacer(),
               Text(
                 '$totalCal kcal',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               ),
             ],
           ),
@@ -202,22 +188,30 @@ class WeeklyPlanDayCard extends StatelessWidget {
                     ),
                     if (meal.recommendation != null)
                       Text(
-                        'P ${meal.recommendation!.proteinG.round()}g · C ${meal.recommendation!.carbsG.round()}g · F ${meal.recommendation!.fatG.round()}g',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        formatNutritionFacts(
+                          quantityG: meal.quantityG,
+                          caloriesKcal: meal.targetCalories,
+                          proteinG: meal.recommendation!.proteinG,
+                          carbsG: meal.recommendation!.carbsG,
+                          fatG: meal.recommendation!.fatG,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                   ],
                 ),
               ),
-              Text(
-                '${meal.targetCalories} kcal',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
               if (onMealTap != null) ...[
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade500),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
               ],
             ],
           ),
