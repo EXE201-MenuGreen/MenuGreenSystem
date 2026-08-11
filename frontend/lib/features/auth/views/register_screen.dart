@@ -63,6 +63,15 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
+    // Email format validation
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(email)) {
+      context.showWarningSnackBar('Email không hợp lệ. Vui lòng nhập đúng định dạng email.');
+      return;
+    }
+
     if (password != confirmPassword) {
       context.showWarningSnackBar('Mật khẩu không khớp');
       return;
