@@ -110,9 +110,9 @@ export function RecipeFormDialog({
             <Input label="Loại bữa ăn" value={form.mealType} onChange={(e) => updateField("mealType", e.target.value)} placeholder="Breakfast, Lunch..." />
             <Select label="Độ khó" value={form.difficulty} onChange={(e) => updateField("difficulty", e.target.value)}>
               <option value="">—</option>
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
+              <option value="Easy">Dễ</option>
+              <option value="Medium">Trung bình</option>
+              <option value="Hard">Khó</option>
             </Select>
             <Input label="Thời gian chuẩn bị (phút)" type="number" min="0" value={form.prepTimeMin} onChange={(e) => updateField("prepTimeMin", e.target.value)} />
             <Input label="Thời gian nấu (phút)" type="number" min="0" value={form.cookTimeMin} onChange={(e) => updateField("cookTimeMin", e.target.value)} />

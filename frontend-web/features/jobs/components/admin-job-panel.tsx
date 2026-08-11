@@ -8,11 +8,11 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { formatDateTime } from "@/lib/utils/format";
 
 const AVAILABLE_JOBS = [
-  { name: "SubscriptionExpiration", description: "Kiem tra va xu ly cac goi subscription het han" },
-  { name: "StreakReset", description: "Reset streak cho nhung nguoi dung khong con active" },
-  { name: "GoalDrift", description: "Phat hien va thong bao khi nguoi dung cham dut muc tieu" },
-  { name: "SepayReconciliation", description: "Dong bo trang thai thanh toan SePay" },
-  { name: "DailyStarter", description: "Tao daily starter cho tat ca nguoi dung" },
+  { name: "SubscriptionExpiration", description: "Kiểm tra và xử lý các gói subscription hết hạn" },
+  { name: "StreakReset", description: "Reset streak cho những người dùng không còn hoạt động" },
+  { name: "GoalDrift", description: "Phát hiện và thông báo khi người dùng chấm dứt mục tiêu" },
+  { name: "SepayReconciliation", description: "Đồng bộ trạng thái thanh toán SePay" },
+  { name: "DailyStarter", description: "Tạo daily starter cho tất cả người dùng" },
 ];
 
 interface JobLog {
@@ -42,7 +42,7 @@ export function AdminJobPanel() {
         ...prev,
       ]);
     } catch (err) {
-      const msg = getErrorMessage(err, "Trigger job that bai");
+      const msg = getErrorMessage(err, "Kích hoạt công việc thất bại");
       setError(msg);
       setLogs((prev) => [
         {
@@ -61,8 +61,8 @@ export function AdminJobPanel() {
   return (
     <div>
       <PageHeader
-        title="Job Trigger"
-        description="Kich hoat thu cong cac background job de kiem tra hoac xu ly ngay"
+        title="Kích hoạt công việc"
+        description="Kích hoạt thủ công các background job để kiểm tra hoặc xử lý ngay"
       />
 
       {error && (
@@ -88,7 +88,7 @@ export function AdminJobPanel() {
               onClick={() => handleTrigger(job.name)}
               loading={triggering === job.name}
             >
-              Trigger
+              Kích hoạt
             </Button>
           </div>
         ))}
@@ -96,7 +96,7 @@ export function AdminJobPanel() {
 
       {logs.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold">Job Logs</h2>
+          <h2 className="mb-4 text-lg font-semibold">Nhật ký công việc</h2>
           <div className="space-y-2">
             {logs.map((log, i) => (
               <div
@@ -119,7 +119,7 @@ export function AdminJobPanel() {
                       : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}
                 >
-                  {log.success ? "Success" : "Failed"}
+                  {log.success ? "Thành công" : "Thất bại"}
                 </span>
               </div>
             ))}

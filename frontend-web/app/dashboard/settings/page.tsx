@@ -22,12 +22,12 @@ export default function SettingsPage() {
     setSuccess(false);
 
     if (newPassword !== confirmPassword) {
-      setError("Mat khau moi khong khop.");
+      setError("Mật khẩu mới không khớp.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setError("Mat khau moi phai it nhat 6 ky tu.");
+      setError("Mật khẩu mới phải ít nhất 6 ký tự.");
       return;
     }
 
@@ -40,7 +40,7 @@ export default function SettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Doi mat khau that bai.");
+      setError(err instanceof Error ? err.message : "Đổi mật khẩu thất bại.");
     } finally {
       setLoading(false);
     }
@@ -49,16 +49,16 @@ export default function SettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Cai dat"
-        description="Quan ly mat khau va cau hinh he thong"
+        title="Cài đặt"
+        description="Quản lý mật khẩu và cấu hình hệ thống"
       />
 
       <div className="mt-6 space-y-6">
         {/* Password Change */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-lg font-semibold">Doi mat khau</h2>
+          <h2 className="text-lg font-semibold">Đổi mật khẩu</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Cap nhat mat khau cua ban de bao mat tai khoan
+            Cập nhật mật khẩu của bạn để bảo mật tài khoản
           </p>
 
           <form onSubmit={handlePasswordChange} className="mt-6 space-y-4">
@@ -70,42 +70,42 @@ export default function SettingsPage() {
             )}
             {success && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
-                Doi mat khau thanh cong!
+                Đổi mật khẩu thành công!
               </div>
             )}
 
             <Input
-              label="Mat khau hien tai"
+              label="Mật khẩu hiện tại"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
             />
             <Input
-              label="Mat khau moi"
+              label="Mật khẩu mới"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
             />
             <Input
-              label="Xac nhan mat khau moi"
+              label="Xác nhận mật khẩu mới"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
             <Button type="submit" loading={loading}>
-              Cap nhat mat khau
+              Cập nhật mật khẩu
             </Button>
           </form>
         </div>
 
         {/* Logout */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-lg font-semibold">Dang xuat</h2>
+          <h2 className="text-lg font-semibold">Đăng xuất</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Dang xuat khoi tai khoan quan tri
+            Đăng xuất khỏi tài khoản quản trị
           </p>
           <Button
             variant="danger"
@@ -113,7 +113,7 @@ export default function SettingsPage() {
             onClick={() => logout()}
             loading={false}
           >
-            Dang xuat
+            Đăng xuất
           </Button>
         </div>
       </div>

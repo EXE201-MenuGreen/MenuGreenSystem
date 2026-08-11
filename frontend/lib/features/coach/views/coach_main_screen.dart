@@ -20,7 +20,9 @@ import '../../coach_pt/views/coach_reports_tab_screen.dart';
 import '../../coach_pt/providers/coach_report_provider.dart';
 import '../../coach_chat/views/coach_chat_screen.dart';
 import '../providers/coach_badge_provider.dart';
-import 'coach_profile_edit_screen.dart';
+import '../repositories/coach_application_repository.dart';
+import '../widgets/coach_profile_overview.dart';
+import 'coach_application_screen.dart';
 
 const Color _coachPrimary = Color(0xFF1a7a4a);
 
@@ -91,7 +93,9 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
           return Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.08),
@@ -183,7 +187,10 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? activeColor.withValues(alpha: 0.12)
@@ -249,6 +256,65 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachProfileLoadError extends StatelessWidget {
+  const _CoachProfileLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                size: 32,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Không thể tải hồ sơ PT',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Thử lại'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _coachPrimary,
+                minimumSize: const Size(150, 48),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -365,7 +431,9 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF1A7A4A).withValues(alpha: 0.25),
+                          color: const Color(
+                            0xFF1A7A4A,
+                          ).withValues(alpha: 0.25),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -411,7 +479,9 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -593,7 +663,11 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                           const Text(
                             'Danh sách học viên sẽ hiển thị tại đây khi các học viên gửi yêu cầu liên kết với bạn.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ),
@@ -614,7 +688,10 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                           Text(
                             'Không tìm thấy học viên khớp với "${_searchController.text}"',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -625,10 +702,13 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                     delegate: SliverChildBuilderDelegate(
                       (_, i) {
                         final index = _clientsPage * pageSize + i;
-                        if (index >= filtered.length) return const SizedBox.shrink();
+                        if (index >= filtered.length) {
+                          return const SizedBox.shrink();
+                        }
                         return _clientCard(filtered[index]);
                       },
-                      childCount: (filtered.length - _clientsPage * pageSize).clamp(0, pageSize),
+                      childCount: (filtered.length - _clientsPage * pageSize)
+                          .clamp(0, pageSize),
                     ),
                   ),
                   if (filtered.length > pageSize)
@@ -653,9 +733,11 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                                   boxShadow: _clientsPage > 0
                                       ? [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             blurRadius: 4,
-                                          )
+                                          ),
                                         ]
                                       : null,
                                 ),
@@ -679,30 +761,40 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
                             ),
                             const SizedBox(width: 12),
                             InkWell(
-                              onTap: (_clientsPage + 1) * pageSize < filtered.length
+                              onTap:
+                                  (_clientsPage + 1) * pageSize <
+                                      filtered.length
                                   ? () => setState(() => _clientsPage++)
                                   : null,
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: (_clientsPage + 1) * pageSize < filtered.length
+                                  color:
+                                      (_clientsPage + 1) * pageSize <
+                                          filtered.length
                                       ? Colors.white
                                       : Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(8),
-                                  boxShadow: (_clientsPage + 1) * pageSize < filtered.length
+                                  boxShadow:
+                                      (_clientsPage + 1) * pageSize <
+                                          filtered.length
                                       ? [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             blurRadius: 4,
-                                          )
+                                          ),
                                         ]
                                       : null,
                                 ),
                                 child: Icon(
                                   Icons.chevron_right_rounded,
                                   size: 20,
-                                  color: (_clientsPage + 1) * pageSize < filtered.length
+                                  color:
+                                      (_clientsPage + 1) * pageSize <
+                                          filtered.length
                                       ? _coachPrimary
                                       : Colors.grey,
                                 ),
@@ -1632,12 +1724,14 @@ class _CoachProfileTab extends StatefulWidget {
 class _CoachProfileTabState extends State<_CoachProfileTab> {
   final _profileRepo = ProfileRepository();
   final _advancedRepo = AdvancedRepository();
+  final _applicationRepo = CoachApplicationRepository();
   final _tokenStorage = TokenStorage();
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _coachProfile;
   List<Map<String, dynamic>> _clients = [];
   String _email = '';
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -1658,284 +1752,105 @@ class _CoachProfileTabState extends State<_CoachProfileTab> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final profileData = await _profileRepo.getMyProfile();
-      // Get coach profile from coaches endpoint
-      final coaches = await _advancedRepo.coaches();
-      final coachId =
-          profileData?['id']?.toString() ?? profileData?['Id']?.toString();
-      Map<String, dynamic>? myCoach;
-      if (coachId != null) {
-        myCoach = coaches.firstWhere(
-          (c) =>
-              c['userId']?.toString() == coachId ||
-              c['id']?.toString() == coachId,
-          orElse: () => {},
-        );
-      }
-      // Get my clients for stats
+      final myCoach = await _applicationRepo.getMine();
       final clients = await _advancedRepo.clients();
 
       if (mounted) {
         setState(() {
           _profile = profileData;
-          _coachProfile = (myCoach?.isNotEmpty ?? false) ? myCoach : null;
+          _coachProfile = myCoach;
           _clients = clients;
           _loading = false;
         });
       }
     } catch (e) {
       debugPrint('[_CoachProfileTab] Load error: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loadError = e.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final name =
-        (_profile?['fullName'] ?? _profile?['FullName'] ?? 'PT / Coach')
-            .toString();
     final email = _email.isNotEmpty
         ? _email
-        : (_profile?['email'] ?? _profile?['Email'] ?? '').toString();
-    final role = _translateRole(_profile?['role']?.toString() ?? 'Coach');
-
-    // Gender
-    final genderRaw = (_profile?['gender'] ?? _profile?['Gender'] ?? '')
-        .toString();
-    final gender = _translateGender(genderRaw);
-
-    // Date of birth
-    final dobRaw = (_profile?['dateOfBirth'] ?? _profile?['DateOfBirth'] ?? '')
-        .toString();
-    final dateOfBirth = _formatDate(dobRaw);
-
-    // Coach specific info
-    final specialty =
-        (_coachProfile?['specialty'] ?? _coachProfile?['Specialty'] ?? '')
-            .toString();
-    final bio = (_coachProfile?['bio'] ?? _coachProfile?['Bio'] ?? '')
-        .toString();
-    final experience =
-        (_coachProfile?['experienceYears'] ??
-                _coachProfile?['ExperienceYears'] ??
-                0)
-            .toString();
-    final certificateUrl =
-        (_coachProfile?['certificateUrl'] ??
-                _coachProfile?['CertificateUrl'] ??
-                '')
-            .toString();
-
-    // Stats
+        : (_coachProfile?['email'] ??
+                  _profile?['email'] ??
+                  _profile?['Email'] ??
+                  '')
+              .toString();
     final connectedClients = _clients
-        .where((c) => (c['connectionStatus']?.toString() ?? '') == 'Connected')
+        .where(
+          (client) =>
+              (client['connectionStatus']?.toString() ?? '').toLowerCase() ==
+              'connected',
+        )
         .length;
     final pendingClients = _clients
-        .where((c) => (c['connectionStatus']?.toString() ?? '') == 'Pending')
+        .where(
+          (client) =>
+              (client['connectionStatus']?.toString() ?? '').toLowerCase() ==
+              'pending',
+        )
         .length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7F4),
+      backgroundColor: const Color(0xFFF5F8F6),
       body: SafeArea(
         child: _loading
             ? const Center(
                 child: CircularProgressIndicator(color: _coachPrimary),
               )
+            : _loadError != null
+            ? _CoachProfileLoadError(message: _loadError!, onRetry: _load)
             : RefreshIndicator(
                 onRefresh: _load,
                 color: _coachPrimary,
                 child: ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                   children: [
-                    // Header Profile Card
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1a7a4a), Color(0xFF2ecc71)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _coachPrimary.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 45,
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.3,
-                            ),
-                            child: Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : 'P',
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            email,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '🏅 ',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                Text(
-                                  role,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    CoachProfileOverview(
+                      profile: _coachProfile ?? const {},
+                      email: email,
+                      connectedClients: connectedClients,
+                      pendingClients: pendingClients,
                     ),
-                    const SizedBox(height: 20),
-
-                    // Stats Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.people,
-                            value: '$connectedClients',
-                            label: 'Học viên',
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.pending_actions,
-                            value: '$pendingClients',
-                            label: 'Chờ duyệt',
-                            color: Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.work_history,
-                            value: experience,
-                            label: 'Năm kinh nghiệm',
-                            color: Colors.purple,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Thông tin cá nhân
-                    _buildSectionHeader('Thông tin cá nhân', Icons.person),
-                    const SizedBox(height: 10),
-                    _buildInfoCard([
-                      _infoItem(
-                        Icons.email_outlined,
-                        'Email',
-                        email.isEmpty ? 'Chưa cập nhật' : email,
-                      ),
-                      _infoItem(
-                        Icons.wc_outlined,
-                        'Giới tính',
-                        gender.isEmpty ? 'Chưa cập nhật' : gender,
-                      ),
-                      _infoItem(
-                        Icons.cake_outlined,
-                        'Ngày sinh',
-                        dateOfBirth.isEmpty ? 'Chưa cập nhật' : dateOfBirth,
-                      ),
-                    ]),
-                    const SizedBox(height: 20),
-
-                    // Thông tin Coach/PT
-                    if (_coachProfile != null && _coachProfile!.isNotEmpty) ...[
-                      _buildSectionHeader('Thông tin Coach/PT', Icons.sports),
-                      const SizedBox(height: 10),
-                      _buildInfoCard([
-                        _infoItem(
-                          Icons.star_outline,
-                          'Chuyên môn',
-                          specialty.isEmpty ? 'Chưa cập nhật' : specialty,
-                        ),
-                        if (bio.isNotEmpty)
-                          _infoItem(
-                            Icons.description_outlined,
-                            'Giới thiệu',
-                            bio,
-                            maxLines: 3,
-                          ),
-                        if (certificateUrl.isNotEmpty)
-                          _infoItem(
-                            Icons.verified_outlined,
-                            'Chứng chỉ',
-                            'Đã xác minh',
-                          ),
-                      ]),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Nút hành động
+                    const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final result = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CoachProfileEditScreen(),
-                            ),
-                          );
-                          if (result == true) _load();
-                        },
+                        onPressed: _coachProfile == null
+                            ? null
+                            : () async {
+                                final result = await Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CoachApplicationScreen(
+                                      initialData: _coachProfile,
+                                      editMode: true,
+                                    ),
+                                  ),
+                                );
+                                if (result == true) _load();
+                              },
                         icon: const Icon(Icons.edit),
                         label: const Text('Chỉnh sửa hồ sơ'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _coachPrimary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          minimumSize: const Size.fromHeight(50),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(15),
                           ),
                         ),
                       ),
@@ -1951,10 +1866,10 @@ class _CoachProfileTabState extends State<_CoachProfileTab> {
                           style: TextStyle(color: Colors.red, fontSize: 15),
                         ),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          minimumSize: const Size.fromHeight(50),
                           side: const BorderSide(color: Colors.red),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(15),
                           ),
                         ),
                       ),
@@ -1965,162 +1880,6 @@ class _CoachProfileTabState extends State<_CoachProfileTab> {
               ),
       ),
     );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: _coachPrimary, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1a2e1f),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(List<Widget> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: items.map((item) {
-          final index = items.indexOf(item);
-          return Column(
-            children: [
-              item,
-              if (index < items.length - 1)
-                const Divider(height: 1, indent: 16, endIndent: 16),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _infoItem(
-    IconData icon,
-    String label,
-    String value, {
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment: maxLines > 1
-            ? CrossAxisAlignment.start
-            : CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: _coachPrimary, size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: maxLines,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _translateRole(String? role) {
-    if (role == null) return 'Coach';
-    final r = role.toLowerCase();
-    if (r == 'coach') return 'Coach / HLV Dinh dưỡng';
-    if (r == 'admin') return 'Quản trị viên';
-    if (r == 'gymer') return 'Gymer';
-    if (r == 'user') return 'Người dùng';
-    return role;
-  }
-
-  String _translateGender(String? gender) {
-    if (gender == null || gender.isEmpty) return '';
-    final g = gender.toLowerCase();
-    if (g == 'male') return 'Nam';
-    if (g == 'female') return 'Nữ';
-    if (g == 'other') return 'Khác';
-    return gender;
-  }
-
-  String _formatDate(String dateStr) {
-    if (dateStr.isEmpty) return '';
-    try {
-      final date = DateTime.parse(dateStr.split('T').first);
-      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    } catch (_) {
-      return dateStr;
-    }
   }
 
   Future<void> _logout() async {

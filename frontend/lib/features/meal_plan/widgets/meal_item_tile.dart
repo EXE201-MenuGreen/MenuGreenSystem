@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 
@@ -163,57 +164,42 @@ class MealItemTile extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textDark,
-                      decoration: item.isDone ? TextDecoration.lineThrough : null,
+                      decoration: item.isDone
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${item.targetCalories ?? 0} kcal',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          decoration: item.isDone ? TextDecoration.lineThrough : null,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '•',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'P: ${item.proteinG ?? 0}g  C: ${item.carbsG ?? 0}g  F: ${item.fatG ?? 0}g',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary.withValues(alpha: 0.8),
-                          decoration: item.isDone ? TextDecoration.lineThrough : null,
-                        ),
-                      ),
-                      if (item.scheduledTime != null) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.access_time,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _formatTime(item.scheduledTime!),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    formatNutritionFacts(
+                      quantityG: item.quantityG,
+                      caloriesKcal: item.targetCalories,
+                      proteinG: item.proteinG,
+                      carbsG: item.carbsG,
+                      fatG: item.fatG,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary.withValues(alpha: 0.8),
+                      decoration: item.isDone
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                   ),
+                  if (item.scheduledTime != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Giờ dự kiến: ${_formatTime(item.scheduledTime!)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -281,7 +267,11 @@ class MealItemTile extends StatelessWidget {
                   break;
               }
             },
-            icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+            icon: const Icon(
+              Icons.more_vert,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
             itemBuilder: (context) => [
               if (onSwap != null)
                 const PopupMenuItem(
@@ -310,7 +300,11 @@ class MealItemTile extends StatelessWidget {
                   value: 'skip',
                   child: Row(
                     children: [
-                      Icon(Icons.remove_circle_outline, size: 18, color: Colors.orange),
+                      Icon(
+                        Icons.remove_circle_outline,
+                        size: 18,
+                        color: Colors.orange,
+                      ),
                       SizedBox(width: 8),
                       Text('Bỏ qua', style: TextStyle(color: Colors.orange)),
                     ],
@@ -399,7 +393,10 @@ class MealItemTile extends StatelessWidget {
               onTap: () => Navigator.pop(context, 'edit'),
             ),
             ListTile(
-              leading: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+              leading: const Icon(
+                Icons.remove_circle_outline,
+                color: Colors.orange,
+              ),
               title: const Text('Bỏ qua bữa này'),
               subtitle: const Text('Đánh dấu là skipped'),
               onTap: () => Navigator.pop(context, 'skip'),
@@ -466,7 +463,10 @@ class MealItemTile extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+              leading: const Icon(
+                Icons.remove_circle_outline,
+                color: Colors.orange,
+              ),
               title: const Text('Bỏ qua bữa này'),
               subtitle: const Text('Đánh dấu là skipped'),
               onTap: () => Navigator.pop(context, 'skip'),
@@ -606,8 +606,12 @@ class _PlannedMealCardState extends State<PlannedMealCard> {
                               : '$completedCount/$totalCount món',
                           style: TextStyle(
                             fontSize: 12,
-                            color: allCompleted ? Colors.green : AppColors.textSecondary,
-                            fontWeight: allCompleted ? FontWeight.w600 : FontWeight.normal,
+                            color: allCompleted
+                                ? Colors.green
+                                : AppColors.textSecondary,
+                            fontWeight: allCompleted
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -642,7 +646,10 @@ class _PlannedMealCardState extends State<PlannedMealCard> {
           ),
           // Items
           if (_isExpanded && widget.items.isNotEmpty) ...[
-            Divider(height: 1, color: AppColors.progressBackground.withValues(alpha: 0.7)),
+            Divider(
+              height: 1,
+              color: AppColors.progressBackground.withValues(alpha: 0.7),
+            ),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -670,7 +677,10 @@ class _PlannedMealCardState extends State<PlannedMealCard> {
           ],
           // Empty state
           if (_isExpanded && widget.items.isEmpty) ...[
-            Divider(height: 1, color: AppColors.progressBackground.withValues(alpha: 0.7)),
+            Divider(
+              height: 1,
+              color: AppColors.progressBackground.withValues(alpha: 0.7),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               child: Center(

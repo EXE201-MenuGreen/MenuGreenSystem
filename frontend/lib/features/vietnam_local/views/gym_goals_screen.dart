@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
@@ -19,6 +20,41 @@ import '../../meal_plan/models/meal_plan_models.dart';
 import '../../meal_plan/models/meal_plan_requests.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 
+enum GymRouteApprovalPhase { none, pending, completed }
+
+enum GymPtConnectionPhase { none, pending, connected }
+
+/// Resolves the effective PT connection from the coach list. A connected
+/// coach always wins over another pending request.
+@visibleForTesting
+GymPtConnectionPhase gymPtConnectionPhase(
+  Iterable<Map<String, dynamic>> coaches,
+) {
+  var hasPending = false;
+  for (final coach in coaches) {
+    final status = (coach['connectionStatus'] ?? coach['ConnectionStatus'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (status == 'connected' || status == 'approved') {
+      return GymPtConnectionPhase.connected;
+    }
+    if (status == 'pending') hasPending = true;
+  }
+  return hasPending ? GymPtConnectionPhase.pending : GymPtConnectionPhase.none;
+}
+
+/// RouteApproval is complete as soon as the PT approves it. `Applied` remains
+/// a completed legacy status for requests processed by older app versions.
+@visibleForTesting
+GymRouteApprovalPhase gymRouteApprovalPhase(Object? rawStatus) {
+  return switch (rawStatus?.toString().trim().toLowerCase()) {
+    'pending' => GymRouteApprovalPhase.pending,
+    'reviewed' || 'applied' => GymRouteApprovalPhase.completed,
+    _ => GymRouteApprovalPhase.none,
+  };
+}
+
 /// Gym/PT Goal workflow — `2.13 Gym/PT Goal-Based Workflow`.
 class GymGoalsScreen extends StatefulWidget {
   const GymGoalsScreen({super.key});
@@ -33,10 +69,13 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   bool _hasProAccess = false;
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
+  bool _checkingPtConnection = true;
+  GymPtConnectionPhase _ptConnectionPhase = GymPtConnectionPhase.none;
   bool _isSentToPt = false;
   Map<String, dynamic>? _activeRouteReq;
   int _suggestionPage = 0;
   int _activeSuggestionPage = 0;
+  final Map<String, bool> _mealSlotExpanded = {};
 
   @override
   void initState() {
@@ -75,9 +114,32 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       await provider.loadProfile();
       if (!mounted) return;
       await provider.loadPlan(date: DateTime.now(), top: 10);
+      await _loadPtConnectionStatus();
       await _loadTodayPlan();
       await _checkPtRequestStatus();
     });
+  }
+
+  bool get _hasAcceptedPtConnection =>
+      _ptConnectionPhase == GymPtConnectionPhase.connected;
+
+  Future<GymPtConnectionPhase> _loadPtConnectionStatus() async {
+    if (mounted) setState(() => _checkingPtConnection = true);
+    var phase = GymPtConnectionPhase.none;
+    try {
+      phase = gymPtConnectionPhase(await AdvancedRepository().myCoaches());
+    } catch (_) {
+      // Fail closed: creating a PT route must never be allowed when the
+      // connection state cannot be verified.
+      phase = GymPtConnectionPhase.none;
+    }
+    if (mounted) {
+      setState(() {
+        _ptConnectionPhase = phase;
+        _checkingPtConnection = false;
+      });
+    }
+    return phase;
   }
 
   Future<void> _loadTodayPlan() async {
@@ -124,7 +186,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         final status = (r['status'] ?? '').toString().toLowerCase();
         final reqType = (r['requestType'] ?? '').toString().toLowerCase();
         return requestedDate.startsWith(requestDate) &&
-            (status == 'pending' || status == 'reviewed') &&
+            gymRouteApprovalPhase(status) != GymRouteApprovalPhase.none &&
             (reqType.isEmpty || reqType == 'routeapproval');
       }, orElse: () => <String, dynamic>{});
 
@@ -868,7 +930,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Widget _buildPlanList(GymGoalsProvider provider) {
-    if (_loadingPlan) {
+    if (_loadingPlan || _checkingPtConnection) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
@@ -932,7 +994,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  provider.hasPlanConfiguration
+                  !_hasAcceptedPtConnection
+                      ? _ptConnectionPhase == GymPtConnectionPhase.pending
+                            ? 'Yêu cầu kết nối đang chờ PT chấp nhận. Bạn chỉ có thể khởi tạo lộ trình sau khi PT đồng ý.'
+                            : 'Bạn cần kết nối với PT và được PT chấp nhận trước khi khởi tạo lộ trình.'
+                      : provider.hasPlanConfiguration
                       ? 'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.'
                       : 'Hãy cấu hình Ngày, Tuần hoặc Tháng áp dụng cho hôm nay trước.',
                   style: const TextStyle(
@@ -945,7 +1011,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: provider.hasPlanConfiguration
-                      ? () => _initializePlanFromSuggestions(provider)
+                      ? _hasAcceptedPtConnection
+                            ? () => _initializePlanFromSuggestions(provider)
+                            : null
                       : () => _openEditor(context, provider.profile),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -960,13 +1028,20 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                   ),
                   icon: Icon(
                     provider.hasPlanConfiguration
-                        ? Icons.bolt_rounded
+                        ? _hasAcceptedPtConnection
+                              ? Icons.bolt_rounded
+                              : Icons.lock_outline_rounded
                         : Icons.settings_outlined,
                     size: 18,
                   ),
                   label: Text(
                     provider.hasPlanConfiguration
-                        ? 'Khởi tạo lộ trình'
+                        ? _hasAcceptedPtConnection
+                              ? 'Khởi tạo lộ trình'
+                              : _ptConnectionPhase ==
+                                    GymPtConnectionPhase.pending
+                              ? 'Chờ PT chấp nhận'
+                              : 'Kết nối PT trước'
                         : 'Cấu hình hôm nay',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
@@ -1074,9 +1149,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                      'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                      'Điểm ${item.score.toStringAsFixed(1)}',
+                                      '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,
@@ -1129,6 +1204,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   Widget _buildTodayMealPlan(GymGoalsProvider provider) {
     final slots = ['breakfast', 'lunch', 'dinner', 'snack'];
+    final routePhase = gymRouteApprovalPhase(_activeRouteReq?['status']);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1137,10 +1213,36 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           const SizedBox(height: 16),
         ],
         const SizedBox(height: 8),
-        if (_isSentToPt) ...[
-          if (_activeRouteReq != null &&
-              _activeRouteReq!['status']?.toString().toLowerCase() ==
-                  'reviewed')
+        if (!_hasAcceptedPtConnection)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFED7AA)),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_outline_rounded, color: Color(0xFFC2410C)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Lộ trình Gym chỉ được khởi tạo, chỉnh sửa và gửi duyệt sau khi PT chấp nhận kết nối.',
+                    style: TextStyle(
+                      color: Color(0xFF9A3412),
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_isSentToPt) ...[
+          if (routePhase == GymRouteApprovalPhase.completed)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -1160,12 +1262,14 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         size: 20,
                       ),
                       const SizedBox(width: 10),
-                      const Text(
-                        'Lộ trình đã được PT duyệt!',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      const Expanded(
+                        child: Text(
+                          'Lộ trình đã được PT duyệt và đang áp dụng',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ],
@@ -1184,44 +1288,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        setState(() => _loadingPlan = true);
-                        try {
-                          await AdvancedRepository().ptAction(
-                            _activeRouteReq!['reportId'].toString(),
-                            'apply',
-                          );
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Đã áp dụng lộ trình dinh dưỡng thành công!',
-                                ),
-                              ),
-                            );
-                          }
-                          _loadGymData();
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Lỗi áp dụng lộ trình: $e'),
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => _loadingPlan = false);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Áp dụng lộ trình mới'),
+                  Text(
+                    'Quy trình duyệt đã hoàn tất. Bạn không cần áp dụng hoặc gửi lại lộ trình này.',
+                    style: TextStyle(
+                      color: Colors.green.shade800,
+                      fontSize: 13,
+                      height: 1.4,
                     ),
                   ),
                 ],
@@ -1457,9 +1529,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '${item.caloriesKcal.toStringAsFixed(0)} kcal • '
-                                              'P ${item.proteinG.toStringAsFixed(0)}g • '
-                                              'Điểm ${item.score.toStringAsFixed(1)}',
+                                              '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 color: AppColors.textSecondary,
@@ -1469,7 +1541,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      if (!_isSentToPt)
+                                      if (!_isSentToPt &&
+                                          _hasAcceptedPtConnection)
                                         PopupMenuButton<String>(
                                           icon: Container(
                                             padding: const EdgeInsets.symmetric(
@@ -1582,6 +1655,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
             .toList() ??
         [];
     final color = _mealSlotColor(mealType);
+    final hasMultipleItems = items.length > 1;
+    final isExpanded = _mealSlotExpanded[mealType] ?? (!hasMultipleItems);
 
     return Container(
       decoration: BoxDecoration(
@@ -1600,133 +1675,196 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header slot
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(_mealSlotIcon(mealType), color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  _mealSlotTitle(mealType),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: color,
-                  ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: hasMultipleItems
+                  ? () {
+                      setState(() {
+                        _mealSlotExpanded[mealType] = !isExpanded;
+                      });
+                    }
+                  : null,
+              borderRadius: isExpanded
+                  ? const BorderRadius.vertical(top: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                const Spacer(),
-                if (items.isNotEmpty)
-                  Text(
-                    '${items.fold<int>(0, (sum, item) => sum + item.targetCalories)} kcal',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.05),
+                  borderRadius: isExpanded
+                      ? const BorderRadius.vertical(top: Radius.circular(16))
+                      : BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Icon(_mealSlotIcon(mealType), color: color, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      _mealSlotTitle(mealType),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: color,
+                      ),
                     ),
-                  ),
-              ],
+                    if (hasMultipleItems) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${items.length} món',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (items.isNotEmpty)
+                      Text(
+                        '${items.fold<int>(0, (sum, item) => sum + item.targetCalories)} kcal',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    if (hasMultipleItems) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: color,
+                        size: 22,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-          // Items list
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Text(
-                'Chưa có món ăn nào.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-              ),
-            )
-          else
-            Column(
-              children: [
-                for (final item in items)
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey.shade100),
-                      ),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      leading: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      title: Text(
-                        item.displayName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${item.targetCalories} kcal',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      onTap: () {
-                        if (item.isFood && item.foodId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  FoodDetailScreen(foodId: item.foodId!),
-                            ),
-                          );
-                        } else if (item.recipeId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  RecipeDetailScreen(recipeId: item.recipeId!),
-                            ),
-                          );
-                        }
-                      },
-                      trailing: _isSentToPt
-                          ? null
-                          : IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Colors.red.shade400,
-                                size: 20,
-                              ),
-                              onPressed: () => _deletePlanItem(item),
-                            ),
-                    ),
-                  ),
-              ],
-            ),
-          // Add button
-          if (!_isSentToPt)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: TextButton.icon(
-                onPressed: () => _showAddSuggestionSheet(mealType),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 36),
+          // Items list & add button
+          if (isExpanded) ...[
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
                 ),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm món từ gợi ý'),
+                child: Text(
+                  'Chưa có món ăn nào.',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (final item in items)
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100),
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        leading: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        title: Text(
+                          item.displayName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        subtitle: Text(
+                          formatNutritionFacts(
+                            quantityG: item.quantityG,
+                            caloriesKcal: item.targetCalories,
+                            proteinG: item.proteinG,
+                            carbsG: item.carbsG,
+                            fatG: item.fatG,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        onTap: () {
+                          if (item.isFood && item.foodId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    FoodDetailScreen(foodId: item.foodId!),
+                              ),
+                            );
+                          } else if (item.recipeId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RecipeDetailScreen(
+                                  recipeId: item.recipeId!,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        trailing: _isSentToPt || !_hasAcceptedPtConnection
+                            ? null
+                            : IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                                onPressed: () => _deletePlanItem(item),
+                              ),
+                      ),
+                    ),
+                ],
               ),
-            ),
+            // Add button
+            if (!_isSentToPt && _hasAcceptedPtConnection)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: TextButton.icon(
+                  onPressed: () => _showAddSuggestionSheet(mealType),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Thêm món từ gợi ý'),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -1775,6 +1913,19 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
+    final connectionPhase = await _loadPtConnectionStatus();
+    if (connectionPhase != GymPtConnectionPhase.connected) {
+      if (mounted) {
+        final message = connectionPhase == GymPtConnectionPhase.pending
+            ? 'Vui lòng chờ PT chấp nhận yêu cầu kết nối trước khi khởi tạo lộ trình.'
+            : 'Bạn cần kết nối với PT và được PT chấp nhận trước khi khởi tạo lộ trình.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+      return;
+    }
+
     setState(() => _loadingPlan = true);
     try {
       if (provider.planSuggestions.isEmpty) {
@@ -1978,6 +2129,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               'targetCalories': item.caloriesKcal.round() > 0
                   ? item.caloriesKcal.round()
                   : 400,
+              'quantityG': item.quantityG,
               'origin': 'gym',
             },
           ],
@@ -2007,6 +2159,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       foodId: item.type.toLowerCase().contains('recipe') ? null : item.id,
       recipeId: item.type.toLowerCase().contains('recipe') ? item.id : null,
       targetCalories: item.caloriesKcal.round(),
+      quantityG: item.quantityG,
+      proteinG: item.proteinG.round(),
+      carbsG: item.carbsG.round(),
+      fatG: item.fatG.round(),
       isCompleted: false,
       foodName: item.type.toLowerCase().contains('recipe') ? null : item.name,
       recipeName: item.type.toLowerCase().contains('recipe') ? item.name : null,
@@ -2016,6 +2172,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     // Optimistically add item to UI immediately
     setState(() {
       _todayPlan!.items.add(tempItem);
+      _mealSlotExpanded[mealType] = true;
     });
 
     try {
@@ -2030,6 +2187,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ? item.id.toString()
               : null,
           targetCalories: item.caloriesKcal.round(),
+          quantityG: item.quantityG,
           origin: 'gym', // Tạo bởi AI Gym Goals
         ),
       );
@@ -2101,7 +2259,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                               ),
                               title: Text(item.name),
                               subtitle: Text(
-                                '${item.caloriesKcal.round()} kcal • P ${item.proteinG.round()}g',
+                                formatNutritionFacts(
+                                  quantityG: item.quantityG,
+                                  caloriesKcal: item.caloriesKcal,
+                                  proteinG: item.proteinG,
+                                  carbsG: item.carbsG,
+                                  fatG: item.fatG,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               trailing: IconButton(
                                 icon: const Icon(
@@ -2129,12 +2295,16 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     setState(() => _loadingPlan = true);
     try {
       final coaches = await AdvancedRepository().myCoaches();
-      if (coaches.isEmpty) {
+      final connectionPhase = gymPtConnectionPhase(coaches);
+      if (connectionPhase != GymPtConnectionPhase.connected) {
         if (mounted) {
+          setState(() => _ptConnectionPhase = connectionPhase);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Bạn chưa liên kết với PT nào. Vui lòng kết nối với PT trước.',
+                connectionPhase == GymPtConnectionPhase.pending
+                    ? 'Vui lòng chờ PT chấp nhận yêu cầu kết nối trước khi gửi lộ trình.'
+                    : 'Bạn cần kết nối với PT và được PT chấp nhận trước khi gửi lộ trình.',
               ),
             ),
           );

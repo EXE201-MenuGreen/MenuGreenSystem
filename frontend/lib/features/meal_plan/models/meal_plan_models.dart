@@ -47,6 +47,7 @@ class MealPlanItemModel {
     this.scheduledTime,
     this.sourceEntityType,
     this.origin,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -63,6 +64,7 @@ class MealPlanItemModel {
   final String? mealLogId;
   final String? scheduledTime;
   final String? sourceEntityType;
+  final double? quantityG;
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
@@ -96,11 +98,18 @@ class MealPlanItemModel {
       sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])
           ?.toString(),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
+      quantityG: _nullableDouble(json['quantityG'] ?? json['QuantityG']),
       proteinG: _nullableInt(json['proteinG'] ?? json['ProteinG']),
       carbsG: _nullableInt(json['carbsG'] ?? json['CarbsG']),
       fatG: _nullableInt(json['fatG'] ?? json['FatG']),
     );
   }
+}
+
+double? _nullableDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
 }
 
 int? _nullableInt(dynamic value) {

@@ -239,6 +239,7 @@ class CoachMealPlanItem {
     this.scheduledTime,
     this.targetCalories = 0,
     this.isCompleted = false,
+    this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
@@ -253,6 +254,7 @@ class CoachMealPlanItem {
   final String? scheduledTime; // "07:30"
   final int targetCalories;
   final bool isCompleted;
+  final double? quantityG;
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
@@ -279,6 +281,7 @@ class CoachMealPlanItem {
       scheduledTime: (j['scheduledTime'] ?? j['ScheduledTime'])?.toString(),
       targetCalories: (j['targetCalories'] ?? j['TargetCalories'] ?? 0) as int,
       isCompleted: (j['isCompleted'] ?? j['IsCompleted'] ?? false) as bool,
+      quantityG: _num(j['quantityG'] ?? j['QuantityG'])?.toDouble(),
       proteinG: _num(j['proteinG'] ?? j['ProteinG'])?.toDouble(),
       carbsG: _num(j['carbsG'] ?? j['CarbsG'])?.toDouble(),
       fatG: _num(j['fatG'] ?? j['FatG'])?.toDouble(),

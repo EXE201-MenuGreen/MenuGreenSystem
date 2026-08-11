@@ -11,6 +11,12 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice);
         Task<CoachProfileResponse> GetCoachByIdAsync(Guid coachId);
         Task<CoachProfileResponse> RegisterCoachAsync(Guid userId, CoachRegisterRequest request);
+        Task<CoachApplicationResponse> GetMyApplicationAsync(Guid userId);
+        Task<CoachApplicationResponse> SaveApplicationDraftAsync(Guid userId, CoachApplicationUpsertRequest request);
+        Task<CoachApplicationResponse> SubmitApplicationAsync(Guid userId, CoachApplicationUpsertRequest request);
+        Task<IEnumerable<CoachApplicationResponse>> GetApplicationsForAdminAsync(string? status);
+        Task<CoachApplicationResponse> GetApplicationForAdminAsync(Guid applicationId);
+        Task<CoachApplicationResponse> ReviewApplicationAsync(Guid adminUserId, Guid applicationId, CoachApplicationReviewRequest request);
         Task<bool> ConnectCoachAsync(Guid clientId, Guid coachId);
         Task<bool> ApproveConnectionAsync(Guid coachId, Guid clientId, bool approve);
         Task<IEnumerable<CoachClientSummaryResponse>> GetMyClientsAsync(Guid coachId);

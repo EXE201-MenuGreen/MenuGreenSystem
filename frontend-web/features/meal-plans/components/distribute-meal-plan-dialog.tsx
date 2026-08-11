@@ -7,6 +7,13 @@ import { Select } from "@/components/ui/select";
 import type { MealPlan } from "@/features/meal-plans/types";
 
 const AUDIENCE_OPTIONS = ["Free", "Pro", "User", "Admin", "All"];
+const AUDIENCE_LABELS: Record<string, string> = {
+  Free: "Miễn phí",
+  Pro: "Pro",
+  User: "Người dùng",
+  Admin: "Quản trị viên",
+  All: "Tất cả",
+};
 
 interface DistributeMealPlanDialogProps {
   plan: MealPlan | null;
@@ -48,7 +55,7 @@ export function DistributeMealPlanDialog({
             onChange={(e) => setTargetAudience(e.target.value)}
           >
             {AUDIENCE_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
+              <option key={opt} value={opt}>{AUDIENCE_LABELS[opt]}</option>
             ))}
           </Select>
           <Input

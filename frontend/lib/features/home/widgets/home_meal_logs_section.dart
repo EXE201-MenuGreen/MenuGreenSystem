@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../tracking/models/nutrition_models.dart';
 
 class HomeMealLogsSection extends StatelessWidget {
@@ -262,16 +263,24 @@ class HomeMealLogsSection extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Text(
-                            '${meal.caloriesKcal.toStringAsFixed(0)} kcal',
-                            style: GoogleFonts.beVietnamPro(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
                         ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        formatNutritionFacts(
+                          quantityG: meal.quantityG,
+                          caloriesKcal: meal.caloriesKcal,
+                          proteinG: meal.proteinG,
+                          carbsG: meal.carbsG,
+                          fatG: meal.fatG,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),

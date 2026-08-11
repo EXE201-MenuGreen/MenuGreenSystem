@@ -803,7 +803,11 @@ class _PtTabState extends State<_PtTab> {
       ),
       child: Row(
         children: const [
-          Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
+          Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: AppColors.textSecondary,
+          ),
           SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -883,11 +887,16 @@ class _PtTabState extends State<_PtTab> {
                     ),
                     if (calories.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: color.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '${_compactNumber(calories)} kcal',
@@ -913,7 +922,10 @@ class _PtTabState extends State<_PtTab> {
                   const SizedBox(height: 2),
                   Text(
                     'Khối lượng: ${_compactNumber(quantity)} g',
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -1154,7 +1166,10 @@ class _PtTabState extends State<_PtTab> {
                   ),
                 ),
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textDark,
+                  ),
                   onPressed: () => Navigator.pop(detailContext),
                 ),
               ),
@@ -1190,7 +1205,9 @@ class _PtTabState extends State<_PtTab> {
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
@@ -1204,7 +1221,9 @@ class _PtTabState extends State<_PtTab> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      isMidWeek ? 'Báo cáo giữa tuần' : 'Báo cáo cuối tuần',
+                                      isMidWeek
+                                          ? 'Báo cáo giữa tuần'
+                                          : 'Báo cáo cuối tuần',
                                       style: const TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w600,
@@ -1213,7 +1232,9 @@ class _PtTabState extends State<_PtTab> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _weeklyDateRangeLabel(_v(result, 'weekStartDate')),
+                                      _weeklyDateRangeLabel(
+                                        _v(result, 'weekStartDate'),
+                                      ),
                                       style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w800,
@@ -1283,7 +1304,9 @@ class _PtTabState extends State<_PtTab> {
                                   child: _buildMetricTile(
                                     icon: Icons.monitor_weight_outlined,
                                     label: 'Cân nặng thực tế',
-                                    value: checkInWeight.isNotEmpty ? '$checkInWeight kg' : 'Chưa nhập',
+                                    value: checkInWeight.isNotEmpty
+                                        ? '$checkInWeight kg'
+                                        : 'Chưa nhập',
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -1291,7 +1314,9 @@ class _PtTabState extends State<_PtTab> {
                                   child: _buildMetricTile(
                                     icon: Icons.pie_chart_outline_rounded,
                                     label: 'Tỷ lệ mỡ cơ thể',
-                                    value: checkInBodyFat.isNotEmpty ? '$checkInBodyFat %' : 'Chưa nhập',
+                                    value: checkInBodyFat.isNotEmpty
+                                        ? '$checkInBodyFat %'
+                                        : 'Chưa nhập',
                                   ),
                                 ),
                               ],
@@ -1303,7 +1328,9 @@ class _PtTabState extends State<_PtTab> {
                                   child: _buildMetricTile(
                                     icon: Icons.fitness_center_rounded,
                                     label: 'Số buổi đã tập',
-                                    value: trainingDaysCount.isNotEmpty ? '$trainingDaysCount buổi' : 'Chưa nhập',
+                                    value: trainingDaysCount.isNotEmpty
+                                        ? '$trainingDaysCount buổi'
+                                        : 'Chưa nhập',
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -1311,7 +1338,9 @@ class _PtTabState extends State<_PtTab> {
                                   child: _buildMetricTile(
                                     icon: Icons.sentiment_satisfied_alt_rounded,
                                     label: 'Cảm nhận thể trạng',
-                                    value: bodyFeeling.isNotEmpty ? bodyFeeling : 'Chưa nhập',
+                                    value: bodyFeeling.isNotEmpty
+                                        ? bodyFeeling
+                                        : 'Chưa nhập',
                                   ),
                                 ),
                               ],
@@ -1324,7 +1353,9 @@ class _PtTabState extends State<_PtTab> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1337,7 +1368,8 @@ class _PtTabState extends State<_PtTab> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'Ghi chú gửi PT:',
@@ -1421,7 +1453,9 @@ class _PtTabState extends State<_PtTab> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFFDE68A)),
+                                border: Border.all(
+                                  color: const Color(0xFFFDE68A),
+                                ),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1434,7 +1468,11 @@ class _PtTabState extends State<_PtTab> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      _v(result, 'ptComment', 'Chưa có nhận xét chi tiết từ huấn luyện viên.'),
+                                      _v(
+                                        result,
+                                        'ptComment',
+                                        'Chưa có nhận xét chi tiết từ huấn luyện viên.',
+                                      ),
                                       style: const TextStyle(
                                         fontSize: 13,
                                         height: 1.4,
@@ -1456,14 +1494,20 @@ class _PtTabState extends State<_PtTab> {
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Text('🔥', style: TextStyle(fontSize: 16)),
+                                        const Text(
+                                          '🔥',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
                                         const SizedBox(width: 8),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             const Text(
                                               'Calo đề xuất',
@@ -1473,7 +1517,10 @@ class _PtTabState extends State<_PtTab> {
                                               ),
                                             ),
                                             Text(
-                                              _v(result, 'suggestedCalorieTarget').isNotEmpty
+                                              _v(
+                                                    result,
+                                                    'suggestedCalorieTarget',
+                                                  ).isNotEmpty
                                                   ? '${_v(result, 'suggestedCalorieTarget')} kcal'
                                                   : '-',
                                               style: const TextStyle(
@@ -1495,14 +1542,20 @@ class _PtTabState extends State<_PtTab> {
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Text('🥩', style: TextStyle(fontSize: 16)),
+                                        const Text(
+                                          '🥩',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
                                         const SizedBox(width: 8),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             const Text(
                                               'Protein đề xuất',
@@ -1512,7 +1565,10 @@ class _PtTabState extends State<_PtTab> {
                                               ),
                                             ),
                                             Text(
-                                              _v(result, 'suggestedProteinTarget').isNotEmpty
+                                              _v(
+                                                    result,
+                                                    'suggestedProteinTarget',
+                                                  ).isNotEmpty
                                                   ? '${_v(result, 'suggestedProteinTarget')} g'
                                                   : '-',
                                               style: const TextStyle(
@@ -1580,15 +1636,23 @@ class _PtTabState extends State<_PtTab> {
                           children: [
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: () => Navigator.pop(detailContext, 'reject'),
-                                icon: const Icon(Icons.cancel_outlined, size: 18),
+                                onPressed: () =>
+                                    Navigator.pop(detailContext, 'reject'),
+                                icon: const Icon(
+                                  Icons.cancel_outlined,
+                                  size: 18,
+                                ),
                                 label: Text(
-                                  hasPendingProposal ? 'Từ chối toàn bộ' : 'Từ chối',
+                                  hasPendingProposal
+                                      ? 'Từ chối toàn bộ'
+                                      : 'Từ chối',
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.red.shade700,
                                   side: BorderSide(color: Colors.red.shade300),
-                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 13,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -1602,14 +1666,22 @@ class _PtTabState extends State<_PtTab> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton.icon(
-                                onPressed: () => Navigator.pop(detailContext, 'apply'),
-                                icon: const Icon(Icons.check_circle_rounded, size: 18),
+                                onPressed: () =>
+                                    Navigator.pop(detailContext, 'apply'),
+                                icon: const Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 18,
+                                ),
                                 label: Text(
-                                  hasPendingProposal ? 'Áp dụng toàn bộ' : 'Áp dụng mục tiêu',
+                                  hasPendingProposal
+                                      ? 'Áp dụng toàn bộ'
+                                      : 'Áp dụng mục tiêu',
                                 ),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppColors.primary,
-                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 13,
+                                  ),
                                   elevation: 2,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
@@ -1655,7 +1727,6 @@ class _PtTabState extends State<_PtTab> {
       if (mounted) _notice(context, e);
     }
   }
-
 
   String _selectedStatusFilter = 'ALL';
   String _selectedTypeFilter = 'ALL';
@@ -1793,22 +1864,25 @@ class _PtTabState extends State<_PtTab> {
                   color: _hasMidWeekCheckIn
                       ? const Color(0xFFF1F5F9)
                       : (_isThursday
-                          ? AppColors.primary.withValues(alpha: 0.08)
-                          : const Color(0xFFF8FAFC)),
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : const Color(0xFFF8FAFC)),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: () => create(midWeek: true),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _hasMidWeekCheckIn
                               ? const Color(0xFFCBD5E1)
                               : (_isThursday
-                                  ? AppColors.primary
-                                  : const Color(0xFFE2E8F0)),
+                                    ? AppColors.primary
+                                    : const Color(0xFFE2E8F0)),
                           width: _isThursday && !_hasMidWeekCheckIn ? 1.5 : 1,
                         ),
                       ),
@@ -1825,8 +1899,8 @@ class _PtTabState extends State<_PtTab> {
                                 color: _hasMidWeekCheckIn
                                     ? Colors.green.shade700
                                     : (_isThursday
-                                        ? AppColors.primary
-                                        : AppColors.textDark),
+                                          ? AppColors.primary
+                                          : AppColors.textDark),
                               ),
                               const SizedBox(width: 5),
                               Flexible(
@@ -1834,8 +1908,8 @@ class _PtTabState extends State<_PtTab> {
                                   _hasMidWeekCheckIn
                                       ? 'Đã gửi giữa tuần'
                                       : (_isThursday
-                                          ? 'Tạo báo cáo T5'
-                                          : 'Báo cáo giữa tuần'),
+                                            ? 'Tạo báo cáo T5'
+                                            : 'Báo cáo giữa tuần'),
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12.5,
@@ -1843,8 +1917,8 @@ class _PtTabState extends State<_PtTab> {
                                     color: _hasMidWeekCheckIn
                                         ? Colors.green.shade800
                                         : (_isThursday
-                                            ? AppColors.primary
-                                            : AppColors.textDark),
+                                              ? AppColors.primary
+                                              : AppColors.textDark),
                                   ),
                                 ),
                               ),
@@ -1855,8 +1929,8 @@ class _PtTabState extends State<_PtTab> {
                             _hasMidWeekCheckIn
                                 ? 'Đã báo cáo (Nhấn xem)'
                                 : (_isThursday
-                                    ? 'Chạm để tạo báo cáo'
-                                    : 'Mở vào Thứ Năm'),
+                                      ? 'Chạm để tạo báo cáo'
+                                      : 'Mở vào Thứ Năm'),
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w500,
@@ -1877,22 +1951,25 @@ class _PtTabState extends State<_PtTab> {
                   color: _hasCurrentWeekReport
                       ? const Color(0xFFF1F5F9)
                       : (_isSunday
-                          ? const Color(0xFFEFF6FF)
-                          : const Color(0xFFF8FAFC)),
+                            ? const Color(0xFFEFF6FF)
+                            : const Color(0xFFF8FAFC)),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: () => create(midWeek: false),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _hasCurrentWeekReport
                               ? const Color(0xFFCBD5E1)
                               : (_isSunday
-                                  ? Colors.blue.shade600
-                                  : const Color(0xFFE2E8F0)),
+                                    ? Colors.blue.shade600
+                                    : const Color(0xFFE2E8F0)),
                           width: _isSunday && !_hasCurrentWeekReport ? 1.5 : 1,
                         ),
                       ),
@@ -1909,8 +1986,8 @@ class _PtTabState extends State<_PtTab> {
                                 color: _hasCurrentWeekReport
                                     ? Colors.green.shade700
                                     : (_isSunday
-                                        ? Colors.blue.shade700
-                                        : AppColors.textDark),
+                                          ? Colors.blue.shade700
+                                          : AppColors.textDark),
                               ),
                               const SizedBox(width: 5),
                               Flexible(
@@ -1918,8 +1995,8 @@ class _PtTabState extends State<_PtTab> {
                                   _hasCurrentWeekReport
                                       ? 'Đã gửi cuối tuần'
                                       : (_isSunday
-                                          ? 'Tạo báo cáo CN'
-                                          : 'Báo cáo cuối tuần'),
+                                            ? 'Tạo báo cáo CN'
+                                            : 'Báo cáo cuối tuần'),
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12.5,
@@ -1927,8 +2004,8 @@ class _PtTabState extends State<_PtTab> {
                                     color: _hasCurrentWeekReport
                                         ? Colors.green.shade800
                                         : (_isSunday
-                                            ? Colors.blue.shade800
-                                            : AppColors.textDark),
+                                              ? Colors.blue.shade800
+                                              : AppColors.textDark),
                                   ),
                                 ),
                               ),
@@ -1939,8 +2016,8 @@ class _PtTabState extends State<_PtTab> {
                             _hasCurrentWeekReport
                                 ? 'Đã báo cáo (Nhấn xem)'
                                 : (_isSunday
-                                    ? 'Chạm để tạo báo cáo'
-                                    : 'Mở vào Chủ nhật'),
+                                      ? 'Chạm để tạo báo cáo'
+                                      : 'Mở vào Chủ nhật'),
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w500,
@@ -2083,7 +2160,11 @@ class _PtTabState extends State<_PtTab> {
                     children: [
                       Row(
                         children: const [
-                          Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
+                          Icon(
+                            Icons.tune_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Bộ lọc báo cáo',
@@ -2103,7 +2184,11 @@ class _PtTabState extends State<_PtTab> {
                               tempType = 'ALL';
                             });
                           },
-                          icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.primary),
+                          icon: const Icon(
+                            Icons.refresh_rounded,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
                           label: const Text(
                             'Mặc định (Tất cả)',
                             style: TextStyle(
@@ -2113,7 +2198,10 @@ class _PtTabState extends State<_PtTab> {
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -2143,17 +2231,20 @@ class _PtTabState extends State<_PtTab> {
                       _buildBottomSheetChip(
                         label: 'Chờ duyệt ⏳',
                         isSelected: tempStatus == 'PENDING',
-                        onTap: () => setModalState(() => tempStatus = 'PENDING'),
+                        onTap: () =>
+                            setModalState(() => tempStatus = 'PENDING'),
                       ),
                       _buildBottomSheetChip(
                         label: 'Đã nhận xét ✅',
                         isSelected: tempStatus == 'REVIEWED',
-                        onTap: () => setModalState(() => tempStatus = 'REVIEWED'),
+                        onTap: () =>
+                            setModalState(() => tempStatus = 'REVIEWED'),
                       ),
                       _buildBottomSheetChip(
                         label: 'Từ chối ❌',
                         isSelected: tempStatus == 'REJECTED',
-                        onTap: () => setModalState(() => tempStatus = 'REJECTED'),
+                        onTap: () =>
+                            setModalState(() => tempStatus = 'REJECTED'),
                       ),
                     ],
                   ),
@@ -2251,7 +2342,7 @@ class _PtTabState extends State<_PtTab> {
                     color: AppColors.primary.withValues(alpha: 0.2),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -2305,7 +2396,8 @@ class _PtTabState extends State<_PtTab> {
   }
 
   Widget _buildFilterSection() {
-    final isFiltered = _selectedStatusFilter != 'ALL' || _selectedTypeFilter != 'ALL';
+    final isFiltered =
+        _selectedStatusFilter != 'ALL' || _selectedTypeFilter != 'ALL';
     final totalCount = _reviewRows.length;
     final filteredCount = _filteredReviewRows.length;
 
@@ -2329,7 +2421,10 @@ class _PtTabState extends State<_PtTab> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -2346,17 +2441,24 @@ class _PtTabState extends State<_PtTab> {
                 ],
               ),
               Material(
-                color: isFiltered ? AppColors.primary.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+                color: isFiltered
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(20),
                 child: InkWell(
                   onTap: _showFilterBottomSheet,
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isFiltered ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                        color: isFiltered
+                            ? AppColors.primary.withValues(alpha: 0.3)
+                            : const Color(0xFFE2E8F0),
                         width: isFiltered ? 1.5 : 1,
                       ),
                     ),
@@ -2366,22 +2468,30 @@ class _PtTabState extends State<_PtTab> {
                         Icon(
                           Icons.tune_rounded,
                           size: 15,
-                          color: isFiltered ? AppColors.primary : AppColors.textDark,
+                          color: isFiltered
+                              ? AppColors.primary
+                              : AppColors.textDark,
                         ),
                         const SizedBox(width: 5),
                         Text(
                           _getFilterLabelSummary(),
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: isFiltered ? FontWeight.w800 : FontWeight.w600,
-                            color: isFiltered ? AppColors.primary : AppColors.textDark,
+                            fontWeight: isFiltered
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isFiltered
+                                ? AppColors.primary
+                                : AppColors.textDark,
                           ),
                         ),
                         const SizedBox(width: 3),
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: isFiltered ? AppColors.primary : AppColors.textSecondary,
+                          color: isFiltered
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
                         ),
                       ],
                     ),
@@ -2486,7 +2596,10 @@ class _PtTabState extends State<_PtTab> {
                 disabledColor: Colors.grey.shade300,
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -2617,7 +2730,10 @@ class _PtTabState extends State<_PtTab> {
                     icon: const Icon(Icons.refresh_rounded, size: 16),
                     label: const Text('Đặt lại bộ lọc'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ],
@@ -2660,19 +2776,27 @@ class _PtTabState extends State<_PtTab> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                      color:
+                                          _v(r, 'requestType').toLowerCase() ==
+                                              'midweekcheckin'
                                           ? const Color(0xFFECFDF5)
                                           : const Color(0xFFEFF6FF),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                      _v(r, 'requestType').toLowerCase() ==
+                                              'midweekcheckin'
                                           ? 'Giữa tuần'
                                           : 'Báo cáo tuần',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: _v(r, 'requestType').toLowerCase() == 'midweekcheckin'
+                                        color:
+                                            _v(
+                                                  r,
+                                                  'requestType',
+                                                ).toLowerCase() ==
+                                                'midweekcheckin'
                                             ? Colors.green.shade800
                                             : Colors.blue.shade800,
                                       ),
@@ -2728,11 +2852,18 @@ class _PtTabState extends State<_PtTab> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.monitor_weight_outlined, size: 14, color: AppColors.textSecondary),
+                                      const Icon(
+                                        Icons.monitor_weight_outlined,
+                                        size: 14,
+                                        color: AppColors.textSecondary,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Cân nặng: ${_v(r, 'checkInWeight')} kg${_v(r, 'checkInBodyFat').isNotEmpty ? ' (${_v(r, 'checkInBodyFat')}%)' : ''}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2740,11 +2871,18 @@ class _PtTabState extends State<_PtTab> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.fitness_center_rounded, size: 14, color: AppColors.textSecondary),
+                                      const Icon(
+                                        Icons.fitness_center_rounded,
+                                        size: 14,
+                                        color: AppColors.textSecondary,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Tập: ${_v(r, 'trainingDaysCount')} buổi',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2752,11 +2890,18 @@ class _PtTabState extends State<_PtTab> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.sentiment_satisfied_alt_rounded, size: 14, color: AppColors.textSecondary),
+                                      const Icon(
+                                        Icons.sentiment_satisfied_alt_rounded,
+                                        size: 14,
+                                        color: AppColors.textSecondary,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Thể trạng: ${_v(r, 'bodyFeeling')}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2803,7 +2948,10 @@ class _PtTabState extends State<_PtTab> {
                             const SizedBox(height: 6),
                             Text(
                               '• Nhận xét: ${_v(r, 'ptComment', 'Chưa có nhận xét')}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(height: 3),
                             Row(
@@ -2811,13 +2959,19 @@ class _PtTabState extends State<_PtTab> {
                                 Expanded(
                                   child: Text(
                                     '• Calo: ${_v(r, 'suggestedCalorieTarget', '-')} kcal',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Text(
                                     '• Protein: ${_v(r, 'suggestedProteinTarget', '-')} g',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2829,7 +2983,10 @@ class _PtTabState extends State<_PtTab> {
                     ] else if (_v(r, 'status').toLowerCase() == 'pending') ...[
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(10),
@@ -2871,7 +3028,10 @@ class _PtTabState extends State<_PtTab> {
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                         ),
                       ),
                     ),
@@ -3091,180 +3251,36 @@ class _CoachTabState extends State<_CoachTab> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
         showDragHandle: false,
-        builder: (sheetContext) {
-          final isConnected = connectedCoaches.any(
-            (c) => _v(c, 'id') == _v(detail, 'id'),
-          );
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Avatar + name
-                Row(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary,
-                            AppColors.primary.withValues(alpha: 0.6),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        Icons.sports_gymnastics_rounded,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _v(detail, 'fullName'),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _v(detail, 'specialty'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 12),
-                // Stats row
-                Row(
-                  children: [
-                    _DetailStat(
-                      icon: Icons.star_rounded,
-                      label: '${_v(detail, 'experienceYears')} năm',
-                      sub: 'Kinh nghiệm',
-                    ),
-                    const SizedBox(width: 12),
-                    _DetailStat(
-                      icon: Icons.payments_outlined,
-                      label: '${_v(detail, 'priceVnd')} đ',
-                      sub: 'Học phí',
-                    ),
-                  ],
-                ),
-                if (_v(detail, 'bio').isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    _v(detail, 'bio'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade700,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                if (isConnected) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          label: 'Cấp quyền xem',
-                          icon: Icons.lock_open_rounded,
-                          color: AppColors.primary,
-                          onTap: () async {
-                            await repo.access(_v(detail, 'id'), true);
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ActionButton(
-                          label: 'Thu hồi quyền',
-                          icon: Icons.lock_rounded,
-                          color: Colors.red.shade400,
-                          onTap: () async {
-                            await repo.access(_v(detail, 'id'), false);
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        await repo.connect(_v(detail, 'id'));
-                        if (sheetContext.mounted) {
-                          Navigator.pop(sheetContext);
-                          load();
-                        }
-                      },
-                      icon: const Icon(Icons.person_add_rounded),
-                      label: const Text('Gửi yêu cầu kết nối'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+        builder: (_) {
+          Map<String, dynamic>? connection;
+          for (final coach in connectedCoaches) {
+            if (_v(coach, 'id') == _v(detail, 'id')) {
+              connection = coach;
+              break;
+            }
+          }
+          final connectionStatus = connection == null
+              ? ''
+              : _v(connection, 'connectionStatus');
+          final isConnected = connectionStatus.toLowerCase() == 'connected';
+          final isPending = connection != null && !isConnected;
+          final isAccessGranted = connection?['isAccessGranted'] == true;
+
+          return _CoachProfileSheet(
+            coach: detail,
+            isPending: isPending,
+            isConnected: isConnected,
+            isAccessGranted: isAccessGranted,
+            onConnect: () async {
+              await repo.connect(_v(detail, 'id'));
+              await load();
+            },
+            onToggleAccess: () async {
+              await repo.access(_v(detail, 'id'), !isAccessGranted);
+              await load();
+            },
           );
         },
       );
@@ -3369,7 +3385,8 @@ class _CoachTabState extends State<_CoachTab> {
                     name: _v(r, 'fullName'),
                     specialty: _v(r, 'specialty'),
                     experienceYears: _v(r, 'experienceYears'),
-                    priceVnd: _v(r, 'priceVnd'),
+                    avatarUrl: _v(r, 'avatarUrl'),
+                    city: _v(r, 'city'),
                     status: _v(r, 'connectionStatus'),
                     isConnected: true,
                     onTap: () => showCoach(r),
@@ -3465,7 +3482,8 @@ class _CoachTabState extends State<_CoachTab> {
                     name: _v(r, 'fullName'),
                     specialty: _v(r, 'specialty'),
                     experienceYears: _v(r, 'experienceYears'),
-                    priceVnd: _v(r, 'priceVnd'),
+                    avatarUrl: _v(r, 'avatarUrl'),
+                    city: _v(r, 'city'),
                     status: '',
                     isConnected: false,
                     onTap: () => showCoach(r),
@@ -3725,12 +3743,894 @@ class _UserTabState extends State<_UserTab> {
 
 // ─── Helper widgets for _CoachTab ─────────────────────────────────────────────
 
+List<String> _coachStringList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .map((item) => item.toString().trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+}
+
+List<Map<String, dynamic>> _coachMapList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList();
+}
+
+String _coachDate(String value) {
+  final parts = value.split('-');
+  if (parts.length != 3) return value;
+  return '${parts[2]}/${parts[1]}/${parts[0]}';
+}
+
+class _CoachProfileSheet extends StatefulWidget {
+  const _CoachProfileSheet({
+    required this.coach,
+    required this.isPending,
+    required this.isConnected,
+    required this.isAccessGranted,
+    required this.onConnect,
+    required this.onToggleAccess,
+  });
+
+  final Map<String, dynamic> coach;
+  final bool isPending;
+  final bool isConnected;
+  final bool isAccessGranted;
+  final Future<void> Function() onConnect;
+  final Future<void> Function() onToggleAccess;
+
+  @override
+  State<_CoachProfileSheet> createState() => _CoachProfileSheetState();
+}
+
+class _CoachProfileSheetState extends State<_CoachProfileSheet> {
+  bool _busy = false;
+
+  Future<void> _runAction(
+    Future<void> Function() action,
+    String successMessage,
+  ) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (!mounted) return;
+      _notice(context, successMessage);
+      Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        _notice(context, error);
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final coach = widget.coach;
+    final name = _v(coach, 'fullName');
+    final avatarUrl = _v(coach, 'avatarUrl');
+    final headline = _v(coach, 'headline');
+    final specialty = _v(coach, 'specialty');
+    final city = _v(coach, 'city');
+    final bio = _v(coach, 'bio');
+    final achievements = _v(coach, 'achievements');
+    final experienceYears = _v(coach, 'experienceYears');
+    final languages = _coachStringList(coach['languages']);
+    final coachingStyles = _coachStringList(coach['coachingStyles']);
+    final clientLevels = _coachStringList(coach['clientLevels']);
+    final galleryUrls = _coachStringList(coach['galleryUrls']);
+    final certificates = _coachMapList(coach['certificates']);
+    final specialties = specialty
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final isVerified = _v(
+      coach,
+      'applicationStatus',
+    ).toLowerCase().contains('approved');
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      minChildSize: 0.68,
+      maxChildSize: 0.97,
+      expand: false,
+      builder: (context, scrollController) {
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF5F8F6),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 8, 6),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Hồ sơ huấn luyện viên',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Đóng',
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      _CoachAvatar(
+                                        imageUrl: avatarUrl,
+                                        width: 82,
+                                        height: 82,
+                                        radius: 24,
+                                      ),
+                                      if (isVerified)
+                                        Positioned(
+                                          right: -5,
+                                          bottom: -5,
+                                          child: Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 3,
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.verified_rounded,
+                                              size: 16,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: const TextStyle(
+                                            fontSize: 19,
+                                            fontWeight: FontWeight.w800,
+                                            height: 1.25,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          headline.isNotEmpty
+                                              ? headline
+                                              : specialty,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            height: 1.35,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (city.isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.location_on_outlined,
+                                                size: 15,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  city,
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              Row(
+                                children: [
+                                  _CoachProfileMetric(
+                                    icon: Icons.workspace_premium_outlined,
+                                    value: '$experienceYears năm',
+                                    label: 'Kinh nghiệm',
+                                  ),
+                                  const SizedBox(width: 10),
+                                  _CoachProfileMetric(
+                                    icon: Icons.translate_rounded,
+                                    value: languages.isEmpty
+                                        ? 'Đang cập nhật'
+                                        : '${languages.length} ngôn ngữ',
+                                    label: languages.isEmpty
+                                        ? 'Thông tin'
+                                        : languages.join(', '),
+                                  ),
+                                ],
+                              ),
+                              if (widget.isConnected || widget.isPending) ...[
+                                const SizedBox(height: 14),
+                                _CoachConnectionBanner(
+                                  isConnected: widget.isConnected,
+                                  isAccessGranted: widget.isAccessGranted,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (bio.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.person_outline_rounded,
+                            title: 'Giới thiệu',
+                            child: Text(
+                              bio,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                height: 1.55,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (specialties.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.fitness_center_rounded,
+                            title: 'Chuyên môn',
+                            child: _CoachTagWrap(
+                              values: specialties,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                        if (coachingStyles.isNotEmpty ||
+                            clientLevels.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.tune_rounded,
+                            title: 'Phương pháp huấn luyện',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (coachingStyles.isNotEmpty) ...[
+                                  const _CoachFieldLabel('Phong cách'),
+                                  const SizedBox(height: 8),
+                                  _CoachTagWrap(
+                                    values: coachingStyles,
+                                    color: const Color(0xFF2563EB),
+                                  ),
+                                ],
+                                if (coachingStyles.isNotEmpty &&
+                                    clientLevels.isNotEmpty)
+                                  const SizedBox(height: 16),
+                                if (clientLevels.isNotEmpty) ...[
+                                  const _CoachFieldLabel('Học viên phù hợp'),
+                                  const SizedBox(height: 8),
+                                  _CoachTagWrap(
+                                    values: clientLevels,
+                                    color: const Color(0xFF7C3AED),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (certificates.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.verified_user_outlined,
+                            title: 'Chứng chỉ chuyên môn',
+                            trailing: '${certificates.length} chứng chỉ',
+                            child: Column(
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < certificates.length;
+                                  index++
+                                ) ...[
+                                  _CoachCertificateCard(
+                                    certificate: certificates[index],
+                                  ),
+                                  if (index < certificates.length - 1)
+                                    const SizedBox(height: 10),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (achievements.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.emoji_events_outlined,
+                            title: 'Thành tích nổi bật',
+                            child: Text(
+                              achievements,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                height: 1.55,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (galleryUrls.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _CoachProfileSection(
+                            icon: Icons.photo_library_outlined,
+                            title: 'Hình ảnh hoạt động',
+                            trailing: '${galleryUrls.length} ảnh',
+                            child: SizedBox(
+                              height: 148,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: galleryUrls.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, index) {
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: SizedBox(
+                                      width: 190,
+                                      child: Image.network(
+                                        galleryUrls[index],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) =>
+                                            const _CoachImageFallback(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                _CoachProfileActionBar(
+                  busy: _busy,
+                  isPending: widget.isPending,
+                  isConnected: widget.isConnected,
+                  isAccessGranted: widget.isAccessGranted,
+                  onPressed: widget.isPending
+                      ? null
+                      : () => _runAction(
+                          widget.isConnected
+                              ? widget.onToggleAccess
+                              : widget.onConnect,
+                          widget.isConnected
+                              ? widget.isAccessGranted
+                                    ? 'Đã thu hồi quyền xem dữ liệu'
+                                    : 'Đã cấp quyền xem dữ liệu'
+                              : 'Đã gửi yêu cầu kết nối',
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CoachAvatar extends StatelessWidget {
+  const _CoachAvatar({
+    required this.imageUrl,
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  final String imageUrl;
+  final double width, height, radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: imageUrl.isEmpty
+            ? const _CoachImageFallback()
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const _CoachImageFallback(),
+              ),
+      ),
+    );
+  }
+}
+
+class _CoachImageFallback extends StatelessWidget {
+  const _CoachImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F5132), Color(0xFF63A985)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.sports_gymnastics_rounded,
+          color: Colors.white,
+          size: 30,
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachProfileMetric extends StatelessWidget {
+  const _CoachProfileMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value, label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F8F5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 19, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      height: 1.25,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachConnectionBanner extends StatelessWidget {
+  const _CoachConnectionBanner({
+    required this.isConnected,
+    required this.isAccessGranted,
+  });
+
+  final bool isConnected, isAccessGranted;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isConnected ? AppColors.primary : const Color(0xFFD97706);
+    final label = isConnected
+        ? isAccessGranted
+              ? 'Đã kết nối • PT được xem tiến độ của bạn'
+              : 'Đã kết nối • Chưa cấp quyền xem tiến độ'
+        : 'Yêu cầu kết nối đang chờ PT xác nhận';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isConnected ? Icons.link_rounded : Icons.schedule_rounded,
+            size: 17,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachProfileSection extends StatelessWidget {
+  const _CoachProfileSection({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: AppColors.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (trailing != null)
+                Text(
+                  trailing!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachFieldLabel extends StatelessWidget {
+  const _CoachFieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: Colors.grey.shade600,
+      ),
+    );
+  }
+}
+
+class _CoachTagWrap extends StatelessWidget {
+  const _CoachTagWrap({required this.values, required this.color});
+
+  final List<String> values;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: values
+          .map(
+            (value) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withValues(alpha: 0.15)),
+              ),
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _CoachCertificateCard extends StatelessWidget {
+  const _CoachCertificateCard({required this.certificate});
+
+  final Map<String, dynamic> certificate;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _v(certificate, 'name');
+    final issuer = _v(certificate, 'issuer');
+    final issuedDate = _v(certificate, 'issuedDate');
+    final expiryDate = _v(certificate, 'expiryDate');
+    final imageUrl = _v(certificate, 'imageUrl');
+    final dates = <String>[
+      if (issuedDate.isNotEmpty) 'Cấp ${_coachDate(issuedDate)}',
+      if (expiryDate.isNotEmpty) 'Hết hạn ${_coachDate(expiryDate)}',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAF8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: imageUrl.isEmpty
+                  ? Container(
+                      color: AppColors.primary.withValues(alpha: 0.09),
+                      child: const Icon(
+                        Icons.card_membership_rounded,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        color: AppColors.primary.withValues(alpha: 0.09),
+                        child: const Icon(
+                          Icons.card_membership_rounded,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name.isEmpty ? 'Chứng chỉ chuyên môn' : name,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (issuer.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    issuer,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+                if (dates.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    dates.join(' • '),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.verified_rounded,
+            size: 20,
+            color: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachProfileActionBar extends StatelessWidget {
+  const _CoachProfileActionBar({
+    required this.busy,
+    required this.isPending,
+    required this.isConnected,
+    required this.isAccessGranted,
+    required this.onPressed,
+  });
+
+  final bool busy, isPending, isConnected, isAccessGranted;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDanger = isConnected && isAccessGranted;
+    final label = isPending
+        ? 'Đang chờ PT xác nhận'
+        : isConnected
+        ? isAccessGranted
+              ? 'Thu hồi quyền xem tiến độ'
+              : 'Cho phép PT xem tiến độ'
+        : 'Gửi yêu cầu kết nối';
+    final icon = isPending
+        ? Icons.schedule_rounded
+        : isDanger
+        ? Icons.lock_outline_rounded
+        : isConnected
+        ? Icons.lock_open_rounded
+        : Icons.person_add_alt_1_rounded;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.icon(
+          onPressed: busy ? null : onPressed,
+          icon: busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(icon),
+          label: Text(label),
+          style: FilledButton.styleFrom(
+            backgroundColor: isDanger
+                ? const Color(0xFFB42318)
+                : AppColors.primary,
+            disabledBackgroundColor: isPending ? const Color(0xFFE9EEF0) : null,
+            disabledForegroundColor: isPending ? Colors.grey.shade600 : null,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CoachCard extends StatelessWidget {
   const _CoachCard({
     required this.name,
     required this.specialty,
     required this.experienceYears,
-    required this.priceVnd,
+    required this.avatarUrl,
+    required this.city,
     required this.status,
     required this.isConnected,
     required this.onTap,
@@ -3739,7 +4639,7 @@ class _CoachCard extends StatelessWidget {
     required this.actionColor,
   });
 
-  final String name, specialty, experienceYears, priceVnd, status;
+  final String name, specialty, experienceYears, avatarUrl, city, status;
   final bool isConnected;
   final VoidCallback onTap, onAction;
   final String actionLabel;
@@ -3773,27 +4673,11 @@ class _CoachCard extends StatelessWidget {
           child: Row(
             children: [
               // Avatar
-              Container(
+              _CoachAvatar(
+                imageUrl: avatarUrl,
                 width: 52,
                 height: 52,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isConnected
-                        ? [
-                            AppColors.primary,
-                            AppColors.primary.withValues(alpha: 0.65),
-                          ]
-                        : [const Color(0xFF6EE7B7), const Color(0xFF34D399)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  Icons.sports_gymnastics_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
+                radius: 16,
               ),
               const SizedBox(width: 14),
               // Info
@@ -3847,6 +4731,43 @@ class _CoachCard extends StatelessWidget {
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.workspace_premium_outlined,
+                          size: 13,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$experienceYears năm kinh nghiệm',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        if (city.isNotEmpty) ...[
+                          Text(
+                            '  •  ',
+                            style: TextStyle(color: Colors.grey.shade400),
+                          ),
+                          Flexible(
+                            child: Text(
+                              city,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -3912,97 +4833,6 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DetailStat extends StatelessWidget {
-  const _DetailStat({
-    required this.icon,
-    required this.label,
-    required this.sub,
-  });
-
-  final IconData icon;
-  final String label, sub;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4FAF7),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  sub,
-                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

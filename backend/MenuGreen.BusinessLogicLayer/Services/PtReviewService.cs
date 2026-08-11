@@ -94,15 +94,42 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         "Bạn đã gửi check-in giữa tuần này. Mỗi tuần chỉ được gửi một lần.");
                 }
             }
+            else if (isRouteApproval)
+            {
+                var sameDayRequests = await _unitOfWork.PtReviewRequests.FindAsync(r =>
+                    r.UserId == userId && r.WeekStartDate == request.WeekStartDate);
+                var alreadySubmitted = sameDayRequests.Any(r =>
+                {
+                    var existingType = GetRequestType(r);
+                    var isExistingRoute = string.IsNullOrWhiteSpace(existingType)
+                        || existingType.Equals(
+                            "RouteApproval",
+                            StringComparison.OrdinalIgnoreCase);
+                    return isExistingRoute
+                        && (r.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+                            || r.Status.Equals("Reviewed", StringComparison.OrdinalIgnoreCase)
+                            || r.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase));
+                });
+                if (alreadySubmitted)
+                {
+                    throw new Exception(
+                        "Lộ trình ngày này đã được gửi cho PT và không thể gửi lại.");
+                }
+            }
 
             // 0. Check connection with PT
             var connections = await _unitOfWork.CoachConnections.FindAsync(c =>
                 c.ClientId == userId &&
                 (c.Status == "Connected" || c.Status == "Approved"));
-            if (!connections.Any())
+            var targetConnection = connections
+                .OrderByDescending(c => c.UpdatedAt)
+                .FirstOrDefault();
+            if (targetConnection == null)
             {
                 throw new Exception("Bạn chưa Đăng ký kết nối với PT");
             }
+
+            var targetCoachId = targetConnection.CoachId;
 
             var weekStartDate = request.WeekStartDate;
             // RouteApproval is the approval request for one daily plan.
@@ -167,6 +194,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var snapshot = new WeeklyReportSnapshot
             {
                 RequestType = requestType,
+                AssignedCoachId = targetCoachId,
                 MealPlanId = configuredPlan?.Id,
                 WeekStartDate = weekStartDate,
                 DataThroughDate = dataThroughDate,
@@ -242,21 +270,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Tìm Coach (PT) đang Connected với Gymer này. Cố gắng lấy cả
             // Status == "Connected" và "Approved" để phòng trường hợp seed data
             // hoặc tích hợp khác dùng status khác.
-            Guid? coachId = null;
-            try
-            {
-                var connection = (await _unitOfWork.CoachConnections.FindAsync(c =>
-                    c.ClientId == userId &&
-                    (c.Status == "Connected" || c.Status == "Approved"))).FirstOrDefault();
-                if (connection != null && connection.CoachId != Guid.Empty)
-                {
-                    coachId = connection.CoachId;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "PtReview.CreateReport: cannot load coach connection for userId={UserId}", userId);
-            }
+            Guid? coachId = targetCoachId == Guid.Empty ? null : targetCoachId;
 
             // 1) Gửi notification cho PT/Coach.
             if (coachId.HasValue)
@@ -283,7 +297,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             : $"Học viên {gymerName} vừa gửi lộ trình ăn uống để bạn kiểm tra và duyệt.",
                         ActionUrl = isWeeklyReport || isMidWeekCheckIn
                             ? $"coach_weekly_report:{reportId}"
-                            : null,
+                            : configuredPlan == null
+                                ? null
+                                : $"coach_route_approval:{userId}:{configuredPlan.Id}",
                         ScheduledAt = null
                     });
                 }
@@ -2214,6 +2230,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
     public class WeeklyReportSnapshot
     {
         public string RequestType { get; set; } = "WeeklyReport";
+        public Guid? AssignedCoachId { get; set; }
         public Guid? MealPlanId { get; set; }
         public DateOnly WeekStartDate { get; set; }
         public DateOnly? DataThroughDate { get; set; }

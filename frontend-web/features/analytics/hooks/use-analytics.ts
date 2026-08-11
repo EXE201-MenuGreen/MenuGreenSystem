@@ -13,7 +13,11 @@ import {
   getChurnRisk,
   getInactiveUsers,
   getActivityLog,
+  getRevenueTimeSeries,
+  getRevenueByPlan,
   type NutritionDashboardData,
+  type RevenueTimeSeriesResponse,
+  type RevenueByPlanResponse,
 } from "../api/analytics-api";
 import type {
   AnalyticsDashboard,
@@ -361,4 +365,66 @@ export function useActivityLog(params?: {
   }, [fetch]);
 
   return { logs, isLoading, error, refetch: fetch };
+}
+
+// ============================================
+// REVENUE ANALYTICS HOOKS
+// ============================================
+
+export function useRevenueTimeSeries(datePreset: DatePreset = "30days") {
+  const [data, setData] = useState<RevenueTimeSeriesResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const range = getDateRangeFromPreset(datePreset);
+      const result = await getRevenueTimeSeries(
+        formatDate(range.from),
+        formatDate(range.to)
+      );
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch revenue time series");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [datePreset]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, error, refetch: fetch };
+}
+
+export function useRevenueByPlan(datePreset: DatePreset = "30days") {
+  const [data, setData] = useState<RevenueByPlanResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const range = getDateRangeFromPreset(datePreset);
+      const result = await getRevenueByPlan(
+        formatDate(range.from),
+        formatDate(range.to)
+      );
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch revenue by plan");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [datePreset]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, error, refetch: fetch };
 }

@@ -10,6 +10,15 @@ service firebase.storage {
         && request.resource.size < 2 * 1024 * 1024;
       allow delete: if fileName == 'avatar.jpg';
     }
+
+    // Dev/demo only: coach accounts are authenticated by the backend JWT,
+    // which Firebase Storage Rules cannot validate directly.
+    match /coach-applications/{userId}/{category}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if true;
+    }
   }
 }
 

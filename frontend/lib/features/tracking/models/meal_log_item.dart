@@ -11,6 +11,10 @@ class MealLogItem {
     this.notes,
     this.sourceType,
     this.customName,
+    this.mealPlanItemId,
+    this.proteinG = 0,
+    this.carbsG = 0,
+    this.fatG = 0,
   });
 
   final String id;
@@ -24,6 +28,10 @@ class MealLogItem {
   final String? notes;
   final String? sourceType;
   final String? customName;
+  final String? mealPlanItemId;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
 
   bool get isRecipe =>
       (recipeId != null && recipeId!.isNotEmpty) ||
@@ -43,16 +51,21 @@ class MealLogItem {
   }
 
   factory MealLogItem.fromJson(Map<String, dynamic> json) {
-    final loggedAtRaw = json['loggedAt']?.toString();
-    final foodName = json['foodName']?.toString().trim();
-    final recipeTitle = json['recipeTitle']?.toString().trim();
-    final displayName = json['displayName']?.toString().trim();
+    final loggedAtRaw = (json['loggedAt'] ?? json['LoggedAt'])?.toString();
+    final foodName = (json['foodName'] ?? json['FoodName'])?.toString().trim();
+    final recipeTitle = (json['recipeTitle'] ?? json['RecipeTitle'])
+        ?.toString()
+        .trim();
+    final displayName = (json['displayName'] ?? json['DisplayName'])
+        ?.toString()
+        .trim();
     final customName = (json['customName'] ?? json['CustomName'])
         ?.toString()
         .trim();
     final notes = (json['notes'] ?? json['Notes'])?.toString().trim();
 
-    final isValidDisplayName = displayName != null &&
+    final isValidDisplayName =
+        displayName != null &&
         displayName.isNotEmpty &&
         displayName.toLowerCase() != 'logged item';
 
@@ -69,10 +82,10 @@ class MealLogItem {
         : 'Món đã ghi';
 
     return MealLogItem(
-      id: (json['id'] ?? '').toString(),
-      mealType: (json['mealType'] ?? 'snack').toString(),
-      quantityG: _asDouble(json['quantityG']),
-      caloriesKcal: _asDouble(json['caloriesKcal']),
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      mealType: (json['mealType'] ?? json['MealType'] ?? 'snack').toString(),
+      quantityG: _asDouble(json['quantityG'] ?? json['QuantityG']),
+      caloriesKcal: _asDouble(json['caloriesKcal'] ?? json['CaloriesKcal']),
       loggedAt: loggedAtRaw == null
           ? null
           : DateTime.tryParse(loggedAtRaw)?.toLocal(),
@@ -82,6 +95,12 @@ class MealLogItem {
       notes: json['notes']?.toString(),
       sourceType: json['sourceType']?.toString(),
       customName: customName,
+      mealPlanItemId: _parseOptionalId(
+        json['mealPlanItemId'] ?? json['MealPlanItemId'],
+      ),
+      proteinG: _asDouble(json['proteinG'] ?? json['ProteinG']),
+      carbsG: _asDouble(json['carbsG'] ?? json['CarbsG']),
+      fatG: _asDouble(json['fatG'] ?? json['FatG']),
     );
   }
 }

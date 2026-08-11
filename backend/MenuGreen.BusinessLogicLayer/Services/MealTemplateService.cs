@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
@@ -358,8 +359,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static (decimal CaloriesKcal, decimal ProteinG, decimal CarbsG, decimal FatG) ScaleNutrition(decimal? calories, decimal? protein, decimal? carbs, decimal? fat, int? defaultServingG, decimal quantityG)
         {
-            var baseServing = defaultServingG.GetValueOrDefault(100);
-            var ratio = baseServing <= 0 ? 1m : quantityG / baseServing;
+            var ratio = NutritionMath.ServingNutritionRatio(
+                quantityG,
+                defaultServingG);
             return (
                 Math.Round((calories ?? 0) * ratio, 2),
                 Math.Round((protein ?? 0) * ratio, 2),

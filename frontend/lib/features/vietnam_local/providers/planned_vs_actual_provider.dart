@@ -1,14 +1,25 @@
 import 'package:flutter/foundation.dart';
 
+import '../../meal_plan/models/meal_plan_models.dart';
+import '../../meal_plan/repositories/meal_plan_repository.dart';
+import '../../tracking/repositories/nutrition_tracking_repository.dart';
 import '../models/vietnam_local_models.dart';
 import '../repositories/vietnam_local_repositories.dart';
 
 /// Planned vs Actual provider — `2.17 Planned vs Actual Insights`.
 class PlannedVsActualProvider extends ChangeNotifier {
-  PlannedVsActualProvider({PlannedVsActualRepository? repository})
-      : _repo = repository ?? PlannedVsActualRepository();
+  PlannedVsActualProvider({
+    PlannedVsActualRepository? repository,
+    MealPlanRepository? mealPlanRepository,
+    NutritionTrackingRepository? nutritionTrackingRepository,
+  }) : _repo = repository ?? PlannedVsActualRepository(),
+       _mealPlanRepo = mealPlanRepository ?? MealPlanRepository(),
+       _nutritionRepo =
+           nutritionTrackingRepository ?? NutritionTrackingRepository();
 
   final PlannedVsActualRepository _repo;
+  final MealPlanRepository _mealPlanRepo;
+  final NutritionTrackingRepository _nutritionRepo;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -18,9 +29,11 @@ class PlannedVsActualProvider extends ChangeNotifier {
   DriftAnalysis? _drift;
   PlannedVsActualRecommendations? _recommendations;
   Map<String, dynamic>? _lastRecalibration;
+  UserMealPlan? _dailyPlan;
+  MealDaySummary? _dailySummary;
 
-  DateTime _from = _daysAgo(6);
-  DateTime _to = DateTime.now();
+  DateTime _from = _dateOnly(DateTime.now());
+  DateTime _to = _dateOnly(DateTime.now());
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -29,6 +42,9 @@ class PlannedVsActualProvider extends ChangeNotifier {
   DriftAnalysis? get drift => _drift;
   PlannedVsActualRecommendations? get recommendations => _recommendations;
   Map<String, dynamic>? get lastRecalibration => _lastRecalibration;
+  UserMealPlan? get dailyPlan => _dailyPlan;
+  MealDaySummary? get dailySummary => _dailySummary;
+  DateTime get selectedDate => _from;
   DateTime get from => _from;
   DateTime get to => _to;
 
@@ -43,23 +59,76 @@ class PlannedVsActualProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setDate(DateTime date) {
+    final normalized = _dateOnly(date);
+    if (_from == normalized && _to == normalized) return;
+    _from = normalized;
+    _to = normalized;
+    notifyListeners();
+  }
+
   Future<void> loadAll() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    final summary = await _repo.getSummary(from: _from, to: _to);
-    if (summary.success) _summary = summary.data;
+    final requestedDate = _from;
+    PlannedVsActualSummary? summaryData;
+    AdherenceScore? adherenceData;
+    DriftAnalysis? driftData;
+    UserMealPlan? planData;
+    MealDaySummary? dailyData;
+    final errors = <String>[];
 
-    final adherence = await _repo.getAdherenceScore(from: _from, to: _to);
-    if (adherence.success) _adherence = adherence.data;
+    // Load the canonical daily log first. Besides powering the meal list, the
+    // backend uses this call to repair legacy plan-completion logs whose
+    // serving calories were multiplied by grams. Analytics fetched below then
+    // sees the corrected values in the same refresh.
+    try {
+      dailyData = await _nutritionRepo.getDailySummary(requestedDate);
+    } catch (_) {
+      errors.add('Không tải được danh sách món đã ăn trong ngày.');
+    }
 
-    final drift = await _repo.getDriftAnalysis(from: _from, to: _to);
-    if (drift.success) _drift = drift.data;
+    await Future.wait<void>([
+      () async {
+        final result = await _repo.getSummary(
+          from: requestedDate,
+          to: requestedDate,
+        );
+        if (result.success) {
+          summaryData = result.data;
+        } else {
+          errors.add(result.translatedMessage);
+        }
+      }(),
+      () async {
+        final result = await _repo.getAdherenceScore(
+          from: requestedDate,
+          to: requestedDate,
+        );
+        if (result.success) adherenceData = result.data;
+      }(),
+      () async {
+        final result = await _repo.getDriftAnalysis(
+          from: requestedDate,
+          to: requestedDate,
+        );
+        if (result.success) driftData = result.data;
+      }(),
+      () async {
+        planData = await _mealPlanRepo.getByDate(requestedDate);
+      }(),
+    ]);
 
-    final recs = await _repo.getRecommendations();
-    if (recs.success) _recommendations = recs.data;
-
+    // Ignore an older request if the user changed date while it was loading.
+    if (_from != requestedDate) return;
+    _summary = summaryData;
+    _adherence = adherenceData;
+    _drift = driftData;
+    _dailyPlan = planData;
+    _dailySummary = dailyData;
+    _errorMessage = errors.isEmpty ? null : errors.first;
     _isLoading = false;
     notifyListeners();
   }
@@ -96,6 +165,6 @@ class PlannedVsActualProvider extends ChangeNotifier {
     return _repo.getMonthlyReport(month: month, year: year, format: format);
   }
 
-  static DateTime _daysAgo(int days) =>
-      DateTime.now().subtract(Duration(days: days));
+  static DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 }

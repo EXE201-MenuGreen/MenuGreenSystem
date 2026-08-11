@@ -25,7 +25,7 @@ export function AdminNotificationPanel() {
       const data = await notificationAdminApi.getPendingStats();
       setStats(data);
     } catch (err) {
-      setError(getErrorMessage(err, "Khong the tai thong ke notification"));
+      setError(getErrorMessage(err, "Không thể tải thống kê thông báo"));
     } finally {
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export function AdminNotificationPanel() {
       setDispatchMessage(result.message);
       await fetchStats();
     } catch (err) {
-      setError(getErrorMessage(err, "Dispatch notification that bai"));
+      setError(getErrorMessage(err, "Gửi thông báo thất bại"));
     } finally {
       setDispatching(false);
     }
@@ -53,15 +53,15 @@ export function AdminNotificationPanel() {
   return (
     <div>
       <PageHeader
-        title="Notification Dispatch"
-        description="Quan ly viec gui notification den nguoi dung"
+        title="Gửi thông báo"
+        description="Quản lý việc gửi notification đến người dùng"
         action={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={fetchStats} loading={loading}>
-              Lam moi
+              Làm mới
             </Button>
             <Button onClick={handleDispatch} loading={dispatching}>
-              Dispatch Now
+              Gửi ngay
             </Button>
           </div>
         }
@@ -80,10 +80,10 @@ export function AdminNotificationPanel() {
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-4">
-        <StatCard label="Da xu ly" value={stats?.pendingProcessed ?? 0} />
-        <StatCard label="Da gui" value={stats?.sent ?? 0} />
-        <StatCard label="That bai" value={stats?.failed ?? 0} />
-        <StatCard label="Bo qua" value={stats?.skipped ?? 0} />
+        <StatCard label="Đã xử lý" value={stats?.pendingProcessed ?? 0} />
+        <StatCard label="Đã gửi" value={stats?.sent ?? 0} />
+        <StatCard label="Thất bại" value={stats?.failed ?? 0} />
+        <StatCard label="Bỏ qua" value={stats?.skipped ?? 0} />
       </div>
     </div>
   );

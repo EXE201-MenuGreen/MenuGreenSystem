@@ -251,18 +251,27 @@ class _RoadmapMealRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    if (item != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        formatNutritionFacts(
+                          quantityG: item!.quantityG,
+                          caloriesKcal: item!.targetCalories,
+                          proteinG: item!.proteinG,
+                          carbsG: item!.carbsG,
+                          fatG: item!.fatG,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isOfficePriority
+                              ? AppColors.primary
+                              : Colors.black54,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                item == null ? '--' : '${item!.targetCalories ?? 0} kcal',
-                style: TextStyle(
-                  color: isOfficePriority ? AppColors.primary : Colors.black54,
-                  fontSize: 12,
-                  fontWeight: isOfficePriority
-                      ? FontWeight.bold
-                      : FontWeight.normal,
                 ),
               ),
               if (item != null) ...[

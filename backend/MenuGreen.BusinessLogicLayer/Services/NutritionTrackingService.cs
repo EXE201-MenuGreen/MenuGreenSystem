@@ -14,6 +14,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class NutritionTrackingService : INutritionTrackingService
     {
+        private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INutritionSnapshotService _nutritionSnapshotService;
         private readonly IRecipeService _recipeService;
@@ -76,15 +77,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealDaySummaryResponse> GetDailySummaryAsync(Guid userId, DateOnly date)
         {
-            var startOfDay = date.ToDateTime(TimeOnly.MinValue);
-            var endOfDay = date.ToDateTime(TimeOnly.MaxValue);
+            // Meal logs are persisted in UTC. Convert the requested Vietnam
+            // calendar day to UTC so a daily card never leaks meals from the
+            // previous/next day or behaves like a multi-day rollup.
+            var startOfDay = date
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var endOfDay = date
+                .ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
             var logs = await _unitOfWork.MealLogs.FindAsync(x => 
                 x.UserId == userId && 
                 x.LoggedAt.HasValue && 
                 x.LoggedAt.Value >= startOfDay && 
                 x.LoggedAt.Value <= endOfDay);
+            var logList = logs.ToList();
+            await NormalizeAutoCompletedMealLogsAsync(logList);
             await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, date);
-            return await BuildDailySummaryAsync(userId, date, logs.ToList());
+            return await BuildDailySummaryAsync(userId, date, logList);
         }
 
         public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
@@ -97,6 +107,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 x => x.UserId == userId && x.LoggedAt.HasValue
                     && x.LoggedAt.Value >= fromDateTime
                     && x.LoggedAt.Value <= toDateTime)).ToList();
+
+            await NormalizeAutoCompletedMealLogsAsync(logs);
 
             var logDates = logs
                 .Where(x => x.LoggedAt.HasValue)
@@ -482,14 +494,30 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId.Value) ?? throw new Exception("Food not found.");
                 ApplyNutritionFromFood(entity, food, quantityG);
+                ApplyMealPlanNutritionOverride(entity, request);
                 entity.SourceType = "Food";
                 return;
             }
 
             if (request.RecipeId.HasValue)
             {
-                _ = await _unitOfWork.Recipes.GetByIdAsync(request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
-                await ApplyNutritionFromRecipeAsync(entity, request.RecipeId.Value, quantityG);
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(
+                    request.RecipeId.Value) ?? throw new Exception("Recipe not found.");
+                var linkedFood = recipe.FoodId.HasValue
+                    ? await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value)
+                    : null;
+                if (linkedFood != null)
+                {
+                    ApplyNutritionFromFood(entity, linkedFood, quantityG);
+                }
+                else
+                {
+                    await ApplyNutritionFromRecipeAsync(
+                        entity,
+                        request.RecipeId.Value,
+                        quantityG);
+                }
+                ApplyMealPlanNutritionOverride(entity, request);
                 entity.SourceType = "Recipe";
                 return;
             }
@@ -511,7 +539,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static void ApplyNutritionFromFood(MealLog entity, Food food, decimal quantityG)
         {
-            var ratio = quantityG / 100m;
+            // Food nutrition is stored for one default serving, not always
+            // per 100g. Example: 510 kcal / 450g of bún bò must remain
+            // 510 kcal when the user logs the full 450g serving.
+            var ratio = NutritionMath.ServingNutritionRatio(
+                quantityG,
+                food.DefaultServingG);
             entity.CaloriesKcal = Multiply(food.CaloriesKcal, ratio);
             entity.ProteinG = Multiply(food.ProteinG, ratio);
             entity.CarbsG = Multiply(food.CarbsG, ratio);
@@ -526,6 +559,121 @@ namespace MenuGreen.BusinessLogicLayer.Services
             entity.ProteinG = Math.Round(nutrition.ProteinG * ratio, 2);
             entity.CarbsG = Math.Round(nutrition.CarbsG * ratio, 2);
             entity.FatG = Math.Round(nutrition.FatG * ratio, 2);
+        }
+
+        private static void ApplyMealPlanNutritionOverride(
+            MealLog entity,
+            MealLogUpsertRequest request)
+        {
+            if (!request.MealPlanItemId.HasValue) return;
+
+            entity.CaloriesKcal = request.CaloriesKcal ?? entity.CaloriesKcal;
+            entity.ProteinG = request.ProteinG ?? entity.ProteinG;
+            entity.CarbsG = request.CarbsG ?? entity.CarbsG;
+            entity.FatG = request.FatG ?? entity.FatG;
+        }
+
+        /// <summary>
+        /// Repairs logs created by the old meal-plan completion flow. That
+        /// flow multiplied an already per-serving target by QuantityG / 100,
+        /// e.g. 510 kcal x 450g became 2295 kcal. Linked plan logs represent
+        /// exactly the planned serving, so their stored nutrition must match
+        /// the MealPlanItem target. The proportional macro correction keeps
+        /// protein/carbs/fat consistent when the item has no macro snapshot.
+        /// </summary>
+        private async Task NormalizeAutoCompletedMealLogsAsync(List<MealLog> logs)
+        {
+            var linkedLogs = logs
+                .Where(log => log.IsFromMealPlan && log.MealPlanItemId.HasValue)
+                .ToList();
+            if (linkedLogs.Count == 0) return;
+
+            var itemIds = linkedLogs
+                .Select(log => log.MealPlanItemId!.Value)
+                .Distinct()
+                .ToList();
+            var items = (await _unitOfWork.MealPlanItems.FindAsync(
+                    item => itemIds.Contains(item.Id)))
+                .ToDictionary(item => item.Id);
+            var changed = false;
+            var affectedPlanDates = new HashSet<(Guid UserId, DateOnly Date)>();
+
+            foreach (var log in linkedLogs)
+            {
+                if (!items.TryGetValue(log.MealPlanItemId!.Value, out var item))
+                {
+                    continue;
+                }
+
+                // A linked meal log is the durable proof that the planned item
+                // was eaten. Older records can have the log while IsCompleted
+                // stayed false (or a stale date cache still exposes false).
+                if (!item.IsCompleted)
+                {
+                    item.IsCompleted = true;
+                    _unitOfWork.MealPlanItems.Update(item);
+                    changed = true;
+                }
+
+                if (item.PlannedDate.HasValue)
+                {
+                    affectedPlanDates.Add((log.UserId, item.PlannedDate.Value));
+                }
+
+                if (item.TargetCalories is not > 0)
+                {
+                    continue;
+                }
+
+                var targetCalories = (decimal)item.TargetCalories.Value;
+                var currentCalories = log.CaloriesKcal ?? 0m;
+                if (Math.Abs(currentCalories - targetCalories) < 0.01m)
+                {
+                    continue;
+                }
+
+                var correctionRatio = currentCalories > 0
+                    ? targetCalories / currentCalories
+                    : 1m;
+                log.CaloriesKcal = targetCalories;
+                log.ProteinG = CorrectMealPlanMacro(
+                    item.ProteinG,
+                    log.ProteinG,
+                    correctionRatio);
+                log.CarbsG = CorrectMealPlanMacro(
+                    item.CarbsG,
+                    log.CarbsG,
+                    correctionRatio);
+                log.FatG = CorrectMealPlanMacro(
+                    item.FatG,
+                    log.FatG,
+                    correctionRatio);
+                _unitOfWork.MealLogs.Update(log);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+
+            // Invalidate even when the database was already correct: the
+            // inconsistency may live only in the cached daily plan response.
+            foreach (var (userId, plannedDate) in affectedPlanDates)
+            {
+                await _cache.RemoveAsync(CacheKeys.MealPlanByDate(userId, plannedDate));
+            }
+        }
+
+        private static decimal? CorrectMealPlanMacro(
+            decimal? plannedValue,
+            decimal? loggedValue,
+            decimal correctionRatio)
+        {
+            if (plannedValue.HasValue) return plannedValue.Value;
+            return loggedValue.HasValue
+                ? Math.Round(loggedValue.Value * correctionRatio, 2)
+                : null;
         }
 
         private static decimal? Multiply(decimal? value, decimal ratio) => value.HasValue ? Math.Round(value.Value * ratio, 2) : null;
