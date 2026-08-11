@@ -63,6 +63,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Where(x => x.RecipeId == id)
                 .ToListAsync();
             var result = Map(recipe);
+            if (recipe.FoodId.HasValue)
+            {
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                result.DefaultServingG = linkedFood?.DefaultServingG;
+            }
             result.Ingredients = items.Select(x => new RecipeIngredientResponse
             {
                 IngredientId = x.IngredientId,
@@ -113,6 +118,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var recipeList = query.ToList();
             var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
+            var linkedFoodIds = recipeList
+                .Where(recipe => recipe.FoodId.HasValue)
+                .Select(recipe => recipe.FoodId!.Value)
+                .Distinct()
+                .ToList();
+            var servingByFoodId = linkedFoodIds.Count == 0
+                ? new Dictionary<Guid, int?>()
+                : (await _unitOfWork.Foods.FindAsync(
+                    food => linkedFoodIds.Contains(food.Id)))
+                    .ToDictionary(food => food.Id, food => food.DefaultServingG);
             var mode = NormalizeAllergyMode(allergyMode);
 
             // Enrich serially to keep the shared DbContext single-threaded.
@@ -124,6 +139,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var recipe in recipeList)
             {
                 var dto = Map(recipe);
+                if (
+                    recipe.FoodId.HasValue
+                    && servingByFoodId.TryGetValue(recipe.FoodId.Value, out var servingG)
+                )
+                {
+                    dto.DefaultServingG = servingG;
+                }
                 ingredientMap.TryGetValue(recipe.Id, out var names);
                 dto = await EnrichRecipeAsync(dto, userId, allergyMode, names ?? new List<string>());
                 var shouldInclude = mode != AllergenCatalog.ModeHide || dto.IsSafeForUser;

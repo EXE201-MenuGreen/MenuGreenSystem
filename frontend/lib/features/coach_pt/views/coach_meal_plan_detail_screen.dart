@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
@@ -181,7 +182,12 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
       _draft.clear();
       final itemsByMeal = plan.itemsByMeal;
       for (final entry in itemsByMeal.entries) {
-        _draft.addAll(entry.value.map(_DraftItem.fromItem));
+        _draft.addAll(
+          entry.value.map(
+            (item) =>
+                _DraftItem.fromItem(item, fallbackDate: plan.header.startDate),
+          ),
+        );
       }
     }
 
@@ -458,9 +464,15 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
 
   void _openItemDetail(_DraftItem item) {
     final Widget? screen = item.foodId != null
-        ? FoodDetailScreen(foodId: item.foodId!)
+        ? FoodDetailScreen(
+            foodId: item.foodId!,
+            plannedQuantityG: item.quantityG,
+          )
         : item.recipeId != null
-        ? RecipeDetailScreen(recipeId: item.recipeId!)
+        ? RecipeDetailScreen(
+            recipeId: item.recipeId!,
+            plannedQuantityG: item.quantityG,
+          )
         : null;
     if (screen != null) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -474,6 +486,14 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.schedule_rounded),
+              title: const Text('Chỉnh giờ ăn'),
+              subtitle: Text(
+                'Giờ ăn: ${mealScheduledTimeLabel(item.scheduledTime, mealType: item.mealType)}',
+              ),
+              onTap: () => Navigator.pop(ctx, 'schedule'),
+            ),
             ListTile(
               leading: const Icon(Icons.swap_horiz),
               title: const Text('Thay món khác'),
@@ -492,7 +512,9 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
       ),
     );
     if (!mounted) return;
-    if (action == 'delete') {
+    if (action == 'schedule') {
+      await _editItemTime(item);
+    } else if (action == 'delete') {
       setState(() => _draft.remove(item));
       _markDirty();
     } else if (action == 'replace') {
@@ -510,6 +532,29 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
         _markDirty();
       }
     }
+  }
+
+  Future<void> _editItemTime(_DraftItem item) async {
+    final currentTime = mealScheduledTimeLabel(
+      item.scheduledTime,
+      mealType: item.mealType,
+    ).split(':');
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: int.tryParse(currentTime.first) ?? 12,
+        minute: int.tryParse(currentTime.last) ?? 0,
+      ),
+      helpText: 'CHỌN GIỜ ĂN',
+    );
+    if (selectedTime == null || !mounted) return;
+
+    setState(() {
+      item.scheduledTime =
+          '${selectedTime.hour.toString().padLeft(2, '0')}:'
+          '${selectedTime.minute.toString().padLeft(2, '0')}';
+    });
+    _markDirty();
   }
 
   Future<_IngredientPick?> _showIngredientPicker(BuildContext context) {
@@ -588,6 +633,8 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
                 ? result.pick.id
                 : null,
             displayName: result.pick.name,
+            plannedDate: _plan?.header.startDate,
+            scheduledTime: defaultMealScheduledTime(result.mealType),
             targetCalories: result.pick.calories,
             quantityG: result.pick.quantityG ?? 100,
             proteinG: result.pick.proteinG,
@@ -2615,6 +2662,25 @@ class _DraftItemTile extends StatelessWidget {
                 ),
                 style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
               ),
+              const SizedBox(height: 3),
+              Wrap(
+                spacing: 10,
+                runSpacing: 3,
+                children: [
+                  if (item.plannedDate != null)
+                    _ScheduleLabel(
+                      icon: Icons.calendar_today_outlined,
+                      text:
+                          'Ngày ăn: ${mealPlannedDateLabel(item.plannedDate!)}',
+                    ),
+                  _ScheduleLabel(
+                    icon: Icons.schedule_rounded,
+                    text:
+                        'Giờ ăn: ${mealScheduledTimeLabel(item.scheduledTime, mealType: item.mealType)}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
               if (isCompleted)
                 Text(
                   'Đã ăn',
@@ -2661,6 +2727,28 @@ class _DraftItemTile extends StatelessWidget {
   }
 }
 
+class _ScheduleLabel extends StatelessWidget {
+  const _ScheduleLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: Colors.grey.shade500),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
 class _DraftItem {
   _DraftItem({
     required this.id,
@@ -2679,22 +2767,26 @@ class _DraftItem {
     this.mealLogId,
   });
 
-  factory _DraftItem.fromItem(CoachMealPlanItem it) => _DraftItem(
-    id: it.id,
-    mealType: it.mealType.toLowerCase(),
-    foodId: it.foodId,
-    recipeId: it.recipeId,
-    displayName: it.displayName,
-    plannedDate: it.plannedDate,
-    scheduledTime: it.scheduledTime,
-    targetCalories: it.targetCalories,
-    quantityG: it.quantityG,
-    proteinG: it.proteinG,
-    carbsG: it.carbsG,
-    fatG: it.fatG,
-    isCompleted: it.isCompleted,
-    mealLogId: null,
-  );
+  factory _DraftItem.fromItem(CoachMealPlanItem it, {DateTime? fallbackDate}) =>
+      _DraftItem(
+        id: it.id,
+        mealType: it.mealType.toLowerCase(),
+        foodId: it.foodId,
+        recipeId: it.recipeId,
+        displayName: it.displayName,
+        plannedDate: it.plannedDate ?? fallbackDate,
+        scheduledTime: mealScheduledTimeLabel(
+          it.scheduledTime,
+          mealType: it.mealType,
+        ),
+        targetCalories: it.targetCalories,
+        quantityG: it.quantityG,
+        proteinG: it.proteinG,
+        carbsG: it.carbsG,
+        fatG: it.fatG,
+        isCompleted: it.isCompleted,
+        mealLogId: null,
+      );
 
   String? id;
   final String mealType;
@@ -2802,7 +2894,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'type': 'recipe',
             'category': 'Công thức',
             'caloriesKcal': item.totalCalories,
-            'quantityG': 100,
+            'quantityG': item.defaultServingG,
           },
         ),
       ].take(20).toList();

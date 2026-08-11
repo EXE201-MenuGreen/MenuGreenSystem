@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
@@ -249,7 +250,19 @@ class _PersonalProgramDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Row('Mô tả', p['description']?.toString() ?? '(không có)'),
+                _Row('Mô tả', () {
+                  String descText = p['description']?.toString() ?? '(không có)';
+                  final pattern = RegExp(
+                    r'từ\s+(\d{2}/\d{2}/\d{4})\s+đến\s+(\d{2}/\d{2}/\d{4})',
+                    caseSensitive: false,
+                  );
+                  return descText.replaceAllMapped(pattern, (match) {
+                    final d1 = match.group(1);
+                    final d2 = match.group(2);
+                    if (d1 == d2) return 'ngày $d1';
+                    return match.group(0)!;
+                  });
+                }()),
                 _Row('Loại cấu hình', _planTypeLabel(_value(p, 'planType'))),
                 _Row('Thời gian', periodLabel),
                 _Row('Thời lượng', durationLabel),
@@ -762,6 +775,26 @@ class _PersonalMealTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 3),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Giờ ăn: ${mealScheduledTimeLabel(_value(meal, 'scheduledTime'), mealType: mealType)}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
               Text(
                 '${_nutrition(meal)}\nChạm để xem công thức',
                 maxLines: 3,
@@ -898,10 +931,14 @@ class _PersonalMealTile extends StatelessWidget {
   static void _openDetail(BuildContext context, Map<String, dynamic> meal) {
     final foodId = _value(meal, 'foodId');
     final recipeId = _value(meal, 'recipeId');
+    final plannedQuantityG = _nullableNumber(_value(meal, 'quantityG'));
     final Widget? screen = foodId.isNotEmpty
-        ? FoodDetailScreen(foodId: foodId)
+        ? FoodDetailScreen(foodId: foodId, plannedQuantityG: plannedQuantityG)
         : recipeId.isNotEmpty
-        ? RecipeDetailScreen(recipeId: recipeId)
+        ? RecipeDetailScreen(
+            recipeId: recipeId,
+            plannedQuantityG: plannedQuantityG,
+          )
         : null;
     if (screen != null) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => screen));

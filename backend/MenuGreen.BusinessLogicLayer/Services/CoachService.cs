@@ -779,12 +779,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _unitOfWork.CompleteAsync();
                 foreach (var item in request.Items)
                 {
+                    var quantityG = await ResolveCatalogServingGAsync(
+                        item.FoodId,
+                        item.RecipeId,
+                        item.QuantityG);
                     await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
                     {
                         Id = Guid.NewGuid(), MealPlanId = plan.Id, MealType = item.MealType,
-                        FoodId = item.FoodId, RecipeId = item.RecipeId, PlannedDate = item.PlannedDate,
-                        ScheduledTime = item.ScheduledTime, TargetCalories = item.TargetCalories,
-                        QuantityG = (decimal?)item.QuantityG,
+                        FoodId = item.FoodId, RecipeId = item.RecipeId,
+                        PlannedDate = item.PlannedDate ?? plan.StartDate,
+                        ScheduledTime = item.ScheduledTime ?? DefaultMealTime(item.MealType),
+                        TargetCalories = item.TargetCalories,
+                        QuantityG = quantityG,
                         IsCompleted = item.IsCompleted, CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -860,9 +866,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var item in items)
             {
                 Food? food = null;
+                Food? catalogFood = null;
                 Recipe? recipe = null;
                 if (item.FoodId.HasValue) food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                 if (item.RecipeId.HasValue) recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+                catalogFood = food;
+                if (catalogFood == null && recipe?.FoodId.HasValue == true)
+                {
+                    catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                }
                 var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
                 var calories = item.TargetCalories;
                 decimal? protein = item.ProteinG;
@@ -895,7 +907,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PlannedDate = item.PlannedDate,
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = calories,
-                    QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
+                    QuantityG = catalogFood?.DefaultServingG ?? item.QuantityG ?? 100m,
                     ProteinG = protein,
                     CarbsG = carbs,
                     FatG = fat,
@@ -1064,14 +1076,36 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
 
+            var startDate = request.StartDate
+                ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var endDate = request.EndDate ?? startDate;
+            if (endDate < startDate)
+            {
+                (startDate, endDate) = (endDate, startDate);
+            }
+
+            var gymerRouteRequests = await _unitOfWork.PtReviewRequests.FindAsync(
+                route => route.UserId == clientId
+                    && route.CreatedByRole != "Coach"
+                    && route.Status != "Rejected");
+            var overlappingGymerRoute = gymerRouteRequests.Any(route =>
+                IsRouteApprovalRequest(route)
+                && route.WeekStartDate >= startDate
+                && route.WeekStartDate <= endDate);
+            if (overlappingGymerRoute)
+            {
+                throw new InvalidOperationException(
+                    "Gymer đã gửi lộ trình cho PT trong ngày này. Không thể tạo thêm lộ trình trùng ngày.");
+            }
+
             var plan = new MealPlanHeader
             {
                 Id = Guid.NewGuid(),
                 UserId = clientId,
-                Title = request.Title ?? $"Client plan {request.StartDate:yyyy-MM-dd}",
+                Title = request.Title ?? $"Client plan {startDate:yyyy-MM-dd}",
                 PlanType = request.PlanType ?? "DAILY",
-                StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                StartDate = startDate,
+                EndDate = endDate,
                 TargetCalories = request.TargetCalories,
                 MinCalories = request.MinCalories,
                 MaxCalories = request.MaxCalories,
@@ -1090,6 +1124,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 foreach (var item in request.Items)
                 {
+                    var quantityG = await ResolveCatalogServingGAsync(
+                        item.FoodId,
+                        item.RecipeId,
+                        item.QuantityG);
                     await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
                     {
                         Id = Guid.NewGuid(),
@@ -1098,9 +1136,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         FoodId = item.FoodId,
                         RecipeId = item.RecipeId,
                         PlannedDate = item.PlannedDate ?? plan.StartDate,
-                        ScheduledTime = item.ScheduledTime,
+                        ScheduledTime = item.ScheduledTime ?? DefaultMealTime(item.MealType),
                         TargetCalories = item.TargetCalories,
-                        QuantityG = (decimal?)item.QuantityG,
+                        QuantityG = quantityG,
                         IsCompleted = false,
                         Origin = "coach",
                         CreatedAt = DateTime.UtcNow
@@ -1141,6 +1179,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 plan,
                 pendingRouteRequests
             );
+
+            var planStart = plan.StartDate ?? plan.EndDate;
+            var planEnd = plan.EndDate ?? plan.StartDate;
+            var overlapsGymerSubmission = matchedRequest == null
+                && string.Equals(
+                    plan.GeneratedBy,
+                    "COACH",
+                    StringComparison.OrdinalIgnoreCase)
+                && planStart.HasValue
+                && planEnd.HasValue
+                && pendingRouteRequests.Any(route =>
+                    route.WeekStartDate >= planStart.Value
+                    && route.WeekStartDate <= planEnd.Value);
+            if (overlapsGymerSubmission)
+            {
+                throw new InvalidOperationException(
+                    "Gymer đã gửi lộ trình cho PT trong ngày này. Không thể gửi thêm lộ trình trùng ngày.");
+            }
 
             if (
                 string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase)
@@ -1198,10 +1254,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     new CreatePersonalProgramRequest
                     {
                         ClientId = clientId,
-                        Title = plan.Title ?? $"Lộ trình {startDate:dd/MM/yyyy}",
-                        Description =
-                            $"Lộ trình {plan.PlanType ?? "DAILY"} từ "
-                            + $"{startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
+                        Title = plan.Title ?? (
+                            startDate == endDate
+                                ? $"Lộ trình Ngày {startDate:dd/MM/yyyy}"
+                                : (plan.PlanType?.ToLower() == "monthly"
+                                    ? $"Lộ trình Tháng {startDate:MM/yyyy}"
+                                    : $"Lộ trình Tuần {startDate:dd/MM/yyyy} - {endDate:dd/MM/yyyy}")
+                        ),
+                        Description = startDate == endDate
+                            ? $"Lộ trình {plan.PlanType ?? "DAILY"} ngày {startDate:dd/MM/yyyy}."
+                            : $"Lộ trình {plan.PlanType ?? "DAILY"} từ {startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
                         DurationWeeks = durationWeeks,
                         WeekStartDate = startDate,
                         TargetCaloriesDaily = targetCalories,
@@ -1232,6 +1294,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             {
                                 Id = item.Id,
                                 PlannedDate = item.PlannedDate ?? startDate,
+                                ScheduledTime = item.ScheduledTime,
                                 MealType = item.MealType ?? "snack",
                                 FoodId = item.FoodId,
                                 FoodName = item.FoodName,
@@ -1297,6 +1360,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
 
             return await MapMealPlanAsync(plan);
+        }
+
+        private static TimeOnly DefaultMealTime(string? mealType)
+        {
+            return (mealType ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "breakfast" or "bữa sáng" or "bua sang" => new TimeOnly(7, 30),
+                "lunch" or "bữa trưa" or "bua trua" => new TimeOnly(12, 0),
+                "dinner" or "bữa tối" or "bua toi" => new TimeOnly(18, 30),
+                _ => new TimeOnly(15, 0)
+            };
+        }
+
+        private async Task<decimal> ResolveCatalogServingGAsync(
+            Guid? foodId,
+            Guid? recipeId,
+            double? requestedQuantityG)
+        {
+            Food? catalogFood = null;
+            if (foodId.HasValue)
+            {
+                catalogFood = await _unitOfWork.Foods.GetByIdAsync(foodId.Value);
+            }
+            else if (recipeId.HasValue)
+            {
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId.Value);
+                if (recipe?.FoodId.HasValue == true)
+                {
+                    catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                }
+            }
+
+            return catalogFood?.DefaultServingG
+                ?? (decimal?)requestedQuantityG
+                ?? 100m;
         }
 
         private static bool IsApprovalOutdated(MealPlanHeader plan)

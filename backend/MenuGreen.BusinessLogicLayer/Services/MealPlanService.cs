@@ -214,7 +214,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = request.FoodId,
                 RecipeId = request.RecipeId,
                 PlannedDate = request.PlannedDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)),
-                ScheduledTime = request.ScheduledTime,
+                ScheduledTime = request.ScheduledTime ?? DefaultScheduledTime(request.MealType),
                 TargetCalories = request.TargetCalories,
                 IsCompleted = request.IsCompleted,
                 CreatedAt = DateTime.UtcNow,
@@ -235,8 +235,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             item.MealType = request.MealType;
             item.FoodId = request.FoodId;
             item.RecipeId = request.RecipeId;
-            item.PlannedDate = request.PlannedDate;
-            item.ScheduledTime = request.ScheduledTime;
+            item.PlannedDate = request.PlannedDate ?? item.PlannedDate;
+            item.ScheduledTime =
+                request.ScheduledTime ?? item.ScheduledTime ?? DefaultScheduledTime(request.MealType);
             item.TargetCalories = request.TargetCalories;
             item.IsCompleted = request.IsCompleted;
             item.Origin = request.Origin;
@@ -966,6 +967,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             Food? food = x.FoodId.HasValue && foodDict.TryGetValue(x.FoodId.Value, out var f) ? f : null;
             Recipe? recipe = x.RecipeId.HasValue && recipeDict.TryGetValue(x.RecipeId.Value, out var r) ? r : null;
+            var catalogFood = food;
+            if (catalogFood == null && recipe?.FoodId.HasValue == true)
+            {
+                catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+            }
 
             var price = food?.EstimatedPriceVnd
                 ?? (recipe == null ? null : RecipeServingPrice(recipe));
@@ -976,12 +982,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ? (int)Math.Round(food.CaloriesKcal.Value)
                 : (x.TargetCalories.HasValue && x.TargetCalories.Value > 0 ? x.TargetCalories.Value : (int)Math.Round(macros.calories));
 
-            if (displayCalories == 0 && recipe != null && recipe.FoodId.HasValue)
+            if (displayCalories == 0 && catalogFood != null)
             {
-                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
-                if (linkedFood?.CaloriesKcal.HasValue == true && linkedFood.CaloriesKcal.Value > 0)
+                if (catalogFood.CaloriesKcal.HasValue && catalogFood.CaloriesKcal.Value > 0)
                 {
-                    displayCalories = (int)Math.Round(linkedFood.CaloriesKcal.Value);
+                    displayCalories = (int)Math.Round(catalogFood.CaloriesKcal.Value);
                 }
             }
 
@@ -993,9 +998,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodId = x.FoodId,
                 RecipeId = x.RecipeId,
                 PlannedDate = x.PlannedDate,
-                ScheduledTime = x.ScheduledTime,
+                ScheduledTime = x.ScheduledTime ?? DefaultScheduledTime(x.MealType),
                 TargetCalories = displayCalories > 0 ? displayCalories : null,
-                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
+                QuantityG = catalogFood?.DefaultServingG ?? x.QuantityG ?? 100m,
                 ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
                 CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
                 FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
@@ -1114,6 +1119,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 recipe = await _unitOfWork.Recipes.GetByIdAsync(x.RecipeId.Value);
             }
+            var catalogFood = food;
+            if (catalogFood == null && recipe?.FoodId.HasValue == true)
+            {
+                catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+            }
 
             var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
             var macros = await GetItemMacrosAsync(x);
@@ -1122,12 +1132,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ? x.TargetCalories.Value
                 : (int)Math.Round(macros.calories);
 
-            if (cal == 0 && recipe?.FoodId != null)
+            if (cal == 0 && catalogFood != null)
             {
-                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
-                if (linkedFood?.CaloriesKcal.HasValue == true && linkedFood.CaloriesKcal.Value > 0)
+                if (catalogFood.CaloriesKcal.HasValue && catalogFood.CaloriesKcal.Value > 0)
                 {
-                    cal = (int)Math.Round(linkedFood.CaloriesKcal.Value);
+                    cal = (int)Math.Round(catalogFood.CaloriesKcal.Value);
                 }
             }
 
@@ -1141,7 +1150,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = cal > 0 ? cal : null,
-                QuantityG = x.QuantityG ?? food?.DefaultServingG ?? 100m,
+                QuantityG = catalogFood?.DefaultServingG ?? x.QuantityG ?? 100m,
                 IsCompleted = x.IsCompleted,
                 CustomName = x.CustomName,
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName,
@@ -1900,6 +1909,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     throw new InvalidOperationException(
                         "Bạn cần kết nối với PT và được PT chấp nhận trước khi khởi tạo lộ trình.");
                 }
+
+                var coachPlans = await _unitOfWork.MealPlanHeaders.FindAsync(
+                    existing => existing.UserId == userId
+                        && existing.IsActive
+                        && existing.GeneratedBy == "COACH"
+                        && (existing.Status == "PendingAcceptance"
+                            || existing.Status == "Approved")
+                        && existing.StartDate <= request.PlannedDate
+                        && (existing.EndDate ?? existing.StartDate) >= request.PlannedDate);
+                if (coachPlans.Any())
+                {
+                    throw new InvalidOperationException(
+                        "PT đã gửi lộ trình cho ngày này. Bạn không thể khởi tạo thêm lộ trình trùng ngày.");
+                }
             }
 
             // Mutations must only reuse an exact DAILY plan. The read helper
@@ -2051,10 +2074,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             foreach (var item in items)
             {
+                Food? catalogFood = null;
                 if (item.FoodId.HasValue)
                 {
-                    var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
-                    if (food == null)
+                    catalogFood = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
+                    if (catalogFood == null)
                     {
                         var dummyFood = new Food
                         {
@@ -2084,6 +2108,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         await _unitOfWork.Recipes.AddAsync(dummyRecipe);
                         await _unitOfWork.CompleteAsync();
                     }
+                    else if (recipe.FoodId.HasValue)
+                    {
+                        catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                    }
                 }
 
                 var planItem = new MealPlanItem
@@ -2094,8 +2122,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
                     PlannedDate = item.PlannedDate ?? plannedDate,
-                    ScheduledTime = item.ScheduledTime,
+                    ScheduledTime = item.ScheduledTime ?? DefaultScheduledTime(item.MealType),
                     TargetCalories = item.TargetCalories,
+                    QuantityG = catalogFood?.DefaultServingG
+                        ?? (decimal?)item.QuantityG
+                        ?? 100m,
                     IsCompleted = item.IsCompleted,
                     Origin = item.Origin,
                     CreatedAt = DateTime.UtcNow
@@ -2206,6 +2237,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 "bữa tối" or "bua toi" => "dinner",
                 "bữa phụ" or "bua phu" => "snack",
                 _ => normalized.Length > 0 ? normalized : "snack"
+            };
+        }
+
+        private static TimeOnly DefaultScheduledTime(string? mealType)
+        {
+            return NormalizeMealType(mealType ?? "snack") switch
+            {
+                "breakfast" => new TimeOnly(7, 30),
+                "lunch" => new TimeOnly(12, 0),
+                "dinner" => new TimeOnly(18, 30),
+                _ => new TimeOnly(15, 0)
             };
         }
 
@@ -2348,6 +2390,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Recipe? recipe = null;
             if (item.FoodId.HasValue) food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
             if (item.RecipeId.HasValue) recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+            var catalogFood = food;
+            if (catalogFood == null && recipe?.FoodId.HasValue == true)
+            {
+                catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+            }
 
             if (!mealLogId.HasValue)
             {
@@ -2368,7 +2415,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
                 TargetCalories = item.TargetCalories ?? (int)Math.Round(macros.calories),
-                QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
+                QuantityG = catalogFood?.DefaultServingG ?? item.QuantityG ?? 100m,
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,

@@ -436,69 +436,130 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Chế độ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: Color(0xFF111827),
+                DropdownButtonFormField<String>(
+                  value:
+                      [
+                        'cut',
+                        'maintain',
+                        'bulk',
+                        'recomp',
+                      ].contains(_goalMode.toLowerCase())
+                      ? _goalMode.toLowerCase()
+                      : 'maintain',
+                  decoration: InputDecoration(
+                    labelText: 'Chế độ mục tiêu',
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111827),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.flag_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                // Choice Chips: Siết cơ / Giữ cân / Xả cơ / Giảm mỡ tăng cơ
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['cut', 'maintain', 'bulk', 'recomp']
-                      .map(
-                        (e) => ChoiceChip(
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
+                  items:
+                      const [
+                        (
+                          'cut',
+                          'Siết cơ',
+                          Icons.local_fire_department_rounded,
+                          Color(0xFFEF4444),
+                        ),
+                        (
+                          'maintain',
+                          'Giữ cân',
+                          Icons.scale_rounded,
+                          Color(0xFF10B981),
+                        ),
+                        (
+                          'bulk',
+                          'Xả cơ',
+                          Icons.fitness_center_rounded,
+                          Color(0xFF3B82F6),
+                        ),
+                        (
+                          'recomp',
+                          'Giảm mỡ tăng cơ',
+                          Icons.transform_rounded,
+                          Color(0xFF8B5CF6),
+                        ),
+                      ].map((item) {
+                        return DropdownMenuItem<String>(
+                          value: item.$1,
+                          child: Row(
                             children: [
-                              if (_goalMode.toLowerCase() == e) ...[
-                                const Icon(
-                                  Icons.check_rounded,
-                                  size: 14,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 4),
-                              ],
+                              Icon(item.$3, size: 18, color: item.$4),
+                              const SizedBox(width: 8),
                               Text(
-                                _goalModeLabel(e),
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: _goalMode.toLowerCase() == e
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: _goalMode.toLowerCase() == e
-                                      ? AppColors.primary
-                                      : Colors.grey.shade700,
+                                item.$2,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF111827),
                                 ),
                               ),
                             ],
                           ),
-                          selected: _goalMode.toLowerCase() == e,
-                          onSelected: (_) => setState(() => _goalMode = e),
-                          selectedColor: AppColors.primary.withValues(
-                            alpha: 0.15,
-                          ),
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          side: BorderSide(
-                            color: _goalMode.toLowerCase() == e
-                                ? AppColors.primary
-                                : Colors.grey.shade300,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      )
-                      .toList(),
+                        );
+                      }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _goalMode = val);
+                    }
+                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
 
-                // Kỳ cấu hình Tab Bar (Ngày / Tuần / Tháng)
+                // Title & Scope Segmented Tab Bar (Ngày / Tuần / Tháng)
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.date_range_rounded,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Kỳ lộ trình',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
@@ -525,15 +586,16 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: const Color(0xFFF9FAFB),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),
                     child: Row(
                       children: [
                         const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 20,
-                          color: Color(0xFF4B5563),
+                          Icons.calendar_today_rounded,
+                          size: 18,
+                          color: AppColors.primary,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -564,8 +626,9 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                           ),
                         ),
                         const Icon(
-                          Icons.arrow_drop_down,
+                          Icons.arrow_drop_down_rounded,
                           color: Color(0xFF111827),
+                          size: 24,
                         ),
                       ],
                     ),
@@ -658,38 +721,123 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                     const Text(
                       'Chế độ hoạt động:',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
                         color: Color(0xFF374151),
                       ),
                     ),
                     const Spacer(),
-                    ChoiceChip(
-                      label: const Text('Nghỉ ngơi'),
-                      selected: !_isDayTraining,
-                      showCheckmark: false,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _isDayTraining = false);
-                        }
-                      },
-                      selectedColor: const Color(0xFFF3F4F6),
-                      backgroundColor: Colors.white,
-                    ),
-                    const SizedBox(width: 6),
-                    ChoiceChip(
-                      label: const Text('Tập luyện'),
-                      selected: _isDayTraining,
-                      showCheckmark: true,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _isDayTraining = true);
-                        }
-                      },
-                      selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      backgroundColor: Colors.white,
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () => setState(() => _isDayTraining = false),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: !_isDayTraining
+                                    ? Colors.white
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: !_isDayTraining
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
+                                          blurRadius: 4,
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.nightlight_round,
+                                    size: 14,
+                                    color: !_isDayTraining
+                                        ? AppColors.primary
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Nghỉ ngơi',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: !_isDayTraining
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: !_isDayTraining
+                                          ? AppColors.primary
+                                          : const Color(0xFF4B5563),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() => _isDayTraining = true),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _isDayTraining
+                                    ? AppColors.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: _isDayTraining
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.25,
+                                          ),
+                                          blurRadius: 4,
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.fitness_center_rounded,
+                                    size: 14,
+                                    color: _isDayTraining
+                                        ? Colors.white
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Tập luyện',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: _isDayTraining
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: _isDayTraining
+                                          ? Colors.white
+                                          : const Color(0xFF4B5563),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -2110,22 +2258,66 @@ class _ReviewMealItem extends StatelessWidget {
                   item.label,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
+                if (dateLabel.isNotEmpty ||
+                    (item.scheduledTime ?? '').isNotEmpty) ...[
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: [
+                      if (dateLabel.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 11.5,
+                              color: Color(0xFF6B7280),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Ngày ăn: $dateLabel',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                          ],
+                        ),
+                      if ((item.scheduledTime ?? '').isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.access_time_rounded,
+                              size: 11.5,
+                              color: Color(0xFF6B7280),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Giờ ăn: ${item.scheduledTime}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                ],
                 Text(
-                  [
-                    if (dateLabel.isNotEmpty) dateLabel,
-                    if ((item.scheduledTime ?? '').isNotEmpty)
-                      item.scheduledTime!,
-                    formatNutritionFacts(
-                      quantityG: item.quantityG,
-                      caloriesKcal: item.targetCalories,
-                      proteinG: item.proteinG,
-                      carbsG: item.carbsG,
-                      fatG: item.fatG,
-                    ),
-                  ].join('\n'),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  formatNutritionFacts(
+                    quantityG: item.quantityG,
+                    caloriesKcal: item.targetCalories,
+                    proteinG: item.proteinG,
+                    carbsG: item.carbsG,
+                    fatG: item.fatG,
+                  ),
                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                 ),
               ],
@@ -2264,17 +2456,76 @@ class _MealPickerRow extends StatelessWidget {
                           color: Color(0xFF111827),
                         ),
                       ),
-                      subtitle: Text(
-                        '${items[i].plannedDate == null ? '' : '${items[i].plannedDate!.day.toString().padLeft(2, '0')}/${items[i].plannedDate!.month.toString().padLeft(2, '0')}/${items[i].plannedDate!.year} · '}'
-                        '${items[i].scheduledTime ?? ''}'
-                        '${items[i].scheduledTime == null ? '' : '\n'}'
-                        '${formatNutritionFacts(quantityG: items[i].quantityG, caloriesKcal: items[i].targetCalories, proteinG: items[i].proteinG, carbsG: items[i].carbsG, fatG: items[i].fatG)}',
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 3),
+                          if (items[i].plannedDate != null ||
+                              (items[i].scheduledTime ?? '').isNotEmpty) ...[
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 2,
+                              children: [
+                                if (items[i].plannedDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 12,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Ngày ăn: ${items[i].plannedDate!.day.toString().padLeft(2, '0')}/${items[i].plannedDate!.month.toString().padLeft(2, '0')}/${items[i].plannedDate!.year}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if ((items[i].scheduledTime ?? '').isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time_rounded,
+                                        size: 12,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Giờ ăn: ${items[i].scheduledTime}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                          ],
+                          Text(
+                            formatNutritionFacts(
+                              quantityG: items[i].quantityG,
+                              caloriesKcal: items[i].targetCalories,
+                              proteinG: items[i].proteinG,
+                              carbsG: items[i].carbsG,
+                              fatG: items[i].fatG,
+                            ),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2414,7 +2665,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
             'type': 'recipe',
             'category': 'Công thức',
             'caloriesKcal': item.totalCalories,
-            'quantityG': 100,
+            'quantityG': item.defaultServingG,
           },
         ),
       ].take(20).toList();

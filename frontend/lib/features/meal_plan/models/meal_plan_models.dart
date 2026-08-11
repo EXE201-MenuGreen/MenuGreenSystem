@@ -6,6 +6,8 @@ class UserMealPlan {
     required this.startDate,
     required this.targetCalories,
     required this.items,
+    this.generatedBy,
+    this.status,
   });
 
   final String id;
@@ -14,6 +16,8 @@ class UserMealPlan {
   final String? startDate;
   final int targetCalories;
   final List<MealPlanItemModel> items;
+  final String? generatedBy;
+  final String? status;
 
   factory UserMealPlan.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] ?? json['Items'];
@@ -23,6 +27,8 @@ class UserMealPlan {
       planType: (json['planType'] ?? json['PlanType'])?.toString(),
       startDate: (json['startDate'] ?? json['StartDate'])?.toString(),
       targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
+      generatedBy: (json['generatedBy'] ?? json['GeneratedBy'])?.toString(),
+      status: (json['status'] ?? json['Status'])?.toString(),
       items: rawItems is List
           ? rawItems
                 .whereType<Map<String, dynamic>>()
@@ -44,6 +50,7 @@ class MealPlanItemModel {
     this.foodName,
     this.recipeName,
     this.mealLogId,
+    this.plannedDate,
     this.scheduledTime,
     this.sourceEntityType,
     this.origin,
@@ -62,6 +69,7 @@ class MealPlanItemModel {
   final String? foodName;
   final String? recipeName;
   final String? mealLogId;
+  final DateTime? plannedDate;
   final String? scheduledTime;
   final String? sourceEntityType;
   final double? quantityG;
@@ -93,6 +101,9 @@ class MealPlanItemModel {
       foodName: (json['foodName'] ?? json['FoodName'])?.toString(),
       recipeName: (json['recipeName'] ?? json['RecipeName'])?.toString(),
       mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
+      plannedDate: DateTime.tryParse(
+        (json['plannedDate'] ?? json['PlannedDate'] ?? '').toString(),
+      ),
       scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])
           ?.toString(),
       sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])

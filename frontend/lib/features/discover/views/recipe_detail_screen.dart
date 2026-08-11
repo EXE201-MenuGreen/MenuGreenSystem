@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
@@ -14,24 +15,30 @@ class RecipeDetailScreen extends StatefulWidget {
     super.key,
     required this.recipeId,
     this.allergyMode = 'warn',
+    this.plannedQuantityG,
+    this.repository,
   });
 
   final String recipeId;
   final String allergyMode;
+  final double? plannedQuantityG;
+  final FoodDiscoveryRepository? repository;
 
   @override
   State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
-  final _repository = FoodDiscoveryRepository();
+  late final FoodDiscoveryRepository _repository;
   RecipeItem? _recipe;
+  double? _catalogQuantityG;
   Map<String, double> _nutrition = const {};
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? FoodDiscoveryRepository();
     _load();
   }
 
@@ -44,9 +51,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       _repository.getRecipeNutrition(widget.recipeId),
     ]);
     final recipe = results[0] as RecipeItem?;
+    final linkedFood = recipe?.foodId?.isNotEmpty == true
+        ? await _repository.getFoodById(
+            recipe!.foodId!,
+            allergyMode: widget.allergyMode,
+          )
+        : null;
     if (!mounted) return;
     setState(() {
       _recipe = recipe;
+      _catalogQuantityG = linkedFood?.defaultServingG?.toDouble();
       _nutrition = results[1] as Map<String, double>;
       _loading = false;
     });
@@ -73,6 +87,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildBody(RecipeItem recipe) {
+    final quantityG = _catalogQuantityG ?? widget.plannedQuantityG;
     final instructionSteps = recipe.instructions == null
         ? const <String>[]
         : _instructionSteps(recipe.instructions!);
@@ -145,12 +160,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               style: const TextStyle(color: AppColors.textSecondary),
             ),
           ],
-          if (_hasMetadata(recipe)) ...[
+          if (_hasMetadata(recipe) || quantityG != null) ...[
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (quantityG != null)
+                  _chip(
+                    'Khối lượng món: '
+                    '${formatNutritionNumber(quantityG)} g',
+                  ),
                 if (recipe.totalCalories > 0)
                   _chip('${recipe.totalCalories} kcal'),
                 if (recipe.prepTimeMin != null)

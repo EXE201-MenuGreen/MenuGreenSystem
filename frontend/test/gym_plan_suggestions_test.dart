@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/vietnam_local/models/vietnam_local_models.dart';
+import 'package:frontend/features/vietnam_local/views/gym_goals_screen.dart';
 
 void main() {
   group('GymPlanSuggestions', () {
@@ -29,6 +30,7 @@ void main() {
             'Type': 'Food',
             'CaloriesKcal': 290,
             'ProteinG': 26,
+            'QuantityG': 180,
           },
         ],
       }, fallbackDate: DateTime(2026, 7, 27));
@@ -39,6 +41,28 @@ void main() {
       expect(result.items, hasLength(1));
       expect(result.items.single.name, 'Gà xào rau củ');
       expect(result.items.single.caloriesKcal, 290);
+      expect(result.items.single.quantityG, 180);
+    });
+
+    test('initialization payload preserves each suggestion serving size', () {
+      const suggestion = LocalRecommendationItem(
+        id: 'food-180',
+        name: 'Bánh mì ốp la',
+        caloriesKcal: 505,
+        quantityG: 180,
+      );
+
+      final payload = gymSuggestionPlanItem(
+        suggestion,
+        'breakfast',
+        plannedDate: DateTime(2026, 8, 15),
+      );
+
+      expect(payload['foodId'], 'food-180');
+      expect(payload['recipeId'], isNull);
+      expect(payload['quantityG'], 180);
+      expect(payload['plannedDate'], '2026-08-15');
+      expect(payload['scheduledTime'], '07:30');
     });
   });
 

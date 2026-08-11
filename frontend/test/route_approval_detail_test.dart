@@ -33,7 +33,10 @@ void main() {
                 'id': 'meal-1',
                 'mealType': 'breakfast',
                 'foodName': 'Bánh xèo miền Tây',
+                'plannedDate': '2026-07-28',
+                'scheduledTime': '07:30:00',
                 'targetCalories': 520,
+                'quantityG': 180,
                 'isCompleted': true,
               },
               {
@@ -64,6 +67,9 @@ void main() {
     expect(detail.days.single.meals.first.id, 'meal-1');
     expect(detail.days.single.meals.first.isCompleted, isTrue);
     expect(detail.days.single.meals.first.name, 'Bánh xèo miền Tây');
+    expect(detail.days.single.meals.first.plannedDate, DateTime(2026, 7, 28));
+    expect(detail.days.single.meals.first.scheduledTime, '07:30:00');
+    expect(detail.days.single.meals.first.quantityG, 180);
     expect(detail.days.single.meals.last.name, 'Gà xào rau củ');
   });
 

@@ -74,6 +74,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         public Guid Id { get; set; }
         public DateOnly PlannedDate { get; set; }
+        public TimeOnly? ScheduledTime { get; set; }
         public string MealType { get; set; } = "snack";
         public Guid? FoodId { get; set; }
         public string? FoodName { get; set; }
