@@ -10,6 +10,8 @@ class RouteApprovalMeal {
     required this.isCompleted,
     this.foodId,
     this.recipeId,
+    this.plannedDate,
+    this.scheduledTime,
     this.quantityG,
     this.proteinG,
     this.carbsG,
@@ -23,6 +25,8 @@ class RouteApprovalMeal {
   final bool isCompleted;
   final String? foodId;
   final String? recipeId;
+  final DateTime? plannedDate;
+  final String? scheduledTime;
   final double? quantityG;
   final int? proteinG;
   final int? carbsG;
@@ -37,6 +41,8 @@ class RouteApprovalMeal {
       isCompleted: isCompleted ?? this.isCompleted,
       foodId: foodId,
       recipeId: recipeId,
+      plannedDate: plannedDate,
+      scheduledTime: scheduledTime,
       quantityG: quantityG,
       proteinG: proteinG,
       carbsG: carbsG,
@@ -59,6 +65,8 @@ class RouteApprovalMeal {
       isCompleted: _bool(json, 'isCompleted'),
       foodId: _string(json, 'foodId'),
       recipeId: _string(json, 'recipeId'),
+      plannedDate: DateTime.tryParse(_string(json, 'plannedDate') ?? ''),
+      scheduledTime: _string(json, 'scheduledTime'),
       quantityG: _double(json, 'quantityG'),
       proteinG: _int(json, 'proteinG'),
       carbsG: _int(json, 'carbsG'),

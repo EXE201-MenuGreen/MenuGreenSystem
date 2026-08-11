@@ -9,12 +9,14 @@ class CoachProfileOverview extends StatelessWidget {
     required this.email,
     required this.connectedClients,
     required this.pendingClients,
+    this.onChangePassword,
   });
 
   final Map<String, dynamic> profile;
   final String email;
   final int connectedClients;
   final int pendingClients;
+  final VoidCallback? onChangePassword;
 
   String _value(String key) => (profile[key] ?? '').toString().trim();
 
@@ -138,8 +140,14 @@ class CoachProfileOverview extends StatelessWidget {
                 icon: Icons.wc_outlined,
                 label: 'Giới tính',
                 value: _gender(_value('gender')),
-                showDivider: false,
+                showDivider: onChangePassword != null,
               ),
+              if (onChangePassword != null)
+                _PrivateInfoActionRow(
+                  icon: Icons.key_rounded,
+                  label: 'Đổi mật khẩu',
+                  onTap: onChangePassword!,
+                ),
             ],
           ),
         ),
@@ -666,6 +674,58 @@ class _PrivateInfoRow extends StatelessWidget {
         ),
         if (showDivider) Divider(height: 1, color: Colors.grey.shade200),
       ],
+    );
+  }
+}
+
+class _PrivateInfoActionRow extends StatelessWidget {
+  const _PrivateInfoActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(icon, color: AppColors.primary, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

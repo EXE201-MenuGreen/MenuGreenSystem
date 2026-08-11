@@ -1,6 +1,10 @@
 /// Request DTOs cho Meal Plan API
 library;
 
+String _timeOnly(DateTime date) =>
+    '${date.hour.toString().padLeft(2, '0')}:'
+    '${date.minute.toString().padLeft(2, '0')}';
+
 class CreatePlanRequest {
   final String title;
   final String planType;
@@ -132,8 +136,7 @@ class CreateItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null)
-        'scheduledTime': scheduledTime!.toIso8601String(),
+      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,
       if (targetCalories != null) 'targetCalories': targetCalories,
@@ -188,8 +191,7 @@ class AddItemRequest {
   Map<String, dynamic> toJson() {
     return {
       'mealType': mealType,
-      if (scheduledTime != null)
-        'scheduledTime': scheduledTime!.toIso8601String(),
+      if (scheduledTime != null) 'scheduledTime': _timeOnly(scheduledTime!),
       if (plannedDate != null) 'plannedDate': _dateOnlyFmt(plannedDate!),
       if (foodId != null) 'foodId': foodId,
       if (recipeId != null) 'recipeId': recipeId,

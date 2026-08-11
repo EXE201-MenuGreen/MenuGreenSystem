@@ -53,4 +53,34 @@ void main() {
     expect(find.text('NASM Certified Personal Trainer'), findsOneWidget);
     expect(find.text('Thành tích nổi bật'), findsOneWidget);
   });
+
+  testWidgets('shows and handles the PT change-password action', (
+    tester,
+  ) async {
+    var tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CoachProfileOverview(
+              profile: const {
+                'fullName': 'Huấn luyện viên Coach',
+                'applicationStatus': 'Approved',
+              },
+              email: 'coach@menugreen.app',
+              connectedClients: 1,
+              pendingClients: 0,
+              onChangePassword: () => tapped = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Đổi mật khẩu'));
+    await tester.tap(find.text('Đổi mật khẩu'));
+
+    expect(tapped, isTrue);
+  });
 }

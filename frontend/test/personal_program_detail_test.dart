@@ -38,12 +38,15 @@ void main() {
                 'mealType': 'breakfast',
                 'foodName': 'Phở gà',
                 'targetCalories': 480,
+                'quantityG': 180,
+                'scheduledTime': '08:15:00',
               },
               {
                 'plannedDate': '2026-07-27',
                 'mealType': 'lunch',
                 'recipeName': 'Cơm gà rau củ',
                 'targetCalories': 620,
+                'scheduledTime': '12:45',
               },
             ],
           },
@@ -57,6 +60,9 @@ void main() {
     expect(find.text('650 kcal'), findsOneWidget);
     expect(find.text('Phở gà'), findsOneWidget);
     expect(find.text('Cơm gà rau củ'), findsOneWidget);
+    expect(find.textContaining('180 g · 480 kcal'), findsOneWidget);
+    expect(find.text('Giờ ăn: 08:15'), findsOneWidget);
+    expect(find.text('Giờ ăn: 12:45'), findsOneWidget);
     expect(find.text('Ăn đúng khung giờ.'), findsOneWidget);
     expect(find.text('Từ chối'), findsOneWidget);
     expect(find.text('Chấp nhận lộ trình'), findsOneWidget);

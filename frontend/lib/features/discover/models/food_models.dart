@@ -224,6 +224,7 @@ class RecipeItem {
     this.videoUrl,
     this.isActive,
     this.foodId,
+    this.defaultServingG,
     this.ingredients = const [],
     this.matchedAllergens = const [],
     this.allergyRiskLevel = 'none',
@@ -245,6 +246,7 @@ class RecipeItem {
   final String? videoUrl;
   final bool? isActive;
   final String? foodId;
+  final int? defaultServingG;
   final List<RecipeIngredientItem> ingredients;
   final List<String> matchedAllergens;
   final String allergyRiskLevel;
@@ -303,6 +305,11 @@ class RecipeItem {
       ),
       foodId: _RecommendationJson.text(
         json['foodId'] ?? json['FoodId'] ?? json['food_id'],
+      ),
+      defaultServingG: _RecommendationJson.nullableInteger(
+        json['defaultServingG'] ??
+            json['DefaultServingG'] ??
+            json['default_serving_g'],
       ),
       ingredients: rawIngredients is List
           ? rawIngredients
