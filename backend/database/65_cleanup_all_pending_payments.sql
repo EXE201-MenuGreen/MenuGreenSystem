@@ -19,6 +19,7 @@ BEGIN
             CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED'));
     END IF;
 END $$;
+LANGUAGE plpgsql;
 
 -- Step 2: Cancel ALL pending SePay payments
 UPDATE payments
