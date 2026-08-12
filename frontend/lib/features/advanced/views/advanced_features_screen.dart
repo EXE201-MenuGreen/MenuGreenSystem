@@ -27,7 +27,9 @@ class AdvancedFeaturesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: gymerOnly ? Future.value(null) : ProfileRepository().getMyProfile(),
+      future: gymerOnly
+          ? Future.value(null)
+          : ProfileRepository().getMyProfile(),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final role = (profile?['role'] ?? profile?['Role'] ?? '')
@@ -74,8 +76,7 @@ class AdvancedFeaturesScreen extends StatelessWidget {
                       _PtTab(
                         initialReportId: initialReportId,
                         repository: repository,
-                        reportAnalyticsRepository:
-                            reportAnalyticsRepository,
+                        reportAnalyticsRepository: reportAnalyticsRepository,
                       ),
                       const _CoachTab(gymerMode: true),
                     ]
@@ -83,8 +84,7 @@ class AdvancedFeaturesScreen extends StatelessWidget {
                       _PtTab(
                         initialReportId: initialReportId,
                         repository: repository,
-                        reportAnalyticsRepository:
-                            reportAnalyticsRepository,
+                        reportAnalyticsRepository: reportAnalyticsRepository,
                       ),
                       const _BudgetTab(),
                       const _CoachTab(),
@@ -831,6 +831,13 @@ class _PtTabState extends State<_PtTab> {
     final mealLabel = _mealTypeLabel(_v(item, 'mealType'));
     final calories = _v(item, 'targetCalories');
     final quantity = _v(item, 'quantityG');
+    final rawIngredients = item['ingredients'] ?? item['Ingredients'];
+    final ingredients = rawIngredients is List
+        ? rawIngredients
+              .whereType<Map>()
+              .map(Map<String, dynamic>.from)
+              .toList()
+        : <Map<String, dynamic>>[];
 
     final String changeText;
     final IconData icon;
@@ -925,6 +932,23 @@ class _PtTabState extends State<_PtTab> {
                     style: const TextStyle(
                       fontSize: 11.5,
                       color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+                if (ingredients.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ...ingredients.map(
+                    (ingredient) => Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '• ${_v(ingredient, 'name')}: '
+                        '${_compactNumber(_v(ingredient, 'quantity'))} '
+                        '${_v(ingredient, 'unit')}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
                   ),
                 ],

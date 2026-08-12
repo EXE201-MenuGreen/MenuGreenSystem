@@ -25,7 +25,12 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<bool> RevokeAccessAsync(Guid clientId, Guid coachId);
         Task<bool> DisconnectCoachAsync(Guid clientId, Guid coachId);
         Task<object> GetClientProfileAsync(Guid coachId, Guid clientId);
-        Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(Guid coachId, Guid clientId, int days);
+        Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(
+            Guid coachId,
+            Guid clientId,
+            int days,
+            DateOnly? from = null,
+            DateOnly? to = null);
         Task<IEnumerable<ClientWeightTrendResponse>> GetClientWeightTrendAsync(Guid coachId, Guid clientId);
         Task<CoachFeedbackResponse> AddFeedbackAsync(Guid coachId, Guid clientId, CoachFeedbackCreateRequest request);
         Task<IEnumerable<CoachFeedbackResponse>> GetFeedbacksAsync(Guid userId);

@@ -623,6 +623,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Where(x => randomRecipeIds.Contains(x.Id))
                 .ToListAsync();
 
+            var linkedFoodIds = recipes
+                .Where(recipe => recipe.FoodId.HasValue)
+                .Select(recipe => recipe.FoodId!.Value)
+                .Distinct()
+                .ToList();
+            var servingByFoodId = linkedFoodIds.Count == 0
+                ? new Dictionary<Guid, int?>()
+                : await _db.Foods
+                    .AsNoTracking()
+                    .Where(food => linkedFoodIds.Contains(food.Id))
+                    .ToDictionaryAsync(food => food.Id, food => food.DefaultServingG);
+
             var itemsList = new List<RecommendationItemResponse>();
 
             foreach (var food in foods.OrderBy(x => x.Id))
@@ -637,6 +649,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         ProteinG = food.ProteinG ?? 0,
                         CarbsG = food.CarbsG ?? 0,
                         FatG = food.FatG ?? 0,
+                        QuantityG = food.DefaultServingG ?? 100,
                         EstimatedPriceVnd = food.EstimatedPriceVnd ?? 0,
                         CookingTimeMin = 5,
                         Score = (decimal)(7.0 + random.NextDouble() * 2.5),
@@ -664,6 +677,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         ProteinG = 20,
                         CarbsG = 40,
                         FatG = 12,
+                        QuantityG = recipe.FoodId.HasValue
+                            && servingByFoodId.TryGetValue(recipe.FoodId.Value, out var servingG)
+                                ? servingG ?? 100
+                                : 100,
                         EstimatedPriceVnd = recipe.EstimatedPriceVnd ?? 0,
                         CookingTimeMin = recipe.TotalTimeMin ?? recipe.CookTimeMin ?? 20,
                         Score = (decimal)(8.0 + random.NextDouble() * 1.5),

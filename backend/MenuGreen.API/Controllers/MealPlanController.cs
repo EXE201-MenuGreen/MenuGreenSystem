@@ -194,6 +194,31 @@ namespace MenuGreen.API.Controllers
         }
 
         /// <summary>
+        /// Scale the selected draft meals proportionally to the daily calorie
+        /// target. This is only available before a Gymer sends RouteApproval.
+        /// </summary>
+        [HttpPost("{planId:guid}/balance-calories")]
+        public async Task<IActionResult> BalanceCalories(
+            Guid planId,
+            [FromBody] BalanceMealPlanCaloriesRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            try
+            {
+                return Ok(await _service.BalanceDailyCaloriesAsync(planId, request, userId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Remove an item from a meal plan.
         /// </summary>
         [HttpDelete("{planId:guid}/items/{itemId:guid}")]

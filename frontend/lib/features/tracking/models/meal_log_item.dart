@@ -1,3 +1,5 @@
+import '../../discover/models/food_models.dart';
+
 class MealLogItem {
   MealLogItem({
     required this.id,
@@ -15,6 +17,8 @@ class MealLogItem {
     this.proteinG = 0,
     this.carbsG = 0,
     this.fatG = 0,
+    this.consumptionRatio,
+    this.ingredients = const [],
   });
 
   final String id;
@@ -32,6 +36,8 @@ class MealLogItem {
   final double proteinG;
   final double carbsG;
   final double fatG;
+  final double? consumptionRatio;
+  final List<RecipeIngredientItem> ingredients;
 
   bool get isRecipe =>
       (recipeId != null && recipeId!.isNotEmpty) ||
@@ -101,6 +107,19 @@ class MealLogItem {
       proteinG: _asDouble(json['proteinG'] ?? json['ProteinG']),
       carbsG: _asDouble(json['carbsG'] ?? json['CarbsG']),
       fatG: _asDouble(json['fatG'] ?? json['FatG']),
+      consumptionRatio:
+          (json['consumptionRatio'] ?? json['ConsumptionRatio']) is num
+          ? (json['consumptionRatio'] ?? json['ConsumptionRatio']).toDouble()
+          : null,
+      ingredients:
+          ((json['ingredients'] ?? json['Ingredients']) as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) => RecipeIngredientItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
     );
   }
 }

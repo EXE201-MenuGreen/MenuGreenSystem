@@ -74,6 +74,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
   final Set<String> _levels = {};
   final List<_CertificateDraft> _certificates = [];
   final List<String> _galleryUrls = [];
+  final Map<String, String> _fieldErrors = {};
   bool _mediaConsent = false;
 
   @override
@@ -261,14 +262,6 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
 
   Future<void> _submit() async {
     if (_saving) return;
-    final error = _submissionError();
-    if (error != null) {
-      if (_step != error.step) {
-        setState(() => _step = error.step);
-      }
-      _showMessage(error.message);
-      return;
-    }
     setState(() => _saving = true);
     try {
       final data = await _repository.submit(_payload());
@@ -287,70 +280,116 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     }
   }
 
-  ({int step, String message})? _submissionError() {
-    if (_fullName.text.trim().isEmpty) {
-      return (step: 0, message: 'Vui lòng nhập họ và tên.');
+  bool _validateStep(int step) {
+    final errors = <String, String>{};
+
+    if (step == 0) {
+      if (_fullName.text.trim().isEmpty) {
+        errors['fullName'] = 'Vui lòng nhập họ và tên.';
+      } else if (_fullName.text.trim().length > 160) {
+        errors['fullName'] = 'Họ và tên không được quá 160 ký tự.';
+      }
+      if (_avatarUrl.trim().isEmpty) {
+        errors['avatar'] = 'Vui lòng tải ảnh đại diện.';
+      }
+      if (_dateOfBirth == null) {
+        errors['dateOfBirth'] = 'Vui lòng chọn ngày sinh.';
+      }
+      if (_phone.text.trim().isEmpty) {
+        errors['phone'] = 'Vui lòng nhập số điện thoại.';
+      } else if (_phone.text.trim().length > 30) {
+        errors['phone'] = 'Số điện thoại không được quá 30 ký tự.';
+      }
+      if (_city.text.trim().isEmpty) {
+        errors['city'] = 'Vui lòng nhập tỉnh/thành phố.';
+      } else if (_city.text.trim().length > 120) {
+        errors['city'] = 'Tỉnh/thành phố không được quá 120 ký tự.';
+      }
+      if (_languages.isEmpty) {
+        errors['languages'] = 'Vui lòng chọn ít nhất một ngôn ngữ.';
+      }
+    } else if (step == 1) {
+      if (_headline.text.trim().isEmpty) {
+        errors['headline'] = 'Vui lòng nhập tiêu đề hồ sơ.';
+      } else if (_headline.text.trim().length > 120) {
+        errors['headline'] = 'Tiêu đề hồ sơ không được quá 120 ký tự.';
+      }
+      if (_bio.text.trim().isEmpty) {
+        errors['bio'] = 'Vui lòng nhập phần giới thiệu bản thân.';
+      } else if (_bio.text.trim().length < 80) {
+        errors['bio'] = 'Phần giới thiệu cần có ít nhất 80 ký tự.';
+      }
+      final experienceText = _experience.text.trim();
+      final experienceYears = int.tryParse(experienceText);
+      if (experienceText.isEmpty) {
+        errors['experience'] = 'Vui lòng nhập số năm kinh nghiệm.';
+      } else if (experienceYears == null ||
+          experienceYears < 0 ||
+          experienceYears > 100) {
+        errors['experience'] = 'Số năm kinh nghiệm phải từ 0 đến 100.';
+      }
+      if (_specialties.isEmpty) {
+        errors['specialties'] = 'Vui lòng chọn ít nhất một chuyên môn.';
+      }
+    } else {
+      if (_certificates.isEmpty) {
+        errors['certificates'] = 'Vui lòng thêm ít nhất một chứng chỉ.';
+      }
+      for (var index = 0; index < _certificates.length; index++) {
+        final certificate = _certificates[index];
+        if (certificate.name.trim().isEmpty) {
+          errors['certificateName:$index'] = 'Vui lòng nhập tên chứng chỉ.';
+        } else if (certificate.name.trim().length > 160) {
+          errors['certificateName:$index'] =
+              'Tên chứng chỉ không được quá 160 ký tự.';
+        }
+        if (certificate.issuer.trim().isEmpty) {
+          errors['certificateIssuer:$index'] = 'Vui lòng nhập đơn vị cấp.';
+        } else if (certificate.issuer.trim().length > 160) {
+          errors['certificateIssuer:$index'] =
+              'Đơn vị cấp không được quá 160 ký tự.';
+        }
+        if (certificate.credentialNumber.trim().length > 120) {
+          errors['certificateCredential:$index'] =
+              'Mã chứng chỉ không được quá 120 ký tự.';
+        }
+        if (certificate.imageUrl.trim().isEmpty) {
+          errors['certificateImage:$index'] = 'Vui lòng tải ảnh chứng chỉ.';
+        }
+      }
+      if (_identityDocumentUrl.trim().isEmpty) {
+        errors['identity'] = 'Vui lòng tải ảnh giấy tờ xác minh.';
+      }
+      if (_galleryUrls.isEmpty) {
+        errors['gallery'] = 'Vui lòng thêm ít nhất một ảnh hoạt động.';
+      }
+      if (!_mediaConsent) {
+        errors['mediaConsent'] = 'Vui lòng xác nhận quyền sử dụng hình ảnh.';
+      }
     }
-    if (_avatarUrl.trim().isEmpty) {
-      return (step: 0, message: 'Vui lòng tải ảnh đại diện ở bước Cá nhân.');
-    }
-    if (_dateOfBirth == null) {
-      return (step: 0, message: 'Vui lòng chọn ngày sinh.');
-    }
-    if (_phone.text.trim().isEmpty) {
-      return (step: 0, message: 'Vui lòng nhập số điện thoại.');
-    }
-    if (_city.text.trim().isEmpty) {
-      return (step: 0, message: 'Vui lòng nhập tỉnh/thành phố.');
-    }
-    if (_languages.isEmpty) {
-      return (step: 0, message: 'Vui lòng chọn ít nhất một ngôn ngữ.');
-    }
-    if (_headline.text.trim().isEmpty) {
-      return (step: 1, message: 'Vui lòng nhập tiêu đề nghề nghiệp.');
-    }
-    if (_bio.text.trim().length < 80) {
-      return (step: 1, message: 'Phần giới thiệu cần có ít nhất 80 ký tự.');
-    }
-    if (_specialties.isEmpty) {
-      return (step: 1, message: 'Vui lòng chọn ít nhất một chuyên môn.');
-    }
-    if (_certificates.isEmpty ||
-        _certificates.any(
-          (item) =>
-              item.name.trim().isEmpty ||
-              item.issuer.trim().isEmpty ||
-              item.imageUrl.isEmpty,
-        )) {
-      return (
-        step: 2,
-        message: 'Mỗi chứng chỉ cần có tên, đơn vị cấp và ảnh minh chứng.',
-      );
-    }
-    if (_identityDocumentUrl.trim().isEmpty) {
-      return (step: 2, message: 'Vui lòng tải ảnh giấy tờ xác minh.');
-    }
-    if (_galleryUrls.isEmpty) {
-      return (
-        step: 2,
-        message: 'Vui lòng thêm ít nhất một ảnh hoạt động nghề nghiệp.',
-      );
-    }
-    if (!_mediaConsent) {
-      return (
-        step: 2,
-        message: 'Bạn cần xác nhận quyền sử dụng các hình ảnh đã tải.',
-      );
-    }
-    return null;
+
+    setState(() {
+      _fieldErrors
+        ..clear()
+        ..addAll(errors);
+    });
+    return errors.isEmpty;
+  }
+
+  void _clearFieldError(String key) {
+    if (!_fieldErrors.containsKey(key)) return;
+    setState(() => _fieldErrors.remove(key));
   }
 
   void _next() {
     if (_step < 2) {
+      if (!_validateStep(_step)) return;
       setState(() => _step++);
     } else if (widget.editMode && _isApprovedApplication) {
+      if (!_validateStep(2)) return;
       _saveProfileChanges();
     } else {
+      if (!_validateStep(2)) return;
       _submit();
     }
   }
@@ -542,7 +581,12 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
         ),
         Center(child: _avatarPicker()),
         const SizedBox(height: 24),
-        _field(_fullName, 'Họ và tên *', hint: 'Nguyễn Văn An'),
+        _field(
+          _fullName,
+          'Họ và tên *',
+          hint: 'Nguyễn Văn An',
+          errorKey: 'fullName',
+        ),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -557,11 +601,22 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           'Số điện thoại *',
           hint: '09xxxxxxxx',
           keyboardType: TextInputType.phone,
+          errorKey: 'phone',
         ),
         const SizedBox(height: 16),
-        _field(_city, 'Tỉnh/Thành phố *', hint: 'TP. Hồ Chí Minh'),
+        _field(
+          _city,
+          'Tỉnh/Thành phố *',
+          hint: 'TP. Hồ Chí Minh',
+          errorKey: 'city',
+        ),
         const SizedBox(height: 20),
-        _chipGroup('Ngôn ngữ sử dụng *', _languageOptions, _languages),
+        _chipGroup(
+          'Ngôn ngữ sử dụng *',
+          _languageOptions,
+          _languages,
+          errorKey: 'languages',
+        ),
       ],
     );
   }
@@ -579,6 +634,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           'Tiêu đề hồ sơ *',
           hint: 'PT giảm mỡ và tăng cơ cho người mới',
           maxLength: 120,
+          errorKey: 'headline',
         ),
         const SizedBox(height: 16),
         _field(
@@ -588,6 +644,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
               'Chia sẻ kinh nghiệm, phương pháp và đối tượng học viên phù hợp...',
           maxLines: 6,
           maxLength: 1000,
+          errorKey: 'bio',
         ),
         const SizedBox(height: 16),
         _field(
@@ -595,6 +652,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           'Số năm kinh nghiệm *',
           hint: '3',
           keyboardType: TextInputType.number,
+          errorKey: 'experience',
         ),
         const SizedBox(height: 20),
         _chipGroup(
@@ -602,6 +660,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           _specialtyOptions,
           _specialties,
           maxSelection: 5,
+          errorKey: 'specialties',
         ),
         const SizedBox(height: 20),
         _chipGroup('Phong cách huấn luyện', _styleOptions, _styles),
@@ -645,10 +704,14 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
               'Ảnh CCCD hoặc giấy tờ hợp lệ. Gymer không nhìn thấy ảnh này.',
           imageUrl: _identityDocumentUrl,
           uploading: _uploadingKey == 'identity',
+          errorKey: 'identity',
           onUpload: () async {
             final url = await _pickAndUpload('identity');
             if (url != null && mounted) {
-              setState(() => _identityDocumentUrl = url);
+              setState(() {
+                _identityDocumentUrl = url;
+                _fieldErrors.remove('identity');
+              });
             }
           },
         ),
@@ -719,10 +782,17 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
             );
           },
         ),
+        if (_fieldErrors['gallery'] case final error?) ...[
+          const SizedBox(height: 8),
+          _fieldErrorText(error),
+        ],
         const SizedBox(height: 22),
         CheckboxListTile(
           value: _mediaConsent,
-          onChanged: (value) => setState(() => _mediaConsent = value ?? false),
+          onChanged: (value) => setState(() {
+            _mediaConsent = value ?? false;
+            _fieldErrors.remove('mediaConsent');
+          }),
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           activeColor: AppColors.primary,
@@ -731,6 +801,8 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
             style: TextStyle(fontSize: 13, height: 1.4),
           ),
         ),
+        if (_fieldErrors['mediaConsent'] case final error?)
+          _fieldErrorText(error),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -768,9 +840,20 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
             CircleAvatar(
               radius: 54,
               backgroundColor: const Color(0xFFE8EFEC),
-              backgroundImage: hasImage ? NetworkImage(_avatarUrl) : null,
               child: hasImage
-                  ? null
+                  ? ClipOval(
+                      child: Image.network(
+                        _avatarUrl,
+                        width: 108,
+                        height: 108,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.person_rounded,
+                          size: 52,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    )
                   : const Icon(
                       Icons.person_rounded,
                       size: 52,
@@ -788,12 +871,18 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           onPressed: _uploadingKey == null
               ? () async {
                   final url = await _pickAndUpload('avatar', square: true);
-                  if (url != null && mounted) setState(() => _avatarUrl = url);
+                  if (url != null && mounted) {
+                    setState(() {
+                      _avatarUrl = url;
+                      _fieldErrors.remove('avatar');
+                    });
+                  }
                 }
               : null,
           icon: const Icon(Icons.photo_camera_outlined),
           label: Text(hasImage ? 'Đổi ảnh đại diện' : 'Tải ảnh đại diện *'),
         ),
+        if (_fieldErrors['avatar'] case final error?) _fieldErrorText(error),
       ],
     );
   }
@@ -809,11 +898,19 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           lastDate: DateTime(now.year - 18, now.month, now.day),
           helpText: 'Chọn ngày sinh',
         );
-        if (date != null && mounted) setState(() => _dateOfBirth = date);
+        if (date != null && mounted) {
+          setState(() {
+            _dateOfBirth = date;
+            _fieldErrors.remove('dateOfBirth');
+          });
+        }
       },
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
-        decoration: _inputDecoration('Ngày sinh *'),
+        decoration: _inputDecoration(
+          'Ngày sinh *',
+          errorText: _fieldErrors['dateOfBirth'],
+        ),
         child: Text(
           _dateOfBirth == null
               ? 'Chọn ngày'
@@ -848,6 +945,7 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     int maxLines = 1,
     int? maxLength,
     TextInputType? keyboardType,
+    String? errorKey,
   }) {
     return TextField(
       controller: controller,
@@ -857,13 +955,19 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
       textCapitalization: maxLines > 1
           ? TextCapitalization.sentences
           : TextCapitalization.words,
-      decoration: _inputDecoration(label).copyWith(hintText: hint),
+      onChanged: errorKey == null ? null : (_) => _clearFieldError(errorKey),
+      decoration: _inputDecoration(
+        label,
+        errorText: errorKey == null ? null : _fieldErrors[errorKey],
+      ).copyWith(hintText: hint),
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(String label, {String? errorText}) {
     return InputDecoration(
       labelText: label,
+      errorText: errorText,
+      errorMaxLines: 2,
       labelStyle: const TextStyle(color: AppColors.textSecondary),
       filled: true,
       fillColor: Colors.white,
@@ -884,7 +988,9 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     List<String> options,
     Set<String> selected, {
     int? maxSelection,
+    String? errorKey,
   }) {
+    final error = errorKey == null ? null : _fieldErrors[errorKey];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -918,14 +1024,26 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
                   _showMessage('Bạn chỉ được chọn tối đa $maxSelection mục.');
                   return;
                 }
-                setState(
-                  () => value ? selected.add(option) : selected.remove(option),
-                );
+                setState(() {
+                  value ? selected.add(option) : selected.remove(option);
+                  if (errorKey != null) _fieldErrors.remove(errorKey);
+                });
               },
             );
           }).toList(),
         ),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          _fieldErrorText(error),
+        ],
       ],
+    );
+  }
+
+  Widget _fieldErrorText(String message) {
+    return Text(
+      message,
+      style: const TextStyle(color: Colors.red, fontSize: 12),
     );
   }
 
@@ -967,18 +1085,21 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
             'Tên chứng chỉ *',
             item.name,
             (value) => item.name = value,
+            errorKey: 'certificateName:$index',
           ),
           const SizedBox(height: 12),
           _draftField(
             'Đơn vị cấp *',
             item.issuer,
             (value) => item.issuer = value,
+            errorKey: 'certificateIssuer:$index',
           ),
           const SizedBox(height: 12),
           _draftField(
             'Mã chứng chỉ',
             item.credentialNumber,
             (value) => item.credentialNumber = value,
+            errorKey: 'certificateCredential:$index',
           ),
           const SizedBox(height: 12),
           Row(
@@ -1015,9 +1136,15 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
             description: 'Chụp rõ tên chứng chỉ và đơn vị cấp.',
             imageUrl: item.imageUrl,
             uploading: _uploadingKey == uploadKey,
+            errorKey: 'certificateImage:$index',
             onUpload: () async {
               final url = await _pickAndUpload(uploadKey);
-              if (url != null && mounted) setState(() => item.imageUrl = url);
+              if (url != null && mounted) {
+                setState(() {
+                  item.imageUrl = url;
+                  _fieldErrors.remove('certificateImage:$index');
+                });
+              }
             },
           ),
         ],
@@ -1030,11 +1157,18 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     String value,
     ValueChanged<String> onChanged, {
     String? hint,
+    String? errorKey,
   }) {
     return TextFormField(
       initialValue: value,
-      onChanged: onChanged,
-      decoration: _inputDecoration(label).copyWith(hintText: hint),
+      onChanged: (value) {
+        onChanged(value);
+        if (errorKey != null) _clearFieldError(errorKey);
+      },
+      decoration: _inputDecoration(
+        label,
+        errorText: errorKey == null ? null : _fieldErrors[errorKey],
+      ).copyWith(hintText: hint),
     );
   }
 
@@ -1089,66 +1223,81 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
     required String imageUrl,
     required bool uploading,
     required VoidCallback onUpload,
+    String? errorKey,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAF9),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFFDDE3E0)),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 72,
-              height: 72,
-              color: const Color(0xFFE8EFEC),
-              child: uploading
-                  ? const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : imageUrl.isEmpty
-                  ? const Icon(
-                      Icons.image_outlined,
-                      color: AppColors.textSecondary,
-                    )
-                  : Image.network(imageUrl, fit: BoxFit.cover),
+    final error = errorKey == null ? null : _fieldErrors[errorKey];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAF9),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: error == null ? const Color(0xFFDDE3E0) : Colors.red,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  color: const Color(0xFFE8EFEC),
+                  child: uploading
+                      ? const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : imageUrl.isEmpty
+                      ? const Icon(
+                          Icons.image_outlined,
+                          color: AppColors.textSecondary,
+                        )
+                      : Image.network(imageUrl, fit: BoxFit.cover),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.5,
-                    height: 1.35,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: uploading ? null : onUpload,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(48, 38),
+                      ),
+                      child: Text(
+                        imageUrl.isEmpty ? 'Tải ảnh lên' : 'Thay ảnh',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: uploading ? null : onUpload,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(48, 38),
-                  ),
-                  child: Text(imageUrl.isEmpty ? 'Tải ảnh lên' : 'Thay ảnh'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          _fieldErrorText(error),
         ],
-      ),
+      ],
     );
   }
 
@@ -1159,7 +1308,12 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
           ? null
           : () async {
               final url = await _pickAndUpload('gallery');
-              if (url != null && mounted) setState(() => _galleryUrls.add(url));
+              if (url != null && mounted) {
+                setState(() {
+                  _galleryUrls.add(url);
+                  _fieldErrors.remove('gallery');
+                });
+              }
             },
       borderRadius: BorderRadius.circular(12),
       child: Container(

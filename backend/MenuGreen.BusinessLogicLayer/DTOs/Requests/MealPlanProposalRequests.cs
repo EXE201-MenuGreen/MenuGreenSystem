@@ -31,6 +31,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [Range(1, 10000)]
         public int? TargetCalories { get; set; }
 
+        public List<MealPlanIngredientPortionRequest>? Ingredients { get; set; }
+
         public int SortOrder { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
@@ -74,6 +75,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
     {
         public Guid Id { get; set; }
         public DateOnly PlannedDate { get; set; }
+        public TimeOnly? ScheduledTime { get; set; }
         public string MealType { get; set; } = "snack";
         public Guid? FoodId { get; set; }
         public string? FoodName { get; set; }
@@ -84,5 +86,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
+        public List<PortionIngredientResponse> Ingredients { get; set; } = new();
     }
 }

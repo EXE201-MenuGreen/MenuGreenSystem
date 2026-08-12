@@ -23,7 +23,7 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.HasIndex(x => x.UserPremiumProgramId);
 
             builder.ToTable(t =>
-                t.HasCheckConstraint("CK_payments_status", "\"Status\" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED')"));
+                t.HasCheckConstraint("CK_payments_status", "\"Status\" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED')"));
 
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.UserSubscription).WithMany().HasForeignKey(x => x.UserSubscriptionId).OnDelete(DeleteBehavior.SetNull);

@@ -29,6 +29,14 @@ class CoachMealPlanProvider extends ChangeNotifier {
   bool _loadingDetail = false;
   String? _detailError;
 
+  // Nutrition summary for tracking client actual eating
+  List<ClientDayNutrition> _nutritionSummary = const [];
+  bool _loadingNutrition = false;
+  String? _nutritionError;
+  int _nutritionDays = 7;
+  DateTime? _nutritionFrom;
+  DateTime? _nutritionTo;
+
   String? get clientId => _clientId;
   List<CoachMealPlanListItem> get plans => _plans;
   bool get isLoading => _loading;
@@ -40,6 +48,12 @@ class CoachMealPlanProvider extends ChangeNotifier {
   CoachMealPlanDetail? get selectedPlan => _selectedPlan;
   bool get isLoadingDetail => _loadingDetail;
   String? get detailError => _detailError;
+
+  // Getters for nutrition summary
+  List<ClientDayNutrition> get nutritionSummary => _nutritionSummary;
+  bool get isLoadingNutrition => _loadingNutrition;
+  String? get nutritionError => _nutritionError;
+  int get nutritionDays => _nutritionDays;
 
   /// Switch to a different Gymer and reload.
   Future<void> loadPlansForClient(
@@ -95,6 +109,46 @@ class CoachMealPlanProvider extends ChangeNotifier {
       _loadingDetail = false;
       notifyListeners();
     }
+  }
+
+  /// Load nutrition summary for the client (actual meals eaten).
+  Future<void> loadNutritionSummary({
+    int days = 7,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final clientId = _clientId;
+    if (clientId == null) return;
+    _loadingNutrition = true;
+    _nutritionError = null;
+    _nutritionDays = days;
+    _nutritionFrom = from;
+    _nutritionTo = to;
+    _nutritionSummary = const [];
+    notifyListeners();
+    try {
+      _nutritionSummary = await _repo.getClientNutritionSummary(
+        clientId,
+        from: from,
+        to: to,
+        days: days,
+      );
+    } catch (e) {
+      _nutritionError = e.toString();
+      _nutritionSummary = const [];
+    } finally {
+      _loadingNutrition = false;
+      notifyListeners();
+    }
+  }
+
+  /// Reload nutrition summary with current settings.
+  Future<void> refreshNutrition() async {
+    await loadNutritionSummary(
+      days: _nutritionDays,
+      from: _nutritionFrom,
+      to: _nutritionTo,
+    );
   }
 
   Future<bool> createPlan(ClientMealPlanPayload payload) async {

@@ -299,13 +299,22 @@ namespace MenuGreen.API.Controllers
         [HttpGet("clients/{clientId:guid}/nutrition-summary")]
         [Authorize]
         [Authorize(Policy = "CoachOnly")]
-        public async Task<IActionResult> GetClientNutritionSummary(Guid clientId, [FromQuery] int days = 7)
+        public async Task<IActionResult> GetClientNutritionSummary(
+            Guid clientId,
+            [FromQuery] int days = 7,
+            [FromQuery] DateOnly? from = null,
+            [FromQuery] DateOnly? to = null)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
 
             try
             {
-                var result = await _coachService.GetClientNutritionSummaryAsync(userId, clientId, days);
+                var result = await _coachService.GetClientNutritionSummaryAsync(
+                    userId,
+                    clientId,
+                    days,
+                    from,
+                    to);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)

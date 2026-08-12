@@ -7,6 +7,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
     {
         public Guid Id { get; set; }
         public Guid? FoodId { get; set; }
+        public int? DefaultServingG { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int? PrepTimeMin { get; set; }

@@ -26,15 +26,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _db;
         private readonly INotificationService _notifications;
+        private readonly IPortionNutritionCalculator _portionCalculator;
 
         public MealPlanProposalService(
             IUnitOfWork unitOfWork,
             ApplicationDbContext db,
-            INotificationService notifications)
+            INotificationService notifications,
+            IPortionNutritionCalculator portionCalculator)
         {
             _unitOfWork = unitOfWork;
             _db = db;
             _notifications = notifications;
+            _portionCalculator = portionCalculator;
         }
 
         public async Task<MealPlanProposalResponse> CreateDraftAsync(
@@ -151,6 +154,31 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.MealPlanProposals.Update(proposal);
             await _unitOfWork.CompleteAsync();
             return await MapAsync(proposal);
+        }
+
+        public async Task<MealPlanProposalItemResponse> UpdateItemPortionAsync(
+            Guid coachId,
+            Guid proposalId,
+            Guid itemId,
+            UpdateMealPlanProposalItemPortionRequest request)
+        {
+            var proposal = await GetCoachProposalAsync(coachId, proposalId);
+            if (!proposal.Status.Equals(Draft, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Chỉ có thể sửa khẩu phần khi đề xuất còn là bản nháp.");
+
+            var item = await _unitOfWork.MealPlanProposalItems.GetByIdAsync(itemId)
+                ?? throw new Exception("Không tìm thấy món trong đề xuất.");
+            if (item.ProposalId != proposal.Id || !item.RecipeId.HasValue)
+                throw new Exception("Chỉ món có công thức trong đề xuất này mới chỉnh được nguyên liệu.");
+
+            await ApplyRecipeNutritionAsync(item, item.RecipeId.Value, request.Ingredients);
+            _unitOfWork.MealPlanProposalItems.Update(item);
+            proposal.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.MealPlanProposals.Update(proposal);
+            await _unitOfWork.CompleteAsync();
+
+            var mapped = await MapAsync(proposal);
+            return mapped.Items.First(x => x.Id == item.Id);
         }
 
         public async Task<MealPlanProposalResponse> SubmitAsync(Guid coachId, Guid proposalId)
@@ -418,6 +446,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     existing.MealType = NormalizeMealType(item.MealType);
                     existing.QuantityG = item.QuantityG;
                     existing.TargetCalories = item.TargetCalories;
+                    existing.ProteinG = item.ProteinG;
+                    existing.CarbsG = item.CarbsG;
+                    existing.FatG = item.FatG;
+                    existing.IngredientSnapshotJson = item.IngredientSnapshotJson;
                     existing.PlannedDate = item.PlannedDate;
                 }
             }
@@ -482,6 +514,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 QuantityG = item.QuantityG,
                 TargetCalories = item.TargetCalories,
+                ProteinG = item.ProteinG,
+                CarbsG = item.CarbsG,
+                FatG = item.FatG,
+                IngredientSnapshotJson = item.IngredientSnapshotJson,
                 ScheduledTime = ScheduledTime(item.MealType),
                 IsCompleted = false,
                 Origin = "coach_proposal",
@@ -539,7 +575,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
             }
 
-            return new MealPlanProposalItem
+            var mapped = new MealPlanProposalItem
             {
                 Id = Guid.NewGuid(),
                 ProposalId = proposal.Id,
@@ -554,6 +590,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 SortOrder = input.SortOrder,
                 CreatedAt = DateTime.UtcNow
             };
+
+            if (!action.Equals("Remove", StringComparison.OrdinalIgnoreCase))
+            {
+                if (input.RecipeId.HasValue)
+                    await ApplyRecipeNutritionAsync(mapped, input.RecipeId.Value, input.Ingredients);
+                else if (input.FoodId.HasValue)
+                    await ApplyFoodNutritionAsync(mapped, input.FoodId.Value, input.QuantityG);
+            }
+
+            return mapped;
         }
 
         private async Task<List<MealPlanProposalItem>> BuildNextWeekDraftItemsAsync(
@@ -588,7 +634,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     : 1m;
                 foreach (var source in group)
                 {
-                    result.Add(new MealPlanProposalItem
+                    var draftItem = new MealPlanProposalItem
                     {
                         Id = Guid.NewGuid(),
                         ProposalId = proposal.Id,
@@ -597,16 +643,70 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         MealType = NormalizeMealType(source.MealType ?? "snack"),
                         FoodId = source.FoodId,
                         RecipeId = source.RecipeId,
-                        QuantityG = source.QuantityG,
-                        TargetCalories = source.TargetCalories.HasValue
-                            ? (int)Math.Round(source.TargetCalories.Value * ratio)
-                            : null,
                         SortOrder = MealOrder(source.MealType),
                         CreatedAt = DateTime.UtcNow
-                    });
+                    };
+
+                    var sourceSnapshot = _portionCalculator.Deserialize(source.IngredientSnapshotJson);
+                    if (sourceSnapshot != null)
+                    {
+                        ApplyCalculation(draftItem, _portionCalculator.Scale(sourceSnapshot, ratio));
+                    }
+                    else if (source.RecipeId.HasValue)
+                    {
+                        var calculation = await _portionCalculator.CalculateRecipeAsync(source.RecipeId.Value);
+                        ApplyCalculation(draftItem, _portionCalculator.Scale(calculation, ratio));
+                    }
+                    else if (source.FoodId.HasValue)
+                    {
+                        var baseQuantity = source.QuantityG is > 0 ? source.QuantityG.Value : (decimal?)null;
+                        var calculation = await _portionCalculator.CalculateFoodAsync(source.FoodId.Value, baseQuantity);
+                        ApplyCalculation(draftItem, _portionCalculator.Scale(calculation, ratio));
+                    }
+                    else
+                    {
+                        draftItem.QuantityG = source.QuantityG;
+                        draftItem.TargetCalories = source.TargetCalories.HasValue
+                            ? (int)Math.Round(source.TargetCalories.Value * ratio)
+                            : null;
+                        draftItem.ProteinG = source.ProteinG.HasValue ? source.ProteinG * ratio : null;
+                        draftItem.CarbsG = source.CarbsG.HasValue ? source.CarbsG * ratio : null;
+                        draftItem.FatG = source.FatG.HasValue ? source.FatG * ratio : null;
+                    }
+                    result.Add(draftItem);
                 }
             }
             return result;
+        }
+
+        private async Task ApplyRecipeNutritionAsync(
+            MealPlanProposalItem item,
+            Guid recipeId,
+            IReadOnlyCollection<MealPlanIngredientPortionRequest>? ingredients)
+        {
+            var calculation = await _portionCalculator.CalculateRecipeAsync(recipeId, ingredients);
+            ApplyCalculation(item, calculation);
+        }
+
+        private async Task ApplyFoodNutritionAsync(
+            MealPlanProposalItem item,
+            Guid foodId,
+            decimal? quantityG)
+        {
+            var calculation = await _portionCalculator.CalculateFoodAsync(foodId, quantityG);
+            ApplyCalculation(item, calculation);
+        }
+
+        private void ApplyCalculation(MealPlanProposalItem item, PortionNutritionResponse calculation)
+        {
+            item.QuantityG = calculation.QuantityG;
+            item.TargetCalories = (int)Math.Round(calculation.CaloriesKcal, MidpointRounding.AwayFromZero);
+            item.ProteinG = calculation.ProteinG;
+            item.CarbsG = calculation.CarbsG;
+            item.FatG = calculation.FatG;
+            item.IngredientSnapshotJson = calculation.Ingredients.Count == 0
+                ? null
+                : _portionCalculator.Serialize(calculation);
         }
 
         private async Task<List<MealPlanItem>> GetPlanItemsAsync(
@@ -693,6 +793,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     DisplayName = Name(x.FoodId, x.RecipeId),
                     QuantityG = x.QuantityG,
                     TargetCalories = x.TargetCalories,
+                    ProteinG = x.ProteinG,
+                    CarbsG = x.CarbsG,
+                    FatG = x.FatG,
+                    Ingredients = SnapshotIngredients(x.IngredientSnapshotJson),
                     SortOrder = x.SortOrder
                 }).ToList(),
                 SourceMeals = sourceMeals.Select(x => new ProposalSourceMealResponse
@@ -704,10 +808,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     RecipeId = x.RecipeId,
                     DisplayName = Name(x.FoodId, x.RecipeId),
                     QuantityG = x.QuantityG,
-                    TargetCalories = x.TargetCalories
+                    TargetCalories = x.TargetCalories,
+                    ProteinG = x.ProteinG,
+                    CarbsG = x.CarbsG,
+                    FatG = x.FatG,
+                    Ingredients = SnapshotIngredients(x.IngredientSnapshotJson)
                 }).ToList()
             };
         }
+
+        private List<PortionIngredientResponse> SnapshotIngredients(string? json) =>
+            _portionCalculator.Deserialize(json)?.Ingredients ?? new List<PortionIngredientResponse>();
 
         private async Task<MealPlanProposal> GetCoachProposalAsync(Guid coachId, Guid proposalId)
         {

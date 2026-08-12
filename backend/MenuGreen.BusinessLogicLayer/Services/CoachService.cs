@@ -13,12 +13,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class CoachService : ICoachService
     {
+        private const int VietnamUtcOffsetHours = 7;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
         private readonly IMealPlanService _mealPlanService;
         private readonly IDailyStarterService _dailyStarterService;
         private readonly IPtReviewService _ptReviewService;
         private readonly IRecipeService _recipeService;
+        private readonly IPortionNutritionCalculator _portionCalculator;
 
         public CoachService(
             IUnitOfWork unitOfWork, 
@@ -26,7 +28,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IMealPlanService mealPlanService,
             IDailyStarterService dailyStarterService,
             IPtReviewService ptReviewService,
-            IRecipeService recipeService)
+            IRecipeService recipeService,
+            IPortionNutritionCalculator portionCalculator)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
@@ -34,6 +37,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _dailyStarterService = dailyStarterService;
             _ptReviewService = ptReviewService;
             _recipeService = recipeService;
+            _portionCalculator = portionCalculator;
         }
 
         public async Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice)
@@ -528,14 +532,61 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        public async Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(Guid coachId, Guid clientId, int days)
+        public async Task<IEnumerable<ClientNutritionSummaryResponse>> GetClientNutritionSummaryAsync(
+            Guid coachId,
+            Guid clientId,
+            int days,
+            DateOnly? from = null,
+            DateOnly? to = null)
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
 
-            var cutoff = DateTime.UtcNow.Date.AddDays(-days);
-            var logs = await _unitOfWork.MealLogs.FindAsync(x => x.UserId == clientId && x.LoggedAt >= cutoff);
+            var today = DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(VietnamUtcOffsetHours));
+            var safeDays = Math.Clamp(days, 1, 366);
+            var rangeFrom = from ?? today.AddDays(-(safeDays - 1));
+            var rangeTo = to ?? today;
+            if (rangeFrom > rangeTo)
+            {
+                throw new ArgumentException("The start date must be before or equal to the end date.");
+            }
+
+            var startUtc = rangeFrom
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var endUtcExclusive = rangeTo
+                .AddDays(1)
+                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                .AddHours(-VietnamUtcOffsetHours);
+            var logs = (await _unitOfWork.MealLogs.FindAsync(x =>
+                    x.UserId == clientId &&
+                    x.LoggedAt.HasValue &&
+                    x.LoggedAt.Value >= startUtc &&
+                    x.LoggedAt.Value < endUtcExclusive))
+                .ToList();
             var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault();
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == clientId)).FirstOrDefault();
+
+            var foodIds = logs
+                .Where(x => x.FoodId.HasValue)
+                .Select(x => x.FoodId!.Value)
+                .Distinct()
+                .ToList();
+            var recipeIds = logs
+                .Where(x => x.RecipeId.HasValue)
+                .Select(x => x.RecipeId!.Value)
+                .Distinct()
+                .ToList();
+            var foods = foodIds.Count == 0
+                ? new Dictionary<Guid, Food>()
+                : (await _unitOfWork.Foods.FindAsync(x => foodIds.Contains(x.Id)))
+                    .GroupBy(x => x.Id)
+                    .ToDictionary(x => x.Key, x => x.First());
+            var recipes = recipeIds.Count == 0
+                ? new Dictionary<Guid, Recipe>()
+                : (await _unitOfWork.Recipes.FindAsync(x => recipeIds.Contains(x.Id)))
+                    .GroupBy(x => x.Id)
+                    .ToDictionary(x => x.Key, x => x.First());
 
             var targetCalories = health?.TargetCalories ?? 2000;
             var targetProtein = health?.TargetProteinG ?? 150;
@@ -544,7 +595,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var grouped = logs
                 .Where(x => x.LoggedAt.HasValue)
-                .GroupBy(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .GroupBy(x => DateOnly.FromDateTime(
+                    x.LoggedAt!.Value.AddHours(VietnamUtcOffsetHours)))
                 .Select(g => new ClientNutritionSummaryResponse
                 {
                     ClientId = clientId,
@@ -557,7 +609,41 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     ActualCarbs = g.Sum(x => x.CarbsG ?? 0),
                     TargetCarbs = targetCarbs,
                     ActualFat = g.Sum(x => x.FatG ?? 0),
-                    TargetFat = targetFat
+                    TargetFat = targetFat,
+                    Logs = g
+                        .OrderBy(x => x.LoggedAt)
+                        .Select(x =>
+                        {
+                            var foodName = x.FoodId.HasValue && foods.TryGetValue(x.FoodId.Value, out var food)
+                                ? food.NameVi
+                                : null;
+                            var recipeTitle = x.RecipeId.HasValue && recipes.TryGetValue(x.RecipeId.Value, out var recipe)
+                                ? recipe.Title
+                                : null;
+                            return new MealLogResponse
+                            {
+                                Id = x.Id,
+                                UserId = x.UserId,
+                                FoodId = x.FoodId,
+                                RecipeId = x.RecipeId,
+                                MealType = x.MealType,
+                                QuantityG = x.QuantityG,
+                                CaloriesKcal = x.CaloriesKcal,
+                                ProteinG = x.ProteinG,
+                                CarbsG = x.CarbsG,
+                                FatG = x.FatG,
+                                SourceType = x.SourceType,
+                                CustomName = x.CustomName,
+                                Notes = x.Notes,
+                                LoggedAt = x.LoggedAt,
+                                MealPlanItemId = x.MealPlanItemId,
+                                IsFromMealPlan = x.IsFromMealPlan,
+                                FoodName = foodName,
+                                RecipeTitle = recipeTitle,
+                                DisplayName = x.CustomName ?? foodName ?? recipeTitle ?? "Món ăn"
+                            };
+                        })
+                        .ToList()
                 })
                 .OrderByDescending(x => x.Date)
                 .ToList();
@@ -696,14 +782,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _unitOfWork.CompleteAsync();
                 foreach (var item in request.Items)
                 {
-                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
-                    {
-                        Id = Guid.NewGuid(), MealPlanId = plan.Id, MealType = item.MealType,
-                        FoodId = item.FoodId, RecipeId = item.RecipeId, PlannedDate = item.PlannedDate,
-                        ScheduledTime = item.ScheduledTime, TargetCalories = item.TargetCalories,
-                        QuantityG = (decimal?)item.QuantityG,
-                        IsCompleted = item.IsCompleted, CreatedAt = DateTime.UtcNow
-                    });
+                    await _unitOfWork.MealPlanItems.AddAsync(
+                        await BuildCoachMealPlanItemAsync(plan, item));
                 }
             }
 
@@ -777,9 +857,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var item in items)
             {
                 Food? food = null;
+                Food? catalogFood = null;
                 Recipe? recipe = null;
                 if (item.FoodId.HasValue) food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
                 if (item.RecipeId.HasValue) recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+                catalogFood = food;
+                if (catalogFood == null && recipe?.FoodId.HasValue == true)
+                {
+                    catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                }
                 var price = food?.EstimatedPriceVnd ?? recipe?.EstimatedPriceVnd;
                 var calories = item.TargetCalories;
                 decimal? protein = item.ProteinG;
@@ -812,10 +898,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PlannedDate = item.PlannedDate,
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = calories,
-                    QuantityG = item.QuantityG ?? food?.DefaultServingG ?? 100m,
+                    QuantityG = item.QuantityG ?? catalogFood?.DefaultServingG ?? 100m,
                     ProteinG = protein,
                     CarbsG = carbs,
                     FatG = fat,
+                    Ingredients = _portionCalculator
+                        .Deserialize(item.IngredientSnapshotJson)?.Ingredients
+                        ?? new List<PortionIngredientResponse>(),
                     IsCompleted = item.IsCompleted,
                     FoodName = food?.NameVi,
                     RecipeName = recipe?.Title,
@@ -957,7 +1046,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var responses = new List<MealPlanResponse>();
-            foreach (var plan in query.OrderByDescending(p => p.StartDate).ThenByDescending(p => p.CreatedAt))
+            foreach (var plan in query
+                .OrderByDescending(p => p.StartDate)
+                .ThenByDescending(p => p.UpdatedAt ?? p.CreatedAt))
             {
                 responses.Add(await MapMealPlanAsync(plan));
             }
@@ -981,14 +1072,36 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             await EnsureAccessAllowedAsync(coachId, clientId);
 
+            var startDate = request.StartDate
+                ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var endDate = request.EndDate ?? startDate;
+            if (endDate < startDate)
+            {
+                (startDate, endDate) = (endDate, startDate);
+            }
+
+            var gymerRouteRequests = await _unitOfWork.PtReviewRequests.FindAsync(
+                route => route.UserId == clientId
+                    && route.CreatedByRole != "Coach"
+                    && route.Status != "Rejected");
+            var overlappingGymerRoute = gymerRouteRequests.Any(route =>
+                IsRouteApprovalRequest(route)
+                && route.WeekStartDate >= startDate
+                && route.WeekStartDate <= endDate);
+            if (overlappingGymerRoute)
+            {
+                throw new InvalidOperationException(
+                    "Gymer đã gửi lộ trình cho PT trong ngày này. Không thể tạo thêm lộ trình trùng ngày.");
+            }
+
             var plan = new MealPlanHeader
             {
                 Id = Guid.NewGuid(),
                 UserId = clientId,
-                Title = request.Title ?? $"Client plan {request.StartDate:yyyy-MM-dd}",
+                Title = request.Title ?? $"Client plan {startDate:yyyy-MM-dd}",
                 PlanType = request.PlanType ?? "DAILY",
-                StartDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                EndDate = request.EndDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                StartDate = startDate,
+                EndDate = endDate,
                 TargetCalories = request.TargetCalories,
                 MinCalories = request.MinCalories,
                 MaxCalories = request.MaxCalories,
@@ -1007,21 +1120,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 foreach (var item in request.Items)
                 {
-                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
-                    {
-                        Id = Guid.NewGuid(),
-                        MealPlanId = plan.Id,
-                        MealType = item.MealType,
-                        FoodId = item.FoodId,
-                        RecipeId = item.RecipeId,
-                        PlannedDate = item.PlannedDate ?? plan.StartDate,
-                        ScheduledTime = item.ScheduledTime,
-                        TargetCalories = item.TargetCalories,
-                        QuantityG = (decimal?)item.QuantityG,
-                        IsCompleted = false,
-                        Origin = "coach",
-                        CreatedAt = DateTime.UtcNow
-                    });
+                    await _unitOfWork.MealPlanItems.AddAsync(
+                        await BuildCoachMealPlanItemAsync(plan, item));
                 }
                 await _unitOfWork.CompleteAsync();
             }
@@ -1058,6 +1158,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 plan,
                 pendingRouteRequests
             );
+
+            var planStart = plan.StartDate ?? plan.EndDate;
+            var planEnd = plan.EndDate ?? plan.StartDate;
+            var overlapsGymerSubmission = matchedRequest == null
+                && string.Equals(
+                    plan.GeneratedBy,
+                    "COACH",
+                    StringComparison.OrdinalIgnoreCase)
+                && planStart.HasValue
+                && planEnd.HasValue
+                && pendingRouteRequests.Any(route =>
+                    route.WeekStartDate >= planStart.Value
+                    && route.WeekStartDate <= planEnd.Value);
+            if (overlapsGymerSubmission)
+            {
+                throw new InvalidOperationException(
+                    "Gymer đã gửi lộ trình cho PT trong ngày này. Không thể gửi thêm lộ trình trùng ngày.");
+            }
 
             if (
                 string.Equals(plan.Status, "Approved", StringComparison.OrdinalIgnoreCase)
@@ -1115,10 +1233,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     new CreatePersonalProgramRequest
                     {
                         ClientId = clientId,
-                        Title = plan.Title ?? $"Lộ trình {startDate:dd/MM/yyyy}",
-                        Description =
-                            $"Lộ trình {plan.PlanType ?? "DAILY"} từ "
-                            + $"{startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
+                        Title = plan.Title ?? (
+                            startDate == endDate
+                                ? $"Lộ trình Ngày {startDate:dd/MM/yyyy}"
+                                : (plan.PlanType?.ToLower() == "monthly"
+                                    ? $"Lộ trình Tháng {startDate:MM/yyyy}"
+                                    : $"Lộ trình Tuần {startDate:dd/MM/yyyy} - {endDate:dd/MM/yyyy}")
+                        ),
+                        Description = startDate == endDate
+                            ? $"Lộ trình {plan.PlanType ?? "DAILY"} ngày {startDate:dd/MM/yyyy}."
+                            : $"Lộ trình {plan.PlanType ?? "DAILY"} từ {startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
                         DurationWeeks = durationWeeks,
                         WeekStartDate = startDate,
                         TargetCaloriesDaily = targetCalories,
@@ -1149,6 +1273,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             {
                                 Id = item.Id,
                                 PlannedDate = item.PlannedDate ?? startDate,
+                                ScheduledTime = item.ScheduledTime,
                                 MealType = item.MealType ?? "snack",
                                 FoodId = item.FoodId,
                                 FoodName = item.FoodName,
@@ -1158,7 +1283,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                                 QuantityG = item.QuantityG,
                                 ProteinG = item.ProteinG,
                                 CarbsG = item.CarbsG,
-                                FatG = item.FatG
+                                FatG = item.FatG,
+                                Ingredients = item.Ingredients
                             }
                         ).ToList()
                     }
@@ -1214,6 +1340,80 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
 
             return await MapMealPlanAsync(plan);
+        }
+
+        private static TimeOnly DefaultMealTime(string? mealType)
+        {
+            return (mealType ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "breakfast" or "bữa sáng" or "bua sang" => new TimeOnly(7, 30),
+                "lunch" or "bữa trưa" or "bua trua" => new TimeOnly(12, 0),
+                "dinner" or "bữa tối" or "bua toi" => new TimeOnly(18, 30),
+                _ => new TimeOnly(15, 0)
+            };
+        }
+
+        private async Task<MealPlanItem> BuildCoachMealPlanItemAsync(
+            MealPlanHeader plan,
+            MealPlanItemUpsertRequest request)
+        {
+            var entity = new MealPlanItem
+            {
+                Id = Guid.NewGuid(),
+                MealPlanId = plan.Id,
+                MealType = request.MealType,
+                FoodId = request.FoodId,
+                RecipeId = request.RecipeId,
+                PlannedDate = request.PlannedDate ?? plan.StartDate,
+                ScheduledTime = request.ScheduledTime ?? DefaultMealTime(request.MealType),
+                IsCompleted = request.IsCompleted,
+                Origin = "coach",
+                CustomName = request.CustomName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            PortionNutritionResponse? calculation = null;
+            if (request.RecipeId.HasValue)
+            {
+                calculation = await _portionCalculator.CalculateRecipeAsync(
+                    request.RecipeId.Value,
+                    request.Ingredients);
+                if ((request.Ingredients == null || request.Ingredients.Count == 0)
+                    && request.QuantityG is > 0
+                    && calculation.QuantityG > 0)
+                {
+                    calculation = _portionCalculator.Scale(
+                        calculation,
+                        (decimal)request.QuantityG.Value / calculation.QuantityG);
+                }
+            }
+            else if (request.FoodId.HasValue)
+            {
+                calculation = await _portionCalculator.CalculateFoodAsync(
+                    request.FoodId.Value,
+                    request.QuantityG is > 0 ? (decimal)request.QuantityG.Value : null);
+            }
+
+            if (calculation == null)
+            {
+                entity.QuantityG = request.QuantityG is > 0
+                    ? (decimal)request.QuantityG.Value
+                    : 100m;
+                entity.TargetCalories = request.TargetCalories;
+                return entity;
+            }
+
+            entity.QuantityG = calculation.QuantityG;
+            entity.TargetCalories = (int)Math.Round(
+                calculation.CaloriesKcal,
+                MidpointRounding.AwayFromZero);
+            entity.ProteinG = calculation.ProteinG;
+            entity.CarbsG = calculation.CarbsG;
+            entity.FatG = calculation.FatG;
+            entity.IngredientSnapshotJson = calculation.Ingredients.Count == 0
+                ? null
+                : _portionCalculator.Serialize(calculation);
+            return entity;
         }
 
         private static bool IsApprovalOutdated(MealPlanHeader plan)

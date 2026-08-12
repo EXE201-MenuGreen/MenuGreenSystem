@@ -224,6 +224,7 @@ class RecipeItem {
     this.videoUrl,
     this.isActive,
     this.foodId,
+    this.defaultServingG,
     this.ingredients = const [],
     this.matchedAllergens = const [],
     this.allergyRiskLevel = 'none',
@@ -245,13 +246,19 @@ class RecipeItem {
   final String? videoUrl;
   final bool? isActive;
   final String? foodId;
+  final int? defaultServingG;
   final List<RecipeIngredientItem> ingredients;
   final List<String> matchedAllergens;
   final String allergyRiskLevel;
   final bool isSafeForUser;
 
-  int get totalCalories =>
-      ingredients.fold(0, (sum, ing) => sum + (ing.caloriesKcal ?? 0).round());
+  int get totalCalories => ingredients.fold(
+    0,
+    (sum, ing) =>
+        sum +
+        ((ing.caloriesKcal ?? 0) * ing.quantity / ing.nutritionBasisQuantity)
+            .round(),
+  );
 
   factory RecipeItem.fromJson(Map<String, dynamic> json) {
     final rawIngredients = json['ingredients'] ?? json['Ingredients'];
@@ -303,6 +310,11 @@ class RecipeItem {
       ),
       foodId: _RecommendationJson.text(
         json['foodId'] ?? json['FoodId'] ?? json['food_id'],
+      ),
+      defaultServingG: _RecommendationJson.nullableInteger(
+        json['defaultServingG'] ??
+            json['DefaultServingG'] ??
+            json['default_serving_g'],
       ),
       ingredients: rawIngredients is List
           ? rawIngredients
@@ -865,24 +877,39 @@ class FoodSearchFilters {
 
 class RecipeIngredientItem {
   RecipeIngredientItem({
+    this.ingredientId,
     required this.ingredientName,
     required this.quantity,
     required this.unit,
     this.caloriesKcal,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+    this.nutritionBasisQuantity = 1,
     this.notes,
   });
 
+  final String? ingredientId;
   final String ingredientName;
   final double quantity;
   final String unit;
   final double? caloriesKcal;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
+  final double nutritionBasisQuantity;
   final String? notes;
 
   factory RecipeIngredientItem.fromJson(Map<String, dynamic> json) {
     final q = json['quantity'] ?? json['Quantity'];
     final nested = json['ingredient'] ?? json['Ingredient'];
-    String name = (json['ingredientName'] ?? json['IngredientName'] ?? '')
-        .toString();
+    String name =
+        (json['ingredientName'] ??
+                json['IngredientName'] ??
+                json['name'] ??
+                json['Name'] ??
+                '')
+            .toString();
     if (name.isEmpty && nested is Map<String, dynamic>) {
       name = (nested['nameVi'] ?? nested['NameVi'] ?? nested['name'] ?? '')
           .toString();
@@ -892,10 +919,23 @@ class RecipeIngredientItem {
     }
     final c = json['caloriesKcal'] ?? json['CaloriesKcal'];
     return RecipeIngredientItem(
+      ingredientId: (json['ingredientId'] ?? json['IngredientId'])?.toString(),
       ingredientName: name.isEmpty ? 'Nguyên liệu' : name,
       quantity: q is num ? q.toDouble() : 0,
       unit: (json['unit'] ?? json['Unit'] ?? '').toString(),
       caloriesKcal: c is num ? c.toDouble() : null,
+      proteinG: _RecommendationJson.number(
+        json['proteinG'] ?? json['ProteinG'],
+      ),
+      carbsG: _RecommendationJson.number(json['carbsG'] ?? json['CarbsG']),
+      fatG: _RecommendationJson.number(json['fatG'] ?? json['FatG']),
+      nutritionBasisQuantity: _RecommendationJson.number(
+        json['nutritionBasisQuantity'] ??
+            json['NutritionBasisQuantity'] ??
+            json['baseQuantity'] ??
+            json['BaseQuantity'],
+        fallback: 1,
+      ),
       notes: json['notes']?.toString() ?? json['Notes']?.toString(),
     );
   }

@@ -9,6 +9,10 @@ class CustomTextField extends StatefulWidget {
   final IconData? prefixIcon;
   final TextEditingController? controller;
   final bool readOnly;
+  final FormFieldValidator<String>? validator;
+  final AutovalidateMode autovalidateMode;
+  final ValueChanged<String>? onChanged;
+  final GlobalKey<FormFieldState<String>>? formFieldKey;
 
   const CustomTextField({
     super.key,
@@ -19,6 +23,10 @@ class CustomTextField extends StatefulWidget {
     this.prefixIcon,
     this.controller,
     this.readOnly = false,
+    this.validator,
+    this.autovalidateMode = AutovalidateMode.disabled,
+    this.onChanged,
+    this.formFieldKey,
   });
 
   @override
@@ -43,10 +51,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          key: widget.formFieldKey,
           controller: widget.controller,
           readOnly: widget.readOnly,
           obscureText: widget.isPassword ? _obscureText : false,
           keyboardType: widget.keyboardType,
+          validator: widget.validator,
+          autovalidateMode: widget.autovalidateMode,
+          onChanged: widget.onChanged,
           style: const TextStyle(color: AppColors.textDark),
           decoration: InputDecoration(
             hintText: widget.hintText,
@@ -95,6 +107,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.red, width: 1.5),
             ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 1.5),
+            ),
+            errorMaxLines: 2,
           ),
         ),
       ],
