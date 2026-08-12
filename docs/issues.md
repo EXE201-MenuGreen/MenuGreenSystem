@@ -81,3 +81,70 @@ Backend không có API để cancel pending order, nên khi user muốn chuyển
 3. Frontend phát hiện có pending order khác plan → Tự động cancel order Office
 4. Frontend gọi API tạo order mới cho Gym/PT
 5. QR hiển thị đúng giá 120.000đ
+
+---
+
+## [RESOLVED] Cancel subscription không cancel pending payment
+
+**Date:** 2026-08-12
+**Status:** Resolved
+**Severity:** High
+
+### Description
+User nhấn "Hủy gói" trên màn hình gói dịch vụ, sau đó tạo gói mới → Bị lỗi "You already have a pending SePay payment".
+
+### Root Cause
+`UserSubscriptionService.CancelAsync()` chỉ cancel subscription nhưng **KHÔNG cancel payment PENDING** liên quan. Payment PENDING vẫn tồn tại trong DB, nên khi tạo order mới sẽ bị block bởi `EnsureNoPendingSepayPaymentAsync()`.
+
+### Environment
+- Backend .NET API
+- Tables: `user_subscriptions`, `payments`
+
+### Fix Applied
+
+#### Backend
+1. **UserSubscriptionService.cs** - Update `CancelAsync()`:
+   - Thêm logic tìm và cancel tất cả payment PENDING của subscription
+   ```csharp
+   var pendingPayments = await _unitOfWork.Payments.FindAsync(
+       p => p.UserSubscriptionId == subscription.Id && p.Status == "PENDING" && p.Provider == "SEPAY");
+   foreach (var payment in pendingPayments)
+   {
+       payment.Status = "CANCELLED";
+       payment.UpdatedAt = DateTimeOffset.UtcNow;
+       _unitOfWork.Payments.Update(payment);
+   }
+   ```
+
+2. **SepayPaymentService.cs** - Update `CancelOrderAsync()`:
+   - Tách riêng subscription cancel để không block payment cancel
+   - Đảm bảo `CompleteAsync()` luôn được gọi
+
+3. **SepayController.cs** - Cải thiện error handling:
+   - Hiển thị chi tiết lỗi inner exception
+
+4. **database/63_add_cancelled_payment_status.sql** - Migration thêm CANCELLED vào CHECK constraint
+
+5. **database/64_cleanup_pending_payments.sql** - Script cleanup:
+   - Query xem pending payments
+   - UPDATE cancel pending payments cho cancelled subscriptions
+
+#### Production Deployment Steps
+1. Chạy migration 63 (nếu chưa có):
+   ```sql
+   ALTER TABLE payments DROP CONSTRAINT IF EXISTS CK_payments_status;
+   ALTER TABLE payments ADD CONSTRAINT CK_payments_status 
+       CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED'));
+   ```
+
+2. Cleanup pending payments cũ:
+   ```sql
+   UPDATE payments
+   SET "Status" = 'CANCELLED', "UpdatedAt" = NOW()
+   WHERE "Provider" = 'SEPAY' AND "Status" = 'PENDING'
+   AND "UserSubscriptionId" IN (
+       SELECT "Id" FROM user_subscriptions WHERE "Status" = 'Cancelled'
+   );
+   ```
+
+3. Deploy backend code mới
