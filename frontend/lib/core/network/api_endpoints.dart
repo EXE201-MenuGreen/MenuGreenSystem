@@ -297,6 +297,8 @@ class ApiEndpoints {
   static String get sepayPendingOrders => '$baseUrl/payments/sepay/pending';
   static String sepayPaymentStatus(String paymentId) =>
       '$baseUrl/payments/sepay/$paymentId';
+  static String sepayCancelOrder(String paymentId) =>
+      '$baseUrl/payments/sepay/$paymentId';
 
   static String get allergies => '$baseUrl/Allergy';
   static String get allergyCatalog => '$baseUrl/Allergy/catalog';
