@@ -12,6 +12,12 @@ on:
         options:
           - production
           - staging
+  # Auto deploy khi push lên develop (chỉ khi có thay đổi backend)
+  push:
+    branches:
+      - develop
+    paths:
+      - 'backend/**'
 
 env:
   APP_DIR: /home/ubuntu/apps/menugreen
