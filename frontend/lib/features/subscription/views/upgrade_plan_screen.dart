@@ -77,6 +77,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     }
 
     if (!plan.isFree) {
+      final confirmed = await _showSubscribeConfirmation(plan);
+      if (!confirmed) return false;
+
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SepayPaymentScreen.subscribe(
@@ -110,6 +113,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
     final isPaidPlan = plan != null && !plan.isFree;
 
     if (isPaidPlan) {
+      final confirmed = await _showRenewConfirmation(plan);
+      if (!confirmed) return;
+
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SepayPaymentScreen.renew(
@@ -129,6 +135,122 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
     _showResult(result.message, result.success);
     if (result.success) await _loadData();
+  }
+
+  Future<bool> _showSubscribeConfirmation(SubscriptionPlan plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xác nhận đăng ký'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Bạn có muốn đăng ký gói "${plan.name}" không?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Sau khi chuyển khoản thành công, gói sẽ được kích hoạt tự động.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textDark.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  Future<bool> _showRenewConfirmation(SubscriptionPlan? plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xác nhận gia hạn'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn có muốn gia hạn gói "${plan?.name ?? 'hiện tại'}" không?',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Gia hạn sẽ bắt đầu từ ngày hết hạn hiện tại.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textDark.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   SubscriptionPlan? _planById(String planId) {

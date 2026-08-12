@@ -85,9 +85,58 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     if (!mounted) return;
 
     if (!result.success || result.data == null) {
-      final retried = await _tryResumePendingOrder();
-      if (retried) return;
+      // Check if error is due to pending order - try to cancel it and retry
+      if (_isPendingOrderError(result.message)) {
+        final cancelled = await _cancelPendingOrderForDifferentPlan();
+        if (!mounted) return;
 
+        if (cancelled) {
+          // Retry creating order after successful cancellation
+          await _createOrderAfterCancel();
+          return;
+        }
+        // If cancel failed, show error
+        setState(() {
+          _loading = false;
+          _error = _localizeError(result.message);
+        });
+        return;
+      }
+
+      setState(() {
+        _loading = false;
+        _error = _localizeError(result.message);
+      });
+      return;
+    }
+
+    _applyOrder(result.data!);
+  }
+
+  bool _isPendingOrderError(String message) {
+    return message.toLowerCase().contains('pending');
+  }
+
+  Future<void> _createOrderAfterCancel() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final ({bool success, SepayOrder? data, String message}) result;
+    if (widget.flow == SepayPaymentFlow.subscribe) {
+      result = await _repository.createOrder(
+        subscriptionPlanId: widget.subscriptionPlanId!,
+      );
+    } else {
+      result = await _repository.createRenewOrder(
+        userSubscriptionId: widget.userSubscriptionId!,
+      );
+    }
+
+    if (!mounted) return;
+
+    if (!result.success || result.data == null) {
       setState(() {
         _loading = false;
         _error = _localizeError(result.message);
@@ -108,6 +157,34 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
 
     _applyOrder(order, resumed: true);
     return true;
+  }
+
+  /// Cancel pending order for a different plan when user wants to switch plans.
+  Future<bool> _cancelPendingOrderForDifferentPlan() async {
+    final pending = await _repository.getPendingOrders();
+    if (!mounted) return false;
+    if (!pending.success || pending.data.isEmpty) return false;
+
+    // Find any pending order that is NOT for the current plan
+    for (final order in pending.data) {
+      final isCurrentPlan = widget.flow == SepayPaymentFlow.subscribe
+          ? order.subscriptionPlanId == widget.subscriptionPlanId
+          : order.userSubscriptionId == widget.userSubscriptionId;
+
+      if (!isCurrentPlan) {
+        // Found pending order for different plan - cancel it
+        final result = await _repository.cancelOrder(order.paymentId);
+        if (!mounted) return false;
+
+        if (result.success) {
+          return true;
+        }
+        // If cancel fails, return false and let the API error handling show the message
+        return false;
+      }
+    }
+
+    return false;
   }
 
   SepayOrder? _pickPendingOrder(List<SepayOrder> orders) {
