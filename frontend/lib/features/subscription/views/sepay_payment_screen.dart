@@ -12,6 +12,8 @@ import 'sepay_payment_success_screen.dart';
 
 enum SepayPaymentFlow { subscribe, renew }
 
+enum _PendingOrderChoice { goToExisting, cancelAndCreate, back }
+
 class SepayPaymentScreen extends StatefulWidget {
   final SepayPaymentFlow flow;
   final String planTitle;
@@ -90,15 +92,32 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     if (!mounted) return;
 
     if (!result.success || result.data == null) {
-      // Check if error is due to pending order - try to cancel it and retry
+      // Check if error is due to pending order - show dialog to user
       if (_isPendingOrderError(result.message)) {
-        final cancelled = await _cancelPendingOrderForDifferentPlan();
+        final choice = await _showPendingOrderDialog();
         if (!mounted) return;
 
-        if (cancelled) {
-          // Retry creating order after successful cancellation
-          await _createOrderAfterCancel();
+        if (choice == _PendingOrderChoice.goToExisting) {
+          // User wants to go to existing pending order
+          final reloaded = await _tryResumePendingOrder();
+          if (!mounted) return;
+          if (reloaded) return;
+
+          // If exact match not found, load any pending order
+          final pending = await _repository.getPendingOrders();
+          if (mounted && pending.success && pending.data.isNotEmpty) {
+            _applyOrder(pending.data.first, resumed: true);
+          }
           return;
+        } else if (choice == _PendingOrderChoice.cancelAndCreate) {
+          // User wants to cancel and create new order
+          final cancelled = await _cancelPendingOrderForDifferentPlan();
+          if (!mounted) return;
+
+          if (cancelled) {
+            await _createOrderAfterCancel();
+            return;
+          }
         }
         // If cancel failed, show error
         setState(() {
@@ -120,6 +139,46 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
 
   bool _isPendingOrderError(String message) {
     return message.toLowerCase().contains('pending');
+  }
+
+  Future<_PendingOrderChoice> _showPendingOrderDialog() async {
+    final result = await showDialog<_PendingOrderChoice>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Expanded(child: Text('Bạn có đơn đang chờ')),
+          ],
+        ),
+        content: const Text(
+          'Bạn đã có đơn thanh toán chưa hoàn tất. Bạn muốn tiếp tục với đơn cũ hay tạo đơn mới?\n\n'
+          '• Đơn cũ sẽ bị hủy nếu bạn chọn tạo đơn mới.',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _PendingOrderChoice.back),
+            child: const Text('Quay lại'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, _PendingOrderChoice.goToExisting),
+            child: const Text('Xem đơn cũ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, _PendingOrderChoice.cancelAndCreate),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text('Tạo đơn mới'),
+          ),
+        ],
+      ),
+    );
+    return result ?? _PendingOrderChoice.back;
   }
 
   Future<void> _createOrderAfterCancel() async {

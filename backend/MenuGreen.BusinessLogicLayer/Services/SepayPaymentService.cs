@@ -49,6 +49,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plan = await GetActivePlanAsync(request.SubscriptionPlanId);
             await EnsureNoPendingSepayPaymentAsync(userId);
 
+            // Cancel any existing PendingPayment subscriptions before creating a new one
+            await CancelPendingUserSubscriptionsAsync(userId);
+
             var amount = plan.PriceVnd ?? 0;
             if (amount <= 0)
             {
@@ -459,6 +462,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (stillPending.Any())
             {
                 throw new Exception("You already have a pending SePay payment. Complete or wait for it to expire before creating a new order.");
+            }
+        }
+
+        private async Task CancelPendingUserSubscriptionsAsync(Guid userId)
+        {
+            var pendingSubscriptions = (await _unitOfWork.UserSubscriptions.FindAsync(
+                x => x.UserId == userId && x.Status == "PendingPayment")).ToList();
+
+            foreach (var subscription in pendingSubscriptions)
+            {
+                subscription.Status = "Cancelled";
+                subscription.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.UserSubscriptions.Update(subscription);
+            }
+
+            if (pendingSubscriptions.Any())
+            {
+                await _unitOfWork.CompleteAsync();
             }
         }
 

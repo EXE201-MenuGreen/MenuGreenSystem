@@ -148,3 +148,99 @@ User nhấn "Hủy gói" trên màn hình gói dịch vụ, sau đó tạo gói 
    ```
 
 3. Deploy backend code mới
+
+---
+
+## [RESOLVED] CreateOrderAsync không cancel subscription PendingPayment cũ
+
+**Date:** 2026-08-12
+**Status:** Resolved
+**Severity:** High
+
+### Description
+Khi user tạo order đăng ký gói mới mà chưa thanh toán gói trước đó, subscription PendingPayment cũ không được cancel. Dẫn đến user có nhiều subscriptions ở trạng thái PendingPayment trong DB.
+
+### Root Cause
+`SepayPaymentService.CreateOrderAsync()` chỉ check payment PENDING (qua `EnsureNoPendingSepayPaymentAsync`), nhưng **KHÔNG cancel subscription PendingPayment cũ** trước khi tạo subscription mới.
+
+### Environment
+- Backend .NET API
+- Tables: `user_subscriptions`, `payments`
+
+### Fix Applied
+**SepayPaymentService.cs**:
+1. Thêm method `CancelPendingUserSubscriptionsAsync()`:
+   ```csharp
+   private async Task CancelPendingUserSubscriptionsAsync(Guid userId)
+   {
+       var pendingSubscriptions = await _unitOfWork.UserSubscriptions.FindAsync(
+           x => x.UserId == userId && x.Status == "PendingPayment");
+       foreach (var subscription in pendingSubscriptions)
+       {
+           subscription.Status = "Cancelled";
+           subscription.UpdatedAt = DateTime.UtcNow;
+           _unitOfWork.UserSubscriptions.Update(subscription);
+       }
+       if (pendingSubscriptions.Any())
+       {
+           await _unitOfWork.CompleteAsync();
+       }
+   }
+   ```
+
+2. Gọi trong `CreateOrderAsync()` sau khi check payment PENDING:
+   ```csharp
+   await CancelPendingUserSubscriptionsAsync(userId);
+   ```
+
+### User Flow sau fix
+1. User có subscription Office PendingPayment (chưa thanh toán)
+2. User đăng ký gói Casual mới
+3. Backend tự động cancel subscription Office PendingPayment cũ
+4. Backend tạo subscription Casual PendingPayment mới
+5. User chỉ có 1 subscription PendingPayment trong DB
+
+---
+
+## [RESOLVED] UI thông báo khi có pending order khi đăng ký gói mới
+
+**Date:** 2026-08-12
+**Status:** Resolved
+**Severity:** Medium
+
+### Description
+Khi user đăng ký gói mới mà chưa thanh toán gói trước đó, app tự động cancel order cũ mà không thông báo cho user. User không biết mình có đơn đang chờ và có thể muốn quay lại thanh toán đơn cũ.
+
+### Root Cause
+Frontend tự động cancel pending order khi gặp lỗi pending payment, không cho user lựa chọn.
+
+### Fix Applied
+**frontend/sepay_payment_screen.dart**:
+1. Thêm enum `_PendingOrderChoice` với 3 lựa chọn:
+   - `goToExisting`: Xem đơn cũ
+   - `cancelAndCreate`: Hủy đơn cũ và tạo đơn mới
+   - `back`: Quay lại
+
+2. Thêm dialog `_showPendingOrderDialog()`:
+   ```dart
+   AlertDialog(
+     title: Row([
+       Icon(Icons.warning_amber_rounded, color: Colors.orange),
+       Text('Bạn có đơn đang chờ')
+     ]),
+     content: Text(
+       'Bạn đã có đơn thanh toán chưa hoàn tất. '
+       'Bạn muốn tiếp tục với đơn cũ hay tạo đơn mới?'
+     ),
+     actions: [
+       TextButton('Quay lại'),
+       FilledButton.tonal('Xem đơn cũ'),
+       FilledButton('Tạo đơn mới'),
+     ],
+   )
+   ```
+
+3. Update `_createOrder()` xử lý 3 lựa chọn:
+   - `goToExisting`: Load và hiển thị order cũ
+   - `cancelAndCreate`: Cancel order cũ và tạo order mới
+   - `back`: Quay lại màn hình trước
