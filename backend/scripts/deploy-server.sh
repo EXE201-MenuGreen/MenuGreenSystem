@@ -661,8 +661,11 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
   fi
   
   # Run migration with transaction
+  # NOTE: Disable set -e temporarily for command substitution to capture exit code
+  set +e
   MIGRATION_OUTPUT=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -v ON_ERROR_STOP=1 -f "$sql_file" 2>&1)
   MIGRATION_EXIT=$?
+  set -e
   echo "      Migration exit code: $MIGRATION_EXIT"
   
   if [ $MIGRATION_EXIT -ne 0 ]; then
