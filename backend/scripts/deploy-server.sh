@@ -628,6 +628,8 @@ echo "  ✓ Migration tracking table ready"
 # Apply raw SQL migrations
 # =============================================================================
 echo "  Scanning for raw SQL migrations in /tmp/nginx-deploy/backend/database/..."
+echo "  Files found:"
+ls -la /tmp/nginx-deploy/backend/database/*.sql 2>/dev/null || echo "    (none found)"
 
 MIGRATION_COUNT=0
 MIGRATION_SUCCESS=0
