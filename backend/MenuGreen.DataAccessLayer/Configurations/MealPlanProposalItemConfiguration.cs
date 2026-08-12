@@ -13,6 +13,10 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.Action).IsRequired().HasMaxLength(20);
             builder.Property(x => x.MealType).IsRequired().HasMaxLength(30);
             builder.Property(x => x.QuantityG).HasPrecision(10, 2);
+            builder.Property(x => x.ProteinG).HasPrecision(10, 2);
+            builder.Property(x => x.CarbsG).HasPrecision(10, 2);
+            builder.Property(x => x.FatG).HasPrecision(10, 2);
+            builder.Property(x => x.IngredientSnapshotJson).HasColumnType("jsonb");
             builder.Property(x => x.CreatedAt).HasColumnType("timestamp with time zone");
 
             builder.HasOne(x => x.Proposal).WithMany(x => x.Items)

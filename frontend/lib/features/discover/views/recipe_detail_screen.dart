@@ -16,12 +16,14 @@ class RecipeDetailScreen extends StatefulWidget {
     required this.recipeId,
     this.allergyMode = 'warn',
     this.plannedQuantityG,
+    this.plannedIngredients = const [],
     this.repository,
   });
 
   final String recipeId;
   final String allergyMode;
   final double? plannedQuantityG;
+  final List<RecipeIngredientItem> plannedIngredients;
   final FoodDiscoveryRepository? repository;
 
   @override
@@ -87,7 +89,27 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildBody(RecipeItem recipe) {
-    final quantityG = _catalogQuantityG ?? widget.plannedQuantityG;
+    final quantityG = widget.plannedQuantityG ?? _catalogQuantityG;
+    final ingredients = widget.plannedIngredients.isNotEmpty
+        ? widget.plannedIngredients
+        : recipe.ingredients;
+    final displayedNutrition = widget.plannedIngredients.isNotEmpty
+        ? <String, double>{
+            'caloriesKcal': ingredients.fold(
+              0,
+              (sum, item) => sum + (item.caloriesKcal ?? 0),
+            ),
+            'proteinG': ingredients.fold(
+              0,
+              (sum, item) => sum + (item.proteinG ?? 0),
+            ),
+            'carbsG': ingredients.fold(
+              0,
+              (sum, item) => sum + (item.carbsG ?? 0),
+            ),
+            'fatG': ingredients.fold(0, (sum, item) => sum + (item.fatG ?? 0)),
+          }
+        : _nutrition;
     final instructionSteps = recipe.instructions == null
         ? const <String>[]
         : _instructionSteps(recipe.instructions!);
@@ -188,7 +210,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ],
             ),
           ],
-          if (_nutrition.isNotEmpty) ...[
+          if (displayedNutrition.isNotEmpty) ...[
             const SizedBox(height: 18),
             const Text(
               'Dinh dưỡng mỗi khẩu phần',
@@ -199,12 +221,18 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _chip('${_nutritionValue('caloriesKcal')} kcal'),
-                _chip('Protein ${_nutritionValue('proteinG')}g'),
-                _chip('Carb ${_nutritionValue('carbsG')}g'),
-                _chip('Fat ${_nutritionValue('fatG')}g'),
-                if ((_nutrition['fiberG'] ?? 0) > 0)
-                  _chip('Chất xơ ${_nutritionValue('fiberG')}g'),
+                _chip(
+                  '${_nutritionValue('caloriesKcal', displayedNutrition)} kcal',
+                ),
+                _chip(
+                  'Protein ${_nutritionValue('proteinG', displayedNutrition)}g',
+                ),
+                _chip('Carb ${_nutritionValue('carbsG', displayedNutrition)}g'),
+                _chip('Fat ${_nutritionValue('fatG', displayedNutrition)}g'),
+                if ((displayedNutrition['fiberG'] ?? 0) > 0)
+                  _chip(
+                    'Chất xơ ${_nutritionValue('fiberG', displayedNutrition)}g',
+                  ),
               ],
             ),
           ],
@@ -214,7 +242,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          if (recipe.ingredients.isEmpty)
+          if (ingredients.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -242,7 +270,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             )
           else
-            ...recipe.ingredients.map(
+            ...ingredients.map(
               (i) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
@@ -306,8 +334,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
-  String _nutritionValue(String key) =>
-      (_nutrition[key] ?? 0).round().toString();
+  String _nutritionValue(String key, [Map<String, double>? source]) =>
+      ((source ?? _nutrition)[key] ?? 0).round().toString();
 
   Future<void> _logMeal(RecipeItem recipe) async {
     if (recipe.allergyRiskLevel == 'high') {

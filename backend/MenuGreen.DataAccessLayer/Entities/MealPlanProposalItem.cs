@@ -14,6 +14,10 @@ namespace MenuGreen.DataAccessLayer.Entities
         public Guid? RecipeId { get; set; }
         public decimal? QuantityG { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
+        public string? IngredientSnapshotJson { get; set; }
         public int SortOrder { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

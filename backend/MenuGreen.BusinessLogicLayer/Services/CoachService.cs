@@ -20,6 +20,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IDailyStarterService _dailyStarterService;
         private readonly IPtReviewService _ptReviewService;
         private readonly IRecipeService _recipeService;
+        private readonly IPortionNutritionCalculator _portionCalculator;
 
         public CoachService(
             IUnitOfWork unitOfWork, 
@@ -27,7 +28,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IMealPlanService mealPlanService,
             IDailyStarterService dailyStarterService,
             IPtReviewService ptReviewService,
-            IRecipeService recipeService)
+            IRecipeService recipeService,
+            IPortionNutritionCalculator portionCalculator)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
@@ -35,6 +37,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _dailyStarterService = dailyStarterService;
             _ptReviewService = ptReviewService;
             _recipeService = recipeService;
+            _portionCalculator = portionCalculator;
         }
 
         public async Task<IEnumerable<CoachProfileResponse>> GetCoachesAsync(string? specialty, int? minPrice, int? maxPrice)
@@ -779,20 +782,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 await _unitOfWork.CompleteAsync();
                 foreach (var item in request.Items)
                 {
-                    var quantityG = await ResolveCatalogServingGAsync(
-                        item.FoodId,
-                        item.RecipeId,
-                        item.QuantityG);
-                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
-                    {
-                        Id = Guid.NewGuid(), MealPlanId = plan.Id, MealType = item.MealType,
-                        FoodId = item.FoodId, RecipeId = item.RecipeId,
-                        PlannedDate = item.PlannedDate ?? plan.StartDate,
-                        ScheduledTime = item.ScheduledTime ?? DefaultMealTime(item.MealType),
-                        TargetCalories = item.TargetCalories,
-                        QuantityG = quantityG,
-                        IsCompleted = item.IsCompleted, CreatedAt = DateTime.UtcNow
-                    });
+                    await _unitOfWork.MealPlanItems.AddAsync(
+                        await BuildCoachMealPlanItemAsync(plan, item));
                 }
             }
 
@@ -907,10 +898,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PlannedDate = item.PlannedDate,
                     ScheduledTime = item.ScheduledTime,
                     TargetCalories = calories,
-                    QuantityG = catalogFood?.DefaultServingG ?? item.QuantityG ?? 100m,
+                    QuantityG = item.QuantityG ?? catalogFood?.DefaultServingG ?? 100m,
                     ProteinG = protein,
                     CarbsG = carbs,
                     FatG = fat,
+                    Ingredients = _portionCalculator
+                        .Deserialize(item.IngredientSnapshotJson)?.Ingredients
+                        ?? new List<PortionIngredientResponse>(),
                     IsCompleted = item.IsCompleted,
                     FoodName = food?.NameVi,
                     RecipeName = recipe?.Title,
@@ -1052,7 +1046,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var responses = new List<MealPlanResponse>();
-            foreach (var plan in query.OrderByDescending(p => p.StartDate).ThenByDescending(p => p.CreatedAt))
+            foreach (var plan in query
+                .OrderByDescending(p => p.StartDate)
+                .ThenByDescending(p => p.UpdatedAt ?? p.CreatedAt))
             {
                 responses.Add(await MapMealPlanAsync(plan));
             }
@@ -1124,25 +1120,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 foreach (var item in request.Items)
                 {
-                    var quantityG = await ResolveCatalogServingGAsync(
-                        item.FoodId,
-                        item.RecipeId,
-                        item.QuantityG);
-                    await _unitOfWork.MealPlanItems.AddAsync(new MealPlanItem
-                    {
-                        Id = Guid.NewGuid(),
-                        MealPlanId = plan.Id,
-                        MealType = item.MealType,
-                        FoodId = item.FoodId,
-                        RecipeId = item.RecipeId,
-                        PlannedDate = item.PlannedDate ?? plan.StartDate,
-                        ScheduledTime = item.ScheduledTime ?? DefaultMealTime(item.MealType),
-                        TargetCalories = item.TargetCalories,
-                        QuantityG = quantityG,
-                        IsCompleted = false,
-                        Origin = "coach",
-                        CreatedAt = DateTime.UtcNow
-                    });
+                    await _unitOfWork.MealPlanItems.AddAsync(
+                        await BuildCoachMealPlanItemAsync(plan, item));
                 }
                 await _unitOfWork.CompleteAsync();
             }
@@ -1304,7 +1283,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                                 QuantityG = item.QuantityG,
                                 ProteinG = item.ProteinG,
                                 CarbsG = item.CarbsG,
-                                FatG = item.FatG
+                                FatG = item.FatG,
+                                Ingredients = item.Ingredients
                             }
                         ).ToList()
                     }
@@ -1373,28 +1353,67 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
         }
 
-        private async Task<decimal> ResolveCatalogServingGAsync(
-            Guid? foodId,
-            Guid? recipeId,
-            double? requestedQuantityG)
+        private async Task<MealPlanItem> BuildCoachMealPlanItemAsync(
+            MealPlanHeader plan,
+            MealPlanItemUpsertRequest request)
         {
-            Food? catalogFood = null;
-            if (foodId.HasValue)
+            var entity = new MealPlanItem
             {
-                catalogFood = await _unitOfWork.Foods.GetByIdAsync(foodId.Value);
-            }
-            else if (recipeId.HasValue)
+                Id = Guid.NewGuid(),
+                MealPlanId = plan.Id,
+                MealType = request.MealType,
+                FoodId = request.FoodId,
+                RecipeId = request.RecipeId,
+                PlannedDate = request.PlannedDate ?? plan.StartDate,
+                ScheduledTime = request.ScheduledTime ?? DefaultMealTime(request.MealType),
+                IsCompleted = request.IsCompleted,
+                Origin = "coach",
+                CustomName = request.CustomName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            PortionNutritionResponse? calculation = null;
+            if (request.RecipeId.HasValue)
             {
-                var recipe = await _unitOfWork.Recipes.GetByIdAsync(recipeId.Value);
-                if (recipe?.FoodId.HasValue == true)
+                calculation = await _portionCalculator.CalculateRecipeAsync(
+                    request.RecipeId.Value,
+                    request.Ingredients);
+                if ((request.Ingredients == null || request.Ingredients.Count == 0)
+                    && request.QuantityG is > 0
+                    && calculation.QuantityG > 0)
                 {
-                    catalogFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                    calculation = _portionCalculator.Scale(
+                        calculation,
+                        (decimal)request.QuantityG.Value / calculation.QuantityG);
                 }
             }
+            else if (request.FoodId.HasValue)
+            {
+                calculation = await _portionCalculator.CalculateFoodAsync(
+                    request.FoodId.Value,
+                    request.QuantityG is > 0 ? (decimal)request.QuantityG.Value : null);
+            }
 
-            return catalogFood?.DefaultServingG
-                ?? (decimal?)requestedQuantityG
-                ?? 100m;
+            if (calculation == null)
+            {
+                entity.QuantityG = request.QuantityG is > 0
+                    ? (decimal)request.QuantityG.Value
+                    : 100m;
+                entity.TargetCalories = request.TargetCalories;
+                return entity;
+            }
+
+            entity.QuantityG = calculation.QuantityG;
+            entity.TargetCalories = (int)Math.Round(
+                calculation.CaloriesKcal,
+                MidpointRounding.AwayFromZero);
+            entity.ProteinG = calculation.ProteinG;
+            entity.CarbsG = calculation.CarbsG;
+            entity.FatG = calculation.FatG;
+            entity.IngredientSnapshotJson = calculation.Ingredients.Count == 0
+                ? null
+                : _portionCalculator.Serialize(calculation);
+            return entity;
         }
 
         private static bool IsApprovalOutdated(MealPlanHeader plan)

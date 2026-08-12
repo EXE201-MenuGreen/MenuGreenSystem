@@ -46,6 +46,8 @@ class _FakeAdvancedRepository extends AdvancedRepository {
     String weekStart,
     int expiry, {
     String requestType = 'WeeklyReport',
+    String? mealPlanId,
+    int? submittedTotalCalories,
     String? studentNote,
     double? checkInWeight,
     double? checkInBodyFat,

@@ -1,6 +1,8 @@
 /// Additional response models cho Meal Plan
 library;
 
+import '../../discover/models/food_models.dart';
+
 class MealPlanListItem {
   final String id;
   final String title;
@@ -191,6 +193,7 @@ class MealPlanItemDetail {
   final double? quantityG;
   final int? estimatedPriceVnd;
   final String? customName;
+  final List<RecipeIngredientItem> ingredients;
 
   /// Ngu?n g?c: "user" = t?o tay ? tab K? ho?ch,
   /// "gym" = t?o t? ??ng t? AI Gym Goals ? tab M?c ti?u.
@@ -217,6 +220,7 @@ class MealPlanItemDetail {
     this.quantityG,
     this.estimatedPriceVnd,
     this.customName,
+    this.ingredients = const [],
     this.origin,
   });
 
@@ -251,6 +255,15 @@ class MealPlanItemDetail {
       ),
       customName: (json['customName'] ?? json['CustomName'])?.toString(),
       origin: (json['origin'] ?? json['Origin'])?.toString(),
+      ingredients:
+          ((json['ingredients'] ?? json['Ingredients']) as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) => RecipeIngredientItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -276,6 +289,7 @@ class MealPlanItemDetail {
     int? estimatedPriceVnd,
     String? customName,
     String? origin,
+    List<RecipeIngredientItem>? ingredients,
   }) {
     return MealPlanItemDetail(
       id: id ?? this.id,
@@ -299,6 +313,7 @@ class MealPlanItemDetail {
       estimatedPriceVnd: estimatedPriceVnd ?? this.estimatedPriceVnd,
       customName: customName ?? this.customName,
       origin: origin ?? this.origin,
+      ingredients: ingredients ?? this.ingredients,
     );
   }
 
@@ -534,7 +549,9 @@ class MealPlanDayDashboard {
     List<MealPlanItemDetail>? completedItems,
   }) {
     final updatedPlannedItems = plannedItems ?? this.plannedItems;
-    final updatedCompleted = updatedPlannedItems.where((i) => i.isDone).toList();
+    final updatedCompleted = updatedPlannedItems
+        .where((i) => i.isDone)
+        .toList();
     return MealPlanDayDashboard(
       date: date ?? this.date,
       plannedCalories: plannedCalories ?? this.plannedCalories,

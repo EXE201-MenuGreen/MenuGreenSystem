@@ -157,6 +157,8 @@ class ApiEndpoints {
       '$baseUrl/MealPlan/$planId/items';
   static String mealPlanItem(String planId, String itemId) =>
       '$baseUrl/MealPlan/$planId/items/$itemId';
+  static String mealPlanBalanceCalories(String planId) =>
+      '$baseUrl/MealPlan/$planId/balance-calories';
   static String mealPlanItemStatus(String planId, String itemId) =>
       '$baseUrl/MealPlan/$planId/items/$itemId/status';
   static String mealPlanItemConvertToLog(String planId, String itemId) =>

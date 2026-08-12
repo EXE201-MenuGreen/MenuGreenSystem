@@ -32,6 +32,15 @@ namespace MenuGreen.API.Controllers
             [FromBody] UpdateMealPlanProposalRequest request) =>
             await ExecuteAsync(userId => _service.UpdateDraftAsync(userId, proposalId, request));
 
+        [HttpPut("{proposalId:guid}/items/{itemId:guid}/portion")]
+        [Authorize(Policy = "CoachOnly")]
+        public async Task<IActionResult> UpdateItemPortion(
+            Guid proposalId,
+            Guid itemId,
+            [FromBody] UpdateMealPlanProposalItemPortionRequest request) =>
+            await ExecuteAsync(userId =>
+                _service.UpdateItemPortionAsync(userId, proposalId, itemId, request));
+
         [HttpPost("{proposalId:guid}/submit")]
         [Authorize(Policy = "CoachOnly")]
         public async Task<IActionResult> Submit(Guid proposalId) =>

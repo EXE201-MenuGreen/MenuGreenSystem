@@ -15,6 +15,19 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         [StringLength(30)]
         public string? RequestType { get; set; }
 
+        /// <summary>
+        /// The exact daily meal plan being submitted for RouteApproval.
+        /// Weekly reports do not need to provide this value.
+        /// </summary>
+        public Guid? MealPlanId { get; set; }
+
+        /// <summary>
+        /// Total calories visible to the Gymer at submission time. RouteApproval
+        /// validates this against the stored meal-plan snapshot before freezing it.
+        /// </summary>
+        [Range(0, 100000)]
+        public int? SubmittedTotalCalories { get; set; }
+
         [StringLength(1000)]
         public string? StudentNote { get; set; }
 

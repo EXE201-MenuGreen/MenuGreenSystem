@@ -74,6 +74,7 @@ namespace MenuGreen.BusinessLogicLayer
             services.AddScoped<ICoachService, CoachService>();
             services.AddScoped<ICoachReviewService, CoachReviewService>();
             services.AddScoped<IMealPlanProposalService, MealPlanProposalService>();
+            services.AddScoped<IPortionNutritionCalculator, PortionNutritionCalculator>();
             services.AddScoped<ICoachChatService, CoachChatService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<ILuckyWheelService, LuckyWheelService>();

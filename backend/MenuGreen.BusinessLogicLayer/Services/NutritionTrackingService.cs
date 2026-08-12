@@ -20,19 +20,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IRecipeService _recipeService;
         private readonly IPortionConverterService _portionConverterService;
         private readonly ICacheService _cache;
+        private readonly IPortionNutritionCalculator _portionCalculator;
 
         public NutritionTrackingService(
             IUnitOfWork unitOfWork,
             INutritionSnapshotService nutritionSnapshotService,
             IRecipeService recipeService,
             IPortionConverterService portionConverterService,
-            ICacheService cache)
+            ICacheService cache,
+            IPortionNutritionCalculator portionCalculator)
         {
             _unitOfWork = unitOfWork;
             _nutritionSnapshotService = nutritionSnapshotService;
             _recipeService = recipeService;
             _portionConverterService = portionConverterService;
             _cache = cache;
+            _portionCalculator = portionCalculator;
         }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
@@ -483,6 +486,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var quantityG = await ResolveQuantityGAsync(request, entity.UserId);
             entity.QuantityG = quantityG;
             entity.Notes = request.Notes;
+            var actualSnapshot = await ResolveActualSnapshotAsync(entity, request, quantityG);
+            if (actualSnapshot != null)
+            {
+                entity.IngredientSnapshotJson = _portionCalculator.Serialize(actualSnapshot);
+                entity.ConsumptionRatio = request.ConsumptionRatio ?? entity.ConsumptionRatio;
+            }
             entity.LoggedAt = EnsureUtc(request.LoggedAt ?? entity.LoggedAt ?? DateTime.UtcNow);
             if (request.MealPlanItemId.HasValue)
             {
@@ -495,6 +504,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 var food = await _unitOfWork.Foods.GetByIdAsync(request.FoodId.Value) ?? throw new Exception("Food not found.");
                 ApplyNutritionFromFood(entity, food, quantityG);
                 ApplyMealPlanNutritionOverride(entity, request);
+                ApplySnapshotNutrition(entity, actualSnapshot);
                 entity.SourceType = "Food";
                 return;
             }
@@ -518,6 +528,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         quantityG);
                 }
                 ApplyMealPlanNutritionOverride(entity, request);
+                ApplySnapshotNutrition(entity, actualSnapshot);
                 entity.SourceType = "Recipe";
                 return;
             }
@@ -535,6 +546,42 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             throw new Exception("FoodId or RecipeId or custom nutritional values are required.");
+        }
+
+        private async Task<PortionNutritionResponse?> ResolveActualSnapshotAsync(
+            MealLog entity,
+            MealLogUpsertRequest request,
+            decimal quantityG)
+        {
+            var requestedSnapshot = _portionCalculator.Deserialize(request.IngredientSnapshotJson);
+            if (requestedSnapshot != null)
+            {
+                entity.ConsumptionRatio = request.ConsumptionRatio;
+                return requestedSnapshot;
+            }
+
+            if (!entity.MealPlanItemId.HasValue) return null;
+            var planItem = await _unitOfWork.MealPlanItems.GetByIdAsync(entity.MealPlanItemId.Value);
+            var plannedSnapshot = _portionCalculator.Deserialize(planItem?.IngredientSnapshotJson);
+            if (plannedSnapshot == null) return null;
+
+            var plannedQuantity = planItem?.QuantityG is > 0
+                ? planItem.QuantityG.Value
+                : plannedSnapshot.QuantityG;
+            var ratio = plannedQuantity > 0 ? quantityG / plannedQuantity : 1m;
+            entity.ConsumptionRatio = ratio;
+            return _portionCalculator.Scale(plannedSnapshot, ratio);
+        }
+
+        private static void ApplySnapshotNutrition(
+            MealLog entity,
+            PortionNutritionResponse? snapshot)
+        {
+            if (snapshot == null) return;
+            entity.CaloriesKcal = snapshot.CaloriesKcal;
+            entity.ProteinG = snapshot.ProteinG;
+            entity.CarbsG = snapshot.CarbsG;
+            entity.FatG = snapshot.FatG;
         }
 
         private static void ApplyNutritionFromFood(MealLog entity, Food food, decimal quantityG)
@@ -625,7 +672,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     continue;
                 }
 
-                var targetCalories = (decimal)item.TargetCalories.Value;
+                var consumptionRatio = log.ConsumptionRatio is > 0
+                    ? log.ConsumptionRatio.Value
+                    : 1m;
+                var targetCalories = (decimal)item.TargetCalories.Value * consumptionRatio;
                 var currentCalories = log.CaloriesKcal ?? 0m;
                 if (Math.Abs(currentCalories - targetCalories) < 0.01m)
                 {
@@ -1044,6 +1094,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinG = x.ProteinG,
                 CarbsG = x.CarbsG,
                 FatG = x.FatG,
+                ConsumptionRatio = x.ConsumptionRatio,
+                Ingredients = DeserializePortionIngredients(x.IngredientSnapshotJson),
                 SourceType = x.SourceType,
                 CustomName = x.CustomName,
                 Notes = x.Notes,
@@ -1055,6 +1107,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 DisplayName = displayName,
                 DisplayPortion = x.QuantityG.HasValue ? $"{x.QuantityG.Value:0.##}g" : null
             };
+        }
+
+        private static List<PortionIngredientResponse> DeserializePortionIngredients(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new List<PortionIngredientResponse>();
+            try
+            {
+                return JsonSerializer.Deserialize<PortionNutritionResponse>(
+                    json,
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Ingredients
+                    ?? new List<PortionIngredientResponse>();
+            }
+            catch (JsonException)
+            {
+                return new List<PortionIngredientResponse>();
+            }
         }
 
         private static WeightLogResponse Map(WeightLog x) => new() { Id = x.Id, UserId = x.UserId, WeightKg = x.WeightKg, BodyFatPercent = x.BodyFatPercent, RecordedAt = x.RecordedAt };

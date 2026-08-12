@@ -178,17 +178,58 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }).ToList();
 
             // 4. Load daily meals details (planned and actual)
-            var plans = await _unitOfWork.MealPlanHeaders.FindAsync(h =>
+            var plans = (await _unitOfWork.MealPlanHeaders.FindAsync(h =>
                 h.UserId == userId
+                && h.IsActive
+                && h.Status != "Draft"
+                && h.Status != "PendingAcceptance"
+                && h.Status != "Rejected"
                 && h.StartDate <= weekEndDate
-                && h.EndDate >= weekStartDate);
-            var configuredPlan = SelectPlanForDate(plans, weekStartDate);
+                && (h.EndDate ?? h.StartDate) >= weekStartDate)).ToList();
+            MealPlanHeader? configuredPlan;
+            if (isRouteApproval && request.MealPlanId.HasValue)
+            {
+                configuredPlan = plans.FirstOrDefault(plan =>
+                    plan.Id == request.MealPlanId.Value
+                    && plan.StartDate <= weekStartDate
+                    && (plan.EndDate ?? plan.StartDate) >= weekStartDate);
+                if (configuredPlan == null)
+                {
+                    throw new Exception(
+                        "Lộ trình được gửi không tồn tại hoặc không áp dụng cho ngày đã chọn.");
+                }
+            }
+            else
+            {
+                configuredPlan = SelectPlanForDate(plans, weekStartDate);
+            }
+            if (isRouteApproval && configuredPlan == null)
+            {
+                throw new Exception("Không tìm thấy lộ trình ăn uống để gửi PT duyệt.");
+            }
+            if (isRouteApproval && request.SubmittedTotalCalories.HasValue)
+            {
+                var submittedPlanItems = await _unitOfWork.MealPlanItems.FindAsync(item =>
+                    item.MealPlanId == configuredPlan!.Id
+                    && (item.PlannedDate == null || item.PlannedDate == weekStartDate));
+                var storedTotal = submittedPlanItems.Sum(item => item.TargetCalories ?? 0);
+                if (storedTotal != request.SubmittedTotalCalories.Value)
+                {
+                    throw new InvalidOperationException(
+                        $"Lộ trình vừa thay đổi từ {request.SubmittedTotalCalories.Value} thành {storedTotal} kcal. Vui lòng tải lại và kiểm tra trước khi gửi PT.");
+                }
+            }
             var configuredTargets = await ResolveGymTargetsAsync(
                 userId,
                 weekStartDate);
 
             var dailyMeals = isRouteApproval
-                ? await LoadDailyMealsSnapshotAsync(userId, weekStartDate, weekStartDate, dataThroughDate)
+                ? await LoadDailyMealsSnapshotAsync(
+                    userId,
+                    weekStartDate,
+                    weekStartDate,
+                    dataThroughDate,
+                    configuredPlan?.Id)
                 : await LoadDailyMealsSnapshotAsync(userId, weekStartDate, weekEndDate, dataThroughDate);
 
             var snapshot = new WeeklyReportSnapshot
@@ -1857,11 +1898,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             Guid userId,
             DateOnly weekStart,
             DateOnly weekEnd,
-            DateOnly dataThroughDate)
+            DateOnly dataThroughDate,
+            Guid? preferredPlanId = null)
         {
             var plans = (await _unitOfWork.MealPlanHeaders.FindAsync(plan =>
                 plan.UserId == userId
                 && plan.IsActive
+                && plan.Status != "Draft"
+                && plan.Status != "PendingAcceptance"
+                && plan.Status != "Rejected"
                 && plan.StartDate <= weekEnd
                 && (plan.EndDate ?? plan.StartDate) >= weekStart)).ToList();
             var planIds = plans.Select(plan => plan.Id).ToList();
@@ -1875,13 +1920,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var planItems = new List<MealPlanItem>();
             for (var d = weekStart; d <= weekEnd; d = d.AddDays(1))
             {
-                var covering = plans
-                    .Where(p => p.StartDate <= d && (p.EndDate ?? p.StartDate) >= d)
-                    .OrderByDescending(p => p.CreatedAt)
-                    .ToList();
-                if (!covering.Any()) continue;
+                var preferred = preferredPlanId.HasValue
+                    ? plans.FirstOrDefault(plan =>
+                        plan.Id == preferredPlanId.Value
+                        && plan.StartDate <= d
+                        && (plan.EndDate ?? plan.StartDate) >= d)
+                    : null;
+                var effectivePlan = preferred ?? SelectPlanForDate(plans, d);
+                if (effectivePlan == null) continue;
 
-                var effectiveId = covering.First().Id;
+                var effectiveId = effectivePlan.Id;
                 planItems.AddRange(allPlanItems.Where(i => i.MealPlanId == effectiveId && i.PlannedDate == d));
             }
 
@@ -1951,8 +1999,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     {
                         foods.TryGetValue(recipe.FoodId.Value, out catalogFood);
                     }
-                    var quantity = catalogFood?.DefaultServingG
-                        ?? item.QuantityG
+                    var quantity = item.QuantityG
+                        ?? catalogFood?.DefaultServingG
                         ?? 100m;
                     day.PlannedItems.Add(new MealPlanItemSnapshot
                     {

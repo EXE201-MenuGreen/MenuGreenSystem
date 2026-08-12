@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
+import '../../../core/widgets/daily_calorie_balance_card.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
@@ -124,6 +125,25 @@ GymRouteApprovalPhase gymRouteApprovalPhase(Object? rawStatus) {
   };
 }
 
+@visibleForTesting
+bool gymCanAutoBalancePlan({
+  required bool hasPlan,
+  required bool hasMeals,
+  required bool hasTarget,
+  required bool hasAcceptedPtConnection,
+  required bool hasPtProgram,
+  required bool isSentToPt,
+  required bool isLoading,
+}) {
+  return hasPlan &&
+      hasMeals &&
+      hasTarget &&
+      hasAcceptedPtConnection &&
+      !hasPtProgram &&
+      !isSentToPt &&
+      !isLoading;
+}
+
 /// Finds the Gymer -> PT route request for one concrete plan date.
 @visibleForTesting
 Map<String, dynamic>? gymRouteRequestForDate(
@@ -166,6 +186,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   bool _hasProAccess = false;
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
+  bool _balancingCalories = false;
   bool _checkingPtConnection = true;
   GymPtConnectionPhase _ptConnectionPhase = GymPtConnectionPhase.none;
   bool _isSentToPt = false;
@@ -1341,9 +1362,92 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Widget _buildTodayMealPlan(GymGoalsProvider provider) {
     final slots = ['breakfast', 'lunch', 'dinner', 'snack'];
     final routePhase = gymRouteApprovalPhase(_activeRouteReq?['status']);
+    final gymItems =
+        _todayPlan?.items
+            .where(
+              (item) =>
+                  item.origin == null ||
+                  item.origin!.isEmpty ||
+                  item.origin!.toLowerCase() == 'gym',
+            )
+            .toList() ??
+        const <MealPlanItemModel>[];
+    final targetCalories = _todayPlan?.targetCalories ?? 0;
+    final canAutoBalance = gymCanAutoBalancePlan(
+      hasPlan: _todayPlan != null,
+      hasMeals: gymItems.isNotEmpty,
+      hasTarget: targetCalories > 0,
+      hasAcceptedPtConnection: _hasAcceptedPtConnection,
+      hasPtProgram: _hasTodayPtProgram,
+      isSentToPt: _isSentToPt,
+      isLoading: _balancingCalories,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (gymItems.isNotEmpty && targetCalories > 0) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFD1FAE5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calculate_rounded, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tổng kcal của 4 bữa',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isSentToPt
+                      ? 'Lộ trình đã gửi PT nên khẩu phần đang được khóa.'
+                      : 'Bạn có thể tự cân bằng trước khi gửi PT duyệt.',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DailyCalorieBalanceCard(
+                  totalCalories: gymItems.fold<int>(
+                    0,
+                    (sum, item) => sum + item.targetCalories,
+                  ),
+                  targetCalories: targetCalories,
+                  mealCount: gymItems
+                      .map((item) => item.mealType.toLowerCase())
+                      .toSet()
+                      .length,
+                  canAutoBalance: canAutoBalance,
+                  lockedLabel: _balancingCalories
+                      ? 'Đang chỉnh'
+                      : _isSentToPt
+                      ? 'Đã gửi PT'
+                      : 'Đã khóa',
+                  onAutoBalance: canAutoBalance
+                      ? () => _autoBalanceGymPlan(gymItems)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         for (final slot in slots) ...[
           _buildMealSlot(slot, provider),
           const SizedBox(height: 16),
@@ -1496,7 +1600,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _sendToPt,
+              onPressed: _loadingPlan || _balancingCalories ? null : _sendToPt,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -1819,6 +1923,65 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ],
       ],
     );
+  }
+
+  Future<void> _autoBalanceGymPlan(List<MealPlanItemModel> items) async {
+    final plan = _todayPlan;
+    if (plan == null || plan.targetCalories <= 0 || items.isEmpty) return;
+    if (_isSentToPt || _hasTodayPtProgram) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lộ trình đã gửi hoặc thuộc PT nên không thể chỉnh.'),
+        ),
+      );
+      return;
+    }
+    if (items.any((item) => item.id.startsWith('temp_'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hãy chờ món đang thêm được lưu xong.')),
+      );
+      return;
+    }
+
+    final originalTotal = items.fold<int>(
+      0,
+      (sum, item) => sum + item.targetCalories,
+    );
+    setState(() => _balancingCalories = true);
+    try {
+      final balanced = await MealPlanRepository().balanceDailyCalories(
+        planId: plan.id,
+        plannedDate: _planDate,
+        targetCalories: plan.targetCalories,
+        itemIds: items.map((item) => item.id).toList(),
+      );
+      if (!mounted) return;
+      setState(() => _todayPlan = balanced);
+      final factor = originalTotal <= 0
+          ? 1.0
+          : plan.targetCalories / originalTotal;
+      final percent = ((factor - 1).abs() * 100).round();
+      final action = factor >= 1 ? 'tăng' : 'giảm';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã $action khẩu phần khoảng $percent% và cân bằng về ${plan.targetCalories} kcal.',
+            ),
+          ),
+        );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiMessageTranslator.translate(error.toString())),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _balancingCalories = false);
+    }
   }
 
   Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
@@ -2592,8 +2755,28 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _sendToPt() async {
+    if (_balancingCalories) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hãy chờ hệ thống tự cân bằng xong trước khi gửi PT.'),
+        ),
+      );
+      return;
+    }
     setState(() => _loadingPlan = true);
     try {
+      var plan = _todayPlan;
+      if (plan == null) {
+        throw Exception('Không tìm thấy lộ trình ăn uống để gửi PT duyệt.');
+      }
+      final displayedTotalCalories = plan.items
+          .where(
+            (item) =>
+                item.origin == null ||
+                item.origin!.isEmpty ||
+                item.origin!.toLowerCase() == 'gym',
+          )
+          .fold<int>(0, (sum, item) => sum + item.targetCalories);
       final coaches = await AdvancedRepository().myCoaches();
       final connectionPhase = gymPtConnectionPhase(coaches);
       if (connectionPhase != GymPtConnectionPhase.connected) {
@@ -2612,12 +2795,46 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         return;
       }
 
+      // The server snapshot is authoritative. Reload immediately before
+      // submission so the Gymer and PT cannot send/read different calorie
+      // revisions after a portion adjustment.
+      final latestPlan = await MealPlanRepository().getByDate(_planDate);
+      if (latestPlan == null) {
+        throw Exception('Không tìm thấy lộ trình mới nhất để gửi PT duyệt.');
+      }
+      final latestTotalCalories = latestPlan.items
+          .where(
+            (item) =>
+                item.origin == null ||
+                item.origin!.isEmpty ||
+                item.origin!.toLowerCase() == 'gym',
+          )
+          .fold<int>(0, (sum, item) => sum + item.targetCalories);
+      plan = latestPlan;
+      if (mounted) {
+        setState(() => _todayPlan = latestPlan);
+      }
+      if (latestTotalCalories != displayedTotalCalories) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Lộ trình vừa thay đổi từ $displayedTotalCalories thành $latestTotalCalories kcal. Hãy kiểm tra lại trước khi gửi PT.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final requestDate = gymPlanDateKey(_planDate);
 
       final createdRequest = await AdvancedRepository().createPtReport(
         requestDate,
         7,
         requestType: 'RouteApproval',
+        mealPlanId: plan.id,
+        submittedTotalCalories: latestTotalCalories,
       );
       if (mounted) {
         setState(() {

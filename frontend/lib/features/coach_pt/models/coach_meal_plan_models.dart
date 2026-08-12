@@ -11,6 +11,8 @@
 /// ----------------------------------------------------------------------------
 library;
 
+import 'coach_report_models.dart';
+
 String coachMealPlanStatusLabel(String status) {
   return switch (status.trim().toLowerCase()) {
     'approved' => 'Đã duyệt & gửi',
@@ -243,6 +245,7 @@ class CoachMealPlanItem {
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.ingredients = const [],
   });
 
   final String id;
@@ -258,6 +261,7 @@ class CoachMealPlanItem {
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
+  final List<MealPlanIngredientPortion> ingredients;
 
   factory CoachMealPlanItem.fromJson(Map<String, dynamic> j) {
     final mealType = (j['mealType'] ?? j['MealType'] ?? 'snack') as String;
@@ -285,6 +289,28 @@ class CoachMealPlanItem {
       proteinG: _num(j['proteinG'] ?? j['ProteinG'])?.toDouble(),
       carbsG: _num(j['carbsG'] ?? j['CarbsG'])?.toDouble(),
       fatG: _num(j['fatG'] ?? j['FatG'])?.toDouble(),
+      ingredients: ((j['ingredients'] ?? j['Ingredients']) as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (ingredient) => MealPlanIngredientPortion(
+              ingredientId:
+                  (ingredient['ingredientId'] ??
+                          ingredient['IngredientId'] ??
+                          '')
+                      .toString(),
+              quantity:
+                  _num(
+                    ingredient['quantity'] ?? ingredient['Quantity'],
+                  )?.toDouble() ??
+                  0,
+              unit: (ingredient['unit'] ?? ingredient['Unit'] ?? '').toString(),
+            ),
+          )
+          .where(
+            (ingredient) =>
+                ingredient.ingredientId.isNotEmpty && ingredient.quantity > 0,
+          )
+          .toList(),
     );
   }
 }
