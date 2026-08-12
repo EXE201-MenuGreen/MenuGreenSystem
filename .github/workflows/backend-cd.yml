@@ -46,18 +46,11 @@ jobs:
           echo "=== Initial disk space ==="
           df -h
 
-      # Expose migration status from CI
-      - name: Check if migration was generated in CI
-        id: check_migration
-        run: |
-          if grep -q "MIGRATION_GENERATED=true" <<< "${{ toJSON(github.event.commits.*.message) }}" 2>/dev/null || \
-             curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               "${{ github.api_url }}/repos/${{ github.repository }}/actions/runs?head_sha=${{ github.sha }}" \
-               -q '.workflow_runs[0].conclusion' 2>/dev/null | grep -q "success"; then
-            echo "MIGRATION_GENERATED=true" >> $GITHUB_OUTPUT
-          else
-            echo "MIGRATION_GENERATED=false" >> $GITHUB_OUTPUT
-          fi
+      # NOTE: dotnet-ef is not available on server, so we skip this check.
+      # EF Core migrations are handled by the app on startup.
+      # Raw SQL migrations are applied by deploy-server.sh.
+      - name: Check migrations
+        run: echo "MIGRATION_GENERATED=false" >> $GITHUB_OUTPUT
 
       # -----------------------------------------------------------------------------
       # Upload nginx config + deploy script to the server.
