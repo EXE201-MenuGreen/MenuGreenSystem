@@ -1,5 +1,6 @@
 import '../../advanced/repositories/advanced_repository.dart';
 import '../models/coach_meal_plan_models.dart';
+import '../models/coach_report_models.dart';
 
 /// Helper functions for parsing JSON
 int _parseInt(dynamic v) {
@@ -361,6 +362,7 @@ class ClientMealPlanItemPayload {
     this.scheduledTime,
     this.targetCalories,
     this.quantityG,
+    this.ingredients = const [],
   });
 
   /// Null when adding a new item; required when updating an existing one.
@@ -372,6 +374,7 @@ class ClientMealPlanItemPayload {
   final String? scheduledTime; // "HH:mm"
   final int? targetCalories;
   final double? quantityG;
+  final List<MealPlanIngredientPortion> ingredients;
 
   Map<String, dynamic> toJson() => {
     if (id != null) 'id': id,
@@ -386,5 +389,7 @@ class ClientMealPlanItemPayload {
     if (scheduledTime != null) 'scheduledTime': scheduledTime,
     if (targetCalories != null) 'targetCalories': targetCalories,
     if (quantityG != null) 'quantityG': quantityG,
+    if (ingredients.isNotEmpty)
+      'ingredients': ingredients.map((item) => item.toJson()).toList(),
   };
 }

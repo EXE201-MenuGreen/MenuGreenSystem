@@ -254,6 +254,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                             RecipeId = item.RecipeId,
                             QuantityG = item.QuantityG,
                             TargetCalories = item.TargetCalories,
+                            Ingredients = item.Ingredients.Select(x =>
+                                new MealPlanIngredientPortionRequest
+                                {
+                                    IngredientId = x.IngredientId,
+                                    Quantity = x.Quantity,
+                                    Unit = x.Unit
+                                }).ToList(),
                             SortOrder = index
                         }).ToList()
                     : new List<MealPlanProposalItemRequest>();
@@ -289,7 +296,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         ExistingMealPlanItemId = adjustment.ItemId,
                         FoodId = adjustment.FoodId,
                         RecipeId = adjustment.RecipeId,
+                        QuantityG = adjustment.QuantityG,
                         TargetCalories = adjustment.TargetCalories,
+                        Ingredients = adjustment.Ingredients,
                         SortOrder = proposalItems.Count
                     });
                 }

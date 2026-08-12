@@ -40,6 +40,7 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
   late int _currentIndex;
 
   late final List<Widget> _pages;
+  final _mealPlanTabController = CoachMealPlanSelectClientController();
   final _profileRepo = ProfileRepository();
 
   @override
@@ -48,7 +49,7 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
     _currentIndex = widget.initialIndex.clamp(0, 4).toInt();
     _pages = [
       const _CoachClientsTab(),
-      const CoachMealPlanSelectClientScreen(),
+      CoachMealPlanSelectClientScreen(controller: _mealPlanTabController),
       const CoachReportsTabScreen(),
       _CoachNotificationsTab(onOpenTab: _selectTab),
       const _CoachProfileTab(),
@@ -58,7 +59,16 @@ class _CoachMainScreenState extends State<CoachMainScreen> {
 
   void _selectTab(int index) {
     if (!mounted || index < 0 || index >= _pages.length) return;
+    if (index == 1) {
+      _mealPlanTabController.refresh();
+    }
     setState(() => _currentIndex = index);
+  }
+
+  @override
+  void dispose() {
+    _mealPlanTabController.dispose();
+    super.dispose();
   }
 
   /// Guard: nếu user hiện tại không phải role `coach` thì đẩy về MainScreen.

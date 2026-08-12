@@ -194,6 +194,7 @@ class _CoachMealPlanHistoryScreenState
             child: _PlanList(
               currentPage: _currentPage,
               onPageChanged: (p) => setState(() => _currentPage = p),
+              onCreate: _pushCreate,
               itemsPerPage: 5,
             ),
           ),
@@ -334,11 +335,13 @@ class _PlanList extends StatelessWidget {
   const _PlanList({
     required this.currentPage,
     required this.onPageChanged,
+    required this.onCreate,
     this.itemsPerPage = 5,
   });
 
   final int currentPage;
   final ValueChanged<int> onPageChanged;
+  final VoidCallback onCreate;
   final int itemsPerPage;
 
   @override
@@ -353,7 +356,7 @@ class _PlanList extends StatelessWidget {
       return _ErrorState(message: provider.error!, onRetry: provider.refresh);
     }
     if (provider.plans.isEmpty) {
-      return const _EmptyState();
+      return _EmptyState(onCreate: onCreate);
     }
 
     final allPlans = provider.plans;
@@ -887,7 +890,9 @@ class _PlanStatusChip extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.onCreate});
+
+  final VoidCallback onCreate;
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -926,6 +931,19 @@ class _EmptyState extends StatelessWidget {
             color: Color(0xFF6B7280),
             fontSize: 13.5,
             height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: FilledButton.icon(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Tạo lộ trình đầu tiên'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+            ),
           ),
         ),
       ],

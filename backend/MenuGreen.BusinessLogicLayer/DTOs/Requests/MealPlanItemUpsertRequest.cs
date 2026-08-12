@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
@@ -24,6 +25,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         public string? CustomName { get; set; }
         public double? QuantityG { get; set; }
+        public List<MealPlanIngredientPortionRequest>? Ingredients { get; set; }
     }
 
     public class MealPlanItemReplaceRequest

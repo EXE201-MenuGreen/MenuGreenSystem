@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
@@ -43,6 +44,13 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         [Range(0, double.MaxValue, ErrorMessage = "Fat must be positive.")]
         public decimal? FatG { get; set; }
+
+        // Internal meal-plan completion snapshot. Clients cannot influence
+        // catalog data; this value is copied from the approved plan item.
+        [JsonIgnore]
+        public string? IngredientSnapshotJson { get; set; }
+        [JsonIgnore]
+        public decimal? ConsumptionRatio { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

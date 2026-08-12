@@ -14,6 +14,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
+        public decimal? ConsumptionRatio { get; set; }
+        public System.Collections.Generic.List<PortionIngredientResponse> Ingredients { get; set; } = new();
         public string? SourceType { get; set; }
         public string? CustomName { get; set; }
         public string? Notes { get; set; }

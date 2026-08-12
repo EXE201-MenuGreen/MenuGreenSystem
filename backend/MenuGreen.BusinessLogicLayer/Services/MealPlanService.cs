@@ -19,6 +19,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IGroceryListBuilderService _groceryListBuilder;
         private readonly IShoppingTripBuilderService _shoppingTripBuilder;
         private readonly ICacheService _cache;
+        private readonly IPortionNutritionCalculator _portionCalculator;
         private static readonly TimeSpan MealPlanTtl = TimeSpan.FromMinutes(5);
 
         public MealPlanService(
@@ -26,13 +27,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             INutritionTrackingService nutritionTracking,
             IGroceryListBuilderService groceryListBuilder,
             IShoppingTripBuilderService shoppingTripBuilder,
-            ICacheService cache)
+            ICacheService cache,
+            IPortionNutritionCalculator portionCalculator)
         {
             _unitOfWork = unitOfWork;
             _nutritionTracking = nutritionTracking;
             _groceryListBuilder = groceryListBuilder;
             _shoppingTripBuilder = shoppingTripBuilder;
             _cache = cache;
+            _portionCalculator = portionCalculator;
         }
 
         public async Task<IEnumerable<MealPlanResponse>> GetAllAsync(bool? isActive = null, Guid? userId = null)
@@ -205,6 +208,12 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             ValidateItem(request);
             var plan = await GetMealPlanAsync(planId, userId);
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                await EnsureGymerRouteEditableAsync(
+                    userId.Value,
+                    request.PlannedDate ?? plan.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)));
+            }
 
             var item = new MealPlanItem
             {
@@ -225,6 +234,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.MealPlanItems.AddAsync(item);
             await _unitOfWork.CompleteAsync();
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                await InvalidateMealPlanDateCacheAsync(
+                    userId.Value,
+                    item.PlannedDate,
+                    plan);
+            }
             return await GetByIdAsync(planId, userId);
         }
 
@@ -232,6 +248,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             ValidateItem(request);
             var item = await GetPlanItemAsync(planId, itemId, userId);
+            MealPlanHeader? planForCache = null;
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                planForCache = await GetMealPlanAsync(planId, userId);
+                await EnsureGymerRouteEditableAsync(
+                    userId.Value,
+                    request.PlannedDate ?? item.PlannedDate ?? planForCache.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)));
+            }
             item.MealType = request.MealType;
             item.FoodId = request.FoodId;
             item.RecipeId = request.RecipeId;
@@ -245,6 +269,119 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (request.QuantityG.HasValue) item.QuantityG = (decimal?)request.QuantityG;
             _unitOfWork.MealPlanItems.Update(item);
             await _unitOfWork.CompleteAsync();
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                await InvalidateMealPlanDateCacheAsync(
+                    userId.Value,
+                    item.PlannedDate,
+                    planForCache);
+            }
+            return await GetByIdAsync(planId, userId);
+        }
+
+        public async Task<MealPlanResponse> BalanceDailyCaloriesAsync(
+            Guid planId,
+            BalanceMealPlanCaloriesRequest request,
+            Guid userId)
+        {
+            var plan = await GetMealPlanAsync(planId, userId);
+            await EnsureGymerRouteEditableAsync(userId, request.PlannedDate);
+
+            var requestedIds = request.ItemIds.Distinct().ToHashSet();
+            var items = (await _unitOfWork.MealPlanItems.FindAsync(x =>
+                    x.MealPlanId == plan.Id && requestedIds.Contains(x.Id)))
+                .ToList();
+            if (items.Count != requestedIds.Count)
+                throw new InvalidOperationException("Có món không thuộc lộ trình đang chỉnh.");
+            if (items.Any(x => x.PlannedDate != request.PlannedDate))
+                throw new InvalidOperationException("Chỉ có thể cân bằng các món trong cùng một ngày.");
+            if (items.Any(x => x.IsCompleted))
+                throw new InvalidOperationException("Không thể chỉnh khẩu phần của món đã hoàn thành.");
+
+            var sources = new List<(MealPlanItem Item, PortionNutritionResponse Nutrition)>();
+            foreach (var item in items)
+            {
+                var nutrition = _portionCalculator.Deserialize(item.IngredientSnapshotJson);
+                if (nutrition == null && item.RecipeId.HasValue)
+                {
+                    try
+                    {
+                        nutrition = await _portionCalculator.CalculateRecipeAsync(item.RecipeId.Value);
+                        if (item.QuantityG is > 0 && nutrition.QuantityG > 0)
+                        {
+                            nutrition = _portionCalculator.Scale(
+                                nutrition,
+                                item.QuantityG.Value / nutrition.QuantityG);
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Legacy AI recipes can lack catalog ingredient rows.
+                        // Their stored snapshot remains the safest baseline.
+                        nutrition = null;
+                    }
+                }
+                if (nutrition == null && item.FoodId.HasValue)
+                {
+                    nutrition = await _portionCalculator.CalculateFoodAsync(
+                        item.FoodId.Value,
+                        item.QuantityG);
+                }
+                if (nutrition == null)
+                {
+                    nutrition = new PortionNutritionResponse
+                    {
+                        QuantityG = item.QuantityG ?? 100m,
+                        CaloriesKcal = item.TargetCalories ?? 0,
+                        ProteinG = item.ProteinG ?? 0,
+                        CarbsG = item.CarbsG ?? 0,
+                        FatG = item.FatG ?? 0
+                    };
+                }
+                else
+                {
+                    // The meal-plan snapshot is authoritative. Catalog and
+                    // recipe nutrition may have changed since the item was
+                    // selected, so balancing must start from what both users
+                    // currently see instead of silently replacing one meal.
+                    nutrition.QuantityG = item.QuantityG ?? nutrition.QuantityG;
+                    nutrition.CaloriesKcal = item.TargetCalories ?? nutrition.CaloriesKcal;
+                    nutrition.ProteinG = item.ProteinG ?? nutrition.ProteinG;
+                    nutrition.CarbsG = item.CarbsG ?? nutrition.CarbsG;
+                    nutrition.FatG = item.FatG ?? nutrition.FatG;
+                }
+                sources.Add((item, nutrition));
+            }
+
+            var currentCalories = sources.Sum(x => x.Nutrition.CaloriesKcal);
+            if (currentCalories <= 0)
+                throw new InvalidOperationException("Tổng kcal hiện tại phải lớn hơn 0.");
+
+            var factor = (decimal)request.TargetCalories / currentCalories;
+            foreach (var source in sources)
+            {
+                ApplyPortionNutrition(
+                    source.Item,
+                    _portionCalculator.Scale(source.Nutrition, factor));
+                _unitOfWork.MealPlanItems.Update(source.Item);
+            }
+
+            var roundedTotal = sources.Sum(x => x.Item.TargetCalories ?? 0);
+            var roundingDifference = request.TargetCalories - roundedTotal;
+            if (roundingDifference != 0)
+            {
+                var largest = sources
+                    .OrderByDescending(x => x.Nutrition.CaloriesKcal)
+                    .First().Item;
+                largest.TargetCalories = (largest.TargetCalories ?? 0) + roundingDifference;
+                _unitOfWork.MealPlanItems.Update(largest);
+            }
+
+            plan.TargetCalories = request.TargetCalories;
+            plan.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.MealPlanHeaders.Update(plan);
+            await _unitOfWork.CompleteAsync();
+            await InvalidateMealPlanDateCacheAsync(userId, request.PlannedDate, plan);
             return await GetByIdAsync(planId, userId);
         }
 
@@ -300,8 +437,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task DeleteItemAsync(Guid planId, Guid itemId, Guid? userId = null)
         {
             var item = await GetPlanItemAsync(planId, itemId, userId);
+            MealPlanHeader? planForCache = null;
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                planForCache = await GetMealPlanAsync(planId, userId);
+                await EnsureGymerRouteEditableAsync(
+                    userId.Value,
+                    item.PlannedDate ?? planForCache.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(VietnamUtcOffsetHours)));
+            }
             _unitOfWork.MealPlanItems.Remove(item);
             await _unitOfWork.CompleteAsync();
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                await InvalidateMealPlanDateCacheAsync(
+                    userId.Value,
+                    item.PlannedDate,
+                    planForCache);
+            }
         }
 
         public async Task<MealPlanResponse> UpdateItemStatusAsync(Guid planId, Guid itemId, MealPlanStatusRequest request, Guid? userId = null)
@@ -781,6 +933,58 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.CompleteAsync();
         }
 
+        private void ApplyPortionNutrition(
+            MealPlanItem item,
+            PortionNutritionResponse nutrition)
+        {
+            item.QuantityG = nutrition.QuantityG;
+            item.TargetCalories = (int)Math.Round(
+                nutrition.CaloriesKcal,
+                MidpointRounding.AwayFromZero);
+            item.ProteinG = nutrition.ProteinG;
+            item.CarbsG = nutrition.CarbsG;
+            item.FatG = nutrition.FatG;
+            item.IngredientSnapshotJson = _portionCalculator.Serialize(nutrition);
+        }
+
+        private async Task EnsureGymerRouteEditableAsync(Guid userId, DateOnly date)
+        {
+            var requests = await _unitOfWork.PtReviewRequests.FindAsync(x =>
+                x.UserId == userId &&
+                x.WeekStartDate == date &&
+                x.CreatedByRole != "Coach" &&
+                (x.Status == "Pending" || x.Status == "Reviewed" || x.Status == "Applied"));
+            if (requests.Any(IsRouteApprovalRequest))
+            {
+                throw new InvalidOperationException(
+                    "Lộ trình đã gửi cho PT duyệt và đã bị khóa chỉnh sửa.");
+            }
+        }
+
+        private static bool IsRouteApprovalRequest(PtReviewRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ReportDataJson)) return true;
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(
+                    request.ReportDataJson);
+                var root = document.RootElement;
+                System.Text.Json.JsonElement requestType;
+                if (!root.TryGetProperty("requestType", out requestType) &&
+                    !root.TryGetProperty("RequestType", out requestType))
+                {
+                    return true;
+                }
+                var value = requestType.GetString();
+                return string.IsNullOrWhiteSpace(value) ||
+                    value.Equals("RouteApproval", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return false;
+            }
+        }
+
         private async Task<MealPlanHeader> GetMealPlanAsync(Guid id, Guid? userId = null)
         {
             var entity = await _unitOfWork.MealPlanHeaders.GetByIdAsync(id);
@@ -1000,7 +1204,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime ?? DefaultScheduledTime(x.MealType),
                 TargetCalories = displayCalories > 0 ? displayCalories : null,
-                QuantityG = catalogFood?.DefaultServingG ?? x.QuantityG ?? 100m,
+                QuantityG = x.QuantityG ?? catalogFood?.DefaultServingG ?? 100m,
                 ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
                 CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
                 FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
@@ -1008,6 +1212,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName ?? "Unknown",
                 SourceEntityType = x.SourceType ?? (x.FoodId.HasValue ? "Food" : x.RecipeId.HasValue ? "Recipe" : null),
                 EstimatedPriceVnd = price,
+                Ingredients = _portionCalculator.Deserialize(x.IngredientSnapshotJson)?.Ingredients
+                    ?? new List<PortionIngredientResponse>(),
                 Origin = x.Origin
             };
         }
@@ -1150,7 +1356,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = x.PlannedDate,
                 ScheduledTime = x.ScheduledTime,
                 TargetCalories = cal > 0 ? cal : null,
-                QuantityG = catalogFood?.DefaultServingG ?? x.QuantityG ?? 100m,
+                QuantityG = x.QuantityG ?? catalogFood?.DefaultServingG ?? 100m,
                 IsCompleted = x.IsCompleted,
                 CustomName = x.CustomName,
                 FoodName = food?.NameVi ?? recipe?.Title ?? x.CustomName,
@@ -1161,11 +1367,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinG = (int)Math.Round(x.ProteinG.HasValue && x.ProteinG.Value > 0 ? x.ProteinG.Value : macros.protein),
                 CarbsG = (int)Math.Round(x.CarbsG.HasValue && x.CarbsG.Value > 0 ? x.CarbsG.Value : macros.carbs),
                 FatG = (int)Math.Round(x.FatG.HasValue && x.FatG.Value > 0 ? x.FatG.Value : macros.fat),
+                Ingredients = _portionCalculator.Deserialize(x.IngredientSnapshotJson)?.Ingredients
+                    ?? new List<PortionIngredientResponse>(),
                 Origin = x.Origin
             };
         }
 
-        private static MealLogResponse MapLog(MealLog x)
+        private MealLogResponse MapLog(MealLog x)
         {
             return new MealLogResponse
             {
@@ -1179,6 +1387,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinG = x.ProteinG,
                 CarbsG = x.CarbsG,
                 FatG = x.FatG,
+                ConsumptionRatio = x.ConsumptionRatio,
+                Ingredients = _portionCalculator.Deserialize(x.IngredientSnapshotJson)?.Ingredients
+                    ?? new List<PortionIngredientResponse>(),
                 SourceType = x.SourceType,
                 Notes = x.Notes,
                 LoggedAt = x.LoggedAt,
@@ -1896,6 +2107,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request)
         {
             ValidateItems(request.Items);
+            await EnsureGymerRouteEditableAsync(userId, request.PlannedDate);
             var createsGymRoute = request.Items.Any(item =>
                 string.Equals(item.Origin, "gym", StringComparison.OrdinalIgnoreCase));
             if (createsGymRoute)
@@ -2124,8 +2336,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PlannedDate = item.PlannedDate ?? plannedDate,
                     ScheduledTime = item.ScheduledTime ?? DefaultScheduledTime(item.MealType),
                     TargetCalories = item.TargetCalories,
-                    QuantityG = catalogFood?.DefaultServingG
-                        ?? (decimal?)item.QuantityG
+                    QuantityG = (decimal?)item.QuantityG
+                        ?? catalogFood?.DefaultServingG
                         ?? 100m,
                     IsCompleted = item.IsCompleted,
                     Origin = item.Origin,
@@ -2415,7 +2627,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 PlannedDate = item.PlannedDate,
                 ScheduledTime = item.ScheduledTime,
                 TargetCalories = item.TargetCalories ?? (int)Math.Round(macros.calories),
-                QuantityG = catalogFood?.DefaultServingG ?? item.QuantityG ?? 100m,
+                QuantityG = item.QuantityG ?? catalogFood?.DefaultServingG ?? 100m,
                 IsCompleted = item.IsCompleted,
                 MealLogId = mealLogId,
                 FoodName = food?.NameVi,
@@ -2426,6 +2638,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ProteinG = (int)Math.Round(macros.protein),
                 CarbsG = (int)Math.Round(macros.carbs),
                 FatG = (int)Math.Round(macros.fat),
+                Ingredients = _portionCalculator.Deserialize(item.IngredientSnapshotJson)?.Ingredients
+                    ?? new List<PortionIngredientResponse>(),
                 Origin = item.Origin
             };
         }
@@ -2437,16 +2651,34 @@ namespace MenuGreen.BusinessLogicLayer.Services
             DateTime? loggedAt = null)
         {
             var macros = await GetItemMacrosAsync(item);
+            var plannedQuantity = await ResolveCompletionQuantityAsync(item);
+            var actualQuantity = quantityG is > 0 ? quantityG.Value : plannedQuantity;
+            var consumptionRatio = plannedQuantity > 0
+                ? actualQuantity / plannedQuantity
+                : 1m;
+            var snapshot = _portionCalculator.Deserialize(item.IngredientSnapshotJson);
+            var actualSnapshot = snapshot == null
+                ? null
+                : _portionCalculator.Scale(snapshot, consumptionRatio);
+
             return new MealLogUpsertRequest
             {
                 FoodId = item.FoodId,
                 RecipeId = item.RecipeId,
                 MealType = item.MealType ?? "snack",
-                QuantityG = quantityG ?? await ResolveCompletionQuantityAsync(item),
-                CaloriesKcal = item.TargetCalories ?? macros.calories,
-                ProteinG = item.ProteinG ?? macros.protein,
-                CarbsG = item.CarbsG ?? macros.carbs,
-                FatG = item.FatG ?? macros.fat,
+                QuantityG = actualQuantity,
+                CaloriesKcal = actualSnapshot?.CaloriesKcal
+                    ?? (item.TargetCalories ?? macros.calories) * consumptionRatio,
+                ProteinG = actualSnapshot?.ProteinG
+                    ?? (item.ProteinG ?? macros.protein) * consumptionRatio,
+                CarbsG = actualSnapshot?.CarbsG
+                    ?? (item.CarbsG ?? macros.carbs) * consumptionRatio,
+                FatG = actualSnapshot?.FatG
+                    ?? (item.FatG ?? macros.fat) * consumptionRatio,
+                IngredientSnapshotJson = actualSnapshot == null
+                    ? null
+                    : _portionCalculator.Serialize(actualSnapshot),
+                ConsumptionRatio = consumptionRatio,
                 CustomName = item.CustomName,
                 Notes = notes ?? "Logged from meal plan.",
                 LoggedAt = loggedAt ?? ResolveMealLogUtc(item),

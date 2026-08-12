@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/coach_pt/providers/coach_meal_plan_provider.dart';
 import 'package:frontend/features/coach_pt/views/coach_create_meal_plan_screen.dart';
+import 'package:frontend/features/discover/models/food_models.dart';
+import 'package:frontend/features/discover/repositories/food_discovery_repository.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -14,9 +16,10 @@ void main() {
         MaterialApp(
           home: ChangeNotifierProvider<CoachMealPlanProvider>.value(
             value: provider,
-            child: const CoachCreateMealPlanScreen(
+            child: CoachCreateMealPlanScreen(
               clientId: 'client-1',
               clientName: 'Hoàng Thị Gymer',
+              foodRepository: _EmptyFoodRepository(),
             ),
           ),
         ),
@@ -60,6 +63,44 @@ void main() {
       expect(find.byTooltip('Chỉnh sửa món'), findsWidgets);
       expect(find.byTooltip('Xóa món'), findsWidgets);
 
+      expect(find.text('Tổng kcal của 4 bữa'), findsOneWidget);
+      expect(find.text('Vượt 640 kcal'), findsOneWidget);
+      expect(find.text('Gợi ý: giảm khẩu phần khoảng 30%'), findsWidgets);
+      expect(find.text('4/4 bữa'), findsWidgets);
+
+      final autoBalanceButton = find.text('Tự chỉnh').first;
+      await tester.ensureVisible(autoBalanceButton);
+      await tester.pumpAndSettle();
+      await tester.tap(autoBalanceButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1500 / 1500 kcal', findRichText: true), findsOneWidget);
+      expect(find.text('Đạt mục tiêu'), findsOneWidget);
+
+      final editButton = find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is IconButton && widget.tooltip == 'Chỉnh sửa món',
+          )
+          .first;
+      await tester.ensureVisible(editButton);
+      await tester.pumpAndSettle();
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Calo tự tính (kcal)'), findsOneWidget);
+      expect(find.text('Khối lượng khẩu phần (g)'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Khối lượng khẩu phần (g)'),
+        '200',
+      );
+      await tester.tap(find.text('Lưu'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Tiếp tục'));
       await tester.tap(find.text('Tiếp tục'));
       await tester.pumpAndSettle();
 
@@ -69,6 +110,14 @@ void main() {
       expect(find.textContaining('Bò xào giá đỗ'), findsWidgets);
     },
   );
+}
+
+class _EmptyFoodRepository extends FoodDiscoveryRepository {
+  @override
+  Future<RecipeItem?> getRecipeById(
+    String id, {
+    String allergyMode = 'warn',
+  }) async => null;
 }
 
 class _SuggestionCoachMealPlanProvider extends CoachMealPlanProvider {

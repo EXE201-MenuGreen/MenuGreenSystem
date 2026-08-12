@@ -14,6 +14,8 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.SourceType).HasColumnType("text");
             builder.Property(x => x.CustomName).HasMaxLength(200);
             builder.Property(x => x.Notes).HasColumnType("text");
+            builder.Property(x => x.IngredientSnapshotJson).HasColumnType("jsonb");
+            builder.Property(x => x.ConsumptionRatio).HasPrecision(8, 4);
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             builder.HasOne(x => x.Food).WithMany().HasForeignKey(x => x.FoodId);
             builder.HasOne(x => x.Recipe).WithMany().HasForeignKey(x => x.RecipeId);

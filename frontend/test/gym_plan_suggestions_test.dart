@@ -64,6 +64,45 @@ void main() {
       expect(payload['plannedDate'], '2026-08-15');
       expect(payload['scheduledTime'], '07:30');
     });
+
+    test('auto balance is available only before sending to PT', () {
+      expect(
+        gymCanAutoBalancePlan(
+          hasPlan: true,
+          hasMeals: true,
+          hasTarget: true,
+          hasAcceptedPtConnection: true,
+          hasPtProgram: false,
+          isSentToPt: false,
+          isLoading: false,
+        ),
+        isTrue,
+      );
+      expect(
+        gymCanAutoBalancePlan(
+          hasPlan: true,
+          hasMeals: true,
+          hasTarget: true,
+          hasAcceptedPtConnection: true,
+          hasPtProgram: false,
+          isSentToPt: true,
+          isLoading: false,
+        ),
+        isFalse,
+      );
+      expect(
+        gymCanAutoBalancePlan(
+          hasPlan: true,
+          hasMeals: true,
+          hasTarget: true,
+          hasAcceptedPtConnection: true,
+          hasPtProgram: true,
+          isSentToPt: false,
+          isLoading: false,
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('GymGoalProfile.resolveForDate', () {

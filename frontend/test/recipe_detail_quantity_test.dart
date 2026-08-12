@@ -15,7 +15,7 @@ void main() {
     expect(recipe.defaultServingG, 180);
   });
 
-  testWidgets('recipe detail prefers linked food default serving', (
+  testWidgets('recipe detail prefers the adjusted planned quantity', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -29,8 +29,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Khối lượng món: 100 g'), findsOneWidget);
+    expect(find.text('Khối lượng món: 180 g'), findsNothing);
+  });
+
+  testWidgets('recipe detail falls back to linked food default serving', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecipeDetailScreen(
+          recipeId: 'recipe-1',
+          repository: _FakeFoodDiscoveryRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Khối lượng món: 180 g'), findsOneWidget);
-    expect(find.text('Khối lượng món: 100 g'), findsNothing);
   });
 }
 

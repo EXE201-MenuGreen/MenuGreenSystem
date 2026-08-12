@@ -566,8 +566,9 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
 
   Widget _buildCurrentCard() {
     final current = _current;
-    final isBaselineFree = current == null || current.isBaselineFree;
-    final planName = isBaselineFree ? 'Cơ bản' : current.subscriptionPlanName;
+    final isCurrentlyActive = current != null && current.isCurrentlyActive;
+    final isBaselineFree = current == null || current.isBaselineFree || !isCurrentlyActive;
+    final planName = isBaselineFree ? 'Free (Cơ bản)' : current.subscriptionPlanName;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

@@ -16,6 +16,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
+        public System.Collections.Generic.List<PortionIngredientResponse> Ingredients { get; set; } = new();
         public string? CustomName { get; set; }
         public bool IsCompleted { get; set; }
         public Guid? MealLogId { get; set; }

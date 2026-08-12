@@ -586,7 +586,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 }
 
                 var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
-                client.Timeout = TimeSpan.FromSeconds(15);
+                client.Timeout = TimeSpan.FromSeconds(45);
 
                 if (messages.Count == 0)
                 {
@@ -969,7 +969,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             try
             {
                 var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
-                client.Timeout = TimeSpan.FromSeconds(15);
+                client.Timeout = TimeSpan.FromSeconds(45);
 
                 var payload = new
                 {
@@ -1052,7 +1052,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             };
 
             var client = _httpClientFactory.CreateClient(nameof(NutritionAssistantService));
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(45);
 
             using var workerRequest = CreateWorkerRequest(
                 HttpMethod.Post,
