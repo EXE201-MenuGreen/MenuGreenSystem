@@ -43,8 +43,12 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
 
   SepayOrder? _order;
   bool _loading = true;
+  bool _cancelling = false;
+  bool _isCancelled = false;
+  int _cancelCountdown = 10;
   String? _error;
   Timer? _pollTimer;
+  Timer? _cancelCountdownTimer;
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
   bool _polling = false;
@@ -59,6 +63,7 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
   void dispose() {
     _pollTimer?.cancel();
     _countdownTimer?.cancel();
+    _cancelCountdownTimer?.cancel();
     super.dispose();
   }
 
@@ -217,6 +222,8 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
       _order = order;
       _loading = false;
       _error = null;
+      _isCancelled = false;
+      _cancelCountdown = 10;
     });
 
     if (resumed) {
@@ -229,6 +236,7 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     }
 
     _startCountdown();
+    _startCancelCountdown();
     _startPolling();
   }
 
@@ -261,6 +269,21 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
   void _startPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(_pollInterval, (_) => _pollStatus());
+  }
+
+  void _startCancelCountdown() {
+    _cancelCountdownTimer?.cancel();
+    _cancelCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_cancelCountdown > 0) {
+          _cancelCountdown--;
+        }
+      });
+      if (_cancelCountdown <= 0) {
+        _cancelCountdownTimer?.cancel();
+      }
+    });
   }
 
   Future<void> _pollStatus() async {
@@ -384,10 +407,11 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     final order = _order!;
     final isPaid = order.paymentStatus == SepayPaymentStatus.paid;
     final isExpired = order.paymentStatus == SepayPaymentStatus.expired;
+    final isCancelled = _isCancelled;
 
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: _pollStatus,
+      onRefresh: isCancelled ? _createNewOrder : _pollStatus,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -395,19 +419,29 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildStatusBanner(order),
-            const SizedBox(height: 16),
-            _buildQrCard(order),
-            const SizedBox(height: 16),
-            _buildAmountCard(order),
-            const SizedBox(height: 12),
-            _buildTransferDetails(order),
-            const SizedBox(height: 12),
-            _buildReceiverCard(order),
-            const SizedBox(height: 20),
-            _buildInstructions(),
-            if (!isPaid && !isExpired) ...[
+            if (!isCancelled && !isPaid && !isExpired) ...[
+              const SizedBox(height: 16),
+              _buildQrCard(order),
+              const SizedBox(height: 16),
+              _buildAmountCard(order),
+              const SizedBox(height: 12),
+              _buildTransferDetails(order),
+              const SizedBox(height: 12),
+              _buildReceiverCard(order),
+              const SizedBox(height: 20),
+              _buildInstructions(),
+            ],
+            if (isCancelled) ...[
+              const SizedBox(height: 20),
+              _buildCancelledInfo(),
+              const SizedBox(height: 16),
+              _buildNewOrderButton(),
+            ],
+            if (!isCancelled && !isPaid && !isExpired) ...[
               const SizedBox(height: 20),
               _buildPollingIndicator(),
+              const SizedBox(height: 16),
+              _buildCancelButton(),
             ],
           ],
         ),
@@ -732,6 +766,151 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _cancelOrder() async {
+    final order = _order;
+    if (order == null || _cancelling || _cancelCountdown > 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hủy đăng ký'),
+        content: const Text(
+          'Bạn có chắc muốn hủy đăng ký này không? Sau khi hủy, bạn có thể tạo đăng ký mới.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Hủy đăng ký'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelling = true);
+
+    final result = await _repository.cancelOrder(order.paymentId);
+
+    if (!mounted) return;
+
+    setState(() => _cancelling = false);
+
+    if (result.success) {
+      setState(() => _isCancelled = true);
+      _pollTimer?.cancel();
+      _countdownTimer?.cancel();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildCancelButton() {
+    final countdownText = _cancelCountdown > 0 ? ' ($_cancelCountdown s)' : '';
+    final isDisabled = _cancelling || _cancelCountdown > 0;
+
+    return OutlinedButton(
+      onPressed: isDisabled ? null : _cancelOrder,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.red,
+        side: const BorderSide(color: Colors.red),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: _cancelling
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+            )
+          : Text('Hủy đăng ký$countdownText'),
+    );
+  }
+
+  Widget _buildCancelledInfo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.cancel_outlined, color: Colors.orange, size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'Đã hủy đăng ký',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bạn có thể tạo đăng ký mới hoặc quay về trang gói dịch vụ.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewOrderButton() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton.icon(
+          onPressed: _createNewOrder,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Tạo đăng ký mới', style: TextStyle(fontSize: 16)),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text('Quay về trang gói', style: TextStyle(fontSize: 16)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _createNewOrder() async {
+    await _createOrder();
   }
 }
 

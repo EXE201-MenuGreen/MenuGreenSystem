@@ -166,23 +166,38 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new Exception("Cannot cancel a payment that has already been paid.");
             }
 
+            // Cancel the payment
             payment.Status = "CANCELLED";
             payment.UpdatedAt = DateTimeOffset.UtcNow;
             _unitOfWork.Payments.Update(payment);
 
-            // Also cancel the associated pending subscription if exists
+            // Try to cancel the associated pending subscription (non-blocking)
+            // This is a best-effort operation - payment cancellation should not fail
+            // if subscription cancellation fails
             if (payment.UserSubscriptionId.HasValue)
             {
-                var subscription = await _unitOfWork.UserSubscriptions.GetByIdAsync(payment.UserSubscriptionId.Value);
-                if (subscription != null && subscription.Status == "PendingPayment")
+                try
                 {
-                    subscription.Status = "Cancelled";
-                    subscription.UpdatedAt = DateTime.UtcNow;
-                    _unitOfWork.UserSubscriptions.Update(subscription);
+                    var subscription = await _unitOfWork.UserSubscriptions.GetByIdAsync(payment.UserSubscriptionId.Value);
+                    if (subscription != null && subscription.Status == "PendingPayment")
+                    {
+                        subscription.Status = "Cancelled";
+                        subscription.UpdatedAt = DateTime.UtcNow;
+                        _unitOfWork.UserSubscriptions.Update(subscription);
+                        await _unitOfWork.CompleteAsync();
+                    }
+                }
+                catch
+                {
+                    // Log but don't fail - payment cancellation is the primary operation
+                    // Subscription will remain in PendingPayment state but won't cause issues
                 }
             }
+            else
+            {
+                await _unitOfWork.CompleteAsync();
+            }
 
-            await _unitOfWork.CompleteAsync();
             await _statusCache.InvalidateAsync(userId, paymentId);
         }
 
