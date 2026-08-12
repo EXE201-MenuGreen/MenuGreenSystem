@@ -651,14 +651,19 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
   # Backup database before migration
   BACKUP_FILE="/tmp/menugreen_backup_before_${filename%.sql}_$(date +%Y%m%d_%H%M%S).sql"
   echo "      Creating backup: $BACKUP_FILE"
-  PGPASSWORD="$DB_PASS_PRECHECK" pg_dump -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" > "$BACKUP_FILE" 2>&1 || {
-    echo "      ! Backup failed, proceeding anyway..."
+  PGPASSWORD="$DB_PASS_PRECHECK" pg_dump -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" > "$BACKUP_FILE" 2>&1
+  BACKUP_EXIT=$?
+  echo "      Backup exit code: $BACKUP_EXIT"
+  if [ $BACKUP_EXIT -ne 0 ]; then
+    echo "      ! Backup failed with code $BACKUP_EXIT, proceeding anyway..."
+    cat "$BACKUP_FILE" 2>/dev/null | head -5 | sed 's/^/        /' || true
     rm -f "$BACKUP_FILE"
-  }
+  fi
   
   # Run migration with transaction
   MIGRATION_OUTPUT=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -v ON_ERROR_STOP=1 -f "$sql_file" 2>&1)
   MIGRATION_EXIT=$?
+  echo "      Migration exit code: $MIGRATION_EXIT"
   
   if [ $MIGRATION_EXIT -ne 0 ]; then
     echo "      ! Migration FAILED: $filename"
