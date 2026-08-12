@@ -24,15 +24,15 @@ class SepayPaymentScreen extends StatefulWidget {
     super.key,
     required this.planTitle,
     required this.subscriptionPlanId,
-  })  : flow = SepayPaymentFlow.subscribe,
-        userSubscriptionId = null;
+  }) : flow = SepayPaymentFlow.subscribe,
+       userSubscriptionId = null;
 
   const SepayPaymentScreen.renew({
     super.key,
     required this.planTitle,
     required this.userSubscriptionId,
-  })  : flow = SepayPaymentFlow.renew,
-        subscriptionPlanId = null;
+  }) : flow = SepayPaymentFlow.renew,
+       subscriptionPlanId = null;
 
   @override
   State<SepayPaymentScreen> createState() => _SepayPaymentScreenState();
@@ -145,37 +145,75 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     final result = await showDialog<_PendingOrderChoice>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-            SizedBox(width: 12),
-            Expanded(child: Text('Bạn có đơn đang chờ')),
-          ],
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.pending_actions_rounded,
+                  color: Colors.orange,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Bạn có đơn đang chờ',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Bạn đã có đơn thanh toán chưa hoàn tất.\n'
+                'Chọn tiếp tục với đơn cũ hoặc tạo đơn mới.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _PendingOptionCard(
+                icon: Icons.history_rounded,
+                title: 'Dùng đơn cũ',
+                subtitle: 'Tiếp tục với đơn đang chờ',
+                isPrimary: false,
+                onTap: () =>
+                    Navigator.pop(context, _PendingOrderChoice.goToExisting),
+              ),
+              const SizedBox(height: 10),
+              _PendingOptionCard(
+                icon: Icons.add_circle_outline_rounded,
+                title: 'Tạo đơn mới',
+                subtitle: 'Hủy đơn cũ và tạo đơn mới',
+                isPrimary: true,
+                onTap: () =>
+                    Navigator.pop(context, _PendingOrderChoice.cancelAndCreate),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context, _PendingOrderChoice.back),
+                child: const Text(
+                  'Quay lại',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
         ),
-        content: const Text(
-          'Bạn đã có đơn thanh toán chưa hoàn tất. Bạn muốn tiếp tục với đơn cũ hay tạo đơn mới?\n\n'
-          '• Đơn cũ sẽ bị hủy nếu bạn chọn tạo đơn mới.',
-          style: TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, _PendingOrderChoice.back),
-            child: const Text('Quay lại'),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.pop(context, _PendingOrderChoice.goToExisting),
-            child: const Text('Xem đơn cũ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, _PendingOrderChoice.cancelAndCreate),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('Tạo đơn mới'),
-          ),
-        ],
       ),
     );
     return result ?? _PendingOrderChoice.back;
@@ -288,7 +326,9 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     if (resumed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Đã tải đơn thanh toán đang chờ. Vui lòng hoàn tất chuyển khoản.'),
+          content: Text(
+            'Đã tải đơn thanh toán đang chờ. Vui lòng hoàn tất chuyển khoản.',
+          ),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -310,7 +350,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
   void _startCountdown() {
     _countdownTimer?.cancel();
     _tickCountdown();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
+    _countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _tickCountdown(),
+    );
   }
 
   void _tickCountdown() {
@@ -320,7 +363,8 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
     final remaining = expiredAt.difference(DateTime.now());
     setState(() => _remaining = remaining);
 
-    if (remaining.isNegative && _order?.paymentStatus == SepayPaymentStatus.pending) {
+    if (remaining.isNegative &&
+        _order?.paymentStatus == SepayPaymentStatus.pending) {
       _handleTerminalStatus(SepayPaymentStatus.expired);
     }
   }
@@ -428,8 +472,8 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
               child: CircularProgressIndicator(color: AppColors.primary),
             )
           : _error != null
-              ? _buildError()
-              : _buildContent(),
+          ? _buildError()
+          : _buildContent(),
     );
   }
 
@@ -555,7 +599,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
                 ),
                 Text(
                   widget.planTitle,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -566,7 +613,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
               children: [
                 const Text(
                   'Còn lại',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 Text(
                   formatCountdown(_remaining),
@@ -639,7 +689,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
                   child: const Text(
                     'Không tải được QR.\nDùng thông tin CK bên dưới.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -759,7 +812,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
         children: [
           const Text(
             'Thông tin nhận tiền',
-            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           const SizedBox(height: 12),
           if (r.bankName.isNotEmpty)
@@ -794,11 +850,16 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
         children: [
           Text(
             'Lưu ý quan trọng',
-            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           SizedBox(height: 8),
           _Bullet('Chuyển đúng số tiền và nội dung như trên.'),
-          _Bullet('Sau khi chuyển, app tự kiểm tra mỗi vài giây — không cần bấm xác nhận.'),
+          _Bullet(
+            'Sau khi chuyển, app tự kiểm tra mỗi vài giây — không cần bấm xác nhận.',
+          ),
           _Bullet('Giao dịch trên SePay có thể mất 1–2 phút mới cập nhật gói.'),
           _Bullet('Đơn hết hạn sau ~30 phút nếu chưa thanh toán.'),
         ],
@@ -874,10 +935,7 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
       _countdownTimer?.cancel();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(result.message), backgroundColor: Colors.red),
       );
     }
   }
@@ -892,15 +950,16 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
         foregroundColor: Colors.red,
         side: const BorderSide(color: Colors.red),
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       child: _cancelling
           ? const SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.red,
+              ),
             )
           : Text('Hủy đăng ký$countdownText'),
     );
@@ -962,7 +1021,10 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          child: const Text('Quay về trang gói', style: TextStyle(fontSize: 16)),
+          child: const Text(
+            'Quay về trang gói',
+            style: TextStyle(fontSize: 16),
+          ),
         ),
       ],
     );
@@ -997,7 +1059,10 @@ class _CopyableRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1037,7 +1102,10 @@ class _InfoRow extends StatelessWidget {
           width: 110,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         Expanded(
@@ -1071,10 +1139,104 @@ class _Bullet extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                height: 1.35,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PendingOptionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _PendingOptionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isPrimary
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : AppColors.progressBackground.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isPrimary
+                  ? AppColors.primary.withValues(alpha: 0.3)
+                  : AppColors.progressBackground,
+              width: isPrimary ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? AppColors.primary.withValues(alpha: 0.15)
+                      : AppColors.textLight.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isPrimary ? AppColors.primary : AppColors.textSecondary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isPrimary ? AppColors.primary : AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isPrimary ? AppColors.primary : AppColors.textLight,
+                size: 24,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
