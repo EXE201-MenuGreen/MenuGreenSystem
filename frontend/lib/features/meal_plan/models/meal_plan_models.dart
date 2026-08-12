@@ -1,3 +1,5 @@
+import '../../discover/models/food_models.dart';
+
 class UserMealPlan {
   UserMealPlan({
     required this.id,
@@ -58,6 +60,7 @@ class MealPlanItemModel {
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.ingredients = const [],
   });
 
   final String id;
@@ -76,6 +79,7 @@ class MealPlanItemModel {
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
+  final List<RecipeIngredientItem> ingredients;
 
   /// Nguồn gốc của item: "user" = tạo tay ở tab Kế hoạch,
   /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
@@ -113,6 +117,15 @@ class MealPlanItemModel {
       proteinG: _nullableInt(json['proteinG'] ?? json['ProteinG']),
       carbsG: _nullableInt(json['carbsG'] ?? json['CarbsG']),
       fatG: _nullableInt(json['fatG'] ?? json['FatG']),
+      ingredients:
+          ((json['ingredients'] ?? json['Ingredients']) as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) => RecipeIngredientItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
     );
   }
 }

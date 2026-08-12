@@ -93,11 +93,20 @@ class HistoryViewState extends State<HistoryView> {
 
     final count = days.length;
     final totalCal = days.fold<double>(0, (sum, d) => sum + d.totalCalories);
-    final totalTargetCal = days.fold<double>(0, (sum, d) => sum + d.targetCalories);
+    final totalTargetCal = days.fold<double>(
+      0,
+      (sum, d) => sum + d.targetCalories,
+    );
     final totalProt = days.fold<double>(0, (sum, d) => sum + d.totalProteinG);
-    final totalTargetProt = days.fold<double>(0, (sum, d) => sum + d.targetProteinG);
+    final totalTargetProt = days.fold<double>(
+      0,
+      (sum, d) => sum + d.targetProteinG,
+    );
     final totalCarb = days.fold<double>(0, (sum, d) => sum + d.totalCarbsG);
-    final totalTargetCarb = days.fold<double>(0, (sum, d) => sum + d.targetCarbsG);
+    final totalTargetCarb = days.fold<double>(
+      0,
+      (sum, d) => sum + d.targetCarbsG,
+    );
     final totalFat = days.fold<double>(0, (sum, d) => sum + d.totalFatG);
     final totalTargetFat = days.fold<double>(0, (sum, d) => sum + d.targetFatG);
     final allLogs = days.expand((d) => d.mealLogs).toList();
@@ -112,7 +121,9 @@ class HistoryViewState extends State<HistoryView> {
       targetCarbsG: count > 0 ? totalTargetCarb / count : 0,
       totalFatG: count > 0 ? totalFat / count : 0,
       targetFatG: count > 0 ? totalTargetFat / count : 0,
-      goalCompletionPercent: totalTargetCal > 0 ? (totalCal / totalTargetCal * 100) : null,
+      goalCompletionPercent: totalTargetCal > 0
+          ? (totalCal / totalTargetCal * 100)
+          : null,
       mealLogs: allLogs,
     );
   }
@@ -156,7 +167,9 @@ class HistoryViewState extends State<HistoryView> {
 
   void _notifyTrackingUpdated() => widget.onTrackingUpdated?.call();
 
-  List<HistoryTimelineSection> _buildSectionsFromSummary(MealDaySummary? summary) {
+  List<HistoryTimelineSection> _buildSectionsFromSummary(
+    MealDaySummary? summary,
+  ) {
     if (summary == null || summary.mealLogs.isEmpty) return [];
 
     final grouped = <MealCategory, List<MealLogItem>>{};
@@ -169,8 +182,24 @@ class HistoryViewState extends State<HistoryView> {
     for (final entry in grouped.entries) {
       final logs = entry.value;
       logs.sort((a, b) {
-        final aTime = a.loggedAt ?? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0);
-        final bTime = b.loggedAt ?? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0);
+        final aTime =
+            a.loggedAt ??
+            DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              0,
+              0,
+            );
+        final bTime =
+            b.loggedAt ??
+            DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              0,
+              0,
+            );
         return aTime.compareTo(bTime);
       });
       final firstTime = logs.first.loggedAt;
@@ -189,16 +218,21 @@ class HistoryViewState extends State<HistoryView> {
                   id: item.id,
                   title: item.displayName,
                   calories: item.caloriesKcal.toInt(),
-                  portion: item.isRecipe
+                  portion: item.isRecipe && item.ingredients.isEmpty
                       ? '${item.quantityG.toStringAsFixed(0)}% phần'
                       : '${item.quantityG.toStringAsFixed(0)}g',
+                  quantityG: item.quantityG,
                   time: item.loggedAt == null
                       ? sectionTime
-                      : TimeOfDay(hour: item.loggedAt!.hour, minute: item.loggedAt!.minute),
+                      : TimeOfDay(
+                          hour: item.loggedAt!.hour,
+                          minute: item.loggedAt!.minute,
+                        ),
                   category: entry.key,
                   foodId: item.foodId,
                   recipeId: item.recipeId,
                   isRecipe: item.isRecipe,
+                  ingredients: item.ingredients,
                 ),
               )
               .toList(),
@@ -206,7 +240,10 @@ class HistoryViewState extends State<HistoryView> {
       );
     }
 
-    sections.sort((a, b) => _categoryOrder(a.category).compareTo(_categoryOrder(b.category)));
+    sections.sort(
+      (a, b) =>
+          _categoryOrder(a.category).compareTo(_categoryOrder(b.category)),
+    );
     return sections;
   }
 
@@ -243,8 +280,12 @@ class HistoryViewState extends State<HistoryView> {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        _repository.getDailySummary(_selectedDate).timeout(const Duration(seconds: 25)),
-        _repository.getDashboard(range: _dashboardRange.apiValue).timeout(const Duration(seconds: 25)),
+        _repository
+            .getDailySummary(_selectedDate)
+            .timeout(const Duration(seconds: 25)),
+        _repository
+            .getDashboard(range: _dashboardRange.apiValue)
+            .timeout(const Duration(seconds: 25)),
         _fetchMonthGoalMap(),
       ]);
       if (!mounted) return;
@@ -265,9 +306,14 @@ class HistoryViewState extends State<HistoryView> {
 
   Future<Map<String, double?>> _fetchMonthGoalMap() async {
     final first = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-    final lastInMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+    final lastInMonth = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month + 1,
+      0,
+    );
     final today = DateTime.now();
-    final end = lastInMonth.isAfter(DateTime(today.year, today.month, today.day))
+    final end =
+        lastInMonth.isAfter(DateTime(today.year, today.month, today.day))
         ? DateTime(today.year, today.month, today.day)
         : lastInMonth;
 
@@ -297,7 +343,11 @@ class HistoryViewState extends State<HistoryView> {
 
   void _changeMonth(int delta) {
     setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + delta, 1);
+      _focusedMonth = DateTime(
+        _focusedMonth.year,
+        _focusedMonth.month + delta,
+        1,
+      );
     });
     _loadData();
   }
@@ -345,7 +395,10 @@ class HistoryViewState extends State<HistoryView> {
         title: const Text('Xóa cân nặng'),
         content: const Text('Bạn có chắc muốn xóa mục này?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Xóa', style: TextStyle(color: Colors.red)),
@@ -405,8 +458,14 @@ class HistoryViewState extends State<HistoryView> {
                       value: sourceType,
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'food', child: Text('Món ăn (Food)')),
-                        DropdownMenuItem(value: 'recipe', child: Text('Công thức (Recipe)')),
+                        DropdownMenuItem(
+                          value: 'food',
+                          child: Text('Món ăn (Food)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'recipe',
+                          child: Text('Công thức (Recipe)'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
@@ -444,7 +503,9 @@ class HistoryViewState extends State<HistoryView> {
                 else
                   InputDecorator(
                     decoration: InputDecoration(
-                      labelText: sourceType == 'food' ? 'Chọn món ăn' : 'Chọn công thức',
+                      labelText: sourceType == 'food'
+                          ? 'Chọn món ăn'
+                          : 'Chọn công thức',
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
@@ -461,7 +522,8 @@ class HistoryViewState extends State<HistoryView> {
                               ),
                             )
                             .toList(),
-                        onChanged: (value) => setModalState(() => selectedId = value),
+                        onChanged: (value) =>
+                            setModalState(() => selectedId = value),
                       ),
                     ),
                   ),
@@ -473,10 +535,22 @@ class HistoryViewState extends State<HistoryView> {
                       value: mealType,
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
-                        DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
-                        DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
-                        DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
+                        DropdownMenuItem(
+                          value: 'breakfast',
+                          child: Text('Bữa sáng'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'lunch',
+                          child: Text('Bữa trưa'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'dinner',
+                          child: Text('Bữa tối'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'snack',
+                          child: Text('Bữa phụ'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
@@ -493,7 +567,9 @@ class HistoryViewState extends State<HistoryView> {
                     labelText: sourceType == 'recipe'
                         ? 'Phần ăn (100 = 1 khẩu phần)'
                         : 'Khối lượng (gram)',
-                    hintText: sourceType == 'recipe' ? 'Ví dụ: 100' : 'Ví dụ: 150',
+                    hintText: sourceType == 'recipe'
+                        ? 'Ví dụ: 100'
+                        : 'Ví dụ: 150',
                   ),
                 ),
               ],
@@ -549,10 +625,16 @@ class HistoryViewState extends State<HistoryView> {
 
   Future<void> _openMealDetail(HistoryMealEntry meal) async {
     final recipeId = meal.recipeId?.trim();
-    if (recipeId != null && recipeId.isNotEmpty && recipeId.toLowerCase() != 'null') {
+    if (recipeId != null &&
+        recipeId.isNotEmpty &&
+        recipeId.toLowerCase() != 'null') {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipeId: recipeId),
+          builder: (_) => RecipeDetailScreen(
+            recipeId: recipeId,
+            plannedQuantityG: meal.ingredients.isEmpty ? null : meal.quantityG,
+            plannedIngredients: meal.ingredients,
+          ),
         ),
       );
       return;
@@ -561,9 +643,7 @@ class HistoryViewState extends State<HistoryView> {
     final foodId = meal.foodId?.trim();
     if (foodId != null && foodId.isNotEmpty && foodId.toLowerCase() != 'null') {
       await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => FoodDetailScreen(foodId: foodId),
-        ),
+        MaterialPageRoute(builder: (_) => FoodDetailScreen(foodId: foodId)),
       );
       return;
     }
@@ -584,7 +664,10 @@ class HistoryViewState extends State<HistoryView> {
           decoration: const InputDecoration(labelText: 'Tên thực đơn'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Lưu'),
@@ -744,14 +827,21 @@ class HistoryViewState extends State<HistoryView> {
                         GestureDetector(
                           onTap: _addMealLog,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
                               children: const [
-                                Icon(Icons.add, size: 16, color: AppColors.primary),
+                                Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Thêm món',
@@ -776,7 +866,9 @@ class HistoryViewState extends State<HistoryView> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 48),
                         child: Center(
-                          child: CircularProgressIndicator(color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
                         ),
                       )
                     else if (sections.isEmpty)
@@ -830,7 +922,10 @@ class HistoryViewState extends State<HistoryView> {
                 if (latestWeight != null) ...[
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(12),
@@ -864,7 +959,11 @@ class HistoryViewState extends State<HistoryView> {
             tooltip: 'Hôm nay',
             onTap: () {
               setState(() {
-                _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+                _focusedMonth = DateTime(
+                  _selectedDate.year,
+                  _selectedDate.month,
+                  1,
+                );
               });
             },
           ),
@@ -910,11 +1009,21 @@ class HistoryViewState extends State<HistoryView> {
   }
 
   Widget _buildCalendar() {
-    final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
-    final firstWeekday = DateTime(_focusedMonth.year, _focusedMonth.month, 1).weekday;
+    final daysInMonth = DateUtils.getDaysInMonth(
+      _focusedMonth.year,
+      _focusedMonth.month,
+    );
+    final firstWeekday = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month,
+      1,
+    ).weekday;
     final leadingEmpty = firstWeekday % 7;
     final prevMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
-    final daysInPrevMonth = DateUtils.getDaysInMonth(prevMonth.year, prevMonth.month);
+    final daysInPrevMonth = DateUtils.getDaysInMonth(
+      prevMonth.year,
+      prevMonth.month,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -940,11 +1049,18 @@ class HistoryViewState extends State<HistoryView> {
                   backgroundColor: const Color(0xFFF8FAFC),
                   minimumSize: const Size(36, 36),
                 ),
-                icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textDark, size: 22),
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: AppColors.textDark,
+                  size: 22,
+                ),
                 onPressed: () => _changeMonth(-1),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
@@ -963,7 +1079,11 @@ class HistoryViewState extends State<HistoryView> {
                   backgroundColor: const Color(0xFFF8FAFC),
                   minimumSize: const Size(36, 36),
                 ),
-                icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textDark, size: 22),
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textDark,
+                  size: 22,
+                ),
                 onPressed: () => _changeMonth(1),
               ),
             ],
@@ -1010,10 +1130,16 @@ class HistoryViewState extends State<HistoryView> {
               }
 
               final day = index - leadingEmpty + 1;
-              final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+              final date = DateTime(
+                _focusedMonth.year,
+                _focusedMonth.month,
+                day,
+              );
               final isSelected = DateUtils.isSameDay(date, _selectedDate);
               final goalPercent = _monthGoalByDate[_dateKey(date)];
-              final heatmapLevel = NutritionHeatmapColors.levelForPercent(goalPercent);
+              final heatmapLevel = NutritionHeatmapColors.levelForPercent(
+                goalPercent,
+              );
 
               return _CalendarDayCell(
                 day: day,
@@ -1048,8 +1174,15 @@ class HistoryViewState extends State<HistoryView> {
         onChanged: (value) => setState(() => _searchQuery = value),
         decoration: InputDecoration(
           hintText: 'Tìm kiếm món ăn trong nhật ký...',
-          hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 13.5),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+          hintStyle: TextStyle(
+            color: AppColors.textSecondary.withValues(alpha: 0.7),
+            fontSize: 13.5,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, size: 18),
@@ -1057,7 +1190,10 @@ class HistoryViewState extends State<HistoryView> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 13,
+            horizontal: 16,
+          ),
         ),
       ),
     );
@@ -1125,11 +1261,17 @@ class HistoryViewState extends State<HistoryView> {
                 color: AppColors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.restaurant_rounded, size: 36, color: AppColors.primary),
+              child: const Icon(
+                Icons.restaurant_rounded,
+                size: 36,
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(height: 14),
             Text(
-              _searchQuery.isNotEmpty ? 'Không tìm thấy món ăn phù hợp' : 'Chưa ghi nhận bữa ăn nào',
+              _searchQuery.isNotEmpty
+                  ? 'Không tìm thấy món ăn phù hợp'
+                  : 'Chưa ghi nhận bữa ăn nào',
               style: const TextStyle(
                 color: AppColors.textDark,
                 fontSize: 15,
@@ -1142,7 +1284,10 @@ class HistoryViewState extends State<HistoryView> {
                   ? 'Thử gõ tên từ khóa khác xem sao.'
                   : 'Bấm "+ Thêm món" ở trên để ghi chép lại bữa ăn nhé.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.5,
+              ),
             ),
           ],
         ),
@@ -1198,8 +1343,8 @@ class _CalendarDayCell extends StatelessWidget {
             color: isSelected
                 ? Colors.white
                 : isOutsideMonth
-                    ? AppColors.textLight.withValues(alpha: 0.5)
-                    : AppColors.textDark,
+                ? AppColors.textLight.withValues(alpha: 0.5)
+                : AppColors.textDark,
           ),
         ),
       ),
@@ -1310,7 +1455,10 @@ class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
   Widget build(BuildContext context) {
     final catColor = _categoryColor(widget.section.category);
     final totalCount = widget.section.meals.length;
-    final totalCalories = widget.section.meals.fold<int>(0, (sum, m) => sum + m.calories);
+    final totalCalories = widget.section.meals.fold<int>(
+      0,
+      (sum, m) => sum + m.calories,
+    );
 
     return IntrinsicHeight(
       child: Row(
@@ -1328,7 +1476,9 @@ class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
                     decoration: BoxDecoration(
                       color: catColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
-                      border: Border.all(color: catColor.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: catColor.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Icon(
                       widget.section.category.icon,
@@ -1377,7 +1527,10 @@ class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: catColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(10),
@@ -1397,7 +1550,10 @@ class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(10),
@@ -1428,16 +1584,20 @@ class _TimelineSectionWidgetState extends State<_TimelineSectionWidget> {
                   ),
                   if (_isExpanded) ...[
                     const SizedBox(height: 10),
-                    ...widget.section.meals.map((meal) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _MealCard(
-                            meal: meal,
-                            onOpenDetail: meal.canOpenDetail ? () => widget.onOpenDetail(meal) : null,
-                            onEdit: () => widget.onEditMeal(meal.id),
-                            onDelete: () => widget.onDeleteMeal(meal.id),
-                            onCreateTemplate: () => widget.onCreateTemplate(meal),
-                          ),
-                        )),
+                    ...widget.section.meals.map(
+                      (meal) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _MealCard(
+                          meal: meal,
+                          onOpenDetail: meal.canOpenDetail
+                              ? () => widget.onOpenDetail(meal)
+                              : null,
+                          onEdit: () => widget.onEditMeal(meal.id),
+                          onDelete: () => widget.onDeleteMeal(meal.id),
+                          onCreateTemplate: () => widget.onCreateTemplate(meal),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -1523,7 +1683,10 @@ class _MealCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(8),
@@ -1552,8 +1715,14 @@ class _MealCard extends StatelessWidget {
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 onSelected: (value) {
                   if (value == 'detail') onOpenDetail?.call();
                   if (value == 'edit') onEdit();
@@ -1565,7 +1734,11 @@ class _MealCard extends StatelessWidget {
                     value: 'template',
                     child: Row(
                       children: [
-                        Icon(Icons.bookmark_add_outlined, size: 18, color: AppColors.primary),
+                        Icon(
+                          Icons.bookmark_add_outlined,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
                         SizedBox(width: 8),
                         Text('Lưu thành thực đơn'),
                       ],
@@ -1576,7 +1749,11 @@ class _MealCard extends StatelessWidget {
                       value: 'detail',
                       child: Row(
                         children: [
-                          Icon(Icons.visibility_outlined, size: 18, color: AppColors.textDark),
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: AppColors.textDark,
+                          ),
                           SizedBox(width: 8),
                           Text('Xem chi tiết'),
                         ],
@@ -1586,7 +1763,11 @@ class _MealCard extends StatelessWidget {
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_outlined, size: 18, color: AppColors.textDark),
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: AppColors.textDark,
+                        ),
                         SizedBox(width: 8),
                         Text('Sửa nhật ký'),
                       ],
@@ -1598,14 +1779,21 @@ class _MealCard extends StatelessWidget {
                       children: [
                         Icon(Icons.delete_outline, size: 18, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('Xóa nhật ký', style: TextStyle(color: Colors.red)),
+                        Text(
+                          'Xóa nhật ký',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
               if (onOpenDetail != null)
-                const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 20),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFCBD5E1),
+                  size: 20,
+                ),
             ],
           ),
         ),

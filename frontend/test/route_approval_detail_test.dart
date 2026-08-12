@@ -71,6 +71,30 @@ void main() {
     expect(detail.days.single.meals.first.scheduledTime, '07:30:00');
     expect(detail.days.single.meals.first.quantityG, 180);
     expect(detail.days.single.meals.last.name, 'Gà xào rau củ');
+    expect(detail.plannedCaloriesPerDay, 1170);
+  });
+
+  test('uses approved meal calories instead of configured calorie target', () {
+    final detail = RouteApprovalDetail.fromJson({
+      'reportId': 'request-1889',
+      'configuredCalorieTarget': 2000,
+      'reportData': {
+        'dailyMeals': [
+          {
+            'date': '2026-08-13',
+            'plannedItems': [
+              {'mealType': 'breakfast', 'targetCalories': 505},
+              {'mealType': 'lunch', 'targetCalories': 414},
+              {'mealType': 'dinner', 'targetCalories': 550},
+              {'mealType': 'snack', 'targetCalories': 420},
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(detail.configuredCalorieTarget, 2000);
+    expect(detail.plannedCaloriesPerDay, 1889);
   });
 
   test('accepts PascalCase payloads returned by legacy endpoints', () {

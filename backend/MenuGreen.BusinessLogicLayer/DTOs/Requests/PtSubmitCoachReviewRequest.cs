@@ -47,5 +47,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public Guid? FoodId { get; set; }
         public Guid? RecipeId { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? QuantityG { get; set; }
+        public List<MealPlanIngredientPortionRequest>? Ingredients { get; set; }
     }
 }

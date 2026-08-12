@@ -455,7 +455,13 @@ class _SummaryCard extends StatelessWidget {
         ? 'Lộ trình dinh dưỡng gửi PT duyệt.'
         : detail.studentNote.trim();
 
-    final hasCalories = detail.configuredCalorieTarget != null;
+    final plannedCalories = detail.plannedCaloriesPerDay;
+    final displayedCalories = plannedCalories ?? detail.configuredCalorieTarget;
+    final hasCalories = displayedCalories != null;
+    final showConfiguredTarget =
+        plannedCalories != null &&
+        detail.configuredCalorieTarget != null &&
+        plannedCalories != detail.configuredCalorieTarget;
     final hasMacros =
         detail.targetProteinG != null ||
         detail.targetCarbsG != null ||
@@ -532,8 +538,10 @@ class _SummaryCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Mục tiêu Năng lượng',
+                                Text(
+                                  plannedCalories == null
+                                      ? 'Mục tiêu Năng lượng'
+                                      : 'Năng lượng lộ trình',
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
@@ -542,7 +550,7 @@ class _SummaryCard extends StatelessWidget {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  '${detail.configuredCalorieTarget} kcal/ngày',
+                                  '$displayedCalories kcal/ngày',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
@@ -551,6 +559,18 @@ class _SummaryCard extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            if (showConfiguredTarget) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Mục tiêu cấu hình: '
+                                '${detail.configuredCalorieTarget} kcal/ngày',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                             if (detail.configuredMinCalories != null ||
                                 detail.configuredMaxCalories != null) ...[
                               const SizedBox(height: 10),
@@ -1309,6 +1329,7 @@ class _MealTile extends StatelessWidget {
         ? RecipeDetailScreen(
             recipeId: meal.recipeId!,
             plannedQuantityG: meal.quantityG,
+            plannedIngredients: meal.ingredients,
           )
         : null;
     if (screen != null) {

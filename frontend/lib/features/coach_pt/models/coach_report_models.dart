@@ -169,6 +169,8 @@ class MealPlanAdjustment {
     this.foodId,
     this.recipeId,
     this.targetCalories,
+    this.quantityG,
+    this.ingredients = const [],
   });
 
   final String? planId;
@@ -179,6 +181,8 @@ class MealPlanAdjustment {
   final String? foodId;
   final String? recipeId;
   final int? targetCalories;
+  final double? quantityG;
+  final List<MealPlanIngredientPortion> ingredients;
 
   Map<String, dynamic> toJson() => {
     'planId': planId,
@@ -192,6 +196,27 @@ class MealPlanAdjustment {
     if (foodId != null) 'foodId': foodId,
     if (recipeId != null) 'recipeId': recipeId,
     if (targetCalories != null) 'targetCalories': targetCalories,
+    if (quantityG != null) 'quantityG': quantityG,
+    if (ingredients.isNotEmpty)
+      'ingredients': ingredients.map((item) => item.toJson()).toList(),
+  };
+}
+
+class MealPlanIngredientPortion {
+  const MealPlanIngredientPortion({
+    required this.ingredientId,
+    required this.quantity,
+    required this.unit,
+  });
+
+  final String ingredientId;
+  final double quantity;
+  final String unit;
+
+  Map<String, dynamic> toJson() => {
+    'ingredientId': ingredientId,
+    'quantity': quantity,
+    'unit': unit,
   };
 }
 

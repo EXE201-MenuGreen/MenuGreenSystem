@@ -4,6 +4,30 @@ import 'package:http/http.dart' as http;
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 
+Map<String, dynamic> buildPtReviewReportPayload(
+  String weekStart,
+  int expiry, {
+  String requestType = 'WeeklyReport',
+  String? mealPlanId,
+  int? submittedTotalCalories,
+  String? studentNote,
+  double? checkInWeight,
+  double? checkInBodyFat,
+  int? trainingDaysCount,
+  String? bodyFeeling,
+}) => <String, dynamic>{
+  'weekStartDate': weekStart,
+  'expirationDays': expiry,
+  'requestType': requestType,
+  'mealPlanId': ?mealPlanId,
+  'submittedTotalCalories': ?submittedTotalCalories,
+  'studentNote': studentNote,
+  'checkInWeight': checkInWeight,
+  'checkInBodyFat': checkInBodyFat,
+  'trainingDaysCount': trainingDaysCount,
+  'bodyFeeling': bodyFeeling,
+};
+
 class AdvancedRepository {
   AdvancedRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
   final ApiClient _api;
@@ -54,6 +78,8 @@ class AdvancedRepository {
     String weekStart,
     int expiry, {
     String requestType = 'WeeklyReport',
+    String? mealPlanId,
+    int? submittedTotalCalories,
     String? studentNote,
     double? checkInWeight,
     double? checkInBodyFat,
@@ -61,16 +87,21 @@ class AdvancedRepository {
     String? bodyFeeling,
   }) async => _map(
     _body(
-      await _api.postJson('${ApiEndpoints.baseUrl}/PtReview/reports', {
-        'weekStartDate': weekStart,
-        'expirationDays': expiry,
-        'requestType': requestType,
-        'studentNote': studentNote,
-        'checkInWeight': checkInWeight,
-        'checkInBodyFat': checkInBodyFat,
-        'trainingDaysCount': trainingDaysCount,
-        'bodyFeeling': bodyFeeling,
-      }),
+      await _api.postJson(
+        '${ApiEndpoints.baseUrl}/PtReview/reports',
+        buildPtReviewReportPayload(
+          weekStart,
+          expiry,
+          requestType: requestType,
+          mealPlanId: mealPlanId,
+          submittedTotalCalories: submittedTotalCalories,
+          studentNote: studentNote,
+          checkInWeight: checkInWeight,
+          checkInBodyFat: checkInBodyFat,
+          trainingDaysCount: trainingDaysCount,
+          bodyFeeling: bodyFeeling,
+        ),
+      ),
     ),
   );
   Future<Map<String, dynamic>> ptResult(String id) async => _map(
@@ -117,6 +148,9 @@ class AdvancedRepository {
       ),
     ),
   );
+
+  Future<Map<String, dynamic>> recipeDetail(String recipeId) async =>
+      _map(_body(await _api.get('${ApiEndpoints.baseUrl}/Recipe/$recipeId')));
   Future<Map<String, dynamic>> sharedPtReport(String token) async => _map(
     _body(
       await _api.get(

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 
 namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 {
@@ -85,5 +86,6 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
+        public List<PortionIngredientResponse> Ingredients { get; set; } = new();
     }
 }

@@ -41,7 +41,7 @@ void main() {
   });
 
   testWidgets(
-    'tracking uses the approved route target and only logged nutrition',
+    'tracking uses approved item snapshots instead of the configured goal',
     (tester) async {
       final provider = _TrackingProvider();
 
@@ -58,9 +58,9 @@ void main() {
       await tester.tap(find.text('Theo dõi'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Mục tiêu: 2000 kcal'), findsOneWidget);
+      expect(find.text('Mục tiêu: 1889 kcal'), findsOneWidget);
       expect(find.text('Đã nạp: 1086 kcal'), findsOneWidget);
-      expect(find.text('Mục tiêu: 2444 kcal'), findsNothing);
+      expect(find.text('Mục tiêu: 2000 kcal'), findsNothing);
     },
   );
 }
@@ -87,7 +87,7 @@ class _TrackingProvider extends CoachMealPlanProvider {
               id: 'item-1',
               mealType: 'breakfast',
               displayName: 'Cơm gà',
-              targetCalories: 1200,
+              targetCalories: 505,
               proteinG: 50,
               carbsG: 100,
               fatG: 30,
@@ -97,15 +97,29 @@ class _TrackingProvider extends CoachMealPlanProvider {
             CoachMealPlanItem(
               id: 'item-2',
               mealType: 'lunch',
-              displayName: 'Món chưa ăn',
-              targetCalories: 1244,
+              displayName: 'Cá hồi',
+              targetCalories: 414,
               proteinG: 38,
               carbsG: 80,
               fatG: 41,
             ),
           ],
-          'dinner': const [],
-          'snack': const [],
+          'dinner': [
+            CoachMealPlanItem(
+              id: 'item-3',
+              mealType: 'dinner',
+              displayName: 'Vịt quay',
+              targetCalories: 550,
+            ),
+          ],
+          'snack': [
+            CoachMealPlanItem(
+              id: 'item-4',
+              mealType: 'snack',
+              displayName: 'Trứng sốt cà chua',
+              targetCalories: 420,
+            ),
+          ],
         },
       ),
       _summary = [
