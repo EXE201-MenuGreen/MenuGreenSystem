@@ -640,12 +640,25 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
   # Skip EF Core migration files (not raw SQL)
   filename=$(basename "$sql_file")
   
-  # Check if already applied
-  APPLIED=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | tr -d '[:space:]')
-  
-  if [ "$APPLIED" = "1" ]; then
-    echo "    ⊘ $filename (already applied)"
-    continue
+  # Special handling for 65 - always retry since constraint fix is needed
+  if [ "$filename" = "65_cleanup_all_pending_payments.sql" ]; then
+    # Check if CANCELLED rows exist (meaning constraint is fixed)
+    CANCELLED_EXISTS=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"payments\" WHERE \"Status\" = 'CANCELLED' LIMIT 1;" 2>/dev/null | tr -d '[:space:]')
+    if [ "$CANCELLED_EXISTS" -gt 0 ]; then
+      echo "    ⊘ $filename (skipped - CANCELLED status exists)"
+      continue
+    fi
+    # If not exists, check if recorded as applied (means previous failed attempt)
+    if PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | grep -q 1; then
+      echo "    ⊘ $filename (removing failed record to retry)"
+      PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "DELETE FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null
+    fi
+  else
+    # Standard check for other migrations
+    if PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | grep -q 1; then
+      echo "    ⊘ $filename (already applied)"
+      continue
+    fi
   fi
   
   echo "    → Applying: $filename"

@@ -3,8 +3,10 @@
 -- Description: Cancel all pending SePay payments
 -- Reason: Users cannot create new orders due to stale pending payments blocking them
 
--- This migration only updates pending SePay payments to CANCELLED.
--- The CANCELLED status was already added in migration 63.
+-- First, ensure constraint allows CANCELLED
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS CK_payments_status;
+ALTER TABLE payments ADD CONSTRAINT CK_payments_status 
+    CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED'));
 
 -- Cancel all pending SePay payments
 UPDATE payments
