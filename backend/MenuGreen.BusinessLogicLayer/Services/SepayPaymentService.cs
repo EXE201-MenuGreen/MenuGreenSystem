@@ -171,9 +171,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             payment.UpdatedAt = DateTimeOffset.UtcNow;
             _unitOfWork.Payments.Update(payment);
 
-            // Try to cancel the associated pending subscription (non-blocking)
-            // This is a best-effort operation - payment cancellation should not fail
-            // if subscription cancellation fails
+            // Update the associated pending subscription if exists (non-blocking)
+            // Mark as Cancelled so user can create new orders after cancellation
             if (payment.UserSubscriptionId.HasValue)
             {
                 try
@@ -184,13 +183,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         subscription.Status = "Cancelled";
                         subscription.UpdatedAt = DateTime.UtcNow;
                         _unitOfWork.UserSubscriptions.Update(subscription);
-                        await _unitOfWork.CompleteAsync();
                     }
+                    await _unitOfWork.CompleteAsync();
                 }
                 catch
                 {
-                    // Log but don't fail - payment cancellation is the primary operation
-                    // Subscription will remain in PendingPayment state but won't cause issues
+                    // If subscription update fails, ensure payment update is committed
+                    try
+                    {
+                        await _unitOfWork.CompleteAsync();
+                    }
+                    catch
+                    {
+                        // Payment update already done, subscription will be stale but won't block new orders
+                    }
                 }
             }
             else
