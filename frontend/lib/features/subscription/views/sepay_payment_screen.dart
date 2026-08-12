@@ -113,14 +113,15 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
   SepayOrder? _pickPendingOrder(List<SepayOrder> orders) {
     if (widget.flow == SepayPaymentFlow.subscribe) {
       final planId = widget.subscriptionPlanId;
+      // Tìm order khớp chính xác với plan đang đăng ký
       if (planId != null) {
         for (final o in orders) {
           if (o.isSubscribeOrder && o.subscriptionPlanId == planId) return o;
         }
       }
-      for (final o in orders) {
-        if (o.isSubscribeOrder) return o;
-      }
+      // Nếu không tìm thấy order đúng plan, KHÔNG resume order khác
+      // → Sẽ tạo order mới cho plan đang chọn
+      return null;
     } else {
       final subId = widget.userSubscriptionId;
       if (subId != null) {
@@ -128,12 +129,9 @@ class _SepayPaymentScreenState extends State<SepayPaymentScreen> {
           if (o.isRenewOrder && o.userSubscriptionId == subId) return o;
         }
       }
-      for (final o in orders) {
-        if (o.isRenewOrder) return o;
-      }
+      // Nếu không tìm thấy order renew đúng subscription, KHÔNG resume order khác
+      return null;
     }
-
-    return orders.isNotEmpty ? orders.first : null;
   }
 
   void _applyOrder(SepayOrder order, {bool resumed = false}) {
