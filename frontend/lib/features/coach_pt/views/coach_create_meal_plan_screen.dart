@@ -2419,7 +2419,7 @@ class _MacroStatCard extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 12.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),

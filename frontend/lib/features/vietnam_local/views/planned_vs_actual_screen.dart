@@ -356,7 +356,7 @@ class _DailyProgressCard extends StatelessWidget {
                   color: accent,
                   fontSize: 34,
                   height: 1,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const Padding(
@@ -507,7 +507,7 @@ class _MacroProgress extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 17,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           Text(
@@ -722,7 +722,7 @@ class _NutritionBlock extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textDark,
               fontSize: 19,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
@@ -1082,7 +1082,7 @@ class _AdherenceCard extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -1281,7 +1281,7 @@ class _SectionTitle extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.textDark,
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 2),

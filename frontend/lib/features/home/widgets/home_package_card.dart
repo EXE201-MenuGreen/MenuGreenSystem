@@ -84,7 +84,7 @@ class HomePackageCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: beVietnamPro(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.55,
                           color: accentColor,
                         ),
@@ -124,7 +124,7 @@ class HomePackageCard extends StatelessWidget {
                         style: beVietnamPro(
                           color: Colors.white,
                           fontSize: 8,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.2,
                         ),
                       ),

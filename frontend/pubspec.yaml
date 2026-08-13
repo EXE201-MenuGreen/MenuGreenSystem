@@ -94,8 +94,6 @@ flutter:
           weight: 700
         - asset: assets/fonts/BeVietnamPro-ExtraBold.ttf
           weight: 800
-        - asset: assets/fonts/BeVietnamPro-Black.ttf
-          weight: 900
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -126,6 +124,6 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  image_path: "assets/images/logo.png"
+  image_path: "assets/images/logo.webp"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logo.png"
+  adaptive_icon_foreground: "assets/images/logo.webp"

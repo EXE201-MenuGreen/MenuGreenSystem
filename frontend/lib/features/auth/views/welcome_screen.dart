@@ -43,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: Image.asset(
-                  'assets/images/salad_bowl.png',
+                  'assets/images/salad_bowl.webp',
                   fit: BoxFit.cover,
                 ),
               ),

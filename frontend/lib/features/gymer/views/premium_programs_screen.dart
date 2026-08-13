@@ -542,7 +542,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
@@ -1868,7 +1868,7 @@ class _ProgramCard extends StatelessWidget {
                   formatVnd(price),
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.textDark,
                   ),
                 ),

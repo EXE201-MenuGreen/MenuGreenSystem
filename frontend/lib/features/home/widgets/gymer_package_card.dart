@@ -115,7 +115,7 @@ class GymerPackageCard extends StatelessWidget {
                         'GYMER VIP',
                         style: beVietnamPro(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.55,
                           color: AppColors.primary,
                         ),
@@ -156,7 +156,7 @@ class GymerPackageCard extends StatelessWidget {
                         style: beVietnamPro(
                           color: Colors.white,
                           fontSize: 8,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.25,
                         ),
                       ),

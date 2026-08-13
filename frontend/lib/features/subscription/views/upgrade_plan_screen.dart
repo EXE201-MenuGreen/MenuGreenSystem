@@ -685,7 +685,7 @@ class _CasualPackageCard extends StatelessWidget {
                 price == null ? 'Đang tải giá...' : formatVnd(price),
                 style: const TextStyle(
                   fontSize: 24,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textDark,
                 ),
               ),
@@ -853,7 +853,7 @@ class _GymerPackageCard extends StatelessWidget {
                 price == null ? 'Đang tải giá...' : formatVnd(price),
                 style: const TextStyle(
                   fontSize: 24,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textDark,
                 ),
               ),
