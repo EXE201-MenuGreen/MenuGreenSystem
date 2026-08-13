@@ -776,7 +776,7 @@ class _GymerPackageCard extends StatelessWidget {
     final price = plan?.priceVnd;
     const features = <({IconData icon, String label})>[
       (icon: Icons.track_changes_rounded, label: 'Mục tiêu'),
-      (icon: Icons.rate_review_outlined, label: 'PT Review'),
+      (icon: Icons.rate_review_outlined, label: 'Đánh giá của PT'),
       (icon: Icons.sports_gymnastics_rounded, label: 'Coach'),
       (icon: Icons.emoji_events_outlined, label: 'Lộ trình'),
     ];
