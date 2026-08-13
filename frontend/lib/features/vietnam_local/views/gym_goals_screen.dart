@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
+import '../../../core/widgets/daily_calorie_balance_card.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
@@ -23,6 +25,74 @@ import '../../advanced/repositories/advanced_repository.dart';
 enum GymRouteApprovalPhase { none, pending, completed }
 
 enum GymPtConnectionPhase { none, pending, connected }
+
+@immutable
+class GymGoalsEditorResult {
+  const GymGoalsEditorResult({
+    required this.profile,
+    required this.selectedDate,
+  });
+
+  final GymGoalProfile profile;
+  final DateTime selectedDate;
+}
+
+@visibleForTesting
+String gymPlanDateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+/// Returns true when a non-rejected PersonalProgram sent by a PT covers [date].
+/// Pending programs count as occupied so the Gymer cannot create a competing
+/// route while the PT program is waiting for acceptance.
+@visibleForTesting
+bool gymPtProgramCoversDate(Map<String, dynamic> program, DateTime date) {
+  final status = (program['status'] ?? program['Status'])
+      ?.toString()
+      .trim()
+      .toLowerCase();
+  if (status != 'pending' && status != 'accepted') return false;
+
+  DateTime? parseDate(Object? value) {
+    final parsed = DateTime.tryParse(value?.toString() ?? '');
+    return parsed == null
+        ? null
+        : DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  final target = DateTime(date.year, date.month, date.day);
+  final start =
+      parseDate(program['startDate'] ?? program['StartDate']) ??
+      parseDate(program['weekStartDate'] ?? program['WeekStartDate']);
+  if (start == null) return false;
+  final end = parseDate(program['endDate'] ?? program['EndDate']) ?? start;
+  return !target.isBefore(start) && !target.isAfter(end);
+}
+
+/// Converts one AI suggestion into the exact payload stored by the
+/// "Khởi tạo lộ trình" action, including the catalog serving size.
+@visibleForTesting
+Map<String, dynamic> gymSuggestionPlanItem(
+  LocalRecommendationItem suggestion,
+  String mealType, {
+  required DateTime plannedDate,
+}) {
+  final isRecipe = suggestion.type.toLowerCase().contains('recipe');
+  return <String, dynamic>{
+    'mealType': mealType,
+    'foodId': isRecipe ? null : suggestion.id.trim(),
+    'recipeId': isRecipe ? suggestion.id.trim() : null,
+    'targetCalories':
+        suggestion.caloriesKcal > 0 && suggestion.caloriesKcal < 3000
+        ? suggestion.caloriesKcal.round()
+        : 400,
+    'quantityG': suggestion.quantityG,
+    'plannedDate': gymPlanDateKey(plannedDate),
+    'scheduledTime': defaultMealScheduledTime(mealType),
+    'origin': 'gym',
+  };
+}
 
 /// Resolves the effective PT connection from the coach list. A connected
 /// coach always wins over another pending request.
@@ -55,6 +125,52 @@ GymRouteApprovalPhase gymRouteApprovalPhase(Object? rawStatus) {
   };
 }
 
+@visibleForTesting
+bool gymCanAutoBalancePlan({
+  required bool hasPlan,
+  required bool hasMeals,
+  required bool hasTarget,
+  required bool hasAcceptedPtConnection,
+  required bool hasPtProgram,
+  required bool isSentToPt,
+  required bool isLoading,
+}) {
+  return hasPlan &&
+      hasMeals &&
+      hasTarget &&
+      hasAcceptedPtConnection &&
+      !hasPtProgram &&
+      !isSentToPt &&
+      !isLoading;
+}
+
+/// Finds the Gymer -> PT route request for one concrete plan date.
+@visibleForTesting
+Map<String, dynamic>? gymRouteRequestForDate(
+  Iterable<Map<String, dynamic>> requests,
+  DateTime date,
+) {
+  final dateKey = gymPlanDateKey(date);
+  for (final request in requests) {
+    final requestedDate =
+        (request['weekStartDate'] ?? request['WeekStartDate'])?.toString() ??
+        '';
+    final status = request['status'] ?? request['Status'];
+    final requestType =
+        (request['requestType'] ?? request['RequestType'])
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        '';
+    if (requestedDate.startsWith(dateKey) &&
+        gymRouteApprovalPhase(status) != GymRouteApprovalPhase.none &&
+        (requestType.isEmpty || requestType == 'routeapproval')) {
+      return request;
+    }
+  }
+  return null;
+}
+
 /// Gym/PT Goal workflow — `2.13 Gym/PT Goal-Based Workflow`.
 class GymGoalsScreen extends StatefulWidget {
   const GymGoalsScreen({super.key});
@@ -65,17 +181,21 @@ class GymGoalsScreen extends StatefulWidget {
 
 class _GymGoalsScreenState extends State<GymGoalsScreen> {
   final _subRepo = UserSubscriptionRepository();
+  DateTime _planDate = DateUtils.dateOnly(DateTime.now());
   bool _subLoading = true;
   bool _hasProAccess = false;
   UserMealPlan? _todayPlan;
   bool _loadingPlan = true;
+  bool _balancingCalories = false;
   bool _checkingPtConnection = true;
   GymPtConnectionPhase _ptConnectionPhase = GymPtConnectionPhase.none;
   bool _isSentToPt = false;
   Map<String, dynamic>? _activeRouteReq;
+  Map<String, dynamic>? _todayPtProgram;
   int _suggestionPage = 0;
   int _activeSuggestionPage = 0;
   final Map<String, bool> _mealSlotExpanded = {};
+  final Set<String> _updatingScheduleItemIds = {};
 
   @override
   void initState() {
@@ -113,8 +233,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final provider = context.read<GymGoalsProvider>();
       await provider.loadProfile();
       if (!mounted) return;
-      await provider.loadPlan(date: DateTime.now(), top: 10);
+      await provider.loadPlan(date: _planDate, top: 10);
       await _loadPtConnectionStatus();
+      await _loadTodayPtProgram();
       await _loadTodayPlan();
       await _checkPtRequestStatus();
     });
@@ -122,6 +243,30 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   bool get _hasAcceptedPtConnection =>
       _ptConnectionPhase == GymPtConnectionPhase.connected;
+
+  bool get _hasTodayPtProgram =>
+      _todayPtProgram != null ||
+      _todayPlan?.generatedBy?.trim().toLowerCase() == 'coach';
+
+  Future<void> _loadTodayPtProgram() async {
+    if (mounted) {
+      setState(() => _todayPtProgram = null);
+    }
+    try {
+      final programs = await AdvancedRepository().myPersonalPrograms();
+      final program = programs.firstWhere(
+        (item) => gymPtProgramCoversDate(item, _planDate),
+        orElse: () => <String, dynamic>{},
+      );
+      if (!mounted) return;
+      setState(() {
+        _todayPtProgram = program.isEmpty ? null : program;
+      });
+    } catch (_) {
+      // The API also enforces this rule, so a temporary read failure cannot
+      // be used to overwrite a PT-created plan.
+    }
+  }
 
   Future<GymPtConnectionPhase> _loadPtConnectionStatus() async {
     if (mounted) setState(() => _checkingPtConnection = true);
@@ -148,7 +293,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       _loadingPlan = true;
     });
     try {
-      final plan = await MealPlanRepository().getByDate(DateTime.now());
+      final plan = await MealPlanRepository().getByDate(_planDate);
       setState(() {
         _todayPlan = plan;
         _loadingPlan = false;
@@ -163,7 +308,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Future<void> _loadTodayPlanQuietly() async {
     if (!_hasProAccess) return;
     try {
-      final plan = await MealPlanRepository().getByDate(DateTime.now());
+      final plan = await MealPlanRepository().getByDate(_planDate);
       if (mounted) {
         setState(() {
           _todayPlan = plan;
@@ -175,25 +320,13 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Future<void> _checkPtRequestStatus() async {
     if (!_hasProAccess) return;
     try {
-      final today = DateTime.now();
-      final requestDate =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
       final reqs = await AdvancedRepository().ptRequests();
-      // A route approval represents the plan of one concrete day.
-      final activeReq = reqs.firstWhere((r) {
-        final requestedDate = (r['weekStartDate'] ?? '').toString();
-        final status = (r['status'] ?? '').toString().toLowerCase();
-        final reqType = (r['requestType'] ?? '').toString().toLowerCase();
-        return requestedDate.startsWith(requestDate) &&
-            gymRouteApprovalPhase(status) != GymRouteApprovalPhase.none &&
-            (reqType.isEmpty || reqType == 'routeapproval');
-      }, orElse: () => <String, dynamic>{});
+      final activeReq = gymRouteRequestForDate(reqs, _planDate);
 
       if (mounted) {
         setState(() {
-          _isSentToPt = activeReq.isNotEmpty;
-          _activeRouteReq = activeReq.isNotEmpty ? activeReq : null;
+          _isSentToPt = activeReq != null;
+          _activeRouteReq = activeReq;
         });
       }
     } catch (e) {
@@ -202,6 +335,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   bool get _hasTodayGymItems {
+    if (_hasTodayPtProgram) return false;
     if (_todayPlan == null) return false;
     return _todayPlan!.items.any(
       (x) =>
@@ -210,6 +344,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           x.origin?.toLowerCase() == 'gym',
     );
   }
+
+  String get _planDateLabel =>
+      '${_planDate.day.toString().padLeft(2, '0')}/'
+      '${_planDate.month.toString().padLeft(2, '0')}/${_planDate.year}';
+
+  bool get _isPlanDateToday => DateUtils.isSameDay(_planDate, DateTime.now());
+
+  String get _planDateContext =>
+      _isPlanDateToday ? 'hôm nay' : 'ngày $_planDateLabel';
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +437,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     color: AppColors.primary,
                     onRefresh: () async {
                       await provider.loadProfile();
-                      await provider.loadPlan(date: DateTime.now(), top: 10);
+                      await provider.loadPlan(date: _planDate, top: 10);
+                      await _loadTodayPtProgram();
                       await _loadTodayPlan();
                     },
                     child: ListView(
@@ -307,9 +451,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: SectionHeader(
-                                title: 'Lộ trình ăn uống hôm nay',
+                                title: 'Lộ trình ăn uống $_planDateContext',
                                 icon: Icons.restaurant_menu_rounded,
                                 subtitle:
                                     'Phân loại chi tiết và đồng bộ nhật ký PT',
@@ -376,11 +520,11 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   String _scheduleSummary(GymGoalProfile? p) {
     if (p == null) return 'Đang tải cấu hình...';
-    final resolved = p.resolveForDate(DateTime.now());
+    final resolved = p.resolveForDate(_planDate);
     if (resolved.scope == GymConfigurationScope.day) {
       return resolved.isTraining
-          ? 'Hôm nay: Tập luyện 🏋️'
-          : 'Hôm nay: Nghỉ ngơi 😴';
+          ? '$_planDateContext: Tập luyện 🏋️'
+          : '$_planDateContext: Nghỉ ngơi 😴';
     }
     final schedule = p.weeklyTrainingSchedule.trim();
     if (schedule.isEmpty && resolved.hasScopedConfiguration) {
@@ -397,7 +541,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   String _calorieSummary(GymGoalsProvider provider) {
     final p = provider.profile;
     if (p == null) return '—';
-    final resolved = p.resolveForDate(DateTime.now());
+    final resolved = p.resolveForDate(_planDate);
     final target = provider.hasPlanConfiguration
         ? provider.planTargetCalories ?? resolved.targetCalories
         : resolved.targetCalories;
@@ -983,8 +1127,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Chưa có lộ trình ăn uống hôm nay.',
+                Text(
+                  _hasTodayPtProgram
+                      ? 'PT đã gửi lộ trình ăn uống $_planDateContext.'
+                      : 'Chưa có lộ trình ăn uống $_planDateContext.',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -994,13 +1140,15 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  !_hasAcceptedPtConnection
+                  _hasTodayPtProgram
+                      ? 'Bạn không thể khởi tạo thêm lộ trình trùng ngày. Hãy xem và xử lý lộ trình trong tab "PT gửi tôi".'
+                      : !_hasAcceptedPtConnection
                       ? _ptConnectionPhase == GymPtConnectionPhase.pending
                             ? 'Yêu cầu kết nối đang chờ PT chấp nhận. Bạn chỉ có thể khởi tạo lộ trình sau khi PT đồng ý.'
                             : 'Bạn cần kết nối với PT và được PT chấp nhận trước khi khởi tạo lộ trình.'
                       : provider.hasPlanConfiguration
                       ? 'Hãy bấm nút dưới đây để khởi tạo lộ trình ăn uống chia theo bữa.'
-                      : 'Hãy cấu hình Ngày, Tuần hoặc Tháng áp dụng cho hôm nay trước.',
+                      : 'Hãy cấu hình Ngày, Tuần hoặc Tháng áp dụng cho $_planDateContext trước.',
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
@@ -1010,7 +1158,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: provider.hasPlanConfiguration
+                  onPressed: _hasTodayPtProgram
+                      ? null
+                      : provider.hasPlanConfiguration
                       ? _hasAcceptedPtConnection
                             ? () => _initializePlanFromSuggestions(provider)
                             : null
@@ -1027,7 +1177,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     ),
                   ),
                   icon: Icon(
-                    provider.hasPlanConfiguration
+                    _hasTodayPtProgram
+                        ? Icons.lock_outline_rounded
+                        : provider.hasPlanConfiguration
                         ? _hasAcceptedPtConnection
                               ? Icons.bolt_rounded
                               : Icons.lock_outline_rounded
@@ -1035,14 +1187,16 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                     size: 18,
                   ),
                   label: Text(
-                    provider.hasPlanConfiguration
+                    _hasTodayPtProgram
+                        ? 'Đã có lộ trình từ PT'
+                        : provider.hasPlanConfiguration
                         ? _hasAcceptedPtConnection
                               ? 'Khởi tạo lộ trình'
                               : _ptConnectionPhase ==
                                     GymPtConnectionPhase.pending
                               ? 'Chờ PT chấp nhận'
                               : 'Kết nối PT trước'
-                        : 'Cấu hình hôm nay',
+                        : 'Cấu hình $_planDateContext',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13.5,
@@ -1052,149 +1206,152 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Gợi ý thực đơn hôm nay từ AI:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+          if (!_hasTodayPtProgram && provider.hasPlanConfiguration) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Gợi ý thực đơn $_planDateContext từ AI:',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          if (provider.planSuggestions.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.progressBackground),
-              ),
-              child: Text(
-                provider.hasPlanConfiguration
-                    ? 'Chưa có gợi ý thực đơn cho hôm nay.'
-                    : 'Hôm nay chưa có cấu hình Ngày, Tuần hoặc Tháng nên chưa tạo gợi ý.',
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-            )
-          else
-            Builder(
-              builder: (context) {
-                final suggestions = provider.planSuggestions;
-                const itemsPerPage = 5;
-                final totalItems = suggestions.length;
-                final totalPages = (totalItems / itemsPerPage).ceil();
+            const SizedBox(height: 10),
+            if (provider.planSuggestions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.progressBackground),
+                ),
+                child: Text(
+                  provider.hasPlanConfiguration
+                      ? 'Chưa có gợi ý thực đơn cho $_planDateContext.'
+                      : 'Chưa có cấu hình Ngày, Tuần hoặc Tháng cho $_planDateContext nên chưa tạo gợi ý.',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              )
+            else
+              Builder(
+                builder: (context) {
+                  final suggestions = provider.planSuggestions;
+                  const itemsPerPage = 5;
+                  final totalItems = suggestions.length;
+                  final totalPages = (totalItems / itemsPerPage).ceil();
 
-                if (_suggestionPage >= totalPages) {
-                  _suggestionPage = (totalPages - 1)
-                      .clamp(0, totalItems)
-                      .toInt();
-                }
+                  if (_suggestionPage >= totalPages) {
+                    _suggestionPage = (totalPages - 1)
+                        .clamp(0, totalItems)
+                        .toInt();
+                  }
 
-                final startIndex = _suggestionPage * itemsPerPage;
-                final endIndex = (startIndex + itemsPerPage).clamp(
-                  0,
-                  totalItems,
-                );
-                final currentPageItems = totalItems == 0
-                    ? []
-                    : suggestions.sublist(startIndex, endIndex);
+                  final startIndex = _suggestionPage * itemsPerPage;
+                  final endIndex = (startIndex + itemsPerPage).clamp(
+                    0,
+                    totalItems,
+                  );
+                  final currentPageItems = totalItems == 0
+                      ? []
+                      : suggestions.sublist(startIndex, endIndex);
 
-                return Column(
-                  children: [
-                    for (final item in currentPageItems)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColors.progressBackground,
+                  return Column(
+                    children: [
+                      for (final item in currentPageItems)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.progressBackground,
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.12,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
+                                  child: Icon(
+                                    item.type.toLowerCase().contains('recipe')
+                                        ? Icons.menu_book
+                                        : Icons.restaurant,
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  ),
                                 ),
-                                child: Icon(
-                                  item.type.toLowerCase().contains('recipe')
-                                      ? Icons.menu_book
-                                      : Icons.restaurant,
-                                  color: AppColors.primary,
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.name.isEmpty
-                                          ? 'Món gợi ý'
-                                          : item.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textDark,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.name.isEmpty
+                                            ? 'Món gợi ý'
+                                            : item.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textDark,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    if (totalPages > 1) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed: _suggestionPage > 0
-                                ? () => setState(() => _suggestionPage--)
-                                : null,
-                            icon: const Icon(Icons.chevron_left),
-                          ),
-                          Text(
-                            'Trang ${_suggestionPage + 1} / $totalPages',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+                      if (totalPages > 1) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              onPressed: _suggestionPage > 0
+                                  ? () => setState(() => _suggestionPage--)
+                                  : null,
+                              icon: const Icon(Icons.chevron_left),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: _suggestionPage < totalPages - 1
-                                ? () => setState(() => _suggestionPage++)
-                                : null,
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ],
-                      ),
+                            Text(
+                              'Trang ${_suggestionPage + 1} / $totalPages',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _suggestionPage < totalPages - 1
+                                  ? () => setState(() => _suggestionPage++)
+                                  : null,
+                              icon: const Icon(Icons.chevron_right),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
-                );
-              },
-            ),
+                  );
+                },
+              ),
+          ],
         ],
       );
     }
@@ -1205,15 +1362,125 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Widget _buildTodayMealPlan(GymGoalsProvider provider) {
     final slots = ['breakfast', 'lunch', 'dinner', 'snack'];
     final routePhase = gymRouteApprovalPhase(_activeRouteReq?['status']);
+    final gymItems =
+        _todayPlan?.items
+            .where(
+              (item) =>
+                  item.origin == null ||
+                  item.origin!.isEmpty ||
+                  item.origin!.toLowerCase() == 'gym',
+            )
+            .toList() ??
+        const <MealPlanItemModel>[];
+    final targetCalories = _todayPlan?.targetCalories ?? 0;
+    final canAutoBalance = gymCanAutoBalancePlan(
+      hasPlan: _todayPlan != null,
+      hasMeals: gymItems.isNotEmpty,
+      hasTarget: targetCalories > 0,
+      hasAcceptedPtConnection: _hasAcceptedPtConnection,
+      hasPtProgram: _hasTodayPtProgram,
+      isSentToPt: _isSentToPt,
+      isLoading: _balancingCalories,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (gymItems.isNotEmpty && targetCalories > 0) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFD1FAE5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calculate_rounded, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tổng kcal của 4 bữa',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isSentToPt
+                      ? 'Lộ trình đã gửi PT nên khẩu phần đang được khóa.'
+                      : 'Bạn có thể tự cân bằng trước khi gửi PT duyệt.',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DailyCalorieBalanceCard(
+                  totalCalories: gymItems.fold<int>(
+                    0,
+                    (sum, item) => sum + item.targetCalories,
+                  ),
+                  targetCalories: targetCalories,
+                  mealCount: gymItems
+                      .map((item) => item.mealType.toLowerCase())
+                      .toSet()
+                      .length,
+                  canAutoBalance: canAutoBalance,
+                  lockedLabel: _balancingCalories
+                      ? 'Đang chỉnh'
+                      : _isSentToPt
+                      ? 'Đã gửi PT'
+                      : 'Đã khóa',
+                  onAutoBalance: canAutoBalance
+                      ? () => _autoBalanceGymPlan(gymItems)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         for (final slot in slots) ...[
           _buildMealSlot(slot, provider),
           const SizedBox(height: 16),
         ],
         const SizedBox(height: 8),
-        if (!_hasAcceptedPtConnection)
+        if (_hasTodayPtProgram)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.verified_user_outlined, color: Color(0xFF1D4ED8)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Đây là lộ trình PT gửi. Bạn không thể tạo, chỉnh sửa hoặc gửi một lộ trình khác trùng ngày.',
+                    style: TextStyle(
+                      color: Color(0xFF1E40AF),
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (!_hasAcceptedPtConnection)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -1333,7 +1600,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _sendToPt,
+              onPressed: _loadingPlan || _balancingCalories ? null : _sendToPt,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -1349,296 +1616,372 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               ),
             ),
           ),
-        const SizedBox(height: 32),
-        const Text(
-          'Danh sách món ăn gợi ý hôm nay từ AI:',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
+        if (!_hasTodayPtProgram && provider.hasPlanConfiguration) ...[
+          const SizedBox(height: 32),
+          Text(
+            'Danh sách món ăn gợi ý $_planDateContext từ AI:',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 16),
-        if (provider.planSuggestions.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.progressBackground),
-            ),
-            child: const Text(
-              'Chưa có gợi ý thực đơn.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          )
-        else
-          Builder(
-            builder: (context) {
-              // Chỉ check gym items để so sánh với suggestions
-              final gymItems =
-                  _todayPlan?.items
-                      .where(
-                        (x) =>
-                            x.origin == null ||
-                            x.origin!.isEmpty ||
-                            x.origin?.toLowerCase() == 'gym',
-                      )
-                      .toList() ??
-                  [];
-              final addedIds = gymItems
-                  .map(
-                    (x) => (x.foodId ?? x.recipeId ?? '').trim().toLowerCase(),
-                  )
-                  .where((s) => s.isNotEmpty)
-                  .toSet();
+          const SizedBox(height: 4),
+          const Text(
+            'Chọn nút "Gán" để thêm món gợi ý này vào các bữa chính hoặc phụ trong lộ trình của bạn.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          if (provider.planSuggestions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.progressBackground),
+              ),
+              child: const Text(
+                'Chưa có gợi ý thực đơn.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Builder(
+              builder: (context) {
+                // Chỉ check gym items để so sánh với suggestions
+                final gymItems =
+                    _todayPlan?.items
+                        .where(
+                          (x) =>
+                              x.origin == null ||
+                              x.origin!.isEmpty ||
+                              x.origin?.toLowerCase() == 'gym',
+                        )
+                        .toList() ??
+                    [];
+                final addedIds = gymItems
+                    .map(
+                      (x) =>
+                          (x.foodId ?? x.recipeId ?? '').trim().toLowerCase(),
+                    )
+                    .where((s) => s.isNotEmpty)
+                    .toSet();
 
-              debugPrint('GymGoals: gym items size = ${gymItems.length}');
-              for (final x in gymItems) {
+                debugPrint('GymGoals: gym items size = ${gymItems.length}');
+                for (final x in gymItems) {
+                  debugPrint(
+                    'GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}, origin=${x.origin}',
+                  );
+                }
+                debugPrint('GymGoals: addedIds: $addedIds');
+
+                final remainingSuggestions = provider.planSuggestions
+                    .where((x) => !addedIds.contains(x.id.trim().toLowerCase()))
+                    .toList();
+
                 debugPrint(
-                  'GymGoals:   item id=${x.id}, foodId=${x.foodId}, recipeId=${x.recipeId}, name=${x.displayName}, origin=${x.origin}',
+                  'GymGoals: remainingSuggestions size = ${remainingSuggestions.length}',
                 );
-              }
-              debugPrint('GymGoals: addedIds: $addedIds');
 
-              final remainingSuggestions = provider.planSuggestions
-                  .where((x) => !addedIds.contains(x.id.trim().toLowerCase()))
-                  .toList();
+                if (remainingSuggestions.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.progressBackground),
+                    ),
+                    child: const Text(
+                      'Đã thêm tất cả món gợi ý vào lộ trình hôm nay.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  );
+                }
 
-              debugPrint(
-                'GymGoals: remainingSuggestions size = ${remainingSuggestions.length}',
-              );
+                const itemsPerPage = 5;
+                final totalItems = remainingSuggestions.length;
+                final totalPages = (totalItems / itemsPerPage).ceil();
 
-              if (remainingSuggestions.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.progressBackground),
-                  ),
-                  child: const Text(
-                    'Đã thêm tất cả món gợi ý vào lộ trình hôm nay.',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
+                if (_activeSuggestionPage >= totalPages) {
+                  _activeSuggestionPage = (totalPages - 1)
+                      .clamp(0, totalItems)
+                      .toInt();
+                }
+
+                final startIndex = _activeSuggestionPage * itemsPerPage;
+                final endIndex = (startIndex + itemsPerPage).clamp(
+                  0,
+                  totalItems,
                 );
-              }
+                final currentPageItems = totalItems == 0
+                    ? []
+                    : remainingSuggestions.sublist(startIndex, endIndex);
 
-              const itemsPerPage = 5;
-              final totalItems = remainingSuggestions.length;
-              final totalPages = (totalItems / itemsPerPage).ceil();
-
-              if (_activeSuggestionPage >= totalPages) {
-                _activeSuggestionPage = (totalPages - 1)
-                    .clamp(0, totalItems)
-                    .toInt();
-              }
-
-              final startIndex = _activeSuggestionPage * itemsPerPage;
-              final endIndex = (startIndex + itemsPerPage).clamp(0, totalItems);
-              final currentPageItems = totalItems == 0
-                  ? []
-                  : remainingSuggestions.sublist(startIndex, endIndex);
-
-              return Column(
-                children: [
-                  for (final item in currentPageItems) ...[
-                    Builder(
-                      builder: (context) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.progressBackground,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  final bool isFood = !item.type
-                                      .toLowerCase()
-                                      .contains('recipe');
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => isFood
-                                          ? FoodDetailScreen(foodId: item.id)
-                                          : RecipeDetailScreen(
-                                              recipeId: item.id,
-                                            ),
-                                    ),
-                                  );
-                                },
+                return Column(
+                  children: [
+                    for (final item in currentPageItems) ...[
+                      Builder(
+                        builder: (context) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          item.type.toLowerCase().contains(
-                                                'recipe',
+                                border: Border.all(
+                                  color: AppColors.progressBackground,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.02),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    final bool isFood = !item.type
+                                        .toLowerCase()
+                                        .contains('recipe');
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => isFood
+                                            ? FoodDetailScreen(
+                                                foodId: item.id,
+                                                plannedQuantityG:
+                                                    item.quantityG,
                                               )
-                                              ? Icons.menu_book
-                                              : Icons.restaurant,
-                                          color: AppColors.primary,
-                                          size: 18,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.name.isEmpty
-                                                  ? 'Món gợi ý'
-                                                  : item.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.textDark,
+                                            : RecipeDetailScreen(
+                                                recipeId: item.id,
+                                                plannedQuantityG:
+                                                    item.quantityG,
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      if (!_isSentToPt &&
-                                          _hasAcceptedPtConnection)
-                                        PopupMenuButton<String>(
-                                          icon: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 6,
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(
+                                              alpha: 0.12,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary
-                                                  .withValues(alpha: 0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.add,
-                                                  size: 14,
-                                                  color: AppColors.primary,
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  'Gán',
-                                                  style: TextStyle(
-                                                    color: AppColors.primary,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
+                                            borderRadius: BorderRadius.circular(
+                                              10,
                                             ),
                                           ),
-                                          onSelected: (mealType) =>
-                                              _addPlanItem(mealType, item),
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(
-                                              value: 'breakfast',
-                                              child: Text('Bữa sáng'),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'lunch',
-                                              child: Text('Bữa trưa'),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'dinner',
-                                              child: Text('Bữa tối'),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'snack',
-                                              child: Text('Bữa phụ / Ăn thêm'),
-                                            ),
-                                          ],
+                                          child: Icon(
+                                            item.type.toLowerCase().contains(
+                                                  'recipe',
+                                                )
+                                                ? Icons.menu_book
+                                                : Icons.restaurant,
+                                            color: AppColors.primary,
+                                            size: 18,
+                                          ),
                                         ),
-                                    ],
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.name.isEmpty
+                                                    ? 'Món gợi ý'
+                                                    : item.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.textDark,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.caloriesKcal, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}\nĐiểm ${item.score.toStringAsFixed(1)}',
+                                                maxLines: 3,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        if (!_isSentToPt &&
+                                            _hasAcceptedPtConnection)
+                                          PopupMenuButton<String>(
+                                            icon: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.add,
+                                                    size: 14,
+                                                    color: AppColors.primary,
+                                                  ),
+                                                  SizedBox(width: 2),
+                                                  Text(
+                                                    'Gán',
+                                                    style: TextStyle(
+                                                      color: AppColors.primary,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            onSelected: (mealType) =>
+                                                _addPlanItem(mealType, item),
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'breakfast',
+                                                child: Text('Bữa sáng'),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'lunch',
+                                                child: Text('Bữa trưa'),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'dinner',
+                                                child: Text('Bữa tối'),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'snack',
+                                                child: Text(
+                                                  'Bữa phụ / Ăn thêm',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
+                          );
+                        },
+                      ),
+                    ],
+                    if (totalPages > 1) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _activeSuggestionPage > 0
+                                ? () => setState(() => _activeSuggestionPage--)
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                  if (totalPages > 1) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: _activeSuggestionPage > 0
-                              ? () => setState(() => _activeSuggestionPage--)
-                              : null,
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        Text(
-                          'Trang ${_activeSuggestionPage + 1} / $totalPages',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                          Text(
+                            'Trang ${_activeSuggestionPage + 1} / $totalPages',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: _activeSuggestionPage < totalPages - 1
-                              ? () => setState(() => _activeSuggestionPage++)
-                              : null,
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
+                          IconButton(
+                            onPressed: _activeSuggestionPage < totalPages - 1
+                                ? () => setState(() => _activeSuggestionPage++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
-              );
-            },
-          ),
+                );
+              },
+            ),
+        ],
       ],
     );
+  }
+
+  Future<void> _autoBalanceGymPlan(List<MealPlanItemModel> items) async {
+    final plan = _todayPlan;
+    if (plan == null || plan.targetCalories <= 0 || items.isEmpty) return;
+    if (_isSentToPt || _hasTodayPtProgram) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lộ trình đã gửi hoặc thuộc PT nên không thể chỉnh.'),
+        ),
+      );
+      return;
+    }
+    if (items.any((item) => item.id.startsWith('temp_'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hãy chờ món đang thêm được lưu xong.')),
+      );
+      return;
+    }
+
+    final originalTotal = items.fold<int>(
+      0,
+      (sum, item) => sum + item.targetCalories,
+    );
+    setState(() => _balancingCalories = true);
+    try {
+      final balanced = await MealPlanRepository().balanceDailyCalories(
+        planId: plan.id,
+        plannedDate: _planDate,
+        targetCalories: plan.targetCalories,
+        itemIds: items.map((item) => item.id).toList(),
+      );
+      if (!mounted) return;
+      setState(() => _todayPlan = balanced);
+      final factor = originalTotal <= 0
+          ? 1.0
+          : plan.targetCalories / originalTotal;
+      final percent = ((factor - 1).abs() * 100).round();
+      final action = factor >= 1 ? 'tăng' : 'giảm';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã $action khẩu phần khoảng $percent% và cân bằng về ${plan.targetCalories} kcal.',
+            ),
+          ),
+        );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiMessageTranslator.translate(error.toString())),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _balancingCalories = false);
+    }
   }
 
   Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
@@ -1802,14 +2145,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          formatNutritionFacts(
-                            quantityG: item.quantityG,
-                            caloriesKcal: item.targetCalories,
-                            proteinG: item.proteinG,
-                            carbsG: item.carbsG,
-                            fatG: item.fatG,
-                          ),
-                          maxLines: 2,
+                          '${_mealItemSchedule(item)}\n${formatNutritionFacts(quantityG: item.quantityG, caloriesKcal: item.targetCalories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG)}',
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
@@ -1821,8 +2158,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    FoodDetailScreen(foodId: item.foodId!),
+                                builder: (_) => FoodDetailScreen(
+                                  foodId: item.foodId!,
+                                  plannedQuantityG: item.quantityG,
+                                ),
                               ),
                             );
                           } else if (item.recipeId != null) {
@@ -1831,27 +2170,63 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                               MaterialPageRoute(
                                 builder: (_) => RecipeDetailScreen(
                                   recipeId: item.recipeId!,
+                                  plannedQuantityG: item.quantityG,
                                 ),
                               ),
                             );
                           }
                         },
-                        trailing: _isSentToPt || !_hasAcceptedPtConnection
+                        trailing:
+                            _hasTodayPtProgram ||
+                                _isSentToPt ||
+                                !_hasAcceptedPtConnection
                             ? null
-                            : IconButton(
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red.shade400,
-                                  size: 20,
-                                ),
-                                onPressed: () => _deletePlanItem(item),
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_updatingScheduleItemIds.contains(
+                                    item.id,
+                                  ))
+                                    const SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: Padding(
+                                        padding: EdgeInsets.all(10),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    IconButton(
+                                      tooltip: 'Chỉnh giờ ăn',
+                                      icon: const Icon(
+                                        Icons.schedule_rounded,
+                                        color: AppColors.primary,
+                                        size: 20,
+                                      ),
+                                      onPressed: item.id.startsWith('temp_')
+                                          ? null
+                                          : () => _editMealTime(item),
+                                    ),
+                                  IconButton(
+                                    tooltip: 'Xóa món',
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red.shade400,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _deletePlanItem(item),
+                                  ),
+                                ],
                               ),
                       ),
                     ),
                 ],
               ),
             // Add button
-            if (!_isSentToPt && _hasAcceptedPtConnection)
+            if (!_hasTodayPtProgram && !_isSentToPt && _hasAcceptedPtConnection)
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: TextButton.icon(
@@ -1868,6 +2243,87 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ],
       ),
     );
+  }
+
+  String _mealItemSchedule(MealPlanItemModel item) {
+    final planDate =
+        item.plannedDate ?? DateTime.tryParse(_todayPlan?.startDate ?? '');
+    final dateLabel = planDate == null
+        ? 'Chưa có ngày ăn'
+        : 'Ngày ăn: ${mealPlannedDateLabel(planDate)}';
+    final timeLabel = mealScheduledTimeLabel(
+      item.scheduledTime,
+      mealType: item.mealType,
+    );
+    return '$dateLabel · Giờ ăn: $timeLabel';
+  }
+
+  Future<void> _editMealTime(MealPlanItemModel item) async {
+    final currentTime = mealScheduledTimeLabel(
+      item.scheduledTime,
+      mealType: item.mealType,
+    ).split(':');
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: int.tryParse(currentTime.first) ?? 12,
+        minute: int.tryParse(currentTime.last) ?? 0,
+      ),
+      helpText: 'CHỌN GIỜ ĂN',
+    );
+    if (selectedTime == null || !mounted || _todayPlan == null) return;
+
+    final plannedDate =
+        item.plannedDate ??
+        DateTime.tryParse(_todayPlan?.startDate ?? '') ??
+        _planDate;
+    final scheduledTime = DateTime(
+      plannedDate.year,
+      plannedDate.month,
+      plannedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+
+    setState(() => _updatingScheduleItemIds.add(item.id));
+    try {
+      await MealPlanRepository().updateItem(
+        _todayPlan!.id,
+        item.id,
+        AddItemRequest(
+          mealType: item.mealType,
+          foodId: item.foodId,
+          recipeId: item.recipeId,
+          plannedDate: plannedDate,
+          scheduledTime: scheduledTime,
+          targetCalories: item.targetCalories,
+          quantityG: item.quantityG,
+          origin: item.origin ?? 'gym',
+        ),
+      );
+      await _loadTodayPlanQuietly();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã cập nhật giờ ăn thành ${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiMessageTranslator.translate(error.toString())),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _updatingScheduleItemIds.remove(item.id));
+      }
+    }
   }
 
   String _mealSlotTitle(String mealType) {
@@ -1913,6 +2369,19 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _initializePlanFromSuggestions(GymGoalsProvider provider) async {
+    await _loadTodayPtProgram();
+    if (_hasTodayPtProgram) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'PT đã gửi lộ trình cho $_planDateContext. Bạn không thể khởi tạo thêm lộ trình trùng ngày.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     final connectionPhase = await _loadPtConnectionStatus();
     if (connectionPhase != GymPtConnectionPhase.connected) {
       if (mounted) {
@@ -1929,7 +2398,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     setState(() => _loadingPlan = true);
     try {
       if (provider.planSuggestions.isEmpty) {
-        await provider.loadPlan(date: DateTime.now(), top: 10);
+        await provider.loadPlan(date: _planDate, top: 10);
       }
 
       if (provider.planSuggestions.isEmpty) {
@@ -1968,17 +2437,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
           mealType = 'snack';
         }
 
-        final isRecipe = s.type.toLowerCase().contains('recipe');
-
-        list.add({
-          'mealType': mealType,
-          'foodId': isRecipe ? null : idStr,
-          'recipeId': isRecipe ? idStr : null,
-          'targetCalories': (s.caloriesKcal > 0 && s.caloriesKcal < 3000)
-              ? s.caloriesKcal.round()
-              : 400,
-          'origin': 'gym',
-        });
+        list.add(gymSuggestionPlanItem(s, mealType, plannedDate: _planDate));
 
         assignedCount++;
       }
@@ -1997,12 +2456,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final targetCal = provider.planTargetCalories;
       if (targetCal == null) {
         throw StateError(
-          'Hôm nay chưa có cấu hình calo áp dụng. Vui lòng cấu hình trước.',
+          'Chưa có cấu hình calo áp dụng cho $_planDateContext. Vui lòng cấu hình trước.',
         );
       }
 
       await MealPlanRepository().createFromDailyMenu(
-        plannedDate: DateTime.now(),
+        plannedDate: _planDate,
         targetCalories: targetCal,
         items: list,
       );
@@ -2108,9 +2567,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       if (targetCal == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Hôm nay chưa có cấu hình calo áp dụng. Vui lòng cấu hình trước.',
+                'Chưa có cấu hình calo áp dụng cho $_planDateContext. Vui lòng cấu hình trước.',
               ),
             ),
           );
@@ -2119,7 +2578,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       }
       try {
         await MealPlanRepository().createFromDailyMenu(
-          plannedDate: DateTime.now(),
+          plannedDate: _planDate,
           targetCalories: targetCal,
           items: [
             {
@@ -2130,6 +2589,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                   ? item.caloriesKcal.round()
                   : 400,
               'quantityG': item.quantityG,
+              'scheduledTime': defaultMealScheduledTime(mealType),
               'origin': 'gym',
             },
           ],
@@ -2164,6 +2624,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       carbsG: item.carbsG.round(),
       fatG: item.fatG.round(),
       isCompleted: false,
+      plannedDate: _planDate,
+      scheduledTime: defaultMealScheduledTime(mealType),
       foodName: item.type.toLowerCase().contains('recipe') ? null : item.name,
       recipeName: item.type.toLowerCase().contains('recipe') ? item.name : null,
       sourceEntityType: item.type,
@@ -2188,6 +2650,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
               : null,
           targetCalories: item.caloriesKcal.round(),
           quantityG: item.quantityG,
+          plannedDate: _planDate,
           origin: 'gym', // Tạo bởi AI Gym Goals
         ),
       );
@@ -2292,8 +2755,28 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   }
 
   Future<void> _sendToPt() async {
+    if (_balancingCalories) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hãy chờ hệ thống tự cân bằng xong trước khi gửi PT.'),
+        ),
+      );
+      return;
+    }
     setState(() => _loadingPlan = true);
     try {
+      var plan = _todayPlan;
+      if (plan == null) {
+        throw Exception('Không tìm thấy lộ trình ăn uống để gửi PT duyệt.');
+      }
+      final displayedTotalCalories = plan.items
+          .where(
+            (item) =>
+                item.origin == null ||
+                item.origin!.isEmpty ||
+                item.origin!.toLowerCase() == 'gym',
+          )
+          .fold<int>(0, (sum, item) => sum + item.targetCalories);
       final coaches = await AdvancedRepository().myCoaches();
       final connectionPhase = gymPtConnectionPhase(coaches);
       if (connectionPhase != GymPtConnectionPhase.connected) {
@@ -2312,17 +2795,52 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         return;
       }
 
-      final today = DateTime.now();
-      final requestDate =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      // The server snapshot is authoritative. Reload immediately before
+      // submission so the Gymer and PT cannot send/read different calorie
+      // revisions after a portion adjustment.
+      final latestPlan = await MealPlanRepository().getByDate(_planDate);
+      if (latestPlan == null) {
+        throw Exception('Không tìm thấy lộ trình mới nhất để gửi PT duyệt.');
+      }
+      final latestTotalCalories = latestPlan.items
+          .where(
+            (item) =>
+                item.origin == null ||
+                item.origin!.isEmpty ||
+                item.origin!.toLowerCase() == 'gym',
+          )
+          .fold<int>(0, (sum, item) => sum + item.targetCalories);
+      plan = latestPlan;
+      if (mounted) {
+        setState(() => _todayPlan = latestPlan);
+      }
+      if (latestTotalCalories != displayedTotalCalories) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Lộ trình vừa thay đổi từ $displayedTotalCalories thành $latestTotalCalories kcal. Hãy kiểm tra lại trước khi gửi PT.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
-      await AdvancedRepository().createPtReport(
+      final requestDate = gymPlanDateKey(_planDate);
+
+      final createdRequest = await AdvancedRepository().createPtReport(
         requestDate,
         7,
         requestType: 'RouteApproval',
+        mealPlanId: plan.id,
+        submittedTotalCalories: latestTotalCalories,
       );
-      await _checkPtRequestStatus();
       if (mounted) {
+        setState(() {
+          _isSentToPt = true;
+          _activeRouteReq = createdRequest;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đã gửi yêu cầu duyệt lộ trình thành công đến PT!'),
@@ -2332,11 +2850,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Không thể gửi lộ trình cho HLV. Vui lòng thử lại sau.',
-            ),
-          ),
+          SnackBar(content: Text(ApiMessageTranslator.translate(e.toString()))),
         );
       }
     } finally {
@@ -2349,20 +2863,31 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     GymGoalProfile? profile, {
     bool focusBodyTargets = false,
   }) async {
-    final updated = await Navigator.push<GymGoalProfile?>(
+    final result = await Navigator.push<GymGoalsEditorResult?>(
       context,
       MaterialPageRoute(
         builder: (_) => GymGoalsEditorScreen(
           initial: profile,
+          initialDate: _planDate,
           focusBodyTargets: focusBodyTargets,
         ),
       ),
     );
-    if (updated != null && context.mounted) {
+    if (result != null && context.mounted) {
       final provider = context.read<GymGoalsProvider>();
-      final ok = await provider.save(updated);
+      final ok = await provider.save(result.profile);
       if (!ok) return;
-      await provider.loadPlan(date: DateTime.now(), top: 10);
+      setState(() {
+        _planDate = DateUtils.dateOnly(result.selectedDate);
+        _todayPlan = null;
+        _todayPtProgram = null;
+        _activeRouteReq = null;
+        _isSentToPt = false;
+      });
+      await provider.loadPlan(date: _planDate, top: 10);
+      await _loadTodayPtProgram();
+      await _loadTodayPlan();
+      await _checkPtRequestStatus();
     }
   }
 }
@@ -2371,10 +2896,12 @@ class GymGoalsEditorScreen extends StatefulWidget {
   const GymGoalsEditorScreen({
     super.key,
     this.initial,
+    this.initialDate,
     this.focusBodyTargets = false,
   });
 
   final GymGoalProfile? initial;
+  final DateTime? initialDate;
   final bool focusBodyTargets;
 
   @override
@@ -2400,7 +2927,8 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
   late final TextEditingController _notesController;
 
   int _activeTab = 0;
-  DateTime _selectedDate = DateTime.now();
+  late DateTime _selectedDate;
+  bool _configurationPeriodSelected = false;
   bool _isDayTraining = false;
   bool _initializing = true;
 
@@ -2408,6 +2936,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
   void initState() {
     super.initState();
     final init = widget.initial;
+    _selectedDate = DateUtils.dateOnly(widget.initialDate ?? DateTime.now());
     _selectedDays = (init?.weeklyTrainingSchedule ?? '')
         .split(',')
         .map((e) => e.trim())
@@ -2583,7 +3112,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     }
   }
 
-  void _saveSelectedConfig() {
+  void _saveSelectedConfig({bool forceSelectedPeriod = false}) {
     final customCal = int.tryParse(_calController.text.trim());
     final minCal = int.tryParse(_minCalController.text.trim());
     final maxCal = int.tryParse(_maxCalController.text.trim());
@@ -2595,6 +3124,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
       final dateStr = _formatDate(_selectedDate);
       final index = _dailyDetails.indexWhere((e) => e.dateString == dateStr);
       final hasData =
+          forceSelectedPeriod ||
           customCal != null ||
           minCal != null ||
           maxCal != null ||
@@ -2625,6 +3155,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         (e) => e.weekStartDateString == weekStartStr,
       );
       final hasData =
+          forceSelectedPeriod ||
           customCal != null ||
           minCal != null ||
           maxCal != null ||
@@ -2657,6 +3188,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
         (e) => e.monthString == monthStr,
       );
       final hasData =
+          forceSelectedPeriod ||
           customCal != null ||
           minCal != null ||
           maxCal != null ||
@@ -2739,6 +3271,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _configurationPeriodSelected = true;
         _loadSelectedConfig();
       });
     }
@@ -2767,6 +3300,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        _configurationPeriodSelected = true;
         _loadSelectedConfig();
       });
     }
@@ -2795,6 +3329,7 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        _configurationPeriodSelected = true;
         _loadSelectedConfig();
       });
     }
@@ -3041,8 +3576,16 @@ class _GymGoalsEditorScreenState extends State<GymGoalsEditorScreen> {
             padding: const EdgeInsets.only(right: 14),
             child: FilledButton(
               onPressed: () {
-                _saveSelectedConfig();
-                Navigator.pop<GymGoalProfile?>(context, _build());
+                _saveSelectedConfig(
+                  forceSelectedPeriod: _configurationPeriodSelected,
+                );
+                Navigator.pop<GymGoalsEditorResult>(
+                  context,
+                  GymGoalsEditorResult(
+                    profile: _build(),
+                    selectedDate: _selectedDate,
+                  ),
+                );
               },
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,

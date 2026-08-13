@@ -209,7 +209,7 @@ class FoodDiscoveryRepository {
           return const FavoriteFoodsLoadResult(
             items: [],
             isFromCache: false,
-            message: 'Dá»¯ liá»‡u mÃ³n yÃªu thÃ­ch khÃ´ng há»£p lá»‡.',
+            message: 'D\u1eef li\u1ec7u m\u00f3n y\u00eau th\u00edch kh\u00f4ng h\u1ee3p l\u1ec7.',
           );
         }
         final items = decoded
@@ -220,13 +220,13 @@ class FoodDiscoveryRepository {
         return FavoriteFoodsLoadResult(items: items, isFromCache: false);
       }
       return _loadFavoriteCacheOrFailure(
-        'KhÃ´ng thá»ƒ táº£i mÃ³n yÃªu thÃ­ch. Vui lÃ²ng thá»­ láº¡i.',
+        'Kh\u00f4ng th\u1ec3 t\u1ea3i m\u00f3n y\u00eau th\u00edch. Vui l\u00f2ng th\u1eed l\u1ea1i.',
         allowCacheFallback,
       );
     } catch (error, stack) {
       AppLogger.error('FoodDiscoveryRepository.fetchFavorites', error, stack);
       return _loadFavoriteCacheOrFailure(
-        'KhÃ´ng cÃ³ káº¿t ná»‘i máº¡ng. Vui lÃ²ng thá»­ láº¡i.',
+        'Kh\u00f4ng c\u00f3 k\u1ebft n\u1ed1i m\u1ea1ng. Vui l\u00f2ng th\u1eed l\u1ea1i.',
         allowCacheFallback,
       );
     }
@@ -242,7 +242,7 @@ class FoodDiscoveryRepository {
         return FavoriteFoodMutationResult.failure(
           message: _favoriteErrorMessage(
             response.body,
-            'KhÃ´ng thá»ƒ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+            'Kh\u00f4ng th\u1ec3 th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch.',
           ),
         );
       }
@@ -253,13 +253,13 @@ class FoodDiscoveryRepository {
         item: rawItem is Map<String, dynamic>
             ? FavoriteFoodItem.fromJson(rawItem)
             : null,
-        message: 'ÄÃ£ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+        message: '\u0110\u00e3 th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch.',
       );
     } catch (error, stack) {
       AppLogger.error('FoodDiscoveryRepository.addFavorite', error, stack);
       return const FavoriteFoodMutationResult.failure(
         message:
-            'KhÃ´ng cÃ³ káº¿t ná»‘i máº¡ng. KhÃ´ng thá»ƒ thÃªm mÃ³n vÃ o yÃªu thÃ­ch.',
+            'Kh\u00f4ng c\u00f3 k\u1ebft n\u1ed1i m\u1ea1ng. Kh\u00f4ng th\u1ec3 th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch.',
       );
     }
   }

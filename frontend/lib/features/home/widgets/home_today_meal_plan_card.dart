@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../meal_plan/models/meal_plan_models.dart';
 
 class HomeTodayMealPlanCard extends StatelessWidget {
@@ -69,7 +69,7 @@ class HomeTodayMealPlanCard extends StatelessWidget {
                 children: [
                   Text(
                     'Kế hoạch hôm nay',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
                       color: AppColors.textDark,
@@ -78,7 +78,7 @@ class HomeTodayMealPlanCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: AppColors.textSecondary,

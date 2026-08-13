@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../models/food_models.dart';
 import '../providers/favorite_food_provider.dart';
 import '../repositories/food_discovery_repository.dart';
@@ -15,10 +16,12 @@ class FoodDetailScreen extends StatefulWidget {
     super.key,
     required this.foodId,
     this.allergyMode = 'warn',
+    this.plannedQuantityG,
   });
 
   final String foodId;
   final String allergyMode;
+  final double? plannedQuantityG;
 
   @override
   State<FoodDetailScreen> createState() => _FoodDetailScreenState();
@@ -131,6 +134,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   }
 
   Widget _buildBody(FoodItem food) {
+    final quantityG =
+        food.defaultServingG?.toDouble() ?? widget.plannedQuantityG;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -202,7 +207,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           const SizedBox(height: 16),
           _buildNutritionSection(food),
           const SizedBox(height: 16),
-          if (food.defaultServingG != null ||
+          if (quantityG != null ||
               food.estimatedPriceVnd != null ||
               food.category != null ||
               food.region != null)
@@ -210,8 +215,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (food.defaultServingG != null)
-                  _chip('${food.defaultServingG}g / khẩu phần'),
+                if (quantityG != null)
+                  _chip(
+                    'Khối lượng món: '
+                    '${formatNutritionNumber(quantityG)} g',
+                  ),
                 if (food.estimatedPriceVnd != null)
                   _chip(_formatPrice(food.estimatedPriceVnd!)),
                 if (food.category != null) _chip(food.category!),

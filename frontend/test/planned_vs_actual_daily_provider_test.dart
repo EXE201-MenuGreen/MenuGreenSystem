@@ -60,7 +60,9 @@ void main() {
     expect(find.text('Báo cáo dinh dưỡng theo ngày'), findsOneWidget);
     expect(find.text('Tiến độ trong ngày'), findsOneWidget);
     expect(find.text('1244'), findsOneWidget);
-    expect(find.text('1244 kcal'), findsWidgets);
+    expect(find.text('2000 kcal'), findsOneWidget);
+    expect(find.text('1244 kcal'), findsOneWidget);
+    expect(find.text('Thực tế thấp hơn kế hoạch 756 kcal.'), findsOneWidget);
     expect(find.text('Món trong kế hoạch'), findsOneWidget);
     // The persisted plan flags intentionally start false in this fixture.
     // Linked actual logs must still make both planned rows show as eaten.

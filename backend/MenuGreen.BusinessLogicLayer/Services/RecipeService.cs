@@ -63,12 +63,22 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 .Where(x => x.RecipeId == id)
                 .ToListAsync();
             var result = Map(recipe);
+            if (recipe.FoodId.HasValue)
+            {
+                var linkedFood = await _unitOfWork.Foods.GetByIdAsync(recipe.FoodId.Value);
+                result.DefaultServingG = linkedFood?.DefaultServingG;
+            }
             result.Ingredients = items.Select(x => new RecipeIngredientResponse
             {
                 IngredientId = x.IngredientId,
                 IngredientName = x.Ingredient?.NameVi ?? string.Empty,
                 Quantity = x.Quantity ?? 0,
                 Unit = x.Unit ?? string.Empty,
+                NutritionBasisQuantity = IsMassOrVolume(x.Unit ?? x.Ingredient?.UnitDefault) ? 100m : 1m,
+                CaloriesKcal = x.Ingredient?.CaloriesKcal ?? 0,
+                ProteinG = x.Ingredient?.ProteinG ?? 0,
+                CarbsG = x.Ingredient?.CarbsG ?? 0,
+                FatG = x.Ingredient?.FatG ?? 0,
                 Notes = x.Notes
             }).ToList();
 
@@ -113,6 +123,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var recipeList = query.ToList();
             var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
+            var linkedFoodIds = recipeList
+                .Where(recipe => recipe.FoodId.HasValue)
+                .Select(recipe => recipe.FoodId!.Value)
+                .Distinct()
+                .ToList();
+            var servingByFoodId = linkedFoodIds.Count == 0
+                ? new Dictionary<Guid, int?>()
+                : (await _unitOfWork.Foods.FindAsync(
+                    food => linkedFoodIds.Contains(food.Id)))
+                    .ToDictionary(food => food.Id, food => food.DefaultServingG);
             var mode = NormalizeAllergyMode(allergyMode);
 
             // Enrich serially to keep the shared DbContext single-threaded.
@@ -124,6 +144,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
             foreach (var recipe in recipeList)
             {
                 var dto = Map(recipe);
+                if (
+                    recipe.FoodId.HasValue
+                    && servingByFoodId.TryGetValue(recipe.FoodId.Value, out var servingG)
+                )
+                {
+                    dto.DefaultServingG = servingG;
+                }
                 ingredientMap.TryGetValue(recipe.Id, out var names);
                 dto = await EnrichRecipeAsync(dto, userId, allergyMode, names ?? new List<string>());
                 var shouldInclude = mode != AllergenCatalog.ModeHide || dto.IsSafeForUser;
@@ -148,9 +175,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 IngredientName = x.Ingredient?.NameVi ?? string.Empty,
                 Quantity = x.Quantity ?? 0,
                 Unit = x.Unit ?? string.Empty,
+                NutritionBasisQuantity = IsMassOrVolume(x.Unit ?? x.Ingredient?.UnitDefault) ? 100m : 1m,
+                CaloriesKcal = x.Ingredient?.CaloriesKcal ?? 0,
+                ProteinG = x.Ingredient?.ProteinG ?? 0,
+                CarbsG = x.Ingredient?.CarbsG ?? 0,
+                FatG = x.Ingredient?.FatG ?? 0,
                 Notes = x.Notes
             }).ToList();
         }
+
+        private static bool IsMassOrVolume(string? unit) =>
+            (unit ?? string.Empty).Trim().ToLowerInvariant() is
+                "g" or "gram" or "grams" or "ml" or "milliliter" or "milliliters";
 
         public async Task<RecipeNutritionResponse> GetNutritionAsync(Guid recipeId)
         {

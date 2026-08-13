@@ -11,6 +11,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public decimal ProteinG { get; set; }
         public decimal CarbsG { get; set; }
         public decimal FatG { get; set; }
+        public decimal QuantityG { get; set; }
         public int EstimatedPriceVnd { get; set; }
         public int CookingTimeMin { get; set; }
         public decimal Score { get; set; }

@@ -219,10 +219,19 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     IngredientName = ri.Ingredient?.NameVi ?? string.Empty,
                     Quantity = ri.Quantity ?? 0,
                     Unit = ri.Unit ?? string.Empty,
+                    NutritionBasisQuantity = IsMassOrVolume(ri.Unit ?? ri.Ingredient?.UnitDefault) ? 100m : 1m,
+                    CaloriesKcal = ri.Ingredient?.CaloriesKcal ?? 0,
+                    ProteinG = ri.Ingredient?.ProteinG ?? 0,
+                    CarbsG = ri.Ingredient?.CarbsG ?? 0,
+                    FatG = ri.Ingredient?.FatG ?? 0,
                     Notes = ri.Notes
                 }).ToList()
             }).ToList();
         }
+
+        private static bool IsMassOrVolume(string? unit) =>
+            (unit ?? string.Empty).Trim().ToLowerInvariant() is
+                "g" or "gram" or "grams" or "ml" or "milliliter" or "milliliters";
 
         public async Task<IReadOnlyList<FavoriteFoodResponse>> GetFavoritesAsync(Guid userId)
         {

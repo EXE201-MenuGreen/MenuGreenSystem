@@ -1,3 +1,5 @@
+import '../../discover/models/food_models.dart';
+
 class UserMealPlan {
   UserMealPlan({
     required this.id,
@@ -6,6 +8,8 @@ class UserMealPlan {
     required this.startDate,
     required this.targetCalories,
     required this.items,
+    this.generatedBy,
+    this.status,
   });
 
   final String id;
@@ -14,6 +18,8 @@ class UserMealPlan {
   final String? startDate;
   final int targetCalories;
   final List<MealPlanItemModel> items;
+  final String? generatedBy;
+  final String? status;
 
   factory UserMealPlan.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] ?? json['Items'];
@@ -23,6 +29,8 @@ class UserMealPlan {
       planType: (json['planType'] ?? json['PlanType'])?.toString(),
       startDate: (json['startDate'] ?? json['StartDate'])?.toString(),
       targetCalories: _int(json['targetCalories'] ?? json['TargetCalories']),
+      generatedBy: (json['generatedBy'] ?? json['GeneratedBy'])?.toString(),
+      status: (json['status'] ?? json['Status'])?.toString(),
       items: rawItems is List
           ? rawItems
                 .whereType<Map<String, dynamic>>()
@@ -44,6 +52,7 @@ class MealPlanItemModel {
     this.foodName,
     this.recipeName,
     this.mealLogId,
+    this.plannedDate,
     this.scheduledTime,
     this.sourceEntityType,
     this.origin,
@@ -51,6 +60,7 @@ class MealPlanItemModel {
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.ingredients = const [],
   });
 
   final String id;
@@ -62,12 +72,14 @@ class MealPlanItemModel {
   final String? foodName;
   final String? recipeName;
   final String? mealLogId;
+  final DateTime? plannedDate;
   final String? scheduledTime;
   final String? sourceEntityType;
   final double? quantityG;
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
+  final List<RecipeIngredientItem> ingredients;
 
   /// Nguồn gốc của item: "user" = tạo tay ở tab Kế hoạch,
   /// "gym" = tạo tự động từ AI Gym Goals ở tab Mục tiêu.
@@ -93,6 +105,9 @@ class MealPlanItemModel {
       foodName: (json['foodName'] ?? json['FoodName'])?.toString(),
       recipeName: (json['recipeName'] ?? json['RecipeName'])?.toString(),
       mealLogId: (json['mealLogId'] ?? json['MealLogId'])?.toString(),
+      plannedDate: DateTime.tryParse(
+        (json['plannedDate'] ?? json['PlannedDate'] ?? '').toString(),
+      ),
       scheduledTime: (json['scheduledTime'] ?? json['ScheduledTime'])
           ?.toString(),
       sourceEntityType: (json['sourceEntityType'] ?? json['SourceEntityType'])
@@ -102,6 +117,15 @@ class MealPlanItemModel {
       proteinG: _nullableInt(json['proteinG'] ?? json['ProteinG']),
       carbsG: _nullableInt(json['carbsG'] ?? json['CarbsG']),
       fatG: _nullableInt(json['fatG'] ?? json['FatG']),
+      ingredients:
+          ((json['ingredients'] ?? json['Ingredients']) as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) => RecipeIngredientItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
     );
   }
 }

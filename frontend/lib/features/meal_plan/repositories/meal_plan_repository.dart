@@ -352,6 +352,29 @@ class MealPlanRepository {
     return MealPlanItemDetail.fromJson(decoded);
   }
 
+  Future<UserMealPlan> balanceDailyCalories({
+    required String planId,
+    required DateTime plannedDate,
+    required int targetCalories,
+    required List<String> itemIds,
+  }) async {
+    final response = await _api
+        .postJson(ApiEndpoints.mealPlanBalanceCalories(planId), {
+          'plannedDate': _dateQuery(plannedDate),
+          'targetCalories': targetCalories,
+          'itemIds': itemIds,
+        });
+    if (response.statusCode != 200) {
+      throw Exception(_messageFromResponse(response));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response format');
+    }
+    _invalidateCache();
+    return UserMealPlan.fromJson(decoded);
+  }
+
   /// Xóa item
   Future<void> deleteItem(String planId, String itemId) async {
     final response = await _api.delete(
@@ -616,12 +639,15 @@ class MealPlanRepository {
                 if (errorsMap.isNotEmpty) {
                   final firstVal = errorsMap.values.first;
                   if (firstVal is List && firstVal.isNotEmpty) {
-                    return ApiMessageTranslator.translate(firstVal.first.toString());
+                    return ApiMessageTranslator.translate(
+                      firstVal.first.toString(),
+                    );
                   }
                   return ApiMessageTranslator.translate(firstVal.toString());
                 }
               }
-              final rawMsg = decoded['message'] ??
+              final rawMsg =
+                  decoded['message'] ??
                   decoded['Message'] ??
                   decoded['title'] ??
                   decoded['Title'] ??

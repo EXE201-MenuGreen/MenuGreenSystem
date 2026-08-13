@@ -628,6 +628,8 @@ echo "  ✓ Migration tracking table ready"
 # Apply raw SQL migrations
 # =============================================================================
 echo "  Scanning for raw SQL migrations in /tmp/nginx-deploy/backend/database/..."
+echo "  Files found:"
+ls -la /tmp/nginx-deploy/backend/database/*.sql 2>/dev/null || echo "    (none found)"
 
 MIGRATION_COUNT=0
 MIGRATION_SUCCESS=0
@@ -638,12 +640,25 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
   # Skip EF Core migration files (not raw SQL)
   filename=$(basename "$sql_file")
   
-  # Check if already applied
-  APPLIED=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | tr -d '[:space:]')
-  
-  if [ "$APPLIED" = "1" ]; then
-    echo "    ⊘ $filename (already applied)"
-    continue
+  # Special handling for 65 - always retry since constraint fix is needed
+  if [ "$filename" = "65_cleanup_all_pending_payments.sql" ]; then
+    # Check if CANCELLED rows exist (meaning constraint is fixed)
+    CANCELLED_EXISTS=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT COUNT(*) FROM \"payments\" WHERE \"Status\" = 'CANCELLED' LIMIT 1;" 2>/dev/null | tr -d '[:space:]')
+    if [ "$CANCELLED_EXISTS" -gt 0 ]; then
+      echo "    ⊘ $filename (skipped - CANCELLED status exists)"
+      continue
+    fi
+    # If not exists, check if recorded as applied (means previous failed attempt)
+    if PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | grep -q 1; then
+      echo "    ⊘ $filename (removing failed record to retry)"
+      PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "DELETE FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null
+    fi
+  else
+    # Standard check for other migrations
+    if PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | grep -q 1; then
+      echo "    ⊘ $filename (already applied)"
+      continue
+    fi
   fi
   
   echo "    → Applying: $filename"
@@ -651,14 +666,22 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
   # Backup database before migration
   BACKUP_FILE="/tmp/menugreen_backup_before_${filename%.sql}_$(date +%Y%m%d_%H%M%S).sql"
   echo "      Creating backup: $BACKUP_FILE"
-  PGPASSWORD="$DB_PASS_PRECHECK" pg_dump -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" > "$BACKUP_FILE" 2>&1 || {
-    echo "      ! Backup failed, proceeding anyway..."
+  PGPASSWORD="$DB_PASS_PRECHECK" pg_dump -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" > "$BACKUP_FILE" 2>&1
+  BACKUP_EXIT=$?
+  echo "      Backup exit code: $BACKUP_EXIT"
+  if [ $BACKUP_EXIT -ne 0 ]; then
+    echo "      ! Backup failed with code $BACKUP_EXIT, proceeding anyway..."
+    cat "$BACKUP_FILE" 2>/dev/null | head -5 | sed 's/^/        /' || true
     rm -f "$BACKUP_FILE"
-  }
+  fi
   
   # Run migration with transaction
+  # NOTE: Disable set -e temporarily for command substitution to capture exit code
+  set +e
   MIGRATION_OUTPUT=$(PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -v ON_ERROR_STOP=1 -f "$sql_file" 2>&1)
   MIGRATION_EXIT=$?
+  set -e
+  echo "      Migration exit code: $MIGRATION_EXIT"
   
   if [ $MIGRATION_EXIT -ne 0 ]; then
     echo "      ! Migration FAILED: $filename"

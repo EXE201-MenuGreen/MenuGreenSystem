@@ -1,22 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../ai_assistant/providers/ai_assistant_provider.dart';
-import '../../ai_assistant/views/ai_conversation_list_screen.dart';
 import '../../discover/views/discover_view.dart';
 import '../../history/views/history_view.dart';
 import '../../home/views/home_view.dart';
 import '../../profile/views/profile_view.dart';
 import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
-import '../../main/widgets/floating_ai_assistant_button.dart';
-import '../../tracking/views/ingredient_scan_screen.dart';
-import '../../discover/views/recommendation_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
-import '../../subscription/repositories/user_subscription_repository.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -35,11 +28,8 @@ class _MainScreenState extends State<MainScreen> {
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
   final _historyKey = GlobalKey<HistoryViewState>();
-  final _subscriptionRepository = UserSubscriptionRepository();
   DateTime? _lastHomeRefreshAt;
   DateTime? _lastHistoryRefreshAt;
-  Offset? _aiButtonOffset;
-  bool _hasAiVipAccess = false;
 
   late final List<Widget> _pages;
 
@@ -64,7 +54,6 @@ class _MainScreenState extends State<MainScreen> {
       ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
     ];
     unawaited(_initPushNotifications());
-    unawaited(_loadSubscriptionVisualState());
   }
 
   Future<void> _initPushNotifications() async {
@@ -74,21 +63,6 @@ class _MainScreenState extends State<MainScreen> {
       await provider.registerToken();
     } catch (e) {
       debugPrint('[MainScreen] Failed to init push notifications: $e');
-    }
-  }
-
-  Future<void> _loadSubscriptionVisualState() async {
-    try {
-      final access = await _subscriptionRepository.getFeatureAccess();
-      if (!mounted) return;
-      setState(() {
-        _hasAiVipAccess = access.hasAi;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _hasAiVipAccess = false;
-      });
     }
   }
 
@@ -120,7 +94,6 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _currentIndex = index);
     if (index == _homeTab) {
       _homeKey.currentState?.refreshSubscriptionAccess();
-      unawaited(_loadSubscriptionVisualState());
       _refreshHomeIfStale();
     } else if (index == _discoverTab) {
       _discoverKey.currentState?.refreshAllergyStatus();
@@ -131,79 +104,21 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const regularButtonSize = 64.0;
-    const vipButtonSize = 72.0;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final buttonSize = _hasAiVipAccess
-              ? vipButtonSize
-              : regularButtonSize;
-          final defaultOffset = Offset(
-            constraints.maxWidth - buttonSize - 18,
-            constraints.maxHeight - buttonSize - 26,
-          );
-          final effectiveOffset = _aiButtonOffset ?? defaultOffset;
-
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: context.isDesktop
-                    ? Row(
-                        children: [
-                          _buildNavigationRail(),
-                          Expanded(
-                            child: IndexedStack(
-                              index: _currentIndex,
-                              children: _pages,
-                            ),
-                          ),
-                        ],
-                      )
-                    : IndexedStack(
-                        index: _currentIndex,
-                        children: _pages,
-                      ),
-              ),
-              if (_currentIndex == _homeTab && _hasAiVipAccess)
-                Positioned(
-                  left: effectiveOffset.dx
-                      .clamp(12.0, constraints.maxWidth - buttonSize - 12)
-                      .toDouble(),
-                  top: effectiveOffset.dy
-                      .clamp(12.0, constraints.maxHeight - buttonSize - 12)
-                      .toDouble(),
-                  child: FloatingAiAssistantButton(
-                    isVip: _hasAiVipAccess,
-                    onTap: () => _showAiMenu(context),
-                    onPanUpdate: (details) {
-                      setState(() {
-                        final current = _aiButtonOffset ?? defaultOffset;
-                        final next = current + details.delta;
-                        _aiButtonOffset = Offset(
-                          next.dx
-                              .clamp(
-                                12.0,
-                                constraints.maxWidth - buttonSize - 12,
-                              )
-                              .toDouble(),
-                          next.dy
-                              .clamp(
-                                12.0,
-                                constraints.maxHeight - buttonSize - 12,
-                              )
-                              .toDouble(),
-                        );
-                      });
-                    },
+      body: context.isDesktop
+          ? Row(
+              children: [
+                _buildNavigationRail(),
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: _pages,
                   ),
                 ),
-            ],
-          );
-        },
-      ),
+              ],
+            )
+          : IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: context.isPhone ? _buildBottomNavBar() : null,
       drawer: context.isTablet ? _buildNavigationDrawer(context) : null,
     );
@@ -434,195 +349,6 @@ class _MainScreenState extends State<MainScreen> {
     }).toList();
   }
 
-  void _showAiMenu(BuildContext ctx) {
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (BuildContext sheetContext) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 15,
-                spreadRadius: 1,
-                offset: Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                'MenuGreen AI',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Chọn tính năng thông minh của trợ lý dinh dưỡng',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              _buildAiMenuItem(
-                context: sheetContext,
-                icon: Icons.qr_code_scanner_rounded,
-                title: 'Quét nguyên liệu',
-                subtitle: 'Nhận diện thực phẩm qua camera & phân tích dinh dưỡng',
-                iconGradient: const [Color(0xFF2D5A45), Color(0xFF1B4332)],
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    sheetContext,
-                    MaterialPageRoute(
-                      builder: (_) => const IngredientScanScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildAiMenuItem(
-                context: sheetContext,
-                icon: Icons.auto_awesome_rounded,
-                title: 'Gợi ý cá nhân hóa',
-                subtitle: 'Thực đơn thông minh phù hợp với thể trạng của bạn',
-                iconGradient: const [Color(0xFF40916C), Color(0xFF2D5A45)],
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    sheetContext,
-                    MaterialPageRoute(
-                      builder: (_) => const RecommendationScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildAiMenuItem(
-                context: sheetContext,
-                icon: Icons.chat_bubble_rounded,
-                title: 'Trợ lý trò chuyện',
-                subtitle: 'Hỏi đáp dinh dưỡng & giải đáp thắc mắc sức khỏe',
-                iconGradient: const [Color(0xFF74C69D), Color(0xFF40916C)],
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    sheetContext,
-                    MaterialPageRoute(
-                      builder: (_) => ChangeNotifierProvider(
-                        create: (_) => AiAssistantProvider()..loadConversations(),
-                        child: const AiConversationListScreen(),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAiMenuItem({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required List<Color> iconGradient,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: iconGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.grey.shade400,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _NavDrawerItem {

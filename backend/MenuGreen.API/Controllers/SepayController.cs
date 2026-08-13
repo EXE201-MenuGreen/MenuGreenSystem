@@ -59,7 +59,6 @@ namespace MenuGreen.API.Controllers
             }
         }
 
-        /// <summary>List of PENDING SePay orders for user (to continue QR payment).</summary>
         [HttpGet("pending")]
         [Authorize]
         [Authorize(Policy = "UserOnly")]
@@ -75,6 +74,29 @@ namespace MenuGreen.API.Controllers
             catch (Exception ex)
             {
                 return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpDelete("{paymentId:guid}")]
+        [Authorize]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> CancelOrder(Guid paymentId)
+        {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            try
+            {
+                await _sepayPaymentService.CancelOrderAsync(userId, paymentId);
+                return Ok(new { Message = "Payment order cancelled successfully." });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("CHECK constraint"))
+            {
+                return BadRequest(new { Message = "Invalid payment status. Please refresh and try again." });
+            }
+            catch (Exception ex)
+            {
+                var innerMessage = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { Message = $"Cannot cancel payment: {innerMessage}" });
             }
         }
 

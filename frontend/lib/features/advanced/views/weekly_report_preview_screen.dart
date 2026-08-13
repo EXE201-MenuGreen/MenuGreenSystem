@@ -337,7 +337,7 @@ class _WeeklyReportPreviewScreenState extends State<WeeklyReportPreviewScreen> {
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],

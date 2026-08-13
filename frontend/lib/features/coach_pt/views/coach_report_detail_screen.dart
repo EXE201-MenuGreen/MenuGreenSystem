@@ -162,6 +162,8 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
           foodId: result.foodId,
           recipeId: result.recipeId,
           targetCalories: result.calories,
+          quantityG: result.quantityG,
+          ingredients: result.ingredients,
         ),
       );
     });
@@ -2189,6 +2191,10 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
   _AdjustmentSourceMeal? _source;
   _AdjustmentCandidate? _candidate;
   late final TextEditingController _calorieController;
+  final AdvancedRepository _repository = AdvancedRepository();
+  final List<_EditableIngredientPortion> _ingredients = [];
+  bool _loadingIngredients = false;
+  String? _ingredientError;
 
   @override
   void initState() {
@@ -2202,7 +2208,78 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
   @override
   void dispose() {
     _calorieController.dispose();
+    for (final item in _ingredients) {
+      item.controller.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _selectCandidate(_AdjustmentCandidate? value) async {
+    for (final item in _ingredients) {
+      item.controller.dispose();
+    }
+    setState(() {
+      _candidate = value;
+      _ingredients.clear();
+      _ingredientError = null;
+      _loadingIngredients = value?.recipeId != null;
+      if (value?.calories != null) {
+        _calorieController.text = '${value!.calories}';
+      } else {
+        _calorieController.clear();
+      }
+    });
+
+    if (value?.recipeId == null) return;
+    try {
+      final recipe = await _repository.recipeDetail(value!.recipeId!);
+      final servings =
+          (_firstNumber(recipe, const ['servings', 'Servings']) ?? 1)
+              .clamp(1, 100)
+              .toDouble();
+      final raw = recipe['ingredients'] ?? recipe['Ingredients'];
+      final parsed = raw is List
+          ? raw
+                .whereType<Map>()
+                .map((entry) {
+                  final map = Map<String, dynamic>.from(entry);
+                  return _EditableIngredientPortion.fromMap(map, servings);
+                })
+                .where((item) => item.ingredientId.isNotEmpty)
+                .toList()
+          : <_EditableIngredientPortion>[];
+      if (!mounted) {
+        for (final item in parsed) {
+          item.controller.dispose();
+        }
+        return;
+      }
+      setState(() {
+        _ingredients.addAll(parsed);
+        _loadingIngredients = false;
+        if (_ingredients.isEmpty) {
+          _ingredientError =
+              'Công thức chưa có định lượng nguyên liệu để điều chỉnh.';
+        }
+        _refreshNutritionPreview();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingIngredients = false;
+        _ingredientError =
+            'Không tải được định lượng nguyên liệu của công thức.';
+      });
+    }
+  }
+
+  void _refreshNutritionPreview() {
+    if (_ingredients.isEmpty) return;
+    final calories = _ingredients.fold<double>(
+      0,
+      (sum, item) => sum + item.caloriesForCurrentQuantity,
+    );
+    _calorieController.text = calories.round().toString();
   }
 
   List<_AdjustmentSourceMeal> get _visibleSources =>
@@ -2221,6 +2298,18 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
       ).showSnackBar(const SnackBar(content: Text('Hãy chọn món mới.')));
       return;
     }
+    if (_loadingIngredients) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đang tải định lượng nguyên liệu.')),
+      );
+      return;
+    }
+    if (_ingredients.any((item) => item.quantity <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Định lượng nguyên liệu phải lớn hơn 0.')),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       _AdjustmentDialogResult(
         action: _action,
@@ -2231,6 +2320,20 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
         calories:
             int.tryParse(_calorieController.text.trim()) ??
             _candidate?.calories,
+        quantityG: _ingredients.isEmpty
+            ? _candidate?.quantityG
+            : _ingredients
+                  .where((item) => item.isMassOrVolume)
+                  .fold<double>(0, (sum, item) => sum + item.quantity),
+        ingredients: _ingredients
+            .map(
+              (item) => MealPlanIngredientPortion(
+                ingredientId: item.ingredientId,
+                quantity: item.quantity,
+                unit: item.unit,
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -2344,12 +2447,7 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
                         ),
                       )
                       .toList(),
-                  onChanged: (value) => setState(() {
-                    _candidate = value;
-                    if (value?.calories != null) {
-                      _calorieController.text = '${value!.calories}';
-                    }
-                  }),
+                  onChanged: _selectCandidate,
                 ),
                 if (widget.catalogError || widget.candidates.isEmpty)
                   const Padding(
@@ -2360,13 +2458,59 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
                     ),
                   ),
               ],
+              if (_loadingIngredients) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
+              ],
+              if (_ingredientError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _ingredientError!,
+                  style: const TextStyle(color: Colors.orange, fontSize: 12),
+                ),
+              ],
+              if (_ingredients.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Điều chỉnh định lượng nguyên liệu',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                ..._ingredients.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(item.name)),
+                        SizedBox(
+                          width: 105,
+                          child: TextField(
+                            controller: item.controller,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textAlign: TextAlign.end,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              suffixText: item.unit,
+                            ),
+                            onChanged: (_) =>
+                                setState(_refreshNutritionPreview),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               if (_action != 'remove') ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: _calorieController,
+                  readOnly: true,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Calo mục tiêu',
+                    labelText: 'Calo dự tính',
                     suffixText: 'kcal',
                   ),
                 ),
@@ -2427,6 +2571,7 @@ class _AdjustmentCandidate {
     this.foodId,
     this.recipeId,
     this.calories,
+    this.quantityG,
   });
 
   final String id;
@@ -2434,6 +2579,7 @@ class _AdjustmentCandidate {
   final String? foodId;
   final String? recipeId;
   final int? calories;
+  final double? quantityG;
 
   factory _AdjustmentCandidate.fromSuggestion(Map<String, dynamic> map) {
     final id = (map['id'] ?? map['Id'] ?? '').toString();
@@ -2447,8 +2593,72 @@ class _AdjustmentCandidate {
         'caloriesKcal',
         'CaloriesKcal',
       ])?.toInt(),
+      quantityG: _firstNumber(map, const [
+        'quantityG',
+        'QuantityG',
+      ])?.toDouble(),
     );
   }
+}
+
+class _EditableIngredientPortion {
+  _EditableIngredientPortion({
+    required this.ingredientId,
+    required this.name,
+    required this.unit,
+    required this.basisQuantity,
+    required this.caloriesPerBasis,
+    required double quantity,
+  }) : controller = TextEditingController(text: _formatQuantity(quantity));
+
+  final String ingredientId;
+  final String name;
+  final String unit;
+  final double basisQuantity;
+  final double caloriesPerBasis;
+  final TextEditingController controller;
+
+  double get quantity => double.tryParse(controller.text.trim()) ?? 0;
+  bool get isMassOrVolume {
+    final value = unit.trim().toLowerCase();
+    return value == 'g' || value == 'gram' || value == 'ml';
+  }
+
+  double get caloriesForCurrentQuantity =>
+      basisQuantity <= 0 ? 0 : caloriesPerBasis * quantity / basisQuantity;
+
+  factory _EditableIngredientPortion.fromMap(
+    Map<String, dynamic> map,
+    double servings,
+  ) {
+    final quantity =
+        (_firstNumber(map, const ['quantity', 'Quantity'])?.toDouble() ?? 0) /
+        servings;
+    return _EditableIngredientPortion(
+      ingredientId: (map['ingredientId'] ?? map['IngredientId'] ?? '')
+          .toString(),
+      name: (map['ingredientName'] ?? map['IngredientName'] ?? 'Nguyên liệu')
+          .toString(),
+      unit: (map['unit'] ?? map['Unit'] ?? 'g').toString(),
+      basisQuantity:
+          _firstNumber(map, const [
+            'nutritionBasisQuantity',
+            'NutritionBasisQuantity',
+          ])?.toDouble() ??
+          100,
+      caloriesPerBasis:
+          _firstNumber(map, const [
+            'caloriesKcal',
+            'CaloriesKcal',
+          ])?.toDouble() ??
+          0,
+      quantity: quantity,
+    );
+  }
+
+  static String _formatQuantity(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toStringAsFixed(2);
 }
 
 String _normalizeAdjustmentMealType(dynamic raw) {
@@ -2475,6 +2685,8 @@ class _AdjustmentDialogResult {
     this.foodId,
     this.recipeId,
     this.calories,
+    this.quantityG,
+    this.ingredients = const [],
   });
   final String action;
   final String mealType;
@@ -2482,6 +2694,8 @@ class _AdjustmentDialogResult {
   final String? foodId;
   final String? recipeId;
   final int? calories;
+  final double? quantityG;
+  final List<MealPlanIngredientPortion> ingredients;
 }
 
 Map<String, dynamic> _asMap(dynamic raw) {

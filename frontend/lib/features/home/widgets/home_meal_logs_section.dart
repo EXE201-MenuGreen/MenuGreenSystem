@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../tracking/models/nutrition_models.dart';
 
@@ -87,7 +87,7 @@ class HomeMealLogsSection extends StatelessWidget {
                     const SizedBox(width: 12),
                     Text(
                       'Nhật ký ăn uống',
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
@@ -114,7 +114,7 @@ class HomeMealLogsSection extends StatelessWidget {
                   ),
                   label: Text(
                     'Thêm',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
@@ -154,7 +154,7 @@ class HomeMealLogsSection extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Chưa ghi nhận bữa ăn',
-            style: GoogleFonts.beVietnamPro(
+            style: beVietnamPro(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: AppColors.textDark,
@@ -163,7 +163,7 @@ class HomeMealLogsSection extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Hãy thêm bữa ăn hôm nay để tính calo.',
-            style: GoogleFonts.beVietnamPro(
+            style: beVietnamPro(
               fontSize: 12,
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
@@ -234,7 +234,7 @@ class HomeMealLogsSection extends StatelessWidget {
                     children: [
                       Text(
                         meal.displayName,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textDark,
@@ -256,7 +256,7 @@ class HomeMealLogsSection extends StatelessWidget {
                             ),
                             child: Text(
                               'Bữa $mealType',
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 color: tagTextColor,
@@ -276,7 +276,7 @@ class HomeMealLogsSection extends StatelessWidget {
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textSecondary,
@@ -306,7 +306,7 @@ class HomeMealLogsSection extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8, left: 4),
             child: Text(
               '+${logs.length - 4} bữa ăn khác',
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 13,
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,

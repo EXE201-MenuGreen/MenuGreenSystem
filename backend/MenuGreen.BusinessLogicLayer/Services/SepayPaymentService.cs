@@ -49,6 +49,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var plan = await GetActivePlanAsync(request.SubscriptionPlanId);
             await EnsureNoPendingSepayPaymentAsync(userId);
 
+            // Cancel any existing PendingPayment subscriptions before creating a new one
+            await CancelPendingUserSubscriptionsAsync(userId);
+
             var amount = plan.PriceVnd ?? 0;
             if (amount <= 0)
             {
@@ -146,6 +149,65 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return new SepayPendingOrdersListResponse { Items = items };
+        }
+
+        public async Task CancelOrderAsync(Guid userId, Guid paymentId)
+        {
+            var payment = await _unitOfWork.Payments.GetByIdAsync(paymentId);
+            if (payment == null || payment.UserId != userId)
+            {
+                throw new Exception("Payment order not found.");
+            }
+
+            if (payment.Provider != "SEPAY")
+            {
+                throw new Exception("Only SePay payments can be cancelled via this endpoint.");
+            }
+
+            if (payment.Status == "PAID")
+            {
+                throw new Exception("Cannot cancel a payment that has already been paid.");
+            }
+
+            // Cancel the payment
+            payment.Status = "CANCELLED";
+            payment.UpdatedAt = DateTimeOffset.UtcNow;
+            _unitOfWork.Payments.Update(payment);
+
+            // Update the associated pending subscription if exists (non-blocking)
+            // Mark as Cancelled so user can create new orders after cancellation
+            if (payment.UserSubscriptionId.HasValue)
+            {
+                try
+                {
+                    var subscription = await _unitOfWork.UserSubscriptions.GetByIdAsync(payment.UserSubscriptionId.Value);
+                    if (subscription != null && subscription.Status == "PendingPayment")
+                    {
+                        subscription.Status = "Cancelled";
+                        subscription.UpdatedAt = DateTime.UtcNow;
+                        _unitOfWork.UserSubscriptions.Update(subscription);
+                    }
+                    await _unitOfWork.CompleteAsync();
+                }
+                catch
+                {
+                    // If subscription update fails, ensure payment update is committed
+                    try
+                    {
+                        await _unitOfWork.CompleteAsync();
+                    }
+                    catch
+                    {
+                        // Payment update already done, subscription will be stale but won't block new orders
+                    }
+                }
+            }
+            else
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+
+            await _statusCache.InvalidateAsync(userId, paymentId);
         }
 
         public async Task<SepayWebhookResultResponse> ProcessWebhookAsync(
@@ -400,6 +462,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (stillPending.Any())
             {
                 throw new Exception("You already have a pending SePay payment. Complete or wait for it to expire before creating a new order.");
+            }
+        }
+
+        private async Task CancelPendingUserSubscriptionsAsync(Guid userId)
+        {
+            var pendingSubscriptions = (await _unitOfWork.UserSubscriptions.FindAsync(
+                x => x.UserId == userId && x.Status == "PendingPayment")).ToList();
+
+            foreach (var subscription in pendingSubscriptions)
+            {
+                subscription.Status = "Cancelled";
+                subscription.UpdatedAt = DateTime.UtcNow;
+                _unitOfWork.UserSubscriptions.Update(subscription);
+            }
+
+            if (pendingSubscriptions.Any())
+            {
+                await _unitOfWork.CompleteAsync();
             }
         }
 

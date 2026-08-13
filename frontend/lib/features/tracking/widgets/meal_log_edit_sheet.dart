@@ -38,7 +38,10 @@ Future<bool> showMealLogEditSheet(
                     value: _normalizeMealType(mealType),
                     isExpanded: true,
                     items: const [
-                      DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                      DropdownMenuItem(
+                        value: 'breakfast',
+                        child: Text('Bữa sáng'),
+                      ),
                       DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
                       DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
                       DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
@@ -55,8 +58,12 @@ Future<bool> showMealLogEditSheet(
                 controller: quantityController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: meal.isRecipe ? 'Phần ăn (100 = 1 khẩu phần)' : 'Khối lượng (gram)',
-                  hintText: meal.isRecipe ? 'Ví dụ: 100' : 'Ví dụ: 150',
+                  labelText: meal.isRecipe && meal.ingredients.isEmpty
+                      ? 'Phần ăn (100 = 1 khẩu phần)'
+                      : 'Khối lượng thực tế (gram)',
+                  hintText: meal.isRecipe && meal.ingredients.isEmpty
+                      ? 'Ví dụ: 100'
+                      : 'Ví dụ: 150',
                 ),
               ),
               const SizedBox(height: 12),
@@ -71,7 +78,10 @@ Future<bool> showMealLogEditSheet(
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () => Navigator.pop(ctx, true),
@@ -89,12 +99,14 @@ Future<bool> showMealLogEditSheet(
 
   final foodId = meal.foodId;
   final recipeId = meal.recipeId;
-  if ((foodId == null || foodId.isEmpty) && (recipeId == null || recipeId.isEmpty)) {
+  if ((foodId == null || foodId.isEmpty) &&
+      (recipeId == null || recipeId.isEmpty)) {
     return false;
   }
 
   final notesText = notesController.text.trim();
-  final loggedAt = meal.loggedAt ??
+  final loggedAt =
+      meal.loggedAt ??
       (selectedDate != null
           ? DateTime(
               selectedDate.year,

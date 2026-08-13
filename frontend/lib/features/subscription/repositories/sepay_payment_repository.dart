@@ -38,6 +38,14 @@ class SepayPaymentRepository {
     return _parseOrderResponse(response);
   }
 
+  Future<({bool success, String message})> cancelOrder(String paymentId) async {
+    final response = await _api.delete(ApiEndpoints.sepayCancelOrder(paymentId));
+    if (response.statusCode == 200) {
+      return (success: true, message: 'Payment order cancelled successfully.');
+    }
+    return (success: false, message: _extractErrorMessage(response.body));
+  }
+
   Future<({bool success, List<SepayOrder> data, String message})> getPendingOrders() async {
     final response = await _api.get(ApiEndpoints.sepayPendingOrders);
     if (response.statusCode != 200) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 
 class TipCard extends StatelessWidget {
   const TipCard({
@@ -246,7 +246,7 @@ class TipsSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,

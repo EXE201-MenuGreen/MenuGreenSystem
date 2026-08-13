@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 import '../../office/views/office_meal_plan_screen.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
@@ -303,7 +303,7 @@ class _SmartMealPlanRouterScreenState
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 color: isSelected

@@ -121,3 +121,49 @@ extension ResponsiveTextStyles on BuildContext {
         desktop: 1.25,
       );
 }
+
+const String _fontFamily = 'BeVietnamPro';
+
+TextStyle beVietnamPro({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  FontStyle? fontStyle,
+  double? letterSpacing,
+  TextDecoration? decoration,
+  Color? backgroundColor,
+}) =>
+    TextStyle(
+      fontFamily: _fontFamily,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      decoration: decoration,
+      backgroundColor: backgroundColor,
+    );
+
+TextStyle? beVietnamProHint({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  FontStyle? fontStyle,
+  double? letterSpacing,
+  TextDecoration? decoration,
+  Color? backgroundColor,
+}) =>
+    TextStyle(
+      fontFamily: _fontFamily,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      decoration: decoration,
+      backgroundColor: backgroundColor,
+    );

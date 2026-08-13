@@ -14,6 +14,8 @@ namespace MenuGreen.DataAccessLayer.Entities
         public decimal? ProteinG { get; set; }
         public decimal? CarbsG { get; set; }
         public decimal? FatG { get; set; }
+        public string? IngredientSnapshotJson { get; set; }
+        public decimal? ConsumptionRatio { get; set; }
         public string? SourceType { get; set; }
         public string? CustomName { get; set; }
         public string? Notes { get; set; }

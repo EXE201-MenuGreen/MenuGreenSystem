@@ -98,7 +98,11 @@ class _MealPlanTodayScreenState extends State<MealPlanTodayScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipeId: item.recipeId!),
+          builder: (_) => RecipeDetailScreen(
+            recipeId: item.recipeId!,
+            plannedQuantityG: item.quantityG,
+            plannedIngredients: item.ingredients,
+          ),
         ),
       );
     }

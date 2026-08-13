@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../micro_learning/views/micro_learning_screen.dart';
 import '../../subscription/models/subscription_models.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
@@ -123,7 +123,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                   const SizedBox(height: 22),
                   Text(
                     '3 công cụ ăn uống đơn giản',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textDark,
@@ -132,7 +132,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                   const SizedBox(height: 5),
                   Text(
                     'Chọn món nhanh, bắt đầu ngày mới và học dinh dưỡng theo dữ liệu của bạn.',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 12.5,
                       height: 1.45,
                       color: AppColors.textSecondary,
@@ -233,7 +233,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                     Expanded(
                       child: Text(
                         'Casual / Simple Eater',
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textDark,
@@ -256,7 +256,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                             : _casualPlan == null
                             ? 'ĐANG TẢI'
                             : formatVnd(_casualPlan!.priceVnd),
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -270,7 +270,7 @@ class _CasualHubScreenState extends State<CasualHubScreen> {
                   _hasAccess
                       ? 'Gói đang hoạt động trên tài khoản của bạn.'
                       : 'Giải quyết câu hỏi “Hôm nay ăn gì?” thật nhẹ nhàng.',
-                  style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                     fontSize: 12,
                     height: 1.4,
                     color: AppColors.textSecondary,
@@ -330,7 +330,7 @@ class _CasualFeatureTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textDark,
@@ -339,7 +339,7 @@ class _CasualFeatureTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 10.8,
                         height: 1.4,
                         color: AppColors.textSecondary,

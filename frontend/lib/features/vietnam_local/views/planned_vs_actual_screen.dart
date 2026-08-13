@@ -356,7 +356,7 @@ class _DailyProgressCard extends StatelessWidget {
                   color: accent,
                   fontSize: 34,
                   height: 1,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const Padding(
@@ -507,7 +507,7 @@ class _MacroProgress extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 17,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           Text(
@@ -547,11 +547,22 @@ class _ComparisonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planned = analytics?.totalPlanned;
-    final plannedKcal = (planned?.caloriesKcal ?? 0) > 0
-        ? planned!.caloriesKcal
-        : (plan?.items.fold<int>(0, (sum, item) => sum + item.targetCalories) ??
-                  0)
-              .toDouble();
+    final summaryCalorieTarget = dailySummary?.targetCalories ?? 0;
+    final planCalorieTarget = plan?.targetCalories ?? 0;
+    final plannedKcal = summaryCalorieTarget > 0
+        ? summaryCalorieTarget
+        : planCalorieTarget > 0
+        ? planCalorieTarget.toDouble()
+        : planned?.caloriesKcal ?? 0;
+    final plannedProtein = (dailySummary?.targetProteinG ?? 0) > 0
+        ? dailySummary!.targetProteinG
+        : planned?.proteinG ?? 0;
+    final plannedCarbs = (dailySummary?.targetCarbsG ?? 0) > 0
+        ? dailySummary!.targetCarbsG
+        : planned?.carbsG ?? 0;
+    final plannedFat = (dailySummary?.targetFatG ?? 0) > 0
+        ? dailySummary!.targetFatG
+        : planned?.fatG ?? 0;
     final actualKcal =
         dailySummary?.totalCalories ?? analytics?.totalActual.caloriesKcal ?? 0;
     final difference = actualKcal - plannedKcal;
@@ -581,9 +592,9 @@ class _ComparisonCard extends StatelessWidget {
                   label: 'Kế hoạch',
                   icon: Icons.event_note_rounded,
                   calories: plannedKcal,
-                  protein: planned?.proteinG ?? 0,
-                  carbs: planned?.carbsG ?? 0,
-                  fat: planned?.fatG ?? 0,
+                  protein: plannedProtein,
+                  carbs: plannedCarbs,
+                  fat: plannedFat,
                   color: AppColors.primary,
                 ),
               ),
@@ -711,7 +722,7 @@ class _NutritionBlock extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textDark,
               fontSize: 19,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
@@ -1071,7 +1082,7 @@ class _AdherenceCard extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -1270,7 +1281,7 @@ class _SectionTitle extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.textDark,
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 2),

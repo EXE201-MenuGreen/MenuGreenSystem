@@ -16,8 +16,21 @@ class _ClientScreenData {
   _ClientScreenData({required this.clients, required this.pendingRouteCounts});
 }
 
+/// Lets the parent tab request fresh connected-client data while this screen
+/// remains alive inside an IndexedStack.
+class CoachMealPlanSelectClientController extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
+
 class CoachMealPlanSelectClientScreen extends StatefulWidget {
-  const CoachMealPlanSelectClientScreen({super.key});
+  const CoachMealPlanSelectClientScreen({
+    super.key,
+    this.controller,
+    this.repository,
+  });
+
+  final CoachMealPlanSelectClientController? controller;
+  final AdvancedRepository? repository;
 
   @override
   State<CoachMealPlanSelectClientScreen> createState() =>
@@ -26,7 +39,7 @@ class CoachMealPlanSelectClientScreen extends StatefulWidget {
 
 class _CoachMealPlanSelectClientScreenState
     extends State<CoachMealPlanSelectClientScreen> {
-  final AdvancedRepository _repo = AdvancedRepository();
+  late final AdvancedRepository _repo;
   late Future<_ClientScreenData> _dataFuture;
   final TextEditingController _searchController = TextEditingController();
 
@@ -37,13 +50,28 @@ class _CoachMealPlanSelectClientScreenState
   @override
   void initState() {
     super.initState();
+    _repo = widget.repository ?? AdvancedRepository();
     _dataFuture = _loadData();
+    widget.controller?.addListener(_handleExternalRefresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant CoachMealPlanSelectClientScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller?.removeListener(_handleExternalRefresh);
+    widget.controller?.addListener(_handleExternalRefresh);
   }
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_handleExternalRefresh);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleExternalRefresh() {
+    if (mounted) _refresh();
   }
 
   Future<_ClientScreenData> _loadData() async {
@@ -51,7 +79,11 @@ class _CoachMealPlanSelectClientScreenState
     final connected = raw
         .where(
           (c) =>
-              (c['connectionStatus'] ?? c['ConnectionStatus']) == 'Connected',
+              (c['connectionStatus'] ?? c['ConnectionStatus'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase() ==
+              'connected',
         )
         .toList();
 
@@ -235,7 +267,7 @@ class _CoachMealPlanSelectClientScreenState
                             ),
                             const SizedBox(height: 3),
                             const Text(
-                              'Chọn học viên để quản lý & duyệt lộ trình',
+                              'Chọn học viên để tạo, quản lý & gửi lộ trình',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFFD1FAE5),

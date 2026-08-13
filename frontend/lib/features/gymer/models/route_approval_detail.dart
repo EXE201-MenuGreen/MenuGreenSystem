@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../discover/models/food_models.dart';
+
 @immutable
 class RouteApprovalMeal {
   const RouteApprovalMeal({
@@ -10,10 +12,13 @@ class RouteApprovalMeal {
     required this.isCompleted,
     this.foodId,
     this.recipeId,
+    this.plannedDate,
+    this.scheduledTime,
     this.quantityG,
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.ingredients = const [],
   });
 
   final String id;
@@ -23,10 +28,13 @@ class RouteApprovalMeal {
   final bool isCompleted;
   final String? foodId;
   final String? recipeId;
+  final DateTime? plannedDate;
+  final String? scheduledTime;
   final double? quantityG;
   final int? proteinG;
   final int? carbsG;
   final int? fatG;
+  final List<RecipeIngredientItem> ingredients;
 
   RouteApprovalMeal copyWith({bool? isCompleted}) {
     return RouteApprovalMeal(
@@ -37,10 +45,13 @@ class RouteApprovalMeal {
       isCompleted: isCompleted ?? this.isCompleted,
       foodId: foodId,
       recipeId: recipeId,
+      plannedDate: plannedDate,
+      scheduledTime: scheduledTime,
       quantityG: quantityG,
       proteinG: proteinG,
       carbsG: carbsG,
       fatG: fatG,
+      ingredients: ingredients,
     );
   }
 
@@ -59,10 +70,19 @@ class RouteApprovalMeal {
       isCompleted: _bool(json, 'isCompleted'),
       foodId: _string(json, 'foodId'),
       recipeId: _string(json, 'recipeId'),
+      plannedDate: DateTime.tryParse(_string(json, 'plannedDate') ?? ''),
+      scheduledTime: _string(json, 'scheduledTime'),
       quantityG: _double(json, 'quantityG'),
       proteinG: _int(json, 'proteinG'),
       carbsG: _int(json, 'carbsG'),
       fatG: _int(json, 'fatG'),
+      ingredients: ((_value(json, 'ingredients') as List?) ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) =>
+                RecipeIngredientItem.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList(),
     );
   }
 }
@@ -138,6 +158,23 @@ class RouteApprovalDetail {
   final int? targetCarbsG;
   final int? targetFatG;
   final List<RouteApprovalDay> days;
+
+  /// Năng lượng trung bình mỗi ngày của chính các món trong lộ trình.
+  ///
+  /// Giá trị này khác với [configuredCalorieTarget]: mục tiêu cấu hình
+  /// có thể là 2000 kcal, trong khi lộ trình đã duyệt thực tế chỉ có
+  /// 1889 kcal.
+  int? get plannedCaloriesPerDay {
+    final populatedDays = days.where((day) => day.meals.isNotEmpty).toList();
+    if (populatedDays.isEmpty) return null;
+
+    final totalCalories = populatedDays.fold<int>(
+      0,
+      (total, day) =>
+          total + day.meals.fold<int>(0, (sum, meal) => sum + meal.calories),
+    );
+    return (totalCalories / populatedDays.length).round();
+  }
 
   RouteApprovalDetail copyWith({List<RouteApprovalDay>? days}) {
     return RouteApprovalDetail(

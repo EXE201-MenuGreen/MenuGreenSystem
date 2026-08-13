@@ -788,8 +788,7 @@ class _ProfileViewState extends State<ProfileView> {
     final planName = _officeModeActivated
         ? 'Office'
         : activeSubscription?.subscriptionPlanName ??
-              subscription?.subscriptionPlanName ??
-              'Cơ bản';
+              'Free (Cơ bản)';
     final isPro =
         _officeModeActivated ||
         activeSubscription != null &&
@@ -871,9 +870,9 @@ class _ProfileViewState extends State<ProfileView> {
                 ),
               ),
             )
-          else if (subscription != null)
+          else if (activeSubscription != null)
             Text(
-              'Trạng thái: ${subscription.status}',
+              'Trạng thái: ${activeSubscription.status}',
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,

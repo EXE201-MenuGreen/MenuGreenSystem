@@ -63,7 +63,7 @@ class IconButtonWithBadge extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                     ),
                     textAlign: TextAlign.center,
                   ),

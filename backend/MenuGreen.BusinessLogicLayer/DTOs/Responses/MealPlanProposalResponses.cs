@@ -34,6 +34,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string DisplayName { get; set; } = string.Empty;
         public decimal? QuantityG { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
+        public List<PortionIngredientResponse> Ingredients { get; set; } = new();
         public int SortOrder { get; set; }
     }
 
@@ -47,5 +51,9 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string DisplayName { get; set; } = string.Empty;
         public decimal? QuantityG { get; set; }
         public int? TargetCalories { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
+        public List<PortionIngredientResponse> Ingredients { get; set; } = new();
     }
 }

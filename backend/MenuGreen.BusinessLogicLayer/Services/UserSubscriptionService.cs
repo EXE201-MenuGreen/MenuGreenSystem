@@ -168,6 +168,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.SubscriptionTransactions.AddAsync(
                 CreateTransaction(userId, subscription.Id, "Cancel", 0, request.Reason, now));
 
+            // Cancel any pending SePay payment associated with this subscription
+            var pendingPayments = await _unitOfWork.Payments.FindAsync(
+                p => p.UserSubscriptionId == subscription.Id && p.Status == "PENDING" && p.Provider == "SEPAY");
+
+            foreach (var payment in pendingPayments)
+            {
+                payment.Status = "CANCELLED";
+                payment.UpdatedAt = DateTimeOffset.UtcNow;
+                _unitOfWork.Payments.Update(payment);
+            }
+
             await _unitOfWork.CompleteAsync();
             await _cache.RemoveAsync(CacheKeys.UserSubscription(userId));
 

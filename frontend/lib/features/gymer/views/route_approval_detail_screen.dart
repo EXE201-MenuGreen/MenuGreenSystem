@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
@@ -143,6 +144,8 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
                     isCompleted: isRouteMealCompleted(item, actualMeals),
                     foodId: item.foodId,
                     recipeId: item.recipeId,
+                    plannedDate: item.plannedDate ?? date,
+                    scheduledTime: item.scheduledTime,
                     quantityG: item.quantityG,
                     proteinG: item.proteinG,
                     carbsG: item.carbsG,
@@ -452,7 +455,13 @@ class _SummaryCard extends StatelessWidget {
         ? 'Lộ trình dinh dưỡng gửi PT duyệt.'
         : detail.studentNote.trim();
 
-    final hasCalories = detail.configuredCalorieTarget != null;
+    final plannedCalories = detail.plannedCaloriesPerDay;
+    final displayedCalories = plannedCalories ?? detail.configuredCalorieTarget;
+    final hasCalories = displayedCalories != null;
+    final showConfiguredTarget =
+        plannedCalories != null &&
+        detail.configuredCalorieTarget != null &&
+        plannedCalories != detail.configuredCalorieTarget;
     final hasMacros =
         detail.targetProteinG != null ||
         detail.targetCarbsG != null ||
@@ -529,8 +538,10 @@ class _SummaryCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Mục tiêu Năng lượng',
+                                Text(
+                                  plannedCalories == null
+                                      ? 'Mục tiêu Năng lượng'
+                                      : 'Năng lượng lộ trình',
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
@@ -539,15 +550,27 @@ class _SummaryCard extends StatelessWidget {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  '${detail.configuredCalorieTarget} kcal/ngày',
+                                  '$displayedCalories kcal/ngày',
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w800,
                                     color: AppColors.primary,
                                   ),
                                 ),
                               ],
                             ),
+                            if (showConfiguredTarget) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Mục tiêu cấu hình: '
+                                '${detail.configuredCalorieTarget} kcal/ngày',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                             if (detail.configuredMinCalories != null ||
                                 detail.configuredMaxCalories != null) ...[
                               const SizedBox(height: 10),
@@ -953,7 +976,7 @@ class _MacroCard extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -1100,6 +1123,7 @@ class _DayMealsCard extends StatelessWidget {
           for (var index = 0; index < sortedMeals.length; index++) ...[
             _MealTile(
               meal: sortedMeals[index],
+              plannedDate: sortedMeals[index].plannedDate ?? day.date,
               isUpdating: updatingMealIds.contains(sortedMeals[index].id),
               canToggle: canToggleDay,
               isPending: isPending,
@@ -1139,6 +1163,7 @@ class _DayMealsCard extends StatelessWidget {
 class _MealTile extends StatelessWidget {
   const _MealTile({
     required this.meal,
+    required this.plannedDate,
     required this.isUpdating,
     required this.canToggle,
     this.isPending = false,
@@ -1146,6 +1171,7 @@ class _MealTile extends StatelessWidget {
   });
 
   final RouteApprovalMeal meal;
+  final DateTime plannedDate;
   final bool isUpdating;
   final bool canToggle;
   final bool isPending;
@@ -1203,6 +1229,22 @@ class _MealTile extends StatelessWidget {
                   color: textColor,
                 ),
               ),
+            ),
+            const SizedBox(height: 3),
+            Wrap(
+              spacing: 10,
+              runSpacing: 3,
+              children: [
+                _MealScheduleLabel(
+                  icon: Icons.calendar_today_outlined,
+                  text: 'Ngày ăn: ${mealPlannedDateLabel(plannedDate)}',
+                ),
+                _MealScheduleLabel(
+                  icon: Icons.schedule_rounded,
+                  text:
+                      'Giờ ăn: ${mealScheduledTimeLabel(meal.scheduledTime, mealType: meal.mealType)}',
+                ),
+              ],
             ),
             const SizedBox(height: 3),
             Text(
@@ -1279,9 +1321,16 @@ class _MealTile extends StatelessWidget {
 
   void _openMealDetail(BuildContext context) {
     final Widget? screen = (meal.foodId ?? '').isNotEmpty
-        ? FoodDetailScreen(foodId: meal.foodId!)
+        ? FoodDetailScreen(
+            foodId: meal.foodId!,
+            plannedQuantityG: meal.quantityG,
+          )
         : (meal.recipeId ?? '').isNotEmpty
-        ? RecipeDetailScreen(recipeId: meal.recipeId!)
+        ? RecipeDetailScreen(
+            recipeId: meal.recipeId!,
+            plannedQuantityG: meal.quantityG,
+            plannedIngredients: meal.ingredients,
+          )
         : null;
     if (screen != null) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -1316,6 +1365,28 @@ class _MealTile extends StatelessWidget {
         const Color(0xFFE5E7EB),
       ),
     };
+  }
+}
+
+class _MealScheduleLabel extends StatelessWidget {
+  const _MealScheduleLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AppColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+        ),
+      ],
+    );
   }
 }
 

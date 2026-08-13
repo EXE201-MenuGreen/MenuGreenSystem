@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/outline_button.dart';
 import '../../../core/widgets/primary_button.dart';
 import 'login_screen.dart';
@@ -20,7 +20,7 @@ class WelcomeScreen extends StatelessWidget {
         centerTitle: true,
         title: Text(
           'MenuGreen',
-          style: GoogleFonts.beVietnamPro(
+          style: beVietnamPro(
             color: AppColors.textDark,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -43,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: Image.asset(
-                  'assets/images/salad_bowl.png',
+                  'assets/images/salad_bowl.webp',
                   fit: BoxFit.cover,
                 ),
               ),
@@ -61,7 +61,7 @@ class WelcomeScreen extends StatelessWidget {
                     Text(
                       'Ăn ngon hơn,\nSống khỏe mỗi ngày',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textDark,
@@ -72,7 +72,7 @@ class WelcomeScreen extends StatelessWidget {
                     Text(
                       'Hàng ngàn công thức nấu ăn lành mạnh\nphù hợp với riêng bạn',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 13.5,
                         color: AppColors.textSecondary,
                         height: 1.4,
@@ -114,7 +114,7 @@ class WelcomeScreen extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           'Khám phá lối sống lành mạnh',
-                          style: GoogleFonts.beVietnamPro(
+                          style: beVietnamPro(
                             color: AppColors.textLight,
                             fontSize: 13,
                           ),

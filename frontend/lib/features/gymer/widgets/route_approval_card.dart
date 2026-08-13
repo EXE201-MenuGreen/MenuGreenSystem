@@ -42,18 +42,39 @@ class RouteApprovalCard extends StatelessWidget {
     final title = direction == 'received'
         ? (request['title']?.toString() ?? 'Lộ trình cá nhân từ PT')
         : (isRouteApproval ? 'Yêu cầu duyệt lộ trình' : 'Báo cáo tuần');
-    final description =
-        (request['description'] ??
-                request['ptComment'] ??
-                request['coachComment'] ??
-                '')
-            .toString();
+    final coachComment = (request['coachComment'] ??
+            request['CoachComment'] ??
+            request['ptComment'] ??
+            request['PtComment'] ??
+            '')
+        .toString()
+        .trim();
+    final rawDesc = (request['description'] ?? request['Description'] ?? '')
+        .toString()
+        .trim();
+
+    String description = coachComment.isNotEmpty ? coachComment : rawDesc;
+    final dateRangePattern = RegExp(
+      r'từ\s+(\d{2}/\d{2}/\d{4})\s+đến\s+(\d{2}/\d{2}/\d{4})',
+      caseSensitive: false,
+    );
+    description = description.replaceAllMapped(dateRangePattern, (match) {
+      final d1 = match.group(1);
+      final d2 = match.group(2);
+      if (d1 == d2) {
+        return 'ngày $d1';
+      }
+      return match.group(0)!;
+    });
+
     final weekStart = value('weekStartDate');
-    final calories = isRouteApproval
-        ? request['configuredCalorieTarget']
-        : request['suggestedCalorieTarget'];
-    final protein = request['suggestedProteinTarget'];
-    final createdAt = request['createdAt']?.toString();
+    final calories = request['targetCaloriesDaily'] ??
+        request['TargetCaloriesDaily'] ??
+        request['targetCalories'] ??
+        (isRouteApproval
+            ? request['configuredCalorieTarget']
+            : request['suggestedCalorieTarget']);
+    final createdAt = (request['createdAt'] ?? request['CreatedAt'])?.toString();
     final sentScope = RouteApprovalPeriod.normalizeScope(
       requestType: requestType,
       configurationScope: value('configurationScope'),
@@ -245,30 +266,15 @@ class RouteApprovalCard extends StatelessWidget {
                   ),
                 ],
 
-                // Target Calorie & Protein Chips
-                if (calories != null || protein != null) ...[
+                // Target Calorie Chip
+                if (calories != null) ...[
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      if (calories != null)
-                        _TargetChip(
-                          icon: Icons.local_fire_department_rounded,
-                          label: '$calories kcal',
-                          bgColor: AppColors.primary.withValues(alpha: 0.08),
-                          textColor: AppColors.primary,
-                          borderColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                      if (protein != null)
-                        _TargetChip(
-                          icon: Icons.fitness_center_rounded,
-                          label: '${protein}g protein',
-                          bgColor: AppColors.primary.withValues(alpha: 0.08),
-                          textColor: AppColors.primary,
-                          borderColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                    ],
+                  _TargetChip(
+                    icon: Icons.local_fire_department_rounded,
+                    label: '$calories kcal',
+                    bgColor: AppColors.primary.withValues(alpha: 0.08),
+                    textColor: AppColors.primary,
+                    borderColor: AppColors.primary.withValues(alpha: 0.2),
                   ),
                 ],
 

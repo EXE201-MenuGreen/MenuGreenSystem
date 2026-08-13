@@ -28,6 +28,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
@@ -53,7 +65,7 @@ android {
         versionName = flutter.versionName
         // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
         ndk {
-            // no abiFilters override here - let --target-platform drive it
+            abiFilters += setOf("armeabi-v7a", "arm64-v8a")
         }
     }
 
@@ -75,8 +87,12 @@ android {
                 } else {
                     signingConfigs.getByName("debug")
                 }
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
