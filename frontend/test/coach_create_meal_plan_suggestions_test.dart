@@ -39,6 +39,17 @@ void main() {
       expect(find.text('Danh sách món ăn gợi ý'), findsOneWidget);
       expect(find.text('Khởi tạo lộ trình mới'), findsOneWidget);
       expect(find.text('Trang 1/2'), findsOneWidget);
+      final addMealButton = find.byKey(const ValueKey('add-meal-entry-button'));
+      await tester.ensureVisible(addMealButton);
+      await tester.pumpAndSettle();
+      expect(addMealButton, findsOneWidget);
+      await tester.tap(addMealButton);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<DateTime>), findsOneWidget);
+      await tester.tap(find.byType(TextButton).last);
+      await tester.pumpAndSettle();
       expect(find.text('Món phân trang 7'), findsNothing);
 
       await tester.ensureVisible(find.byTooltip('Trang sau'));
@@ -68,14 +79,21 @@ void main() {
       expect(find.text('Gợi ý: giảm khẩu phần khoảng 30%'), findsWidgets);
       expect(find.text('4/4 bữa'), findsWidgets);
 
-      final autoBalanceButton = find.text('Tự chỉnh').first;
+      final autoBalanceButton = find.text('Tùy chỉnh').first;
       await tester.ensureVisible(autoBalanceButton);
       await tester.pumpAndSettle();
       await tester.tap(autoBalanceButton);
       await tester.pumpAndSettle();
+      expect(find.text('Thấp hơn'), findsOneWidget);
+      expect(find.text('Cân bằng'), findsOneWidget);
+      expect(find.text('Cao hơn'), findsOneWidget);
+      await tester.tap(find.text('Thấp hơn'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Áp dụng 1350 kcal'));
+      await tester.pumpAndSettle();
 
-      expect(find.text('1500 / 1500 kcal', findRichText: true), findsOneWidget);
-      expect(find.text('Đạt mục tiêu'), findsOneWidget);
+      expect(find.text('1350 / 1500 kcal', findRichText: true), findsOneWidget);
+      expect(find.text('Thiếu 150 kcal'), findsOneWidget);
 
       final editButton = find
           .byWidgetPredicate(

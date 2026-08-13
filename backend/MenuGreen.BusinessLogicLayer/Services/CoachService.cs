@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 
@@ -306,7 +308,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
             connection.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.CoachConnections.Update(connection);
             await _unitOfWork.CompleteAsync();
-
             // Send notification to Client
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
             var coachName = coachProfile?.FullName ?? "Your coach";
@@ -551,11 +552,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new ArgumentException("The start date must be before or equal to the end date.");
             }
 
-            var startUtc = rangeFrom
+            var startUtc = rangeFrom.AddDays(-1)
                 .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
                 .AddHours(-VietnamUtcOffsetHours);
             var endUtcExclusive = rangeTo
-                .AddDays(1)
+                .AddDays(2)
                 .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
                 .AddHours(-VietnamUtcOffsetHours);
             var logs = (await _unitOfWork.MealLogs.FindAsync(x =>
@@ -563,6 +564,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     x.LoggedAt.HasValue &&
                     x.LoggedAt.Value >= startUtc &&
                     x.LoggedAt.Value < endUtcExclusive))
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) >= rangeFrom
+                    && VietnamTime.ToDate(x.LoggedAt.Value) <= rangeTo)
                 .ToList();
             var health = (await _unitOfWork.HealthProfiles.FindAsync(h => h.UserId == clientId)).FirstOrDefault();
             var profile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == clientId)).FirstOrDefault();
@@ -595,8 +599,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             var grouped = logs
                 .Where(x => x.LoggedAt.HasValue)
-                .GroupBy(x => DateOnly.FromDateTime(
-                    x.LoggedAt!.Value.AddHours(VietnamUtcOffsetHours)))
+                .GroupBy(x => VietnamTime.ToDate(x.LoggedAt!.Value))
                 .Select(g => new ClientNutritionSummaryResponse
                 {
                     ClientId = clientId,
@@ -687,7 +690,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
             await _unitOfWork.CoachFeedbacks.AddAsync(feedback);
             await _unitOfWork.CompleteAsync();
-
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
             var coachName = coachProfile?.FullName ?? "Your coach";
 
@@ -788,6 +790,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             await _unitOfWork.CompleteAsync();
+            await RefreshClientMealPlanCacheAsync(clientId, plan);
 
             // Send notification to Client
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
@@ -1317,10 +1320,13 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     matchedRequest.SuggestedCalorieTarget = plan.TargetCalories;
                 }
+                var currentPlan = await MapMealPlanAsync(plan);
+                RefreshRouteApprovalSnapshot(matchedRequest, currentPlan);
                 _unitOfWork.PtReviewRequests.Update(matchedRequest);
             }
 
             await _unitOfWork.CompleteAsync();
+            await RefreshClientMealPlanCacheAsync(clientId, plan);
 
             var coachProfile = (await _unitOfWork.Profiles.FindAsync(p => p.UserId == coachId)).FirstOrDefault();
             var coachName = coachProfile?.FullName ?? "Coach";
@@ -1340,6 +1346,88 @@ namespace MenuGreen.BusinessLogicLayer.Services
             });
 
             return await MapMealPlanAsync(plan);
+        }
+
+        private static void RefreshRouteApprovalSnapshot(
+            PtReviewRequest request,
+            MealPlanResponse plan)
+        {
+            try
+            {
+                var root = JsonNode.Parse(request.ReportDataJson) as JsonObject
+                    ?? new JsonObject();
+                root["mealPlanId"] = plan.Id.ToString();
+                if (plan.TargetCalories.HasValue)
+                {
+                    root["targetCaloriesDaily"] = plan.TargetCalories.Value;
+                }
+
+                var dailyMeals = root["dailyMeals"] as JsonArray;
+                if (dailyMeals == null)
+                {
+                    dailyMeals = new JsonArray();
+                    root["dailyMeals"] = dailyMeals;
+                }
+
+                var fallbackDate = plan.StartDate ?? request.WeekStartDate;
+                foreach (var group in plan.Items.GroupBy(
+                    item => item.PlannedDate ?? fallbackDate))
+                {
+                    var dateKey = group.Key.ToString("yyyy-MM-dd");
+                    var day = dailyMeals
+                        .OfType<JsonObject>()
+                        .FirstOrDefault(node =>
+                            string.Equals(
+                                node["date"]?.GetValue<string>(),
+                                dateKey,
+                                StringComparison.OrdinalIgnoreCase));
+                    if (day == null)
+                    {
+                        day = new JsonObject { ["date"] = dateKey };
+                        dailyMeals.Add(day);
+                    }
+
+                    day["plannedItems"] = JsonSerializer.SerializeToNode(
+                        group.Select(item => new
+                        {
+                            item.Id,
+                            item.MealPlanId,
+                            item.MealType,
+                            item.FoodId,
+                            FoodName = item.FoodName ?? item.CustomName,
+                            item.RecipeId,
+                            item.RecipeName,
+                            item.PlannedDate,
+                            item.ScheduledTime,
+                            item.TargetCalories,
+                            item.QuantityG,
+                            item.ProteinG,
+                            item.CarbsG,
+                            item.FatG,
+                            item.Ingredients,
+                            item.IsCompleted
+                        }),
+                        new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                }
+
+                request.ReportDataJson = root.ToJsonString(
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+            }
+            catch (JsonException)
+            {
+                // Keep legacy malformed snapshots readable through the live
+                // meal-plan endpoint instead of blocking PT approval.
+            }
+            catch (InvalidOperationException)
+            {
+                // A malformed node value must not make approval fail.
+            }
         }
 
         private static TimeOnly DefaultMealTime(string? mealType)
@@ -1404,9 +1492,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             entity.QuantityG = calculation.QuantityG;
-            entity.TargetCalories = (int)Math.Round(
-                calculation.CaloriesKcal,
-                MidpointRounding.AwayFromZero);
+            // Preserve the explicit calorie value confirmed by the PT. The
+            // catalog calculation remains responsible for quantity/macros,
+            // but rounding or a different catalog basis must not undo an
+            // exact full-day balance chosen in the client.
+            entity.TargetCalories = request.TargetCalories is > 0
+                ? request.TargetCalories.Value
+                : (int)Math.Round(
+                    calculation.CaloriesKcal,
+                    MidpointRounding.AwayFromZero);
             entity.ProteinG = calculation.ProteinG;
             entity.CarbsG = calculation.CarbsG;
             entity.FatG = calculation.FatG;
@@ -1414,6 +1508,26 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 ? null
                 : _portionCalculator.Serialize(calculation);
             return entity;
+        }
+
+        private async Task RefreshClientMealPlanCacheAsync(
+            Guid clientId,
+            MealPlanHeader plan)
+        {
+            if (!plan.StartDate.HasValue) return;
+
+            var start = plan.StartDate.Value;
+            var end = plan.EndDate is { } candidate && candidate >= start
+                ? candidate
+                : start;
+            var lastDate = end <= start.AddDays(366) ? end : start.AddDays(366);
+            for (var date = start; date <= lastDate; date = date.AddDays(1))
+            {
+                await _mealPlanService.GetByDateAsync(
+                    clientId,
+                    date,
+                    forceRefresh: true);
+            }
         }
 
         private static bool IsApprovalOutdated(MealPlanHeader plan)

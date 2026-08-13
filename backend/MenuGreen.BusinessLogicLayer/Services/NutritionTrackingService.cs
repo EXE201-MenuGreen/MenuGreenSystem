@@ -71,7 +71,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         {
             var entity = await GetOwnedMealLogAsync(userId, mealLogId);
             var logDate = entity.LoggedAt.HasValue
-                ? DateOnly.FromDateTime(entity.LoggedAt.Value)
+                ? VietnamTime.ToDate(entity.LoggedAt.Value)
                 : DateOnly.FromDateTime(DateTime.UtcNow);
             _unitOfWork.MealLogs.Remove(entity);
             await _unitOfWork.CompleteAsync();
@@ -83,18 +83,21 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Meal logs are persisted in UTC. Convert the requested Vietnam
             // calendar day to UTC so a daily card never leaks meals from the
             // previous/next day or behaves like a multi-day rollup.
-            var startOfDay = date
-                .ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
-                .AddHours(-VietnamUtcOffsetHours);
-            var endOfDay = date
-                .ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc)
-                .AddHours(-VietnamUtcOffsetHours);
+            var startOfDay = VietnamTime.RangeStartUtc(date.AddDays(-1));
+            var endOfDay = VietnamTime.RangeEndUtc(date.AddDays(1));
             var logs = await _unitOfWork.MealLogs.FindAsync(x => 
                 x.UserId == userId && 
                 x.LoggedAt.HasValue && 
                 x.LoggedAt.Value >= startOfDay && 
                 x.LoggedAt.Value <= endOfDay);
-            var logList = logs.ToList();
+            // Npgsql legacy timestamp mode can shift DateTime query parameters
+            // by the machine offset. The database range is only a coarse
+            // prefilter; enforce the requested Vietnam calendar date again in
+            // memory so an evening meal from yesterday cannot leak into today.
+            var logList = logs
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) == date)
+                .ToList();
             await NormalizeAutoCompletedMealLogsAsync(logList);
             await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, date);
             return await BuildDailySummaryAsync(userId, date, logList);
@@ -103,19 +106,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<NutritionDashboardResponse> GetDashboardAsync(Guid userId, string range, DateOnly? startDate, DateOnly? endDate)
         {
             var (from, to) = ResolveRange(range, startDate, endDate);
-            var fromDateTime = from.ToDateTime(TimeOnly.MinValue);
-            var toDateTime = to.ToDateTime(TimeOnly.MaxValue);
+            var fromDateTime = VietnamTime.RangeStartUtc(from.AddDays(-1));
+            var toDateTime = VietnamTime.RangeEndUtc(to.AddDays(1));
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && x.LoggedAt.HasValue
                     && x.LoggedAt.Value >= fromDateTime
-                    && x.LoggedAt.Value <= toDateTime)).ToList();
+                    && x.LoggedAt.Value <= toDateTime))
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) >= from
+                    && VietnamTime.ToDate(x.LoggedAt.Value) <= to)
+                .ToList();
 
             await NormalizeAutoCompletedMealLogsAsync(logs);
 
             var logDates = logs
                 .Where(x => x.LoggedAt.HasValue)
-                .Select(x => DateOnly.FromDateTime(x.LoggedAt!.Value))
+                .Select(x => VietnamTime.ToDate(x.LoggedAt!.Value))
                 .Distinct()
                 .ToList();
 
@@ -279,15 +286,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<MealLogListResponse> GetMealLogsByRangeAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
-            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
-            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+            var startDateTime = VietnamTime.RangeStartUtc(startDate.AddDays(-1));
+            var endDateTime = VietnamTime.RangeEndUtc(endDate.AddDays(1));
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.LoggedAt.HasValue && 
                 x.LoggedAt.Value >= startDateTime && 
                 x.LoggedAt.Value <= endDateTime);
 
-            var logList = logs.OrderByDescending(x => x.LoggedAt).ToList();
+            var logList = logs
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) >= startDate
+                    && VietnamTime.ToDate(x.LoggedAt.Value) <= endDate)
+                .OrderByDescending(x => x.LoggedAt)
+                .ToList();
             var mappedLogs = await MapMealLogsAsync(logList);
 
             return new MealLogListResponse
@@ -303,8 +315,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<NutritionSummaryResponse> GetNutritionSummaryAsync(Guid userId, string period = "day", DateOnly? date = null)
         {
             var (startDate, endDate) = ResolvePeriod(period, date);
-            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
-            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+            var startDateTime = VietnamTime.RangeStartUtc(startDate.AddDays(-1));
+            var endDateTime = VietnamTime.RangeEndUtc(endDate.AddDays(1));
             
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
@@ -312,7 +324,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 x.LoggedAt.Value >= startDateTime && 
                 x.LoggedAt.Value <= endDateTime);
 
-            var logList = logs.ToList();
+            var logList = logs
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) >= startDate
+                    && VietnamTime.ToDate(x.LoggedAt.Value) <= endDate)
+                .ToList();
             var totalCalories = logList.Sum(x => x.CaloriesKcal ?? 0);
             var totalProtein = logList.Sum(x => x.ProteinG ?? 0);
             var totalCarbs = logList.Sum(x => x.CarbsG ?? 0);
@@ -339,20 +355,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         public async Task<NutritionTrendResponse> GetNutritionTrendsAsync(Guid userId, DateOnly startDate, DateOnly endDate)
         {
-            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
-            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+            var startDateTime = VietnamTime.RangeStartUtc(startDate.AddDays(-1));
+            var endDateTime = VietnamTime.RangeEndUtc(endDate.AddDays(1));
             var logs = await _unitOfWork.MealLogs.FindAsync(
                 x => x.UserId == userId && 
                 x.LoggedAt.HasValue && 
                 x.LoggedAt.Value >= startDateTime && 
                 x.LoggedAt.Value <= endDateTime);
 
-            var logList = logs.ToList();
+            var logList = logs
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) >= startDate
+                    && VietnamTime.ToDate(x.LoggedAt.Value) <= endDate)
+                .ToList();
             var dailyData = new List<DailyNutritionPoint>();
 
             for (var day = startDate; day <= endDate; day = day.AddDays(1))
             {
-                var dayLogs = logList.Where(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == day).ToList();
+                var dayLogs = logList.Where(x => x.LoggedAt.HasValue && VietnamTime.ToDate(x.LoggedAt.Value) == day).ToList();
                 
                 dailyData.Add(new DailyNutritionPoint
                 {
@@ -816,7 +836,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private async Task SyncSnapshotForLogAsync(Guid userId, MealLog entity)
         {
             var logDate = entity.LoggedAt.HasValue
-                ? DateOnly.FromDateTime(entity.LoggedAt.Value)
+                ? VietnamTime.ToDate(entity.LoggedAt.Value)
                 : DateOnly.FromDateTime(DateTime.UtcNow);
             await _nutritionSnapshotService.SyncDailySnapshotAsync(userId, logDate);
         }
@@ -827,7 +847,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var targetContext = await BuildNutritionTargetContextAsync(userId, from, to);
             for (var day = from; day <= to; day = day.AddDays(1))
             {
-                var dayLogs = logs.Where(x => x.LoggedAt.HasValue && DateOnly.FromDateTime(x.LoggedAt.Value) == day).ToList();
+                var dayLogs = logs.Where(x => x.LoggedAt.HasValue && VietnamTime.ToDate(x.LoggedAt.Value) == day).ToList();
                 result.Add(await BuildDailySummaryAsync(userId, day, dayLogs, targetContext));
             }
             return result;
@@ -1246,7 +1266,25 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static DateTime EnsureUtc(DateTime dt)
         {
-            return dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+            // Npgsql legacy timestamp mode converts Local values to UTC while
+            // writing timestamptz. Passing an already-UTC value makes legacy
+            // mode apply the machine offset a second time, which can move an
+            // early-morning Vietnam meal back to the previous calendar day.
+            //
+            // JSON timestamps without an offset are wall-clock values entered
+            // by the Vietnam client, so interpret them as UTC+07 first. Then
+            // present the resolved instant in the API machine's local zone for
+            // the single conversion performed by legacy Npgsql.
+            var utcInstant = dt.Kind switch
+            {
+                DateTimeKind.Utc => dt,
+                DateTimeKind.Local => dt.ToUniversalTime(),
+                _ => new DateTimeOffset(
+                    dt,
+                    TimeSpan.FromHours(VietnamUtcOffsetHours)).UtcDateTime
+            };
+
+            return utcInstant.ToLocalTime();
         }
 
         private static DateTime? EnsureUtc(DateTime? dt)

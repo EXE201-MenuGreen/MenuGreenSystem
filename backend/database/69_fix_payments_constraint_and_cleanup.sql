@@ -4,8 +4,9 @@
 -- This is the single definitive migration that supersedes 63, 65, 66, 67, 68
 
 -- Step 1: Fix constraint to include CANCELLED status
-ALTER TABLE payments DROP CONSTRAINT IF EXISTS CK_payments_status;
-ALTER TABLE payments ADD CONSTRAINT CK_payments_status 
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS "CK_payments_status";
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS ck_payments_status;
+ALTER TABLE payments ADD CONSTRAINT "CK_payments_status"
     CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED'));
 
 -- Step 2: Cleanup old pending payments (older than 7 days)

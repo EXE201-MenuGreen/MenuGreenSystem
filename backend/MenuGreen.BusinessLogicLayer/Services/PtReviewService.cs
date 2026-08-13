@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -140,6 +141,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var dataThroughDate = isWeeklyReport || isMidWeekCheckIn
                 ? ResolveWeeklyDataThroughDate(weekStartDate)
                 : weekEndDate;
+            var reportTargetDate = isWeeklyReport || isMidWeekCheckIn
+                ? dataThroughDate
+                : weekStartDate;
 
             // 1. Load Health Profile
             var healthProfiles = await _unitOfWork.HealthProfiles.FindAsync(hp => hp.UserId == userId);
@@ -201,7 +205,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
             else
             {
-                configuredPlan = SelectPlanForDate(plans, weekStartDate);
+                configuredPlan = SelectPlanForDate(
+                    plans,
+                    reportTargetDate);
+                if (configuredPlan == null && (isWeeklyReport || isMidWeekCheckIn))
+                {
+                    configuredPlan = SelectLatestPlanThroughDate(
+                        plans,
+                        weekStartDate,
+                        dataThroughDate);
+                }
             }
             if (isRouteApproval && configuredPlan == null)
             {
@@ -221,7 +234,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
             var configuredTargets = await ResolveGymTargetsAsync(
                 userId,
-                weekStartDate);
+                reportTargetDate);
 
             var dailyMeals = isRouteApproval
                 ? await LoadDailyMealsSnapshotAsync(
@@ -541,7 +554,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 // RouteApproval represents the concrete plan date selected by
                 // the Gymer. CreatedAt is only the submission timestamp and
                 // must not replace a future/past plan date in API responses.
-                var effectiveDate = req.WeekStartDate;
+                var effectiveDate = reportData == null
+                    ? req.WeekStartDate
+                    : ResolveReportDate(req, reportData);
                 var configuredTargets = await ResolveGymTargetsAsync(
                     req.UserId,
                     effectiveDate);
@@ -557,7 +572,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     PtComment = req.PtComment ?? string.Empty,
                     SuggestedCalorieTarget = req.SuggestedCalorieTarget,
                     SuggestedProteinTarget = req.SuggestedProteinTarget,
-                    ConfiguredCalorieTarget = configuredTargets.TargetCalories,
+                    ConfiguredCalorieTarget =
+                        configuredTargets.TargetCalories
+                        ?? reportData?.TargetCaloriesDaily,
                     ConfiguredMinCalories = configuredTargets.MinCalories,
                     ConfiguredMaxCalories = configuredTargets.MaxCalories,
                     ConfigurationScope = configuredTargets.Scope,
@@ -1933,8 +1950,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 planItems.AddRange(allPlanItems.Where(i => i.MealPlanId == effectiveId && i.PlannedDate == d));
             }
 
-            var startUtc = ToVietnamRangeStartUtc(weekStart);
-            var endUtc = ToVietnamRangeEndUtc(dataThroughDate);
+            var startUtc = ToVietnamRangeStartUtc(weekStart.AddDays(-1));
+            var endUtc = ToVietnamRangeEndUtc(dataThroughDate.AddDays(1));
             var mealLogs = (await _unitOfWork.MealLogs.FindAsync(log =>
                 log.UserId == userId
                 && log.LoggedAt >= startUtc
@@ -2026,8 +2043,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 foreach (var log in mealLogs.Where(log =>
                     log.LoggedAt.HasValue
-                    && DateOnly.FromDateTime(
-                        log.LoggedAt.Value.AddHours(VietnamUtcOffsetHours)) == date))
+                    && VietnamTime.ToDate(log.LoggedAt.Value) == date))
                 {
                     foods.TryGetValue(log.FoodId ?? Guid.Empty, out var food);
                     recipes.TryGetValue(log.RecipeId ?? Guid.Empty, out var recipe);
@@ -2173,13 +2189,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var configuredTargets = await ResolveGymTargetsAsync(
                 request.UserId,
                 targetDate);
+            var isPeriodicReport = reportData.RequestType.Equals(
+                    "WeeklyReport",
+                    StringComparison.OrdinalIgnoreCase)
+                || reportData.RequestType.Equals(
+                    "MidWeekCheckIn",
+                    StringComparison.OrdinalIgnoreCase);
             var plans = await _unitOfWork.MealPlanHeaders.FindAsync(plan =>
                 plan.UserId == request.UserId
                 && plan.IsActive
                 && plan.Status != "Draft"
                 && plan.StartDate <= targetDate
-                && (plan.EndDate ?? plan.StartDate) >= targetDate);
+                && (plan.EndDate ?? plan.StartDate) >=
+                    (isPeriodicReport ? request.WeekStartDate : targetDate));
             var configuredPlan = SelectPlanForDate(plans, targetDate);
+            if (configuredPlan == null && isPeriodicReport)
+            {
+                configuredPlan = SelectLatestPlanThroughDate(
+                    plans,
+                    request.WeekStartDate,
+                    targetDate);
+            }
 
             reportData.TargetCaloriesDaily =
                 configuredTargets.TargetCalories
@@ -2364,6 +2394,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             PtReviewRequest request,
             WeeklyReportSnapshot reportData)
         {
+            if ((reportData.RequestType.Equals(
+                        "MidWeekCheckIn",
+                        StringComparison.OrdinalIgnoreCase)
+                    || reportData.RequestType.Equals(
+                        "WeeklyReport",
+                        StringComparison.OrdinalIgnoreCase))
+                && reportData.DataThroughDate.HasValue)
+            {
+                return reportData.DataThroughDate.Value;
+            }
+
             if (!reportData.RequestType.Equals(
                     "RouteApproval",
                     StringComparison.OrdinalIgnoreCase))
@@ -2400,6 +2441,20 @@ namespace MenuGreen.BusinessLogicLayer.Services
                         "DAILY",
                         StringComparison.OrdinalIgnoreCase)
                     && plan.StartDate == date)
+                .ThenByDescending(plan => plan.UpdatedAt ?? plan.CreatedAt)
+                .FirstOrDefault();
+        }
+
+        private static MealPlanHeader? SelectLatestPlanThroughDate(
+            IEnumerable<MealPlanHeader> plans,
+            DateOnly weekStart,
+            DateOnly dataThroughDate)
+        {
+            return plans
+                .Where(plan =>
+                    plan.StartDate <= dataThroughDate
+                    && (plan.EndDate ?? plan.StartDate) >= weekStart)
+                .OrderByDescending(plan => plan.StartDate)
                 .ThenByDescending(plan => plan.UpdatedAt ?? plan.CreatedAt)
                 .FirstOrDefault();
         }

@@ -191,28 +191,9 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
--- Backfill Coach plans that were already submitted before Status existed.
--- Uses matching meal_plan_approved notification as proof of submission.
-UPDATE meal_plan_headers AS plan
-SET
-    "Status" = 'Approved',
-    "ApprovedAt" = approval."ApprovedAt"
-FROM (
-    SELECT
-        plan_inner."Id" AS "PlanId",
-        MAX(notification."CreatedAt") AS "ApprovedAt"
-    FROM meal_plan_headers AS plan_inner
-    JOIN notifications AS notification
-      ON notification."UserId" = plan_inner."UserId"
-     AND LOWER(notification."Type") = 'meal_plan_approved'
-     AND notification."CreatedAt" >= COALESCE(
-         plan_inner."CreatedAt",
-         '-infinity'::timestamptz
-     )
-    WHERE UPPER(COALESCE(plan_inner."GeneratedBy", '')) = 'COACH'
-    GROUP BY plan_inner."Id"
-) AS approval
-WHERE plan."Id" = approval."PlanId"
-  AND plan."Status" <> 'Approved';
+-- Status is seeded explicitly above. Do not infer it from an old notification:
+-- during a repeat seed, notifications are recreated later (file 35), so stale
+-- rows from the previous run could incorrectly turn every Coach draft into an
+-- Approved plan and lock the Gymer's plan-creation screen.
 
 COMMIT;

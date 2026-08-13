@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.DataAccessLayer.Context;
 using MenuGreen.DataAccessLayer.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -57,10 +58,16 @@ namespace MenuGreen.BusinessLogicLayer.Services
             // Guard: skip if user doesn't exist (e.g. Coach accounts, deleted users)
             var userExists = await _db.Users.AsNoTracking().AnyAsync(u => u.Id == userId);
             if (!userExists) return;
-            var logs = await _db.MealLogs.AsNoTracking()
+            var startUtc = VietnamTime.RangeStartUtc(date.AddDays(-1));
+            var endUtc = VietnamTime.RangeEndUtc(date.AddDays(1));
+            var logs = (await _db.MealLogs.AsNoTracking()
                 .Where(x => x.UserId == userId && x.LoggedAt.HasValue
-                    && DateOnly.FromDateTime(x.LoggedAt.Value) == date)
-                .ToListAsync();
+                    && x.LoggedAt.Value >= startUtc
+                    && x.LoggedAt.Value <= endUtc)
+                .ToListAsync())
+                .Where(x => x.LoggedAt.HasValue
+                    && VietnamTime.ToDate(x.LoggedAt.Value) == date)
+                .ToList();
 
             var health = await _db.HealthProfiles.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.UserId == userId);

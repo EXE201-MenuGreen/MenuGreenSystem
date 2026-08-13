@@ -1,9 +1,31 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/widgets/calorie_adjustment_picker.dart';
+import 'package:frontend/core/widgets/daily_calorie_balance_card.dart';
 import 'package:frontend/features/vietnam_local/models/vietnam_local_models.dart';
 import 'package:frontend/features/vietnam_local/views/gym_goals_screen.dart';
+import 'package:frontend/features/meal_plan/models/meal_plan_models.dart';
 
 void main() {
   group('GymPlanSuggestions', () {
+    test(
+      'an approved route is treated as PT-managed and cannot be recreated',
+      () {
+        final plan = UserMealPlan(
+          id: 'approved-plan',
+          title: 'Approved route',
+          planType: 'DAILY',
+          startDate: '2026-08-13',
+          targetCalories: 2000,
+          generatedBy: 'PT_APPROVED',
+          status: 'Approved',
+          items: const [],
+        );
+
+        expect(gymPlanIsPtManaged(plan), isTrue);
+      },
+    );
+
     test('keeps an unconfigured date empty', () {
       final result = GymPlanSuggestions.fromJson({
         'date': '2026-07-28',
@@ -102,6 +124,60 @@ void main() {
         ),
         isFalse,
       );
+    });
+
+    test(
+      'calculates below, balanced and above totals from the same target',
+      () {
+        expect(
+          calorieAdjustmentTotal(
+            targetCalories: 2000,
+            mode: CalorieAdjustmentMode.below,
+            percentage: 10,
+          ),
+          1800,
+        );
+        expect(
+          calorieAdjustmentTotal(
+            targetCalories: 2000,
+            mode: CalorieAdjustmentMode.balanced,
+            percentage: 10,
+          ),
+          2000,
+        );
+        expect(
+          calorieAdjustmentTotal(
+            targetCalories: 2000,
+            mode: CalorieAdjustmentMode.above,
+            percentage: 10,
+          ),
+          2200,
+        );
+      },
+    );
+
+    testWidgets('an exact Gym plan can still open calorie customization', (
+      tester,
+    ) async {
+      var pressed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DailyCalorieBalanceCard(
+              totalCalories: 2000,
+              targetCalories: 2000,
+              mealCount: 4,
+              actionLabel: 'Tùy chỉnh',
+              allowAdjustmentWhenExact: true,
+              onAutoBalance: () => pressed = true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Tùy chỉnh'));
+
+      expect(pressed, isTrue);
     });
   });
 
