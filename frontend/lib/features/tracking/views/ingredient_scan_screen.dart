@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:file_selector/file_selector.dart' show XTypeGroup, openFile;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../meal_plan/models/meal_plan_requests.dart';
@@ -102,33 +104,101 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         imageQuality: 85,
       );
       if (image == null) return;
-
-      final bytes = await image.readAsBytes();
-      if (!mounted) return;
-      setState(() => _selectedImageBytes = bytes);
-
-      _startLoadingSteps();
-
-      if (widget.officeMode) {
-        final result = await _repository.analyzeFoodImage(
-          bytes,
-          image.name,
-          mimeType: _imageMimeType(image),
-        );
-
-        if (!mounted) return;
+      await _analyzeImage(image);
+    } catch (e) {
+      if (mounted) {
         _stopLoading();
-
-        if (result == null) {
-          _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
-          return;
-        }
-
-        _showResultBottomSheet(result);
-        return;
+        _showErrorSnackBar('Không thể chọn hoặc xử lý ảnh. Vui lòng thử lại!');
       }
+    }
+  }
 
-      final result = await _repository.analyzePreparedMealImage(
+  Future<void> _pickSavedImageFile() async {
+    try {
+      const imageTypes = XTypeGroup(
+        label: 'images',
+        extensions: <String>['jpg', 'jpeg', 'png', 'webp'],
+        mimeTypes: <String>['image/jpeg', 'image/png', 'image/webp'],
+      );
+      final image = await openFile(
+        acceptedTypeGroups: const <XTypeGroup>[imageTypes],
+        confirmButtonText: 'Chọn ảnh',
+      );
+      if (image == null) return;
+
+      await _analyzeImage(image);
+    } on MissingPluginException {
+      if (mounted) {
+        _stopLoading();
+        _showErrorSnackBar(
+          'Ứng dụng chưa nạp bộ chọn tệp mới. Hãy tắt hẳn ứng dụng và chạy lại flutter run.',
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Failed to pick a saved image: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        _stopLoading();
+        _showErrorSnackBar(
+          'Không thể mở ảnh đã lưu. Vui lòng chọn tệp JPG, PNG hoặc WebP.',
+        );
+      }
+    }
+  }
+
+  Future<void> _showUploadSourcePicker() async {
+    if (_loading) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text(
+                  'Chọn ảnh tải lên',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('Chọn từ thư viện hoặc thư mục Downloads'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Thư viện ảnh'),
+                subtitle: const Text('Ảnh và ảnh chụp màn hình trên thiết bị'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_open_outlined),
+                title: const Text('Tệp đã lưu / Downloads'),
+                subtitle: const Text('Duyệt ảnh trong các thư mục trên máy'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickSavedImageFile();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _analyzeImage(XFile image) async {
+    final bytes = await image.readAsBytes();
+    if (!mounted) return;
+    setState(() => _selectedImageBytes = bytes);
+
+    _startLoadingSteps();
+
+    if (widget.officeMode) {
+      final result = await _repository.analyzeFoodImage(
         bytes,
         image.name,
         mimeType: _imageMimeType(image),
@@ -137,20 +207,34 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       if (!mounted) return;
       _stopLoading();
 
-      if (result['status'] != 'done' || result['result'] is! Map) {
-        _showErrorSnackBar('Chưa thể hoàn tất phân tích món ăn. Vui lòng thử lại.');
+      if (result == null) {
+        _showErrorSnackBar('Không thể phân tích hình ảnh. Vui lòng thử lại!');
         return;
       }
 
-      _showPreparedMealBottomSheet(
-        Map<String, dynamic>.from(result['result'] as Map),
-      );
-    } catch (e) {
-      if (mounted) {
-        _stopLoading();
-        _showErrorSnackBar('Không thể hoàn tất phân tích món ăn. Vui lòng thử lại.');
-      }
+      _showResultBottomSheet(result);
+      return;
     }
+
+    final result = await _repository.analyzePreparedMealImage(
+      bytes,
+      image.name,
+      mimeType: _imageMimeType(image),
+    );
+
+    if (!mounted) return;
+    _stopLoading();
+
+    if (result['status'] != 'done' || result['result'] is! Map) {
+      _showErrorSnackBar(
+        'Chưa thể hoàn tất phân tích món ăn. Vui lòng thử lại.',
+      );
+      return;
+    }
+
+    _showPreparedMealBottomSheet(
+      Map<String, dynamic>.from(result['result'] as Map),
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -217,7 +301,10 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
               const SizedBox(height: 16),
               Text(
                 result['dish_name']?.toString() ?? 'Món ăn đã quét',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -242,11 +329,15 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
                   ),
                 );
               }),
-              if (result['estimation_note']?.toString().isNotEmpty ?? false) ...[
+              if (result['estimation_note']?.toString().isNotEmpty ??
+                  false) ...[
                 const SizedBox(height: 12),
                 Text(
                   result['estimation_note'].toString(),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ],
@@ -272,7 +363,11 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         children: [
           Text(
             '${calories.toStringAsFixed(0)} kcal',
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.primary),
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -294,6 +389,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
       keyword: ing.tenNguyenLieu,
       defaultGrams: ing.khoiLuongUocTinhG,
       isRecipe: false,
+      isIngredient: true,
     );
   }
 
@@ -316,7 +412,11 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
 
     // Dùng Dialog ở root Navigator — không bị Sheet/Dialog/DatePicker che
     if (result.success) {
-      final (title, message) = _successInfo(result.action, dish, widget.officeMode);
+      final (title, message) = _successInfo(
+        result.action,
+        dish,
+        widget.officeMode,
+      );
       await showResultFeedbackDialog(
         context,
         title: title,
@@ -325,7 +425,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         actionLabel: 'Đóng',
       );
     } else {
-      final (title, message) = _errorInfo(result.action, dish, result.errorMessage, widget.officeMode);
+      final (title, message) = _errorInfo(
+        result.action,
+        dish,
+        result.errorMessage,
+        widget.officeMode,
+      );
       await showResultFeedbackDialog(
         context,
         title: title,
@@ -336,7 +441,11 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     }
   }
 
-  (String title, String message) _successInfo(String action, CvSuggestedDish dish, bool officeMode) {
+  (String title, String message) _successInfo(
+    String action,
+    CvSuggestedDish dish,
+    bool officeMode,
+  ) {
     return switch (action) {
       'today' => (
         'Lưu thành công',
@@ -354,7 +463,12 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     };
   }
 
-  (String title, String message) _errorInfo(String action, CvSuggestedDish dish, String? error, bool officeMode) {
+  (String title, String message) _errorInfo(
+    String action,
+    CvSuggestedDish dish,
+    String? error,
+    bool officeMode,
+  ) {
     return switch (action) {
       'today' => (
         'Lưu thất bại',
@@ -413,6 +527,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     required String keyword,
     required double defaultGrams,
     required bool isRecipe,
+    bool isIngredient = false,
     CvNutritionInfo? fallbackNutrition,
     double fallbackNutritionMultiplier = 1,
     MealLogSubmitter? submitter,
@@ -426,6 +541,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
         keyword: keyword,
         defaultGrams: defaultGrams,
         isRecipe: isRecipe,
+        isIngredient: isIngredient,
         fallbackNutrition: fallbackNutrition,
         fallbackNutritionMultiplier: fallbackNutritionMultiplier,
         submitter: submitter,
@@ -1061,7 +1177,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
                         icon: Icons.photo_library_outlined,
                         label: 'TẢI LÊN',
                         isLightMode: true,
-                        onTap: () => _pickImage(ImageSource.gallery),
+                        onTap: _showUploadSourcePicker,
                       ),
 
                       // Shutter button (Center)

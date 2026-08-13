@@ -134,10 +134,15 @@ void main() {
     expect(find.text('Tổng kcal của 4 bữa'), findsOneWidget);
     expect(find.text('Vượt 400 kcal'), findsOneWidget);
 
-    final autoButton = find.text('Tự chỉnh');
+    final autoButton = find.text('Tùy chỉnh');
     await tester.ensureVisible(autoButton);
     await tester.pumpAndSettle();
     await tester.tap(autoButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Thấp hơn'), findsOneWidget);
+    expect(find.text('Cân bằng'), findsOneWidget);
+    expect(find.text('Cao hơn'), findsOneWidget);
+    await tester.tap(find.text('Áp dụng 2000 kcal'));
     await tester.pumpAndSettle();
 
     expect(find.text('2000 / 2000 kcal', findRichText: true), findsOneWidget);

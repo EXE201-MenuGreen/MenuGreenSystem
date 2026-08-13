@@ -20,6 +20,7 @@ void main() {
       'configurationStartDate': '2026-07-30',
       'configurationEndDate': '2026-07-30',
       'reportData': {
+        'mealPlanId': 'plan-current-1',
         'studentHealthProfile': {
           'targetProteinG': 122,
           'targetCarbsG': 200,
@@ -52,6 +53,7 @@ void main() {
 
     expect(detail.ptComment, 'Ưu tiên rau xanh và uống đủ nước.');
     expect(detail.requestType, 'RouteApproval');
+    expect(detail.mealPlanId, 'plan-current-1');
     expect(detail.createdAt, DateTime.utc(2026, 7, 30, 5, 47));
     expect(detail.suggestedCalorieTarget, 2000);
     expect(detail.configuredCalorieTarget, 1500);

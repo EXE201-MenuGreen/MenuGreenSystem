@@ -216,6 +216,24 @@ class NutritionTrackingRepository {
         .toList();
   }
 
+  Future<List<CatalogItem>> getIngredients({String? keyword}) async {
+    final response = await _api.get(
+      QueryMiddleware.buildUrl(ApiEndpoints.ingredientSearch, {
+        'keyword': keyword,
+        'isActive': 'true',
+      }),
+    );
+    if (response.statusCode != 200 || response.body.isEmpty) return [];
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) return [];
+    final items = decoded['items'] ?? decoded['Items'];
+    if (items is! List) return [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map((e) => CatalogItem.fromJson(e, fallbackNameKey: 'nameVi'))
+        .toList();
+  }
+
   Future<List<CatalogItem>> getRecipes({String? keyword}) async {
     final response = await _api.get(
       QueryMiddleware.buildUrl(ApiEndpoints.recipeSearch, {'keyword': keyword}),
@@ -250,7 +268,9 @@ class NutritionTrackingRepository {
       'mealType': mealType,
       'quantityG': quantityG,
       'notes': notes,
-      'loggedAt': loggedAt?.toIso8601String(),
+      // Always include the UTC marker. A timestamp without an offset can be
+      // interpreted in the API server's timezone and fall on yesterday.
+      'loggedAt': loggedAt?.toUtc().toIso8601String(),
       'caloriesKcal': caloriesKcal,
       'proteinG': proteinG,
       'carbsG': carbsG,
@@ -328,7 +348,9 @@ class NutritionTrackingRepository {
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Kết quả phân tích món ăn không đúng định dạng.');
+      throw const FormatException(
+        'Kết quả phân tích món ăn không đúng định dạng.',
+      );
     }
     return decoded;
   }

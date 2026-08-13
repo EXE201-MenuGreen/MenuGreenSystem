@@ -5,6 +5,7 @@ namespace MenuGreen.BusinessLogicLayer.Helpers
     public static class CacheKeys
     {
         private const string Version = "v1";
+        private const string MealPlanVersion = "v3";
 
         public static string FoodCatalog(string? keyword, string? category, int? minCal, int? maxCal)
             => $"food:catalog:{Version}:{keyword ?? ""}:{category ?? ""}:{minCal}:{maxCal}";
@@ -41,10 +42,10 @@ namespace MenuGreen.BusinessLogicLayer.Helpers
             => $"user:{userId}:calories-remaining:{date:yyyy-MM-dd}:{Version}";
 
         public static string MealPlan(Guid userId, DateTime date)
-            => $"user:{userId}:mealplan:{date:yyyy-MM-dd}:{Version}";
+            => $"user:{userId}:mealplan:{date:yyyy-MM-dd}:{MealPlanVersion}";
 
         public static string MealPlanByDate(Guid userId, DateOnly date)
-            => $"user:{userId}:mealplan:{date:yyyy-MM-dd}:{Version}";
+            => $"user:{userId}:mealplan:{date:yyyy-MM-dd}:{MealPlanVersion}";
 
         public static string UserAiContext(Guid userId) => $"user:{userId}:ai-context:{Version}";
 

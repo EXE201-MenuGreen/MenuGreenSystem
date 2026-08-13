@@ -40,7 +40,10 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
         Task<GroceryListResponse> GetGroceryListAsync(Guid planId, Guid userId);
 
         // Daily Meal Plan Methods
-        Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date);
+        Task<MealPlanResponse?> GetByDateAsync(
+            Guid userId,
+            DateOnly date,
+            bool forceRefresh = false);
         Task<MealPlanResponse> CreateOrUpdateDailyAsync(Guid userId, UserMealPlanUpsertRequest request);
         Task<MealPlanResponse> CreateFromDailyMenuAsync(Guid userId, CreateMealPlanFromDailyMenuRequest request);
         Task LinkMealLogToDailyPlanAsync(Guid userId, Guid mealLogId);

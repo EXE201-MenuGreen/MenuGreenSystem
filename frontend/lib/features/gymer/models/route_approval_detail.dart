@@ -36,9 +36,9 @@ class RouteApprovalMeal {
   final int? fatG;
   final List<RecipeIngredientItem> ingredients;
 
-  RouteApprovalMeal copyWith({bool? isCompleted}) {
+  RouteApprovalMeal copyWith({String? id, bool? isCompleted}) {
     return RouteApprovalMeal(
-      id: id,
+      id: id ?? this.id,
       mealType: mealType,
       name: name,
       calories: calories,
@@ -126,6 +126,7 @@ class RouteApprovalDetail {
     required this.ptComment,
     required this.studentNote,
     required this.days,
+    this.mealPlanId,
     this.suggestedCalorieTarget,
     this.suggestedProteinTarget,
     this.configuredCalorieTarget,
@@ -140,6 +141,7 @@ class RouteApprovalDetail {
   });
 
   final String requestId;
+  final String? mealPlanId;
   final String requestType;
   final DateTime weekStartDate;
   final DateTime? createdAt;
@@ -179,6 +181,7 @@ class RouteApprovalDetail {
   RouteApprovalDetail copyWith({List<RouteApprovalDay>? days}) {
     return RouteApprovalDetail(
       requestId: requestId,
+      mealPlanId: mealPlanId,
       requestType: requestType,
       weekStartDate: weekStartDate,
       createdAt: createdAt,
@@ -222,6 +225,7 @@ class RouteApprovalDetail {
 
     return RouteApprovalDetail(
       requestId: _string(json, 'reportId') ?? '',
+      mealPlanId: _string(report, 'mealPlanId'),
       requestType:
           _string(json, 'requestType') ??
           _string(report, 'requestType') ??

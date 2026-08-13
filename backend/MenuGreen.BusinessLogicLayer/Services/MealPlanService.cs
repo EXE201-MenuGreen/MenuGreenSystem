@@ -377,7 +377,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 _unitOfWork.MealPlanItems.Update(largest);
             }
 
-            plan.TargetCalories = request.TargetCalories;
+            if (!request.PreservePlanTarget)
+            {
+                plan.TargetCalories = request.TargetCalories;
+            }
             plan.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.MealPlanHeaders.Update(plan);
             await _unitOfWork.CompleteAsync();
@@ -1182,9 +1185,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             
             var macros = await GetItemMacrosAsync(x);
 
-            var displayCalories = (food?.CaloriesKcal.HasValue == true && food.CaloriesKcal.Value > 0)
-                ? (int)Math.Round(food.CaloriesKcal.Value)
-                : (x.TargetCalories.HasValue && x.TargetCalories.Value > 0 ? x.TargetCalories.Value : (int)Math.Round(macros.calories));
+            // TargetCalories represents the portion currently stored in the
+            // meal plan. The catalog value is only a fallback: using it first
+            // makes a balanced item's response jump back to its original
+            // serving calories even though its quantity was saved correctly.
+            var displayCalories = (x.TargetCalories.HasValue && x.TargetCalories.Value > 0)
+                ? x.TargetCalories.Value
+                : (food?.CaloriesKcal.HasValue == true && food.CaloriesKcal.Value > 0
+                    ? (int)Math.Round(food.CaloriesKcal.Value)
+                    : (int)Math.Round(macros.calories));
 
             if (displayCalories == 0 && catalogFood != null)
             {
@@ -2038,13 +2047,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         // ==================== Daily Meal Plan Implementations ====================
 
-        public async Task<MealPlanResponse?> GetByDateAsync(Guid userId, DateOnly date)
+        public async Task<MealPlanResponse?> GetByDateAsync(
+            Guid userId,
+            DateOnly date,
+            bool forceRefresh = false)
         {
             var cacheKey = CacheKeys.MealPlanByDate(userId, date);
-            var cached = await _cache.GetAsync<MealPlanResponse>(cacheKey);
-            if (cached != null)
+            if (forceRefresh)
             {
-                return cached;
+                await _cache.RemoveAsync(cacheKey);
+            }
+            else
+            {
+                var cached = await _cache.GetAsync<MealPlanResponse>(cacheKey);
+                if (cached != null)
+                {
+                    return cached;
+                }
             }
 
             var plan = await FindDailyPlanAsync(userId, date);

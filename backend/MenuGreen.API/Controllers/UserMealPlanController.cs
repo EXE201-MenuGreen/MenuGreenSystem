@@ -22,10 +22,12 @@ namespace MenuGreen.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetByDate([FromQuery] DateOnly date)
+        public async Task<IActionResult> GetByDate(
+            [FromQuery] DateOnly date,
+            [FromQuery] bool refresh = false)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
-            var plan = await _service.GetByDateAsync(userId, date);
+            var plan = await _service.GetByDateAsync(userId, date, refresh);
             if (plan == null) return NoContent();
             return Ok(plan);
         }

@@ -12,6 +12,8 @@ class DailyCalorieBalanceCard extends StatelessWidget {
     this.dateLabel,
     this.canAutoBalance = true,
     this.lockedLabel = 'Đã khóa',
+    this.actionLabel = 'Tự chỉnh',
+    this.allowAdjustmentWhenExact = false,
     this.width,
   });
 
@@ -22,6 +24,8 @@ class DailyCalorieBalanceCard extends StatelessWidget {
   final String? dateLabel;
   final bool canAutoBalance;
   final String lockedLabel;
+  final String actionLabel;
+  final bool allowAdjustmentWhenExact;
   final double? width;
 
   @override
@@ -53,7 +57,7 @@ class DailyCalorieBalanceCard extends StatelessWidget {
         : (totalCalories / targetCalories).clamp(0.0, 1.0);
     final enabled =
         canAutoBalance &&
-        !isExact &&
+        (allowAdjustmentWhenExact || !isExact) &&
         totalCalories > 0 &&
         targetCalories > 0 &&
         onAutoBalance != null;
@@ -159,7 +163,7 @@ class DailyCalorieBalanceCard extends StatelessWidget {
                       : Icons.lock_outline_rounded,
                   size: 15,
                 ),
-                label: Text(canAutoBalance ? 'Tự chỉnh' : lockedLabel),
+                label: Text(canAutoBalance ? actionLabel : lockedLabel),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 10),

@@ -19,6 +19,47 @@ bool isRouteMealCompleted(
 ) =>
     item.isCompleted || actualMeals.any((log) => log.mealPlanItemId == item.id);
 
+@visibleForTesting
+MealPlanItemModel? resolveCurrentRouteMealItem(
+  RouteApprovalMeal snapshot,
+  UserMealPlan currentPlan,
+) {
+  for (final item in currentPlan.items) {
+    if (item.id == snapshot.id) return item;
+  }
+
+  final mealType = snapshot.mealType.trim().toLowerCase();
+  final candidates = currentPlan.items.where((item) {
+    if (item.mealType.trim().toLowerCase() != mealType) return false;
+    if (snapshot.plannedDate != null &&
+        item.plannedDate != null &&
+        !DateUtils.isSameDay(snapshot.plannedDate, item.plannedDate)) {
+      return false;
+    }
+    if (snapshot.foodId?.isNotEmpty == true) {
+      return item.foodId == snapshot.foodId;
+    }
+    if (snapshot.recipeId?.isNotEmpty == true) {
+      return item.recipeId == snapshot.recipeId;
+    }
+    return item.displayName.trim().toLowerCase() ==
+        snapshot.name.trim().toLowerCase();
+  }).toList();
+
+  if (candidates.length == 1) return candidates.single;
+  if (snapshot.scheduledTime?.isNotEmpty == true) {
+    final rawScheduled = snapshot.scheduledTime!;
+    final scheduled = rawScheduled.length > 5
+        ? rawScheduled.substring(0, 5)
+        : rawScheduled;
+    for (final item in candidates) {
+      final currentTime = item.scheduledTime ?? '';
+      if (currentTime.startsWith(scheduled)) return item;
+    }
+  }
+  return candidates.isEmpty ? null : candidates.first;
+}
+
 String _configurationScope(RouteApprovalDetail detail) =>
     RouteApprovalPeriod.normalizeScope(
       requestType: detail.requestType,
@@ -70,6 +111,7 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
   String? _error;
   bool _loading = true;
   final Set<String> _updatingMealIds = <String>{};
+  final MealPlanRepository _mealPlanRepository = MealPlanRepository();
 
   @override
   void initState() {
@@ -115,10 +157,19 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
     final dates = _datesToDisplay(detail);
     if (dates.isEmpty) return detail;
 
-    final plansFuture = Future.wait(dates.map(MealPlanRepository().getByDate));
+    // Route-approval reports contain a frozen meal snapshot. Always resolve the
+    // exact referenced plan first so a PT edit/approval cannot keep displaying
+    // the old total (for example 1845 instead of the current 2000 kcal).
+    final exactPlanFuture = detail.mealPlanId?.trim().isNotEmpty == true
+        ? _mealPlanRepository.getPlanDetail(detail.mealPlanId!)
+        : Future.value(null);
+    final plansFuture = Future.wait(
+      dates.map(_mealPlanRepository.getByDateFresh),
+    );
     final actualMealsFuture = Future.wait(
       dates.map(NutritionTrackingRepository().getDailySummary),
     );
+    final exactPlan = await exactPlanFuture;
     final plans = await plansFuture;
     final actualMealsByDay = await actualMealsFuture;
     final snapshotDays = {
@@ -130,7 +181,52 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
       final date = dates[index];
       final plan = plans[index];
       final actualMeals = actualMealsByDay[index]?.mealLogs ?? const [];
-      if (plan != null && plan.items.isNotEmpty) {
+      final exactItems =
+          exactPlan?.items.where((item) {
+            if (item.plannedDate == null) return dates.length == 1;
+            return _dateKey(item.plannedDate!) == _dateKey(date);
+          }).toList() ??
+          const [];
+      if (exactItems.isNotEmpty) {
+        resolvedDays.add(
+          RouteApprovalDay(
+            date: date,
+            meals: exactItems
+                .map(
+                  (item) => RouteApprovalMeal(
+                    id: item.id,
+                    mealType: item.mealType ?? 'snack',
+                    name:
+                        (item.foodName ??
+                                item.recipeName ??
+                                item.customName ??
+                                '')
+                            .trim()
+                            .isNotEmpty
+                        ? (item.foodName ?? item.recipeName ?? item.customName)!
+                        : 'Món trong kế hoạch',
+                    calories: item.targetCalories ?? 0,
+                    isCompleted:
+                        item.isCompleted ||
+                        actualMeals.any((log) => log.mealPlanItemId == item.id),
+                    foodId: item.foodId,
+                    recipeId: item.recipeId,
+                    plannedDate: item.plannedDate ?? date,
+                    scheduledTime: item.scheduledTime == null
+                        ? null
+                        : '${item.scheduledTime!.hour.toString().padLeft(2, '0')}:'
+                              '${item.scheduledTime!.minute.toString().padLeft(2, '0')}',
+                    quantityG: item.quantityG,
+                    proteinG: item.proteinG,
+                    carbsG: item.carbsG,
+                    fatG: item.fatG,
+                    ingredients: item.ingredients,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      } else if (plan != null && plan.items.isNotEmpty) {
         resolvedDays.add(
           RouteApprovalDay(
             date: date,
@@ -199,7 +295,20 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
     if (meal.id.isEmpty || _updatingMealIds.contains(meal.id)) return;
     setState(() => _updatingMealIds.add(meal.id));
     try {
-      await MealPlanRepository().toggleItem(meal.id, value);
+      var currentItemId = meal.id;
+      if (meal.plannedDate != null) {
+        final currentPlan = await _mealPlanRepository.getByDateFresh(
+          meal.plannedDate!,
+        );
+        if (currentPlan != null) {
+          final currentItem = resolveCurrentRouteMealItem(meal, currentPlan);
+          if (currentItem == null) {
+            throw Exception('Meal plan item not found.');
+          }
+          currentItemId = currentItem.id;
+        }
+      }
+      await _mealPlanRepository.toggleItem(currentItemId, value);
       if (!mounted || _detail == null) return;
       setState(() {
         _detail = _detail!.copyWith(
@@ -210,7 +319,10 @@ class _RouteApprovalDetailScreenState extends State<RouteApprovalDetailScreen> {
                   meals: day.meals
                       .map(
                         (item) => item.id == meal.id
-                            ? item.copyWith(isCompleted: value)
+                            ? item.copyWith(
+                                id: currentItemId,
+                                isCompleted: value,
+                              )
                             : item,
                       )
                       .toList(),

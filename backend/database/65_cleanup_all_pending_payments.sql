@@ -4,8 +4,9 @@
 -- Reason: Users cannot create new orders due to stale pending payments blocking them
 
 -- First, ensure constraint allows CANCELLED
-ALTER TABLE payments DROP CONSTRAINT IF EXISTS CK_payments_status;
-ALTER TABLE payments ADD CONSTRAINT CK_payments_status 
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS "CK_payments_status";
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS ck_payments_status;
+ALTER TABLE payments ADD CONSTRAINT "CK_payments_status"
     CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED'));
 
 -- Cancel all pending SePay payments
