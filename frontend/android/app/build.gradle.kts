@@ -65,7 +65,7 @@ android {
         versionName = flutter.versionName
         // Ensure AGP picks up libapp.so produced by Flutter Gradle plugin's AOT step.
         ndk {
-            // no abiFilters override here - let --target-platform drive it
+            abiFilters += setOf("armeabi-v7a", "arm64-v8a")
         }
     }
 
