@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../advanced/views/advanced_features_screen.dart';
+import '../../ai_assistant/providers/ai_assistant_provider.dart';
+import '../../ai_assistant/views/ai_conversation_list_screen.dart';
 import '../../coach_chat/views/coach_chat_partners_screen.dart';
 import '../../subscription/repositories/user_subscription_repository.dart';
 import '../../subscription/views/upgrade_plan_screen.dart';
 import '../../vietnam_local/views/gym_goals_screen.dart';
 import 'premium_programs_screen.dart';
 
-enum GymerFeature { goals, companion, programs, chat }
+enum GymerFeature { goals, companion, programs, chat, aiAssistant }
 
 class GymerHubScreen extends StatefulWidget {
   const GymerHubScreen({super.key, this.openFeature});
@@ -68,6 +71,10 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
       ),
       GymerFeature.programs => const PremiumProgramsScreen(),
       GymerFeature.chat => const CoachChatPartnersScreen(),
+      GymerFeature.aiAssistant => ChangeNotifierProvider(
+        create: (_) => AiAssistantProvider()..loadConversations(),
+        child: const AiConversationListScreen(),
+      ),
     };
 
     if (!mounted) return;
@@ -105,7 +112,7 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                   _buildHero(),
                   const SizedBox(height: 22),
                   Text(
-                    '4 công cụ dành cho Gymer',
+                    '5 công cụ dành cho Gymer',
                     style: beVietnamPro(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -153,6 +160,12 @@ class _GymerHubScreenState extends State<GymerHubScreen> {
                         title: 'Chat với PT',
                         subtitle: 'Nhắn tin trực tiếp với PT của bạn',
                         onTap: () => _openFeature(GymerFeature.chat),
+                      ),
+                      _GymerFeatureTile(
+                        icon: Icons.auto_awesome_rounded,
+                        title: 'Trợ lý trò chuyện',
+                        subtitle: 'Hỏi đáp về dinh dưỡng và sức khỏe',
+                        onTap: () => _openFeature(GymerFeature.aiAssistant),
                       ),
                     ],
                   ),

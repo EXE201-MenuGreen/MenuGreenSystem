@@ -44,6 +44,7 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(result.isFavorite, isTrue);
+      expect(result.message, 'Đã thêm món vào yêu thích.');
       expect(provider.isFavorite('food-2'), isTrue);
       expect(cacheWrites, 1);
     });
@@ -58,7 +59,10 @@ void main() {
       final result = await provider.toggle(_food('food-3'));
 
       expect(result.isSuccess, isFalse);
-      expect(result.message, 'Không thể thêm món vào yêu thích.');
+      expect(
+        result.message,
+        'Không thể cập nhật món yêu thích. Vui lòng thử lại.',
+      );
       expect(provider.isFavorite('food-3'), isFalse);
       expect(provider.items, isEmpty);
     });

@@ -74,9 +74,6 @@ class RouteApprovalCard extends StatelessWidget {
         (isRouteApproval
             ? request['configuredCalorieTarget']
             : request['suggestedCalorieTarget']);
-    final protein = request['targetProteinG'] ??
-        request['TargetProteinG'] ??
-        request['suggestedProteinTarget'];
     final createdAt = (request['createdAt'] ?? request['CreatedAt'])?.toString();
     final sentScope = RouteApprovalPeriod.normalizeScope(
       requestType: requestType,
