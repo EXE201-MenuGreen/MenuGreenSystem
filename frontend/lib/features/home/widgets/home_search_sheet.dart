@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../../discover/models/food_models.dart';
@@ -415,14 +415,14 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                     controller: _searchController,
                     autofocus: true,
                     onChanged: _onSearchChanged,
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 15,
                       color: AppColors.textDark,
                     ),
                     decoration: InputDecoration(
                       hintText:
                           'Tìm chức năng (Cân nặng, Calo...) hoặc món ăn...',
-                      hintStyle: GoogleFonts.beVietnamPro(
+                      hintStyle: beVietnamProHint(
                         fontSize: 13.5,
                         color: Colors.grey.shade500,
                       ),
@@ -470,7 +470,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                             _query.isEmpty
                                 ? 'Tính năng ứng dụng'
                                 : 'Chức năng phù hợp (${filteredFeatures.length})',
-                            style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
@@ -497,7 +497,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                           const SizedBox(width: 8),
                           Text(
                             'Món ăn & Thực đơn',
-                            style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
@@ -518,7 +518,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
                           padding: const EdgeInsets.symmetric(vertical: 20),
                           child: Text(
                             'Không tìm thấy món ăn nào cho "$_query"',
-                            style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
                               fontSize: 13,
                               color: Colors.grey.shade600,
                             ),
@@ -568,7 +568,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
         ),
         title: Text(
           feature.title,
-          style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AppColors.textDark,
@@ -576,7 +576,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
         ),
         subtitle: Text(
           feature.description,
-          style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
             fontSize: 12,
             color: AppColors.textSecondary,
           ),
@@ -631,7 +631,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
         ),
         title: Text(
           food.nameVi,
-          style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AppColors.textDark,
@@ -642,7 +642,7 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           '${formatNutritionFacts(quantityG: food.defaultServingG, caloriesKcal: food.caloriesKcal, proteinG: food.proteinG, carbsG: food.carbsG, fatG: food.fatG)}',
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
             fontSize: 12,
             color: AppColors.textSecondary,
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../notifications/providers/notification_provider.dart';
 import 'icon_button_with_badge.dart';
 
@@ -76,7 +76,7 @@ class HomeHeader extends StatelessWidget {
             children: [
               Text(
                 greeting.toUpperCase(),
-                style: GoogleFonts.beVietnamPro(
+                style: beVietnamPro(
                   color: AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -86,7 +86,7 @@ class HomeHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 userName,
-                style: GoogleFonts.beVietnamPro(
+                style: beVietnamPro(
                   color: AppColors.textDark,
                   fontSize: 19,
                   fontWeight: FontWeight.w800,

@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../subscription/models/sepay_models.dart';
 import '../../subscription/models/subscription_models.dart';
 import '../repositories/premium_program_repository.dart';
@@ -1033,7 +1033,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
                     children: [
                       Text(
                         'Lộ trình cá nhân đã duyệt',
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           color: Colors.green.shade900,
@@ -1641,7 +1641,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
         ),
         title: Text(
           '$dayOfWeek ($dateStr)',
-          style: GoogleFonts.beVietnamPro(
+          style: beVietnamPro(
             fontWeight: FontWeight.w700,
             fontSize: 13.5,
             color: AppColors.textDark,
@@ -1913,7 +1913,7 @@ class _ProgramPaymentSheet extends StatelessWidget {
             Text(
               'Thanh toán lộ trình',
               textAlign: TextAlign.center,
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textDark,

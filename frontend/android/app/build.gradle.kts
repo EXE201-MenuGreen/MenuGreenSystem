@@ -28,6 +28,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
@@ -75,8 +87,12 @@ android {
                 } else {
                     signingConfigs.getByName("debug")
                 }
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")

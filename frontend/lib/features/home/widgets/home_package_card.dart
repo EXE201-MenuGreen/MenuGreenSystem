@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 
 class HomePackageAction {
   const HomePackageAction({
@@ -82,7 +82,7 @@ class HomePackageCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.55,
@@ -93,7 +93,7 @@ class HomePackageCard extends StatelessWidget {
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textSecondary,
@@ -121,7 +121,7 @@ class HomePackageCard extends StatelessWidget {
                       ],
                       Text(
                         statusLabel,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           color: Colors.white,
                           fontSize: 8,
                           fontWeight: FontWeight.w900,
@@ -199,7 +199,7 @@ class _PackageAction extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 9.8,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,

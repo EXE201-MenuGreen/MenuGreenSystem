@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../gymer/views/gymer_hub_screen.dart';
 
 class GymerPackageCard extends StatelessWidget {
@@ -113,7 +113,7 @@ class GymerPackageCard extends StatelessWidget {
                     children: [
                       Text(
                         'GYMER VIP',
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.55,
@@ -124,7 +124,7 @@ class GymerPackageCard extends StatelessWidget {
                         'Bộ công cụ tập luyện đã kích hoạt',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textSecondary,
@@ -153,7 +153,7 @@ class GymerPackageCard extends StatelessWidget {
                       const SizedBox(width: 3),
                       Text(
                         'TRẢ PHÍ',
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           color: Colors.white,
                           fontSize: 8,
                           fontWeight: FontWeight.w900,
@@ -280,7 +280,7 @@ class _VipAction extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 9.8,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
