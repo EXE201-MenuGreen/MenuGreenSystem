@@ -41,7 +41,7 @@ class SepayPaymentRepository {
   Future<({bool success, String message})> cancelOrder(String paymentId) async {
     final response = await _api.delete(ApiEndpoints.sepayCancelOrder(paymentId));
     if (response.statusCode == 200) {
-      return (success: true, message: 'Payment order cancelled successfully.');
+      return (success: true, message: 'Hủy giao dịch thanh toán thành công.');
     }
     return (success: false, message: _extractErrorMessage(response.body));
   }

@@ -98,7 +98,7 @@ class DailyCalorieBalanceCard extends StatelessWidget {
                   text: '$totalCalories',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: statusColor,
                   ),
                 ),

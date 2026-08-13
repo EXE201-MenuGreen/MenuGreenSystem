@@ -1284,7 +1284,7 @@ class _NutritionTrackingTab extends StatelessWidget {
                       '${(calorieProgress * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                         color: calorieProgress >= 0.9 && calorieProgress <= 1.1
                             ? const Color(0xFF059669)
                             : (calorieProgress > 1.1
@@ -1430,7 +1430,7 @@ class _NutritionTrackingTab extends StatelessWidget {
                             '$completedCount',
                             style: const TextStyle(
                               fontSize: 22,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               color: Color(0xFF047857),
                             ),
                           ),
@@ -1479,7 +1479,7 @@ class _NutritionTrackingTab extends StatelessWidget {
                             '$remainingCount',
                             style: const TextStyle(
                               fontSize: 22,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               color: Color(0xFF475569),
                             ),
                           ),
@@ -1864,7 +1864,7 @@ class _SummaryCard extends StatelessWidget {
                   value,
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: color,
                     letterSpacing: -0.5,
                   ),
@@ -2395,7 +2395,7 @@ class _NutritionTargetsSection extends StatelessWidget {
                               '$targetCals kcal/ngày',
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w800,
                                 color: AppColors.primary,
                               ),
                             ),
@@ -2587,7 +2587,7 @@ class _MacroCard extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 13.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),

@@ -1,7 +1,7 @@
 -- Migration: 69_fix_payments_constraint_and_cleanup
 -- Date: 2026-08-12
 -- Description: Fix CK_payments_status constraint then cleanup old pending payments
--- This is the single definitive migration to fix the constraint issue
+-- This is the single definitive migration that supersedes 63, 65, 66, 67, 68
 
 -- Step 1: Fix constraint to include CANCELLED status
 ALTER TABLE payments DROP CONSTRAINT IF EXISTS "CK_payments_status";

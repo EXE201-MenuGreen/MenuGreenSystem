@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../meal_plan/widgets/calorie_progress_ring.dart';
 
@@ -139,7 +139,7 @@ class HomeCalorieSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Tiến độ dinh dưỡng',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: sectionTitleFontSize,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
@@ -160,7 +160,7 @@ class HomeCalorieSection extends StatelessWidget {
                       children: [
                         Text(
                           'Chi tiết',
-                          style: GoogleFonts.beVietnamPro(
+                          style: beVietnamPro(
                             fontSize: 12,
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
@@ -299,7 +299,7 @@ class _MacroRow extends StatelessWidget {
                 SizedBox(width: context.valueForDevice(phone: 8.0, tablet: 10.0, desktop: 10.0)),
                 Text(
                   label,
-                  style: GoogleFonts.beVietnamPro(
+                  style: beVietnamPro(
                     fontSize: labelFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
@@ -309,7 +309,7 @@ class _MacroRow extends StatelessWidget {
             ),
             Text(
               '${current}g / ${target}g',
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: valueFontSize,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
@@ -378,7 +378,7 @@ class _RemainingCaloriesBar extends StatelessWidget {
               children: [
                 Text(
                   isOverBudget ? 'Đã vượt quá' : 'Hôm nay còn lại',
-                  style: GoogleFonts.beVietnamPro(
+                  style: beVietnamPro(
                     fontSize: 12,
                     color: color,
                     fontWeight: FontWeight.w600,
@@ -387,7 +387,7 @@ class _RemainingCaloriesBar extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${remaining.abs()} kcal',
-                  style: GoogleFonts.beVietnamPro(
+                  style: beVietnamPro(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: color,
@@ -403,7 +403,7 @@ class _RemainingCaloriesBar extends StatelessWidget {
             children: [
               Text(
                 'Mục tiêu',
-                style: GoogleFonts.beVietnamPro(
+                style: beVietnamPro(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -412,7 +412,7 @@ class _RemainingCaloriesBar extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '$target kcal',
-                style: GoogleFonts.beVietnamPro(
+                style: beVietnamPro(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textDark,

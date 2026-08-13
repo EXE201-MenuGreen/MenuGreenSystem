@@ -5,11 +5,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
@@ -983,7 +983,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                           children: [
                             Text(
                               venuePin.name,
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.textDark,
@@ -994,7 +994,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                             const SizedBox(height: 3),
                             Text(
                               '📍 ${venuePin.address}',
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 12,
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -1013,7 +1013,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
 
                   Text(
                     'Thực đơn món ăn tại địa điểm này (${venueDishes.length} món)',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textDark,
@@ -1051,7 +1051,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                   children: [
                                     Text(
                                       dish.name,
-                                      style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                                         fontSize: 13.5,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.textDark,
@@ -1060,7 +1060,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                     const SizedBox(height: 2),
                                     Text(
                                       '${dish.caloriesKcal} kcal • P:${dish.proteinG}g C:${dish.carbsG}g F:${dish.fatG}g',
-                                      style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                                         fontSize: 11,
                                         color: AppColors.textSecondary,
                                       ),
@@ -1140,7 +1140,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                       const SizedBox(width: 10),
                       Text(
                         'Món ăn yêu thích kèm địa điểm',
-                        style: GoogleFonts.beVietnamPro(
+                        style: beVietnamPro(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textDark,
@@ -1166,7 +1166,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                             const SizedBox(height: 12),
                             Text(
                               'Chưa có món ăn nào trong danh sách Yêu thích.',
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,
                               ),
@@ -1206,7 +1206,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                     children: [
                                       Text(
                                         dish.name,
-                                        style: GoogleFonts.beVietnamPro(
+                                        style: beVietnamPro(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w800,
                                           color: AppColors.textDark,
@@ -1215,7 +1215,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                       const SizedBox(height: 2),
                                       Text(
                                         '📍 ${dish.address}',
-                                        style: GoogleFonts.beVietnamPro(
+                                        style: beVietnamPro(
                                           fontSize: 11,
                                           color: AppColors.primary,
                                           fontWeight: FontWeight.w600,
@@ -1225,7 +1225,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                       ),
                                       Text(
                                         '${dish.caloriesKcal} kcal • P:${dish.proteinG}g C:${dish.carbsG}g F:${dish.fatG}g',
-                                        style: GoogleFonts.beVietnamPro(
+                                        style: beVietnamPro(
                                           fontSize: 10.5,
                                           color: AppColors.textSecondary,
                                         ),
@@ -1393,7 +1393,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                     children: [
                                       Text(
                                         pin.name,
-                                        style: GoogleFonts.beVietnamPro(
+                                        style: beVietnamPro(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                           color: isSelected
@@ -1405,7 +1405,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                                       ),
                                       Text(
                                         '${pin.caloriesKcal} kcal • ${pin.distanceFormatted}',
-                                        style: GoogleFonts.beVietnamPro(
+                                        style: beVietnamPro(
                                           fontSize: 9.5,
                                           color: isSelected
                                               ? Colors.white70
@@ -1535,14 +1535,14 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                   controller: _searchController,
                   onChanged: (val) => setState(() => _searchQuery = val),
                   onSubmitted: (val) => _searchLocationByName(val),
-                  style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textDark,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Tìm món ăn hoặc nhập địa điểm...',
-                    hintStyle: GoogleFonts.beVietnamPro(
+                    hintStyle: beVietnamProHint(
                       fontSize: 13.5,
                       color: Colors.grey.shade400,
                       fontWeight: FontWeight.normal,
@@ -1620,7 +1620,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                 Expanded(
                   child: Text(
                     _addressText,
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 11.5,
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
@@ -1657,7 +1657,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
             ),
             label: Text(
               'Yêu thích (${_favoritePinIds.length})',
-              style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.red.shade800,
@@ -1678,7 +1678,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
             ),
             label: Text(
               'Món tại quán',
-              style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppColors.primary,
@@ -1763,7 +1763,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
     return ChoiceChip(
       label: Text(
         label,
-        style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           color: isSelected ? Colors.white : AppColors.textDark,
@@ -1820,7 +1820,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                         Expanded(
                           child: Text(
                             pin.name,
-                            style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: AppColors.textDark,
@@ -1840,7 +1840,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                           ),
                           child: Text(
                             pin.distanceFormatted,
-                            style: GoogleFonts.beVietnamPro(
+                            style: beVietnamPro(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF166534),
@@ -1852,7 +1852,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
                     const SizedBox(height: 4),
                     Text(
                       pin.address,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 12,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
@@ -1999,7 +1999,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
           children: [
             Text(
               value,
-              style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: color,
@@ -2007,7 +2007,7 @@ class _FoodMapScreenState extends State<FoodMapScreen> {
             ),
             Text(
               label,
-              style: GoogleFonts.beVietnamPro(
+                                      style: beVietnamPro(
                 fontSize: 9.5,
                 color: AppColors.textSecondary,
               ),

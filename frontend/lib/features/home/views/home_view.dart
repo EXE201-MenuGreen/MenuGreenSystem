@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import 'package:provider/provider.dart';
 import '../../../core/network/token_storage.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/food_map_screen.dart';
@@ -474,7 +475,7 @@ class HomeViewState extends State<HomeView> {
         children: [
           Text(
             'Khám phá gói chuyên biệt',
-            style: GoogleFonts.beVietnamPro(
+            style: beVietnamPro(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: AppColors.textDark,

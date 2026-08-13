@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../adaptive_reminders/views/adaptive_reminders_screen.dart';
 import '../../meal_templates/views/meal_templates_screen.dart';
 import '../../tracking/views/ingredient_scan_screen.dart';
@@ -47,7 +47,7 @@ class OfficeHomePanel extends StatelessWidget {
           children: [
             Text(
               'Không gian Office',
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
@@ -56,7 +56,7 @@ class OfficeHomePanel extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'Tổ chức bữa trưa và thói quen khỏe mạnh trong ngày làm việc.',
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 color: AppColors.textSecondary,
                 fontSize: 12,
               ),
@@ -122,7 +122,7 @@ class _OfficeAction extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.beVietnamPro(
+                style: beVietnamPro(
                   color: AppColors.textDark,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,

@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../models/food_models.dart';
 import '../providers/favorite_food_provider.dart';
 import 'food_detail_screen.dart';
-
-import 'package:google_fonts/google_fonts.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -43,7 +42,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       appBar: AppBar(
         title: Text(
           'Món yêu thích',
-          style: GoogleFonts.beVietnamPro(
+          style: beVietnamPro(
             fontWeight: FontWeight.w700,
             color: AppColors.textDark,
           ),
@@ -69,7 +68,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   const SizedBox(height: 12),
                   Text(
                     'Chưa có món yêu thích.',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
@@ -114,7 +113,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     ),
                     title: Text(
                       item.nameVi,
-                      style: GoogleFonts.beVietnamPro(
+                      style: beVietnamPro(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textDark,
@@ -128,7 +127,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               item.category!,
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 11.5,
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -142,7 +141,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               '🔥 ${item.caloriesKcal!.round()} kcal',
-                              style: GoogleFonts.beVietnamPro(
+                              style: beVietnamPro(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),

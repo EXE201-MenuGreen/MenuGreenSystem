@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../discover/views/favorites_screen.dart';
 import '../../discover/views/discover_view.dart';
@@ -248,7 +248,7 @@ class QuickActionGrid extends StatelessWidget {
                   const SizedBox(height: 18),
                   Text(
                     'Tất cả tính năng',
-                    style: GoogleFonts.beVietnamPro(
+                    style: beVietnamPro(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -397,7 +397,7 @@ class _QuickActionItem extends StatelessWidget {
             Text(
               action.label,
               textAlign: TextAlign.center,
-              style: GoogleFonts.beVietnamPro(
+              style: beVietnamPro(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textDark,

@@ -665,7 +665,7 @@ class _SummaryCard extends StatelessWidget {
                                   '$displayedCalories kcal/ngày',
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w800,
                                     color: AppColors.primary,
                                   ),
                                 ),
@@ -1088,7 +1088,7 @@ class _MacroCard extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),

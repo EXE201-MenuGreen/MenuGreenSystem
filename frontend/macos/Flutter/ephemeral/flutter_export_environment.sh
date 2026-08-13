@@ -1,12 +1,12 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=E:\tool-dart\flutter"
-export "FLUTTER_APPLICATION_PATH=E:\EXE201-MenuGreen\MenuGreenSystem\frontend"
-export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=E:\EXE201-MenuGreen\MenuGreenSystem\frontend\macos\Flutter\ephemeral\Packages\.packages\FlutterFramework"
+export "FLUTTER_ROOT=C:\Users\Admin\flutter"
+export "FLUTTER_APPLICATION_PATH=D:\University\Term8\EXE201\MenuGreenSystem\frontend"
+export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=D:\University\Term8\EXE201\MenuGreenSystem\frontend\macos\Flutter\ephemeral\Packages\.packages\FlutterFramework"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"
-export "FLUTTER_BUILD_NUMBER=12"
+export "FLUTTER_BUILD_NUMBER=15"
 export "DART_OBFUSCATION=false"
 export "TRACK_WIDGET_CREATION=true"
 export "TREE_SHAKE_ICONS=false"

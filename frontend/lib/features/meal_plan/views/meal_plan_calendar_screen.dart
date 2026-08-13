@@ -24,11 +24,11 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lich ke hoach'),
+        title: const Text('Lịch kế hoạch'),
         actions: [
           TextButton(
             onPressed: _goToToday,
-            child: const Text('Hom nay'),
+            child: const Text('Hôm nay'),
           ),
         ],
       ),
@@ -303,7 +303,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                         Expanded(
                           child: _buildStatCard(
                             icon: Icons.check_circle,
-                            label: 'Bua an',
+                            label: 'Bữa ăn',
                             value: '${summary.completedMeals}/${summary.totalMeals}',
                             color: Colors.green,
                           ),
@@ -347,7 +347,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Xem chi tiet'),
+              child: const Text('Xem chi tiết'),
             ),
           ),
         ],
@@ -411,7 +411,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
     final plans = provider.plans;
     if (plans.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khong co ke hoach nao')),
+        const SnackBar(content: Text('Không có kế hoạch nào')),
       );
       return;
     }
