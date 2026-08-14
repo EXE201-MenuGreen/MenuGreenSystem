@@ -4,6 +4,55 @@ import 'dart:convert';
 class ApiMessageTranslator {
   ApiMessageTranslator._();
 
+  static const _dataDictionary = <String, String>{
+    // Meal Types
+    'breakfast': 'Bữa sáng',
+    'lunch': 'Bữa trưa',
+    'dinner': 'Bữa tối',
+    'snack': 'Ăn vặt',
+    
+    // Statuses
+    'pending': 'Chờ duyệt',
+    'accepted': 'Đã duyệt',
+    'approved': 'Đã duyệt',
+    'rejected': 'Từ chối',
+    'completed': 'Hoàn thành',
+    'active': 'Đang hoạt động',
+    'inactive': 'Ngừng hoạt động',
+    
+    // Categories & Common Terms
+    'meat': 'Thịt',
+    'vegetable': 'Rau củ',
+    'vegetables': 'Rau củ',
+    'fruit': 'Trái cây',
+    'fruits': 'Trái cây',
+    'dairy': 'Sữa',
+    'seafood': 'Hải sản',
+    'carb': 'Tinh bột',
+    'carbs': 'Tinh bột',
+    'protein': 'Đạm',
+    'fat': 'Chất béo',
+    'weight loss': 'Giảm cân',
+    'muscle gain': 'Tăng cơ',
+    'maintenance': 'Giữ dáng',
+    'sedentary': 'Ít vận động',
+    'active': 'Vận động nhiều',
+    
+    // Others
+    'casual': 'Thông thường',
+    'office': 'Văn phòng',
+    'coach': 'Huấn luyện viên',
+    'gymer': 'Người tập gym',
+    'trainer': 'Huấn luyện viên',
+  };
+
+  /// Dịch dữ liệu động (Data payload) từ backend như mealType, status, category...
+  static String translateData(String? data) {
+    if (data == null || data.trim().isEmpty) return '';
+    final key = data.trim().toLowerCase();
+    return _dataDictionary[key] ?? data;
+  }
+
   static const _exact = <String, String>{
     // Auth
     'OTP verified successfully.': 'Xác thực OTP thành công.',
@@ -739,4 +788,9 @@ class ApiMessageTranslator {
       caseSensitive: false,
     ).hasMatch(text);
   }
+}
+
+/// Tiện ích mở rộng giúp dễ dàng dịch data payload trên UI
+extension DataTranslationExtension on String {
+  String get translatedData => ApiMessageTranslator.translateData(this);
 }

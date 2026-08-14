@@ -119,7 +119,7 @@ export function RecipeFormDialog({
             <Input label="Khẩu phần" type="number" min="0" value={form.servings} onChange={(e) => updateField("servings", e.target.value)} />
             <Input label="Giá ước tính (VND)" type="number" min="0" value={form.estimatedPriceVnd} onChange={(e) => updateField("estimatedPriceVnd", e.target.value)} />
             <Input label="URL hình ảnh" value={form.imageUrl} onChange={(e) => updateField("imageUrl", e.target.value)} />
-            <Input label="URL video" value={form.videoUrl} onChange={(e) => updateField("videoUrl", e.target.value)} />
+            <Input label="Đường dẫn video" value={form.videoUrl} onChange={(e) => updateField("videoUrl", e.target.value)} />
           </div>
 
           <div>

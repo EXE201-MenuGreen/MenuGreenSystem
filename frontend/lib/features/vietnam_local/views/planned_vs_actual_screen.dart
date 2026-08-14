@@ -443,7 +443,7 @@ class _DailyProgressCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _MacroProgress(
-                  label: 'Carbs',
+                  label: 'Carb',
                   value: summary?.totalCarbsG ?? 0,
                   target: summary?.targetCarbsG ?? 0,
                   color: const Color(0xFFF59E0B),

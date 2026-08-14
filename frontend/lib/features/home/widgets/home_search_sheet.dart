@@ -135,6 +135,8 @@ class _HomeSearchSheetState extends State<HomeSearchSheet> {
           'adherence',
           'adherence score',
           'diem',
+          'tuan thu',
+          'tuân thủ',
         ],
         onTap: () {
           Navigator.pop(context);

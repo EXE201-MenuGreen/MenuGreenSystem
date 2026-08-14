@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/network/token_storage.dart';
 import '../../auth/views/login_screen.dart';
 import '../../casual/views/casual_hub_screen.dart';
@@ -491,7 +492,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                 (tick) => tick,
               ),
               builder: (context, snapshot) => Text(
-                'Trạng thái: ${current.status} • '
+                'Trạng thái: ${current.status.translatedData} • '
                 '${formatSubscriptionRemaining(current.endDate)}',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
@@ -777,7 +778,7 @@ class _GymerPackageCard extends StatelessWidget {
     const features = <({IconData icon, String label})>[
       (icon: Icons.track_changes_rounded, label: 'Mục tiêu'),
       (icon: Icons.rate_review_outlined, label: 'Đánh giá của PT'),
-      (icon: Icons.sports_gymnastics_rounded, label: 'Coach'),
+      (icon: Icons.sports_gymnastics_rounded, label: 'Huấn luyện viên'),
       (icon: Icons.emoji_events_outlined, label: 'Lộ trình'),
     ];
 

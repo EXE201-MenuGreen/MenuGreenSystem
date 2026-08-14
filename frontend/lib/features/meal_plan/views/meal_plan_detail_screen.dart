@@ -303,7 +303,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             ),
             const SizedBox(height: 16),
             MacroProgressBar(
-              label: 'KCAL',
+              label: 'Calo',
               current: plan.totalCalories,
               target: calorieTarget,
               unit: 'kcal',
@@ -311,7 +311,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             ),
             const SizedBox(height: 12),
             MacroProgressBar(
-              label: 'PROTEIN',
+              label: 'Protein',
               current: plan.totalProteinG,
               target: plan.targetProtein ?? 840,
               unit: 'g',
@@ -319,7 +319,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             ),
             const SizedBox(height: 12),
             MacroProgressBar(
-              label: 'CARBS',
+              label: 'Carb',
               current: plan.totalCarbsG,
               target: plan.targetCarbs ?? 1750,
               unit: 'g',
@@ -327,7 +327,7 @@ class _MealPlanDetailScreenState extends State<MealPlanDetailScreen> {
             ),
             const SizedBox(height: 12),
             MacroProgressBar(
-              label: 'FAT',
+              label: 'Chất béo',
               current: plan.totalFatG,
               target: plan.targetFat ?? 420,
               unit: 'g',

@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/services/token_storage.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
@@ -872,7 +875,7 @@ class _ProfileViewState extends State<ProfileView> {
             )
           else if (activeSubscription != null)
             Text(
-              'Trạng thái: ${activeSubscription.status}',
+              'Trạng thái: ${activeSubscription.status.translatedData}',
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
