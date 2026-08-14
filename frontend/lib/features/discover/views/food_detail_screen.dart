@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../models/food_models.dart';
 import '../providers/favorite_food_provider.dart';
@@ -222,7 +223,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                   ),
                 if (food.estimatedPriceVnd != null)
                   _chip(_formatPrice(food.estimatedPriceVnd!)),
-                if (food.category != null) _chip(food.category!),
+                if (food.category != null) _chip(food.category!.translatedData),
                 if (food.region != null) _chip(food.region!),
               ],
             ),

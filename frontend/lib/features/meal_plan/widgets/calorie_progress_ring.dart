@@ -358,21 +358,21 @@ class TodayCaloriesCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _MacroChip(
-                        label: 'PROTEIN',
+                        label: 'Protein',
                         current: protein,
                         target: proteinTarget,
                         color: Colors.blue,
                       ),
                       const SizedBox(height: 8),
                       _MacroChip(
-                        label: 'CARBS',
+                        label: 'Carb',
                         current: carbs,
                         target: carbsTarget,
                         color: Colors.orange,
                       ),
                       const SizedBox(height: 8),
                       _MacroChip(
-                        label: 'FAT',
+                        label: 'Chất béo',
                         current: fat,
                         target: fatTarget,
                         color: Colors.purple,

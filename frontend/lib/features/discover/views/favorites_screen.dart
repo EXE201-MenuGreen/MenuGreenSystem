@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../models/food_models.dart';
 import '../providers/favorite_food_provider.dart';
 import 'food_detail_screen.dart';
@@ -126,7 +127,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
-                              item.category!,
+                              item.category!.translatedData,
                               style: beVietnamPro(
                                 fontSize: 11.5,
                                 color: AppColors.primary,

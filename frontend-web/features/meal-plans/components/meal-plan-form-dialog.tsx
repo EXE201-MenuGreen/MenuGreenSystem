@@ -166,7 +166,7 @@ export function MealPlanFormDialog({
                     ))}
                   </Select>
                   <Input label="Ngày" type="date" value={row.plannedDate} onChange={(e) => updateItemRow(index, { plannedDate: e.target.value })} />
-                  <Input label="Calories" type="number" min="0" value={row.targetCalories} onChange={(e) => updateItemRow(index, { targetCalories: e.target.value })} />
+                  <Input label="Calo" type="number" min="0" value={row.targetCalories} onChange={(e) => updateItemRow(index, { targetCalories: e.target.value })} />
                   <div className="flex items-end">
                     <Button type="button" variant="ghost" className="h-10 text-xs text-red-600" onClick={() => removeItemRow(index)} disabled={form.items.length <= 1}>
                       Xóa

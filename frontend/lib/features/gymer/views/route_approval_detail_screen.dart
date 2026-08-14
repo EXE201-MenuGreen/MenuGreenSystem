@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
+
 import '../../advanced/repositories/advanced_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -753,7 +755,7 @@ class _SummaryCard extends StatelessWidget {
                             Expanded(
                               child: _MacroCard(
                                 icon: Icons.bakery_dining_rounded,
-                                label: 'Carbs',
+                                label: 'Carb',
                                 value: '${detail.targetCarbsG} g',
                                 bgColor: AppColors.primary.withValues(
                                   alpha: 0.05,
@@ -770,7 +772,7 @@ class _SummaryCard extends StatelessWidget {
                             Expanded(
                               child: _MacroCard(
                                 icon: Icons.water_drop_outlined,
-                                label: 'Fat',
+                                label: 'Chất béo',
                                 value: '${detail.targetFatG} g',
                                 bgColor: AppColors.primary.withValues(
                                   alpha: 0.08,
@@ -936,7 +938,7 @@ class _StatusInfoRow extends StatelessWidget {
         const Color(0xFFFECACA),
       ),
       _ => (
-        status,
+        status.translatedData,
         const Color(0xFFF3F4F6),
         AppColors.textSecondary,
         const Color(0xFFE5E7EB),

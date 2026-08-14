@@ -130,8 +130,8 @@ export function NutritionAnalyticsDashboard() {
             <DonutChart
               segments={[
                 { name: "Protein", value: macroDistribution?.averageDistribution.proteinPercent ?? 0, color: MACRO_COLORS.protein },
-                { name: "Carbs", value: macroDistribution?.averageDistribution.carbsPercent ?? 0, color: MACRO_COLORS.carbs },
-                { name: "Fat", value: macroDistribution?.averageDistribution.fatPercent ?? 0, color: MACRO_COLORS.fat },
+                { name: "Carb", value: macroDistribution?.averageDistribution.carbsPercent ?? 0, color: MACRO_COLORS.carbs },
+                { name: "Chất béo", value: macroDistribution?.averageDistribution.fatPercent ?? 0, color: MACRO_COLORS.fat },
               ]}
               size={180}
               strokeWidth={24}
@@ -140,8 +140,8 @@ export function NutritionAnalyticsDashboard() {
               className="flex-1"
               items={[
                 { name: "Protein", value: `${(macroDistribution?.averageDistribution.proteinPercent ?? 0).toFixed(1)}%`, color: MACRO_COLORS.protein },
-                { name: "Carbs", value: `${(macroDistribution?.averageDistribution.carbsPercent ?? 0).toFixed(1)}%`, color: MACRO_COLORS.carbs },
-                { name: "Fat", value: `${(macroDistribution?.averageDistribution.fatPercent ?? 0).toFixed(1)}%`, color: MACRO_COLORS.fat },
+                { name: "Carb", value: `${(macroDistribution?.averageDistribution.carbsPercent ?? 0).toFixed(1)}%`, color: MACRO_COLORS.carbs },
+                { name: "Chất béo", value: `${(macroDistribution?.averageDistribution.fatPercent ?? 0).toFixed(1)}%`, color: MACRO_COLORS.fat },
               ]}
             />
           </div>

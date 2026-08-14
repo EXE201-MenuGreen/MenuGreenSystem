@@ -1617,7 +1617,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _MacroStatCard(
-                      label: 'Carbs',
+                      label: 'Carb',
                       value: '$averageCarbs g',
                       color: AppColors.primary,
                       bgColor: AppColors.primary.withValues(alpha: 0.05),
@@ -1626,7 +1626,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _MacroStatCard(
-                      label: 'Fat',
+                      label: 'Chất béo',
                       value: '$averageFat g',
                       color: AppColors.primary,
                       bgColor: AppColors.primary.withValues(alpha: 0.08),
@@ -2340,7 +2340,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       'day' => 'Ngày',
       'week' => 'Tuần',
       'month' => 'Tháng',
-      _ => 'Profile',
+      _ => 'Hồ sơ',
     };
   }
 }

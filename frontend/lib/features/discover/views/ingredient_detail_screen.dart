@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/utils/nutrition_format.dart';
 import '../models/food_models.dart';
 import '../repositories/food_discovery_repository.dart';
 import '../widgets/allergy_risk_badge.dart';
@@ -101,7 +104,7 @@ class _IngredientDetailScreenState extends State<IngredientDetailScreen> {
           const SizedBox(height: 12),
           Text(
             [
-              if (item.category != null) item.category!,
+              if (item.category != null) item.category!.translatedData,
               if (item.caloriesKcal != null) '${item.caloriesKcal!.round()} kcal',
               if (item.unitDefault != null) item.unitDefault!,
             ].join(' · '),

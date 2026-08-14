@@ -1970,7 +1970,7 @@ class _MacroComparisonSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MacroBar(
-            label: 'Carbs',
+            label: 'Carb',
             subtitle: 'Tinh bột',
             planned: plannedCarbs,
             actual: actualCarbs,
@@ -1982,7 +1982,7 @@ class _MacroComparisonSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MacroBar(
-            label: 'Fat',
+            label: 'Chất béo',
             subtitle: 'Chất béo',
             planned: plannedFat,
             actual: actualFat,
@@ -2460,7 +2460,7 @@ class _NutritionTargetsSection extends StatelessWidget {
                       Expanded(
                         child: _MacroCard(
                           icon: Icons.bakery_dining_rounded,
-                          label: 'Carbs',
+                          label: 'Carb',
                           value: '$totalC g',
                           bgColor: AppColors.primary.withValues(alpha: 0.05),
                           borderColor: AppColors.primary.withValues(
@@ -2473,7 +2473,7 @@ class _NutritionTargetsSection extends StatelessWidget {
                       Expanded(
                         child: _MacroCard(
                           icon: Icons.water_drop_outlined,
-                          label: 'Fat',
+                          label: 'Chất béo',
                           value: '$totalF g',
                           bgColor: AppColors.primary.withValues(alpha: 0.08),
                           borderColor: AppColors.primary.withValues(alpha: 0.2),

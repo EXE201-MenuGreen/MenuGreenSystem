@@ -171,7 +171,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                 _buildLegendItem('>=80%', Colors.green),
                 _buildLegendItem('50-80%', Colors.orange),
                 _buildLegendItem('<50%', Colors.red),
-                _buildLegendItem('Chua co', Colors.grey),
+                _buildLegendItem('Chưa có', Colors.grey),
               ],
             ),
           ),
@@ -312,7 +312,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                         Expanded(
                           child: _buildStatCard(
                             icon: Icons.trending_up,
-                            label: 'Adherence',
+                            label: 'Tuân thủ',
                             value: '${(summary.adherencePercent * 100).toStringAsFixed(0)}%',
                             color: AppColors.primary,
                           ),
@@ -331,7 +331,7 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Chua co du lieu cho ngay nay',
+                          'Chưa có dữ liệu cho ngày này',
                           style: TextStyle(color: AppColors.textSecondary),
                         ),
                       ],
@@ -392,11 +392,11 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
   }
 
   String _getDaySummaryText(DayPlanSummary? summary) {
-    if (summary == null) return 'Khong co ke hoach';
-    if (summary.adherencePercent >= 0.8) return 'Hoan thanh tot';
-    if (summary.adherencePercent >= 0.5) return 'Can cai thien';
-    if (summary.adherencePercent > 0) return 'Chua dat muc tieu';
-    return 'Chua co du lieu';
+    if (summary == null) return 'Không có kế hoạch';
+    if (summary.adherencePercent >= 0.8) return 'Hoàn thành tốt';
+    if (summary.adherencePercent >= 0.5) return 'Cần cải thiện';
+    if (summary.adherencePercent > 0) return 'Chưa đạt mục tiêu';
+    return 'Chưa có dữ liệu';
   }
 
   Color _getSummaryColor(DayPlanSummary? summary) {
@@ -434,15 +434,15 @@ class _MealPlanCalendarScreenState extends State<MealPlanCalendarScreen> {
 
   String _formatMonth(DateTime date) {
     const months = [
-      'Thang 1', 'Thang 2', 'Thang 3', 'Thang 4',
-      'Thang 5', 'Thang 6', 'Thang 7', 'Thang 8',
-      'Thang 9', 'Thang 10', 'Thang 11', 'Thang 12'
+      'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
+      'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8',
+      'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
 
   String _formatDate(DateTime date) {
-    const weekdays = ['Thu 2', 'Thu 3', 'Thu 4', 'Thu 5', 'Thu 6', 'Thu 7', 'Chu nhat'];
+    const weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
     return '${weekdays[date.weekday - 1]}, ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
