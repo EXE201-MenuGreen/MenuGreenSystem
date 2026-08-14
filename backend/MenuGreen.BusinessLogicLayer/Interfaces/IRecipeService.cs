@@ -18,7 +18,9 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
             string? difficulty,
             bool? isActive,
             Guid? userId = null,
-            string? allergyMode = null);
+            string? allergyMode = null,
+            int? page = null,
+            int? pageSize = null);
         Task<IReadOnlyList<RecipeIngredientResponse>> GetIngredientsAsync(Guid recipeId);
         Task<RecipeNutritionResponse> GetNutritionAsync(Guid recipeId);
         Task<IReadOnlyList<RecipeResponse>> GetRelatedAsync(Guid recipeId);

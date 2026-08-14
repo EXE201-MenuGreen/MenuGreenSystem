@@ -24,6 +24,7 @@ class DailyStarterProvider extends ChangeNotifier {
   DailyStarterPersonalization? _personalization;
   bool _isPersonalizationLoading = false;
   bool _isQuickLogging = false;
+  bool _isAddingToPlan = false;
 
   /// A single food that the user "randomed" — highlighted on top of the list.
   DailyStarterFood? _randomHighlight;
@@ -34,6 +35,7 @@ class DailyStarterProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isPersonalizationLoading => _isPersonalizationLoading;
   bool get isQuickLogging => _isQuickLogging;
+  bool get isAddingToPlan => _isAddingToPlan;
   bool get isRandomPicking => _isRandomPicking;
   String? get errorMessage => _errorMessage;
   String? get randomErrorMessage => _randomErrorMessage;
@@ -42,8 +44,8 @@ class DailyStarterProvider extends ChangeNotifier {
   DailyStarterPersonalization? get personalization => _personalization;
   DailyStarterFood? get randomHighlight => _randomHighlight;
   int get randomUsedToday => _randomUsedToday;
-  int get randomRemaining => (randomDailyLimit - _randomUsedToday)
-      .clamp(0, randomDailyLimit);
+  int get randomRemaining =>
+      (randomDailyLimit - _randomUsedToday).clamp(0, randomDailyLimit);
 
   /// Picks a random safe food from the featured pool and highlights it.
   ///
@@ -57,7 +59,8 @@ class DailyStarterProvider extends ChangeNotifier {
 
     final remaining = await _picker.remaining();
     if (remaining <= 0) {
-      _randomErrorMessage = 'Bạn đã dùng hết $randomDailyLimit lượt gợi ý ngẫu nhiên hôm nay.';
+      _randomErrorMessage =
+          'Bạn đã dùng hết $randomDailyLimit lượt gợi ý ngẫu nhiên hôm nay.';
       notifyListeners();
       return null;
     }
@@ -81,9 +84,7 @@ class DailyStarterProvider extends ChangeNotifier {
 
     // Avoid picking the same highlight as last time when possible.
     final pool = _featured.length > 1
-        ? _featured
-              .where((f) => f.id != (_randomHighlight?.id ?? ''))
-              .toList()
+        ? _featured.where((f) => f.id != (_randomHighlight?.id ?? '')).toList()
         : _featured;
     final picked = pool[_randomIndex(pool.length)];
 
@@ -191,6 +192,36 @@ class DailyStarterProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     return result.data;
+  }
+
+  Future<bool> addFoodToPlan({
+    required DailyStarterFood food,
+    required String mealType,
+  }) async {
+    if (_isAddingToPlan || food.id.isEmpty) return false;
+
+    _isAddingToPlan = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _repo.selectMeal({
+      'meals': [
+        {'foodId': food.id, 'mealType': mealType},
+      ],
+    });
+
+    _isAddingToPlan = false;
+    if (!result.success) {
+      _errorMessage = result.translatedMessage.isNotEmpty
+          ? result.translatedMessage
+          : 'Không thể thêm món vào kế hoạch.';
+      notifyListeners();
+      return false;
+    }
+
+    _errorMessage = null;
+    notifyListeners();
+    return true;
   }
 
   Future<DailyStarterStartLog?> quickLog() async {

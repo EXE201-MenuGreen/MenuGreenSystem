@@ -48,6 +48,9 @@ class MealPlanRepository {
     _dashboardCacheTime = null;
   }
 
+  /// Clears cached plan data after a mutation performed by another feature.
+  void invalidateCache() => _invalidateCache();
+
   // ==================== User Meal Plan (Daily) ====================
 
   Future<UserMealPlan?> getByDate(DateTime date) async {

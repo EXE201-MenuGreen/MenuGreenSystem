@@ -559,13 +559,27 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 entity.ProteinG = request.ProteinG;
                 entity.CarbsG = request.CarbsG;
                 entity.FatG = request.FatG;
-                entity.SourceType = string.IsNullOrWhiteSpace(request.CustomName)
-                    ? "Manual"
-                    : "AiScan";
+                entity.SourceType = ResolveCustomSourceType(
+                    request.SourceType,
+                    request.CustomName);
                 return;
             }
 
             throw new Exception("FoodId or RecipeId or custom nutritional values are required.");
+        }
+
+        private static string ResolveCustomSourceType(
+            string? requestedSourceType,
+            string? customName)
+        {
+            if (string.Equals(requestedSourceType, "AiIngredientScan", StringComparison.OrdinalIgnoreCase))
+                return "AiIngredientScan";
+            if (string.Equals(requestedSourceType, "AiDishScan", StringComparison.OrdinalIgnoreCase))
+                return "AiDishScan";
+            if (string.Equals(requestedSourceType, "AiScan", StringComparison.OrdinalIgnoreCase))
+                return "AiScan";
+
+            return string.IsNullOrWhiteSpace(customName) ? "Manual" : "AiScan";
         }
 
         private async Task<PortionNutritionResponse?> ResolveActualSnapshotAsync(

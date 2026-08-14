@@ -20,6 +20,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public string? Instructions { get; set; }
         public string? ImageUrl { get; set; }
         public string? VideoUrl { get; set; }
+        public string? SourceName { get; set; }
+        public string? SourceUrl { get; set; }
         public bool? IsActive { get; set; }
         public List<RecipeIngredientResponse> Ingredients { get; set; } = new();
         public List<string> MatchedAllergens { get; set; } = new();

@@ -35,6 +35,7 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> GetMealLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _mealPlanService.SyncCompletedItemsToMealLogsAsync(userId);
             return Ok(await _service.GetMealLogsAsync(userId, page, pageSize));
         }
 
@@ -93,6 +94,10 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> GetMealLogsByRange([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _mealPlanService.SyncCompletedItemsToMealLogsAsync(
+                userId,
+                startDate,
+                endDate);
             return Ok(await _service.GetMealLogsByRangeAsync(userId, startDate, endDate));
         }
 
@@ -123,6 +128,10 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> GetDaily([FromQuery] DateOnly date)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
+            await _mealPlanService.SyncCompletedItemsToMealLogsAsync(
+                userId,
+                date,
+                date);
             return Ok(await _service.GetDailySummaryAsync(userId, date));
         }
 
@@ -133,6 +142,19 @@ namespace MenuGreen.API.Controllers
         public async Task<IActionResult> GetDashboard([FromQuery] string range = "day", [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null)
         {
             if (!TryGetUserId(out var userId)) return Unauthorized();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var (syncFrom, syncTo) = startDate.HasValue && endDate.HasValue
+                ? (startDate.Value, endDate.Value)
+                : range.Trim().ToLowerInvariant() switch
+                {
+                    "week" => (today.AddDays(-6), today),
+                    "month" => (new DateOnly(today.Year, today.Month, 1), today),
+                    _ => (today, today)
+                };
+            await _mealPlanService.SyncCompletedItemsToMealLogsAsync(
+                userId,
+                syncFrom,
+                syncTo);
             return Ok(await _service.GetDashboardAsync(userId, range, startDate, endDate));
         }
 

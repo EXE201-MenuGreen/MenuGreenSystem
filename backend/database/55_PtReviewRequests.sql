@@ -99,4 +99,48 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
+-- Keep the Gymer-facing request status aligned with approved meal plans.
+WITH matching_requests AS (
+    SELECT
+        request."Id",
+        plan."ApprovedAt",
+        plan."TargetCalories",
+        ROW_NUMBER() OVER (
+            PARTITION BY request."UserId"
+            ORDER BY request."CreatedAt" DESC
+        ) AS row_number
+    FROM "PtReviewRequests" AS request
+    JOIN meal_plan_headers AS plan
+      ON plan."UserId" = request."UserId"
+     AND plan."Status" = 'Approved'
+     AND COALESCE(plan."StartDate", plan."EndDate")
+         <= request."WeekStartDate" + 6
+     AND COALESCE(plan."EndDate", plan."StartDate")
+         >= request."WeekStartDate"
+    WHERE request."Status" = 'Pending'
+      AND request."CreatedByRole" <> 'Coach'
+      AND (
+          COALESCE(request."ReportDataJson", '') = ''
+          OR COALESCE(
+              request."ReportDataJson"::jsonb ->> 'requestType',
+              'RouteApproval'
+          ) = 'RouteApproval'
+      )
+)
+UPDATE "PtReviewRequests" AS request
+SET
+    "Status" = 'Reviewed',
+    "ReviewedAt" = matching."ApprovedAt",
+    "PtComment" = COALESCE(
+        NULLIF(request."PtComment", ''),
+        'PT đã duyệt và gửi lộ trình dinh dưỡng.'
+    ),
+    "SuggestedCalorieTarget" = COALESCE(
+        request."SuggestedCalorieTarget",
+        matching."TargetCalories"
+    )
+FROM matching_requests AS matching
+WHERE request."Id" = matching."Id"
+  AND matching.row_number = 1;
+
 COMMIT;

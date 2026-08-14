@@ -116,6 +116,11 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
                   : selectedItem == null
                   ? widget.keyword
                   : null,
+              sourceType: widget.isIngredient
+                  ? 'AiIngredientScan'
+                  : fallbackNutrition != null
+                  ? 'AiDishScan'
+                  : null,
               loggedAt: DateTime.now(),
               caloriesKcal: widget.isIngredient
                   ? (selectedItem?.caloriesKcal ?? 0) * ingredientRatio

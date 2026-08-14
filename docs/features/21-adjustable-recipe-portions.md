@@ -107,7 +107,7 @@ xem trước; backend vẫn tính lại lần cuối trước khi lưu snapshot.
 
 ## Triển khai cơ sở dữ liệu
 
-Chạy migration `backend/database/63_adjustable_recipe_portions.sql` trước khi phát hành backend mới. Script chỉ bổ sung cột và ràng buộc, không thay đổi dữ liệu danh mục thực phẩm.
+Schema mới nằm trực tiếp trong `26_meal_logs.sql` và `58_meal_plan_proposals.sql`. Khi dựng lại database, chạy tuần tự toàn bộ các file `01` đến `58`; dự án không còn dùng file compatibility riêng.
 
 Các bản ghi cũ không có snapshot vẫn dùng dữ liệu công thức hiện tại để tương thích ngược.
 

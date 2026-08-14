@@ -113,7 +113,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             string? region = null,
             bool? localOnly = null,
             string? mealContext = null,
-            string? sort = null)
+            string? sort = null,
+            int? page = null,
+            int? pageSize = null)
         {
             var mode = NormalizeAllergyMode(allergyMode);
             var foods = (await _unitOfWork.Foods.GetAllAsync()).Where(f => f.IsActive != false);
@@ -155,7 +157,29 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 foods = foods.Where(f => string.Equals(f.Region, dbRegion, StringComparison.OrdinalIgnoreCase));
             }
 
-            var foodList = foods.ToList();
+            var shouldSortLocalFriendly = ShouldSortLocalFriendly(sort, region, localOnly, mealContext);
+            var foodList = shouldSortLocalFriendly
+                ? foods
+                    .OrderByDescending(f => GetLocalFriendlyScore(
+                        f.NameVi, f.Category, f.Description, region, mealContext))
+                    .ThenBy(f => f.EstimatedPriceVnd ?? int.MaxValue)
+                    .ThenBy(f => f.NameVi)
+                    .ToList()
+                : foods.OrderBy(f => f.NameVi).ToList();
+            var currentPage = pageSize.HasValue ? Math.Max(page ?? 1, 1) : 1;
+            var requestedPageSize = pageSize.HasValue
+                ? Math.Clamp(pageSize.Value, 1, 100)
+                : 0;
+            var unpagedTotalCount = foodList.Count;
+
+            if (mode != AllergenCatalog.ModeHide && pageSize.HasValue)
+            {
+                foodList = foodList
+                    .Skip((int)Math.Min((long)(currentPage - 1) * requestedPageSize, int.MaxValue))
+                    .Take(requestedPageSize)
+                    .ToList();
+            }
+
             var userKeys = userId.HasValue
                 ? await _allergenMatching.GetUserAllergenKeysAsync(userId.Value)
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -174,16 +198,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 items.Add(dto);
             }
 
-            if (ShouldSortLocalFriendly(sort, region, localOnly, mealContext))
-            {
-                items = items
-                    .OrderByDescending(x => GetLocalFriendlyScore(x.NameVi, x.Category, x.Description, region, mealContext))
-                    .ThenBy(x => x.EstimatedPriceVnd ?? int.MaxValue)
-                    .ThenBy(x => x.NameVi)
-                    .ToList();
-            }
+            var totalCount = mode == AllergenCatalog.ModeHide
+                ? items.Count
+                : unpagedTotalCount;
+            var currentPageSize = pageSize.HasValue ? requestedPageSize : totalCount;
+            var pageItems = mode == AllergenCatalog.ModeHide && pageSize.HasValue
+                ? items
+                    .Skip((int)Math.Min((long)(currentPage - 1) * currentPageSize, int.MaxValue))
+                    .Take(currentPageSize)
+                    .ToList()
+                : items;
 
-            return new FoodSearchResponse { TotalCount = items.Count, Items = items };
+            return new FoodSearchResponse
+            {
+                TotalCount = totalCount,
+                Items = pageItems,
+                Page = currentPage,
+                PageSize = currentPageSize
+            };
         }
 
         public async Task<IReadOnlyList<RecipeResponse>> GetRecipesAsync(Guid foodId)
@@ -212,6 +244,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Instructions = r.Instructions,
                 ImageUrl = r.ImageUrl,
                 VideoUrl = r.VideoUrl,
+                SourceName = r.SourceName,
+                SourceUrl = r.SourceUrl,
                 IsActive = r.IsActive,
                 Ingredients = r.RecipeIngredients.Select(ri => new RecipeIngredientResponse
                 {

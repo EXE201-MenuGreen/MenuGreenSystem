@@ -362,5 +362,5 @@ Nếu sản phẩm quyết định đây là quyền lợi trả phí, cần b�
 - `backend/MenuGreen.DataAccessLayer/Entities/Notification.cs`
 - `backend/MenuGreen.DataAccessLayer/Entities/NotificationSetting.cs`
 - `backend/MenuGreen.DataAccessLayer/Configurations/ReminderProfileConfiguration.cs`
-- `backend/database/39_reminder_profiles.sql`
+- `backend/database/40_reminder_profiles.sql`
 

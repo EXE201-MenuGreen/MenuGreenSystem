@@ -11,13 +11,16 @@ import '../../../core/network/network_connectivity_service.dart';
 
 /// State management cho Meal Plan
 class MealPlanProvider extends ChangeNotifier {
-  MealPlanProvider() {
-    _reconnectSub = NetworkConnectivityService.instance.onReconnected.listen((_) {
+  MealPlanProvider({MealPlanRepository? repository})
+    : _repository = repository ?? MealPlanRepository() {
+    _reconnectSub = NetworkConnectivityService.instance.onReconnected.listen((
+      _,
+    ) {
       refreshOnReconnected();
     });
   }
 
-  final MealPlanRepository _repository = MealPlanRepository();
+  final MealPlanRepository _repository;
   StreamSubscription<void>? _reconnectSub;
 
   // Disposed flag to prevent state updates after disposal
@@ -188,6 +191,13 @@ class MealPlanProvider extends ChangeNotifier {
 
     _isLoading = false;
     _safeNotify();
+  }
+
+  /// Refreshes immediately after Lucky Wheel, Daily Starter, or Emotion
+  /// features mutate today's plan through a different repository instance.
+  Future<void> refreshAfterExternalMutation() async {
+    _repository.invalidateCache();
+    await loadAllForHome();
   }
 
   // ==================== CRUD Operations ====================
@@ -447,10 +457,7 @@ class MealPlanProvider extends ChangeNotifier {
       final pendingIds = pendingItems.map((i) => i.id).toSet();
       final newItems = _todayDashboard!.plannedItems.map((item) {
         if (pendingIds.contains(item.id)) {
-          return item.copyWith(
-            isCompleted: true,
-            status: 'done',
-          );
+          return item.copyWith(isCompleted: true, status: 'done');
         }
         return item;
       }).toList();

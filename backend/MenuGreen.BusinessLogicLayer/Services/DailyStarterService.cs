@@ -211,7 +211,11 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 throw new InvalidOperationException("Vui lòng chọn ít nhất một món ăn.");
             }
 
-            var requestedFoodIds = request.Meals.Select(x => x.FoodId).Distinct().ToList();
+            var requestedFoodIds = request.Meals
+                .Where(x => x.FoodId.HasValue)
+                .Select(x => x.FoodId!.Value)
+                .Distinct()
+                .ToList();
             var activeFoods = await _db
                 .Foods.AsNoTracking()
                 .Where(x => requestedFoodIds.Contains(x.Id) && x.IsActive != false)
@@ -242,25 +246,67 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var health = await _healthProfileService.GetAsync(userId);
             var targetCalories = health?.TargetCalories ?? 2000;
 
-            var items = request
-                .Meals.Select(x => new DailyMenuPlanItemRequest
-                {
-                    MealType = x.MealType,
-                    FoodId = x.FoodId,
-                    RecipeId = null,
-                    ScheduledTime = GetScheduledTime(x.MealType),
-                    TargetCalories = null,
-                })
-                .ToList();
+            // Daily Starter is an additive quick action. Rebuilding an existing
+            // DAILY plan here would silently delete meals the user had already
+            // scheduled for today.
+            var existingDailyPlan = await _db
+                .MealPlanHeaders.AsNoTracking()
+                .Where(plan =>
+                    plan.UserId == userId
+                    && plan.IsActive
+                    && plan.Status != "Draft"
+                    && (plan.PlanType == null || plan.PlanType.ToUpper() == "DAILY")
+                    && plan.StartDate == today)
+                .OrderByDescending(plan => plan.UpdatedAt ?? plan.CreatedAt)
+                .FirstOrDefaultAsync();
 
-            var menuRequest = new CreateMealPlanFromDailyMenuRequest
+            if (existingDailyPlan == null)
             {
-                PlannedDate = today,
-                TargetCalories = targetCalories,
-                Items = items,
-            };
+                existingDailyPlan = new MealPlanHeader
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = $"Kế hoạch ngày {today:dd/MM/yyyy}",
+                    PlanType = "DAILY",
+                    StartDate = today,
+                    EndDate = today,
+                    TargetCalories = targetCalories,
+                    GeneratedBy = "USER",
+                    Status = "Active",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                };
+                await _unitOfWork.MealPlanHeaders.AddAsync(existingDailyPlan);
+                await _unitOfWork.CompleteAsync();
+            }
 
-            await _mealPlanService.CreateFromDailyMenuAsync(userId, menuRequest);
+            foreach (var meal in request.Meals)
+            {
+                await _mealPlanService.AddItemAsync(
+                    existingDailyPlan.Id,
+                    new MealPlanItemUpsertRequest
+                    {
+                        MealType = meal.MealType,
+                        FoodId = meal.FoodId,
+                        PlannedDate = today,
+                        ScheduledTime = GetScheduledTime(meal.MealType),
+                        TargetCalories = meal.CaloriesKcal.HasValue
+                            ? (int)Math.Round(meal.CaloriesKcal.Value)
+                            : null,
+                        QuantityG = (double?)(meal.QuantityG ?? 100m),
+                        ProteinG = meal.ProteinG,
+                        CarbsG = meal.CarbsG,
+                        FatG = meal.FatG,
+                        CustomName = meal.CustomName?.Trim(),
+                        SourceType = meal.FoodId.HasValue
+                            ? "daily_starter"
+                            : "mood_rescue",
+                        IsCompleted = false,
+                        Origin = "user",
+                    },
+                    userId);
+            }
         }
 
         public async Task<DailyStarterStartLogResponse> StartLogFlowAsync(Guid userId)

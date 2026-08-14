@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/discover_view.dart';
+import '../../meal_plan/utils/fresh_meal_plan_navigation.dart';
 import '../../meal_plan/views/meal_plan_screen.dart';
 import '../../tracking/widgets/meal_log_sheet.dart';
 import '../models/vietnam_local_models.dart';
@@ -160,50 +161,139 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
   Widget _buildRandomBar(DailyStarterProvider provider) {
     final remaining = provider.randomRemaining;
     final canTap = remaining > 0 && !provider.isRandomPicking;
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            remaining > 0
-                ? 'Còn $remaining/${DailyStarterProvider.randomDailyLimit} lượt gợi ý ngẫu nhiên hôm nay.'
-                : 'Đã dùng hết ${DailyStarterProvider.randomDailyLimit}/${DailyStarterProvider.randomDailyLimit} lượt hôm nay.',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                remaining > 0
+                    ? 'Còn $remaining/${DailyStarterProvider.randomDailyLimit} lượt gợi ý ngẫu nhiên hôm nay.'
+                    : 'Đã dùng hết ${DailyStarterProvider.randomDailyLimit}/${DailyStarterProvider.randomDailyLimit} lượt hôm nay.',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
-          ),
+            TextButton.icon(
+              onPressed: canTap
+                  ? () async {
+                      final picked = await provider.pickRandomHighlight();
+                      if (picked == null && mounted) {
+                        final msg =
+                            provider.randomErrorMessage ??
+                            'Không thể gợi ý lúc này.';
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(msg)));
+                      }
+                    }
+                  : null,
+              icon: provider.isRandomPicking
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.casino, size: 18),
+              label: Text(remaining > 0 ? 'Random món' : 'Hết lượt'),
+              style: TextButton.styleFrom(
+                foregroundColor: remaining > 0
+                    ? AppColors.primary
+                    : AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+              ),
+            ),
+          ],
         ),
-        TextButton.icon(
-          onPressed: canTap
-              ? () async {
-                  final picked = await provider.pickRandomHighlight();
-                  if (picked == null && mounted) {
-                    final msg =
-                        provider.randomErrorMessage ??
-                        'Không thể gợi ý lúc này.';
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(msg)));
-                  }
-                }
-              : null,
-          icon: provider.isRandomPicking
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.casino, size: 18),
-          label: Text(remaining > 0 ? 'Random món' : 'Hết lượt'),
-          style: TextButton.styleFrom(
-            foregroundColor: remaining > 0
-                ? AppColors.primary
-                : AppColors.textSecondary,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          ),
+        const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.verified_user_outlined,
+              size: 15,
+              color: AppColors.primary,
+            ),
+            SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Đã loại trừ dị ứng; ưu tiên ngân sách và lượng calo còn lại.',
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  Future<void> _addRandomFoodToPlan(
+    DailyStarterProvider provider,
+    DailyStarterFood food,
+  ) async {
+    final mealType = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Thêm vào bữa nào?',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              food.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            for (final option in const [
+              ('Breakfast', 'Bữa sáng', Icons.wb_sunny_outlined),
+              ('Lunch', 'Bữa trưa', Icons.wb_sunny_rounded),
+              ('Dinner', 'Bữa tối', Icons.nights_stay_outlined),
+              ('Snack', 'Bữa phụ', Icons.local_cafe_outlined),
+            ])
+              ListTile(
+                minTileHeight: 52,
+                leading: Icon(option.$3, color: AppColors.primary),
+                title: Text(option.$2),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.pop(sheetContext, option.$1),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (mealType == null || !mounted) return;
+    final added = await provider.addFoodToPlan(food: food, mealType: mealType);
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    if (!added) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            provider.errorMessage ?? 'Không thể thêm món vào kế hoạch.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await openFreshMealPlan(context);
   }
 
   Widget _buildHighlightCard(DailyStarterProvider provider) {
@@ -226,72 +316,104 @@ class _DailyStarterScreenState extends State<DailyStarterScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.orange.shade300, width: 1.5),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade400,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.casino, color: Colors.white, size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        'Ngẫu nhiên',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                    ],
-                  ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade400,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.casino, color: Colors.white, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ngẫu nhiên',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            food.name.isEmpty ? 'Món gợi ý' : food.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            formatNutritionFacts(
+                              quantityG: food.defaultServingG,
+                              caloriesKcal: food.caloriesKcal,
+                              proteinG: food.proteinG,
+                              carbsG: food.carbsG,
+                              fatG: food.fatG,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Bỏ gợi ý ngẫu nhiên',
+                      onPressed: provider.clearRandomHighlight,
+                      icon: const Icon(Icons.close, size: 18),
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        food.name.isEmpty ? 'Món gợi ý' : food.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: AppColors.textDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: provider.isAddingToPlan
+                        ? null
+                        : () => _addRandomFoodToPlan(provider, food),
+                    icon: provider.isAddingToPlan
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_to_photos_outlined, size: 18),
+                    label: Text(
+                      provider.isAddingToPlan
+                          ? 'Đang thêm...'
+                          : 'Thêm vào Kế hoạch ăn',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        formatNutritionFacts(
-                          quantityG: food.defaultServingG,
-                          caloriesKcal: food.caloriesKcal,
-                          proteinG: food.proteinG,
-                          carbsG: food.carbsG,
-                          fatG: food.fatG,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Bỏ gợi ý ngẫu nhiên',
-                  onPressed: provider.clearRandomHighlight,
-                  icon: const Icon(Icons.close, size: 18),
-                  color: AppColors.textSecondary,
                 ),
               ],
             ),

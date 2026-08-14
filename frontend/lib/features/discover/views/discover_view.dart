@@ -29,8 +29,13 @@ class DiscoverView extends StatefulWidget {
 
 class DiscoverViewState extends State<DiscoverView>
     with SingleTickerProviderStateMixin {
+  static const int _pageSize = 10;
+
   final _repository = FoodDiscoveryRepository();
   final _keywordController = TextEditingController();
+  final _foodScrollController = ScrollController();
+  final _recipeScrollController = ScrollController();
+  final _ingredientScrollController = ScrollController();
   late final TabController _tabController;
 
   final String _allergyMode = 'warn';
@@ -47,6 +52,15 @@ class DiscoverViewState extends State<DiscoverView>
   List<FoodItem> _foods = [];
   List<RecipeItem> _recipes = [];
   List<IngredientItem> _ingredients = [];
+  int _foodPage = 1;
+  int _foodTotalCount = 0;
+  int _foodTotalPages = 0;
+  int _recipePage = 1;
+  int _recipeTotalCount = 0;
+  int _recipeTotalPages = 0;
+  int _ingredientPage = 1;
+  int _ingredientTotalCount = 0;
+  int _ingredientTotalPages = 0;
   int _loadGeneration = 0;
   bool _recipesLoaded = false;
   bool _ingredientsLoaded = false;
@@ -76,6 +90,9 @@ class DiscoverViewState extends State<DiscoverView>
     _reloadDebounce?.cancel();
     _tabController.removeListener(_onTabChanged);
     _keywordController.dispose();
+    _foodScrollController.dispose();
+    _recipeScrollController.dispose();
+    _ingredientScrollController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -116,6 +133,7 @@ class DiscoverViewState extends State<DiscoverView>
   Future<void> _reloadLists({
     bool initial = false,
     bool checkAllergy = false,
+    bool resetPages = true,
   }) async {
     final gen = ++_loadGeneration;
     if (!mounted) return;
@@ -128,6 +146,11 @@ class DiscoverViewState extends State<DiscoverView>
       _error = null;
       _recipesLoaded = false;
       _ingredientsLoaded = false;
+      if (resetPages) {
+        _foodPage = 1;
+        _recipePage = 1;
+        _ingredientPage = 1;
+      }
     });
 
     try {
@@ -140,17 +163,22 @@ class DiscoverViewState extends State<DiscoverView>
         setState(() => _hasAllergies = hasAllergies);
       }
 
-      final foods = await _repository
-          .searchFoods(
+      final foodsPage = await _repository
+          .searchFoodsPage(
             keyword: _keyword,
             allergyMode: _effectiveAllergyMode,
             filters: _foodFilters,
             region: _detectedRegion,
+            page: _foodPage,
+            pageSize: _pageSize,
           )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
-        _foods = foods;
+        _foods = foodsPage.items;
+        _foodPage = foodsPage.page;
+        _foodTotalCount = foodsPage.totalCount;
+        _foodTotalPages = foodsPage.totalPages;
         _initialLoading = false;
         _refreshing = false;
       });
@@ -182,12 +210,20 @@ class DiscoverViewState extends State<DiscoverView>
     if (!mounted) return;
     setState(() => _recipesLoading = true);
     try {
-      final recipes = await _repository
-          .searchRecipes(keyword: _keyword, allergyMode: _effectiveAllergyMode)
+      final recipesPage = await _repository
+          .searchRecipesPage(
+            keyword: _keyword,
+            allergyMode: _effectiveAllergyMode,
+            page: _recipePage,
+            pageSize: _pageSize,
+          )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
-        _recipes = recipes;
+        _recipes = recipesPage.items;
+        _recipePage = recipesPage.page;
+        _recipeTotalCount = recipesPage.totalCount;
+        _recipeTotalPages = recipesPage.totalPages;
         _recipesLoading = false;
         _recipesLoaded = true;
       });
@@ -206,15 +242,20 @@ class DiscoverViewState extends State<DiscoverView>
     if (!mounted) return;
     setState(() => _ingredientsLoading = true);
     try {
-      final items = await _repository
-          .searchIngredients(
+      final itemsPage = await _repository
+          .searchIngredientsPage(
             keyword: _keyword,
             allergyMode: _effectiveAllergyMode,
+            page: _ingredientPage,
+            pageSize: _pageSize,
           )
           .timeout(const Duration(seconds: 20));
       if (!mounted || gen != _loadGeneration) return;
       setState(() {
-        _ingredients = items;
+        _ingredients = itemsPage.items;
+        _ingredientPage = itemsPage.page;
+        _ingredientTotalCount = itemsPage.totalCount;
+        _ingredientTotalPages = itemsPage.totalPages;
         _ingredientsLoading = false;
         _ingredientsLoaded = true;
       });
@@ -226,6 +267,40 @@ class DiscoverViewState extends State<DiscoverView>
         _ingredientsLoaded = true;
       });
     }
+  }
+
+  Future<void> _goToPage(int page) async {
+    switch (_tabController.index) {
+      case 0:
+        if (_refreshing || page < 1 || page > _foodTotalPages) return;
+        setState(() => _foodPage = page);
+        await _reloadLists(resetPages: false);
+        _scrollToTop(_foodScrollController);
+        return;
+      case 1:
+        if (_recipesLoading || page < 1 || page > _recipeTotalPages) return;
+        setState(() => _recipePage = page);
+        await _loadRecipes();
+        _scrollToTop(_recipeScrollController);
+        return;
+      case 2:
+        if (_ingredientsLoading || page < 1 || page > _ingredientTotalPages) {
+          return;
+        }
+        setState(() => _ingredientPage = page);
+        await _loadIngredients();
+        _scrollToTop(_ingredientScrollController);
+        return;
+    }
+  }
+
+  void _scrollToTop(ScrollController controller) {
+    if (!mounted || !controller.hasClients) return;
+    controller.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> _openFoodFilters() async {
@@ -559,10 +634,19 @@ class DiscoverViewState extends State<DiscoverView>
       return const Center(child: Text('Không có món phù hợp.'));
     }
     return ListView.separated(
+      controller: _foodScrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: _foods.length,
+      itemCount: _foods.length + (_foodTotalPages > 1 ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        if (index == _foods.length) {
+          return _buildPaginationBar(
+            page: _foodPage,
+            totalPages: _foodTotalPages,
+            totalCount: _foodTotalCount,
+            loading: _refreshing,
+          );
+        }
         final food = _foods[index];
         return Consumer<FavoriteFoodProvider>(
           builder: (context, favorites, _) => _FoodListTile(
@@ -610,10 +694,19 @@ class DiscoverViewState extends State<DiscoverView>
       return const Center(child: Text('Không có công thức phù hợp.'));
     }
     return ListView.separated(
+      controller: _recipeScrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: _recipes.length,
+      itemCount: _recipes.length + (_recipeTotalPages > 1 ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        if (index == _recipes.length) {
+          return _buildPaginationBar(
+            page: _recipePage,
+            totalPages: _recipeTotalPages,
+            totalCount: _recipeTotalCount,
+            loading: _recipesLoading,
+          );
+        }
         final recipe = _recipes[index];
         return ListTile(
           shape: RoundedRectangleBorder(
@@ -673,10 +766,19 @@ class DiscoverViewState extends State<DiscoverView>
       return const Center(child: Text('Không có nguyên liệu phù hợp.'));
     }
     return ListView.separated(
+      controller: _ingredientScrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: _ingredients.length,
+      itemCount: _ingredients.length + (_ingredientTotalPages > 1 ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        if (index == _ingredients.length) {
+          return _buildPaginationBar(
+            page: _ingredientPage,
+            totalPages: _ingredientTotalPages,
+            totalCount: _ingredientTotalCount,
+            loading: _ingredientsLoading,
+          );
+        }
         final item = _ingredients[index];
         return ListTile(
           shape: RoundedRectangleBorder(
@@ -725,6 +827,64 @@ class DiscoverViewState extends State<DiscoverView>
           },
         );
       },
+    );
+  }
+
+  Widget _buildPaginationBar({
+    required int page,
+    required int totalPages,
+    required int totalCount,
+    required bool loading,
+  }) {
+    return Semantics(
+      label: 'Phân trang, trang $page trên $totalPages',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Trang trước',
+              onPressed: !loading && page > 1
+                  ? () => _goToPage(page - 1)
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Trang $page / $totalPages',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Text(
+                    '$totalCount mục',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Trang sau',
+              onPressed: !loading && page < totalPages
+                  ? () => _goToPage(page + 1)
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

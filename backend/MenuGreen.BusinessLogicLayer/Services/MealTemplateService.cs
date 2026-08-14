@@ -55,7 +55,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.MealTemplates.AddAsync(entity);
             await _unitOfWork.CompleteAsync();
 
-            await ReplaceItemsAsync(entity.Id, request.Items);
+            await ReplaceItemsAsync(entity.Id, request.Items, request.MealType);
             return await GetByIdAsync(userId, entity.Id);
         }
 
@@ -77,7 +77,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _unitOfWork.MealTemplateItems.RemoveRange(existingItems);
             await _unitOfWork.CompleteAsync();
 
-            await ReplaceItemsAsync(entity.Id, request.Items);
+            await ReplaceItemsAsync(entity.Id, request.Items, request.MealType);
             return await GetByIdAsync(userId, id);
         }
 
@@ -120,7 +120,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     FoodId = item.FoodId,
                     RecipeId = item.RecipeId,
                     CustomName = item.CustomName,
-                    MealType = mealType,
+                    SourceType = item.SourceType,
+                    MealType = NormalizeMealType(item.MealType, mealType),
                     QuantityG = item.QuantityG,
                     CaloriesKcal = nutrition.CaloriesKcal,
                     ProteinG = nutrition.ProteinG,
@@ -184,6 +185,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     RecipeId = item.RecipeId,
                     CustomName = item.CustomName,
                     SourceType = item.SourceType,
+                    MealType = item.MealType,
                     QuantityG = item.QuantityG,
                     CaloriesKcal = item.CaloriesKcal,
                     ProteinG = item.ProteinG,
@@ -217,9 +219,17 @@ namespace MenuGreen.BusinessLogicLayer.Services
             {
                 var hasCatalogReference = item.FoodId.HasValue || item.RecipeId.HasValue;
                 var isAiScan = string.Equals(
-                    item.SourceType,
-                    "AiScan",
-                    StringComparison.OrdinalIgnoreCase);
+                        item.SourceType,
+                        "AiScan",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(
+                        item.SourceType,
+                        "AiIngredientScan",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(
+                        item.SourceType,
+                        "AiDishScan",
+                        StringComparison.OrdinalIgnoreCase);
                 var hasAiSnapshot = isAiScan &&
                     !string.IsNullOrWhiteSpace(item.CustomName) &&
                     item.CaloriesKcal.HasValue;
@@ -232,7 +242,10 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
         }
 
-        private async Task ReplaceItemsAsync(Guid mealTemplateId, IEnumerable<MealTemplateItemUpsertRequest> items)
+        private async Task ReplaceItemsAsync(
+            Guid mealTemplateId,
+            IEnumerable<MealTemplateItemUpsertRequest> items,
+            string? templateMealType)
         {
             foreach (var item in items.OrderBy(x => x.SortOrder))
             {
@@ -244,6 +257,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     RecipeId = item.RecipeId,
                     CustomName = item.CustomName?.Trim(),
                     SourceType = item.SourceType,
+                    MealType = NormalizeMealType(item.MealType, templateMealType),
                     QuantityG = item.QuantityG,
                     CaloriesKcal = item.CaloriesKcal,
                     ProteinG = item.ProteinG,
@@ -282,6 +296,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     item.ProteinG,
                     item.CarbsG,
                     item.FatG);
+                var name = await ResolveItemNameAsync(item);
                 result.Add(new MealTemplateItemResponse
                 {
                     Id = item.Id,
@@ -290,6 +305,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     RecipeId = item.RecipeId,
                     CustomName = item.CustomName,
                     SourceType = item.SourceType,
+                    Name = name,
+                    MealType = NormalizeMealType(item.MealType),
                     QuantityG = item.QuantityG,
                     Ingredients = DeserializeIngredients(item.IngredientSnapshotJson),
                     Notes = item.Notes,
@@ -302,6 +319,36 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             return result;
+        }
+
+        private async Task<string?> ResolveItemNameAsync(MealTemplateItem item)
+        {
+            if (item.FoodId.HasValue)
+            {
+                var food = await _unitOfWork.Foods.GetByIdAsync(item.FoodId.Value);
+                return food?.NameVi;
+            }
+
+            if (item.RecipeId.HasValue)
+            {
+                var recipe = await _unitOfWork.Recipes.GetByIdAsync(item.RecipeId.Value);
+                return recipe?.Title;
+            }
+
+            return item.CustomName;
+        }
+
+        private static string NormalizeMealType(string? value, string? fallback = null)
+        {
+            foreach (var candidate in new[] { value, fallback })
+            {
+                if (string.Equals(candidate, "Breakfast", StringComparison.OrdinalIgnoreCase)) return "Breakfast";
+                if (string.Equals(candidate, "Lunch", StringComparison.OrdinalIgnoreCase)) return "Lunch";
+                if (string.Equals(candidate, "Dinner", StringComparison.OrdinalIgnoreCase)) return "Dinner";
+                if (string.Equals(candidate, "Snack", StringComparison.OrdinalIgnoreCase)) return "Snack";
+            }
+
+            return "Snack";
         }
 
         private async Task<(decimal CaloriesKcal, decimal ProteinG, decimal CarbsG, decimal FatG)> CalculateNutritionAsync(
@@ -400,6 +447,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 RecipeId = mealLog.RecipeId,
                 CustomName = mealLog.CustomName,
                 SourceType = mealLog.SourceType,
+                MealType = NormalizeMealType(mealLog.MealType),
                 QuantityG = mealLog.QuantityG ?? 100,
                 CaloriesKcal = mealLog.CaloriesKcal,
                 ProteinG = mealLog.ProteinG,

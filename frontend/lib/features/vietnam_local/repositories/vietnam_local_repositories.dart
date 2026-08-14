@@ -1120,10 +1120,13 @@ class LuckyWheelRepository {
   final ApiClient _api;
   final _VietnamLocalApi _http = _VietnamLocalApi();
 
-  Future<ApiResult<List<LuckyWheelFood>>> getFoods() async {
-    final result = await _http._exec(
-      () => _api.get(ApiEndpoints.luckyWheelFoods),
+  Future<ApiResult<List<LuckyWheelFood>>> getFoods({int? maxPriceVnd}) async {
+    final endpoint = Uri.parse(ApiEndpoints.luckyWheelFoods).replace(
+      queryParameters: maxPriceVnd != null && maxPriceVnd > 0
+          ? {'maxPriceVnd': '$maxPriceVnd'}
+          : null,
     );
+    final result = await _http._exec(() => _api.get(endpoint.toString()));
     if (!result.success) {
       return ApiResult<List<LuckyWheelFood>>(
         success: false,

@@ -13,6 +13,7 @@ class _FakeNutritionTrackingRepository extends NutritionTrackingRepository {
   double? proteinG;
   double? carbsG;
   double? fatG;
+  String? sourceType;
 
   @override
   Future<List<CatalogItem>> getRecipes({String? keyword}) async => [];
@@ -30,6 +31,7 @@ class _FakeNutritionTrackingRepository extends NutritionTrackingRepository {
     double? carbsG,
     double? fatG,
     String? customName,
+    String? sourceType,
   }) async {
     this.foodId = foodId;
     this.recipeId = recipeId;
@@ -40,6 +42,7 @@ class _FakeNutritionTrackingRepository extends NutritionTrackingRepository {
     this.proteinG = proteinG;
     this.carbsG = carbsG;
     this.fatG = fatG;
+    this.sourceType = sourceType;
     return true;
   }
 }
@@ -94,6 +97,7 @@ void main() {
     expect(repository.proteinG, 45);
     expect(repository.carbsG, 37.5);
     expect(repository.fatG, 30);
+    expect(repository.sourceType, 'AiDishScan');
   });
 
   testWidgets('routes Office confirmation through the sync submitter', (
