@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:file_selector/file_selector.dart' show XTypeGroup, openFile;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../meal_plan/models/meal_plan_requests.dart';
@@ -113,39 +111,6 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
     }
   }
 
-  Future<void> _pickSavedImageFile() async {
-    try {
-      const imageTypes = XTypeGroup(
-        label: 'images',
-        extensions: <String>['jpg', 'jpeg', 'png', 'webp'],
-        mimeTypes: <String>['image/jpeg', 'image/png', 'image/webp'],
-      );
-      final image = await openFile(
-        acceptedTypeGroups: const <XTypeGroup>[imageTypes],
-        confirmButtonText: 'Chọn ảnh',
-      );
-      if (image == null) return;
-
-      await _analyzeImage(image);
-    } on MissingPluginException {
-      if (mounted) {
-        _stopLoading();
-        _showErrorSnackBar(
-          'Ứng dụng chưa nạp bộ chọn tệp mới. Hãy tắt hẳn ứng dụng và chạy lại flutter run.',
-        );
-      }
-    } catch (e, stackTrace) {
-      debugPrint('Failed to pick a saved image: $e');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        _stopLoading();
-        _showErrorSnackBar(
-          'Không thể mở ảnh đã lưu. Vui lòng chọn tệp JPG, PNG hoặc WebP.',
-        );
-      }
-    }
-  }
-
   Future<void> _showUploadSourcePicker() async {
     if (_loading) return;
 
@@ -163,7 +128,7 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
                   'Chọn ảnh tải lên',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text('Chọn từ thư viện hoặc thư mục Downloads'),
+                subtitle: Text('Chọn ảnh từ thư viện trên thiết bị'),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
@@ -172,15 +137,6 @@ class _IngredientScanScreenState extends State<IngredientScanScreen>
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _pickImage(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.folder_open_outlined),
-                title: const Text('Tệp đã lưu / Downloads'),
-                subtitle: const Text('Duyệt ảnh trong các thư mục trên máy'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _pickSavedImageFile();
                 },
               ),
             ],

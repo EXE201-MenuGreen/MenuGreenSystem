@@ -35,6 +35,7 @@ class HistoryMealEntry {
     this.foodId,
     this.recipeId,
     this.isRecipe = false,
+    this.isIngredient = false,
     this.ingredients = const [],
   });
 
@@ -49,7 +50,10 @@ class HistoryMealEntry {
   final String? foodId;
   final String? recipeId;
   final bool isRecipe;
+  final bool isIngredient;
   final List<RecipeIngredientItem> ingredients;
+
+  String get entryTypeLabel => isIngredient ? 'Nguyên liệu' : 'Món ăn';
 
   bool get canOpenDetail {
     bool valid(String? value) {

@@ -57,6 +57,7 @@ class NutritionTrackingRepository {
     double? carbsG,
     double? fatG,
     String? customName,
+    String? sourceType,
   }) async {
     final response = await _api.postJson(
       ApiEndpoints.nutritionMealLogs,
@@ -72,6 +73,7 @@ class NutritionTrackingRepository {
         carbsG: carbsG,
         fatG: fatG,
         customName: customName,
+        sourceType: sourceType,
       ),
     );
     return response.statusCode == 200;
@@ -261,6 +263,7 @@ class NutritionTrackingRepository {
     double? carbsG,
     double? fatG,
     String? customName,
+    String? sourceType,
   }) {
     return {
       'foodId': foodId,
@@ -276,6 +279,7 @@ class NutritionTrackingRepository {
       'carbsG': carbsG,
       'fatG': fatG,
       'customName': customName,
+      'sourceType': sourceType,
       'addToMealPlan': true,
     };
   }

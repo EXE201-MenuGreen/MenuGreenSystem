@@ -21,7 +21,7 @@ CREATE TABLE payments (
     "ExpiredAt" timestamp with time zone NULL,
     "PaidAt" timestamp with time zone NULL,
     CONSTRAINT "PK_payments" PRIMARY KEY ("Id"),
-    CONSTRAINT "CK_payments_status" CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED')),
+    CONSTRAINT "CK_payments_status" CHECK ("Status" IN ('PENDING','PAID','FAILED','EXPIRED','REFUNDED','CANCELLED')),
     CONSTRAINT "FK_payments_user_subscriptions_UserSubscriptionId" FOREIGN KEY ("UserSubscriptionId") REFERENCES user_subscriptions ("Id") ON DELETE SET NULL
 );
 
@@ -33,5 +33,13 @@ VALUES
 ('f30d1b92-6926-433f-b4c8-d2cbfd559dc6', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '5a589d0c-0879-4211-bcde-b80d8f872a2c', 790000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_f30d1b92', now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days'),
 ('cca940d2-f4ad-432b-b6b2-99c504fb71f5', '586209d0-d3c4-43a4-bba7-5d4c73b37bc1', '137a2257-8c0b-4b56-b4fa-be8da55e7c14', 99000, 'PAID', 'QR_CODE', 'SEPAY', 'ORDER_cca940d2', now() - interval '20 days', now() - interval '20 days', NULL, now() - interval '20 days')
 ON CONFLICT DO NOTHING;
+
+-- Keep stale unpaid orders out of the active payment queue.
+UPDATE payments
+SET
+    "Status" = 'CANCELLED',
+    "UpdatedAt" = NOW()
+WHERE "Status" = 'PENDING'
+  AND "CreatedAt" < NOW() - INTERVAL '7 days';
 
 COMMIT;

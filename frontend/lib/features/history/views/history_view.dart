@@ -232,6 +232,7 @@ class HistoryViewState extends State<HistoryView> {
                   foodId: item.foodId,
                   recipeId: item.recipeId,
                   isRecipe: item.isRecipe,
+                  isIngredient: item.isIngredient,
                   ingredients: item.ingredients,
                 ),
               )
@@ -1662,9 +1663,15 @@ class _MealCard extends StatelessWidget {
                           height: 54,
                           color: const Color(0xFFF1F5F9),
                         ),
-                        errorWidget: (_, _, _) => _imagePlaceholder(),
+                        errorWidget: (_, _, _) => _imagePlaceholder(
+                          isRecipe: meal.isRecipe,
+                          isIngredient: meal.isIngredient,
+                        ),
                       )
-                    : _imagePlaceholder(meal.isRecipe),
+                    : _imagePlaceholder(
+                        isRecipe: meal.isRecipe,
+                        isIngredient: meal.isIngredient,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1680,8 +1687,33 @@ class _MealCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 5,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: meal.isIngredient
+                                ? const Color(0xFFFFF7ED)
+                                : const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            meal.entryTypeLabel,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: meal.isIngredient
+                                  ? const Color(0xFFC2410C)
+                                  : AppColors.primary,
+                            ),
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -1700,7 +1732,6 @@ class _MealCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
                         Text(
                           meal.portion,
                           style: const TextStyle(
@@ -1801,13 +1832,15 @@ class _MealCard extends StatelessWidget {
     );
   }
 
-  Widget _imagePlaceholder([bool isRecipe = false]) {
+  Widget _imagePlaceholder({bool isRecipe = false, bool isIngredient = false}) {
     return Container(
       width: 54,
       height: 54,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isRecipe
+          colors: isIngredient
+              ? [const Color(0xFFFFF7ED), const Color(0xFFFFEDD5)]
+              : isRecipe
               ? [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)]
               : [const Color(0xFFECFDF5), const Color(0xFFD1FAE5)],
           begin: Alignment.topLeft,
@@ -1815,8 +1848,16 @@ class _MealCard extends StatelessWidget {
         ),
       ),
       child: Icon(
-        isRecipe ? Icons.menu_book_rounded : Icons.restaurant_rounded,
-        color: isRecipe ? const Color(0xFF4F46E5) : AppColors.primary,
+        isIngredient
+            ? Icons.eco_outlined
+            : isRecipe
+            ? Icons.menu_book_rounded
+            : Icons.restaurant_rounded,
+        color: isIngredient
+            ? const Color(0xFFC2410C)
+            : isRecipe
+            ? const Color(0xFF4F46E5)
+            : AppColors.primary,
         size: 24,
       ),
     );

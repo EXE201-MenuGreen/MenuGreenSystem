@@ -369,6 +369,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 Instructions = r.Instructions,
                 ImageUrl = r.ImageUrl,
                 VideoUrl = r.VideoUrl,
+                SourceName = r.SourceName,
+                SourceUrl = r.SourceUrl,
                 IsActive = r.IsActive
             };
         }

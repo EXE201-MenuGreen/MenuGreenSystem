@@ -116,7 +116,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
         private static FoodResponse Map(Food f) => new() { Id=f.Id, NameVi=f.NameVi, NameEn=f.NameEn, Category=f.Category, Description=f.Description, CaloriesKcal=f.CaloriesKcal, ProteinG=f.ProteinG, CarbsG=f.CarbsG, FatG=f.FatG, FiberG=f.FiberG, EstimatedPriceVnd=f.EstimatedPriceVnd, DefaultServingG=f.DefaultServingG, ImageUrl=f.ImageUrl, IsActive=f.IsActive };
         private static IngredientResponse Map(Ingredient e) => new() { Id=e.Id, NameVi=e.NameVi, NameEn=e.NameEn, Category=e.Category, CaloriesKcal=e.CaloriesKcal, ProteinG=e.ProteinG, CarbsG=e.CarbsG, FatG=e.FatG, EstimatedPriceVnd=e.EstimatedPriceVnd, UnitDefault=e.UnitDefault, ImageUrl=e.ImageUrl, IsActive=e.IsActive };
-        private static RecipeResponse Map(Recipe r) => new() { Id=r.Id, FoodId=r.FoodId, Title=r.Title, Description=r.Description, PrepTimeMin=r.PrepTimeMin, CookTimeMin=r.CookTimeMin, TotalTimeMin=r.TotalTimeMin, Servings=r.Servings, Difficulty=r.Difficulty, MealType=r.MealType, EstimatedPriceVnd=r.EstimatedPriceVnd, Instructions=r.Instructions, ImageUrl=r.ImageUrl, VideoUrl=r.VideoUrl, IsActive=r.IsActive };
+        private static RecipeResponse Map(Recipe r) => new() { Id=r.Id, FoodId=r.FoodId, Title=r.Title, Description=r.Description, PrepTimeMin=r.PrepTimeMin, CookTimeMin=r.CookTimeMin, TotalTimeMin=r.TotalTimeMin, Servings=r.Servings, Difficulty=r.Difficulty, MealType=r.MealType, EstimatedPriceVnd=r.EstimatedPriceVnd, Instructions=r.Instructions, ImageUrl=r.ImageUrl, VideoUrl=r.VideoUrl, SourceName=r.SourceName, SourceUrl=r.SourceUrl, IsActive=r.IsActive };
         
         private async Task InvalidateFoodCacheAsync()
         {

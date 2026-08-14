@@ -43,6 +43,19 @@ class MealLogItem {
       (recipeId != null && recipeId!.isNotEmpty) ||
       sourceType?.toLowerCase() == 'recipe';
 
+  bool get isIngredient {
+    final normalizedSource = sourceType?.trim().toLowerCase();
+    if (normalizedSource == 'aiingredientscan' ||
+        normalizedSource == 'ingredient') {
+      return true;
+    }
+
+    // Keep records created before SourceType was split recognizable.
+    final normalizedNotes = notes?.trim().toLowerCase();
+    return normalizedNotes?.startsWith('nguyên liệu nhận diện từ ai scan:') ==
+        true;
+  }
+
   static double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return 0;
@@ -98,8 +111,8 @@ class MealLogItem {
       displayName: resolvedName,
       foodId: _parseOptionalId(json['foodId'] ?? json['FoodId']),
       recipeId: _parseOptionalId(json['recipeId'] ?? json['RecipeId']),
-      notes: json['notes']?.toString(),
-      sourceType: json['sourceType']?.toString(),
+      notes: (json['notes'] ?? json['Notes'])?.toString(),
+      sourceType: (json['sourceType'] ?? json['SourceType'])?.toString(),
       customName: customName,
       mealPlanItemId: _parseOptionalId(
         json['mealPlanItemId'] ?? json['MealPlanItemId'],

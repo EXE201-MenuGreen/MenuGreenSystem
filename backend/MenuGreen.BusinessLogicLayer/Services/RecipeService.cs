@@ -91,7 +91,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             string? difficulty,
             bool? isActive,
             Guid? userId = null,
-            string? allergyMode = null)
+            string? allergyMode = null,
+            int? page = null,
+            int? pageSize = null)
         {
             // Build query with filters at database level (fix client-side filtering)
             var allRecipes = await _unitOfWork.Recipes.FindAsync(r => true, asNoTracking: true);
@@ -121,7 +123,25 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 query = query.Where(r => r.IsActive == isActive.Value);
             }
 
-            var recipeList = query.ToList();
+            var mode = NormalizeAllergyMode(allergyMode);
+            var currentPage = pageSize.HasValue ? Math.Max(page ?? 1, 1) : 1;
+            var requestedPageSize = pageSize.HasValue
+                ? Math.Clamp(pageSize.Value, 1, 100)
+                : 0;
+            var recipeList = query.OrderBy(r => r.Title).ToList();
+            var unpagedTotalCount = recipeList.Count;
+
+            // In warn/all mode allergy matching does not remove records, so only
+            // enrich the requested page. Hide mode must evaluate all records first
+            // to keep TotalCount and TotalPages accurate.
+            if (mode != AllergenCatalog.ModeHide && pageSize.HasValue)
+            {
+                recipeList = recipeList
+                    .Skip((int)Math.Min((long)(currentPage - 1) * requestedPageSize, int.MaxValue))
+                    .Take(requestedPageSize)
+                    .ToList();
+            }
+
             var ingredientMap = await LoadIngredientNamesByRecipeAsync(recipeList.Select(r => r.Id));
             var linkedFoodIds = recipeList
                 .Where(recipe => recipe.FoodId.HasValue)
@@ -133,8 +153,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 : (await _unitOfWork.Foods.FindAsync(
                     food => linkedFoodIds.Contains(food.Id)))
                     .ToDictionary(food => food.Id, food => food.DefaultServingG);
-            var mode = NormalizeAllergyMode(allergyMode);
-
             // Enrich serially to keep the shared DbContext single-threaded.
             // EF Core's DbContext is NOT thread-safe; running multiple
             // _allergenMatching calls in parallel via Task.WhenAll triggers
@@ -157,7 +175,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 if (shouldInclude) items.Add(dto);
             }
 
-            return new RecipeSearchResponse { Items = items, TotalCount = items.Count };
+            var totalCount = mode == AllergenCatalog.ModeHide
+                ? items.Count
+                : unpagedTotalCount;
+            var currentPageSize = pageSize.HasValue ? requestedPageSize : totalCount;
+            var pageItems = mode == AllergenCatalog.ModeHide && pageSize.HasValue
+                ? items
+                    .Skip((int)Math.Min((long)(currentPage - 1) * currentPageSize, int.MaxValue))
+                    .Take(currentPageSize)
+                    .ToList()
+                : items;
+
+            return new RecipeSearchResponse
+            {
+                Items = pageItems,
+                TotalCount = totalCount,
+                Page = currentPage,
+                PageSize = currentPageSize
+            };
         }
 
         public async Task<IReadOnlyList<RecipeIngredientResponse>> GetIngredientsAsync(Guid recipeId)
@@ -320,6 +355,6 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 : AllergenCatalog.ModeWarn;
         }
 
-        private static RecipeResponse Map(Recipe r) => new() { Id = r.Id, FoodId = r.FoodId, Title = r.Title, Description = r.Description, PrepTimeMin = r.PrepTimeMin, CookTimeMin = r.CookTimeMin, TotalTimeMin = r.TotalTimeMin, Servings = r.Servings, Difficulty = r.Difficulty, MealType = r.MealType, EstimatedPriceVnd = r.EstimatedPriceVnd, Instructions = r.Instructions, ImageUrl = r.ImageUrl, VideoUrl = r.VideoUrl, IsActive = r.IsActive };
+        private static RecipeResponse Map(Recipe r) => new() { Id = r.Id, FoodId = r.FoodId, Title = r.Title, Description = r.Description, PrepTimeMin = r.PrepTimeMin, CookTimeMin = r.CookTimeMin, TotalTimeMin = r.TotalTimeMin, Servings = r.Servings, Difficulty = r.Difficulty, MealType = r.MealType, EstimatedPriceVnd = r.EstimatedPriceVnd, Instructions = r.Instructions, ImageUrl = r.ImageUrl, VideoUrl = r.VideoUrl, SourceName = r.SourceName, SourceUrl = r.SourceUrl, IsActive = r.IsActive };
     }
 }

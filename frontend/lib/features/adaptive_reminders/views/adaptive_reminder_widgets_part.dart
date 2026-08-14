@@ -52,7 +52,7 @@ class _ReminderTile extends StatelessWidget {
       ),
       title: Text(reminder.title),
       subtitle: Text(
-        '${_dateTimeLabel(reminder.scheduledAt)}${reminder.repeatIntervalMinutes == null ? '' : ' · Lặp mỗi ${reminder.repeatIntervalMinutes} phút'}${reminder.body.isEmpty ? '' : '\n${reminder.body}'}',
+        '${_dateTimeLabel(reminder.scheduledAt)}${_repeatLabel(reminder.repeatIntervalMinutes)}${reminder.body.isEmpty ? '' : '\n${reminder.body}'}',
       ),
       isThreeLine: reminder.body.isNotEmpty,
       trailing: Row(
@@ -333,3 +333,10 @@ String _dateLabel(DateTime value) =>
 String _dateTimeLabel(DateTime? value) => value == null
     ? 'Chưa có thời gian'
     : '${_dateLabel(value)} · ${_timeLabel(value)}';
+
+String _repeatLabel(int? minutes) {
+  if (minutes == null) return '';
+  if (minutes == 1440) return ' · Lặp hằng ngày';
+  if (minutes % 60 == 0) return ' · Lặp mỗi ${minutes ~/ 60} giờ';
+  return ' · Lặp mỗi $minutes phút';
+}

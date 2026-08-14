@@ -13,7 +13,9 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     public interface IGroceryListBuilderService
     {
         /// <summary>
-        /// Group recipe ingredients by the planned date of each meal-plan item.
+        /// Group the effective ingredients of each meal-plan item by planned date.
+        /// Item snapshots take priority; legacy FoodId items can be supplied with
+        /// a linked RecipeId by the caller.
         /// Items with no <c>PlannedDate</c> are merged into a single entry whose
         /// <c>PlannedDate</c> is <c>null</c> and sorted to the end of the result.
         /// </summary>

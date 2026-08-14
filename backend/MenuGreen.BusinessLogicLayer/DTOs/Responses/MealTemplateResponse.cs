@@ -26,6 +26,8 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Responses
         public Guid? RecipeId { get; set; }
         public string? CustomName { get; set; }
         public string? SourceType { get; set; }
+        public string? Name { get; set; }
+        public string MealType { get; set; } = "Snack";
         public decimal QuantityG { get; set; }
         public List<OfficeScanIngredientRequest> Ingredients { get; set; } = new();
         public string? Notes { get; set; }

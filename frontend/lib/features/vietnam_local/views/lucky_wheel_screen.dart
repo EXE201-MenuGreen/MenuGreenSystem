@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../meal_plan/utils/fresh_meal_plan_navigation.dart';
 import '../models/vietnam_local_models.dart';
 import '../repositories/vietnam_local_repositories.dart';
+import '../utils/lucky_wheel_geometry.dart';
 
 class LuckyWheelScreen extends StatefulWidget {
   const LuckyWheelScreen({super.key});
@@ -20,8 +23,11 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   List<LuckyWheelFood> _rawFoods = [];
   List<LuckyWheelFood> _foods = [];
   bool _loading = true;
+  bool _filtering = false;
   String? _errorMessage;
   int? _targetBudget;
+  Timer? _budgetDebounce;
+  int _loadRequestId = 0;
 
   late AnimationController _rotationController;
   late Animation<double> _rotationAnimation;
@@ -45,31 +51,45 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
 
   @override
   void dispose() {
+    _budgetDebounce?.cancel();
     _budgetController.dispose();
     _rotationController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFoods() async {
+  Future<void> _loadFoods({
+    int? maxPriceVnd,
+    bool showFullScreenLoader = true,
+  }) async {
     if (_spinning) return;
+    final requestId = ++_loadRequestId;
     setState(() {
-      _loading = true;
+      if (showFullScreenLoader) {
+        _loading = true;
+      } else {
+        _filtering = true;
+      }
       _errorMessage = null;
     });
     _rotationController.reset();
     _currentRotation = 0;
 
-    final result = await _repository.getFoods();
-    if (result.success && result.data != null && result.data!.isNotEmpty) {
+    final result = await _repository.getFoods(maxPriceVnd: maxPriceVnd);
+    if (!mounted || requestId != _loadRequestId) return;
+    if (result.success) {
       setState(() {
-        _rawFoods = result.data!;
+        _rawFoods = result.data ?? [];
         _filterFoods();
         _loading = false;
+        _filtering = false;
       });
     } else {
       setState(() {
+        _rawFoods = [];
+        _foods = [];
         _errorMessage = result.translatedMessage;
         _loading = false;
+        _filtering = false;
       });
     }
   }
@@ -77,18 +97,26 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   void _onBudgetChanged(String val) {
     final clean = val.replaceAll(RegExp(r'[^0-9]'), '');
     final parsed = int.tryParse(clean);
+    final budget = (parsed != null && parsed > 0) ? parsed : null;
     setState(() {
-      _targetBudget = (parsed != null && parsed > 0) ? parsed : null;
-      _filterFoods();
+      _targetBudget = budget;
+      _filtering = true;
+      _errorMessage = null;
     });
+    _budgetDebounce?.cancel();
+    _budgetDebounce = Timer(
+      const Duration(milliseconds: 900),
+      () => _loadFoods(maxPriceVnd: budget, showFullScreenLoader: false),
+    );
   }
 
   void _clearBudget() {
+    _budgetDebounce?.cancel();
     _budgetController.clear();
     setState(() {
       _targetBudget = null;
-      _filterFoods();
     });
+    _loadFoods(showFullScreenLoader: false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -107,29 +135,14 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
       return;
     }
 
-    final target = _targetBudget!;
-    // Cho phép chênh lệch từ 4.000 đến 7.000 VNĐ (dùng tolerance max = 7000 VNĐ)
-    const tolerance = 7000;
-    final minPrice = math.max(0, target - tolerance);
-    final maxPrice = target + tolerance;
-
+    final maxPrice = _targetBudget!;
+    // Ngân sách là mức trần, không phải giá mục tiêu xấp xỉ.
     final matched = _rawFoods.where((f) {
-      final price = f.estimatedPriceVnd ?? 0;
-      return price >= minPrice && price <= maxPrice;
+      final price = f.estimatedPriceVnd;
+      return price != null && price <= maxPrice;
     }).toList();
 
-    if (matched.length >= 2) {
-      _foods = matched;
-    } else {
-      // Nếu không có đủ món trong khoảng ±7000, lấy danh sách các món có giá gần nhất
-      final sorted = List<LuckyWheelFood>.from(_rawFoods)
-        ..sort((a, b) {
-          final diffA = ((a.estimatedPriceVnd ?? 0) - target).abs();
-          final diffB = ((b.estimatedPriceVnd ?? 0) - target).abs();
-          return diffA.compareTo(diffB);
-        });
-      _foods = sorted.take(math.min(10, sorted.length)).toList();
-    }
+    _foods = matched;
   }
 
   String _formatPrice(int amount) {
@@ -147,10 +160,12 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     final random = math.Random();
     _selectedIndex = random.nextInt(_foods.length);
 
-    final segmentAngle = (2 * math.pi) / _foods.length;
     final targetRotation =
         (8 * math.pi) +
-        (2 * math.pi - (_selectedIndex * segmentAngle + segmentAngle / 2));
+        luckyWheelTargetRotation(
+          selectedIndex: _selectedIndex,
+          segmentCount: _foods.length,
+        );
 
     _rotationAnimation =
         Tween<double>(
@@ -175,6 +190,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
 
   void _showResultDialog(LuckyWheelFood food) {
     String selectedMealType = 'Lunch';
+    bool applying = false;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -491,32 +507,51 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                                 ),
                                 elevation: 4,
                               ),
-                              onPressed: () async {
-                                final applyRes = await _repository
-                                    .applySelection(food.id, selectedMealType);
-                                if (!context.mounted) return;
-                                Navigator.of(context).pop();
-                                if (applyRes.success) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Đã thêm "${food.name}" vào bữa ăn của hôm nay.',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                  Navigator.of(context).pop();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(applyRes.translatedMessage),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'Ăn món này',
+                              onPressed: applying
+                                  ? null
+                                  : () async {
+                                      setDialogState(() => applying = true);
+                                      final applyRes = await _repository
+                                          .applySelection(
+                                            food.id,
+                                            selectedMealType,
+                                          );
+                                      if (!mounted) return;
+                                      if (applyRes.success) {
+                                        if (context.mounted) {
+                                          Navigator.of(context).pop();
+                                        }
+                                        ScaffoldMessenger.of(
+                                          this.context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Đã thêm "${food.name}" vào kế hoạch hôm nay.',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        await openFreshMealPlan(this.context);
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          this.context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              applyRes.translatedMessage,
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        if (context.mounted) {
+                                          setDialogState(
+                                            () => applying = false,
+                                          );
+                                        }
+                                      }
+                                    },
+                              child: Text(
+                                applying ? 'Đang thêm...' : 'Ăn món này',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -589,7 +624,9 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
               color: Colors.amber,
             ),
             tooltip: 'Đổi danh sách món mới',
-            onPressed: _spinning ? null : _loadFoods,
+            onPressed: _spinning
+                ? null
+                : () => _loadFoods(maxPriceVnd: _targetBudget),
           ),
         ],
       ),
@@ -620,7 +657,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: _loadFoods,
+                      onPressed: () => _loadFoods(maxPriceVnd: _targetBudget),
                       child: const Text(
                         'Thử lại',
                         style: TextStyle(fontSize: 16),
@@ -691,7 +728,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                               fontWeight: FontWeight.bold,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Nhập ngân sách mong muốn (VNĐ)...',
+                              hintText: 'Nhập ngân sách tối đa (VNĐ)...',
                               hintStyle: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 15,
@@ -718,6 +755,12 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                                   : null,
                             ),
                           ),
+                          if (_filtering)
+                            const LinearProgressIndicator(
+                              minHeight: 2,
+                              color: Colors.amber,
+                              backgroundColor: Colors.white12,
+                            ),
                         ],
                       ),
                     ),
@@ -743,27 +786,52 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                             );
                           },
                         ),
+                        if (_foods.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 48),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.restaurant_menu_outlined,
+                                  color: Colors.white38,
+                                  size: 42,
+                                ),
+                                SizedBox(height: 12),
+                                Text(
+                                  'Không có món phù hợp\nHãy nhập ngân sách khác',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         // Wheel Center Cap
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF1E293B),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black54,
-                                blurRadius: 10,
-                                spreadRadius: 2,
-                              ),
-                            ],
+                        if (_foods.isNotEmpty)
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF1E293B),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black54,
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 34,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                            size: 34,
-                          ),
-                        ),
                         // Wheel Top Pointer
                         Positioned(
                           top: -8,
@@ -784,7 +852,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                           height: 60,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _spinning
+                              backgroundColor:
+                                  (_spinning || _filtering || _foods.isEmpty)
                                   ? Colors.grey
                                   : AppColors.primary,
                               shape: RoundedRectangleBorder(
@@ -795,9 +864,18 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                                 alpha: 0.4,
                               ),
                             ),
-                            onPressed: _spinning ? null : _spin,
+                            onPressed:
+                                (_spinning || _filtering || _foods.isEmpty)
+                                ? null
+                                : _spin,
                             child: Text(
-                              _spinning ? 'Đang quay...' : 'Quay Ngay 🎲',
+                              _spinning
+                                  ? 'Đang quay...'
+                                  : _filtering
+                                  ? 'Đang lọc món...'
+                                  : _foods.isEmpty
+                                  ? 'Nhập ngân sách khác'
+                                  : 'Quay Ngay 🎲',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -821,7 +899,12 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            onPressed: _spinning ? null : _loadFoods,
+                            onPressed: (_spinning || _filtering)
+                                ? null
+                                : () => _loadFoods(
+                                    maxPriceVnd: _targetBudget,
+                                    showFullScreenLoader: false,
+                                  ),
                             icon: const Icon(Icons.refresh_rounded, size: 22),
                             label: const Text(
                               'Đổi danh sách món mới 🔄',
@@ -861,11 +944,29 @@ class _WheelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (foods.isEmpty) return;
-
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
     final rect = Rect.fromCircle(center: center, radius: radius);
+
+    if (foods.isEmpty) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = const Color(0xFF1E293B)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = const Color(0xFFFFD700).withValues(alpha: 0.45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4,
+      );
+      return;
+    }
+
     final anglePerSegment = (2 * math.pi) / foods.length;
 
     for (int i = 0; i < foods.length; i++) {

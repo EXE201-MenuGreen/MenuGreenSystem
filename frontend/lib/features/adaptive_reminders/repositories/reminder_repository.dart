@@ -44,6 +44,7 @@ class ReminderRepository {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    String type = 'CUSTOM_REMINDER',
     int? repeatIntervalMinutes,
   }) async => ScheduledReminder.fromJson(
     await _object(
@@ -51,7 +52,7 @@ class ReminderRepository {
         'title': title,
         'body': body,
         'scheduledAt': scheduledAt.toUtc().toIso8601String(),
-        'type': 'CUSTOM_REMINDER',
+        'type': type,
         'repeatIntervalMinutes': ?repeatIntervalMinutes,
       }),
     ),
@@ -63,6 +64,7 @@ class ReminderRepository {
     String? body,
     DateTime? scheduledAt,
     bool? isEnabled,
+    int? repeatIntervalMinutes,
   }) async => ScheduledReminder.fromJson(
     await _object(
       _api.patchJson(ApiEndpoints.scheduledReminderById(id), {
@@ -70,6 +72,7 @@ class ReminderRepository {
         'body': ?body,
         'scheduledAt': ?scheduledAt?.toUtc().toIso8601String(),
         'isEnabled': ?isEnabled,
+        'repeatIntervalMinutes': ?repeatIntervalMinutes,
       }),
     ),
   );

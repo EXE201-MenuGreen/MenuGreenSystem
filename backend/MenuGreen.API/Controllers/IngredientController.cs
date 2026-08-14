@@ -34,12 +34,14 @@ namespace MenuGreen.API.Controllers
             [FromQuery] string? keyword,
             [FromQuery] string? category,
             [FromQuery] bool? isActive,
-            [FromQuery] string? allergyMode)
+            [FromQuery] string? allergyMode,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize)
         {
             try
             {
                 return Ok(await _ingredientService.SearchAsync(
-                    keyword, category, isActive, TryGetUserId(), allergyMode));
+                    keyword, category, isActive, TryGetUserId(), allergyMode, page, pageSize));
             }
             catch (Exception ex)
             {

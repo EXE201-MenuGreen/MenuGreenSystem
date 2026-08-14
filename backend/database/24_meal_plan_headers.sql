@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS meal_plan_headers CASCADE;
 CREATE TABLE meal_plan_headers (
     "Id" uuid NOT NULL,
     "UserId" uuid NOT NULL,
+    "CoachId" uuid NULL,
     "Title" character varying(255) NULL,
     "PlanType" character varying(50) NULL,
     "StartDate" date NULL,
@@ -27,10 +28,14 @@ CREATE TABLE meal_plan_headers (
     "MaxCalories" integer NULL,
     "CoachNotes" character varying(2000) NULL,
     CONSTRAINT "PK_meal_plan_headers" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_plan_headers_users_CoachId"
+        FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE SET NULL,
     CONSTRAINT "FK_meal_plan_headers_users_UserId"
         FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_CoachId"
+    ON meal_plan_headers ("CoachId");
 CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_Status"
     ON meal_plan_headers ("Status");
 

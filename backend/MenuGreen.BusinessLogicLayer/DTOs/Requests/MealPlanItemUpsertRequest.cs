@@ -25,6 +25,10 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
 
         public string? CustomName { get; set; }
         public double? QuantityG { get; set; }
+        public decimal? ProteinG { get; set; }
+        public decimal? CarbsG { get; set; }
+        public decimal? FatG { get; set; }
+        public string? SourceType { get; set; }
         public List<MealPlanIngredientPortionRequest>? Ingredients { get; set; }
     }
 
