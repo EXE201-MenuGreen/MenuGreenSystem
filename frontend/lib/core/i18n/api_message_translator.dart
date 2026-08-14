@@ -179,7 +179,6 @@ class ApiMessageTranslator {
     'Quantity is required.': 'Số lượng là bắt buộc.',
     'At least one professional certificate is required.': 'Cần ít nhất một chứng chỉ chuyên môn.',
     'Meal plan deleted successfully.': 'Đã xóa kế hoạch bữa ăn thành công.',
-    "Menu template applied to today's plan successfully.": 'Đã áp dụng mẫu thực đơn cho kế hoạch hôm nay thành công.',
     'Deleted successfully.': 'Đã xóa thành công.',
     'Snooze duration must be between 1 and 1440 minutes.': 'Thời gian báo lại phải từ 1 đến 1440 phút.',
     'Empty webhook body.': 'Nội dung webhook trống.',
