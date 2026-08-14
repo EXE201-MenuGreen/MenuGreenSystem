@@ -36,7 +36,6 @@ class ApiMessageTranslator {
     'muscle gain': 'Tăng cơ',
     'maintenance': 'Giữ dáng',
     'sedentary': 'Ít vận động',
-    'active': 'Vận động nhiều',
     
     // Others
     'casual': 'Thông thường',
