@@ -12,7 +12,9 @@ import '../../meal_plan/views/smart_meal_plan_router_screen.dart';
 import '../../../core/services/push_notification_provider.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialIndex = 2});
+
+  final int initialIndex;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -24,18 +26,18 @@ class _MainScreenState extends State<MainScreen> {
   static const _historyTab = 3;
   static const _profileTab = 4;
 
-  int _currentIndex = _homeTab;
+  late int _currentIndex;
   final _homeKey = GlobalKey<HomeViewState>();
   final _discoverKey = GlobalKey<DiscoverViewState>();
   final _historyKey = GlobalKey<HistoryViewState>();
   DateTime? _lastHomeRefreshAt;
-  DateTime? _lastHistoryRefreshAt;
 
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, 4).toInt();
     _pages = [
       DiscoverView(key: _discoverKey),
       const SmartMealPlanRouterScreen(),
@@ -51,7 +53,9 @@ class _MainScreenState extends State<MainScreen> {
         key: _historyKey,
         onTrackingUpdated: () => _homeKey.currentState?.reloadSummary(),
       ),
-      ProfileView(onProfileUpdated: () => _homeKey.currentState?.refreshHeader()),
+      ProfileView(
+        onProfileUpdated: () => _homeKey.currentState?.refreshHeader(),
+      ),
     ];
     unawaited(_initPushNotifications());
   }
@@ -79,14 +83,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _refreshHistoryIfStale() {
-    final last = _lastHistoryRefreshAt;
-    final now = DateTime.now();
-    if (last == null || now.difference(last) > const Duration(seconds: 30)) {
-      _lastHistoryRefreshAt = now;
-      _historyKey.currentState?.reloadData();
-    }
-  }
+  void _refreshHistory() => _historyKey.currentState?.reloadData();
 
   void _selectTab(int index) {
     if (index < _discoverTab || index > _profileTab) return;
@@ -98,7 +95,7 @@ class _MainScreenState extends State<MainScreen> {
     } else if (index == _discoverTab) {
       _discoverKey.currentState?.refreshAllergyStatus();
     } else if (index == _historyTab) {
-      _refreshHistoryIfStale();
+      _refreshHistory();
     }
   }
 
@@ -111,10 +108,7 @@ class _MainScreenState extends State<MainScreen> {
               children: [
                 _buildNavigationRail(),
                 Expanded(
-                  child: IndexedStack(
-                    index: _currentIndex,
-                    children: _pages,
-                  ),
+                  child: IndexedStack(index: _currentIndex, children: _pages),
                 ),
               ],
             )
@@ -238,7 +232,12 @@ class _MainScreenState extends State<MainScreen> {
   List<BottomNavigationBarItem> _buildNavItems() {
     return [
       _buildNavItem(Icons.explore_outlined, Icons.explore, 'Khám phá', 0),
-      _buildNavItem(Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Kế hoạch', 1),
+      _buildNavItem(
+        Icons.restaurant_menu_outlined,
+        Icons.restaurant_menu,
+        'Kế hoạch',
+        1,
+      ),
       _buildNavHomeItem(),
       _buildNavItem(Icons.history_outlined, Icons.history, 'Lịch sử', 3),
       _buildNavItem(Icons.person_outline, Icons.person, 'Cá nhân', 4),
@@ -246,16 +245,14 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   BottomNavigationBarItem _buildNavItem(
-      IconData icon, IconData activeIcon, String label, int index) {
+    IconData icon,
+    IconData activeIcon,
+    String label,
+    int index,
+  ) {
     return BottomNavigationBarItem(
-      icon: SizedBox(
-        height: 44,
-        child: Icon(icon, size: 24),
-      ),
-      activeIcon: SizedBox(
-        height: 44,
-        child: Icon(activeIcon, size: 24),
-      ),
+      icon: SizedBox(height: 44, child: Icon(icon, size: 24)),
+      activeIcon: SizedBox(height: 44, child: Icon(activeIcon, size: 24)),
       label: label,
     );
   }
@@ -317,8 +314,18 @@ class _MainScreenState extends State<MainScreen> {
 
   List<Widget> _buildNavDrawerItems() {
     final items = [
-      const _NavDrawerItem(Icons.explore_outlined, Icons.explore, 'Khám phá', 0),
-      const _NavDrawerItem(Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Kế hoạch', 1),
+      const _NavDrawerItem(
+        Icons.explore_outlined,
+        Icons.explore,
+        'Khám phá',
+        0,
+      ),
+      const _NavDrawerItem(
+        Icons.restaurant_menu_outlined,
+        Icons.restaurant_menu,
+        'Kế hoạch',
+        1,
+      ),
       const _NavDrawerItem(Icons.home_outlined, Icons.home, 'Trang chủ', 2),
       const _NavDrawerItem(Icons.history_outlined, Icons.history, 'Lịch sử', 3),
       const _NavDrawerItem(Icons.person_outline, Icons.person, 'Cá nhân', 4),
@@ -348,7 +355,6 @@ class _MainScreenState extends State<MainScreen> {
       );
     }).toList();
   }
-
 }
 
 class _NavDrawerItem {

@@ -24,14 +24,19 @@ namespace MenuGreen.API.Controllers
         /// Get 10 personalized non-duplicate foods for the lucky wheel display.
         /// </summary>
         [HttpGet("foods")]
-        public async Task<IActionResult> GetWheelFoods()
+        public async Task<IActionResult> GetWheelFoods([FromQuery] int? maxPriceVnd = null)
         {
             if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             {
                 return Unauthorized();
             }
 
-            var result = await _luckyWheelService.GetWheelFoodsAsync(userId);
+            if (maxPriceVnd is <= 0)
+            {
+                return BadRequest(new { message = "Ngân sách phải lớn hơn 0." });
+            }
+
+            var result = await _luckyWheelService.GetWheelFoodsAsync(userId, maxPriceVnd);
             return Ok(result);
         }
 

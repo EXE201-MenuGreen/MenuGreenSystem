@@ -174,7 +174,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   ),
                 ),
                 _buildSettingCard(
-                  title: 'Push notification',
+                  title: 'Thông báo đẩy',
                   subtitle: 'Nhận thông báo ngay cả khi app đóng',
                   icon: Icons.phone_android_outlined,
                   iconColor: Colors.green,

@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS meal_plan_headers CASCADE;
 CREATE TABLE meal_plan_headers (
     "Id" uuid NOT NULL,
     "UserId" uuid NOT NULL,
+    "CoachId" uuid NULL,
     "Title" character varying(255) NULL,
     "PlanType" character varying(50) NULL,
     "StartDate" date NULL,
@@ -27,10 +28,14 @@ CREATE TABLE meal_plan_headers (
     "MaxCalories" integer NULL,
     "CoachNotes" character varying(2000) NULL,
     CONSTRAINT "PK_meal_plan_headers" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_meal_plan_headers_users_CoachId"
+        FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE SET NULL,
     CONSTRAINT "FK_meal_plan_headers_users_UserId"
         FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_CoachId"
+    ON meal_plan_headers ("CoachId");
 CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_Status"
     ON meal_plan_headers ("Status");
 
@@ -191,28 +196,9 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
--- Backfill Coach plans that were already submitted before Status existed.
--- Uses matching meal_plan_approved notification as proof of submission.
-UPDATE meal_plan_headers AS plan
-SET
-    "Status" = 'Approved',
-    "ApprovedAt" = approval."ApprovedAt"
-FROM (
-    SELECT
-        plan_inner."Id" AS "PlanId",
-        MAX(notification."CreatedAt") AS "ApprovedAt"
-    FROM meal_plan_headers AS plan_inner
-    JOIN notifications AS notification
-      ON notification."UserId" = plan_inner."UserId"
-     AND LOWER(notification."Type") = 'meal_plan_approved'
-     AND notification."CreatedAt" >= COALESCE(
-         plan_inner."CreatedAt",
-         '-infinity'::timestamptz
-     )
-    WHERE UPPER(COALESCE(plan_inner."GeneratedBy", '')) = 'COACH'
-    GROUP BY plan_inner."Id"
-) AS approval
-WHERE plan."Id" = approval."PlanId"
-  AND plan."Status" <> 'Approved';
+-- Status is seeded explicitly above. Do not infer it from an old notification:
+-- during a repeat seed, notifications are recreated later (file 35), so stale
+-- rows from the previous run could incorrectly turn every Coach draft into an
+-- Approved plan and lock the Gymer's plan-creation screen.
 
 COMMIT;

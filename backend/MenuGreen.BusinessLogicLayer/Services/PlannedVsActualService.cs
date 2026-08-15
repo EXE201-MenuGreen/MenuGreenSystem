@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
+using MenuGreen.BusinessLogicLayer.Helpers;
 using MenuGreen.DataAccessLayer.Entities;
 using MenuGreen.DataAccessLayer.Interfaces;
 
@@ -57,14 +58,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<PlannedVsActualSummaryResponse> GetSummaryAsync(Guid userId, DateOnly from, DateOnly to)
         {
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
-            var fromUtc = ToVietnamRangeStartUtc(from);
-            var toUtc = ToVietnamRangeEndUtc(to);
+            var fromUtc = ToVietnamRangeStartUtc(from.AddDays(-1));
+            var toUtc = ToVietnamRangeEndUtc(to.AddDays(1));
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
                 l.LoggedAt.Value >= fromUtc &&
-                l.LoggedAt.Value <= toUtc)).ToList();
+                l.LoggedAt.Value <= toUtc))
+                .Where(l => l.LoggedAt.HasValue
+                    && VietnamTime.ToDate(l.LoggedAt.Value) >= from
+                    && VietnamTime.ToDate(l.LoggedAt.Value) <= to)
+                .ToList();
 
             var foodIds = planItems.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value)
                 .Concat(logs.Where(l => l.FoodId.HasValue).Select(l => l.FoodId!.Value))
@@ -167,8 +172,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     dailyPlanned.CostVnd += cost;
                 }
 
-                var dailyLogs = logs.Where(l => DateOnly.FromDateTime(
-                    l.LoggedAt!.Value.AddHours(VietnamUtcOffsetHours)) == date).ToList();
+                var dailyLogs = logs.Where(l =>
+                    VietnamTime.ToDate(l.LoggedAt!.Value) == date).ToList();
                 foreach (var log in dailyLogs)
                 {
                     dailyActual.CaloriesKcal += log.CaloriesKcal ?? 0;
@@ -243,14 +248,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var summary = await GetSummaryAsync(userId, from, to);
 
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
-            var fromUtc = ToVietnamRangeStartUtc(from);
-            var toUtc = ToVietnamRangeEndUtc(to);
+            var fromUtc = ToVietnamRangeStartUtc(from.AddDays(-1));
+            var toUtc = ToVietnamRangeEndUtc(to.AddDays(1));
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
                 l.LoggedAt.Value >= fromUtc &&
-                l.LoggedAt.Value <= toUtc)).ToList();
+                l.LoggedAt.Value <= toUtc))
+                .Where(l => l.LoggedAt.HasValue
+                    && VietnamTime.ToDate(l.LoggedAt.Value) >= from
+                    && VietnamTime.ToDate(l.LoggedAt.Value) <= to)
+                .ToList();
 
             // 1. Meal Completion Rate (40%)
             double mealCompletionRate = 100;
@@ -369,14 +378,18 @@ namespace MenuGreen.BusinessLogicLayer.Services
         public async Task<DriftAnalysisResponse> GetDriftAnalysisAsync(Guid userId, DateOnly from, DateOnly to)
         {
             var planItems = await GetActivePlanItemsAsync(userId, from, to);
-            var fromUtc = ToVietnamRangeStartUtc(from);
-            var toUtc = ToVietnamRangeEndUtc(to);
+            var fromUtc = ToVietnamRangeStartUtc(from.AddDays(-1));
+            var toUtc = ToVietnamRangeEndUtc(to.AddDays(1));
 
             var logs = (await _unitOfWork.MealLogs.FindAsync(l =>
                 l.UserId == userId &&
                 l.LoggedAt.HasValue &&
                 l.LoggedAt.Value >= fromUtc &&
-                l.LoggedAt.Value <= toUtc)).ToList();
+                l.LoggedAt.Value <= toUtc))
+                .Where(l => l.LoggedAt.HasValue
+                    && VietnamTime.ToDate(l.LoggedAt.Value) >= from
+                    && VietnamTime.ToDate(l.LoggedAt.Value) <= to)
+                .ToList();
 
             var foodIds = planItems.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value)
                 .Concat(logs.Where(l => l.FoodId.HasValue).Select(l => l.FoodId!.Value))

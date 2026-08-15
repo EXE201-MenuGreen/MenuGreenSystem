@@ -12,6 +12,7 @@ import {
 } from "@/features/ingredients/hooks/use-ingredients";
 import type { Ingredient } from "@/features/ingredients/types";
 import { formatNumber, formatVnd } from "@/lib/utils/format";
+import { translateData } from "@/lib/utils/data-translator";
 
 export function IngredientManagement() {
   const {
@@ -136,7 +137,7 @@ export function IngredientManagement() {
                         <div className="font-medium text-zinc-900 dark:text-zinc-50">{item.nameVi}</div>
                         {item.nameEn ? <div className="text-sm text-zinc-500">{item.nameEn}</div> : null}
                       </td>
-                      <td className="px-4 py-4 text-sm">{item.category || "—"}</td>
+                      <td className="px-4 py-4 text-sm">{item.category ? translateData(item.category) : "—"}</td>
                       <td className="px-4 py-4 text-sm">{item.unitDefault || "—"}</td>
                       <td className="px-4 py-4 text-sm">{formatNumber(item.caloriesKcal)}</td>
                       <td className="px-4 py-4 text-sm">{formatVnd(item.estimatedPriceVnd)}</td>

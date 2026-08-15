@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../tracking/widgets/meal_log_sheet.dart';
+import '../../meal_plan/utils/fresh_meal_plan_navigation.dart';
+import '../../vietnam_local/repositories/vietnam_local_repositories.dart';
 import '../models/micro_learning_models.dart';
 import '../repositories/micro_learning_repository.dart';
 import '../../subscription/models/subscription_models.dart';
@@ -20,6 +21,7 @@ class MicroLearningScreen extends StatefulWidget {
 
 class _MicroLearningScreenState extends State<MicroLearningScreen> {
   final _repository = MicroLearningRepository();
+  final _dailyStarterRepository = DailyStarterRepository();
   final _subscriptionRepository = UserSubscriptionRepository();
   FeatureAccess _access = FeatureAccess.free;
   List<MicroLearningCard> _cards = const [];
@@ -28,6 +30,7 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
   late FoodMoodItem _selectedMood;
   String? _category;
   bool _loading = true;
+  bool _addingFoodToPlan = false;
 
   @override
   void initState() {
@@ -100,6 +103,74 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
     );
   }
 
+  Future<void> _addRescueFoodToPlan(RescueFood food) async {
+    if (_addingFoodToPlan) return;
+    final mealType = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Thêm vào bữa nào?',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              food.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            for (final option in const [
+              ('Breakfast', 'Bữa sáng', Icons.wb_sunny_outlined),
+              ('Lunch', 'Bữa trưa', Icons.wb_sunny_rounded),
+              ('Dinner', 'Bữa tối', Icons.nights_stay_outlined),
+              ('Snack', 'Bữa phụ', Icons.local_cafe_outlined),
+            ])
+              ListTile(
+                minTileHeight: 52,
+                leading: Icon(option.$3, color: AppColors.primary),
+                title: Text(option.$2),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.pop(sheetContext, option.$1),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (mealType == null || !mounted) return;
+    setState(() => _addingFoodToPlan = true);
+
+    try {
+      final result = await _dailyStarterRepository.selectMeal({
+        'meals': [food.toPlanMealJson(mealType)],
+      });
+      if (!mounted) return;
+      if (!result.success) {
+        _message(
+          result.translatedMessage.isNotEmpty
+              ? result.translatedMessage
+              : 'Không thể thêm món vào kế hoạch.',
+          error: true,
+        );
+        return;
+      }
+
+      await openFreshMealPlan(context);
+    } catch (error) {
+      if (mounted) _message(error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _addingFoodToPlan = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final read = _cards.where((card) => card.isRead).length;
@@ -123,84 +194,79 @@ class _MicroLearningScreenState extends State<MicroLearningScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (_access.hasCasual) ...[
-                  // Mood Selector Header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withValues(alpha: 0.15),
-                          Colors.green.shade50,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Text('🎭', style: TextStyle(fontSize: 20)),
-                            SizedBox(width: 8),
-                            Text(
-                              'Hôm nay bạn cảm thấy thế nào?',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
+                    // Mood Selector Header
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary.withValues(alpha: 0.15),
+                            Colors.green.shade50,
                           ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Chọn trạng thái cảm xúc hoặc cơn thèm để MenuGreen gợi ý món ăn giải cứu phù hợp nhất!',
-                          style: TextStyle(fontSize: 13, color: Colors.black54),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.2),
                         ),
-                        const SizedBox(height: 14),
-                        _MoodSelectionGrid(
-                          moods: _moods,
-                          selectedMood: _selectedMood,
-                          onSelectMood: (mood) {
-                            setState(() {
-                              _selectedMood = mood;
-                            });
-                          },
-                        ),
-                      ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text('🎭', style: TextStyle(fontSize: 20)),
+                              SizedBox(width: 8),
+                              Text(
+                                'Hôm nay bạn cảm thấy thế nào?',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Chọn trạng thái cảm xúc hoặc cơn thèm để MenuGreen gợi ý món ăn giải cứu phù hợp nhất!',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _MoodSelectionGrid(
+                            moods: _moods,
+                            selectedMood: _selectedMood,
+                            onSelectMood: (mood) {
+                              setState(() {
+                                _selectedMood = mood;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Selected Mood Insight & Rescue Foods
-                  _MoodRescueSection(
-                    mood: _selectedMood,
-                    onAppliedFood: (food) async {
-                      await showMealLogSheet(
-                        context,
-                        initialFoodName: food.name,
-                        caloriesKcal: food.caloriesKcal,
-                        proteinG: food.proteinG,
-                        carbsG: food.carbsG,
-                        fatG: food.fatG,
-                      );
-                    },
-                  ),
+                    // Selected Mood Insight & Rescue Foods
+                    _MoodRescueSection(
+                      mood: _selectedMood,
+                      submitting: _addingFoodToPlan,
+                      onAppliedFood: _addRescueFoodToPlan,
+                    ),
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  _ProgressPanel(
-                    read: read,
-                    quizzes: quizzes,
-                    total: _cards.length,
-                  ),
-                  const SizedBox(height: 20),
+                    _ProgressPanel(
+                      read: read,
+                      quizzes: quizzes,
+                      total: _cards.length,
+                    ),
+                    const SizedBox(height: 20),
                   ],
                   const Text(
                     'Chủ đề dinh dưỡng',

@@ -17,6 +17,8 @@ class AdaptiveRemindersScreen extends StatefulWidget {
 }
 
 class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
+  static const _dailyRepeatMinutes = 24 * 60;
+
   final _repository = ReminderRepository();
   ReminderProfile? _profile;
   List<ScheduledReminder> _reminders = const [];
@@ -82,12 +84,81 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
     setState(() => _savingProfile = true);
     try {
       final saved = await _repository.updateProfile(profile);
-      if (mounted) setState(() => _profile = saved);
-      _message('Đã lưu giờ ăn ưu tiên.');
+      if (!mounted) return;
+      setState(() => _profile = saved);
+
+      await _syncMealReminders(saved);
+      final reminders = await _repository.getScheduled();
+      if (!mounted) return;
+      setState(() => _reminders = reminders);
+      _message('Đã lưu giờ ăn và cập nhật 3 lịch nhắc hằng ngày.');
     } catch (error) {
       if (mounted) _message(error.toString(), error: true);
     } finally {
       if (mounted) setState(() => _savingProfile = false);
+    }
+  }
+
+  Future<void> _syncMealReminders(ReminderProfile profile) async {
+    final current = await _repository.getScheduled();
+    final definitions = <({
+      String type,
+      String title,
+      String body,
+      String time,
+    })>[
+      (
+        type: 'MEAL_REMINDER_BREAKFAST',
+        title: 'Nhắc bữa sáng',
+        body: 'Đến giờ dùng bữa sáng và ghi nhật ký.',
+        time: profile.optimalBreakfastTime,
+      ),
+      (
+        type: 'MEAL_REMINDER_LUNCH',
+        title: 'Nhắc bữa trưa',
+        body: 'Đến giờ dùng bữa trưa và ghi nhật ký.',
+        time: profile.optimalLunchTime,
+      ),
+      (
+        type: 'MEAL_REMINDER_DINNER',
+        title: 'Nhắc bữa tối',
+        body: 'Đến giờ dùng bữa tối và ghi nhật ký.',
+        time: profile.optimalDinnerTime,
+      ),
+    ];
+
+    for (final definition in definitions) {
+      final matches = current
+          .where(
+            (reminder) =>
+                _normalizedReminderType(reminder.type) == definition.type,
+          )
+          .toList();
+      final scheduledAt = _nextMealReminderAt(definition.time);
+
+      if (matches.isEmpty) {
+        await _repository.create(
+          title: definition.title,
+          body: definition.body,
+          scheduledAt: scheduledAt,
+          type: definition.type,
+          repeatIntervalMinutes: _dailyRepeatMinutes,
+        );
+        continue;
+      }
+
+      await _repository.update(
+        matches.first.id,
+        title: definition.title,
+        body: definition.body,
+        scheduledAt: scheduledAt,
+        isEnabled: true,
+        repeatIntervalMinutes: _dailyRepeatMinutes,
+      );
+
+      for (final duplicate in matches.skip(1)) {
+        await _repository.delete(duplicate.id);
+      }
     }
   }
 
@@ -323,7 +394,7 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Lịch nhắc tùy chỉnh',
+                          'Lịch nhắc đã lưu',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -379,4 +450,19 @@ class _AdaptiveRemindersScreenState extends State<AdaptiveRemindersScreen> {
       ),
     );
   }
+}
+
+String _normalizedReminderType(String? value) {
+  final type = value?.toUpperCase() ?? '';
+  return type.startsWith('DISABLED_')
+      ? type.substring('DISABLED_'.length)
+      : type;
+}
+
+DateTime _nextMealReminderAt(String value) {
+  final time = _timeOfDay(value);
+  final now = DateTime.now();
+  var result = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+  if (!result.isAfter(now)) result = result.add(const Duration(days: 1));
+  return result;
 }

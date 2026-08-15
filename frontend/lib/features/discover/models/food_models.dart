@@ -1,5 +1,75 @@
 import 'dart:convert';
 
+class CatalogPage<T> {
+  const CatalogPage({
+    required this.items,
+    required this.totalCount,
+    required this.page,
+    required this.pageSize,
+    required this.totalPages,
+  });
+
+  final List<T> items;
+  final int totalCount;
+  final int page;
+  final int pageSize;
+  final int totalPages;
+
+  bool get hasPreviousPage => page > 1;
+  bool get hasNextPage => page < totalPages;
+
+  factory CatalogPage.empty({int page = 1, int pageSize = 0}) {
+    return CatalogPage<T>(
+      items: const [],
+      totalCount: 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: 0,
+    );
+  }
+
+  factory CatalogPage.fromJson(
+    Map<String, dynamic> json,
+    T Function(Map<String, dynamic>) itemFromJson,
+  ) {
+    int integer(List<String> keys, {int fallback = 0}) {
+      for (final key in keys) {
+        final raw = json[key];
+        if (raw is num) return raw.toInt();
+        final parsed = int.tryParse(raw?.toString() ?? '');
+        if (parsed != null) return parsed;
+      }
+      return fallback;
+    }
+
+    final rawItems = json['items'] ?? json['Items'];
+    final items = rawItems is List
+        ? rawItems.whereType<Map<String, dynamic>>().map(itemFromJson).toList()
+        : <T>[];
+    final totalCount = integer(const [
+      'totalCount',
+      'TotalCount',
+    ], fallback: items.length);
+    final page = integer(const ['page', 'Page'], fallback: 1);
+    final pageSize = integer(const [
+      'pageSize',
+      'PageSize',
+    ], fallback: items.length);
+    final totalPages = integer(const [
+      'totalPages',
+      'TotalPages',
+    ], fallback: pageSize > 0 ? (totalCount / pageSize).ceil() : 0);
+
+    return CatalogPage<T>(
+      items: items,
+      totalCount: totalCount,
+      page: page,
+      pageSize: pageSize,
+      totalPages: totalPages,
+    );
+  }
+}
+
 class _RecommendationJson {
   const _RecommendationJson._();
 

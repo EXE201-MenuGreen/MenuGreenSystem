@@ -48,15 +48,35 @@ class MealPlanRepository {
     _dashboardCacheTime = null;
   }
 
+  /// Clears cached plan data after a mutation performed by another feature.
+  void invalidateCache() => _invalidateCache();
+
   // ==================== User Meal Plan (Daily) ====================
 
   Future<UserMealPlan?> getByDate(DateTime date) async {
+    return _getByDate(date, forceRefresh: false);
+  }
+
+  /// Reloads the effective plan from the database-facing API. Use this before
+  /// mutations that require a current item ID, because daily plans can be
+  /// regenerated while an approval snapshot is still open on screen.
+  Future<UserMealPlan?> getByDateFresh(DateTime date) async {
+    return _getByDate(date, forceRefresh: true);
+  }
+
+  Future<UserMealPlan?> _getByDate(
+    DateTime date, {
+    required bool forceRefresh,
+  }) async {
     // Check cache for today's data
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final queryDate = DateTime(date.year, date.month, date.day);
 
-    if (queryDate == today && _todayCache != null && _todayCacheTime != null) {
+    if (!forceRefresh &&
+        queryDate == today &&
+        _todayCache != null &&
+        _todayCacheTime != null) {
       if (now.difference(_todayCacheTime!) < _todayCacheDuration) {
         return _todayCache;
       }
@@ -64,7 +84,8 @@ class MealPlanRepository {
 
     try {
       final response = await _api.get(
-        '${ApiEndpoints.userMealPlans}?date=${_dateQuery(date)}',
+        '${ApiEndpoints.userMealPlans}?date=${_dateQuery(date)}'
+        '${forceRefresh ? '&refresh=true' : ''}',
       );
       if (response.statusCode == 404) return null;
       if (response.statusCode != 200 || response.body.isEmpty) return null;
@@ -357,12 +378,14 @@ class MealPlanRepository {
     required DateTime plannedDate,
     required int targetCalories,
     required List<String> itemIds,
+    bool preservePlanTarget = false,
   }) async {
     final response = await _api
         .postJson(ApiEndpoints.mealPlanBalanceCalories(planId), {
           'plannedDate': _dateQuery(plannedDate),
           'targetCalories': targetCalories,
           'itemIds': itemIds,
+          'preservePlanTarget': preservePlanTarget,
         });
     if (response.statusCode != 200) {
       throw Exception(_messageFromResponse(response));

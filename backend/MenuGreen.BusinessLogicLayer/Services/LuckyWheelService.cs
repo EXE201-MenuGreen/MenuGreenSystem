@@ -34,11 +34,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _healthProfileService = healthProfileService;
         }
 
-        public async Task<IEnumerable<FoodResponse>> GetWheelFoodsAsync(Guid userId)
+        public async Task<IEnumerable<FoodResponse>> GetWheelFoodsAsync(Guid userId, int? maxPriceVnd = null)
         {
             // 1. Get user preferences & profile info
             var aiProfile = await _userAiProfileService.GetAsync(userId);
-            var budget = aiProfile?.BudgetPerMealVnd ?? int.MaxValue;
+            var budget = maxPriceVnd is > 0
+                ? maxPriceVnd.Value
+                : aiProfile?.BudgetPerMealVnd ?? int.MaxValue;
+            var enforceBudget = budget < int.MaxValue;
             var preferredRegion = aiProfile?.VietnamRegion?.Trim().ToLowerInvariant();
 
             // Extract liked keywords from AI preferences JSON if available
@@ -83,6 +86,14 @@ namespace MenuGreen.BusinessLogicLayer.Services
 
                 // Exclude if it contains any user allergen
                 if (userKeys.Any(uk => allergens.Contains(uk)))
+                {
+                    continue;
+                }
+
+                // A budget is a hard upper limit. Foods without a known price
+                // cannot be guaranteed to fit and are therefore excluded.
+                if (enforceBudget &&
+                    (!food.EstimatedPriceVnd.HasValue || food.EstimatedPriceVnd.Value > budget))
                 {
                     continue;
                 }

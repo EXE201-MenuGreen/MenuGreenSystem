@@ -56,7 +56,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
             string? category,
             bool? isActive,
             Guid? userId = null,
-            string? allergyMode = null)
+            string? allergyMode = null,
+            int? page = null,
+            int? pageSize = null)
         {
             var ingredients = await _unitOfWork.Ingredients.GetAllAsync();
             var query = ingredients.AsEnumerable();
@@ -80,8 +82,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
             }
 
             var mode = NormalizeAllergyMode(allergyMode);
+            var currentPage = pageSize.HasValue ? Math.Max(page ?? 1, 1) : 1;
+            var requestedPageSize = pageSize.HasValue
+                ? Math.Clamp(pageSize.Value, 1, 100)
+                : 0;
+            var ingredientList = query.OrderBy(i => i.NameVi).ToList();
+            var unpagedTotalCount = ingredientList.Count;
+
+            if (mode != AllergenCatalog.ModeHide && pageSize.HasValue)
+            {
+                ingredientList = ingredientList
+                    .Skip((int)Math.Min((long)(currentPage - 1) * requestedPageSize, int.MaxValue))
+                    .Take(requestedPageSize)
+                    .ToList();
+            }
+
             var items = new List<IngredientResponse>();
-            foreach (var ingredient in query)
+            foreach (var ingredient in ingredientList)
             {
                 var dto = await EnrichIngredientAsync(
                     Map(ingredient), ingredient.NameVi, ingredient.NameEn, userId, allergyMode);
@@ -90,7 +107,24 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 items.Add(dto);
             }
 
-            return new IngredientSearchResponse { Items = items, TotalCount = items.Count };
+            var totalCount = mode == AllergenCatalog.ModeHide
+                ? items.Count
+                : unpagedTotalCount;
+            var currentPageSize = pageSize.HasValue ? requestedPageSize : totalCount;
+            var pageItems = mode == AllergenCatalog.ModeHide && pageSize.HasValue
+                ? items
+                    .Skip((int)Math.Min((long)(currentPage - 1) * currentPageSize, int.MaxValue))
+                    .Take(currentPageSize)
+                    .ToList()
+                : items;
+
+            return new IngredientSearchResponse
+            {
+                Items = pageItems,
+                TotalCount = totalCount,
+                Page = currentPage,
+                PageSize = currentPageSize
+            };
         }
 
         public async Task<IReadOnlyList<IngredientRecipeResponse>> GetRecipesAsync(Guid ingredientId)

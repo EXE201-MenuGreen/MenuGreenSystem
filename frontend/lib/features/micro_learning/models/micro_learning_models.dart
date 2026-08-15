@@ -32,7 +32,9 @@ class MicroLearningCard {
   final int? selectedQuizOption;
 
   bool get hasQuiz =>
-      quizQuestion != null && quizQuestion!.trim().isNotEmpty && quizOptions.isNotEmpty;
+      quizQuestion != null &&
+      quizQuestion!.trim().isNotEmpty &&
+      quizOptions.isNotEmpty;
 
   MicroLearningCard copyWith({
     bool? isSaved,
@@ -60,15 +62,17 @@ class MicroLearningCard {
   }
 
   factory MicroLearningCard.fromJson(Map<String, dynamic> json) {
-    String text(String key) => (json[key] ?? json[_pascal(key)] ?? '').toString();
-    int number(String key) =>
-        (json[key] ?? json[_pascal(key)]) is num
-            ? ((json[key] ?? json[_pascal(key)]) as num).toInt()
-            : int.tryParse(text(key)) ?? 0;
+    String text(String key) =>
+        (json[key] ?? json[_pascal(key)] ?? '').toString();
+    int number(String key) => (json[key] ?? json[_pascal(key)]) is num
+        ? ((json[key] ?? json[_pascal(key)]) as num).toInt()
+        : int.tryParse(text(key)) ?? 0;
     bool flag(String key) => (json[key] ?? json[_pascal(key)]) == true;
     List<String> strings(String key) {
       final raw = json[key] ?? json[_pascal(key)];
-      return raw is List ? raw.map((item) => item.toString()).toList() : const [];
+      return raw is List
+          ? raw.map((item) => item.toString()).toList()
+          : const [];
     }
 
     final quizCorrect = json['isQuizCorrect'] ?? json['IsQuizCorrect'];
@@ -87,7 +91,9 @@ class MicroLearningCard {
       isRead: flag('isRead'),
       isQuizCompleted: flag('isQuizCompleted'),
       isQuizCorrect: quizCorrect is bool ? quizCorrect : null,
-      selectedQuizOption: _intOrNull(json['selectedQuizOption'] ?? json['SelectedQuizOption']),
+      selectedQuizOption: _intOrNull(
+        json['selectedQuizOption'] ?? json['SelectedQuizOption'],
+      ),
     );
   }
 }
@@ -111,8 +117,10 @@ class MicroLearningCategory {
     final total = json['totalCards'] ?? json['TotalCards'];
     return MicroLearningCategory(
       name: (json['name'] ?? json['Name'] ?? '').toString(),
-      displayName: (json['displayName'] ?? json['DisplayName'] ?? '').toString(),
-      description: (json['description'] ?? json['Description'] ?? '').toString(),
+      displayName: (json['displayName'] ?? json['DisplayName'] ?? '')
+          .toString(),
+      description: (json['description'] ?? json['Description'] ?? '')
+          .toString(),
       icon: (json['icon'] ?? json['Icon'] ?? '').toString(),
       totalCards: total is num ? total.toInt() : int.tryParse('$total') ?? 0,
     );
@@ -147,14 +155,16 @@ class QuizSubmitResult {
   }
 }
 
-String _pascal(String value) => '${value[0].toUpperCase()}${value.substring(1)}';
+String _pascal(String value) =>
+    '${value[0].toUpperCase()}${value.substring(1)}';
 
 String? _nullable(dynamic value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty || text == 'null' ? null : text;
 }
 
-int? _intOrNull(dynamic value) => value is num ? value.toInt() : int.tryParse('$value');
+int? _intOrNull(dynamic value) =>
+    value is num ? value.toInt() : int.tryParse('$value');
 
 class FoodMoodItem {
   const FoodMoodItem({
@@ -196,7 +206,8 @@ class FoodMoodItem {
             carbsG: 28.0,
             fatG: 5.5,
             estimatedPriceVnd: 45000,
-            description: 'Hạt sen dưỡng tâm an thần, kết hợp đạm gà dễ tiêu hóa.',
+            description:
+                'Hạt sen dưỡng tâm an thần, kết hợp đạm gà dễ tiêu hóa.',
           ),
           RescueFood(
             name: 'Salad bơ quả mộng & ức gà',
@@ -214,7 +225,8 @@ class FoodMoodItem {
             carbsG: 35.0,
             fatG: 3.0,
             estimatedPriceVnd: 25000,
-            description: 'Chuối giàu Tryptophan - tiền chất sản sinh Serotonin vui vẻ.',
+            description:
+                'Chuối giàu Tryptophan - tiền chất sản sinh Serotonin vui vẻ.',
           ),
         ],
       ),
@@ -235,7 +247,8 @@ class FoodMoodItem {
             carbsG: 22.0,
             fatG: 9.0,
             estimatedPriceVnd: 30000,
-            description: 'Chất xơ Pectin giải phóng năng lượng bền bỉ cả buổi chiều.',
+            description:
+                'Chất xơ Pectin giải phóng năng lượng bền bỉ cả buổi chiều.',
           ),
           RescueFood(
             name: 'Trà xanh lạnh không đường & Chanh',
@@ -244,7 +257,8 @@ class FoodMoodItem {
             carbsG: 3.0,
             fatG: 0.0,
             estimatedPriceVnd: 15000,
-            description: 'L-theanine trong trà xanh giúp tỉnh táo và tập trung cao.',
+            description:
+                'L-theanine trong trà xanh giúp tỉnh táo và tập trung cao.',
           ),
           RescueFood(
             name: 'Sữa chua Kép hạt chia & Việt quất',
@@ -253,7 +267,8 @@ class FoodMoodItem {
             carbsG: 16.0,
             fatG: 4.5,
             estimatedPriceVnd: 35000,
-            description: 'Probiotics giúp tiêu hóa nhẹ bụng, đẩy lùi cảm giác nặng nề.',
+            description:
+                'Probiotics giúp tiêu hóa nhẹ bụng, đẩy lùi cảm giác nặng nề.',
           ),
         ],
       ),
@@ -283,7 +298,8 @@ class FoodMoodItem {
             carbsG: 15.0,
             fatG: 11.0,
             estimatedPriceVnd: 30000,
-            description: 'Giàu Polyphenol chống oxy hóa và xoa dịu cơn thèm đường.',
+            description:
+                'Giàu Polyphenol chống oxy hóa và xoa dịu cơn thèm đường.',
           ),
           RescueFood(
             name: 'Chè hạt sen nhãn nhục ít đường',
@@ -313,7 +329,8 @@ class FoodMoodItem {
             carbsG: 40.0,
             fatG: 5.0,
             estimatedPriceVnd: 50000,
-            description: 'Tỷ lệ Đạm - Tinh bột chuẩn tối ưu cho sự phát triển cơ.',
+            description:
+                'Tỷ lệ Đạm - Tinh bột chuẩn tối ưu cho sự phát triển cơ.',
           ),
           RescueFood(
             name: 'Sinh tố Whey Protein & Chuối',
@@ -352,7 +369,8 @@ class FoodMoodItem {
             carbsG: 38.0,
             fatG: 4.5,
             estimatedPriceVnd: 35000,
-            description: 'Gừng tươi làm ấm bụng, giải cảm và êm dịu đường ruột.',
+            description:
+                'Gừng tươi làm ấm bụng, giải cảm và êm dịu đường ruột.',
           ),
           RescueFood(
             name: 'Canh cua đồng rau đét & Cà muối',
@@ -398,4 +416,14 @@ class RescueFood {
   final int estimatedPriceVnd;
   final String description;
   final String? imageUrl;
+
+  Map<String, dynamic> toPlanMealJson(String mealType) => {
+    'mealType': mealType,
+    'customName': name,
+    'quantityG': 100,
+    'caloriesKcal': caloriesKcal,
+    'proteinG': proteinG,
+    'carbsG': carbsG,
+    'fatG': fatG,
+  };
 }

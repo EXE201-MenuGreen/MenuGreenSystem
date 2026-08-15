@@ -18,6 +18,7 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
   final List<MealTemplateDraftItem> _items = [];
   var _saving = false;
   var _loadingPreset = false;
+  var _loadingDetails = false;
 
   @override
   void initState() {
@@ -26,6 +27,7 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
     if (template != null) {
       _titleController.text = template.title;
       _descriptionController.text = template.description ?? '';
+      _loadingDetails = true;
       _loadDetails(template.id);
     }
   }
@@ -56,7 +58,7 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
                 recipeId: item.recipeId,
                 customName: item.customName,
                 sourceType: item.sourceType,
-                mealType: item.mealType ?? template.mealType ?? 'Snack',
+                mealType: _itemMealType(item, template),
                 label: label,
                 quantityG: item.quantityG,
                 notes: item.notes,
@@ -69,7 +71,16 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
             }),
           );
       });
-    } catch (_) {}
+    } catch (error) {
+      if (mounted) {
+        _showEditorMessage(
+          'Không thể tải các món trong thực đơn. ${error.toString().replaceFirst('Exception: ', '')}',
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingDetails = false);
+    }
   }
 
   Future<void> _choosePreset() async {
@@ -282,18 +293,24 @@ class _MealTemplateEditorScreenState extends State<MealTemplateEditorScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          ..._mealTypes.map(
-            (type) => _MealTypeEditorSection(
-              mealType: type,
-              items: _items,
-              onAdd: () => _addItem(type),
-              onEdit: _editItem,
-              onRemove: (index) => setState(() => _items.removeAt(index)),
+          if (_loadingDetails)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            ..._mealTypes.map(
+              (type) => _MealTypeEditorSection(
+                mealType: type,
+                items: _items,
+                onAdd: () => _addItem(type),
+                onEdit: _editItem,
+                onRemove: (index) => setState(() => _items.removeAt(index)),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: _saving ? null : _save,
+            onPressed: _saving || _loadingDetails ? null : _save,
             child: Text(_saving ? 'Đang lưu...' : 'Lưu thực đơn'),
           ),
         ],

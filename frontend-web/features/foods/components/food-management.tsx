@@ -10,6 +10,7 @@ import { FoodFormDialog } from "@/features/foods/components/food-form-dialog";
 import { useFoods, defaultFoodFilters } from "@/features/foods/hooks/use-foods";
 import type { Food } from "@/features/foods/types";
 import { formatNumber, formatVnd } from "@/lib/utils/format";
+import { translateData } from "@/lib/utils/data-translator";
 
 export function FoodManagement() {
   const {
@@ -241,7 +242,7 @@ export function FoodManagement() {
                         ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-zinc-600 dark:text-zinc-300">
-                        {food.category || "—"}
+                        {food.category ? translateData(food.category) : "—"}
                       </td>
                       <td className="px-4 py-4 text-sm text-zinc-600 dark:text-zinc-300">
                         {formatNumber(food.caloriesKcal)}

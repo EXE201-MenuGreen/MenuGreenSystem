@@ -7,6 +7,35 @@ import 'package:frontend/features/coach_pt/views/coach_meal_plan_detail_screen.d
 import 'package:provider/provider.dart';
 
 void main() {
+  test('tracking excludes logs outside the selected plan date', () {
+    final current = ClientMealLogItem(
+      id: 'current-log',
+      mealType: 'dinner',
+      calories: 434,
+      proteinG: 44,
+      carbsG: 39,
+      fatG: 10,
+      loggedAt: DateTime(2026, 8, 13, 18, 30),
+    );
+    final old = ClientMealLogItem(
+      id: 'old-log',
+      mealType: 'dinner',
+      calories: 620,
+      proteinG: 48,
+      carbsG: 45,
+      fatG: 24,
+      loggedAt: DateTime(2026, 8, 12, 19, 14),
+    );
+
+    final result = coachLogsForPlanRange(
+      [old, current],
+      DateTime(2026, 8, 13),
+      DateTime(2026, 8, 13),
+    );
+
+    expect(result.map((log) => log.id), ['current-log']);
+  });
+
   test('nutrition summary reads target fields and actual meal logs', () {
     final summary = ClientDayNutrition.fromJson({
       'Date': '2026-08-11',

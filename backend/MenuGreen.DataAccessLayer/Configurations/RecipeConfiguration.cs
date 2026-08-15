@@ -17,6 +17,8 @@ namespace MenuGreen.DataAccessLayer.Configurations
             builder.Property(x => x.Instructions).HasColumnType("json");
             builder.Property(x => x.ImageUrl).HasColumnType("text");
             builder.Property(x => x.VideoUrl).HasColumnType("text");
+            builder.Property(x => x.SourceName).HasMaxLength(200);
+            builder.Property(x => x.SourceUrl).HasMaxLength(1000);
             builder.HasOne(x => x.Food).WithMany(x => x.Recipes).HasForeignKey(x => x.FoodId);
 
             // Add indexes for frequently queried columns (performance optimization)

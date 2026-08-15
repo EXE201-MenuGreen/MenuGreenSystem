@@ -38,9 +38,9 @@ class AdvancedFeaturesScreen extends StatelessWidget {
             .toLowerCase();
         final isAdmin = role == 'admin';
         final tabs = gymerOnly
-            ? const [Tab(text: 'PT Review'), Tab(text: 'Huấn luyện viên')]
+            ? const [Tab(text: 'Đánh giá của PT'), Tab(text: 'Huấn luyện viên')]
             : <Tab>[
-                const Tab(text: 'PT Review'),
+                const Tab(text: 'Đánh giá của PT'),
                 const Tab(text: 'Ngân sách'),
                 const Tab(text: 'Coach'),
                 const Tab(text: 'Nguyên liệu'),
@@ -3745,8 +3745,8 @@ class _UserTabState extends State<_UserTab> {
                         PopupMenuItem(value: 'lock', child: Text('Khóa')),
                         PopupMenuItem(value: 'unlock', child: Text('Mở khóa')),
                         PopupMenuItem(
-                          value: 'role:User',
-                          child: Text('Gán User'),
+                          value: 'role:Free',
+                          child: Text('Gán Free'),
                         ),
                         PopupMenuItem(
                           value: 'role:Coach',

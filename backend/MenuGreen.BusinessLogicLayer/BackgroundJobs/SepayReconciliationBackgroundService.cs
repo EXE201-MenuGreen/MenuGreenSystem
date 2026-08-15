@@ -210,6 +210,23 @@ namespace MenuGreen.BusinessLogicLayer.BackgroundJobs
                                 };
                                 await unitOfWork.SubscriptionTransactions.AddAsync(tx);
 
+                                // Upgrade user role to Office when purchasing an Office plan
+                                if (string.Equals(plan?.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(plan?.Name, "Office", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var user = await unitOfWork.Users.GetByIdAsync(subscription.UserId);
+                                    if (user != null)
+                                    {
+                                        var officeRole = (await unitOfWork.Roles.FindAsync(r => r.Name == "Office")).FirstOrDefault();
+                                        if (officeRole != null && user.RoleId != officeRole.Id)
+                                        {
+                                            user.RoleId = officeRole.Id;
+                                            user.UpdatedAt = DateTime.UtcNow;
+                                            unitOfWork.Users.Update(user);
+                                        }
+                                    }
+                                }
+
                                 // Notify user
                                 var notifRequest = new NotificationSendRequest
                                 {

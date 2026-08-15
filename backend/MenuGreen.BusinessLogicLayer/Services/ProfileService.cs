@@ -317,9 +317,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private async Task<string> GetRoleNameAsync(Guid userId)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null) return "User";
+            if (user == null) return "Free";
             var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
-            return roleEntities.FirstOrDefault()?.Name ?? "User";
+            return roleEntities.FirstOrDefault()?.Name ?? "Free";
         }
 
         private ProfileResponse MapToResponse(Profile p, HealthProfile hp, string roleName)

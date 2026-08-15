@@ -410,6 +410,23 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 TransactionDate = now,
                 CreatedAt = now
             });
+
+            // Upgrade user role to Office when purchasing an Office plan
+            if (string.Equals(plan.FeatureGroup, "office", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(plan.Name, "Office", StringComparison.OrdinalIgnoreCase))
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(subscription.UserId);
+                if (user != null)
+                {
+                    var officeRole = (await _unitOfWork.Roles.FindAsync(r => r.Name == "Office")).FirstOrDefault();
+                    if (officeRole != null && user.RoleId != officeRole.Id)
+                    {
+                        user.RoleId = officeRole.Id;
+                        user.UpdatedAt = now;
+                        _unitOfWork.Users.Update(user);
+                    }
+                }
+            }
         }
 
         private async Task<string> GenerateUniqueProviderOrderCodeAsync()

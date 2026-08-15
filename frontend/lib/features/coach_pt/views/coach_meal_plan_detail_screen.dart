@@ -5,11 +5,27 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/daily_calorie_portion_balancer.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
+import '../../../core/widgets/calorie_adjustment_picker.dart';
 import '../../../core/widgets/daily_calorie_balance_card.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
 import '../coach_pt.dart';
+
+@visibleForTesting
+List<ClientMealLogItem> coachLogsForPlanRange(
+  Iterable<ClientMealLogItem> logs,
+  DateTime? startDate,
+  DateTime? endDate,
+) {
+  if (startDate == null) return logs.toList();
+  final start = DateUtils.dateOnly(startDate);
+  final end = DateUtils.dateOnly(endDate ?? startDate);
+  return logs.where((log) {
+    final loggedDate = DateUtils.dateOnly(log.loggedAt.toLocal());
+    return !loggedDate.isBefore(start) && !loggedDate.isAfter(end);
+  }).toList();
+}
 
 /// Coach edits a specific Gymer's meal plan.
 ///
@@ -181,6 +197,8 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
                             .toSet()
                             .length,
                         canAutoBalance: !readOnly,
+                        actionLabel: 'Tùy chỉnh',
+                        allowAdjustmentWhenExact: true,
                         onAutoBalance: readOnly
                             ? null
                             : () => _autoBalanceDraftDate(plan, date, target),
@@ -197,15 +215,22 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
     );
   }
 
-  void _autoBalanceDraftDate(
+  Future<void> _autoBalanceDraftDate(
     CoachMealPlanDetail plan,
     DateTime date,
     int target,
-  ) {
+  ) async {
     final items = _draftItemsForDate(plan, date);
     if (items.isEmpty) return;
-    final result = DailyCaloriePortionBalancer.balance(
+
+    final desiredCalories = await showCalorieAdjustmentPicker(
+      context: context,
       targetCalories: target,
+    );
+    if (desiredCalories == null || !mounted) return;
+
+    final result = DailyCaloriePortionBalancer.balance(
+      targetCalories: desiredCalories,
       portions: items
           .map(
             (item) => CaloriePortionInput(
@@ -249,12 +274,18 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
 
     final percent = ((result.scaleFactor - 1).abs() * 100).round();
     final action = result.scaleFactor >= 1 ? 'tăng' : 'giảm';
+    final targetComparison = desiredCalories == target
+        ? 'đúng mục tiêu'
+        : desiredCalories < target
+        ? 'thấp hơn mục tiêu'
+        : 'cao hơn mục tiêu';
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            'Đã $action khẩu phần khoảng $percent%. Hãy lưu hoặc duyệt để áp dụng.',
+            'Đã $action khẩu phần khoảng $percent% về $desiredCalories kcal '
+            '($targetComparison $target kcal). Hãy lưu hoặc duyệt để áp dụng.',
           ),
         ),
       );
@@ -942,7 +973,11 @@ class _NutritionTrackingTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final nutritionProvider = context.watch<CoachMealPlanProvider>();
     final actualDays = nutritionProvider.nutritionSummary;
-    final actualLogs = actualDays.expand((day) => day.logs).toList();
+    final actualLogs = coachLogsForPlanRange(
+      actualDays.expand((day) => day.logs),
+      plan.header.startDate,
+      plan.header.endDate,
+    );
     final planType = plan.header.planType.toLowerCase();
 
     // Determine display title based on plan type
@@ -978,9 +1013,9 @@ class _NutritionTrackingTab extends StatelessWidget {
     final totalPlannedCalories = itemCalories > 0
         ? itemCalories
         : dailyCalorieTarget * planDayCount;
-    final totalActualCalories = actualDays.fold<int>(
+    final totalActualCalories = actualLogs.fold<int>(
       0,
-      (sum, day) => sum + day.actualCalories,
+      (sum, log) => sum + log.calories,
     );
     final itemProtein = draft.fold<int>(
       0,
@@ -989,9 +1024,9 @@ class _NutritionTrackingTab extends StatelessWidget {
     final totalPlannedProtein = itemProtein > 0
         ? itemProtein
         : (plan.targetProteinG ?? 0) * planDayCount;
-    final totalActualProtein = actualDays.fold<int>(
+    final totalActualProtein = actualLogs.fold<int>(
       0,
-      (sum, day) => sum + day.actualProtein,
+      (sum, log) => sum + log.proteinG.round(),
     );
     final itemCarbs = draft.fold<int>(
       0,
@@ -1000,9 +1035,9 @@ class _NutritionTrackingTab extends StatelessWidget {
     final totalPlannedCarbs = itemCarbs > 0
         ? itemCarbs
         : (plan.targetCarbsG ?? 0) * planDayCount;
-    final totalActualCarbs = actualDays.fold<int>(
+    final totalActualCarbs = actualLogs.fold<int>(
       0,
-      (sum, day) => sum + day.actualCarbs,
+      (sum, log) => sum + log.carbsG.round(),
     );
     final itemFat = draft.fold<int>(
       0,
@@ -1011,9 +1046,9 @@ class _NutritionTrackingTab extends StatelessWidget {
     final totalPlannedFat = itemFat > 0
         ? itemFat
         : (plan.targetFatG ?? 0) * planDayCount;
-    final totalActualFat = actualDays.fold<int>(
+    final totalActualFat = actualLogs.fold<int>(
       0,
-      (sum, day) => sum + day.actualFat,
+      (sum, log) => sum + log.fatG.round(),
     );
     final completedCount = actualLogs.length;
     final linkedItemIds = actualLogs
@@ -1935,7 +1970,7 @@ class _MacroComparisonSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MacroBar(
-            label: 'Carbs',
+            label: 'Carb',
             subtitle: 'Tinh bột',
             planned: plannedCarbs,
             actual: actualCarbs,
@@ -1947,7 +1982,7 @@ class _MacroComparisonSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MacroBar(
-            label: 'Fat',
+            label: 'Chất béo',
             subtitle: 'Chất béo',
             planned: plannedFat,
             actual: actualFat,
@@ -2425,7 +2460,7 @@ class _NutritionTargetsSection extends StatelessWidget {
                       Expanded(
                         child: _MacroCard(
                           icon: Icons.bakery_dining_rounded,
-                          label: 'Carbs',
+                          label: 'Carb',
                           value: '$totalC g',
                           bgColor: AppColors.primary.withValues(alpha: 0.05),
                           borderColor: AppColors.primary.withValues(
@@ -2438,7 +2473,7 @@ class _NutritionTargetsSection extends StatelessWidget {
                       Expanded(
                         child: _MacroCard(
                           icon: Icons.water_drop_outlined,
-                          label: 'Fat',
+                          label: 'Chất béo',
                           value: '$totalF g',
                           bgColor: AppColors.primary.withValues(alpha: 0.08),
                           borderColor: AppColors.primary.withValues(alpha: 0.2),

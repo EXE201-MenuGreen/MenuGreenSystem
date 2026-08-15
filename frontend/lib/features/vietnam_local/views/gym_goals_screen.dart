@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
+import '../../../core/widgets/calorie_adjustment_picker.dart';
 import '../../../core/widgets/daily_calorie_balance_card.dart';
 import '../../discover/views/food_detail_screen.dart';
 import '../../discover/views/recipe_detail_screen.dart';
@@ -123,6 +124,14 @@ GymRouteApprovalPhase gymRouteApprovalPhase(Object? rawStatus) {
     'reviewed' || 'applied' => GymRouteApprovalPhase.completed,
     _ => GymRouteApprovalPhase.none,
   };
+}
+
+@visibleForTesting
+bool gymPlanIsPtManaged(UserMealPlan? plan) {
+  if (plan == null) return false;
+  final generatedBy = plan.generatedBy?.trim().toLowerCase();
+  return const {'coach', 'pt_approved'}.contains(generatedBy) ||
+      plan.status?.trim().toLowerCase() == 'approved';
 }
 
 @visibleForTesting
@@ -245,8 +254,20 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       _ptConnectionPhase == GymPtConnectionPhase.connected;
 
   bool get _hasTodayPtProgram =>
-      _todayPtProgram != null ||
-      _todayPlan?.generatedBy?.trim().toLowerCase() == 'coach';
+      _todayPtProgram != null || gymPlanIsPtManaged(_todayPlan);
+
+  List<MealPlanItemModel> get _visibleTodayPlanItems {
+    final items = _todayPlan?.items ?? const <MealPlanItemModel>[];
+    if (_hasTodayPtProgram) return items;
+    return items
+        .where(
+          (item) =>
+              item.origin == null ||
+              item.origin!.isEmpty ||
+              item.origin?.toLowerCase() == 'gym',
+        )
+        .toList();
+  }
 
   Future<void> _loadTodayPtProgram() async {
     if (mounted) {
@@ -293,7 +314,10 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       _loadingPlan = true;
     });
     try {
-      final plan = await MealPlanRepository().getByDate(_planDate);
+      // This screen is the plan editor. It must bypass the short-lived cache,
+      // especially after local seed/reset operations where cached plan IDs may
+      // no longer exist in the database.
+      final plan = await MealPlanRepository().getByDateFresh(_planDate);
       setState(() {
         _todayPlan = plan;
         _loadingPlan = false;
@@ -308,7 +332,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Future<void> _loadTodayPlanQuietly() async {
     if (!_hasProAccess) return;
     try {
-      final plan = await MealPlanRepository().getByDate(_planDate);
+      final plan = await MealPlanRepository().getByDateFresh(_planDate);
       if (mounted) {
         setState(() {
           _todayPlan = plan;
@@ -336,13 +360,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   bool get _hasTodayGymItems {
     if (_hasTodayPtProgram) return false;
-    if (_todayPlan == null) return false;
-    return _todayPlan!.items.any(
-      (x) =>
-          x.origin == null ||
-          x.origin!.isEmpty ||
-          x.origin?.toLowerCase() == 'gym',
-    );
+    return _visibleTodayPlanItems.isNotEmpty;
   }
 
   String get _planDateLabel =>
@@ -1082,16 +1100,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
         ),
       );
     }
-    final gymItems =
-        _todayPlan?.items
-            .where(
-              (x) =>
-                  x.origin == null ||
-                  x.origin!.isEmpty ||
-                  x.origin?.toLowerCase() == 'gym',
-            )
-            .toList() ??
-        [];
+    final gymItems = _visibleTodayPlanItems;
     if (gymItems.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1362,16 +1371,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
   Widget _buildTodayMealPlan(GymGoalsProvider provider) {
     final slots = ['breakfast', 'lunch', 'dinner', 'snack'];
     final routePhase = gymRouteApprovalPhase(_activeRouteReq?['status']);
-    final gymItems =
-        _todayPlan?.items
-            .where(
-              (item) =>
-                  item.origin == null ||
-                  item.origin!.isEmpty ||
-                  item.origin!.toLowerCase() == 'gym',
-            )
-            .toList() ??
-        const <MealPlanItemModel>[];
+    final gymItems = _visibleTodayPlanItems;
     final targetCalories = _todayPlan?.targetCalories ?? 0;
     final canAutoBalance = gymCanAutoBalancePlan(
       hasPlan: _todayPlan != null,
@@ -1434,6 +1434,8 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                       .toSet()
                       .length,
                   canAutoBalance: canAutoBalance,
+                  actionLabel: 'Tùy chỉnh',
+                  allowAdjustmentWhenExact: true,
                   lockedLabel: _balancingCalories
                       ? 'Đang chỉnh'
                       : _isSentToPt
@@ -1444,6 +1446,29 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
                       : null,
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (!_hasTodayPtProgram &&
+            !_isSentToPt &&
+            _hasAcceptedPtConnection) ...[
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('gymer-add-meal-entry-button'),
+              onPressed: _addGymMealEntry,
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+              label: const Text('Thêm bữa ăn'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -1943,6 +1968,12 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       return;
     }
 
+    final desiredCalories = await showCalorieAdjustmentPicker(
+      context: context,
+      targetCalories: plan.targetCalories,
+    );
+    if (desiredCalories == null || !mounted) return;
+
     final originalTotal = items.fold<int>(
       0,
       (sum, item) => sum + item.targetCalories,
@@ -1952,22 +1983,27 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       final balanced = await MealPlanRepository().balanceDailyCalories(
         planId: plan.id,
         plannedDate: _planDate,
-        targetCalories: plan.targetCalories,
+        targetCalories: desiredCalories,
         itemIds: items.map((item) => item.id).toList(),
+        preservePlanTarget: true,
       );
       if (!mounted) return;
       setState(() => _todayPlan = balanced);
-      final factor = originalTotal <= 0
-          ? 1.0
-          : plan.targetCalories / originalTotal;
+      final factor = originalTotal <= 0 ? 1.0 : desiredCalories / originalTotal;
       final percent = ((factor - 1).abs() * 100).round();
       final action = factor >= 1 ? 'tăng' : 'giảm';
+      final targetComparison = desiredCalories == plan.targetCalories
+          ? 'đúng mục tiêu'
+          : desiredCalories < plan.targetCalories
+          ? 'thấp hơn mục tiêu'
+          : 'cao hơn mục tiêu';
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
             content: Text(
-              'Đã $action khẩu phần khoảng $percent% và cân bằng về ${plan.targetCalories} kcal.',
+              'Đã $action khẩu phần khoảng $percent% về $desiredCalories kcal '
+              '($targetComparison ${plan.targetCalories} kcal).',
             ),
           ),
         );
@@ -1986,17 +2022,9 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
 
   Widget _buildMealSlot(String mealType, GymGoalsProvider provider) {
     // Chỉ hiển thị items có origin = 'gym' (từ AI Gym Goals)
-    final items =
-        _todayPlan?.items
-            .where(
-              (x) =>
-                  x.mealType.toLowerCase() == mealType &&
-                  (x.origin == null ||
-                      x.origin!.isEmpty ||
-                      x.origin?.toLowerCase() == 'gym'),
-            )
-            .toList() ??
-        [];
+    final items = _visibleTodayPlanItems
+        .where((item) => item.mealType.toLowerCase() == mealType)
+        .toList();
     final color = _mealSlotColor(mealType);
     final hasMultipleItems = items.length > 1;
     final isExpanded = _mealSlotExpanded[mealType] ?? (!hasMultipleItems);
@@ -2754,6 +2782,50 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
     );
   }
 
+  Future<void> _addGymMealEntry() async {
+    var selectedMealType = 'snack';
+    final mealType = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Thêm bữa ăn'),
+          content: DropdownButtonFormField<String>(
+            initialValue: selectedMealType,
+            decoration: const InputDecoration(
+              labelText: 'Loại bữa ăn',
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+              DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
+              DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
+              DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setDialogState(() => selectedMealType = value);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Hủy'),
+            ),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(selectedMealType),
+              icon: const Icon(Icons.restaurant_menu_rounded, size: 18),
+              label: const Text('Chọn món'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || mealType == null) return;
+    _showAddSuggestionSheet(mealType);
+  }
+
   Future<void> _sendToPt() async {
     if (_balancingCalories) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2798,7 +2870,7 @@ class _GymGoalsScreenState extends State<GymGoalsScreen> {
       // The server snapshot is authoritative. Reload immediately before
       // submission so the Gymer and PT cannot send/read different calorie
       // revisions after a portion adjustment.
-      final latestPlan = await MealPlanRepository().getByDate(_planDate);
+      final latestPlan = await MealPlanRepository().getByDateFresh(_planDate);
       if (latestPlan == null) {
         throw Exception('Không tìm thấy lộ trình mới nhất để gửi PT duyệt.');
       }

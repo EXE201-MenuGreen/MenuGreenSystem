@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/api_message_translator.dart';
 import '../utils/personal_program_period.dart';
 import '../utils/route_approval_period.dart';
 
@@ -422,7 +423,7 @@ class _StatusChip extends StatelessWidget {
         const Color(0xFFFECACA),
       ),
       _ => (
-        status,
+        status.translatedData,
         const Color(0xFFF3F4F6),
         AppColors.textSecondary,
         const Color(0xFFE5E7EB),

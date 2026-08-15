@@ -304,13 +304,13 @@ class _PersonalProgramDetailScreenState
                 ),
                 _TargetRow(
                   icon: Icons.bakery_dining_rounded,
-                  label: 'Carbs',
+                  label: 'Carb',
                   value: '${p['targetCarbsG'] ?? '?'} g',
                   color: const Color(0xFF8D6E63),
                 ),
                 _TargetRow(
                   icon: Icons.water_drop_outlined,
-                  label: 'Fat',
+                  label: 'Chất béo',
                   value: '${p['targetFatG'] ?? '?'} g',
                   color: const Color(0xFFFFA000),
                 ),

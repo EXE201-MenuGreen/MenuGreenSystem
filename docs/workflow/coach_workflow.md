@@ -429,7 +429,7 @@ Migration và script liên quan:
 
 - Migration EF: `20260806093402_AddMealPlanProposals`.
 - `backend/database/58_meal_plan_proposals.sql`: tạo bảng, khóa ngoại và index theo cách idempotent.
-- `backend/database/59_current_week_reporting_demo.sql`: dữ liệu mẫu từ đầu tuần hiện tại đến ngày chạy thử.
+- `backend/database/demo/current_week_reporting.sql`: dữ liệu mẫu tùy chọn từ đầu tuần hiện tại đến ngày chạy thử.
 
 ## 15. Xử lý lỗi và bảo mật
 

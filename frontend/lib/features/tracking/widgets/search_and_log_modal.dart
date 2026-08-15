@@ -17,6 +17,7 @@ class SearchAndLogModal extends StatefulWidget {
     required this.defaultGrams,
     required this.isRecipe,
     required this.onSuccess,
+    this.isIngredient = false,
     this.initialMealType = 'breakfast',
     this.fallbackNutrition,
     this.fallbackNutritionMultiplier = 1,
@@ -28,6 +29,7 @@ class SearchAndLogModal extends StatefulWidget {
   final String keyword;
   final double defaultGrams;
   final bool isRecipe;
+  final bool isIngredient;
   final VoidCallback onSuccess;
   final String initialMealType;
   final CvNutritionInfo? fallbackNutrition;
@@ -62,7 +64,9 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
 
   Future<void> _searchDatabaseItem() async {
     try {
-      final results = widget.isRecipe
+      final results = widget.isIngredient
+          ? await widget.repository.getIngredients(keyword: widget.keyword)
+          : widget.isRecipe
           ? await widget.repository.getRecipes(keyword: widget.keyword)
           : await widget.repository.getFoods(keyword: widget.keyword);
 
@@ -92,31 +96,53 @@ class _SearchAndLogModalState extends State<SearchAndLogModal> {
     setState(() => _searching = true);
 
     try {
+      final ingredientRatio = widget.isIngredient ? qty / 100 : 0.0;
       final ok = widget.submitter != null
           ? await widget.submitter!(_mealType, qty, selectedItem)
           : await widget.repository.createMealLog(
-              foodId: widget.isRecipe ? null : selectedItem?.id,
+              foodId: widget.isRecipe || widget.isIngredient
+                  ? null
+                  : selectedItem?.id,
               recipeId: widget.isRecipe ? selectedItem?.id : null,
               mealType: _mealType,
               quantityG: qty,
-              notes: selectedItem == null
+              notes: widget.isIngredient
+                  ? 'Nguyên liệu nhận diện từ AI scan: ${widget.keyword}'
+                  : selectedItem == null
                   ? 'Ước tính từ AI scan: ${widget.keyword}'
                   : null,
-              customName: selectedItem == null ? widget.keyword : null,
+              customName: widget.isIngredient
+                  ? selectedItem?.name ?? widget.keyword
+                  : selectedItem == null
+                  ? widget.keyword
+                  : null,
+              sourceType: widget.isIngredient
+                  ? 'AiIngredientScan'
+                  : fallbackNutrition != null
+                  ? 'AiDishScan'
+                  : null,
               loggedAt: DateTime.now(),
-              caloriesKcal: selectedItem == null
+              caloriesKcal: widget.isIngredient
+                  ? (selectedItem?.caloriesKcal ?? 0) * ingredientRatio
+                  : selectedItem == null
                   ? fallbackNutrition!.tongCalories *
                         widget.fallbackNutritionMultiplier
                   : null,
-              proteinG: selectedItem == null
+              proteinG: widget.isIngredient
+                  ? (selectedItem?.proteinG ?? 0) * ingredientRatio
+                  : selectedItem == null
                   ? fallbackNutrition!.proteinG *
                         widget.fallbackNutritionMultiplier
                   : null,
-              carbsG: selectedItem == null
+              carbsG: widget.isIngredient
+                  ? (selectedItem?.carbsG ?? 0) * ingredientRatio
+                  : selectedItem == null
                   ? fallbackNutrition!.carbsG *
                         widget.fallbackNutritionMultiplier
                   : null,
-              fatG: selectedItem == null
+              fatG: widget.isIngredient
+                  ? (selectedItem?.fatG ?? 0) * ingredientRatio
+                  : selectedItem == null
                   ? fallbackNutrition!.fatG * widget.fallbackNutritionMultiplier
                   : null,
             );

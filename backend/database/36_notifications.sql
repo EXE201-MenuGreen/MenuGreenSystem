@@ -1,8 +1,8 @@
 -- =============================================================================
 -- MenuGreen Seed Data - Table: notifications
--- Sequence Number: 35b
+-- Sequence Number: 36
 -- Phase 8: merged from 35_notifications.sql + 58_notification_action_url.sql
--- (Must run after 35a_campaigns.sql for FK constraint on CampaignId.)
+-- (Must run after 35_campaigns.sql for FK constraint on CampaignId.)
 -- =============================================================================
 BEGIN;
 

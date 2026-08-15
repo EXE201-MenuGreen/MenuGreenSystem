@@ -358,7 +358,7 @@ Migration chính: `20260806093402_AddMealPlanProposals`.
 Các script phục vụ cài đặt và dữ liệu mẫu tuần hiện tại:
 
 - `backend/database/58_meal_plan_proposals.sql`
-- `backend/database/59_current_week_reporting_demo.sql`
+- `backend/database/demo/current_week_reporting.sql`
 
 Script dữ liệu mẫu hiện tại tạo dữ liệu từ đầu tuần `03/08/2026` đến ngày `07/08/2026` và được thiết kế để có thể chạy lại an toàn.
 

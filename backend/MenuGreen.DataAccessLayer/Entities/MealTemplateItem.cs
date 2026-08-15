@@ -10,6 +10,7 @@ namespace MenuGreen.DataAccessLayer.Entities
         public Guid? RecipeId { get; set; }
         public string? CustomName { get; set; }
         public string? SourceType { get; set; }
+        public string MealType { get; set; } = "Snack";
         public decimal QuantityG { get; set; }
         public decimal? CaloriesKcal { get; set; }
         public decimal? ProteinG { get; set; }

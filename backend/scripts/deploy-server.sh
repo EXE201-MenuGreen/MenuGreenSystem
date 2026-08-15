@@ -654,7 +654,26 @@ for sql_file in /tmp/nginx-deploy/backend/database/*.sql; do
       PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "DELETE FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null
     fi
   else
-    # Standard check for other migrations
+    # Files 35-41 were renumbered from the legacy 35a/35b/36-40 names.
+    # Honor the old migration record so a deployed database never reruns the
+    # destructive DROP/CREATE seed scripts under their new filenames.
+    legacy_filename=""
+    case "$filename" in
+      "35_campaigns.sql") legacy_filename="35a_campaigns.sql" ;;
+      "36_notifications.sql") legacy_filename="35b_notifications.sql" ;;
+      "37_activity_logs.sql") legacy_filename="36_activity_logs.sql" ;;
+      "38_meal_templates.sql") legacy_filename="37_meal_templates.sql" ;;
+      "39_meal_template_items.sql") legacy_filename="38_meal_template_items.sql" ;;
+      "40_reminder_profiles.sql") legacy_filename="39_reminder_profiles.sql" ;;
+      "41_goal_drift_alerts.sql") legacy_filename="40_goal_drift_alerts.sql" ;;
+    esac
+
+    if [ -n "$legacy_filename" ] && PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$legacy_filename';" 2>/dev/null | grep -q 1; then
+      PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -c "INSERT INTO \"_RawSqlMigrations\" (\"ScriptName\") VALUES ('$filename') ON CONFLICT DO NOTHING;" >/dev/null 2>&1 || true
+      echo "    ⊘ $filename (already applied as $legacy_filename)"
+      continue
+    fi
+
     if PGPASSWORD="$DB_PASS_PRECHECK" psql -h "$DB_HOST_PRECHECK" -p "$DB_PORT_PRECHECK" -U "$DB_USER_PRECHECK" -d "$DB_NAME_PRECHECK" -tAc "SELECT 1 FROM \"_RawSqlMigrations\" WHERE \"ScriptName\" = '$filename';" 2>/dev/null | grep -q 1; then
       echo "    ⊘ $filename (already applied)"
       continue

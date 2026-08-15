@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/daily_calorie_portion_balancer.dart';
 import '../../../core/utils/nutrition_format.dart';
+import '../../../core/widgets/calorie_adjustment_picker.dart';
 import '../../../core/widgets/daily_calorie_balance_card.dart';
 import '../../discover/models/food_models.dart';
 import '../../discover/repositories/food_discovery_repository.dart';
@@ -1236,6 +1237,26 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
           const SizedBox(height: 16),
         ],
 
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const ValueKey('add-meal-entry-button'),
+            onPressed: _addMealEntry,
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+            label: const Text('Thêm bữa ăn'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // Meal Slots Accordions
         for (final mealType in const [
           (
@@ -1274,7 +1295,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
             bgColor: mealType.$4,
             textColor: mealType.$5,
             items: _itemsByMeal[mealType.$1]!,
-            onAdd: () => _pickItemFor(mealType.$1),
+            onAdd: () => _addMealEntry(initialMealType: mealType.$1),
             onRemove: (it) =>
                 setState(() => _itemsByMeal[mealType.$1]!.remove(it)),
             onEdit: _editDraftItem,
@@ -1360,6 +1381,8 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       totalCalories: total,
       targetCalories: target,
       mealCount: mealCount,
+      actionLabel: 'Tùy chỉnh',
+      allowAdjustmentWhenExact: true,
       onAutoBalance: () => _autoBalanceDate(date),
     );
   }
@@ -1380,13 +1403,19 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
     return result;
   }
 
-  void _autoBalanceDate(DateTime date) {
+  Future<void> _autoBalanceDate(DateTime date) async {
     final target = _targetCalories ?? 0;
     final locations = _draftItemsForDate(date);
     if (target <= 0 || locations.isEmpty) return;
 
-    final result = DailyCaloriePortionBalancer.balance(
+    final desiredCalories = await showCalorieAdjustmentPicker(
+      context: context,
       targetCalories: target,
+    );
+    if (desiredCalories == null || !mounted) return;
+
+    final result = DailyCaloriePortionBalancer.balance(
+      targetCalories: desiredCalories,
       portions: locations
           .map(
             (location) => CaloriePortionInput(
@@ -1413,12 +1442,18 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
 
     final percent = ((result.scaleFactor - 1).abs() * 100).round();
     final action = result.scaleFactor >= 1 ? 'tăng' : 'giảm';
+    final targetComparison = desiredCalories == target
+        ? 'đúng mục tiêu'
+        : desiredCalories < target
+        ? 'thấp hơn mục tiêu'
+        : 'cao hơn mục tiêu';
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            'Đã $action khẩu phần khoảng $percent% cho ngày ${_fmt(date)} để đạt $target kcal.',
+            'Đã $action khẩu phần khoảng $percent% cho ngày ${_fmt(date)} '
+            'về $desiredCalories kcal ($targetComparison $target kcal).',
           ),
         ),
       );
@@ -1582,7 +1617,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _MacroStatCard(
-                      label: 'Carbs',
+                      label: 'Carb',
                       value: '$averageCarbs g',
                       color: AppColors.primary,
                       bgColor: AppColors.primary.withValues(alpha: 0.05),
@@ -1591,7 +1626,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _MacroStatCard(
-                      label: 'Fat',
+                      label: 'Chất béo',
                       value: '$averageFat g',
                       color: AppColors.primary,
                       bgColor: AppColors.primary.withValues(alpha: 0.08),
@@ -1787,6 +1822,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
   Future<void> _pickItemFor(
     String mealType, {
     _DraftItemDraft? replacing,
+    DateTime? plannedDate,
   }) async {
     final pick = await showModalBottomSheet<_PickResult>(
       context: context,
@@ -1794,13 +1830,14 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       builder: (_) => const _IngredientPickerSheet(),
     );
     if (pick != null && mounted) {
-      final plannedDate = replacing?.plannedDate ?? _resolvedRange.$1;
+      final resolvedDate =
+          replacing?.plannedDate ?? plannedDate ?? _resolvedRange.$1;
       final replacement = _DraftItemDraft(
         mealType: mealType,
         foodId: pick.kind == _IngredientKind.food ? pick.id : null,
         recipeId: pick.kind == _IngredientKind.recipe ? pick.id : null,
         label: pick.name,
-        plannedDate: plannedDate,
+        plannedDate: resolvedDate,
         scheduledTime: replacing?.scheduledTime ?? _mealDefaultTime(mealType),
         targetCalories: pick.calories,
         quantityG: pick.quantityG ?? replacing?.quantityG ?? 100,
@@ -1819,6 +1856,78 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
         }
       });
     }
+  }
+
+  Future<void> _addMealEntry({String initialMealType = 'snack'}) async {
+    var selectedMealType = initialMealType;
+    var selectedDate = _resolvedRange.$1;
+    final selection = await showDialog<({String mealType, DateTime date})>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Thêm bữa ăn'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: selectedMealType,
+                decoration: const InputDecoration(
+                  labelText: 'Loại bữa ăn',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng')),
+                  DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa')),
+                  DropdownMenuItem(value: 'dinner', child: Text('Bữa tối')),
+                  DropdownMenuItem(value: 'snack', child: Text('Bữa phụ')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selectedMealType = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<DateTime>(
+                initialValue: selectedDate,
+                decoration: const InputDecoration(
+                  labelText: 'Ngày dùng bữa',
+                  border: OutlineInputBorder(),
+                ),
+                items: _planDates
+                    .map(
+                      (date) => DropdownMenuItem(
+                        value: date,
+                        child: Text(_fmt(date)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selectedDate = value);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Hủy'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop((mealType: selectedMealType, date: selectedDate)),
+              icon: const Icon(Icons.restaurant_menu_rounded, size: 18),
+              label: const Text('Chọn món'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selection == null || !mounted) return;
+    await _pickItemFor(selection.mealType, plannedDate: selection.date);
   }
 
   Future<void> _editDraftItem(_DraftItemDraft item) async {
@@ -2231,7 +2340,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       'day' => 'Ngày',
       'week' => 'Tuần',
       'month' => 'Tháng',
-      _ => 'Profile',
+      _ => 'Hồ sơ',
     };
   }
 }
@@ -2798,13 +2907,26 @@ class _MealPickerRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_rounded, size: 22),
-                  color: textColor,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                TextButton.icon(
                   onPressed: onAdd,
-                  tooltip: 'Thêm món',
+                  icon: Icon(
+                    Icons.add_circle_rounded,
+                    size: 18,
+                    color: textColor,
+                  ),
+                  label: Text(
+                    'Thêm',
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(0, 32),
+                  ),
                 ),
               ],
             ),

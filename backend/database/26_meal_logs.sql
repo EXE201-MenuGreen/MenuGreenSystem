@@ -19,6 +19,8 @@ CREATE TABLE meal_logs (
     "FatG" numeric NULL,
     "SourceType" text NULL,
     "CustomName" character varying(200) NULL,
+    "IngredientSnapshotJson" jsonb NULL,
+    "ConsumptionRatio" numeric(8,4) NULL,
     "Notes" text NULL,
     "LoggedAt" timestamp with time zone NULL,
     "MealPlanItemId" uuid NULL,
@@ -27,7 +29,9 @@ CREATE TABLE meal_logs (
     CONSTRAINT "FK_meal_logs_foods_FoodId" FOREIGN KEY ("FoodId") REFERENCES foods ("Id") ON DELETE SET NULL,
     CONSTRAINT "FK_meal_logs_meal_plan_items_MealPlanItemId" FOREIGN KEY ("MealPlanItemId") REFERENCES meal_plan_items ("Id") ON DELETE SET NULL,
     CONSTRAINT "FK_meal_logs_recipes_RecipeId" FOREIGN KEY ("RecipeId") REFERENCES recipes ("Id") ON DELETE SET NULL,
-    CONSTRAINT "FK_meal_logs_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+    CONSTRAINT "FK_meal_logs_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE,
+    CONSTRAINT "CK_meal_logs_ConsumptionRatio_Positive"
+        CHECK ("ConsumptionRatio" IS NULL OR "ConsumptionRatio" > 0)
 );
 
 INSERT INTO meal_logs ("Id", "UserId", "FoodId", "RecipeId", "MealType", "QuantityG", "CaloriesKcal", "ProteinG", "CarbsG", "FatG", "SourceType", "Notes", "LoggedAt", "MealPlanItemId", "IsFromMealPlan")
@@ -266,38 +270,82 @@ VALUES
 ('50000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'fd000002-0000-0000-0000-000000000002', NULL, 'Lunch', 300.00, 500.0, 35.0, 60.0, 12.0, 'PlanConvert', 'Ăn trưa theo kế hoạch', now() - interval '6 hours', NULL, true)
 ON CONFLICT DO NOTHING;
 
--- =============================================================================
--- Add CoachId to meal_plan_headers (merged from 26_meal_plan_coach.sql)
--- Goal: track which meal plans were created by a Coach on behalf of a Gymer.
--- Idempotent migration: safe to run multiple times.
--- =============================================================================
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'meal_plan_headers'
-          AND column_name = 'CoachId'
-    ) THEN
-        ALTER TABLE meal_plan_headers
-        ADD COLUMN "CoachId" uuid NULL;
-    END IF;
-END $$;
+-- Backfill legacy log projections that were copied to a plan without their
+-- nutrition snapshot or source-log link. Safe when there are no matches.
+CREATE TEMP TABLE meal_log_plan_pairs ON COMMIT DROP AS
+WITH plan_candidates AS (
+    SELECT
+        item."Id" AS item_id,
+        header."UserId" AS user_id,
+        item."PlannedDate" AS planned_date,
+        lower(trim(coalesce(item."MealType", 'snack'))) AS meal_type,
+        lower(trim(coalesce(item."CustomName", ''))) AS item_name,
+        coalesce(item."TargetCalories", 0) AS calories,
+        row_number() OVER (
+            PARTITION BY header."UserId", item."PlannedDate",
+                lower(trim(coalesce(item."MealType", 'snack'))),
+                lower(trim(coalesce(item."CustomName", ''))),
+                coalesce(item."TargetCalories", 0)
+            ORDER BY item."CreatedAt", item."Id"
+        ) AS occurrence
+    FROM meal_plan_items item
+    JOIN meal_plan_headers header ON header."Id" = item."MealPlanId"
+    WHERE item."IsCompleted" = true
+      AND lower(coalesce(item."SourceType", '')) = 'meal_log'
+      AND NOT EXISTS (
+          SELECT 1 FROM meal_logs linked_log
+          WHERE linked_log."MealPlanItemId" = item."Id"
+      )
+),
+log_candidates AS (
+    SELECT
+        log."Id" AS log_id,
+        log."UserId" AS user_id,
+        (log."LoggedAt" AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS logged_date,
+        lower(trim(coalesce(log."MealType", 'snack'))) AS meal_type,
+        lower(trim(coalesce(log."CustomName", log."Notes", ''))) AS log_name,
+        round(coalesce(log."CaloriesKcal", 0))::integer AS calories,
+        row_number() OVER (
+            PARTITION BY log."UserId",
+                (log."LoggedAt" AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
+                lower(trim(coalesce(log."MealType", 'snack'))),
+                lower(trim(coalesce(log."CustomName", log."Notes", ''))),
+                round(coalesce(log."CaloriesKcal", 0))::integer
+            ORDER BY log."LoggedAt", log."Id"
+        ) AS occurrence
+    FROM meal_logs log
+    WHERE log."MealPlanItemId" IS NULL
+      AND log."LoggedAt" IS NOT NULL
+)
+SELECT plan.item_id, source.log_id
+FROM plan_candidates plan
+JOIN log_candidates source
+  ON source.user_id = plan.user_id
+ AND source.logged_date = plan.planned_date
+ AND source.meal_type = plan.meal_type
+ AND source.log_name = plan.item_name
+ AND source.calories = plan.calories
+ AND source.occurrence = plan.occurrence;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.table_constraints
-        WHERE constraint_name = 'FK_meal_plan_headers_users_CoachId'
-    ) THEN
-        ALTER TABLE meal_plan_headers
-        ADD CONSTRAINT "FK_meal_plan_headers_users_CoachId"
-        FOREIGN KEY ("CoachId") REFERENCES users ("Id") ON DELETE SET NULL;
-    END IF;
-END $$;
+UPDATE meal_plan_items item
+SET
+    "FoodId" = source."FoodId",
+    "RecipeId" = source."RecipeId",
+    "QuantityG" = source."QuantityG",
+    "TargetCalories" = round(coalesce(source."CaloriesKcal", 0))::integer,
+    "ProteinG" = source."ProteinG",
+    "CarbsG" = source."CarbsG",
+    "FatG" = source."FatG",
+    "IngredientSnapshotJson" = source."IngredientSnapshotJson"
+FROM meal_log_plan_pairs pair
+JOIN meal_logs source ON source."Id" = pair.log_id
+WHERE item."Id" = pair.item_id;
 
-CREATE INDEX IF NOT EXISTS "IX_meal_plan_headers_CoachId"
-ON meal_plan_headers ("CoachId");
+UPDATE meal_logs log
+SET
+    "MealPlanItemId" = pair.item_id,
+    "IsFromMealPlan" = true
+FROM meal_log_plan_pairs pair
+WHERE log."Id" = pair.log_id;
 
 COMMIT;

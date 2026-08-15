@@ -314,6 +314,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
 
     final targetChanged =
         previousAmount != input.amount || previousMinutes != input.minutes;
+    var budgetSaved = false;
     setState(() => _savingBudget = true);
     try {
       final saved = await _budgetRepository.saveBudget(
@@ -321,25 +322,47 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
         amount: input.amount,
         minutes: input.minutes,
       );
+      budgetSaved = true;
       if (!mounted) return;
-      setState(() {
-        _budget = saved;
-        if (targetChanged) {
+      setState(() => _budget = saved);
+      if (targetChanged) {
+        setState(() => _generating = true);
+        await _generateAndSyncPlan();
+        _notice('Đã tạo lại món ăn và danh sách đi chợ theo ngân sách mới.');
+      } else {
+        _notice('Đã lưu mục tiêu ngân sách tuần.');
+      }
+    } catch (error) {
+      if (mounted && budgetSaved && targetChanged) {
+        setState(() {
           _plan = null;
           _groceryList = null;
           _budgetStatus = null;
-        }
-      });
-      _notice(
-        targetChanged
-            ? 'Ngân sách đã thay đổi. Hãy tạo lại kế hoạch cơm hộp.'
-            : 'Đã lưu mục tiêu ngân sách tuần.',
-      );
-    } catch (error) {
+        });
+      }
       _notice(error);
     } finally {
-      if (mounted) setState(() => _savingBudget = false);
+      if (mounted) {
+        setState(() {
+          _savingBudget = false;
+          _generating = false;
+        });
+      }
     }
+  }
+
+  Future<void> _generateAndSyncPlan() async {
+    final plan = await _mealPlanRepository.generateBudgetLunchboxPlan();
+    final results = await Future.wait([
+      _mealPlanRepository.getGroceryList(plan.id),
+      _mealPlanRepository.getBudgetStatus(plan.id),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _plan = plan;
+      _groceryList = results[0];
+      _budgetStatus = results[1];
+    });
   }
 
   Future<void> _generatePlan() async {
@@ -352,17 +375,7 @@ class _OfficeMealPlanScreenState extends State<OfficeMealPlanScreen> {
 
     setState(() => _generating = true);
     try {
-      final plan = await _mealPlanRepository.generateBudgetLunchboxPlan();
-      final results = await Future.wait([
-        _mealPlanRepository.getGroceryList(plan.id),
-        _mealPlanRepository.getBudgetStatus(plan.id),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _plan = plan;
-        _groceryList = results[0];
-        _budgetStatus = results[1];
-      });
+      await _generateAndSyncPlan();
     } catch (error) {
       _notice(error);
     } finally {

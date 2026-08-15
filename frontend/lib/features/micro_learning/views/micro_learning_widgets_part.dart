@@ -25,7 +25,10 @@ class _MoodSelectionGrid extends StatelessWidget {
               onTap: () => onSelectMood(mood),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.primary : Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -40,7 +43,7 @@ class _MoodSelectionGrid extends StatelessWidget {
                             color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
-                          )
+                          ),
                         ]
                       : [],
                 ),
@@ -52,8 +55,9 @@ class _MoodSelectionGrid extends StatelessWidget {
                       mood.title,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w600,
                         color: isSelected ? Colors.white : Colors.black87,
                       ),
                     ),
@@ -71,10 +75,12 @@ class _MoodSelectionGrid extends StatelessWidget {
 class _MoodRescueSection extends StatelessWidget {
   const _MoodRescueSection({
     required this.mood,
+    required this.submitting,
     required this.onAppliedFood,
   });
 
   final FoodMoodItem mood;
+  final bool submitting;
   final ValueChanged<RescueFood> onAppliedFood;
 
   @override
@@ -135,7 +141,11 @@ class _MoodRescueSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+                const Icon(
+                  Icons.lightbulb_outline,
+                  color: Colors.amber,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -158,7 +168,13 @@ class _MoodRescueSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          ...mood.rescueFoods.map((food) => _RescueFoodTile(food: food, onAppliedFood: onAppliedFood)),
+          ...mood.rescueFoods.map(
+            (food) => _RescueFoodTile(
+              food: food,
+              submitting: submitting,
+              onAppliedFood: onAppliedFood,
+            ),
+          ),
         ],
       ),
     );
@@ -168,10 +184,12 @@ class _MoodRescueSection extends StatelessWidget {
 class _RescueFoodTile extends StatelessWidget {
   const _RescueFoodTile({
     required this.food,
+    required this.submitting,
     required this.onAppliedFood,
   });
 
   final RescueFood food;
+  final bool submitting;
   final ValueChanged<RescueFood> onAppliedFood;
 
   @override
@@ -223,50 +241,81 @@ class _RescueFoodTile extends StatelessWidget {
             style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.local_fire_department, size: 16, color: Colors.orange),
+                  const Icon(
+                    Icons.local_fire_department,
+                    size: 16,
+                    color: Colors.orange,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     '${food.caloriesKcal.toStringAsFixed(0)} kcal',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'P: ${food.proteinG}g  C: ${food.carbsG}g  F: ${food.fatG}g',
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
-              InkWell(
-                onTap: () => onAppliedFood(food),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'Ăn món này',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              Text(
+                'P: ${food.proteinG}g  C: ${food.carbsG}g  F: ${food.fatG}g',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: submitting ? null : () => onAppliedFood(food),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (submitting)
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.add_to_photos_outlined,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    const SizedBox(width: 4),
+                    Text(
+                      submitting ? 'Đang thêm...' : 'Thêm vào kế hoạch',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -409,6 +458,7 @@ class _QuizPanel extends StatelessWidget {
         onSelected?.call(value);
       }
     }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -505,5 +555,3 @@ String _categoryLabel(String value) {
       return 'Dinh dưỡng cơ bản';
   }
 }
-
-

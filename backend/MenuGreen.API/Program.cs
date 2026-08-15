@@ -105,7 +105,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy(
         "UserOnly",
-        policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office", "Coach")
+        policy => policy.RequireRole("Admin", "Free", "Casual", "Gymer", "Office", "Coach")
     );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
     options.AddPolicy(

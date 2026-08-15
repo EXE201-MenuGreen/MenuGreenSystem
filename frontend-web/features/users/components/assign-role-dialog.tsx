@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { UserAdmin } from "@/features/users/types";
 
-const ROLE_OPTIONS = ["Free", "Pro", "User", "Coach", "Admin"];
+const ROLE_OPTIONS = ["Free", "Pro", "Coach", "Admin"];
 
 interface AssignRoleDialogProps {
   user: UserAdmin | null;
@@ -20,7 +20,7 @@ export function AssignRoleDialog({
   onClose,
   onConfirm,
 }: AssignRoleDialogProps) {
-  const [role, setRole] = useState(user?.role ?? "User");
+  const [role, setRole] = useState(user?.role ?? "Free");
 
   useEffect(() => {
     if (user) setRole(user.role);

@@ -1,5 +1,6 @@
 -- =============================================================================
 -- MenuGreen - Meal plan proposal tables + current mid-week proposal seed
+-- Sequence Number: 58
 -- Safe to run repeatedly: no DROP statements and all inserts are idempotent.
 -- =============================================================================
 BEGIN;
@@ -40,6 +41,10 @@ CREATE TABLE IF NOT EXISTS meal_plan_proposal_items (
     "RecipeId" uuid NULL,
     "QuantityG" numeric(10,2) NULL,
     "TargetCalories" integer NULL,
+    "ProteinG" numeric(10,2) NULL,
+    "CarbsG" numeric(10,2) NULL,
+    "FatG" numeric(10,2) NULL,
+    "IngredientSnapshotJson" jsonb NULL,
     "SortOrder" integer NOT NULL,
     "CreatedAt" timestamp with time zone NOT NULL,
     CONSTRAINT "PK_meal_plan_proposal_items" PRIMARY KEY ("Id"),

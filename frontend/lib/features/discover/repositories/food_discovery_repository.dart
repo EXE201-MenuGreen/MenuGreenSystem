@@ -52,6 +52,22 @@ class FoodDiscoveryRepository {
     FoodSearchFilters? filters,
     String? region,
   }) async {
+    return (await searchFoodsPage(
+      keyword: keyword,
+      allergyMode: allergyMode,
+      filters: filters,
+      region: region,
+    )).items;
+  }
+
+  Future<CatalogPage<FoodItem>> searchFoodsPage({
+    String? keyword,
+    String allergyMode = 'warn',
+    FoodSearchFilters? filters,
+    String? region,
+    int? page,
+    int? pageSize,
+  }) async {
     try {
       final params = <String, String>{
         if (QueryMiddleware.normalizeKeyword(keyword) != null)
@@ -69,21 +85,22 @@ class FoodDiscoveryRepository {
           'category': filters.category!.trim(),
         if (region != null && region.isNotEmpty) 'region': region,
         if (region != null && region.isNotEmpty) 'sort': 'local-friendly',
+        if (page != null) 'page': '$page',
+        if (pageSize != null) 'pageSize': '$pageSize',
       };
       final url = QueryMiddleware.buildUrl(ApiEndpoints.foods, params);
       final response = await _api.get(url);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return [];
-      final items = decoded['items'] ?? decoded['Items'];
-      if (items is! List) return [];
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(FoodItem.fromJson)
-          .toList();
+      if (decoded is! Map<String, dynamic>) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
+      return CatalogPage.fromJson(decoded, FoodItem.fromJson);
     } catch (e, stack) {
       AppLogger.error('FoodDiscoveryRepository.searchFoods', e, stack);
-      return [];
+      return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
     }
   }
 
@@ -125,26 +142,39 @@ class FoodDiscoveryRepository {
     String? keyword,
     String allergyMode = 'warn',
   }) async {
+    return (await searchRecipesPage(
+      keyword: keyword,
+      allergyMode: allergyMode,
+    )).items;
+  }
+
+  Future<CatalogPage<RecipeItem>> searchRecipesPage({
+    String? keyword,
+    String allergyMode = 'warn',
+    int? page,
+    int? pageSize,
+  }) async {
     try {
       final params = <String, String>{
         if (QueryMiddleware.normalizeKeyword(keyword) != null)
           'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
+        if (page != null) 'page': '$page',
+        if (pageSize != null) 'pageSize': '$pageSize',
       };
       final url = QueryMiddleware.buildUrl(ApiEndpoints.recipeSearch, params);
       final response = await _api.get(url);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return [];
-      final items = decoded['items'] ?? decoded['Items'];
-      if (items is! List) return [];
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(RecipeItem.fromJson)
-          .toList();
+      if (decoded is! Map<String, dynamic>) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
+      return CatalogPage.fromJson(decoded, RecipeItem.fromJson);
     } catch (e, stack) {
       AppLogger.error('FoodDiscoveryRepository.searchRecipes', e, stack);
-      return [];
+      return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
     }
   }
 
@@ -209,7 +239,8 @@ class FoodDiscoveryRepository {
           return const FavoriteFoodsLoadResult(
             items: [],
             isFromCache: false,
-            message: 'D\u1eef li\u1ec7u m\u00f3n y\u00eau th\u00edch kh\u00f4ng h\u1ee3p l\u1ec7.',
+            message:
+                'D\u1eef li\u1ec7u m\u00f3n y\u00eau th\u00edch kh\u00f4ng h\u1ee3p l\u1ec7.',
           );
         }
         final items = decoded
@@ -253,7 +284,8 @@ class FoodDiscoveryRepository {
         item: rawItem is Map<String, dynamic>
             ? FavoriteFoodItem.fromJson(rawItem)
             : null,
-        message: '\u0110\u00e3 th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch.',
+        message:
+            '\u0110\u00e3 th\u00eam m\u00f3n v\u00e0o y\u00eau th\u00edch.',
       );
     } catch (error, stack) {
       AppLogger.error('FoodDiscoveryRepository.addFavorite', error, stack);
@@ -405,28 +437,41 @@ class FoodDiscoveryRepository {
     String? keyword,
     String allergyMode = 'warn',
   }) async {
+    return (await searchIngredientsPage(
+      keyword: keyword,
+      allergyMode: allergyMode,
+    )).items;
+  }
+
+  Future<CatalogPage<IngredientItem>> searchIngredientsPage({
+    String? keyword,
+    String allergyMode = 'warn',
+    int? page,
+    int? pageSize,
+  }) async {
     try {
       final params = <String, String>{
         if (QueryMiddleware.normalizeKeyword(keyword) != null)
           'keyword': QueryMiddleware.normalizeKeyword(keyword)!,
         'allergyMode': allergyMode,
+        if (page != null) 'page': '$page',
+        if (pageSize != null) 'pageSize': '$pageSize',
       };
       final url = QueryMiddleware.buildUrl(
         ApiEndpoints.ingredientSearch,
         params,
       );
       final response = await _api.get(url);
-      if (response.statusCode != 200 || response.body.isEmpty) return [];
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return [];
-      final items = decoded['items'] ?? decoded['Items'];
-      if (items is! List) return [];
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(IngredientItem.fromJson)
-          .toList();
+      if (decoded is! Map<String, dynamic>) {
+        return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
+      }
+      return CatalogPage.fromJson(decoded, IngredientItem.fromJson);
     } catch (_) {
-      return [];
+      return CatalogPage.empty(page: page ?? 1, pageSize: pageSize ?? 0);
     }
   }
 

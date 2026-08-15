@@ -207,7 +207,7 @@ class HomeCalorieSection extends StatelessWidget {
                           ),
                           SizedBox(height: macroRowSpacing),
                           _MacroRow(
-                            label: 'Carbs',
+                            label: 'Carb',
                             current: carbs,
                             target: targetCarbs,
                             color: const Color(0xFFF59E0B), // Warm Amber
