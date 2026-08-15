@@ -55,7 +55,8 @@ export function useRecipes() {
   );
 
   useEffect(() => {
-    search(defaultRecipeFilters);
+    const timeoutId = window.setTimeout(() => search(defaultRecipeFilters), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [search]);
 
   const createRecipe = useCallback(

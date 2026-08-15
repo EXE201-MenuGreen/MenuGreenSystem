@@ -153,8 +153,6 @@ export function DonutChart({
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
 
-  let cumulativePercent = 0;
-
   return (
     <div className={cn("relative inline-flex items-center justify-center", className)}>
       <svg width={size} height={size} className="-rotate-90">
@@ -172,8 +170,11 @@ export function DonutChart({
         {segments.map((segment, index) => {
           const percent = total > 0 ? segment.value / total : 0;
           const dashLength = circumference * percent;
-          const dashOffset = circumference * cumulativePercent;
-          cumulativePercent += percent;
+          const precedingValue = segments
+            .slice(0, index)
+            .reduce((sum, item) => sum + item.value, 0);
+          const dashOffset =
+            circumference * (total > 0 ? precedingValue / total : 0);
 
           return (
             <circle

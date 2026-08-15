@@ -38,12 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    const token = tokenStorage.getAccessToken();
-    setIsAuthenticated(Boolean(token));
-    setRole(token ? tryGetRoleFromToken(token) : null);
-    setIsAdmin(isAdminToken(token));
-    setFullName(tokenStorage.getFullName());
-    setIsReady(true);
+    const timeoutId = window.setTimeout(() => {
+      const token = tokenStorage.getAccessToken();
+      setIsAuthenticated(Boolean(token));
+      setRole(token ? tryGetRoleFromToken(token) : null);
+      setIsAdmin(isAdminToken(token));
+      setFullName(tokenStorage.getFullName());
+      setIsReady(true);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   const login = useCallback(async (payload: LoginRequest) => {

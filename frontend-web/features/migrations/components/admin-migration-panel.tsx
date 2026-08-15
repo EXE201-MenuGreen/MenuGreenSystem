@@ -13,11 +13,6 @@ export function AdminMigrationPanel() {
     applied: string[];
     pending: string[];
   } | null>(null);
-  const [history, setHistory] = useState<Array<{
-    migrationId: string;
-    productVersion: string;
-    applied: Date | null;
-  }>>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +32,8 @@ export function AdminMigrationPanel() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    const timeoutId = window.setTimeout(fetchStatus, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchStatus]);
 
   async function handleApply() {

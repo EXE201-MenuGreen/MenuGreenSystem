@@ -20,14 +20,13 @@ export function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const queryError =
+    searchParams.get("error") === "not-admin"
+      ? "Tài khoản không có quyền Admin."
+      : null;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const error = submitError ?? queryError;
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("error") === "not-admin") {
-      setError("Tài khoản không có quyền Admin.");
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     if (isReady && isAuthenticated && isAdmin) {
@@ -37,14 +36,14 @@ export function LoginForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setSubmitError(null);
     setLoading(true);
 
     const result = await login({ email, password });
     setLoading(false);
 
     if (!result.success) {
-      setError(result.message);
+      setSubmitError(result.message);
       return;
     }
 

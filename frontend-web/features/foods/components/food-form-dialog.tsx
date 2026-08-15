@@ -34,22 +34,25 @@ export function FoodFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(food ? foodToFormState(food) : emptyFoodForm());
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setForm(food ? foodToFormState(food) : emptyFoodForm());
+      setError(null);
 
-    if (food?.id) {
-      foodApi
-        .getAllergenTags(food.id)
-        .then((tags) => {
-          setForm((current) => ({
-            ...current,
-            allergenKeys: tags.allergenKeys ?? [],
-          }));
-        })
-        .catch(() => {
-          // Admin có thể chưa có quyền — bỏ qua
-        });
-    }
+      if (food?.id) {
+        foodApi
+          .getAllergenTags(food.id)
+          .then((tags) => {
+            setForm((current) => ({
+              ...current,
+              allergenKeys: tags.allergenKeys ?? [],
+            }));
+          })
+          .catch(() => {
+            // Admin có thể chưa có quyền — bỏ qua
+          });
+      }
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [food, open]);
 
   if (!open) return null;

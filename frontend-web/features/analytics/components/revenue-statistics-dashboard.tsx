@@ -7,7 +7,7 @@ import { DateRangePicker } from "../components/analytics-ui";
 import { useRevenueTimeSeries, useRevenueByPlan } from "../hooks/use-analytics";
 import { formatVnd } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
-import type { DatePreset, DateRange } from "../types/analytics-types";
+import type { DatePreset } from "../types/analytics-types";
 
 // ============================================
 // LINE CHART COMPONENT (Simple SVG)
@@ -141,14 +141,6 @@ function RevenueLineChart({ data, height = 200, color = "#10b981" }: LineChartPr
 
 export function RevenueStatisticsDashboard() {
   const [datePreset, setDatePreset] = useState<DatePreset>("30days");
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return {
-      from: new Date(today.getTime() - 30 * 86400000),
-      to: new Date(today.getTime() + 86400000 - 1),
-    };
-  });
 
   const {
     data: timeSeriesData,

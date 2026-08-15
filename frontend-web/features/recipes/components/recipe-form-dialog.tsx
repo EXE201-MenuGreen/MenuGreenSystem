@@ -38,10 +38,16 @@ export function RecipeFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(recipe ? recipeToFormState(recipe) : emptyRecipeForm());
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setForm(recipe ? recipeToFormState(recipe) : emptyRecipeForm());
+      setError(null);
 
-    ingredientApi.search({}).then((result) => setIngredientOptions(result.items)).catch(() => setIngredientOptions([]));
+      ingredientApi
+        .search({})
+        .then((result) => setIngredientOptions(result.items))
+        .catch(() => setIngredientOptions([]));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [recipe, open]);
 
   if (!open) return null;
