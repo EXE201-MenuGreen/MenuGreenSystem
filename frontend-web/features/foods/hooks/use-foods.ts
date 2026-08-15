@@ -53,7 +53,8 @@ export function useFoods() {
   }, []);
 
   useEffect(() => {
-    search(defaultFoodFilters);
+    const timeoutId = window.setTimeout(() => search(defaultFoodFilters), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [search]);
 
   const createFood = useCallback(

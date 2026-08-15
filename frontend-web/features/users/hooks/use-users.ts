@@ -28,7 +28,8 @@ export function useUsers() {
   }, []);
 
   useEffect(() => {
-    reload();
+    const timeoutId = window.setTimeout(reload, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [reload]);
 
   const toggleStatus = useCallback(

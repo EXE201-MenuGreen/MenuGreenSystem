@@ -6,7 +6,6 @@ import {
   getAnalyticsDashboard,
   getMetrics,
   getTopEvents,
-  getFunnel,
   getMealOnboardingFunnel,
   getSubscriptionFunnel,
   getCohort,
@@ -120,7 +119,8 @@ export function useNutritionAnalytics(
   }, [datePreset, customRange, enabled]);
 
   useEffect(() => {
-    fetchData();
+    const timeoutId = window.setTimeout(fetchData, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchData]);
 
   const changePreset = useCallback((newPreset: DatePreset) => {
@@ -168,7 +168,8 @@ export function useAnalyticsDashboard() {
   }, []);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { dashboard, isLoading, error, refetch: fetch };
@@ -194,7 +195,8 @@ export function useAnalyticsMetrics(datePreset: DatePreset = "30days") {
   }, [datePreset]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { metrics, isLoading, error, refetch: fetch };
@@ -223,7 +225,8 @@ export function useTopEvents(datePreset: DatePreset = "30days") {
   }, [datePreset]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { events, isLoading, error, refetch: fetch };
@@ -251,7 +254,8 @@ export function useFunnel(type: "onboarding" | "subscription" = "onboarding") {
   }, [type]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { funnel, isLoading, error, refetch: fetch };
@@ -276,7 +280,8 @@ export function useCohort() {
   }, []);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { cohorts, isLoading, error, refetch: fetch };
@@ -303,7 +308,8 @@ export function useChurnRisk() {
   }, []);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { users, isLoading, error, refetch: fetch };
@@ -330,7 +336,8 @@ export function useInactiveUsers() {
   }, []);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { users, isLoading, error, refetch: fetch };
@@ -341,6 +348,9 @@ export function useActivityLog(params?: {
   action?: string;
   pageSize?: number;
 }) {
+  const userId = params?.userId;
+  const action = params?.action;
+  const pageSize = params?.pageSize;
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -349,7 +359,7 @@ export function useActivityLog(params?: {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getActivityLog(params);
+      const data = await getActivityLog({ userId, action, pageSize });
       setLogs(data);
     } catch (err) {
       setError(
@@ -358,10 +368,11 @@ export function useActivityLog(params?: {
     } finally {
       setIsLoading(false);
     }
-  }, [params?.userId, params?.action, params?.pageSize]);
+  }, [userId, action, pageSize]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { logs, isLoading, error, refetch: fetch };
@@ -394,7 +405,8 @@ export function useRevenueTimeSeries(datePreset: DatePreset = "30days") {
   }, [datePreset]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { data, isLoading, error, refetch: fetch };
@@ -423,7 +435,8 @@ export function useRevenueByPlan(datePreset: DatePreset = "30days") {
   }, [datePreset]);
 
   useEffect(() => {
-    fetch();
+    const timeoutId = window.setTimeout(fetch, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetch]);
 
   return { data, isLoading, error, refetch: fetch };

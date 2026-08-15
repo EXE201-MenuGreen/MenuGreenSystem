@@ -38,7 +38,8 @@ export function useMealPlans() {
   }, [filterActive]);
 
   useEffect(() => {
-    reload();
+    const timeoutId = window.setTimeout(reload, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [reload]);
 
   const createPlan = useCallback(

@@ -37,7 +37,8 @@ export function useDashboardMetrics(topCount = 10) {
   }, [topCount]);
 
   useEffect(() => {
-    reload();
+    const timeoutId = window.setTimeout(reload, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [reload]);
 
   return { metrics, revenue, userMetrics, loading, error, reload };

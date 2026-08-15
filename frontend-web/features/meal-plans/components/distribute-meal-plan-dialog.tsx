@@ -31,10 +31,12 @@ export function DistributeMealPlanDialog({
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    if (plan) {
+    if (!plan) return;
+    const timeoutId = window.setTimeout(() => {
       setTargetAudience("Pro");
       setNotes("");
-    }
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [plan]);
 
   if (!plan) return null;

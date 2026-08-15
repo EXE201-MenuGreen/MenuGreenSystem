@@ -1,7 +1,7 @@
 "use client";
 
-import { Users, Utensils, Flame, TrendingUp, TrendingDown, Award, Target } from "lucide-react";
-import { KpiCard, DonutChart, Legend, ProgressBar, StatCard, KpiCardSkeleton } from "../components/analytics-cards";
+import { Users, Utensils, Flame, Award, Target } from "lucide-react";
+import { KpiCard, DonutChart, Legend } from "../components/analytics-cards";
 import { DateRangePicker, Badge } from "../components/analytics-ui";
 import { useNutritionAnalytics } from "../hooks/use-analytics";
 import { cn } from "@/lib/utils/cn";
@@ -30,7 +30,6 @@ export function NutritionAnalyticsDashboard() {
     error,
     datePreset,
     changePreset,
-    refetch,
   } = useNutritionAnalytics({ enabled: true });
 
   const loading = isLoading || !dashboard;

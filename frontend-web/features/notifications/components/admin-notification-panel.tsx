@@ -32,7 +32,8 @@ export function AdminNotificationPanel() {
   }, []);
 
   useEffect(() => {
-    fetchStats();
+    const timeoutId = window.setTimeout(fetchStats, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchStats]);
 
   async function handleDispatch() {
