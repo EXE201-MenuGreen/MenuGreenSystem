@@ -3745,8 +3745,8 @@ class _UserTabState extends State<_UserTab> {
                         PopupMenuItem(value: 'lock', child: Text('Khóa')),
                         PopupMenuItem(value: 'unlock', child: Text('Mở khóa')),
                         PopupMenuItem(
-                          value: 'role:User',
-                          child: Text('Gán User'),
+                          value: 'role:Free',
+                          child: Text('Gán Free'),
                         ),
                         PopupMenuItem(
                           value: 'role:Coach',
