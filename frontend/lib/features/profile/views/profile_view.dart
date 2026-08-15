@@ -834,7 +834,7 @@ class _ProfileViewState extends State<ProfileView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _officeModeActivated ? 'OFFICE' : (isPro ? 'ACTIVE' : 'FREE'),
+                  _officeModeActivated ? 'OFFICE' : (isPro ? 'HOẠT ĐỘNG' : 'MIỄN PHÍ'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
