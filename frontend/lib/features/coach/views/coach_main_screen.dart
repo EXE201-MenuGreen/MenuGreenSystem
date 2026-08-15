@@ -1281,10 +1281,8 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
     _syncBadges();
 
     // Hiển thị SnackBar 5 giây cho tất cả notification
-    final displayTitle = notification.displayTitle?.isNotEmpty == true
-        ? notification.displayTitle
-        : notification.title;
-    if (displayTitle != null && displayTitle.isNotEmpty) {
+    final displayTitle = notification.displayTitle;
+    if (displayTitle.isNotEmpty) {
       context.showSuccessSnackBar(displayTitle);
     }
   }
