@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/api_message_translator_fixed.dart';
+import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/network/token_storage.dart';
 import '../../casual/views/casual_hub_screen.dart';
 import '../repositories/profile_repository.dart';
 import '../../auth/views/welcome_screen.dart';
@@ -833,7 +835,11 @@ class _ProfileViewState extends State<ProfileView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _officeModeActivated ? 'OFFICE' : (isPro ? 'ACTIVE' : 'FREE'),
+                  _officeModeActivated
+                      ? 'OFFICE'
+                      : (isPro
+                          ? activeSubscription!.status.translatedData.toUpperCase()
+                          : 'MIỄN PHÍ'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,

@@ -56,7 +56,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                     Id = u.Id,
                     Email = u.Email,
                     FullName = p?.FullName ?? "",
-                    Role = r?.Name ?? "User",
+                    Role = r?.Name ?? "Free",
                     IsActive = u.IsActive,
                     EmailConfirmed = u.EmailConfirmed,
                     CreatedAt = u.CreatedAt,
@@ -73,7 +73,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             if (user == null) throw new Exception("Account not found.");
 
             var profile = await _unitOfWork.Profiles.GetByIdAsync(userId);
-            var roleName = "User";
+            var roleName = "Free";
             var roleEntities = await _unitOfWork.Roles.FindAsync(r => r.Id == user.RoleId);
             if (roleEntities.Any())
             {

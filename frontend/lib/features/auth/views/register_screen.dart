@@ -25,7 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _confirmPasswordController = TextEditingController();
   late final AuthRepository _authRepo;
   bool _isLoading = false;
-  String _accountType = 'User';
+  String _accountType = 'Free';
   String? _emailApiError;
 
   late AnimationController _animController;
@@ -291,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   children: [
                     Expanded(
                       child: _buildAccountTypeOption(
-                        value: 'User',
+                        value: 'Free',
                         icon: Icons.person_outline_rounded,
                         title: 'Người dùng',
                         subtitle: 'Theo dõi dinh dưỡng',

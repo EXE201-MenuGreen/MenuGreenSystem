@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { MealPlan } from "@/features/meal-plans/types";
 
-const AUDIENCE_OPTIONS = ["Free", "Pro", "User", "Admin", "All"];
+const AUDIENCE_OPTIONS = ["Free", "Pro", "Admin", "All"];
 const AUDIENCE_LABELS: Record<string, string> = {
   Free: "Miễn phí",
   Pro: "Pro",
-  User: "Người dùng",
   Admin: "Quản trị viên",
   All: "Tất cả",
 };
