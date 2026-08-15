@@ -52,9 +52,12 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
 
   Future<void> _submit() async {
     if (_commentCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập nhận xét.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Vui lòng nhập nhận xét.'),
+        ),
+      );
       return;
     }
     setState(() => _submitting = true);
@@ -72,6 +75,7 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
     setState(() => _submitting = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 5),
         content: Text(
           ok
               ? 'Đã gửi đánh giá. Học viên sẽ nhận thông báo.'
@@ -211,6 +215,7 @@ class _CoachReportDetailScreenState extends State<CoachReportDetailScreen> {
     if (rawClientId == null || rawClientId.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 5),
           content: Text(
             'Không tìm thấy thông tin Gymer (clientId) để tạo lộ trình.',
           ),
@@ -2288,25 +2293,37 @@ class _MealAdjustmentDialogState extends State<_MealAdjustmentDialog> {
   void _submit() {
     if ((_action == 'replace' || _action == 'remove') && _source == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hãy chọn món đang có trong lộ trình.')),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Hãy chọn món đang có trong lộ trình.'),
+        ),
       );
       return;
     }
     if ((_action == 'add' || _action == 'replace') && _candidate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Hãy chọn món mới.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Hãy chọn món mới.'),
+        ),
+      );
       return;
     }
     if (_loadingIngredients) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang tải định lượng nguyên liệu.')),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Đang tải định lượng nguyên liệu.'),
+        ),
       );
       return;
     }
     if (_ingredients.any((item) => item.quantity <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Định lượng nguyên liệu phải lớn hơn 0.')),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Định lượng nguyên liệu phải lớn hơn 0.'),
+        ),
       );
       return;
     }

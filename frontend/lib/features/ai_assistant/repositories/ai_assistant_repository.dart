@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../../../core/i18n/api_message_translator.dart';
+import '../../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../models/ai_assistant_models.dart';

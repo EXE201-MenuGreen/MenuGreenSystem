@@ -6,12 +6,12 @@ using MenuGreen.BusinessLogicLayer.DTOs.Requests;
 using MenuGreen.BusinessLogicLayer.DTOs.Responses;
 using MenuGreen.BusinessLogicLayer.Interfaces;
 using MenuGreen.DataAccessLayer.Interfaces;
-using MenuGreen.DataAccessLayer.Entities;
 
 namespace MenuGreen.BusinessLogicLayer.Services
 {
     public class UserService : IUserService
     {
+        private static readonly string[] AssignableRoles = ["User", "Coach", "Admin"];
         private readonly IUnitOfWork _unitOfWork;
 
         public UserService(IUnitOfWork unitOfWork)
@@ -140,21 +140,15 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             if (user == null) throw new Exception("Account not found.");
 
-            var roles = await _unitOfWork.Roles.FindAsync(r => r.Name.ToLower() == newRole.ToLower());
-            var role = roles.FirstOrDefault();
-            if (role == null)
-            {
-                role = new Role
-                {
-                    Id = Guid.NewGuid(),
-                    Name = newRole,
-                    Description = $"{newRole} Role",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.Roles.AddAsync(role);
-                await _unitOfWork.CompleteAsync();
-            }
+            var canonicalRole = AssignableRoles.FirstOrDefault(role =>
+                string.Equals(role, newRole?.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (canonicalRole == null)
+                throw new ArgumentException("Role must be User, Coach, or Admin.", nameof(newRole));
+
+            var roles = await _unitOfWork.Roles.FindAsync(r =>
+                r.Name.ToLower() == canonicalRole.ToLower());
+            var role = roles.FirstOrDefault()
+                ?? throw new Exception($"Configured role '{canonicalRole}' was not found.");
 
             user.RoleId = role.Id;
             user.UpdatedAt = DateTime.UtcNow;

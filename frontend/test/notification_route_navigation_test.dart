@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/services/notification_handler.dart';
@@ -154,6 +155,41 @@ void main() {
     });
 
     expect(action.type, NotificationActionType.openGymerWeeklyReport);
+  });
+
+  testWidgets('foreground PT/Gymer notification closes after 5 seconds', (
+    tester,
+  ) async {
+    late BuildContext screenContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            screenContext = context;
+            return const Scaffold(body: SizedBox());
+          },
+        ),
+      ),
+    );
+
+    NotificationHandler().showInAppNotification(
+      screenContext,
+      const RemoteMessage(
+        notification: RemoteNotification(
+          title: 'Connection request accepted',
+          body: 'Coach Trần Minh has accepted your connection request.',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.duration, const Duration(seconds: 5));
+    expect(find.text('Yêu cầu kết nối đã được chấp nhận'), findsOneWidget);
+    expect(
+      find.text('PT Trần Minh đã chấp nhận yêu cầu kết nối của bạn.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('route status and numeric badge are visible', (tester) async {

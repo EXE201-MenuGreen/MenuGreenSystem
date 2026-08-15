@@ -404,9 +404,9 @@ class _CoachApplicationScreenState extends State<CoachApplicationScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(duration: const Duration(seconds: 5), content: Text(message)),
+    );
   }
 
   void _showError(Object error) {

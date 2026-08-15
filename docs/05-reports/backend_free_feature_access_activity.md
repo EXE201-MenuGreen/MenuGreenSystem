@@ -22,7 +22,7 @@ Một tài khoản có thể có nhiều subscription đang active. Quyền hi�
 - `subscription_plans.FeatureGroup` đã chứa các giá trị như `office` và `gym`.
 - `GET /api/UserSubscription/me/active` đã trả về toàn bộ subscription còn hiệu lực.
 - `EntitlementHandler` đã nhận biết `gym_features`, `coach_access` và `office_features`.
-- Policy `GymerOnly` đã dùng entitlement.
+- Policy `GymFeatures` đã dùng entitlement.
 - Policy `OfficeOnly` hiện dựa vào role `Office` hoặc `Admin`, chưa thống nhất với cách kiểm tra subscription của Gym.
 - `UserDashboardService` mặc định tên gói là `Free` khi người dùng không có subscription.
 
@@ -75,10 +75,10 @@ Một tài khoản có thể có nhiều subscription đang active. Quyền hi�
 
 ### Backend API
 
-- Bổ sung policy `OfficeOnly` sử dụng `EntitlementRequirement("office_features")`, tương tự `GymerOnly`.
+- Bổ sung policy `OfficeOnly` sử dụng `EntitlementRequirement("office_features")`, tương tự `GymFeatures`.
 - Chuẩn hóa `FeatureGroup` về các giá trị máy đọc được: `free`, `office`, `gym`, `coach`, `premium`.
 - Gắn `[Authorize(Policy = "OfficeOnly")]` vào toàn bộ controller/action Office.
-- Gắn `[Authorize(Policy = "GymerOnly")]` vào toàn bộ controller/action Gym/PT.
+- Gắn `[Authorize(Policy = "GymFeatures")]` vào toàn bộ controller/action Gym/PT.
 - Giữ API Free với `[Authorize(Policy = "UserOnly")]`.
 - Không dùng role giao diện hoặc `aiProfile.mode` thay cho entitlement trả phí.
 
@@ -146,7 +146,7 @@ Người dùng có cả Office và Gym/PT:
 ## 9. Tiêu chí hoàn thành
 
 - Không có API Office/Gym nào chỉ dựa vào việc frontend ẩn nút.
-- `OfficeOnly` và `GymerOnly` đều dựa trên entitlement còn hiệu lực.
+- `OfficeOnly` và `GymFeatures` đều dựa trên entitlement còn hiệu lực.
 - Người dùng Free vẫn truy cập đầy đủ API cơ bản.
 - Kết quả phân quyền nhất quán giữa API entitlement, policy và dữ liệu subscription.
 - Có unit test và integration test cho ma trận Free/Office/Gym/PT.

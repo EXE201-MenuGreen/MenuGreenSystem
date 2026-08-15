@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../../core/widgets/calorie_adjustment_picker.dart';

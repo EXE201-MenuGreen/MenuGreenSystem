@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/utils/meal_schedule_format.dart';
 import '../../../core/utils/nutrition_format.dart';
 import '../../advanced/repositories/advanced_repository.dart';
@@ -131,6 +131,7 @@ class _PersonalProgramDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(ApiMessageTranslator.translate(error.toString())),
         ),
       );
@@ -150,6 +151,7 @@ class _PersonalProgramDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(ApiMessageTranslator.translate(error.toString())),
         ),
       );
@@ -170,6 +172,7 @@ class _PersonalProgramDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(ApiMessageTranslator.translate(error.toString())),
         ),
       );
@@ -251,7 +254,8 @@ class _PersonalProgramDetailScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _Row('Mô tả', () {
-                  String descText = p['description']?.toString() ?? '(không có)';
+                  String descText =
+                      p['description']?.toString() ?? '(không có)';
                   final pattern = RegExp(
                     r'từ\s+(\d{2}/\d{2}/\d{4})\s+đến\s+(\d{2}/\d{2}/\d{4})',
                     caseSensitive: false,

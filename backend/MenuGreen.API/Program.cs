@@ -103,9 +103,12 @@ builder.Services.AddScoped<
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    // Base user APIs only require a valid account token. Product tiers are
+    // enforced by entitlement policies so stale legacy role claims cannot
+    // hide an otherwise active subscription.
     options.AddPolicy(
         "UserOnly",
-        policy => policy.RequireRole("Admin", "User", "Free", "Casual", "Gymer", "Office", "Coach")
+        policy => policy.RequireAuthenticatedUser()
     );
     options.AddPolicy("CoachOnly", policy => policy.RequireRole("Coach", "Admin"));
     options.AddPolicy(
@@ -137,7 +140,7 @@ builder.Services.AddAuthorization(options =>
             )
     );
     options.AddPolicy(
-        "GymerOnly",
+        "GymFeatures",
         policy =>
             policy.Requirements.Add(
                 new MenuGreen.API.Authorization.EntitlementRequirement("gym_features")

@@ -42,7 +42,7 @@ Nếu bất kỳ phần nào không hợp lệ, transaction rollback: không lư
 | PT gửi nhận xét bằng token | `POST /PtReview/shared-reports/{token}/submit` (không cần đăng nhập) |
 | Người dùng xem/áp dụng/từ chối | `GET /PtReview/requests/{id}/result`, `POST /PtReview/requests/{id}/apply`, `POST /PtReview/requests/{id}/reject` |
 
-`PtReview` hiện dùng policy role `GymerOnly`. Việc phân quyền theo subscription/entitlement sẽ chỉ được thực hiện sau khi các luồng nhóm người dùng hoàn chỉnh.
+`PtReview` dùng policy entitlement `GymFeatures`; người dùng cần subscription Gym đang hoạt động.
 
 ## Thanh toán subscription qua SePay
 

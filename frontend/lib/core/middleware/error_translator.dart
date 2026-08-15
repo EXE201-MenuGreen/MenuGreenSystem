@@ -1,4 +1,4 @@
-import '../i18n/api_message_translator.dart';
+import '../i18n/api_message_translator_fixed.dart';
 
 class ErrorTranslator {
   ErrorTranslator._();

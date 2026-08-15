@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../tracking/models/latest_weight_log.dart';
 import '../../tracking/repositories/nutrition_tracking_repository.dart';
 

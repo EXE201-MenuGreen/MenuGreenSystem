@@ -406,9 +406,12 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 5),
+            content: Text(e.toString()),
+          ),
+        );
       }
     }
   }
@@ -1467,7 +1470,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                           messenger.showSnackBar(
                             const SnackBar(
                               content: Text('Đã đánh dấu tất cả là đã đọc'),
-                              duration: Duration(seconds: 2),
+                              duration: Duration(seconds: 5),
                             ),
                           );
                         } catch (e) {
@@ -1479,7 +1482,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                             SnackBar(
                               content: Text('Không thể đánh dấu: $e'),
                               backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 3),
+                              duration: const Duration(seconds: 5),
                             ),
                           );
                         }

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/services/location_service.dart';
 import '../../onboarding/repositories/user_ai_profile_repository.dart';
 import '../../profile/views/allergies_screen.dart';

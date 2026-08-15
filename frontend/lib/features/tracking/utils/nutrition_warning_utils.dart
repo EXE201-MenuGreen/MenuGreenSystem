@@ -1,4 +1,4 @@
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../models/nutrition_models.dart';
 
 /// Ngưỡng lệch macro so với mục tiêu (15%).
