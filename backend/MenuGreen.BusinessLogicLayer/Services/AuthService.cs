@@ -36,8 +36,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             var existingUsers = await _unitOfWork.Users.FindAsync(u => u.Email == normalizedEmail);
             if (existingUsers.Any()) throw new Exception("Email is already registered.");
 
-            var isPtAccount = string.Equals(request.AccountType.Trim(), "PT", StringComparison.OrdinalIgnoreCase);
-            var roleName = isPtAccount ? "Coach" : "User";
+            var isCoachAccount = string.Equals(request.AccountType.Trim(), "Coach", StringComparison.OrdinalIgnoreCase);
+            var roleName = isCoachAccount ? "Coach" : "User";
             var userRole = (await _unitOfWork.Roles.FindAsync(
                 r => r.Name.ToLower() == roleName.ToLower())).FirstOrDefault();
             if (userRole == null)
@@ -46,7 +46,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 {
                     Id = Guid.NewGuid(),
                     Name = roleName,
-                    Description = isPtAccount
+                    Description = isCoachAccount
                         ? "Personal trainer / Nutrition coach"
                         : "User Role",
                     CreatedAt = DateTime.UtcNow,
@@ -89,7 +89,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.Profiles.AddAsync(profile);
             await _unitOfWork.HealthProfiles.AddAsync(health);
-            if (isPtAccount)
+            if (isCoachAccount)
             {
                 await _unitOfWork.CoachProfiles.AddAsync(new CoachProfile
                 {

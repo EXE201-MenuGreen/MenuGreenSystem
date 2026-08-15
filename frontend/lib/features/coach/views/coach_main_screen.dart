@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
+import '../../../core/utils/keyboard_aware_snackbar.dart';
 import '../../advanced/views/advanced_detail_screens.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../main/views/main_screen.dart';
@@ -1278,6 +1279,14 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
     // Cập nhật badge ngay khi có notification mới qua SignalR — user mở app
     // không cần vào tab Thông báo mới biết có notif mới.
     _syncBadges();
+
+    // Hiển thị SnackBar 5 giây cho tất cả notification
+    final displayTitle = notification.displayTitle?.isNotEmpty == true
+        ? notification.displayTitle
+        : notification.title;
+    if (displayTitle != null && displayTitle.isNotEmpty) {
+      context.showSuccessSnackBar(displayTitle);
+    }
   }
 
   @override
