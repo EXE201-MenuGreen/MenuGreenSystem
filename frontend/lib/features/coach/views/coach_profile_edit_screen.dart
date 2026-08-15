@@ -84,7 +84,8 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
       final now = DateTime.now();
       final picked = await showSafeDatePicker(
         context: context,
-        initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+        initialDate:
+            _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
         firstDate: DateTime(1950),
         lastDate: now,
         helpText: 'Chọn ngày sinh',
@@ -111,10 +112,12 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
 
   Future<void> _handlePickAndUploadAvatar() async {
     await FirebaseBootstrap.initialize();
-    if (!FirebaseBootstrap.isInitialized || !FirebaseStorageService.isSupported) {
+    if (!FirebaseBootstrap.isInitialized ||
+        !FirebaseStorageService.isSupported) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 5),
           content: Text(
             'Upload ảnh chỉ hỗ trợ trên Android/iOS. Hãy chạy app trên emulator hoặc điện thoại.',
           ),
@@ -129,7 +132,10 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Không xác định được tài khoản. Vui lòng đăng nhập lại.'),
+          duration: Duration(seconds: 5),
+          content: Text(
+            'Không xác định được tài khoản. Vui lòng đăng nhập lại.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -157,6 +163,7 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            duration: Duration(seconds: 5),
             content: Text('Cập nhật avatar thành công!'),
             backgroundColor: Colors.green,
           ),
@@ -164,6 +171,7 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            duration: Duration(seconds: 5),
             content: Text('Lưu avatar lên server thất bại.'),
             backgroundColor: Colors.red,
           ),
@@ -173,6 +181,7 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(localizeFirebaseStorageError(e)),
           backgroundColor: Colors.red,
         ),
@@ -199,12 +208,20 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
     if (result != null) {
       setState(() => _profileChanged = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Cập nhật thành công!'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại!'), backgroundColor: Colors.red),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Có lỗi xảy ra, vui lòng thử lại!'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -240,42 +257,53 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
           centerTitle: true,
           title: const Text(
             'Chỉnh sửa hồ sơ',
-            style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: AppColors.textDark,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
             : MediaQuery.removeViewInsets(
                 context: context,
                 removeBottom: true,
                 child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAvatarSection(),
-                    const SizedBox(height: 24),
-                    CustomTextField(
-                      controller: _fullNameController,
-                      label: 'Họ và tên',
-                      hintText: 'Nhập họ tên',
-                    ),
-                    const SizedBox(height: 20),
-                    _buildGenderDropdown(),
-                    const SizedBox(height: 20),
-                    _buildDateOfBirthField(),
-                    const SizedBox(height: 40),
-                    _isSaving
-                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                        : PrimaryButton(
-                            text: 'Lưu thay đổi',
-                            onPressed: _handleSave,
-                          ),
-                    const SizedBox(height: 280),
-                  ],
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAvatarSection(),
+                      const SizedBox(height: 24),
+                      CustomTextField(
+                        controller: _fullNameController,
+                        label: 'Họ và tên',
+                        hintText: 'Nhập họ tên',
+                      ),
+                      const SizedBox(height: 20),
+                      _buildGenderDropdown(),
+                      const SizedBox(height: 20),
+                      _buildDateOfBirthField(),
+                      const SizedBox(height: 40),
+                      _isSaving
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : PrimaryButton(
+                              text: 'Lưu thay đổi',
+                              onPressed: _handleSave,
+                            ),
+                      const SizedBox(height: 280),
+                    ],
+                  ),
                 ),
-              ),
               ),
       ),
     );
@@ -287,7 +315,11 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
       children: [
         const Text(
           'Ngày sinh',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -298,7 +330,10 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: AppColors.progressBackground, width: 1.5),
+              border: Border.all(
+                color: AppColors.progressBackground,
+                width: 1.5,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -307,11 +342,17 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
                 Text(
                   _dateOfBirthLabel(),
                   style: TextStyle(
-                    color: _dateOfBirth == null ? AppColors.textSecondary : AppColors.textDark,
+                    color: _dateOfBirth == null
+                        ? AppColors.textSecondary
+                        : AppColors.textDark,
                     fontSize: 14,
                   ),
                 ),
-                const Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 20),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -321,18 +362,18 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
   }
 
   Widget _buildGenderDropdown() {
-    final genderLabels = {
-      'Male': 'Nam',
-      'Female': 'Nữ',
-      'Other': 'Khác',
-    };
+    final genderLabels = {'Male': 'Nam', 'Female': 'Nữ', 'Other': 'Khác'};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Giới tính',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -346,12 +387,24 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: _gender,
-              hint: const Text('Chưa chọn', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+              hint: const Text(
+                'Chưa chọn',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down,
+                color: AppColors.textSecondary,
+              ),
               items: genderLabels.entries.map((e) {
                 return DropdownMenuItem<String>(
                   value: e.key,
-                  child: Text(e.value, style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+                  child: Text(
+                    e.value,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 14,
+                    ),
+                  ),
                 );
               }).toList(),
               onChanged: (val) => setState(() => _gender = val),
@@ -375,7 +428,11 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
                 backgroundColor: AppColors.progressBackground,
                 backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
                 child: !hasAvatar
-                    ? const Icon(Icons.person, size: 48, color: AppColors.textSecondary)
+                    ? const Icon(
+                        Icons.person,
+                        size: 48,
+                        color: AppColors.textSecondary,
+                      )
                     : null,
               ),
               if (_isAvatarSaving)
@@ -386,7 +443,10 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -405,7 +465,8 @@ class _CoachProfileEditScreenState extends State<CoachProfileEditScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_isAvatarSaving || !FirebaseStorageService.isSupported)
+              onPressed:
+                  (_isAvatarSaving || !FirebaseStorageService.isSupported)
                   ? null
                   : _handlePickAndUploadAvatar,
               icon: const Icon(Icons.photo_library_outlined, size: 20),

@@ -40,11 +40,9 @@ export function roleBadgeVariant(role: string): BadgeVariant {
   switch (role) {
     case "Admin":
       return "danger";
-    case "Pro":
-      return "info";
     case "Coach":
       return "warning";
-    case "Free":
+    case "User":
       return "success";
     default:
       return "neutral";

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/jwt_utils.dart';
 import '../../../core/network/token_storage.dart';
+import '../../../core/utils/keyboard_aware_snackbar.dart';
 import '../../advanced/views/advanced_detail_screens.dart';
 import '../../auth/views/welcome_screen.dart';
 import '../../main/views/main_screen.dart';
@@ -406,9 +407,12 @@ class _CoachClientsTabState extends State<_CoachClientsTab> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 5),
+            content: Text(e.toString()),
+          ),
+        );
       }
     }
   }
@@ -1275,6 +1279,12 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
     // Cập nhật badge ngay khi có notification mới qua SignalR — user mở app
     // không cần vào tab Thông báo mới biết có notif mới.
     _syncBadges();
+
+    // Hiển thị SnackBar 5 giây cho tất cả notification
+    final displayTitle = notification.displayTitle;
+    if (displayTitle.isNotEmpty) {
+      context.showSuccessSnackBar(displayTitle);
+    }
   }
 
   @override
@@ -1467,7 +1477,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                           messenger.showSnackBar(
                             const SnackBar(
                               content: Text('Đã đánh dấu tất cả là đã đọc'),
-                              duration: Duration(seconds: 2),
+                              duration: Duration(seconds: 5),
                             ),
                           );
                         } catch (e) {
@@ -1479,7 +1489,7 @@ class _CoachNotificationsTabState extends State<_CoachNotificationsTab>
                             SnackBar(
                               content: Text('Không thể đánh dấu: $e'),
                               backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 3),
+                              duration: const Duration(seconds: 5),
                             ),
                           );
                         }

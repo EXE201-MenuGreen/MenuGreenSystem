@@ -1769,6 +1769,7 @@ class _PremiumProgramsScreenState extends State<PremiumProgramsScreen> {
   void _showMessage(String message, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 5),
         content: Text(message),
         backgroundColor: error ? Colors.red.shade700 : AppColors.primary,
       ),
@@ -1898,7 +1899,10 @@ class _ProgramPaymentSheet extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã sao chép nội dung chuyển khoản.')),
+      const SnackBar(
+        duration: Duration(seconds: 5),
+        content: Text('Đã sao chép nội dung chuyển khoản.'),
+      ),
     );
   }
 
@@ -2259,15 +2263,21 @@ class _SentRouteTabState extends State<_SentRouteTab> {
     try {
       await widget.advancedRepository.ptAction(id, 'apply');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã áp dụng gợi ý từ PT.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Đã áp dụng gợi ý từ PT.'),
+        ),
+      );
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_cleanError(error))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text(_cleanError(error)),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _actionLoading = false);
     }

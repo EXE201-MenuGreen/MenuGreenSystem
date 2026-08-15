@@ -167,6 +167,7 @@ export function UserManagement() {
       </div>
 
       <AssignRoleDialog
+        key={selectedUser?.id ?? "closed"}
         user={selectedUser}
         loading={Boolean(selectedUser && actionLoadingId === selectedUser.id)}
         onClose={() => setSelectedUser(null)}

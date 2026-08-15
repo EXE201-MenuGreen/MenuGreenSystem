@@ -12,7 +12,7 @@ import '../../features/advanced/views/advanced_features_screen.dart';
 import '../../features/gymer/views/premium_programs_screen.dart';
 import '../../features/coach_chat/views/coach_chat_screen.dart';
 import '../../features/notifications/models/notification_models.dart';
-import '../../core/i18n/api_message_translator.dart';
+import '../../core/i18n/api_message_translator_fixed.dart';
 
 enum NotificationActionType {
   openApp,
@@ -460,7 +460,7 @@ class NotificationHandler {
           ],
         ),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 5),
         action: SnackBarAction(
           label: 'Xem',
           onPressed: () => handleNotificationTap(context, message),

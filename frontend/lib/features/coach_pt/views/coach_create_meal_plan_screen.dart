@@ -269,6 +269,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 5),
           content: Text('Đã lưu cấu hình và danh sách món thành công!'),
         ),
       );
@@ -276,6 +277,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 5),
           content: Text('Lưu bản nháp thất bại. Vui lòng thử lại.'),
         ),
       );
@@ -1451,6 +1453,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(
             'Đã $action khẩu phần khoảng $percent% cho ngày ${_fmt(date)} '
             'về $desiredCalories kcal ($targetComparison $target kcal).',
@@ -1754,6 +1757,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
       if (mounted && _suggestionsError == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            duration: Duration(seconds: 5),
             content: Text(
               'Không có món nào nằm trong khoảng kcal đã cấu hình.',
             ),
@@ -1785,6 +1789,7 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
+        duration: Duration(seconds: 5),
         content: Text(
           'Đã khởi tạo lộ trình. PT có thể thêm, thay thế hoặc xóa món trước khi lưu.',
         ),
@@ -2210,7 +2215,10 @@ class _CoachCreateMealPlanScreenState extends State<CoachCreateMealPlanScreen> {
                 if (preview.quantityG <= 0 ||
                     quantities.any((value) => value <= 0)) {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Khối lượng phải lớn hơn 0.')),
+                    const SnackBar(
+                      duration: Duration(seconds: 5),
+                      content: Text('Khối lượng phải lớn hơn 0.'),
+                    ),
                   );
                   return;
                 }

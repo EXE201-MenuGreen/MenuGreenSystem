@@ -54,7 +54,10 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
     } else {
       final error = context.read<CoachChatProvider>().error;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'Không thể gửi tin nhắn.')),
+        SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text(error ?? 'Không thể gửi tin nhắn.'),
+        ),
       );
     }
   }
@@ -148,7 +151,10 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
                       ),
                       const SizedBox(width: 5),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
@@ -190,7 +196,9 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
               Expanded(
                 child: provider.loadingMessages
                     ? const Center(
-                        child: CircularProgressIndicator(color: AppColors.primary),
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
                       )
                     : provider.error != null && provider.messages.isEmpty
                     ? _ErrorState(
@@ -372,7 +380,9 @@ class _MessageBubble extends StatelessWidget {
                   '${message.sentAt.minute.toString().padLeft(2, '0')}',
                   style: TextStyle(
                     fontSize: 10.5,
-                    color: mine ? Colors.white.withValues(alpha: 0.8) : AppColors.textSecondary,
+                    color: mine
+                        ? Colors.white.withValues(alpha: 0.8)
+                        : AppColors.textSecondary,
                   ),
                 ),
                 if (mine) ...[
@@ -491,11 +501,17 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textDark)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textDark),
+            ),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: onRetry,
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+              ),
               child: const Text('Thử lại'),
             ),
           ],

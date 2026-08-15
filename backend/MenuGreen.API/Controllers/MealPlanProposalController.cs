@@ -51,17 +51,17 @@ namespace MenuGreen.API.Controllers
             await ExecuteAsync(userId => _service.GetAsync(userId, proposalId));
 
         [HttpGet("mine")]
-        [Authorize(Policy = "GymerOnly")]
+        [Authorize(Policy = "GymFeatures")]
         public async Task<IActionResult> GetMine([FromQuery] string? status) =>
             await ExecuteAsync(userId => _service.GetMineAsync(userId, status));
 
         [HttpPost("{proposalId:guid}/apply")]
-        [Authorize(Policy = "GymerOnly")]
+        [Authorize(Policy = "GymFeatures")]
         public async Task<IActionResult> Apply(Guid proposalId) =>
             await ExecuteAsync(userId => _service.ApplyAsync(userId, proposalId));
 
         [HttpPost("{proposalId:guid}/reject")]
-        [Authorize(Policy = "GymerOnly")]
+        [Authorize(Policy = "GymFeatures")]
         public async Task<IActionResult> Reject(Guid proposalId) =>
             await ExecuteAsync(userId => _service.RejectAsync(userId, proposalId));
 
