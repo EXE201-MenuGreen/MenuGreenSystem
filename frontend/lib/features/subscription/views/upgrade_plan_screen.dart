@@ -482,7 +482,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           const SizedBox(height: 4),
           if (isBaselineFree)
             const Text(
-              'Trạng thái: Active • Không giới hạn',
+              'Trạng thái: Đang hoạt động • Không giới hạn',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             )
           else ...[
