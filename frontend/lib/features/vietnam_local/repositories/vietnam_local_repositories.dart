@@ -5,7 +5,7 @@
 // surfaced via `_apiCall` so callers can display translated messages.
 import 'dart:convert';
 
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/middleware/error_middleware.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';

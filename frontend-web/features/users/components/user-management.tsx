@@ -5,9 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Badge, roleBadgeVariant } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { AssignRoleDialog } from "@/features/users/components/assign-role-dialog";
+import { ManageMembershipDialog } from "@/features/users/components/manage-membership-dialog";
 import { useUsers } from "@/features/users/hooks/use-users";
 import type { UserAdmin } from "@/features/users/types";
 import { formatDateTime } from "@/lib/utils/format";
+
+const membershipStatusLabels: Record<string, string> = {
+  nosubscription: "Chưa đăng ký",
+  scheduled: "Đã lên lịch",
+  pendingpayment: "Chờ thanh toán",
+  expired: "Đã hết hạn",
+  cancelled: "Đã thu hồi",
+};
+
+function getMembershipLabel(user: UserAdmin) {
+  const status = user.membershipStatus.toLowerCase();
+  if (status === "active") {
+    return user.membershipTier === "free" ? "Quyền cơ bản" : user.membershipTier;
+  }
+  return membershipStatusLabels[status] ?? user.membershipStatus;
+}
 
 export function UserManagement() {
   const {
@@ -22,6 +39,7 @@ export function UserManagement() {
   } = useUsers();
 
   const [selectedUser, setSelectedUser] = useState<UserAdmin | null>(null);
+  const [membershipUser, setMembershipUser] = useState<UserAdmin | null>(null);
 
   async function handleAssignRole(user: UserAdmin, role: string) {
     await assignRole(user, role);
@@ -32,7 +50,7 @@ export function UserManagement() {
     <div>
       <PageHeader
         title="Quản lý người dùng"
-        description="Xem danh sách, bật/tắt trạng thái và gán role cho tài khoản"
+        description="Quản lý độc lập role tài khoản và gói tính năng của thành viên"
         action={
           <Button variant="secondary" onClick={() => reload()} loading={loading}>
             Làm mới
@@ -64,6 +82,9 @@ export function UserManagement() {
                   Role
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Gói thành viên
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Trạng thái
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -84,7 +105,7 @@ export function UserManagement() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-10 text-center text-sm text-zinc-500"
                   >
                     Đang tải danh sách...
@@ -93,7 +114,7 @@ export function UserManagement() {
               ) : users.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-10 text-center text-sm text-zinc-500"
                   >
                     Không có người dùng nào.
@@ -102,6 +123,8 @@ export function UserManagement() {
               ) : (
                 users.map((user) => {
                   const isBusy = actionLoadingId === user.id;
+                  const hasSubscription =
+                    user.membershipStatus.toLowerCase() !== "nosubscription";
 
                   return (
                     <tr
@@ -118,6 +141,26 @@ export function UserManagement() {
                         <Badge variant={roleBadgeVariant(user.role)}>
                           {user.role}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge
+                            variant={
+                              user.membershipStatus.toLowerCase() === "active"
+                                ? "success"
+                                : "neutral"
+                            }
+                          >
+                            {getMembershipLabel(user)}
+                          </Badge>
+                          <span className="text-xs text-zinc-500">
+                            {!hasSubscription
+                              ? "Quyền cơ bản: free_features"
+                              : user.membershipExpiresAt
+                              ? `Hết hạn ${formatDateTime(user.membershipExpiresAt)}`
+                              : user.membershipStatus}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <Badge variant={user.isActive ? "success" : "danger"}>
@@ -139,6 +182,14 @@ export function UserManagement() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            className="h-9 px-3 text-xs"
+                            disabled={isBusy}
+                            onClick={() => setMembershipUser(user)}
+                          >
+                            Quản lý gói
+                          </Button>
                           <Button
                             variant="secondary"
                             className="h-9 px-3 text-xs"
@@ -167,10 +218,17 @@ export function UserManagement() {
       </div>
 
       <AssignRoleDialog
+        key={selectedUser?.id ?? "closed"}
         user={selectedUser}
         loading={Boolean(selectedUser && actionLoadingId === selectedUser.id)}
         onClose={() => setSelectedUser(null)}
         onConfirm={handleAssignRole}
+      />
+      <ManageMembershipDialog
+        key={membershipUser?.id ?? "membership-closed"}
+        user={membershipUser}
+        onClose={() => setMembershipUser(null)}
+        onChanged={reload}
       />
     </div>
   );

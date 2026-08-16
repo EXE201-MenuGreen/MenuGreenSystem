@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../models/meal_plan_requests.dart';
 import '../models/meal_plan_responses.dart';
 import '../repositories/meal_plan_repository.dart';

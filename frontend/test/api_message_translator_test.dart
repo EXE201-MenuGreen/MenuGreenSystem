@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/i18n/api_message_translator.dart';
+import 'package:frontend/core/i18n/api_message_translator_fixed.dart';
 
 void main() {
   group('ApiMessageTranslator', () {
@@ -36,6 +36,31 @@ void main() {
     test('keeps Vietnamese messages unchanged', () {
       const vi = 'Không tải được dữ liệu.';
       expect(ApiMessageTranslator.translate(vi), vi);
+    });
+
+    test('keeps foreground notification translations valid UTF-8', () {
+      final translated = ApiMessageTranslator.translateNotification(
+        'Connection request accepted',
+      );
+
+      expect(translated, 'Yêu cầu kết nối đã được chấp nhận');
+      expect(translated, isNot(contains('Ã')));
+      expect(translated, isNot(contains('Ä')));
+    });
+
+    test('translates dynamic PT connection notifications', () {
+      expect(
+        ApiMessageTranslator.translateNotification(
+          'Coach Trần Minh has accepted your connection request.',
+        ),
+        'PT Trần Minh đã chấp nhận yêu cầu kết nối của bạn.',
+      );
+      expect(
+        ApiMessageTranslator.translateNotification(
+          'Coach Trần Minh has rejected your connection request.',
+        ),
+        'PT Trần Minh đã từ chối yêu cầu kết nối của bạn.',
+      );
     });
 
     test('translateList maps all items', () {

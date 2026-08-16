@@ -1,4 +1,4 @@
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 
 enum NotificationType {
   mealReminder,

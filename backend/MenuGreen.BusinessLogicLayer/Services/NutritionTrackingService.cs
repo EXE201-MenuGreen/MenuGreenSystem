@@ -21,6 +21,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
         private readonly IPortionConverterService _portionConverterService;
         private readonly ICacheService _cache;
         private readonly IPortionNutritionCalculator _portionCalculator;
+        private readonly IFeatureAccessService _featureAccessService;
 
         public NutritionTrackingService(
             IUnitOfWork unitOfWork,
@@ -28,7 +29,8 @@ namespace MenuGreen.BusinessLogicLayer.Services
             IRecipeService recipeService,
             IPortionConverterService portionConverterService,
             ICacheService cache,
-            IPortionNutritionCalculator portionCalculator)
+            IPortionNutritionCalculator portionCalculator,
+            IFeatureAccessService featureAccessService)
         {
             _unitOfWork = unitOfWork;
             _nutritionSnapshotService = nutritionSnapshotService;
@@ -36,6 +38,7 @@ namespace MenuGreen.BusinessLogicLayer.Services
             _portionConverterService = portionConverterService;
             _cache = cache;
             _portionCalculator = portionCalculator;
+            _featureAccessService = featureAccessService;
         }
 
         public async Task<MealLogResponse> CreateMealLogAsync(Guid userId, MealLogUpsertRequest request)
@@ -882,15 +885,9 @@ namespace MenuGreen.BusinessLogicLayer.Services
                 BaseFatG = health?.TargetFatG ?? 0
             };
 
-            var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null)
-            {
-                return context;
-            }
-
-            var role = (await _unitOfWork.Roles.FindAsync(
-                item => item.Id == user.RoleId)).FirstOrDefault();
-            if (!string.Equals(role?.Name, "Gymer", StringComparison.OrdinalIgnoreCase))
+            if (!await _featureAccessService.HasEntitlementAsync(
+                    userId,
+                    FeatureAccessResolver.GymFeatures))
             {
                 return context;
             }

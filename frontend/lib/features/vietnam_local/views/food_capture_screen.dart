@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../providers/food_capture_provider.dart';
 import '../widgets/info_card.dart';
 import '../widgets/section_header.dart';

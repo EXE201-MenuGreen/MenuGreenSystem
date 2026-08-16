@@ -37,8 +37,11 @@ export function SubscriptionPlanFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(plan ? planToFormState(plan) : emptySubscriptionPlanForm());
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setForm(plan ? planToFormState(plan) : emptySubscriptionPlanForm());
+      setError(null);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [plan, open]);
 
   if (!open) return null;

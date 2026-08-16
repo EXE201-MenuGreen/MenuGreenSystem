@@ -56,16 +56,19 @@ export function MealPlanFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(plan ? mealPlanToFormState(plan) : emptyMealPlanForm());
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setForm(plan ? mealPlanToFormState(plan) : emptyMealPlanForm());
+      setError(null);
 
-    Promise.all([
-      foodApi.search({}).then((r) => setFoods(r.items)),
-      recipeApi.search({}).then((r) => setRecipes(r.items)),
-    ]).catch(() => {
-      setFoods([]);
-      setRecipes([]);
-    });
+      Promise.all([
+        foodApi.search({}).then((r) => setFoods(r.items)),
+        recipeApi.search({}).then((r) => setRecipes(r.items)),
+      ]).catch(() => {
+        setFoods([]);
+        setRecipes([]);
+      });
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [plan, open]);
 
   if (!open) return null;

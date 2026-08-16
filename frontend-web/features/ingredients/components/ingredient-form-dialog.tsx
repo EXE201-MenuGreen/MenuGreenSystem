@@ -32,8 +32,13 @@ export function IngredientFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(ingredient ? ingredientToFormState(ingredient) : emptyIngredientForm());
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setForm(
+        ingredient ? ingredientToFormState(ingredient) : emptyIngredientForm(),
+      );
+      setError(null);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [ingredient, open]);
 
   if (!open) return null;

@@ -16,6 +16,11 @@ export const apiEndpoints = {
     byId: (id: string) => `${API_BASE_URL}/User/${id}`,
     lock: (id: string) => `${API_BASE_URL}/User/${id}/lock`,
     unlock: (id: string) => `${API_BASE_URL}/User/${id}/unlock`,
+    memberships: (id: string) => `${API_BASE_URL}/admin/users/${id}/memberships`,
+    extendMembership: (id: string, subscriptionId: string) =>
+      `${API_BASE_URL}/admin/users/${id}/memberships/${subscriptionId}/extend`,
+    revokeMembership: (id: string, subscriptionId: string) =>
+      `${API_BASE_URL}/admin/users/${id}/memberships/${subscriptionId}/revoke`,
   },
   coachApplication: {
     list: `${API_BASE_URL}/Coaches/admin/applications`,

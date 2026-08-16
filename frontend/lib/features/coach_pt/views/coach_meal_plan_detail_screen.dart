@@ -283,6 +283,7 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(
             'Đã $action khẩu phần khoảng $percent% về $desiredCalories kcal '
             '($targetComparison $target kcal). Hãy lưu hoặc duyệt để áp dụng.',
@@ -310,12 +311,18 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
     if (!mounted) return false;
     if (ok) {
       setState(() => _dirty = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã lưu nháp lộ trình.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Đã lưu nháp lộ trình.'),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lưu thất bại. Vui lòng thử lại.')),
+        const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('Lưu thất bại. Vui lòng thử lại.'),
+        ),
       );
     }
     return ok;
@@ -343,6 +350,7 @@ class _CoachMealPlanDetailScreenState extends State<CoachMealPlanDetailScreen>
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
+            duration: const Duration(seconds: 5),
             content: Text(
               message == null || message.isEmpty
                   ? 'Gửi thất bại. Vui lòng thử lại.'

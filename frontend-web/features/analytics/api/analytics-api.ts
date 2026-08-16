@@ -20,7 +20,6 @@ import type {
   UserInsightsResponse,
   RevenueTimeSeriesPoint,
   RevenueByPlan,
-  RevenueStats,
 } from "../types/analytics-types";
 
 // ============================================

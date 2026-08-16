@@ -300,15 +300,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildAccountTypeOption(
-                        value: 'PT',
+                        value: 'Coach',
                         icon: Icons.fitness_center_rounded,
-                        title: 'PT',
+                        title: 'PT / Coach',
                         subtitle: 'Quản lý học viên',
                       ),
                     ),
                   ],
                 ),
-                if (_accountType == 'PT') ...[
+                if (_accountType == 'Coach') ...[
                   const SizedBox(height: 10),
                   const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,

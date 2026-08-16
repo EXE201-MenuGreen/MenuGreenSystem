@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/network/token_storage.dart';
 import '../../auth/views/login_screen.dart';
 import '../../casual/views/casual_hub_screen.dart';
@@ -482,7 +482,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
           const SizedBox(height: 4),
           if (isBaselineFree)
             const Text(
-              'Trạng thái: Active • Không giới hạn',
+              'Trạng thái: Đang hoạt động • Không giới hạn',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             )
           else ...[

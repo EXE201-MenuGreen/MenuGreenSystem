@@ -2227,7 +2227,7 @@ CS86xx cũ trong `MealPlanService.cs`, `AiAssistantService.cs`,
 
 ### Lessons Learned
 
-- Phân biệt rõ policy **role-based** (`UserOnly`, `GymerOnly`) và policy
+- Phân biệt rõ policy **role-based** (`UserOnly`) và policy
   **entitlement-based** (`OfficeFeatures`, `GymFeatures`). Method-level
   attribute cộng dồn với controller-level attribute → phải đọc cả hai.
 - Khi thấy 403 ở một endpoint nhưng 200 ở endpoint khác cùng controller, tra

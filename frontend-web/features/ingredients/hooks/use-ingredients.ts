@@ -53,7 +53,11 @@ export function useIngredients() {
   );
 
   useEffect(() => {
-    search(defaultIngredientFilters);
+    const timeoutId = window.setTimeout(
+      () => search(defaultIngredientFilters),
+      0,
+    );
+    return () => window.clearTimeout(timeoutId);
   }, [search]);
 
   const createIngredient = useCallback(

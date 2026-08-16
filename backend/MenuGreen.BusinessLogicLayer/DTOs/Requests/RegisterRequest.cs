@@ -17,7 +17,7 @@ namespace MenuGreen.BusinessLogicLayer.DTOs.Requests
         public string Password { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Account type is required.")]
-        [RegularExpression("(?i)^(Free|PT)$", ErrorMessage = "Account type must be Free or PT.")]
-        public string AccountType { get; set; } = "Free";
+        [RegularExpression("(?i)^(User|Coach)$", ErrorMessage = "Account type must be User or Coach.")]
+        public string AccountType { get; set; } = "User";
     }
 }

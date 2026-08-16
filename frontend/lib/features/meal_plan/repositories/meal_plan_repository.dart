@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../../core/i18n/api_message_translator.dart';
+import '../../../core/i18n/api_message_translator_fixed.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../models/meal_plan_models.dart';
@@ -300,6 +300,7 @@ class MealPlanRepository {
     if (response.statusCode != 200) {
       throw Exception(_messageFromResponse(response));
     }
+    _invalidateCache();
   }
 
   /// Cập nhật trạng thái meal plan
@@ -406,6 +407,7 @@ class MealPlanRepository {
     if (response.statusCode != 200) {
       throw Exception(_messageFromResponse(response));
     }
+    _invalidateCache();
   }
 
   /// Cập nhật trạng thái item

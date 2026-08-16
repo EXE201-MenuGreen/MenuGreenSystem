@@ -457,6 +457,7 @@ class _PlanList extends StatelessWidget {
                           ..hideCurrentSnackBar()
                           ..showSnackBar(
                             const SnackBar(
+                              duration: Duration(seconds: 5),
                               content: Text(
                                 'Đã gửi lộ trình. Gymer sẽ nhận thông báo để xem và chấp nhận.',
                               ),
