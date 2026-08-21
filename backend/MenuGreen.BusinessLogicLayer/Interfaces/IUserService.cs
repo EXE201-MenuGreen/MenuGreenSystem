@@ -10,6 +10,13 @@ namespace MenuGreen.BusinessLogicLayer.Interfaces
     {
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
         Task<IEnumerable<UserAdminResponse>> GetAllUsersAsync();
+        Task<PagedResult<UserAdminResponse>> GetPagedUsersAsync(
+            string? keyword = null,
+            string? role = null,
+            bool? isActive = null,
+            string? membershipStatus = null,
+            int page = 1,
+            int pageSize = 10);
         Task<UserAdminResponse> GetUserByIdAsync(Guid userId);
         Task<bool> ToggleUserStatusAsync(Guid userId);
         Task<bool> LockUserAsync(Guid userId);

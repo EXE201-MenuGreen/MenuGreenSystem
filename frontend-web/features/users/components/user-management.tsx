@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge, roleBadgeVariant } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/layout/page-header";
 import { AssignRoleDialog } from "@/features/users/components/assign-role-dialog";
 import { ManageMembershipDialog } from "@/features/users/components/manage-membership-dialog";
-import { useUsers } from "@/features/users/hooks/use-users";
+import { useUsers, defaultUserFilters } from "@/features/users/hooks/use-users";
 import type { UserAdmin } from "@/features/users/types";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -28,6 +31,15 @@ function getMembershipLabel(user: UserAdmin) {
 
 export function UserManagement() {
   const {
+    filters,
+    setFilters,
+    page,
+    pageSize,
+    totalPages,
+    totalCount,
+    setPage,
+    setPageSize,
+    handleFilterSubmit,
     users,
     loading,
     actionLoadingId,
@@ -46,11 +58,16 @@ export function UserManagement() {
     setSelectedUser(null);
   }
 
+  function handleSearchSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    handleFilterSubmit(filters);
+  }
+
   return (
     <div>
       <PageHeader
         title="Quản lý người dùng"
-        description="Quản lý độc lập role tài khoản và gói tính năng của thành viên"
+        description="Quản lý độc lập role tài khoản, phân quyền và gói tính năng của thành viên"
         action={
           <Button variant="secondary" onClick={() => reload()} loading={loading}>
             Làm mới
@@ -69,6 +86,66 @@ export function UserManagement() {
           {error}
         </div>
       ) : null}
+
+      {/* Filter and Search Form */}
+      <form
+        onSubmit={handleSearchSubmit}
+        className="mb-4 grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <Input
+          label="Tìm kiếm"
+          placeholder="Email, họ tên..."
+          value={filters.keyword ?? ""}
+          onChange={(e) =>
+            setFilters((current) => ({ ...current, keyword: e.target.value }))
+          }
+        />
+        <Select
+          label="Vai trò (Role)"
+          value={filters.role ?? ""}
+          onChange={(e) =>
+            setFilters((current) => ({
+              ...current,
+              role: e.target.value,
+            }))
+          }
+        >
+          <option value="">Tất cả vai trò</option>
+          <option value="Admin">Admin</option>
+          <option value="Coach">Coach</option>
+          <option value="User">User</option>
+        </Select>
+        <Select
+          label="Trạng thái tài khoản"
+          value={String(filters.isActive ?? "")}
+          onChange={(e) =>
+            setFilters((current) => ({
+              ...current,
+              isActive: e.target.value,
+            }))
+          }
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="true">Hoạt động</option>
+          <option value="false">Đã khóa</option>
+        </Select>
+        <div className="flex items-end gap-2">
+          <Button type="submit" loading={loading} className="w-full sm:w-auto">
+            Tìm kiếm
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setFilters(defaultUserFilters);
+              handleFilterSubmit(defaultUserFilters);
+            }}
+          >
+            Xóa bộ lọc
+          </Button>
+        </div>
+      </form>
 
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="overflow-x-auto">
@@ -215,6 +292,18 @@ export function UserManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="người dùng"
+          disabled={loading}
+        />
       </div>
 
       <AssignRoleDialog

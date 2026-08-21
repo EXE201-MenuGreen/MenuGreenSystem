@@ -45,3 +45,20 @@ export interface AdminGrantMembershipRequest {
   startDate?: string;
   note?: string;
 }
+
+export interface UserSearchParams {
+  keyword?: string;
+  role?: string;
+  isActive?: boolean | string;
+  membershipStatus?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface UserSearchResult {
+  items: UserAdmin[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}

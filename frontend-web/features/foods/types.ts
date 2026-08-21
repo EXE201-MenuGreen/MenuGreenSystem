@@ -41,9 +41,14 @@ export interface FoodSearchParams {
   maxPriceVnd?: number;
   maxPrepTimeMin?: number;
   category?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface FoodSearchResult {
   items: Food[];
   totalCount: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
 }
