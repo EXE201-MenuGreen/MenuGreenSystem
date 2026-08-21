@@ -50,10 +50,28 @@ namespace MenuGreen.API.Controllers
         // ==========================================
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<IActionResult> GetAllUsers(
+            [FromQuery] string? keyword = null,
+            [FromQuery] string? role = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string? membershipStatus = null,
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null)
         {
             try
             {
+                if (page.HasValue || pageSize.HasValue || !string.IsNullOrWhiteSpace(keyword) || !string.IsNullOrWhiteSpace(role) || isActive.HasValue || !string.IsNullOrWhiteSpace(membershipStatus))
+                {
+                    var pagedResult = await _userService.GetPagedUsersAsync(
+                        keyword,
+                        role,
+                        isActive,
+                        membershipStatus,
+                        page ?? 1,
+                        pageSize ?? 10);
+                    return Ok(pagedResult);
+                }
+
                 var users = await _userService.GetAllUsersAsync();
                 return Ok(users);
             }

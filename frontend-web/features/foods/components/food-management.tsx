@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/layout/page-header";
 import { FoodFormDialog } from "@/features/foods/components/food-form-dialog";
 import { useFoods, defaultFoodFilters } from "@/features/foods/hooks/use-foods";
@@ -16,6 +17,12 @@ export function FoodManagement() {
   const {
     filters,
     setFilters,
+    page,
+    pageSize,
+    totalPages,
+    setPage,
+    setPageSize,
+    handleFilterSubmit,
     foods,
     totalCount,
     loading,
@@ -23,7 +30,6 @@ export function FoodManagement() {
     actionLoadingId,
     error,
     notice,
-    search,
     createFood,
     updateFood,
     deleteFood,
@@ -58,7 +64,7 @@ export function FoodManagement() {
 
   async function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await search(filters);
+    handleFilterSubmit(filters);
   }
 
   async function handleFormSubmit(
@@ -170,17 +176,13 @@ export function FoodManagement() {
             variant="secondary"
             onClick={() => {
               setFilters(defaultFoodFilters);
-              search(defaultFoodFilters);
+              handleFilterSubmit(defaultFoodFilters);
             }}
           >
             Xóa bộ lọc
           </Button>
         </div>
       </form>
-
-      <p className="mb-3 text-sm text-zinc-500">
-        Tìm thấy {totalCount} món ăn
-      </p>
 
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="overflow-x-auto">
@@ -286,6 +288,18 @@ export function FoodManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="món ăn"
+          disabled={loading}
+        />
       </div>
 
       <FoodFormDialog

@@ -1,14 +1,29 @@
 import { apiClient } from "@/lib/api/client";
-import { apiEndpoints } from "@/lib/api/endpoints";
+import { apiEndpoints, withQuery } from "@/lib/api/endpoints";
 import type {
   AdminGrantMembershipRequest,
   AdminUserMembership,
   UserAdmin,
+  UserSearchParams,
+  UserSearchResult,
 } from "@/features/users/types";
 
 export const adminUserApi = {
   getAll(): Promise<UserAdmin[]> {
     return apiClient.get<UserAdmin[]>(apiEndpoints.adminUser.list);
+  },
+
+  search(params?: UserSearchParams): Promise<UserSearchResult> {
+    return apiClient.get<UserSearchResult>(
+      withQuery(apiEndpoints.adminUser.list, {
+        keyword: params?.keyword,
+        role: params?.role,
+        isActive: params?.isActive,
+        membershipStatus: params?.membershipStatus,
+        page: params?.page,
+        pageSize: params?.pageSize,
+      }),
+    );
   },
 
   getById(id: string): Promise<UserAdmin> {

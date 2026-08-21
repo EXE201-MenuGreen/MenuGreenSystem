@@ -92,6 +92,55 @@ namespace MenuGreen.BusinessLogicLayer.Services
             return result;
         }
 
+        public async Task<PagedResult<UserAdminResponse>> GetPagedUsersAsync(
+            string? keyword = null,
+            string? role = null,
+            bool? isActive = null,
+            string? membershipStatus = null,
+            int page = 1,
+            int pageSize = 10)
+        {
+            var allUsers = await GetAllUsersAsync();
+            var query = allUsers.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                var kw = keyword.Trim();
+                query = query.Where(u =>
+                    (!string.IsNullOrEmpty(u.Email) && u.Email.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(u.FullName) && u.FullName.Contains(kw, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                query = query.Where(u => string.Equals(u.Role, role.Trim(), StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(u => u.IsActive == isActive.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(membershipStatus))
+            {
+                query = query.Where(u => string.Equals(u.MembershipStatus, membershipStatus.Trim(), StringComparison.OrdinalIgnoreCase));
+            }
+
+            var list = query.OrderByDescending(u => u.CreatedAt).ToList();
+            var totalCount = list.Count;
+            var validPageSize = Math.Clamp(pageSize, 1, 100);
+            var validPage = Math.Max(1, page);
+            var items = list.Skip((validPage - 1) * validPageSize).Take(validPageSize).ToList();
+
+            return new PagedResult<UserAdminResponse>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = validPage,
+                PageSize = validPageSize
+            };
+        }
+
         private static string GetMembershipStatus(
             MenuGreen.DataAccessLayer.Entities.UserSubscription? latest,
             bool hasActive,

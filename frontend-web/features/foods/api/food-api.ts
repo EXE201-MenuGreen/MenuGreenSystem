@@ -19,6 +19,8 @@ export const foodApi = {
         maxPriceVnd: params?.maxPriceVnd,
         maxPrepTimeMin: params?.maxPrepTimeMin,
         category: params?.category,
+        page: params?.page,
+        pageSize: params?.pageSize,
       }),
     );
   },
